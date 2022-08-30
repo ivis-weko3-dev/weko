@@ -1013,7 +1013,7 @@ def next_action(activity_id='0', action_id=0):
             - login_required_customize: []
             - check_authority: []
         request_Body:
-            required: false
+            required: true
             content:
                 application/json:
                     schema:
@@ -1440,7 +1440,7 @@ def next_action(activity_id='0', action_id=0):
 @login_required
 @check_authority
 def previous_action(activity_id='0', action_id=0, req=0):
-    """reqにしたがい次のアクションを決定し、アクティビティの状態を更新する
+    """reqに従い次のアクションを決定し、アクティビティの状態を更新する
 
     Args:
         activity_id (str, optional): 対象アクティビティID.パスパラメータから取得. Defaults to '0'.
@@ -1448,7 +1448,7 @@ def previous_action(activity_id='0', action_id=0, req=0):
         req (int, optional): 次のアクションの種類.パスパラメータから取得. Defaults to 0.
                              0:1つ前のフローアクション
                              -1: アイテム登録アクション
-                             それ以外: 次のフローアクション
+                             それ以外: 2つ目のアクション
 
     Returns:
         dict: json data
@@ -1461,7 +1461,7 @@ def previous_action(activity_id='0', action_id=0, req=0):
             - login_require: []
             - check_authority: []
         requestBody:
-            required: false
+            required: true
             content:
                 application/json:
                     schema:
@@ -1477,15 +1477,15 @@ def previous_action(activity_id='0', action_id=0, req=0):
               name: action_id
               description: 現在のアクションID
               schema:
-                type: string
+                type: int
             - in: path
               name: req
               description: 次のアクションの種類. 
                            0:1つ前のフローアクション
                            -1: アイテム登録アクション
-                           それ以外: 次のフローアクション.
+                           それ以外: 2つ目のアクション.
               schema:
-                type: string
+                type: int
         response:
             200:
                 description: "success"
@@ -1660,7 +1660,7 @@ def cancel_action(activity_id='0', action_id=0):
             - login_required_customize: []
             - check_authority: []
         requestBody:
-            required: false
+            required: true
             content:
                 application/json:
                     schema:
@@ -1676,7 +1676,7 @@ def cancel_action(activity_id='0', action_id=0):
               name: action_id
               description: 現在のアクションID
               schema:
-                type: string
+                type: int
         response:
             200:
                 description: "success"
