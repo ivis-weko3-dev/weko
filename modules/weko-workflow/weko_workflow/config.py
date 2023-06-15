@@ -209,6 +209,8 @@ WEKO_WORKFLOW_CONTINUE_APPROVAL = False
 
 WEKO_WORKFLOW_ENGLISH_MAIL_TEMPLATE_FOLDER_PATH = ''
 WEKO_WORKFLOW_JAPANESE_MAIL_TEMPLATE_FOLDER_PATH = ''
+WEKO_WORKFLOW_MAIL_TEMPLATE_FOLDER_PATH = 'modules/weko-workflow/weko_workflow/templates/weko_workflow/email_templates/'
+"""Email template path"""
 
 WEKO_WORKFLOW_RECEIVE_USAGE_APP_BESIDE_PERFECTURE_AND_LOCATION_DATA_OF_GENERAL_USER = ''
 """Receiving Usage Application <Other than Perfecture Data & Location Data: General user> mail template"""
@@ -297,19 +299,7 @@ WEKO_WORKFLOW_ACTIVITY_TOKEN_PATTERN = "activity={} file_name={} date={} email={
 
 WEKO_WORKFLOW_USAGE_APPLICATION_ITEM_TYPES_LIST = [31001, 31002, 31004, 31005, 31006, 31007, 31008]
 
-WEKO_WORKFLOW_APPROVE_DONE = 'email_pattern_approval_done.tpl'
-"""Mail template for Done Approval"""
-
-WEKO_WORKFLOW_APPROVE_REJECTED = 'email_pattern_approval_rejected.tpl'
-"""Mail template for Rejected Approval"""
-
-WEKO_WORKFLOW_REQUEST_APPROVAL = 'email_pattern_request_approval.tpl'
-"""Mail template for Requested Approval"""
-
-WEKO_WORKFLOW_REQUEST_FOR_REGISTER_USAGE_REPORT = 'email_pattern_request_for_register_usage_report.tpl'
-"""Mail template for Request for register Data Usage Report"""
-
-WEKO_WORKFLOW_USAGE_REPORT_ITEM_TYPES_LIST = [3007]
+WEKO_WORKFLOW_USAGE_REPORT_ITEM_TYPES_LIST = [3007, 31003]
 
 WEKO_WORKFLOW_USAGE_APPLICATION_ITEM_TITLE = '利用申請'
 

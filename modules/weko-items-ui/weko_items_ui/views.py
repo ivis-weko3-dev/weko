@@ -238,9 +238,8 @@ def iframe_save_model():
                         if setting_key == 'roles' or setting_key == 'provide':
                             setting_vals[setting_key] = [dict(s) for s in set(frozenset(d.items()) for d in setting_vals[setting_key])]
 
-        activity_session = session['activity_info']
-        activity_id = activity_session.get('activity_id', None)
-        if activity_id:
+        if data and data.get('activity_id'):
+            activity_id = data.get('activity_id')
             sanitize_input_data(data)
             save_title(activity_id, data)
             activity = WorkActivity()
