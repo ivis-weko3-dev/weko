@@ -72,8 +72,7 @@ from .permissions import check_content_clickable, check_created_id, \
     check_charge, create_charge, close_charge
 from .utils import get_billing_file_download_permission, \
     get_google_detaset_meta, get_google_scholar_meta, get_groups_price, \
-    get_min_price_billing_file_download, get_record_permalink, hide_by_email, \
-    is_show_email_of_creator,hide_by_itemtype
+    get_min_price_billing_file_download, get_record_permalink, hide_by_email,hide_by_itemtype
 from .utils import restore as restore_imp
 from .utils import soft_delete as soft_delete_imp
 
@@ -283,8 +282,8 @@ def check_file_permission(record, fjson):
     Args:
         record (weko_deposit.api.WekoRecord): _description_
         fjson (dict): _description_
-    
-    """    
+
+    """
     return check_file_download_permission(record, fjson)
 
 
@@ -368,21 +367,22 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
     :param kwargs: Additional view arguments based on URL rule.
     :returns: The rendered template.
     """
-    def _get_rights_title(result, rights_key, rights_values, current_lang, meta_options):
+    def _get_rights_title(result, rights_key_str, rights_values, current_lang, meta_options):
         """Get multi-lang rights title."""
-        item_key = rights_key.split('.')[0]
-        if item_key in meta_options:
-            if meta_options[item_key].get('title'):
-                item_title = meta_options[item_key]['title']
-            if meta_options[item_key]['title_i18n'].get(current_lang, None):
-                item_title = meta_options[item_key]['title_i18n'][current_lang]
-            elif meta_options[item_key]['title_i18n'].get('en', None):
-                item_title = meta_options[item_key]['title_i18n']['en']
-        if rights_values:
-            result[item_key] = {
-                'item_title': item_title,
-                'item_values': rights_values
-            }
+        for rights_key in rights_key_str.split(','):
+            item_key = rights_key.split('.')[0]
+            if item_key in meta_options:
+                if meta_options[item_key].get('title'):
+                    item_title = meta_options[item_key]['title']
+                if meta_options[item_key]['title_i18n'].get(current_lang, None):
+                    item_title = meta_options[item_key]['title_i18n'][current_lang]
+                elif meta_options[item_key]['title_i18n'].get('en', None):
+                    item_title = meta_options[item_key]['title_i18n']['en']
+            if rights_values:
+                result[item_key] = {
+                    'item_title': item_title,
+                    'item_values': rights_values
+                }
 
     # Check file permision if request is File Information page.
     file_order = int(request.args.get("file_order", -1))
@@ -449,7 +449,7 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
         if hasattr(current_user, 'site_license_flag') else False
     send_info['site_license_name'] = current_user.site_license_name \
         if hasattr(current_user, 'site_license_name') else ''
-    
+
     record_viewed.send(
         current_app._get_current_object(),
         pid=pid,
@@ -478,7 +478,7 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
         record["relation"] = res
     else:
         record["relation"] = {}
-    
+
     recstr = etree.tostring(
         getrecord(
             identifier=record['_oai'].get('id'),
@@ -489,48 +489,71 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
     et=etree.fromstring(recstr)
     google_scholar_meta = get_google_scholar_meta(record,record_tree=et)
     google_dataset_meta = get_google_detaset_meta(record,record_tree=et)
-    
+
     current_lang = current_i18n.language \
         if hasattr(current_i18n, 'language') else None
     # get title name
-    from weko_records.utils import get_options_and_order_list
     from weko_search_ui.utils import get_data_by_property
-    from weko_records.utils import get_options_and_order_list
+    from weko_items_ui.utils import get_options_and_order_list, get_hide_list_by_schema_form
+    from weko_workflow.utils import get_sub_item_value
+
     title_name = ''
     rights_values = {}
     accessRight = ''
-    solst, meta_options = get_options_and_order_list(
+    meta_options, item_type_mapping = get_options_and_order_list(
         record.get('item_type_id'))
-    item_type_mapping = Mapping.get_record(record.get('item_type_id'))
+    hide_list = get_hide_list_by_schema_form(record.get('item_type_id'))
     item_map = get_mapping(item_type_mapping, 'jpcoar_mapping')
-    suffixes = '.@attributes.xml:lang'
-    for key in item_map:
-        prefix = key.replace(suffixes, '')
-        if prefix == 'title' and key.find(suffixes) != -1:
-            # get language
-            title_languages, _title_key = get_data_by_property(
-                record, item_map, key)
-            # get value
-            title_values, _title_key1 = get_data_by_property(
-                record, item_map, prefix + '.@value')
-            title_name = selected_value_by_language(
-                title_languages,
-                title_values,
-                _title_key,
-                _title_key1,
-                current_lang,
-                record)
-        elif key == 'rights.@value':
-            _rights_values, _rights_key = get_data_by_property(
-                record, item_map, key)
-            if _rights_key:
-                _get_rights_title(rights_values, _rights_key,
-                                  _rights_values, current_lang, meta_options)
-        elif key == 'accessRights.@value':
-            accessRights, _access_rights_key = get_data_by_property(
-                record, item_map, key)
-            if accessRights and len(accessRights) > 0:
-                accessRight = accessRights[0]
+
+    # get title info
+    title_value_key = 'title.@value'
+    title_lang_key = 'title.@attributes.xml:lang'
+    if title_value_key in item_map and title_lang_key in item_map:
+        # get language
+        title_languages, _title_key_str = get_data_by_property(
+            record, item_map, title_lang_key)
+        # get value
+        title_values, _title_key1_str = get_data_by_property(
+            record, item_map, title_value_key)
+        title_name = selected_value_by_language(
+            title_languages,
+            title_values,
+            _title_key_str,
+            _title_key1_str,
+            current_lang,
+            record,
+            meta_options,
+            hide_list)
+    # get rights info
+    rights_value_key = 'rights.@value'
+    if rights_value_key in item_map:
+        key_list = item_map.get(rights_value_key)
+        for k in key_list.split(","):
+            subkey_list = k.split('.')
+            _rights_values = []
+            attribute = record.get(subkey_list[0])
+            if attribute:
+                data_result = get_sub_item_value(attribute, subkey_list[-1])
+                if data_result:
+                    for value in data_result:
+                        _rights_values.append(value)
+            prop_hidden = meta_options.get(subkey_list[0], {}).get('option', {}).get('hidden', False)
+            if not prop_hidden and (subkey_list[0] not in hide_list or subkey_list[-1] not in hide_list):
+                _get_rights_title(rights_values, k, _rights_values,
+                                    current_lang, meta_options)
+    # get accessRights info
+    accessRights_value_key = 'accessRights.@value'
+    if accessRights_value_key in item_map:
+        key_list = item_map.get(accessRights_value_key)
+        for k in key_list.split(","):
+            subkey_list = k.split('.')
+            prop_hidden = meta_options.get(subkey_list[0], {}).get('option', {}).get('hidden', False)
+            attribute = record.get(subkey_list[0])
+            if attribute and not prop_hidden and (subkey_list[0] not in hide_list or subkey_list[-1] not in hide_list):
+                data_result = get_sub_item_value(attribute, subkey_list[-1])
+                if data_result and len(data_result) > 0:
+                    accessRight = data_result[0]
+                    break
 
     pdfcoverpage_set_rec = PDFCoverPageSettings.find(1)
     # Check if user has the permission to download original pdf file
@@ -563,7 +586,7 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
         display_stats = display_setting.get('display_stats')
     else:
         display_stats = True
-    
+
     items_display_settings = AdminSettings.get(name='items_display_settings',
                                         dict_to_object=False)
     if items_display_settings:
@@ -605,12 +628,9 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
     # Hide email of creator in pdf cover page
     if record.get('item_type_id'):
         item_type_id = record['item_type_id']
-    is_show_email = is_show_email_of_creator(item_type_id)
-    if not is_show_email:
-        # list_hidden = get_ignore_item(record['item_type_id'])
-        # record = hide_by_itemtype(record, list_hidden)
-        record = hide_by_email(record)
-    
+
+    record = hide_by_email(record, False)
+
     # Remove hide item
     from weko_items_ui.utils import get_ignore_item
     list_hidden = get_ignore_item(record['item_type_id'])
@@ -687,7 +707,7 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
         flg_display_resourcetype = current_app.config.get('WEKO_RECORDS_UI_DISPLAY_RESOURCE_TYPE') ,
         search_author_flg=search_author_flg,
         billing_settings=billing_settings,
-        
+
         **ctx,
         **kwargs
     )
@@ -786,7 +806,7 @@ def set_pdfcoverpage_header():
         flash(_('PDF cover page settings have been updated.'),
               category='success')
         return redirect('/admin/pdfcoverpage')
-    
+
     return redirect('/admin/pdfcoverpage')
 
 
@@ -960,14 +980,14 @@ def get_uri():
     """_summary_
     ---
       post:
-        description: 
+        description:
         requestBody:
             required: true
             content:
             application/json: {"uri":"https://localhost/record/1/files/001.jpg","pid_value":"1","accessrole":"1"}
         responses:
           200:
-    """  
+    """
     data = request.get_json()
     uri = data.get('uri')
     pid_value = data.get('pid_value')
@@ -1053,7 +1073,7 @@ def charge():
         return abort(500)
 
     # 課金確定
-    try: 
+    try:
         charge_result = close_charge(current_user.id, trade_id)
         if charge_result:
             return jsonify({'status': 'success'})
