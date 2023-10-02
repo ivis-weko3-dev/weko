@@ -169,7 +169,7 @@ $(document).ready(function () {
 
   $('#btn_submit').on('click', function () {
     initSortedBtn();
-      $.ajax({
+    $.ajax({
       url: $(this).data('uri'),
       method: 'POST',
       async: true,
