@@ -3402,8 +3402,12 @@ def process_send_approval_mails(activity_detail, actions_mail_setting,
 
     if actions_mail_setting["approval"]:
         if actions_mail_setting.get("previous", {}):
-            setting =actions_mail_setting.get("previous")\
-           .get("inform_approval", {})
+            if is_guest_user:
+                setting =actions_mail_setting.get("previous")\
+                .get("inform_approval_for_guest", {})
+            else:
+                setting =actions_mail_setting.get("previous")\
+                .get("inform_approval", {})
             if _check_mail_setting(setting):
                 process_send_mail(mail_info, setting["mail"])
             else:
@@ -3413,7 +3417,11 @@ def process_send_approval_mails(activity_detail, actions_mail_setting,
                     process_send_mail(mail_info, setting["mail"])    
 
         if actions_mail_setting.get('next', {}):
-            setting = actions_mail_setting.get("next") \
+            if is_guest_user:
+                setting = actions_mail_setting.get("next") \
+                .get("request_approval_for_guest", {})
+            else:
+                setting = actions_mail_setting.get("next") \
                 .get("request_approval", {})
             if _check_mail_setting(setting):
                 approval_user = db.session.query(User).filter_by(
@@ -3426,7 +3434,11 @@ def process_send_approval_mails(activity_detail, actions_mail_setting,
 
     if actions_mail_setting["reject"]:
         if actions_mail_setting.get("previous", {}):
-            setting = actions_mail_setting.get("previous") \
+            if is_guest_user:
+                setting = actions_mail_setting.get("previous") \
+                .get("inform_reject_for_guest", {})
+            else:
+                setting = actions_mail_setting.get("previous") \
                 .get("inform_reject", {})
             if _check_mail_setting(setting):
                 process_send_mail(mail_info, setting["mail"])
