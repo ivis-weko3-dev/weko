@@ -3387,7 +3387,6 @@ def process_send_approval_mails(activity_detail, actions_mail_setting,
         'guest_mail') else False
     item_info = get_item_info(activity_detail.item_id)
     mail_info = set_mail_info(item_info, activity_detail, is_guest_user)
-    mail_info['restricted_download_link'] = file_data.get("file_url", '')
     mail_info['restricted_expiration_date'] = file_data.get(
         "expiration_date", '')
     mail_info['restricted_expiration_date_ja'] = file_data.get(
@@ -3397,8 +3396,12 @@ def process_send_approval_mails(activity_detail, actions_mail_setting,
 
     # Override guest mail if any
     if is_guest_user:
+        mail_info['restricted_download_link'] = file_data.get("file_url", '')
         mail_info['mail_recipient'] = activity_detail.extra_info.get(
             'guest_mail')
+    else:
+        #Do not send onetimeurl if user logged in
+        mail_info['restricted_download_link'] = ""
 
     if actions_mail_setting["approval"]:
         if actions_mail_setting.get("previous", {}):
