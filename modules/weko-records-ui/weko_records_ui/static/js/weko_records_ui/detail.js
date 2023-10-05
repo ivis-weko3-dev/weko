@@ -267,7 +267,6 @@ require([
       });
     }
   });
-
   document.getElementById('print-btn').addEventListener('click', () => {
     const iframe = document.createElement('iframe');
     iframe.srcdoc = "<!DOCTYPE html>"
