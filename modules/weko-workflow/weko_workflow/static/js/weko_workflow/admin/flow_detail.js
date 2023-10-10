@@ -8,7 +8,7 @@ $(document).ready(function () {
     $('#myModal').modal('show');
   });
   $('#tb_action_list').on('click', '.btn_setting_nortification_mail', function () {
-    row_no=$(this).data('row-order-user-deny');
+    row_no=$(this).data('old-action-order');
     $('#settingModal_'+ row_no).modal('show');
   });
   function isApproval(action){
