@@ -178,7 +178,7 @@
                   </div>
                   {% if action.action.action_name == 'Approval'%}
                   <div>
-                    <button class="btn btn-default pull-right btn_setting_nortification_mail" id="btn_setting_nortification_mail_{{loop.index}}" data-old-action-order="{{loop.index}}">
+                    <button class="btn btn-primary pull-right ten-pixel-top-margin btn_setting_nortification_mail" id="btn_setting_nortification_mail_{{loop.index}}" data-old-action-order="{{loop.index}}">
                       {{_('Notification Email Setting')}}
                     </button>
                     <input type="hidden" id="loop_index" value='{{ loop.index }}'>
@@ -270,7 +270,7 @@
           {{_("Deny")}}
         </div>
       </div>
-        <button class="btn btn-default pull-right btn_setting_nortification_mail" id="btn_setting_nortification_mail_loop.index" data-old-action-order="loop.index">
+        <button class="btn btn-primary ten-pixel-top-margin pull-right btn_setting_nortification_mail" id="btn_setting_nortification_mail_loop.index" data-old-action-order="loop.index">
           {{_('Notification Email Setting')}}
         </button>
         <!-- /.modal -->
