@@ -383,6 +383,7 @@ $(document).ready(function () {
         new_row = new_row.replaceAll('item-registrant-option', 'hide');
         new_row = new_row.replaceAll('<span class="approval-order"></span>', '');
         new_row = new_row.replaceAll('mail_setting_for_approval', 'hide');
+        new_row = new_row.replaceAll('btn btn-default pull-right btn_setting_nortification_mail', 'hide');
       }else{
         action_order=1;
         $('#tb_action_list .action_order').each(function (index) {
