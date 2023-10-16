@@ -178,8 +178,7 @@
                   </div>
                   {% if action.action.action_name == 'Approval'%}
                   <div>
-                    <br/>
-                    <button class="btn btn-default pull-right btn_setting_nortification_mail" id="btn_setting_nortification_mail_{{loop.index}}" old-action-order="{{loop.index}}">
+                    <button class="btn btn-default pull-right btn_setting_nortification_mail" id="btn_setting_nortification_mail_{{loop.index}}" data-old-action-order="{{loop.index}}">
                       {{_('Notification Email Setting')}}
                     </button>
                     <input type="hidden" id="loop_index" value='{{ loop.index }}'>
@@ -192,14 +191,12 @@
                           <input type="checkbox" class="pointer checkbox_change" id="td_action_item_reg_done_{{action.action_id}}" {% if action.send_mail_setting.inform_itemReg and action.send_mail_setting.inform_itemReg.send %}checked{% endif %}>
                           {{_('Send an email to the registrant')}}</label>
                       </div>
-                      <div style="display: flex; justify-content: flex-end;">
                         <select style="width: 200px" id="td_action_item_reg_done_mail_{{action.action_id}}" {% if not action.send_mail_setting.inform_itemReg or not action.send_mail_setting.inform_itemReg.send %}disabled{% endif %}>
                           <option value="0"></option>
                           {%- for mail_template in mail_templates %}
                             <option value="{{mail_template['key']}}" {% if action.send_mail_setting.inform_itemReg and mail_template['key'] == action.send_mail_setting.inform_itemReg.mail %}selected{% endif %}>{{mail_template['content']['subject']}}</option>
                           {%- endfor %}
                         </select>
-                      </div>
                     </div>
                   {% endif %}
               </td>
@@ -273,8 +270,7 @@
           {{_("Deny")}}
         </div>
       </div>
-      <br />
-        <button class="btn btn-default pull-right btn_setting_nortification_mail" id="btn_setting_nortification_mail_loop.index" old-action-order="loop.index">
+        <button class="btn btn-default pull-right btn_setting_nortification_mail" id="btn_setting_nortification_mail_loop.index" data-old-action-order="loop.index">
           {{_('Notification Email Setting')}}
         </button>
         <!-- /.modal -->
@@ -383,14 +379,12 @@
               {{_('Send an email to the registrant')}}</label>
             </label>
           </div>
-          <div style="display: flex; justify-content: flex-end;">
             <select style="width: 200px" id="td_action_item_reg_done_mail_apply_action.id" disabled>
               <option value="0" selected></option>
               {%- for mail_template in mail_templates %}
                 <option value="{{mail_template['key']}}">{{mail_template['content']['subject']}}</option>
               {%- endfor %}
             </select>
-          </div>
         </div>
       </div>
     </td>
