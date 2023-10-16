@@ -246,11 +246,9 @@ def file_ui(
             if onetime_download is None:
                 current_app.logger.info('onetime_download is None')
                 abort(403)
-
             onetime_file_url = generate_one_time_download_url(
                 file_name, record_id, user_mail )
-            return redirect(onetime_file_url) #redirect to file_download_onetime()
-
+            return file_download_onetime(pid=pid,record=record,token_url=onetime_file_url) #call by method 
     # #Check permissions
     # ObjectResource.check_object_permission(obj)
 
@@ -407,7 +405,7 @@ def add_signals_info(record, obj):
     obj.item_id = record['_deposit']['id']
 
 
-def file_download_onetime(pid, record, _record_file_factory=None, **kwargs):
+def file_download_onetime(pid, record, _record_file_factory=None,token_url=None, **kwargs):
     """File download onetime.
 
     :param pid:
@@ -416,8 +414,12 @@ def file_download_onetime(pid, record, _record_file_factory=None, **kwargs):
     :param kwargs:
     :return:
     """
-    token = request.args.get('token', type=str)
-    filename = kwargs.get("filename")
+    if token_url: #call by method, for login user
+        filename = token_url[token_url.rfind("/")+1:token_url.rfind("?token=")]
+        token = token_url[token_url.rfind("?token="):].replace("?token=","")
+    else: #call by redirect, for guest
+        filename = kwargs.get("filename")
+        token = request.args.get('token', type=str)
     error_template = "weko_theme/error.html"
     # Parse token
     error, token_data = \
