@@ -3374,7 +3374,7 @@ def cancel_expired_usage_reports():
 
 
 def process_send_approval_mails(activity_detail, actions_mail_setting,
-                                next_step_appover_id, file_data):
+                                next_step_approver_id, file_data):
     """Process send mail for approval steps.
 
     :param activity_detail:
@@ -3428,7 +3428,7 @@ def process_send_approval_mails(activity_detail, actions_mail_setting,
                 .get("request_approval", {})
             if _check_mail_setting(setting):
                 approval_user = db.session.query(User).filter_by(
-                    id=int(next_step_appover_id)).first()
+                    id=int(next_step_approver_id)).first()
                 if not approval_user:
                     current_app.logger.error("Does not have approval data")
                 else:

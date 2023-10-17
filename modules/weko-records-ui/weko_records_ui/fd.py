@@ -234,7 +234,7 @@ def file_ui(
             abort(403)
 
     if not is_preview:
-        # redirect open_restricted download
+        # open_restricted download
         if 'open_restricted' in fileobj.get('accessrole', '') \
             and not is_terms_of_use_only \
             and not is_owners_or_superusers(record):
