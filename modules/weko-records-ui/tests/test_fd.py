@@ -183,12 +183,12 @@ def test_file_ui3(app,records_restricted,itemtypes,db_file_permission,users ,cli
             #23
             # contributer logined
             with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
-                mock = mocker.patch('weko_records_ui.fd.redirect' ,return_value=make_response())
+                mock = mocker.patch('weko_records_ui.fd.file_download_onetime' ,return_value=make_response())
                 fileobj:WekoFileObject = record_file_factory( recid_login, record_login, filename = "helloworld_open_restricted.pdf" )
                 fileobj.data['accessrole']='open_restricted'
                 fileobj.data['filename'] = "helloworld_open_restricted.pdf"
                 res = file_ui(recid_login,record_login ,is_preview=False , filename = "helloworld_open_restricted.pdf")
-                assert mock.call_count == 1
+                mock.assert_called()
             
             #24
             with patch("flask_login.utils._get_user", return_value=users[7]["obj"]):
@@ -296,7 +296,11 @@ def test_file_download_onetime(app, records, itemtypes, users, db_fileonetimedow
                                 with patch('weko_records_ui.fd.check_and_send_usage_report',return_value =""):
                                     with patch('weko_records_ui.fd.update_onetime_download',return_value =True):
                                         with patch('weko_records_ui.fd._download_file',return_value ="downloaded"):
+                                            # call by redirect
                                             assert file_download_onetime(recid,record,None)=="downloaded"
+                                            # call by method
+                                            filename_and_token="/helloworld_open_restricted.pdf?token=MSB1c2VyQGV4YW1wbGUub3JnIDIwMjItMDktMjcgNDBDRkNGODFGM0FFRUI0Ng=="
+                                            assert file_download_onetime(recid,record,None,filename_and_token)=="downloaded"
 
 # def _is_terms_of_use_only(file_obj:dict , req :dict) -> bool:
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py::test__is_terms_of_use_only -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
