@@ -194,7 +194,7 @@
                         <select style="width: 200px" id="td_action_item_reg_done_mail_{{action.action_id}}" {% if not action.send_mail_setting.inform_itemReg or not action.send_mail_setting.inform_itemReg.send %}disabled{% endif %}>
                           <option value="0"></option>
                           {%- for mail_template in mail_templates %}
-                            <option value="{{mail_template['key']}}" {% if action.send_mail_setting.inform_itemReg and mail_template['key'] == action.send_mail_setting.inform_itemReg.mail %}selected{% endif %}>{{mail_template['content']['subject']}}</option>
+                            <option value="{{mail_template['key']}}" {% if action.send_mail_setting.inform_itemReg and mail_template['key'] == action.send_mail_setting.inform_itemReg.mail %}selected{% endif %}>ID:{{mail_template['key']}} {{mail_template['content']['subject']}}</option>
                           {%- endfor %}
                         </select>
                     </div>
@@ -297,7 +297,7 @@
                       <select style="width: 250px" id="td_action_request_approval_mail_apply_action.id" disabled>
                         <option value="0" selected></option>
                         {%- for mail_template in mail_templates %}
-                        <option value="{{mail_template['key']}}">{{mail_template['content']['subject']}}</option>
+                        <option value="{{mail_template['key']}}">ID:{{mail_template['key']}} {{mail_template['content']['subject']}}</option>
                         {%- endfor %}
                       </select>
                     </div>
@@ -306,7 +306,7 @@
                       <select style="width: 250px" id="td_action_request_approval_mail_for_guest_apply_action.id" disabled>
                         <option value="0" selected></option>
                         {%- for mail_template in mail_templates %}
-                        <option value="{{mail_template['key']}}">{{mail_template['content']['subject']}}</option>
+                        <option value="{{mail_template['key']}}">ID:{{mail_template['key']}} {{mail_template['content']['subject']}}</option>
                         {%- endfor %}
                       </select>
                     </div>
@@ -322,7 +322,7 @@
                       <select style="width: 250px" id="td_action_approval_reject_mail_apply_action.id" disabled>
                         <option value="0" selected></option>
                         {%- for mail_template in mail_templates %}
-                        <option value="{{mail_template['key']}}">{{mail_template['content']['subject']}}</option>
+                        <option value="{{mail_template['key']}}">ID:{{mail_template['key']}} {{mail_template['content']['subject']}}</option>
                         {%- endfor %}
                       </select>
                     </div>
@@ -331,7 +331,7 @@
                       <select style="width: 250px" id="td_action_approval_reject_mail_for_guest_apply_action.id" disabled>
                         <option value="0" selected></option>
                         {%- for mail_template in mail_templates %}
-                        <option value="{{mail_template['key']}}">{{mail_template['content']['subject']}}</option>
+                        <option value="{{mail_template['key']}}">ID:{{mail_template['key']}} {{mail_template['content']['subject']}}</option>
                         {%- endfor %}
                       </select>
                     </div>
@@ -347,7 +347,7 @@
                       <select style="width: 250px" id="td_action_approval_done_mail_apply_action.id" disabled>
                         <option value="0" selected></option>
                         {%- for mail_template in mail_templates %}
-                        <option value="{{mail_template['key']}}">{{mail_template['content']['subject']}}</option>
+                        <option value="{{mail_template['key']}}">ID:{{mail_template['key']}} {{mail_template['content']['subject']}}</option>
                         {%- endfor %}
                       </select>
                     </div>
@@ -356,7 +356,7 @@
                       <select style="width: 250px" id="td_action_approval_done_mail_for_guest_apply_action.id" disabled>
                         <option value="0" selected></option>
                         {%- for mail_template in mail_templates %}
-                        <option value="{{mail_template['key']}}">{{mail_template['content']['subject']}}</option>
+                        <option value="{{mail_template['key']}}">ID:{{mail_template['key']}} {{mail_template['content']['subject']}}</option>
                         {%- endfor %}
                       </select>
                     </div>
