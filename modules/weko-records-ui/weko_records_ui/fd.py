@@ -246,9 +246,7 @@ def file_ui(
             if onetime_download is None:
                 current_app.logger.info('onetime_download is None')
                 abort(403)
-            onetime_file_url = generate_one_time_download_url(
-                file_name, record_id, user_mail )
-            return file_download_onetime(pid=pid,record=record,token_url=onetime_file_url) #call by method 
+            return file_download_onetime(pid=pid, record=record, file_name=file_name, user_mail=user_mail, login_flag=True) #call by method 
     # #Check permissions
     # ObjectResource.check_object_permission(obj)
 
@@ -405,7 +403,7 @@ def add_signals_info(record, obj):
     obj.item_id = record['_deposit']['id']
 
 
-def file_download_onetime(pid, record, _record_file_factory=None,token_url=None, **kwargs):
+def file_download_onetime(pid, record, file_name=None, user_mail=None, login_flag=False, _record_file_factory=None, **kwargs):
     """File download onetime.
 
     :param pid:
@@ -414,19 +412,22 @@ def file_download_onetime(pid, record, _record_file_factory=None,token_url=None,
     :param kwargs:
     :return:
     """
-    if token_url: #call by method, for login user
-        filename = token_url[token_url.rfind("/")+1:token_url.rfind("?token=")]
-        token = token_url[token_url.rfind("?token="):].replace("?token=","")
+    error_template = "weko_theme/error.html"
+    
+    # Cutting out the necessary information
+    if login_flag: #call by method, for login user
+        filename = file_name
+        user_mail = user_mail
+        record_id = pid.pid_value
     else: #call by redirect, for guest
         filename = kwargs.get("filename")
         token = request.args.get('token', type=str)
-    error_template = "weko_theme/error.html"
-    # Parse token
-    error, token_data = \
-        parse_one_time_download_token(token)
-    if error:
-        return render_template(error_template, error=error)
-    record_id, user_mail, date, secret_token = token_data
+        # Parse token
+        error, token_data = \
+            parse_one_time_download_token(token)
+        if error:
+            return render_template(error_template, error=error)
+        record_id, user_mail, date, secret_token = token_data
 
     # Validate record status
     validate_download_record(record)
@@ -436,11 +437,12 @@ def file_download_onetime(pid, record, _record_file_factory=None,token_url=None,
         file_name=filename, record_id=record_id, user_mail=user_mail
     )
 
-    # Validate token
-    is_valid, error = validate_onetime_download_token(
-        onetime_download, filename, record_id, user_mail, date, secret_token)
-    if not is_valid:
-        return render_template(error_template, error=error)
+    # # Validate token for guest
+    if not login_flag:
+        is_valid, error = validate_onetime_download_token(
+            onetime_download, filename, record_id, user_mail, date, secret_token)
+        if not is_valid:
+            return render_template(error_template, error=error)
 
     _record_file_factory = _record_file_factory or record_file_factory
 
