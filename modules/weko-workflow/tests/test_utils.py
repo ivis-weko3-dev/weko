@@ -2578,7 +2578,7 @@ def test_process_send_approval_mails(app,db_register,users,mocker):
     mocker.patch("weko_workflow.utils.set_mail_info",return_value=mail_info)
     process_send_approval_mails(activity, actions_mail_setting,next_step_approver_id,file_data)
 
-    # no6, approval is True,previous.inform_approval is False,inform_itemreg is True
+    # no6, approval is True, previous.inform_approval is False,inform_itemreg is True
     actions_mail_setting={
         "previous":{"inform_reject": {"mail": "0", "send": False}, "inform_itemReg": {"mail": "0", "send": True},
                    "inform_approval": {"mail": "0", "send": False}, "request_approval": {"mail": "0", "send": False},
@@ -2603,6 +2603,21 @@ def test_process_send_approval_mails(app,db_register,users,mocker):
     process_send_approval_mails(activity, actions_mail_setting,next_step_approver_id,file_data)
     mock_sender.assert_called_with(test_mail_info,"0")
 
+    # approval is True, previous.inform_approval is False, previous is True, inform_itemReg.send is False
+    actions_mail_setting={
+        "previous":{"inform_itemReg": {"mail": "0", "send": False}},
+        "next": {},
+        "approval": True,
+        "reject": False}
+    mail_info={
+        "restricted_download_link":"",
+        "restricted_expiration_date":"",
+        "restricted_expiration_date_ja":"",
+        "restricted_expiration_date_en":""
+    }
+    mocker.patch("weko_workflow.utils.set_mail_info",return_value=mail_info)
+    process_send_approval_mails(activity, actions_mail_setting,next_step_approver_id,file_data)
+    
     # no7, not guest, reject is True, previous.inform_reject is True
     actions_mail_setting={
         "previous":{"inform_reject": {"mail": "0", "send": True}, "inform_itemReg": {"mail": "0", "send": False}, 
@@ -2672,6 +2687,21 @@ def test_process_send_approval_mails(app,db_register,users,mocker):
         "next": {},
         "approval": False,
         "reject": False}
+    mail_info={
+        "restricted_download_link":"",
+        "restricted_expiration_date":"",
+        "restricted_expiration_date_en":"",
+        "restricted_expiration_date_en":""
+    }
+    mocker.patch("weko_workflow.utils.set_mail_info",return_value=mail_info)
+    process_send_approval_mails(activity, actions_mail_setting,next_step_approver_id,file_data)
+
+    # reject is True, previous is None
+    actions_mail_setting={
+        "previous":{},
+        "next": {},
+        "approval": False,
+        "reject": True}
     mail_info={
         "restricted_download_link":"",
         "restricted_expiration_date":"",
