@@ -719,7 +719,7 @@ def find_rss_value(data, keyword):
                 source.get('_item_metadata').get('item_type_id'))
             hide_list = get_hide_list_by_schema_form(
                 source.get('_item_metadata').get('item_type_id'))
-            item_map = get_mapping(item_type_mapping, "jpcoar_mapping")
+            item_map = get_mapping(source.get('_item_metadata').get('item_type_id'), "jpcoar_mapping")
             desc_typ_list = item_map.get('description.@attributes.descriptionType').split(',')
             desc_val_list = item_map.get('description.@value').split(',')
             for desc_val in desc_val_list:
@@ -866,7 +866,7 @@ def has_main_contents_widget(settings):
 
     Returns:
         _type_: _description_
-    """    
+    """
     if settings:
         for item in settings:
             if item.get('type') == config.WEKO_GRIDLAYOUT_MAIN_TYPE:
