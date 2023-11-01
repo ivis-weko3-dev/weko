@@ -14,6 +14,9 @@ import copy
 import pickle
 
 import pytz
+import traceback
+
+from flask import current_app
 from weko_records.api import Mapping
 
 from invenio_records_rest.config import RECORDS_REST_DEFAULT_MAPPING_DICT
@@ -161,7 +164,10 @@ class PreprocessorMixin(PreprocessorMixinInterface):
             mapping_dict = RECORDS_REST_DEFAULT_MAPPING_DICT
             # Get mapping of this record.
             meta_option, item_type_mapping = get_options_and_order_list(item_type_id)
-            item_type_list = ItemTypes.get_by_id(item_type_id).render.get('table_row')
+            item_type = ItemTypes.get_by_id(item_type_id)
+            item_type_list = None
+            if item_type:
+                item_type_list = item_type.render.get('table_row')
             hide_list = get_hide_list_by_schema_form(item_type_id)
             if not item_type_mapping or not item_type_list:
                 return mapping_dict
@@ -178,9 +184,9 @@ class PreprocessorMixin(PreprocessorMixinInterface):
                         skip_flag = False
                         for h in hide_list:
                             if h.startswith(k) and \
-                                    (('@value' in v1.keys() and 
+                                    (('@value' in v1.keys() and
                                     h.endswith(v1.get('@value').split('.')[-1])) or \
-                                    ('creatorName' in v1.keys() and 
+                                    ('creatorName' in v1.keys() and
                                     h.endswith(v1.get('creatorName', {}).get('@value').split('.')[-1]))):
                                 skip_flag = True
                         if skip_flag:
@@ -221,6 +227,7 @@ class PreprocessorMixin(PreprocessorMixinInterface):
             return mapping_dict
 
         links_factory = links_factory or (lambda x, record=None, **k: dict())
+
         metadata = pickle.loads(pickle.dumps(record.replace_refs(), -1)) if self.replace_refs \
             else record.dumps()
         # Get keys of metadata record by mapping.
