@@ -175,7 +175,19 @@ def base_app(instance_path, cache_config,request ,search_class):
         WEKO_ADMIN_RESTRICTED_ACCESS_SETTINGS = WEKO_ADMIN_RESTRICTED_ACCESS_SETTINGS,
         WEKO_WORKFLOW_USAGE_REPORT_WORKFLOW_NAME = 'test workflow31001',
         WEKO_PERMISSION_SUPER_ROLE_USER=WEKO_PERMISSION_SUPER_ROLE_USER,
-        WEKO_ITEMS_UI_CRIS_LINKAGE_RESEARCHMAP_MERGE_MODE_DEFAULT=WEKO_ITEMS_UI_CRIS_LINKAGE_RESEARCHMAP_MERGE_MODE_DEFAULT
+        WEKO_ITEMS_UI_CRIS_LINKAGE_RESEARCHMAP_MERGE_MODE_DEFAULT=WEKO_ITEMS_UI_CRIS_LINKAGE_RESEARCHMAP_MERGE_MODE_DEFAULT,
+        WEKO_ADMIN_REPORT_TYPES = [
+            'file_download',
+            'file_preview',
+            'billing_file_download',
+            'detail_view',
+            'index_access',
+            'file_using_per_user',
+            'top_page_access',
+            'search_count',
+            'user_roles',
+            'site_access'
+        ],
     )
     app_.testing = True
     app_.login_manager = dict(_login_disabled=True)

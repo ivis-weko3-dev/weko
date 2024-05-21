@@ -157,6 +157,20 @@ WEKO_ADMIN_CACHE_PREFIX = 'admin_cache_{name}_{user_id}'
 WEKO_ADMIN_OUTPUT_FORMAT = 'tsv'
 """Output file format."""
 
+WEKO_ADMIN_REPORT_TYPES = [
+    'file_download',
+    'file_preview',
+    'billing_file_download',
+    'detail_view',
+    'index_access',
+    'file_using_per_user',
+    'top_page_access',
+    'search_count',
+    'user_roles',
+    'site_access'
+]
+"""Types for the report"""
+
 #プロフィール設定テンプレートを格納
 WEKO_ADMIN_PROFILE_SETTING_TEMPLATE  = 'weko_admin/admin/profiles_settings.html'
 """Language template."""
@@ -1335,7 +1349,7 @@ WEKO_ADMIN_RESTRICTED_ACCESS_SETTINGS = {
 """Default restricted access settings."""
 
 WEKO_ADMIN_RESTRICTED_ACCESS_MAX_INTEGER = 9999999
-"""max value of expiration_date and download_limit. 
+"""max value of expiration_date and download_limit.
     Any more than this and the datetime may overflow. """
 
 WEKO_ADMIN_ITEMS_PER_PAGE_USAGE_REPORT_REMINDER = 25
