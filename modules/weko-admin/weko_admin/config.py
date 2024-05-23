@@ -137,7 +137,7 @@ WEKO_ADMIN_CACHE_PREFIX = 'admin_cache_{name}_{user_id}'
 WEKO_ADMIN_OUTPUT_FORMAT = 'tsv'
 """Output file format."""
 
-WEKO_ADMIN_INTERFACE_NAME = 'WEKO3'
+WEKO_ADMIN_INTERFACE_NAME = 'WEKO3 v0.9.26_hiroba'
 
 WEKO_ADMIN_REPORT_HEADERS = {
     'file_download': _('No. Of File Downloads'),
