@@ -835,13 +835,10 @@ class QuerySitelicenseReportsHelper(object):
                                 record_index_id = i['record_index_id']
                             else:
                                 record_index_id = i['index_id']
-                            if record_index_id:
-                                index = Index.get_index_by_id(record_index_id)
-                                index_issn = index.online_issn
-                                index_id = Indexes.get_full_path(index.id)
-                                set_index = index_id.replace('/', ':')
-                            else:
-                                continue
+                            index = Index.get_index_by_id(record_index_id)
+                            index_issn = index.online_issn
+                            index_id = Indexes.get_full_path(index.id)
+                            set_index = index_id.replace('/', ':')
                         
                         if not i['site_license_name'] == '':
                             if i['site_license_name'] in result:
