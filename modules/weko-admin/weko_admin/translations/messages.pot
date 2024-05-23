@@ -496,6 +496,38 @@ msgstr ""
 msgid "TopPageAccess_"
 msgstr ""
 
+#: weko_admin/config.py:195
+msgid "SetSpec"
+msgstr ""
+
+#: weko_admin/config.py:195
+msgid "Interface name"
+msgstr ""
+
+#: weko_admin/config.py:195
+msgid "ONLINE ISSN"
+msgstr ""
+
+#: weko_admin/config.py:216
+msgid "Searches"
+msgstr ""
+
+#: weko_admin/config.py:216
+msgid "DetailView"
+msgstr ""
+
+#: weko_admin/config.py:216
+msgid "FileDownload"
+msgstr ""
+
+#: weko_admin/config.py:216
+msgid "FileView"
+msgstr ""
+
+#: weko_admin/config.py:216
+msgid "total"
+msgstr ""
+
 #: weko_admin/ext.py:74
 msgid "A translation string"
 msgstr ""
@@ -530,6 +562,18 @@ msgstr ""
 
 #: weko_admin/utils.py:411
 msgid "Institution Name"
+msgstr ""
+
+#: weko_admin/utils.py:411
+msgid "WEKO database"
+msgstr ""
+
+#: weko_admin/utils.py:576
+msgid "Creation date"
+msgstr ""
+
+#: weko_admin/utils.py:576
+msgid "Site name"
 msgstr ""
 
 #: weko_admin/utils.py:1198
