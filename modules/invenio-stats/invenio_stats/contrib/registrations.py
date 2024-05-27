@@ -15,7 +15,7 @@ from invenio_stats.contrib.event_builders import build_celery_task_unique_id, \
     build_file_unique_id, build_item_create_unique_id, \
     build_record_unique_id, build_search_detail_condition, \
     build_search_unique_id, build_top_unique_id, copy_record_index_list, \
-    copy_record_index, copy_search_keyword, copy_search_type, copy_user_group_list
+    copy_search_keyword, copy_search_type, copy_user_group_list, copy_record_index
 from invenio_stats.processors import EventsIndexer, anonymize_user, \
     flag_restricted, flag_robots
 from invenio_stats.queries import ESDateHistogramQuery, ESTermsQuery, \
