@@ -795,6 +795,9 @@ class QuerySitelicenseReportsHelper(object):
     @classmethod
     def get_site_license_report(cls, **kwargs):
         """Get site license download report.
+
+        Args:
+            **kwargs (dict): start date,end_date.
         
         Returns:
             dict: Dict calculation data.
@@ -883,6 +886,7 @@ class QuerySitelicenseReportsHelper(object):
 
             no_data = pickle.loads(pickle.dumps(result_format, -1))
 
+            #total
             if len(datelist) > 1:
                 datelist.insert(0,'total')
                 for name,items in result.items():
@@ -901,6 +905,7 @@ class QuerySitelicenseReportsHelper(object):
             for spec in spec_list:
                 no_data['record_view'][spec]['file_download_count'] = no_data['file_download'][spec]
 
+            #file_download_count by record_view
             for name, items in result.items():
                 for query,item in items.items():
                     if query == 'search':
