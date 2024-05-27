@@ -14,7 +14,6 @@ import calendar
 import operator
 import os
 import re
-import copy
 import pickle
 from base64 import b64encode
 from datetime import datetime, timedelta
@@ -751,15 +750,18 @@ class QueryCommonReportsHelper(object):
         return result
 
 class QuerySitelicenseReportsHelper(object):
-    """CommonReports helper class."""
+    """SitelicenseReportReports helper class."""
     @classmethod
     def get_common_params(cls, **kwargs):
         """Get common params.
+
+        Args:
+            **kwargs (dict): start date,end_date.
         
         Returns:
-            query_date (string): Aggregation date.
-            params (dict): Param by Elaticsearch Aggregation.
-            datelist (list): List Aggregation date by month.
+            string: Aggregation date.
+            dict: Param by Elaticsearch Aggregation.
+            list: List Aggregation date by month.
         
         """
         start_date = kwargs.get('start_date')
@@ -795,7 +797,7 @@ class QuerySitelicenseReportsHelper(object):
         """Get site license download report.
         
         Returns:
-            data (dict): Dict calculation data.
+            dict: Dict calculation data.
         """
         def Calculation(query_list, all_res, datelist):
             """Calculation.

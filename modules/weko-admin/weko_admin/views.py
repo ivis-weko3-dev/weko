@@ -475,7 +475,15 @@ def resend_failed_mail():
 @roles_required([WEKO_ADMIN_PERMISSION_ROLE_SYSTEM,
                  WEKO_ADMIN_PERMISSION_ROLE_REPO])
 def manual_send_site_license_mail(start_month, end_month):
-    """Send site license mail by manual."""
+    """Send site license mail by manual.
+    
+    Args:
+        start_month (int): Aggregation start month.
+        end_month (int); Aggregation end month.
+    
+    Returns:
+        string: finish sending mail code.
+    """
     send_list = SiteLicenseInfo.query.filter_by(receive_mail_flag='T').all()
     if send_list:
         start_date = start_month + '-01'
@@ -498,6 +506,8 @@ def manual_send_site_license_mail(start_month, end_month):
                                        mail_list, res, res['no_data'])
 
         return 'finished'
+    else:
+        current_app.logger.error('send list is not exist.')
 
 
 @blueprint_api.route('/update_site_info', methods=['POST'])

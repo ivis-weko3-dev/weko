@@ -504,11 +504,25 @@ def write_sitelicense_report_file_rows(writer, records, file_type=None, result=N
         file_type (String): file type data.
         result (dict): Dict calculation data.
     """
-    from .config import WEKO_ADMIN_INTERFACE_NAME
-    interface_name = WEKO_ADMIN_INTERFACE_NAME
+    from .config import WEKO_ADMIN_SITELICENSE_REPORT_INTERFACE_NAME
+    interface_name = WEKO_ADMIN_SITELICENSE_REPORT_INTERFACE_NAME
     search_count = [_('WEKO database'),interface_name]
     if records is None:
         return
+    
+    #all_journals
+    if file_type == 'file_preview' or file_type == 'file_download':
+        all_journals = records['all_journals']
+        all_journals_data = ['Total for all journals', '', interface_name, '', '']
+        for date in result['datelist']:
+            if date == 'total':
+                continue
+            else:
+                all_journals_value = all_journals[date]
+                all_journals_data.append(all_journals_value)
+        writer.writerow(all_journals_data)
+
+    #count
     if file_type == 'search':
         for date in result['datelist']:
             search_count.append(records[date])
@@ -516,16 +530,13 @@ def write_sitelicense_report_file_rows(writer, records, file_type=None, result=N
     else:
         for id, record in records.items():
             if id == 'all_journals':
-                data = [id, '', interface_name, '', '']
+                continue
             else:
                 data = [result['index_info'][id]['name'], id, interface_name, result['index_info'][id]['issn']]
             for date in result['datelist']:
-                if id == 'all_journals' and date == 'total':
-                    continue
-                else:
-                    value = record[date]
-                    if isinstance(value, int):
-                        data.append(value)
+                value = record[date]
+                if isinstance(value, int):
+                    data.append(value)
             if record.get('file_download_count',0):
                 file_download_count = record.get('file_download_count',0)
                 for date in result['datelist']:
@@ -576,11 +587,11 @@ def make_site_access_stats_file(stats, stats_type, agg_date, result):
     """Make tsv site access report file for 1 organization."""
 
     from .config import WEKO_ADMIN_OUTPUT_FORMAT, \
-                        WEKO_ADMIN_INTERFACE_NAME,\
+                        WEKO_ADMIN_SITELICENSE_REPORT_REPOSYTORY_NAME,\
                         WEKO_ADMIN_SITELICENSE_REPORT_COLS,\
                         WEKO_ADMIN_SITELICENSE_REPORT_COUNT_COLS
 
-    reposytory_name = WEKO_ADMIN_INTERFACE_NAME
+    reposytory_name = WEKO_ADMIN_SITELICENSE_REPORT_REPOSYTORY_NAME
     dt = datetime.now()
     now_date = dt.date()
 

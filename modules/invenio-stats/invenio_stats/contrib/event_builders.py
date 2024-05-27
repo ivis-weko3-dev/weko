@@ -169,9 +169,13 @@ def copy_record_index_list(doc, aggregation_data=None):
 
 def copy_record_index(doc, aggregation_data=None):
     """Copy record index list.
+
+    Args:
+        doc (dict): document of record_view.
+        aggregation_data (date): aggregation data.
     
     Returns:
-        record_index_id (string): record index id.
+        string: record index id.
     """
     record_index_id = ''
     list = doc['record_index_list']
