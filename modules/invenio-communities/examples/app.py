@@ -35,7 +35,7 @@ from __future__ import absolute_import, print_function
 import os
 
 from flask import Flask
-from flask_babelex import Babel
+from flask_babel import Babel
 from flask_menu import Menu
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.views import blueprint

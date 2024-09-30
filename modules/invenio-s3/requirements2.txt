@@ -1,3 +1,4 @@
+#requirements2.txt
 aiobotocore==2.1.2
 aiohappyeyeballs==2.4.0
 aiohttp==3.10.5
@@ -14,6 +15,7 @@ asn1crypto==0.23.0
 asttokens==2.4.1
 atomicwrites==1.4.1
 attrs==23.2.0
+-e git+https://github.com/RCOSDP/B2HANDLE.git@nii_develop/W2024-16#egg=b2handle
 Babel==2.14.0
 babel-edtf==1.1.4
 bagit==1.7.0
@@ -108,6 +110,7 @@ geojson==3.1.0
 github3.py==4.0.1
 greenlet==3.0.3
 html5lib==1.1
+humanize==4.10.0
 idna==2.6
 idutils==1.2.1
 iiif-prezi==0.3.0
@@ -203,9 +206,9 @@ maxminddb-geolite2==2018.703
 mistune==3.0.2
 mock==5.1.0
 more-itertools==8.10.0
-moto==4.2.14
 msgpack==1.0.8
 multidict==6.0.5
+moto==3.1.2
 nbclient==0.10.0
 nbconvert==7.16.3
 nbformat==5.10.4
@@ -244,6 +247,7 @@ pyparsing==3.1.4
 pyPEG2==2.15.2
 pyproject-api==1.7.1
 pytest==7.4.4
+pytest-mock==3.6.1
 python-dateutil==2.9.0.post0
 python-editor==1.0.3
 python-geoip==1.2

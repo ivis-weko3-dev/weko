@@ -28,7 +28,7 @@ import pytest
 from mock import Mock, patch
 from pytest_mock import mocker
 from flask import Flask, url_for
-from flask_babelex import Babel, lazy_gettext as _
+from flask_babel import Babel, lazy_gettext as _
 from flask_celeryext import FlaskCeleryExt
 from flask_menu import Menu
 from flask_login import current_user, login_user, LoginManager

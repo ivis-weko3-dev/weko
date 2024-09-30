@@ -20,7 +20,7 @@ from flask_celeryext import FlaskCeleryExt
 from invenio_db import InvenioDB
 from invenio_db import db as db_
 from six import StringIO
-from flask_babelex import Babel
+from flask_babel import Babel
 
 from sqlalchemy_utils.functions import create_database, database_exists, \
     drop_database
