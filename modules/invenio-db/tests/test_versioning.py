@@ -10,15 +10,35 @@
 """Versioning tests for Invenio-DB"""
 
 from unittest.mock import patch
-
+import os
 import pytest
 from sqlalchemy_continuum import VersioningManager, remove_versioning
 from test_db import _mock_entry_points
+from flask import Flask
+from invenio_db import InvenioDB, shared
 
-from invenio_db import InvenioDB
+@pytest.fixture()
+def app():
+    app = Flask(__name__)
+    app.config.update(
+        SECRET_KEY="SECRET_KEY",
+        TESTING=True,
+        SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg2://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}",  # PostgreSQL データベースに接続
+        DB_VERSIONING=False,
+        DB_VERSIONING_USER_MODEL=None,
+    )
+    InvenioDB(app)
+    return app
+
+@pytest.fixture()
+def db(app):
+    with app.app_context():
+        db_ = shared.db
+        yield db_
+        db_.session.remove()
 
 #@patch('pkg_resources.iter_entry_points', _mock_entry_points)
-def test_disabled_versioning(db, app,mock_entry_points):
+def test_disabled_versioning(db, app, mock_entry_points):
     """Test SQLAlchemy-Continuum with disabled versioning."""
     InvenioDB(app, entry_point_group='invenio_db.models_a')
     with app.app_context():

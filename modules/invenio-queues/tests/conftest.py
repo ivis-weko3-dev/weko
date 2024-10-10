@@ -12,7 +12,8 @@ from unittest.mock import patch
 
 import pytest
 from flask import Flask
-from kombu import Exchange
+from kombu import Exchange, Queue
+from invenio_queues import InvenioQueues
 
 MOCK_MQ_EXCHANGE = Exchange(
     "test_events",
@@ -89,11 +90,13 @@ def test_queues(app, test_queues_entrypoints):
 def app():
     """Flask application fixture."""
     from invenio_queues import InvenioQueues
-
     app_ = Flask("testapp")
     app_.config.update(
         SECRET_KEY="SECRET_KEY",
         TESTING=True,
+        BROKER_URL="amqp://guest:guest@rabbitmq:5672//",  # RabbitMQの接続URL
+        CELERY_BROKER_URL="amqp://guest:guest@rabbitmq:5672//",  # RabbitMQの接続URL
+        QUEUES_BROKER_URL="amqp://guest:guest@rabbitmq:5672//" # RabbitMQの接続URL
     )
     InvenioQueues(app_)
     return app_
