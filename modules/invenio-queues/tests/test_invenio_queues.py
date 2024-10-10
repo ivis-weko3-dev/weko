@@ -7,18 +7,21 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 
 """Module tests."""
-
+import sys
+import os
 from unittest.mock import patch
-
+# テストディレクトリをsys.pathに追加
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 import pytest
 from conftest import MOCK_MQ_EXCHANGE, mock_iter_entry_points_factory
 from flask import Flask
 from pkg_resources import EntryPoint
-
+from invenio_queues.proxies import current_queues
 from invenio_queues import InvenioQueues, current_queues
 from invenio_queues.errors import DuplicateQueueError
 from invenio_queues.queue import Queue
-
+from conftest import MOCK_MQ_EXCHANGE, mock_iter_entry_points_factory
+from invenio_queues.proxies import current_queues
 
 def test_version():
     """Test version import."""
@@ -84,7 +87,7 @@ def test_publish_and_consume(app, test_queues, config):
 
 
 @with_different_brokers
-def test_queue_exists(app, test_queues_entrypoints, config):
+def test_queue_exists(app,  config):
     """Test the "declare" CLI."""
     app.config.update(config)
     with app.app_context():
@@ -93,7 +96,7 @@ def test_queue_exists(app, test_queues_entrypoints, config):
         current_queues.declare()
         for queue in current_queues.queues.values():
             # NOTE: skip existence check for redis since is not supported
-            broker_url = app.config.get("QUEUES_BROKER_URL") or ""
+            broker_url = app.config.get("CELERY_BROKER_URL") or app.config.get("BROKER_URL") or ""
             if broker_url.startswith("redis"):
                 continue
             assert queue.exists
