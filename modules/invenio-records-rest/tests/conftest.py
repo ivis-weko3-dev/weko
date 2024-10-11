@@ -23,7 +23,7 @@ from mock import patch
 
 from flask import Flask, g, url_for
 from flask_login import LoginManager, UserMixin
-from helpers import create_record
+from .helpers import create_record
 from invenio_config import InvenioConfigDefault
 from invenio_access.models import ActionRoles
 from invenio_accounts import InvenioAccounts
@@ -154,7 +154,8 @@ def app(request, search_class):
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'
         ),
-        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
+        # SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ.get('INVENIO_OPENSEARCH_USER', 'invenio'),os.environ.get('INVENIO_OPENSEARCH_PASS', 'openpass123!')),"use_ssl":True, "verify_certs":False},
         RECORDS_REST_ENDPOINTS=copy.deepcopy(config.RECORDS_REST_ENDPOINTS),
         RECORDS_REST_DEFAULT_CREATE_PERMISSION_FACTORY=None,
         RECORDS_REST_DEFAULT_DELETE_PERMISSION_FACTORY=None,
@@ -364,7 +365,7 @@ def indexed_records(app, search_index, test_records):
     indexer=RecordIndexer()
     for pid, record in test_records:
         indexer.index_by_id(record.id)
-    current_search.flush_and_refresh(index='test-weko')
+    current_search.flush_and_refresh(index="*")
     yield test_records
 
 
@@ -401,7 +402,7 @@ def record_data10(indexes):
 def register_record(id, indexer, index_path):
     record_data = record_data_with_itemtype(id, index_path)
     pid, record = create_record(record_data)
-    index, doc_type = indexer.record_to_index(record)
+    index = indexer.record_to_index(record)
     es_data = {
         "title":record_data["title"],
         "control_number": str(id),
@@ -416,7 +417,6 @@ def register_record(id, indexer, index_path):
         version=record.revision_id,
         version_type=indexer._version_type,
         index=index,
-        doc_type=doc_type,
         body=es_data
     )
     return pid, record
@@ -431,7 +431,7 @@ def indexed_10records(app, db, search_index, item_type, indexes):
         pid, record = register_record(i, indexer, index_path)
         result.append((pid, record))
     db.session.commit()
-    current_search.flush_and_refresh(index="test-weko")
+    current_search.flush_and_refresh(index="*")
     return result
 
 @pytest.fixture()
@@ -444,7 +444,7 @@ def indexed_100records(app, db, search_index, item_type,indexes):
         pid, record = register_record(i, indexer, index_path)
         result.append((pid,record))
     db.session.commit()
-    current_search.flush_and_refresh(index="test-weko")
+    current_search.flush_and_refresh(index="*")
 
     return result
 

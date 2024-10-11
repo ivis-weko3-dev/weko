@@ -55,7 +55,7 @@ class _TestMetadataSchema(Schema):
     recid = fields.Str()
     title = fields.List(fields.Str())
 
-def test_marshmallow_load(app, db, esindex, record_data10, search_url, search_class):
+def test_marshmallow_load(app, db, record_data10, search_url, search_class):
     """Test marshmallow loader."""
     app.config["RECORDS_REST_DEFAULT_LOADERS"] = {
         "application/json": marshmallow_loader(_TestMetadataSchema)

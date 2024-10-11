@@ -12,7 +12,7 @@ import json
 
 import mock
 import pytest
-from conftest import IndexFlusher
+from .conftest import IndexFlusher
 from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url
 from invenio_records.models import RecordMetadata
 
@@ -20,7 +20,7 @@ from invenio_records.models import RecordMetadata
 @pytest.mark.parametrize(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
-def test_valid_put(app, es, test_records, content_type, search_url, search_class):
+def test_valid_put(app, test_records, content_type, search_url, search_class):
     """Test VALID record patch request (PATCH .../records/<record_id>)."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
 
@@ -46,7 +46,7 @@ def test_valid_put(app, es, test_records, content_type, search_url, search_class
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
 def test_valid_put_etag(
-    app, es, test_records, content_type, search_url, search_class
+    app, test_records, content_type, search_url, search_class
 ):
     """Test concurrency control with etags."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
@@ -79,7 +79,7 @@ def test_valid_put_etag(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
 def test_put_on_deleted(
-    app, db, es, test_data, content_type, search_url, search_class
+    app, db, test_data, content_type, search_url, search_class
 ):
     """Test putting to a deleted record."""
     with app.test_client() as client:
@@ -101,7 +101,7 @@ def test_put_on_deleted(
 
 
 @pytest.mark.parametrize("charset", ["", ";charset=utf-8"])
-def test_invalid_put(app, es, test_records, charset, search_url):
+def test_invalid_put(app, test_records, charset, search_url):
     """Test INVALID record put request (PUT .../records/<record_id>)."""
     HEADERS = [
         ("Accept", "application/json"),

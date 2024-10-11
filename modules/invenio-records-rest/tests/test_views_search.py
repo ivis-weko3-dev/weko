@@ -12,7 +12,7 @@ import re
 
 import pytest
 from flask import url_for, current_app
-from helpers import assert_hits_len, get_json, parse_url, to_relative_url
+from .helpers import assert_hits_len, get_json, parse_url, to_relative_url
 from mock import patch
 
 from invenio_accounts.testutils import login_user_via_session
