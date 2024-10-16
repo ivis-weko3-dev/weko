@@ -372,14 +372,14 @@ def test_get_change_list_content_xml_ChangeListHandler(i18n_app, db, users):
                     )
 
                     with patch("invenio_resourcesyncserver.api.Resource", return_value=return_data):
-                        with patch("invenio_resourcesyncserver.api.PIDVersioning", return_value=return_data):
+                        with patch("invenio_resourcesyncserver.api.PIDNodeVersioning", return_value=return_data):
                             assert "xml" in test_str.get_change_list_content_xml(
                                 from_date=from_date,
                                 from_date_args=from_date_args,
                                 to_date_args=to_date_args
                             ) 
 
-                        with patch("invenio_resourcesyncserver.api.PIDVersioning", return_value=return_data):
+                        with patch("invenio_resourcesyncserver.api.PIDNodeVersioning", return_value=return_data):
                             return_data.last_child = MagicMock()
                             return_data.last_child.pid_value = "test"
                             assert "xml" in test_str.get_change_list_content_xml(
@@ -476,19 +476,23 @@ def test__validation_ChangeListHandler(i18n_app):
 
 #     def get_change_dump_manifest_xml(self, record_id):
 def test_get_change_dump_manifest_xml_ChangeListHandler(i18n_app):
-    test_str = sample_ChangeListHandler("str")
+    test_str = ChangeListHandler(index=MagicMock())
     record_id = "8.9"
 
     def _validation():
-        return MagicMock()
+        return False
 
     def _is_record_in_index(key):
-        return "8.9"
+        return False
 
-    assert not test_str.get_change_dump_manifest_xml(record_id)
+    mock_index = MagicMock()
+    mock_index.public_state = True
+
+    test_str.index = mock_index
 
     test_str._validation = _validation
     test_str._is_record_in_index = _is_record_in_index
+
     return_data = MagicMock()
     data_1 = MagicMock()
     return_data.files = [data_1]
@@ -496,8 +500,27 @@ def test_get_change_dump_manifest_xml_ChangeListHandler(i18n_app):
     with patch("weko_deposit.api.WekoRecord.get_record_by_pid", return_value=return_data):
         with patch("invenio_resourcesyncserver.utils.get_pid", return_value=return_data):
             with patch("weko_deposit.api.WekoRecord.get_record", return_value=return_data):
-                assert test_str.get_change_dump_manifest_xml(record_id)
+                with patch("invenio_pidstore.models.PersistentIdentifier.get", return_value=MagicMock()):
+                    assert not test_str.get_change_dump_manifest_xml(record_id)
 
+    test_str = ChangeListHandler(index=MagicMock())
+
+    def _validation_true():
+        return True
+
+    def _is_record_in_index_true(key):
+        return True
+
+    test_str.index = mock_index
+
+    test_str._validation = _validation_true
+    test_str._is_record_in_index = _is_record_in_index_true
+
+    with patch("weko_deposit.api.WekoRecord.get_record_by_pid", return_value=return_data):
+        with patch("invenio_resourcesyncserver.utils.get_pid", return_value=return_data):
+            with patch("weko_deposit.api.WekoRecord.get_record", return_value=return_data):
+                with patch("invenio_pidstore.models.PersistentIdentifier.get", return_value=MagicMock()):
+                    assert test_str.get_change_dump_manifest_xml(record_id) is not None
 
 #     def delete(cls, change_list_id):
 def test_delete_ChangeListHandler(i18n_app):
@@ -675,17 +698,24 @@ def test_get_capability_content_ChangeListHandler(i18n_app):
 
 #     def _date_validation(self, date_from: str):
 def test__date_validation_ChangeListHandler(i18n_app):
-    test_str = sample_ChangeListHandler("str")
-    test_str.publish_date = datetime.datetime.now() - datetime.timedelta(days=5)
+    test_str = ChangeListHandler(index=MagicMock())
+    test_str.publish_date = datetime.datetime(2022, 1, 1)
+
+    # Correct date format, on or after publish_date and before the current date and time.
     date_from = "20221107"
+    assert test_str._date_validation(date_from) is not None
 
-    assert test_str._date_validation(date_from)
+    # Correct date format but before publish_date
+    date_from = "20211231"
+    assert test_str._date_validation(date_from) is None
 
-    date_from = "test"
+    # Correct date format but later than current date and time
+    future_date = (datetime.datetime.utcnow() + datetime.timedelta(days=1)).strftime("%Y%m%d")
+    assert test_str._date_validation(future_date) is None
 
-    # Exception coverage
-    assert not test_str._date_validation(date_from)
-
+    # Incorrect date format
+    invalid_date = "2022-11-07"
+    assert test_str._date_validation(invalid_date) is None
 
 #     def _next_change(self, data, changes):
 def test__next_change_ChangeListHandler(i18n_app):

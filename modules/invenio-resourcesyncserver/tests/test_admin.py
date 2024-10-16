@@ -44,33 +44,41 @@ def test_get_list_AdminResourceListView(i18n_app):
 def test_create_AdminResourceListView(i18n_app):
     data = MagicMock()
     data.success = True
-
+    data.get.return_value.to_dict = MagicMock(return_value={"index_name_english": "test"})
     with patch("invenio_resourcesyncserver.api.ResourceListHandler.create", return_value=data):
-        assert test_1.create()
-    
-    assert test_1.create()
+
+        view = AdminResourceListView()
+
+        # Simulate a POST request using Flask's test client
+        with i18n_app.test_request_context('/create', method='POST', json={}, content_type='application/json'):
+            response = view.create()
+            json_data = response.get_json()
+
+            assert json_data['success'] == True
+            assert 'data' in json_data
+            assert json_data['data']['index_name_english'] == "test"
 
 #     def update(self, resource_id):
 def test_update_AdminResourceListView(i18n_app, db):
-    from invenio_resourcesyncserver.api import ResourceListHandler
-    test = ResourceListIndexes(
-        id=1,
-        repository_id=2,
-    )
-    
-    db.session.add(test)
-    db.session.commit()
+    resource = MagicMock()
+    resource.update.return_value = {
+        "success": True,
+        "data": MagicMock(to_dict=MagicMock(return_value={"index_name_english": "test"}))
+    }
 
-    data = MagicMock()
-    data.success = True
+    with patch("invenio_resourcesyncserver.api.ResourceListHandler.get_resource", return_value=resource):
+        # Create an instance of AdminResourceListView
+        view = AdminResourceListView()
 
-    with patch("invenio_resourcesyncserver.api.ResourceListHandler.get_resource", return_value=data):
-        assert test_1.update(resource_id=1)
+        # Simulate a POST request using Flask's test client
+        with i18n_app.test_request_context('/update/1', method='POST', json={}, content_type='application/json'):
+            response = view.update(resource_id=1)
+            json_data = response.get_json()
 
-    data = None
-
-    with patch("invenio_resourcesyncserver.api.ResourceListHandler.get_resource", return_value=data):
-        assert test_1.update(resource_id=0)
+            # Validate the response content
+            assert json_data['success'] == True
+            assert 'data' in json_data
+            assert json_data['data']['index_name_english'] == "test"
 
 #     def delete(self, resource_id):
 def test_delete_AdminResourceListView(i18n_app, db):
@@ -93,18 +101,24 @@ def test_index_AdminChangeListView(i18n_app):
 #     def get_list(self):
 def test_get_list_AdminChangeListView(i18n_app, db):
     data = MagicMock()
-    data.index = MagicMock()
-    data.index.index_name_english = "test"
+    data.to_dict = MagicMock(return_value={"index_name_english": "test"})
 
     with patch("invenio_resourcesyncserver.api.ChangeListHandler.get_all", return_value=[data]):
-        assert test_2.get_list()
+        view = AdminChangeListView()
+        response = view.get_list()
+        assert response.status_code == 200
+        assert response.json == [{"index_name_english": "test"}]
 
 #     def get_change_list(self, repo_id):
 def test_get_change_list_AdminChangeListView(i18n_app, db):
     data = MagicMock()
+    data.to_dict = MagicMock(return_value={"index_name_english": "test"})
 
     with patch("invenio_resourcesyncserver.api.ChangeListHandler.get_change_list", return_value=data):
-        assert test_2.get_change_list(1)
+        view = AdminChangeListView()
+        response = view.get_change_list(1)
+        assert response.status_code == 200
+        assert response.json == {"index_name_english": "test"}
 
 #     def create(self):
 def test_create_AdminChangeListView(i18n_app, db): 

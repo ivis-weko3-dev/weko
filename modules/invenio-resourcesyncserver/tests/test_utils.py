@@ -168,8 +168,8 @@ def test_parse_date(i18n_app):
 
 # def get_timezone(date):
 def test_get_timezone(i18n_app):
-    date_1 = "1:1+1:1+1:1"
-    date_2 = "1-1:1:1"
+    date_1 = "2023-10-01T12:00:00+02:00"
+    date_2 = "2023-10-01T12:00:00-05:00"
 
     assert get_timezone(date_1)
     assert get_timezone(date_2)
