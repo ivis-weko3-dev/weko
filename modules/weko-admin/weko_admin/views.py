@@ -544,42 +544,69 @@ def resend_failed_mail():
                  WEKO_ADMIN_PERMISSION_ROLE_REPO,
                  WEKO_ADMIN_PERMISSION_ROLE_COMMUNITY])
 def manual_send_site_license_mail(start_month, end_month, repo_id=None):
-    """Send site license mail by manual."""
-    if not repo_id:
-        repo_id = request.form.get('repo_id')
-    send_list = SiteLicenseInfo.query.filter_by(receive_mail_flag='T').filter_by(
-        repository_id=repo_id).all()
-    if send_list:
-        start_date = start_month + '-01'
-        _, lastday = calendar.monthrange(int(end_month[:4]),
-                                         int(end_month[5:]))
-        end_date = end_month + '-' + str(lastday).zfill(2)
+    """Send site license mail by manual.
 
-        agg_date = start_month.replace('-', '.') + '-' + \
-            end_month.replace('-', '.')
-        res = QueryCommonReportsHelper.get(start_date=start_date,
-                                           end_date=end_date,
-                                           event='site_access',
-                                           repository_id=repo_id)
-        for s in send_list:
-            mail_list = s.mail_address.split('\n')
-            send_flag = False
-            for r in res['institution_name']:
-                if s.organization_name == r['name']:
-                    send_site_license_mail(r['name'], mail_list, agg_date, r)
-                    send_flag = True
-                    break
-            if not send_flag:
-                data = {'file_download': 0,
-                        'file_preview': 0,
-                        'name': s.organization_name,
-                        'record_view': 0,
-                        'search': 0,
-                        'top_view': 0}
-                send_site_license_mail(s.organization_name,
-                                       mail_list, agg_date, data)
+    Args:
+        start_month (int): Aggregation start month.
+        end_month (int); Aggregation end month.
 
-        return 'finished'
+    Returns:
+        string: finish sending mail code.
+    """
+    return handle_site_license_mail(start_month, end_month, repo_id=repo_id)
+
+def handle_site_license_mail(start_month, end_month, repo_id=None):
+    """Send site license mail by manual or auto.
+
+    Args:
+        start_month (int): Aggregation start month.
+        end_month (int); Aggregation end month.
+
+    Returns:
+        string: finish sending mail code.
+    """
+    try:
+        if not repo_id:
+            repo_id = request.form.get('repo_id')
+        send_list = SiteLicenseInfo.query.filter_by(receive_mail_flag='T').filter_by(
+            repository_id=repo_id).all()
+        if send_list:
+            start_date = start_month + '-01'
+            _, lastday = calendar.monthrange(int(end_month[:4]),
+                                            int(end_month[5:]))
+            end_date = end_month + '-' + str(lastday).zfill(2)
+
+            agg_date = start_month.replace('-', '.') + '-' + \
+                end_month.replace('-', '.')
+            res = QueryCommonReportsHelper.get(start_date=start_date,
+                                            end_date=end_date,
+                                            event='site_access',
+                                            repository_id=repo_id)
+            for s in send_list:
+                mail_list = s.mail_address.split('\n')
+                send_flag = False
+                for r in res['institution_name']:
+                    if s.organization_name == r['name']:
+                        send_site_license_mail(r['name'], mail_list, agg_date, r)
+                        send_flag = True
+                        break
+                if not send_flag:
+                    data = {'file_download': 0,
+                            'file_preview': 0,
+                            'name': s.organization_name,
+                            'record_view': 0,
+                            'search': 0,
+                            'top_view': 0}
+                    send_site_license_mail(s.organization_name,
+                                        mail_list, agg_date, data)
+
+            return jsonify({'status': 'success'}),200
+        else:
+            current_app.logger.error('send list is not exist.')
+            return jsonify({'status': 'error'}),400
+    except Exception as e:
+        current_app.logger.error('Cannot send sitelicense feedback email.:{}'.format(str(e)))
+        return jsonify({'status': 'error'}),400
 
 
 @blueprint_api.route('/get_site_license_send_mail_settings',
@@ -911,4 +938,3 @@ def custom_set_lang(lang_code=None):
         target = url_for(endpoint) if endpoint else "/"
 
     return redirect(target)
-    
