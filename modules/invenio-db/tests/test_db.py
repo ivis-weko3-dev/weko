@@ -59,13 +59,30 @@ def _mock_entry_points(name):
             return data.get(group, [])
         if name:
             return {name: data.get(name)}
-        return data
-
     return fn
 
-
 # .tox/c1/bin/pytest --cov=invenio_db tests/test_db.py::test_init -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/invenio-db/.tox/c1/tmp
-def test_init(db, app,mock_entry_points):
+@pytest.fixture()
+def app():
+    app = Flask(__name__)
+    app.config.update(
+        SECRET_KEY="SECRET_KEY",
+        TESTING=True,
+        SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:yourpassword@localhost:5432/wekotest',  # PostgreSQL データベースに接続
+        DB_VERSIONING=False,
+        DB_VERSIONING_USER_MODEL=None,
+    )
+    InvenioDB(app)
+    return app
+
+@pytest.fixture()
+def db(app):
+    with app.app_context():
+        db_ = shared.db
+        yield db_
+        db_.session.remove()
+
+def test_init(db, app):
     """Test extension initialization."""
 
     class Demo(db.Model):
@@ -105,6 +122,32 @@ def test_init(db, app,mock_entry_points):
         db.session.commit()
 
         db.drop_all()
+
+def test_alembic(db, app, mock_entry_points):
+    """Test alembic recipes."""
+    ext = InvenioDB(app, entry_point_group=False, db=db)
+
+    with app.app_context():
+        ext.alembic.upgrade()
+        ext.alembic.downgrade(target="96e796392533")
+
+def test_naming_convention(db, app, mock_entry_points):
+    """Test naming convention."""
+    from sqlalchemy_continuum import remove_versioning
+
+    ext = InvenioDB(app, entry_point_group=False, db=db)
+    cfg = dict(
+        DB_VERSIONING=True,
+        DB_VERSIONING_USER_MODEL=None,
+        SQLALCHEMY_DATABASE_URI=app.config["SQLALCHEMY_DATABASE_URI"],
+    )
+
+    with app.app_context():
+        # Naming conventionのテストを実行
+        remove_versioning()
+        ext.db.create_all()
+        assert len(ext.db.metadata.tables) > 0
+        ext.db.drop_all()
 
 
 def test_alembic(db, app,mock_entry_points):

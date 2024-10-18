@@ -7,23 +7,42 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 
 """Test DB utilities."""
-
+import os
 import pytest
 import sqlalchemy as sa
-from flask import current_app
+from flask import current_app, Flask
 from unittest.mock import patch
 from sqlalchemy_continuum import remove_versioning
 from sqlalchemy_utils.types import EncryptedType
 
-from invenio_db import InvenioDB
+from invenio_db import InvenioDB, shared
 from invenio_db.utils import (
     rebuild_encrypted_properties,
     versioning_model_classname,
     versioning_models_registered,
     create_alembic_version_table,
     drop_alembic_version_table,
-	)
+)
 
+@pytest.fixture()
+def app():
+    app = Flask(__name__)
+    app.config.update(
+        SECRET_KEY="SECRET_KEY",
+        TESTING=True,
+        SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg2://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}",  # PostgreSQL データベースに接続
+        DB_VERSIONING=False,
+        DB_VERSIONING_USER_MODEL=None,
+    )
+    InvenioDB(app)
+    return app
+
+@pytest.fixture()
+def db(app):
+    with app.app_context():
+        db_ = shared.db
+        yield db_
+        db_.session.remove()
 
 # .tox/c1/bin/pytest --cov=invenio_db tests/test_utils.py::test_rebuild_encrypted_properties -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-db/.tox/c1/tmp
 def test_rebuild_encrypted_properties(db, app):
@@ -68,7 +87,6 @@ def test_rebuild_encrypted_properties(db, app):
     with app.app_context():
         db.drop_all()
 
-
 def test_versioning_model_classname(db, app):
     """Test the versioning model utilities."""
 
@@ -106,13 +124,13 @@ def test_create_alembic_version_table(db, app, has_version_table):
     assert alembic.migration_context._has_version_table() != has_version_table
 
 # .tox/c1/bin/pytest --cov=invenio_db tests/test_utils.py::test_drop_alembic_version_table -v -vv -s --cov-branch --cov-report=term --cov-report=xml --basetemp=/code/modules/invenio-db/.tox/c1/tmp
-def test_drop_alembic_version_table(app, db,mock_entry_points):
+def test_drop_alembic_version_table(app, db, mock_entry_points):
     # not exist alembic_version
     idb = InvenioDB(app)
     drop_alembic_version_table()
 
     # exist alembic_version
-    idb = InvenioDB(app,db=db)
+    idb = InvenioDB(app, db=db)
     alembic = current_app.extensions['invenio-db'].alembic
     alembic.migration_context._ensure_version_table()
     drop_alembic_version_table()

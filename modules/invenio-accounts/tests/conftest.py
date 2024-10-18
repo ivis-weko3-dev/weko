@@ -240,7 +240,8 @@ def api(request):
 @pytest.fixture()
 def app_with_redis_url(request):
     """Flask application fixture with Invenio Accounts."""
-    app = _app_factory(dict(ACCOUNTS_SESSION_REDIS_URL="redis://localhost:6379/0"))
+    redis_url = "redis://172.19.0.7:6379/0"
+    app = _app_factory(dict(ACCOUNTS_SESSION_REDIS_URL=redis_url))
     app.config.update(ACCOUNTS_USERINFO_HEADERS=True)
     InvenioAccounts(app)
 

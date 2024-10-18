@@ -22,7 +22,8 @@ from pkg_resources import EntryPoint
 from werkzeug.utils import import_string
 
 import pytest
-
+from flask import Flask
+from invenio_db import InvenioDB, shared
 import invenio_db
 from invenio_db import shared
 from invenio_db.utils import alembic_test_context
