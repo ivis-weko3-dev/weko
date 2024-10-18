@@ -12,7 +12,7 @@ import json
 
 import mock
 import pytest
-from conftest import IndexFlusher
+from .conftest import IndexFlusher
 from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url
 from invenio_records.models import RecordMetadata
 
@@ -21,7 +21,7 @@ from invenio_records.models import RecordMetadata
     ["application/json-patch+json", "application/json-patch+json;charset=utf-8"],
 )
 def test_valid_patch(
-    app, es, test_records, test_patch, content_type, search_url, search_class
+    app, test_records, test_patch, content_type, search_url, search_class
 ):
     """Test VALID record patch request (PATCH .../records/<record_id>)."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
@@ -55,7 +55,7 @@ def test_valid_patch(
     ["application/json-patch+json", "application/json-patch+json;charset=utf-8"],
 )
 def test_patch_deleted(
-    app, db, es, test_data, test_patch, content_type, search_url, search_class
+    app, db, test_data, test_patch, content_type, search_url, search_class
 ):
     """Test patching deleted record."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
@@ -79,7 +79,7 @@ def test_patch_deleted(
 
 @pytest.mark.parametrize("charset", ["", ";charset=utf-8"])
 def test_invalid_patch(
-    app, es, test_records, test_patch, charset, search_url, search_class
+    app, test_records, test_patch, charset, search_url, search_class
 ):
     """Test INVALID record put request (PUT .../records/<record_id>)."""
     HEADERS = [

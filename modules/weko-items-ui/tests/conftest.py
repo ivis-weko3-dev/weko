@@ -77,8 +77,10 @@ from celery.messaging import establish_connection
 from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore import InvenioPIDStore
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus, Redirect
-from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
+# from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
+# from invenio_pidrelations.contrib.draft import PIDNodeDraft
 from invenio_pidrelations.contrib.draft import PIDNodeDraft
+from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
 from invenio_records import InvenioRecords
 from invenio_records_rest import InvenioRecordsREST
 from weko_redis.redis import RedisConnection
@@ -731,7 +733,10 @@ def db_itemtype4(app, db):
 
 @pytest.fixture()
 def db_itemtype5(app, db):
-    item_type_name = ItemTypeName(id=None,
+    # item_type_name = ItemTypeName(id=None,
+    #     name="テストアイテムタイプ5", has_site_license=True, is_active=True
+    # )
+    item_type_name = ItemTypeName(id=5,
         name="テストアイテムタイプ5", has_site_license=True, is_active=True
     )
     item_type_schema = dict()
@@ -976,17 +981,41 @@ def db_workflow(app, db, db_itemtype, users):
         action_date=datetime.strptime("2018/07/28 0:00:00", "%Y/%m/%d %H:%M:%S"),
         send_mail_setting={},
     )
+    flow_action4 = FlowAction(
+        status="N",
+        id=31005,
+        flow_id=flow_id,
+        action_id=5,
+        action_version="1.0.0",
+        action_order=3,
+        action_condition="",
+        action_status="A",
+        action_date=datetime.strptime("2018/07/28 0:00:00", "%Y/%m/%d %H:%M:%S"),
+        send_mail_setting={},
+    )
+    flow_action5 = FlowAction(
+        status="N",
+        id=31006,
+        flow_id=flow_id,
+        action_id=5,
+        action_version="1.0.0",
+        action_order=3,
+        action_condition="",
+        action_status="A",
+        action_date=datetime.strptime("2018/07/28 0:00:00", "%Y/%m/%d %H:%M:%S"),
+        send_mail_setting={},
+    )
     flow_action_role1 = FlowActionRole(
-        flow_action_id=1,
-        action_role=1,
+        flow_action_id=31005,
+        action_role='Community Administrator',
         action_role_exclude=False,
         action_user=1,
         action_user_exclude=False,
         specify_property='user_a'
     )
     flow_action_role2 = FlowActionRole(
-        flow_action_id=1,
-        action_role=1,
+        flow_action_id=31006,
+        action_role='Community Administrator',
         action_role_exclude=False,
         action_user=1,
         action_user_exclude=False,
@@ -1038,6 +1067,8 @@ def db_workflow(app, db, db_itemtype, users):
         db.session.add(flow_action1)
         db.session.add(flow_action2)
         db.session.add(flow_action3)
+        db.session.add(flow_action4)
+        db.session.add(flow_action5)
         db.session.add(flow_action_role1)
         db.session.add(flow_action_role2)
         db.session.add(workflow1)
@@ -1051,6 +1082,8 @@ def db_workflow(app, db, db_itemtype, users):
         "flow_action1": flow_action1,
         "flow_action2": flow_action2,
         "flow_action3": flow_action3,
+        "flow_action4": flow_action4,
+        "flow_action5": flow_action5,
     }
 
 
@@ -23177,12 +23210,16 @@ def make_record(db, indexer, i, files, thumbnail=None):
         status=PIDStatus.REGISTERED,
     )
 
-    h1 = PIDNodeVersioning(parent=parent)
-    h1.insert_child(child=recid)
-    h1.insert_child(child=recid_v1)
-    RecordDraft.link(recid, depid)
-    RecordDraft.link(recid_v1, depid_v1)
-
+    # h1 = PIDNodeVersioning(parent=parent)
+    # h1.insert_child(child=recid)
+    # h1.insert_child(child=recid_v1)
+    # RecordDraft.link(recid, depid)
+    # RecordDraft.link(recid_v1, depid_v1)
+    h1 = PIDNodeVersioning(pid=parent)
+    h1.insert_child(child_pid=recid)
+    h1.insert_child(child_pid=recid_v1)
+    PIDNodeDraft(pid=recid).insert_child(depid)
+    PIDNodeDraft(pid=recid_v1).insert_child(depid_v1)
     if i % 2 == 1:
         doi = PersistentIdentifier.create(
             "doi",
