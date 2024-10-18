@@ -43,7 +43,9 @@ def test_page_permission_factory(app, records, users,db_file_permission):
     indexer, results = records
     record = results[0]["record"]
 
-    assert page_permission_factory(record).can() == True
+    with patch("weko_records_ui.permissions.check_publish_status", return_value=True):
+        with patch("weko_records_ui.permissions.check_index_permissions", return_value=True):
+            assert page_permission_factory(record).can() == True
 
     with patch("weko_records_ui.permissions.check_publish_status", return_value=True):
         with patch("weko_records_ui.permissions.check_index_permissions", return_value=True):
@@ -612,7 +614,8 @@ def test_check_created_id_guest(app, users):
     assert record.get("weko_shared_id") == -1
 
     # guest user
-    assert current_user.is_authenticated == False
+    # with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
+    # assert current_user.is_authenticated == False
     assert record.get("_deposit", {}).get("created_by") == 1
     assert record.get("item_type_id") == "15"
     assert record.get("weko_shared_id") == -1

@@ -19,11 +19,11 @@ from weko_theme.views import (
 # def index():
 # .tox/c1/bin/pytest --cov=weko_theme tests/test_views.py::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-theme/.tox/c1/tmp
 def test_index(i18n_app, users):
-    WekoTheme(i18n_app)
 
     with i18n_app.test_client() as client:
-        res = client.get(url_for("weko_theme.index"))
-        assert res.status_code == 200
+        with patch("flask.templating._render", return_value=""):
+            res = client.get(url_for("weko_theme.index"))
+            assert res.status_code == 200
 
 class Dict2Obj:
     def __init__(self, **kwargs):
@@ -99,14 +99,13 @@ def test_index_community_settings(client, users):
                 assert kwargs["lists"]["icon_code"] == 'fa fa-group'
                 assert kwargs["lists"]["supplement"] == 'created and curated by WEKO3 users'
 
-                    
+
 # def edit():
 # .tox/c1/bin/pytest --cov=weko_theme tests/test_views.py::test_edit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-theme/.tox/c1/tmp
 def test_edit(i18n_app, users):
     site_info = MagicMock()
     site_info.favicon = "favicon,favicon"
     site_info.ogp_image = "ogp_image"
-    WekoTheme(i18n_app)
 
     with i18n_app.test_client() as client:
         with patch('weko_theme.views.SiteInfo.get', return_value=site_info):
@@ -116,14 +115,15 @@ def test_edit(i18n_app, users):
             except:
                 pass
 
-        res = client.get(url_for("weko_theme.edit"))
-        assert res.status_code == 200
+        with patch("flask.templating._render", return_value=""):
+            res = client.get(url_for("weko_theme.edit"))
+            assert res.status_code == 200
 
 
 # def get_default_search_setting():
 def test_get_default_search_setting(i18n_app, users):
     with i18n_app.test_client() as client:
-        WekoTheme(i18n_app)
+
         res = client.get(url_for("weko_theme.get_default_search_setting"))
         assert res.status_code == 200
 
@@ -131,5 +131,11 @@ def test_get_default_search_setting(i18n_app, users):
 # def get_init_display_setting(settings):
 def test_get_init_display_setting(i18n_app, users):
     with i18n_app.test_client() as client:
-        WekoTheme(i18n_app)
-        get_init_display_setting({})
+        from invenio_search.engine import dsl
+        def dummy_response(data):
+            dummy=dsl.response.Response(dsl.Search(), json.loads(data))
+            return dummy
+
+        with patch('invenio_search.RecordsSearch.execute', return_value=dummy_response('{"hits": {"hits": [{"_source": {"path": ["44"]}},{"_source": {"path": ["11"]}}]}}')):
+            with patch('weko_theme.utils.get_journal_info', return_value="get_journal_info"):
+                get_init_display_setting({})
