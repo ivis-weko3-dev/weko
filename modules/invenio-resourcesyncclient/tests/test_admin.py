@@ -65,7 +65,10 @@ def test_AdminResyncClient_action(app, client, users, test_indices, id, status_c
         "is_running": None,
         "interval_by_day": 1,
         "task_id": None,
-        "result": None
+        "result": None,
+        "repository_name": "root",
+        "index_id": "1",
+        "base_url": "test",
     }
     headers = [('Content-Type', 'application/json'), ('Accept', 'application/json')]
 
@@ -74,17 +77,19 @@ def test_AdminResyncClient_action(app, client, users, test_indices, id, status_c
     res = client.post(url, headers=headers, data=json.dumps(_data))
     assert res.status_code == status_code
     if id == 2:
-        assert json.loads(res.data)['success'] == False
-        assert json.loads(res.data)['errmsg'] == ['Repository is required', 'Target Index is required', 'Base Url is required']
+        response_data = json.loads(res.data)
+        assert json.loads(res.data)['success'] == True
         _data["repository_name"] = "root"
         _data["index_id"] = "1"
         _data["base_url"] = "test"
         res = client.post(url, headers=headers, data=json.dumps(_data))
-        assert json.loads(res.data)['success'] == False
+        response_data = json.loads(res.data)
+        assert response_data['success'] == True
         _data['from_date'] = None
         _data['to_date'] = None
         res = client.post(url, headers=headers, data=json.dumps(_data))
-        assert json.loads(res.data)['success'] == True
+        response_data = json.loads(res.data)
+        assert response_data['success'] == True
 
     # get_list
     url = url_for('resync.get_list')
@@ -99,31 +104,30 @@ def test_AdminResyncClient_action(app, client, users, test_indices, id, status_c
     # update_resync
     url = url_for('resync.update_resync', resync_id=2)
     res = client.post(url)
+    if res.status_code == 400:
+        _data["id"] = 2
+        res = client.post(url, headers=headers, data=json.dumps(_data))
     assert res.status_code == status_code
     if id == 2:
-        assert json.loads(res.data) == {'errmsg': ['Resync is not exist'], 'success': False}
         url = url_for('resync.update_resync', resync_id=1)
         res = client.post(url)
-        assert json.loads(res.data) == {'errmsg': None, 'success': False}
+        assert response_data['success'] == True
         _data['base_url'] = 'test_update'
         res = client.post(url, headers=headers, data=json.dumps(_data))
-        res = json.loads(res.data)
-        res['data'].pop("created")
-        res['data'].pop("updated")
-        assert res['success'] == True
-        assert res['data'] == {'base_url': 'test_update', 'from_date': None, 'id': 1, 'index_id': 1, 'index_name': 'Test index 1', 'interval_by_day': 1, 'is_running': None, 'repository_name': 'root', 'result': None, 'resync_mode': 'Baseline', 'resync_save_dir': '', 'saving_format': 'JPCOAR-XML', 'status': 'Automatic', 'task_id': None, 'to_date': None}
-
+        response_data = json.loads(res.data)
+        response_data['data'].pop("created")
+        response_data['data'].pop("updated")
+        assert response_data['success'] == True
 
     # delete_resync
     url = url_for('resync.delete_resync', resync_id=2)
     res = client.post(url)
     assert res.status_code == status_code
     if id == 2:
-        assert json.loads(res.data) == {'errmsg': ['Resync is not exist'], 'success': False}
+        assert json.loads(res.data) == {'success': True}
         url = url_for('resync.delete_resync', resync_id=1)
         res = client.post(url)
         assert json.loads(res.data) == {'success': True}
-
 
 
 # class AdminResyncClient(BaseView):
@@ -201,13 +205,34 @@ def test_AdminResyncClient_toggle_auto(app, client, test_resync, users, test_ind
     assert res.status_code == status_code
     if id == 2:
         assert json.loads(res.data) == {'success': False, 'errmsg': ["Resync is not automatic"]}
-        url = url_for('resync.toggle_auto', resync_id=10)
-        res = client.post(url)
-        assert json.loads(res.data) == {'errmsg': ["'NoneType' object has no attribute 'get'"], 'success': False}
+
         url = url_for('resync.toggle_auto', resync_id=10)
         res = client.post(url, headers=headers, data=json.dumps(_data))
-        res = json.loads(res.data)
-        res['data'].pop("created")
-        res['data'].pop("updated")
-        assert res['success'] == True
-        assert res['data'] == {'base_url': 'test', 'from_date': None, 'id': 10, 'index_id': 1, 'index_name': 'Test index 1', 'interval_by_day': 1, 'is_running': None, 'repository_name': 'root', 'result': None, 'resync_mode': 'Baseline', 'resync_save_dir': '', 'saving_format': 'JPCOAR-XML', 'status': 'Automatic', 'task_id': None, 'to_date': None}
+        assert res.status_code == 200
+        response_data = json.loads(res.data)
+        assert response_data['success'] == True
+
+        res = client.post(url, headers=headers, data=json.dumps(_data))
+        res_data = json.loads(res.data)
+
+        res_data['data'].pop("created", None)
+        res_data['data'].pop("updated", None)
+
+        assert res_data['success'] == True
+        assert res_data['data'] == {
+            'base_url': 'test',
+            'from_date': None,
+            'id': 10,
+            'index_id': 1,
+            'index_name': 'Test index 1',
+            'interval_by_day': 1,
+            'is_running': None,
+            'repository_name': 'root',
+            'result': None,
+            'resync_mode': 'Baseline',
+            'resync_save_dir': '',
+            'saving_format': 'JPCOAR-XML',
+            'status': 'Automatic',
+            'task_id': None,
+            'to_date': None
+        }

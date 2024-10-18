@@ -249,7 +249,7 @@ def process_item(record, resync, counter):
         pid_type='syncid', pid_value=gen_resync_pid_value(
             resync,
             mapper.identifier()
-        )).with_lockmode('update').one_or_none()
+        )).with_for_update().one_or_none()
 
     indexes = []
     current_app.logger.debug('{0} {1} {2}: {3}'.format(
@@ -265,6 +265,7 @@ def process_item(record, resync, counter):
                                           status=PIDStatus.REGISTERED,
                                           object_type=dep.pid.object_type,
                                           object_uuid=dep.pid.object_uuid)
+        print(pid)
         current_app.logger.debug('{0} {1} {2}: {3}'.format(
             __file__, 'process_item()', 'Create pid', pid))
         indexes.append(str(resync.index_id)) if str(
@@ -274,6 +275,10 @@ def process_item(record, resync, counter):
         dep['_deposit']['status'] = 'draft'
         dep.update({'actions': 'publish', 'index': indexes}, json)
         dep.commit()
+        print(dep.pid.pid_value)
+        print(dep.pid.status)
+        print(pid.pid_value)
+        print(pid.status)
         dep.publish()
 
         # add item versioning
