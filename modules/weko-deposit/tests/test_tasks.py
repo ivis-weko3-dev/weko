@@ -89,8 +89,8 @@ class MockRecordIndexer:
         pass
 
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_tasks.py::test_update_authorInfo -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-def test_update_authorInfo(app, db, location, records):
-# def test_update_authorInfo(app, db, records, authors):
+#def test_update_authorInfo(app, db, location, records):
+def test_update_authorInfo(app, db):
     app.config.update(WEKO_SEARCH_MAX_RESULT=1)
     patch("weko_deposit.tasks.WekoDeposit.update_author_link")
     mock_recordssearch = MagicMock(side_effect=MockRecordsSearch)
@@ -278,7 +278,7 @@ def test_no_creatorNames_contributorNames_names(app, db, location, records3):
             update_items_by_authorInfo(1, {})
 
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_tasks.py::test_update_authorInfo -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-def test_update_authorInfo_case1(app, db, location, records):
+def test_update_authorInfo_case1(app, db):
 # def test_update_authorInfo(app, db, records, authors):
     app.config.update(WEKO_SEARCH_MAX_RESULT=1)
     patch("weko_deposit.tasks.WekoDeposit.update_author_link")
@@ -426,7 +426,7 @@ def test_update_authorInfo_case1(app, db, location, records):
 
 
 # update_gather_flg = True
-def test_update_authorInfo_with_update_gather_flg(app, db, location, records):
+def test_update_authorInfo_with_update_gather_flg(app, db):
     app.config.update(WEKO_SEARCH_MAX_RESULT=1)
     patch("weko_deposit.tasks.WekoDeposit.update_author_link")
     _target = {
@@ -553,16 +553,16 @@ def test_update_db_es_data(app, db,esindex, es_records,authors):
             update_db_es_data(origin_pkid_list, origin_id_list)
             mock_logger.assert_any_call(key='WEKO_COMMON_DB_SOME_ERROR', ex=ex)
 
-    # ElasticsearchException by indexer.client.update()
-    ex = search.OpenSearchException("test_elasticsearch_error")
-    with patch("invenio_search.ext.Elasticsearch.update", side_effect=ex):
+    # OpensearchException by indexer.client.update()
+    ex = search.OpenSearchException("test_opensearch_error")
+    with patch("invenio_search.engine.search.OpenSearch.update", side_effect=ex):
         with patch("weko_deposit.tasks.weko_logger") as mock_logger:
             update_db_es_data(origin_pkid_list, origin_id_list)
             mock_logger.assert_any_call(key='WEKO_COMMON_ERROR_ELASTICSEARCH', ex=ex)
 
     # Exception by indexer.client.update()
     ex = Exception("test_exception")
-    with patch("invenio_search.ext.Elasticsearch.update", side_effect=ex):
+    with patch("invenio_search.engine.search.OpenSearch.update", side_effect=ex):
         with patch("weko_deposit.tasks.weko_logger") as mock_logger:
             update_db_es_data(origin_pkid_list, origin_id_list)
             mock_logger.assert_any_call(key='WEKO_COMMON_ERROR_UNEXPECTED', ex=ex)
