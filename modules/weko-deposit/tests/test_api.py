@@ -732,12 +732,25 @@ class TestWekoDeposit():
 
     # def publish(self, pid=None, id_=None):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_publish -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test_publish(self, app, location):
+    def test_publish(self, app, db, location):
         with patch('weko_deposit.api.weko_logger') as mock_logger:
             deposit = WekoDeposit.create({})
             assert deposit['_deposit']['id']
             assert 'draft' == deposit.status
             assert 0 == deposit.revision_id
+            
+            recid = PersistentIdentifier.get(
+                pid_type='recid', pid_value=deposit.pid.pid_value
+            )
+            
+            depid = PersistentIdentifier.get(
+                pid_type='depid', pid_value=deposit.pid.pid_value
+            )      
+            
+            recid.status = PIDStatus.REGISTERED
+            depid.status = PIDStatus.REGISTERED
+            db.session.commit()
+            
             deposit.publish()
             assert 'published' == deposit.status
             assert deposit.revision_id == 2
@@ -1937,10 +1950,8 @@ class TestWekoDeposit():
             record = records[0]
             deposit = record['deposit']
             # not is_edit
-            print("cnt = {}".format(1))
             deposit.delete_old_file_index()
             # is_edit
-            print("cnt = {}".format(2))
             deposit.is_edit = True
             deposit.delete_old_file_index()
 
@@ -1949,7 +1960,6 @@ class TestWekoDeposit():
             record = records[1]
             deposit = record['deposit']
             deposit.is_edit = True
-            print("cnt = {}".format(3))
             deposit.delete_old_file_index()
 
             mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
@@ -3366,13 +3376,9 @@ class TestWekoRecord:
             record = results[0]
             
             url = url_for("invenio_accounts_rest_auth.login")
-            print( "users = 【{}】".format(users))
             # res = client.post(url, data=dict(email=email, password=password))
             #payload = get_json(res)
-            
-            
-            
-            
+
             file_metadata = [
                 {
                     'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'},
@@ -4759,7 +4765,6 @@ def test_weko_deposit(app, db, location):
         }
     }
 
-
 def test_weko_indexer(app, db, location):
     deposit = WekoDeposit.create({})
     db.session.commit()
@@ -4830,13 +4835,18 @@ def test_weko_deposit_new(app, db, location):
         pid_value=recid
     ).first()
 
+    depid = PersistentIdentifier.query.filter_by(
+        pid_type='depid',
+        pid_value=recid
+    ).first()
+
     record = WekoDeposit.get_record(pid.object_uuid)
     deposit = WekoDeposit(record, record.model)
     with patch('weko_deposit.api.WekoIndexer.update_relation_version_is_last', side_effect=search.exceptions.NotFoundError):
-        with pytest.raises(search.exceptions.NotFoundError):
-            
-            deposit['_deposit']['status'] = "draft"
-            print( "deposit=[{}]".format(deposit))
+        with pytest.raises(search.exceptions.NotFoundError): 
+            pid.status = PIDStatus.REGISTERED
+            depid.status = PIDStatus.REGISTERED
+            db.session.commit()
             deposit.publish()
 
 
