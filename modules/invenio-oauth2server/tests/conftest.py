@@ -23,7 +23,9 @@ from flask.cli import ScriptInfo
 from flask.views import MethodView
 from flask_mail import Mail
 from flask_menu import Menu
-from .helpers import create_oauth_client, patch_request
+from flask_kvsession import KVSessionExtension
+
+from invenio_access import InvenioAccess
 from invenio_accounts import InvenioAccountsREST, InvenioAccountsUI
 from invenio_accounts.models import User
 from invenio_accounts.views.settings import (
@@ -31,6 +33,7 @@ from invenio_accounts.views.settings import (
 )
 from invenio_db import InvenioDB, db
 from invenio_i18n import InvenioI18N
+from simplekv.memory.redisstore import RedisStore
 from six import get_method_self
 from sqlalchemy_utils.functions import create_database, database_exists, drop_database
 
@@ -46,9 +49,54 @@ try:
 except ImportError:
     from werkzeug.wsgi import DispatcherMiddleware
 
+from .helpers import create_oauth_client, patch_request
 
 @pytest.fixture()
-def app(request):
+def cache_config():
+    """Generate cache configuration."""
+    CACHE_TYPE = os.environ.get("CACHE_TYPE", "simple")
+    config = {"CACHE_TYPE": CACHE_TYPE}
+
+    if CACHE_TYPE == "simple":
+        pass
+    elif CACHE_TYPE == "redis":
+        config.update(
+            CACHE_REDIS_URL=os.environ.get(
+                "CACHE_REDIS_URL", "redis://redis:6379/0"
+            )
+        )
+    elif CACHE_TYPE == "memcached":
+        config.update(
+            CACHE_MEMCACHED_SERVERS=os.environ.get(
+                "CACHE_MEMCACHED_SERVERS", "localhost:11211"
+            ).split(",")
+        )
+    return config
+
+def _database_setup(app, request):
+    """Set up the database."""
+    with app.app_context():
+        if not database_exists(str(db.engine.url)):
+            create_database(str(db.engine.url))
+        db.create_all()
+
+    def teardown():
+        with app.app_context():
+            if database_exists(str(db.engine.url)):
+                drop_database(str(db.engine.url))
+            # Delete sessions in kvsession store
+            if hasattr(app, "kvsession_store") and isinstance(
+                app.kvsession_store, RedisStore
+            ):
+                app.kvsession_store.redis.flushall()
+        shutil.rmtree(app.instance_path)
+
+    request.addfinalizer(teardown)
+    return app
+
+
+@pytest.fixture()
+def app(request, cache_config):
     """Flask application fixture."""
     instance_path = tempfile.mkdtemp()
 
@@ -69,9 +117,12 @@ def app(request):
             #     "SQLALCHEMY_DATABASE_URI",
             #     "sqlite:///" + os.path.join(instance_path, "test.db"),
             # ),
-            SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
-                                          'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
+            SQLALCHEMY_DATABASE_URI=os.environ.get(
+                'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
+            # SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
+            #                               'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
             SQLALCHEMY_TRACK_MODIFICATIONS=True,
+            SQLALCHEMY_ECHO=False,
             TESTING=True,
             WTF_CSRF_ENABLED=False,
             APP_THEME="semantic-ui",
@@ -89,6 +140,9 @@ def app(request):
             },
             ACCOUNTS_COVER_TEMPLATE="invenio_accounts/base_cover.html",
             ACCOUNTS_BASE_TEMPLATE="invenio_accounts/base.html",
+            # ACCOUNTS_SESSION_REDIS_URL="redis://localhost:6379/0",
+            ACCOUNTS_SESSION_REDIS_URL="redis://redis:6379/0",
+            SERVER_NAME="localhost",
         )
         InvenioI18N(app)
         Mail(app)
@@ -96,15 +150,20 @@ def app(request):
         InvenioDB(app)
         InvenioOAuth2Server(app)
         InvenioI18N(app)
+        # KVSessionExtension(session_kvstore=RedisStore , app=app)
 
     api_app = Flask("testapiapp", instance_path=instance_path)
     api_app.config.update(APPLICATION_ROOT="/api", ACCOUNTS_REGISTER_BLUEPRINT=True)
     init_app(api_app)
+    api_app.config.update(ACCOUNTS_USERINFO_HEADERS=True)
+    InvenioAccess(api_app)
     InvenioAccountsREST(api_app)
     InvenioOAuth2ServerREST(api_app)
 
     app = Flask("testapp", instance_path=instance_path)
     init_app(app)
+    app.config.update(ACCOUNTS_USERINFO_HEADERS=True)
+    InvenioAccess(app)
     InvenioAccountsUI(app)
     app.register_blueprint(create_accounts_blueprint(app))
     app.register_blueprint(server_blueprint)

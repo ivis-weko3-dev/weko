@@ -7,6 +7,7 @@
 # Invenio is free software; you can redistribute it and/or modify it
 # under the terms of the MIT License; see LICENSE file for more details.
 
+from unittest.mock import patch
 from flask import url_for
 from flask_admin import Admin
 from invenio_db import db
@@ -17,8 +18,8 @@ from invenio_oauth2server.admin import (
     oauth2server_tokens_adminview,
 )
 
-
-def test_admin(models_fixture):
+@patch("invenio_files_rest.views.db.session.remove")
+def test_admin(mock_remove, models_fixture):
     """Test flask-admin interface."""
     app = models_fixture
     InvenioOAuth2Server(app)

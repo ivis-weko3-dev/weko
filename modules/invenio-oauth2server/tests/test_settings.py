@@ -9,14 +9,15 @@
 
 """Test settings views."""
 
+from unittest.mock import patch
 from flask import url_for
-from tests.helpers import login
 from invenio_i18n import gettext as _
 
 from invenio_oauth2server.models import Client, Token
+from .helpers import login
 
-
-def test_personal_token_management(settings_fixture):
+@patch("invenio_files_rest.views.db.session.remove")
+def test_personal_token_management(mock_remove, settings_fixture):
     """Test managing personal tokens through the views."""
     app = settings_fixture
     with app.test_request_context():
@@ -85,8 +86,8 @@ def test_personal_token_management(settings_fixture):
             # Token should no longer exist on index
             assert "Test_Token_Renamed" not in str(resp.get_data())
 
-
-def test_authorized_app_revocation(developer_app_fixture):
+@patch("invenio_files_rest.views.db.session.remove")
+def test_authorized_app_revocation(mock_remove, developer_app_fixture):
     """Test managing authorized application tokens through the views."""
     app = developer_app_fixture
     with app.test_request_context():
@@ -114,8 +115,8 @@ def test_authorized_app_revocation(developer_app_fixture):
             # Check that the authorized application token was actually deleted
             assert Token.query.count() == 0
 
-
-def test_client_management(settings_fixture):
+@patch("invenio_files_rest.views.db.session.remove")
+def test_client_management(mock_remove, settings_fixture):
     """Test managing clients through the views."""
     app = settings_fixture
     with app.test_request_context():
