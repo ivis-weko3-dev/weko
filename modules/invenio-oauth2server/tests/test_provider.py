@@ -14,12 +14,12 @@ from datetime import datetime, timedelta
 import pytest
 from unittest.mock import patch
 from flask import json, url_for
-from tests.helpers import login, parse_redirect
+
 from invenio_accounts.models import User
 from invenio_db import db
-
 from invenio_oauth2server.ext import InvenioOAuth2ServerREST
 from invenio_oauth2server.models import Client, Token
+from .helpers import login, parse_redirect
 
 def test_client_salt(provider_fixture):
     app = provider_fixture
@@ -322,12 +322,12 @@ def test_web_auth_flow(provider_fixture):
 
                 # FIXME: This test is failing
                 # Access token doesn't provide access to this URL.
-                # r = client.get(
-                #     "/oauth2test/test-invalid",
-                #     base_url="http://{0}".format(app.config["SERVER_NAME"]),
-                # )
+                r = client.get(
+                    "/oauth2test/test-invalid",
+                    base_url="http://{0}".format(app.config["SERVER_NAME"]),
+                )
                 # r = client.get("/oauth2test/test-invalid")
-                # assert r.status_code == 401
+                assert r.status_code == 401
 
                 # # Now logout
                 r = client.get("/oauth2test/logout")
