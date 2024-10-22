@@ -77,23 +77,25 @@ def test_delete_action(app):
                 }
             )
             db.session.commit()
-        action = RecordIndexer()._delete_action(
-            dict(id=str(record.id), op="delete", index=None)
-        )
-        assert action["_op_type"] == "delete"
-        assert action["_index"] == "records-authorities-authority-v1.0.0"
-        assert action["_id"] == str(record.id)
+            action = RecordIndexer()._delete_action(
+                dict(id=str(record.id), op="delete", index=None)
+            )
+            assert action["_op_type"] == "delete"
+            assert action["_index"] == "records-authorities-authority-v1.0.0"
+            assert action["_id"] == str(record.id)
 
-        record.delete()
-        db.session.commit()
-        action = RecordIndexer()._delete_action(
-            dict(id=str(record.id), op="delete", index=None)
-        )
-        assert action["_op_type"] == "delete"
-        # Deleted record doesn't have '$schema', so index cannot
-        # be determined, resulting to the default from config
-        assert action["_index"] == app.config["INDEXER_DEFAULT_INDEX"]
-        assert action["_id"] == str(record.id)
+            record.delete()
+            db.session.commit()
+            record = Record.create({"title": "Test"})
+            db.session.commit()
+            action = RecordIndexer()._delete_action(
+                dict(id=str(record.id), op="delete", index=None)
+            )
+            assert action["_op_type"] == "delete"
+            # Deleted record doesn't have '$schema', so index cannot
+            # be determined, resulting to the default from config
+            assert action["_index"] == app.config["INDEXER_DEFAULT_INDEX"]
+            assert action["_id"] == str(record.id)
 
 
 def test_index_action(app):
