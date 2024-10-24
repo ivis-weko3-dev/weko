@@ -32,6 +32,8 @@ from invenio_records import InvenioRecords
 from invenio_records_files.api import Record
 from invenio_records_ui import InvenioRecordsUI
 from invenio_records_ui.views import create_blueprint_from_app
+from invenio_db import db as db_
+from sqlalchemy_utils.functions import create_database, database_exists
 from six import BytesIO
 
 from invenio_previewer import InvenioPreviewer
@@ -45,9 +47,6 @@ def app():
         'testapp', static_folder=instance_path, instance_path=instance_path)
     app_.config.update(
         TESTING=True,
-        # SQLALCHEMY_DATABASE_URI=os.environ.get(
-        #     'SQLALCHEMY_DATABASE_URI',
-        #     'sqlite:///:memory:'),
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
@@ -71,7 +70,8 @@ def app():
                 record_class='invenio_records_files.api:Record',
             ),
         ),
-        SERVER_NAME='localhost'
+        SERVER_NAME='localhost',
+        SECRET_KEY="SECRET_KEY"
     )
     Babel(app_)
     assets_ext = InvenioAssets(app_)
@@ -150,12 +150,12 @@ def create_app(instance_path):
 
 
 @pytest.fixture(scope="module")
-def testapp(base_app, database):
+def testapp(app):
     """Application with just a database.
 
     Pytest-Invenio also initialise search with the app fixture.
     """
-    yield base_app
+    yield app
 
 
 @pytest.fixture(scope="module")
@@ -254,3 +254,13 @@ def zip_fp(db):
 
     fp.seek(0)
     return fp
+
+@pytest.yield_fixture()
+def db(app):
+    """Database fixture."""
+    if not database_exists(str(db_.engine.url)):
+        create_database(str(db_.engine.url))
+        db_.create_all()
+    yield db_
+    db_.session.remove()
+    # db_.drop_all()

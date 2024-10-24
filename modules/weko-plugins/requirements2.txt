@@ -86,7 +86,8 @@ Flask-Mail==0.9.1
 flask-marshmallow==0.14.0
 flask-menu==1.0.1
 -e git+https://github.com/RCOSDP/flask-oauthlib.git@98eb36e1dfc66256fa7ea62237e9879acb906e9d#egg=Flask_OAuthlib
-Flask-Plugins==1.6.1
+# Flask-Plugins==1.6.1
+-e git+https://github.com/sh4nks/flask-plugins.git@master#egg=Flask-Plugins
 Flask-Principal==0.4.0
 flask-resources==1.2.0
 Flask-RESTful==0.3.10

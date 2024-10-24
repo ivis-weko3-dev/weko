@@ -132,7 +132,7 @@ def test_save_export_url(app):
 
 # def export_authors():
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_export_authors -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
-def test_export_authors(app,authors,location,file_instance):
+def test_export_authors(app,authors,file_instance):
     patch("weko_authors.utils.WekoAuthors.get_all",return_value=authors)
     scheme_info={"1":{"scheme":"WEKO","url":None},"2":{"scheme":"ORCID","url":"https://orcid.org/##"}}
     patch("weko_authors.utils.WekoAuthors.get_identifier_scheme_info",return_value=scheme_info)
@@ -673,9 +673,9 @@ def test_get_count_item_link(app):
 
 # def count_authors():
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_count_authors -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
-def test_count_authors(app2, esindex):
+def test_count_authors(app, esindex):
     import json
-    index = app2.config["WEKO_AUTHORS_ES_INDEX_NAME"]
+    index = app.config["WEKO_AUTHORS_ES_INDEX_NAME"]
     doc_type = "author-v1.0.0"
 
     def register(i):

@@ -318,17 +318,15 @@ def test_init_common(app):
 
 # def init_ui(state)
 # .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_views.py::test_init_ui -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
-def test_init_ui(app,mocker):
-    mock_init = mocker.spy(weko_user_profiles.views,"init_common")
-    
-    app.register_blueprint(blueprint_ui_init)
-    mock_init.assert_called_once()
+def test_init_ui(app):
+    with patch('weko_user_profiles.views.init_common') as mock_init:
+        app.register_blueprint(blueprint_ui_init)
+        mock_init.assert_called_once()
 
-
-def test_init_api(app,mocker):
-    mock_init = mocker.spy(weko_user_profiles.views,"init_common")
-    app.register_blueprint(blueprint_api_init)
-    mock_init.assert_called_once()
+def test_init_api(app):
+    with patch('weko_user_profiles.views.init_common') as mock_init:
+        app.register_blueprint(blueprint_api_init)
+        mock_init.assert_called_once()
 
 
 def test_userprofile(db,users,user_profiles):
@@ -339,7 +337,7 @@ def test_userprofile(db,users,user_profiles):
 
 # def get_profile_info():
 # .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_views.py::test_get_profile_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
-def test_get_profile_info(client,app,admin_app,register_bp,users,mocker):
+def test_get_profile_info(client,app,admin_app,register_bp,users):
     with patch("sqlalchemy.orm.scoping.scoped_session.remove", return_value=None):
         url = url_for("weko_user_profiles_api_init.get_profile_info")
 
@@ -367,7 +365,7 @@ def test_get_profile_info(client,app,admin_app,register_bp,users,mocker):
                 "positions":WEKO_USERPROFILES_POSITION_LIST,
                 "error":""
             }
-            mocker.patch("weko_user_profiles.views.get_user_profile_info",return_value=profile_info)
+            patch("weko_user_profiles.views.get_user_profile_info",return_value=profile_info)
             app.json_encoder = TestJSONEncoder
             res = client.get(url)
             assert json.loads(res.data) == json.loads(jsonify(test).data)
@@ -375,7 +373,7 @@ def test_get_profile_info(client,app,admin_app,register_bp,users,mocker):
 
 # def profile():
 # .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_views.py::test_profile -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
-def test_profile(client,register_bp,users,mocker):
+def test_profile(client,register_bp,users):
     with patch("sqlalchemy.orm.scoping.scoped_session.remove", return_value=None):
         url = url_for("weko_user_profiles.profile")
         # no login
@@ -383,10 +381,10 @@ def test_profile(client,register_bp,users,mocker):
         assert res.status_code == 302
         login_user_via_session(client=client,email=users[0]["email"])
 
-        mocker.patch("weko_user_profiles.views.profile_form_factory")
-        mocker.patch("weko_user_profiles.views.render_template",return_value=make_response())
-        mock_profile = mocker.patch("weko_user_profiles.views.handle_profile_form")
-        mock_verification = mocker.patch("weko_user_profiles.views.handle_verification_form")
+        patch("weko_user_profiles.views.profile_form_factory")
+        patch("weko_user_profiles.views.render_template",return_value=make_response())
+        mock_profile = patch("weko_user_profiles.views.handle_profile_form")
+        mock_verification = patch("weko_user_profiles.views.handle_verification_form")
 
         # not submit
         client.post(url,data={})

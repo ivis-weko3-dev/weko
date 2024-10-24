@@ -81,7 +81,7 @@ from invenio_search import InvenioSearch, RecordsSearch, current_search, current
 from invenio_stats import InvenioStats
 from invenio_theme import InvenioTheme
 from kombu import Exchange, Queue
-from mock import patch
+from unittest.mock import patch
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
@@ -102,6 +102,7 @@ from weko_items_ui import WekoItemsUI
 from weko_items_ui.views import blueprint as weko_items_ui_blueprint
 from weko_items_ui.views import blueprint_api as weko_items_ui_blueprint_api
 from weko_records import WekoRecords
+from weko_records.config import WEKO_ITEMTYPE_EXCLUDED_KEYS as _WEKO_ITEMTYPE_EXCLUDED_KEYS
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName,ItemTypeProperty
 from weko_records_ui import WekoRecordsUI
 from weko_records_ui.config import WEKO_RECORDS_UI_LICENSE_DICT
@@ -141,7 +142,7 @@ from invenio_theme import InvenioTheme
 from weko_records import WekoRecords
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -161,9 +162,8 @@ def base_app(instance_path):
         SECRET_KEY="SECRET_KEY",
         TESTING=True,
         SERVER_NAME="test_server",
-        SQLALCHEMY_DATABASE_URI=os.environ.get(
-            "SQLALCHEMY_DATABASE_URI", "sqlite:///test.db"
-        ),
+        SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
+                                          'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         ACCOUNTS_USERINFO_HEADERS=True,
         WEKO_PERMISSION_SUPER_ROLE_USER=[
@@ -202,7 +202,7 @@ def base_app(instance_path):
         DEPOSIT_RECORDS_UI_ENDPOINTS=DEPOSIT_RECORDS_UI_ENDPOINTS,
         DEPOSIT_REST_ENDPOINTS=DEPOSIT_REST_ENDPOINTS,
         DEPOSIT_DEFAULT_STORAGE_CLASS=DEPOSIT_DEFAULT_STORAGE_CLASS,
-        
+
         WEKO_RECORDS_UI_LICENSE_DICT=WEKO_RECORDS_UI_LICENSE_DICT,
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format(
             'test'
@@ -229,8 +229,9 @@ def base_app(instance_path):
         WEKO_SEARCH_REST_ENDPOINTS=WEKO_SEARCH_REST_ENDPOINTS,
         INDEXER_MQ_QUEUE = Queue("indexer", exchange=Exchange("indexer", type="direct"), routing_key="indexer",queue_arguments={"x-queue-type":"quorum"}),
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English")],
+        WEKO_ITEMTYPE_EXCLUDED_KEYS=_WEKO_ITEMTYPE_EXCLUDED_KEYS
     )
-    
+
     app_.config['WEKO_SEARCH_REST_ENDPOINTS']['recid']['search_index']='test-weko'
     # tmp = app_.config['RECORDS_REST_SORT_OPTIONS']['tenant1-weko']
     # app_.config['RECORDS_REST_SORT_OPTIONS']['test-weko']=tmp
@@ -256,7 +257,7 @@ def base_app(instance_path):
     # InvenioOAIServer(app_)
 
     search = InvenioSearch(app_)
- 
+
     # WekoSchemaUI(app_)
     InvenioStats(app_)
 
@@ -298,7 +299,7 @@ def base_app(instance_path):
     return app_
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app(base_app):
     """Flask application fixture."""
     with base_app.app_context():
@@ -306,7 +307,7 @@ def app(base_app):
 
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client_api(app):
     app.register_blueprint(weko_items_ui_blueprint_api, url_prefix="/api/items")
     with app.test_client() as client:
@@ -314,7 +315,7 @@ def client_api(app):
 
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client(app):
     """make a test client.
 
@@ -324,7 +325,7 @@ def client(app):
     Yields:
         FlaskClient: test client
     """
-    app.register_blueprint(weko_items_ui_blueprint, url_prefix="/items")
+    # app.register_blueprint(weko_items_ui_blueprint, url_prefix="/items")
     with app.test_client() as client:
         yield client
 
@@ -378,7 +379,7 @@ def users(app, db):
         originalroleuser = create_test_user(email='originalroleuser@test.org')
         originalroleuser2 = create_test_user(email='originalroleuser2@test.org')
         student = User.query.filter_by(email='student@test.org').first()
-        
+
     role_count = Role.query.filter_by(name='System Administrator').count()
     if role_count != 1:
         sysadmin_role = ds.create_role(name='System Administrator')
@@ -506,12 +507,12 @@ def item_type(app,db):
             id=id, name="テストアイテムタイプ"+str(id), has_site_license=True, is_active=True
         )
 
-        
+
         schema = json_data(data["schema"])
         form = json_data(data["form"])
         render = json_data(data["render"])
         mapping = json_data(data["mapping"])
-        
+
         item_type = ItemType(
             id=id,
             name_id=item_type_name.id,
@@ -535,6 +536,7 @@ def item_type(app,db):
         )
     db.session.commit()
     return itemtype_list
+
 @pytest.fixture()
 def itemtype_props(app,db):
     data = json_data("data/item_type_props.json")
@@ -546,8 +548,8 @@ def itemtype_props(app,db):
     db.session.add_all(props)
     db.session.commit()
     return props
-    
-    
+
+
 @pytest.fixture()
 def admin_settings(db):
     with db.session.begin_nested():
@@ -562,7 +564,7 @@ def admin_settings(db):
         db.session.add(default_properties)
         db.session.add(item_expost)
     db.session.commit()
-    
+
     return {"items_display":items_display,"storage_check":storage_check,"site_license_mail":site_license_mail,"default_properties":default_properties,"item_expost":item_expost}
 
 @pytest.fixture()

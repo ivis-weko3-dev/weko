@@ -9,10 +9,29 @@ from invenio_access.models import ActionUsers
 from invenio_communities.models import Community
 from weko_index_tree.models import IndexStyle,Index
 from invenio_accounts.testutils import login_user_via_session
+from invenio_accounts.models import Role
 from invenio_communities.admin import community_adminview,request_adminview,featured_adminview
 
+# create mock data
+@pytest.fixture
+def mock_role(db):
+    # Delete the existing "Contributor" role
+    existing_role = db.session.query(Role).filter_by(name="Contributor").first()
+    if existing_role:
+        db.session.delete(existing_role)
+        db.session.commit()
+
+    # Create a new instance of the Role
+    role = Role(id="1", name="Contributor")
+    
+    # Add to the DB session
+    db.session.add(role)
+    db.session.commit()
+
+    return role
+
 @pytest.fixture()
-def setup_view_community(app,db,users):
+def setup_view_community(app,db,users,mock_role):
     sysadmin = users[2]["obj"]
     test_index = Index(
             index_name="testIndexOne",
@@ -24,7 +43,8 @@ def setup_view_community(app,db,users):
     db.session.commit()
     comm = Community(
         id="test_comm",
-        id_role=1,root_node_id=11,
+        id_role=mock_role.id,
+        root_node_id=11,
         title="Test comm",
         description="this is test comm",
         id_user=1
@@ -115,71 +135,71 @@ class TestCommunityModelView():
 
     # def edit_form(self, obj):
     # .tox/c1/bin/pytest --cov=invenio_communities tests/test_admin.py::TestCommunityModelView::test_edit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
-    def test_edit(self,setup_view_community,users,mocker):
+    def test_edit(self,setup_view_community,users):
         app, _, _, user, _ = setup_view_community
         with app.test_client() as client:
             login_user_via_session(client,email=user.email)
             url = url_for("community.edit_view",id="test_comm",url="/admin/community/")
-            mock_render = mocker.patch("weko_admin.admin.FacetSearchSettingView.render", return_value=make_response())
-            # get
-            res = client.get(url)
-            assert res.status_code == 200
-            login_user_via_session(client,email=users[0]["email"])
-            res = client.get(url)
-            assert res.status_code == 200
-            
-            login_user_via_session(client,email=user.email)
-            # post
-            # first character is not alphabet,"-","_"
-            data = {
-                "id": "111",
-                "owner": 1,
-                "index": 11,
-                "title": "Test comm after",
-                "description": "this is description of community1."
-            }
-            res = client.post(url,data=data)
-            assert res.status_code == 200
-            assert "The first character cannot be a number or special character. It should be an alphabet character, &#34;-&#34; or &#34;_&#34;" in str(res.data)
-            
-            # first character is alphabet,"-","_"  negative number
-            data = {
-                "id": "-1",
-                "owner": 1,
-                "index": 11,
-                "title": "Test comm after",
-                "description": "this is description of community1."
-            }
-            res = client.post(url,data=data)
-            assert res.status_code == 200
-            assert "Cannot set negative number to ID." in str(res.data)
-            
-            # special character
-            data = {
-                "id": "a-1^^^",
-                "owner": 1,
-                "index": 11,
-                "title": "Test comm after",
-                "description": "this is description of community1."
-            }
-            res = client.post(url,data=data)
-            assert res.status_code == 200
-            assert "Don&#39;t use space or special character except `-` and `_`." in str(res.data)
-            
-            # correct_data
-            data = {
-                "id": "a-123456789",
-                "owner": 1,
-                "index": 11,
-                "title": "Test comm after",
-                "description": "this is description of community1."
-            }
-            res = client.post(url,data=data)
-            assert res.status_code == 302
-            comm = Community.query.filter_by(id="a-123456789").one()
-            assert comm
-            assert comm.title == "Test comm after"
-            assert comm.description == "this is description of community1."
+            with patch("weko_admin.admin.FacetSearchSettingView.render", return_value=make_response()) as mock_render:
+                # get
+                res = client.get(url)
+                assert res.status_code == 200
+                login_user_via_session(client,email=users[0]["email"])
+                res = client.get(url)
+                assert res.status_code == 200
+
+                login_user_via_session(client,email=user.email)
+                # post
+                # first character is not alphabet,"-","_"
+                data = {
+                    "id": "111",
+                    "owner": 1,
+                    "index": 11,
+                    "title": "Test comm after",
+                    "description": "this is description of community1."
+                }
+                res = client.post(url,data=data)
+                assert res.status_code == 200
+                assert "The first character cannot be a number or special character. It should be an alphabet character, &#34;-&#34; or &#34;_&#34;" in str(res.data)
+
+                # first character is alphabet,"-","_"  negative number
+                data = {
+                    "id": "-1",
+                    "owner": 1,
+                    "index": 11,
+                    "title": "Test comm after",
+                    "description": "this is description of community1."
+                }
+                res = client.post(url,data=data)
+                assert res.status_code == 200
+                assert "Cannot set negative number to ID." in str(res.data)
+
+                # special character
+                data = {
+                    "id": "a-1^^^",
+                    "owner": 1,
+                    "index": 11,
+                    "title": "Test comm after",
+                    "description": "this is description of community1."
+                }
+                res = client.post(url,data=data)
+                assert res.status_code == 200
+                assert "Don&#39;t use space or special character except `-` and `_`." in str(res.data)
+
+                # correct_data
+                data = {
+                    "id": "a-123456789",
+                    "owner": 1,
+                    "index": 11,
+                    "title": "Test comm after",
+                    "description": "this is description of community1."
+                }
+                res = client.post(url,data=data)
+                assert res.status_code == 302
+                comm = Community.query.filter_by(id="a-123456789").one()
+                assert comm
+                assert comm.title == "Test comm after"
+                assert comm.description == "this is description of community1."
 
     # def _use_append_repository_edit(self, form, index_id: str):
     # def _get_child_index_list(self):

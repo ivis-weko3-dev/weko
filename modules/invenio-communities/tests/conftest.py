@@ -35,7 +35,7 @@ from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_deposit import InvenioDeposit
 from invenio_files_rest import InvenioFilesREST
-from invenio_files_rest.models import Location
+from invenio_files_rest.models import Location, Bucket
 from invenio_indexer import InvenioIndexer
 from invenio_mail import InvenioMail
 from invenio_oaiserver import InvenioOAIServer
@@ -54,7 +54,8 @@ from weko_records.api import ItemsMetadata
 from invenio_communities import InvenioCommunities
 from invenio_communities.models import Community
 from invenio_communities.views.api import blueprint as api_blueprint
-from invenio_communities.views.ui import create_ui_blueprint
+from invenio_communities.views.ui import Blueprint
+from mock import patch
 
 @pytest.yield_fixture()
 def instance_path():
@@ -70,7 +71,7 @@ def base_app(instance_path, request):
         TESTING=True,
         CELERY_ALWAYS_EAGER=True,
         CELERY_CACHE_BACKEND="memory",
-        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        task_eager_propagates=True,
         CELERY_RESULT_BACKEND="cache",
         COMMUNITIES_MAIL_ENABLED=False,
         SECRET_KEY='CHANGE_ME',
@@ -113,7 +114,7 @@ def base_app(instance_path, request):
     InvenioCommunities(app_)
     InvenioMail(app_)
 
-    ui_blueprint = create_ui_blueprint(app)
+    ui_blueprint = Blueprint('invenio_communities', __name__)
     app_.register_blueprint(ui_blueprint)
     app_.register_blueprint(api_blueprint, url_prefix='/api/communities')
 
@@ -393,9 +394,9 @@ def create_record(db, record_data, item_data):
     return recid, depid, record, item, parent, doi, deposit
 
 @pytest.fixture()
-def db_records(app,db,mocker):
-    mocker.patch("invenio_records.api.before_record_insert.send")
-    mocker.patch("invenio_records.api.after_record_insert.send")
+def db_records(app,db):
+    patch("invenio_records.api.before_record_insert.send")
+    patch("invenio_records.api.after_record_insert.send")
     record_datas = list()
     with open("tests/data/test_record/record_metadata.json") as f:
         record_datas = json.load(f)
@@ -403,7 +404,13 @@ def db_records(app,db,mocker):
     item_datas = list()
     with open("tests/data/test_record/item_metadata.json") as f:
         item_datas = json.load(f)
+    
+    mock_location = Location(id=1, name="mock-location", uri="mock://location", default=True)
+    db.session.add(mock_location)
+    db.session.commit()
 
-    recid, depid, record, item, parent, doi, deposit = create_record(db,record_datas[0],item_datas[0])
+    mock_bucket = Bucket(id=uuid.uuid4(), default_location=1)
+    with patch("invenio_files_rest.models.Bucket.create", return_value=mock_bucket):
+        recid, depid, record, item, parent, doi, deposit = create_record(db, record_datas[0], item_datas[0])
 
     return recid, depid, record, item, parent, doi, deposit

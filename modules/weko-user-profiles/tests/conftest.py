@@ -123,7 +123,6 @@ def req_context(app):
 def register_bp():
     current_app.register_blueprint(blueprint_ui_init)
     current_app.register_blueprint(blueprint_api_init)
-    current_app.register_blueprint(blueprint_profile)
 
 @pytest.yield_fixture
 def db(app):

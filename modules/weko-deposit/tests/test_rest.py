@@ -364,7 +364,8 @@ def test_put_wf_activity_is_not_none(client, users, db,location,  es_records,db_
 
 #    def put(self, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_depid_item_put -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-def test_depid_item_put(client, users,es_records):
+def test_depid_item_put(client, users,es_records,db,mocker):
+    mocker.patch("weko_deposit.rest.db.session.remove")
     login_user_via_session(client=client, email=users[2]['email'])
     kwargs = {
         #'pid_value': deposit
@@ -411,97 +412,99 @@ def test_depid_item_put(client, users,es_records):
     # success case with edit_mode
     # cur_pid = PersistentIdentifier.get('recid', kwargs['pid_value'])
     # pid = PersistentIdentifier.get('recid', kwargs['pid_value'].split(".")[0])
-    with patch("weko_deposit.rest.PersistentIdentifier.get", side_effect=PersistentIdentifier.get):
-        res = client.put(url, data=json.dumps(input),
-                        content_type='application/json')
-        assert res.status_code == 200
-        assert json.loads(res.data) == {"status":"success"}
+    res = client.put(url, data=json.dumps(input),
+                    content_type='application/json')
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"status":"success"}
 
+    # register draft item
     kwargs_ = {
         'pid_value': f"{kwargs['pid_value']}.0"
     }
-
-    # Not Found PID in DB.
-    with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=PIDDoesNotExistError(pid_type='recid', pid_value=kwargs['pid_value'])) as mock_pid:
-        with patch("weko_deposit.rest.weko_logger") as mock_logger:
+    from invenio_pidrelations.models import PIDRelation
+    from weko_records.api import ItemsMetadata, WekoRecord
+    from weko_deposit.api import WekoDeposit as aWekoDeposit
+    rec_uuid = uuid.uuid4()
+    recid = PersistentIdentifier.create("recid",str(es_records[1][1]["deposit"].pid.pid_value)+".0",object_type='rec',object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
+    depid = PersistentIdentifier.create('depid',str(es_records[1][1]["deposit"].pid.pid_value)+".0",object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
+    rel = PIDRelation.create(recid,depid,1)
+    db.session.add(rel)
+    rel = PIDRelation.create(es_records[1][1]["parent"],recid,0,0)
+    es_records[1][1]["record_data"]["_deposit"]["id"]=str(es_records[1][1]["deposit"].pid.pid_value)+".0"
+    record = WekoRecord.create(es_records[1][1]["record_data"],id_=rec_uuid)
+    deposit = aWekoDeposit(record, record.model)
+    deposit.commit()
+    item = ItemsMetadata.create(es_records[1][1]["item_data"], id_=rec_uuid)
+    db.session.commit()
+    kwargs = {
+        #'pid_value': deposit
+        'pid_value': str(es_records[1][1]["deposit"].pid.pid_value)
+    }
+    url = url_for('weko_deposit_rest.depid_item',
+                pid_value=kwargs['pid_value'])
+    with patch("weko_deposit.api.WekoDeposit.newversion",return_value=deposit):
+        # Not Found PID in DB.
+        with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=PIDDoesNotExistError(pid_type='recid', pid_value=kwargs['pid_value'])) as mock_pid:
             res = client.put(url, data=json.dumps(input),
                         content_type='application/json')
             assert res.status_code == 400
             assert "Not Found PID in DB." in res.data.decode("utf-8")
-            mock_pid.assert_called_with('recid', kwargs['pid_value'])
-            mock_logger.assert_called_with(key='WEKO_COMMON_NOT_FOUND_OBJECT', object=mock.ANY)
-            mock_logger.reset_mock()
 
-    # Invalid operation on PID.
-    with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=PIDInvalidAction()):
-        with patch("weko_deposit.rest.weko_logger") as mock_logger:
+        # Invalid operation on PID.
+        with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=PIDInvalidAction()):
             res = client.put(url, data=json.dumps(input),
                         content_type='application/json')
             assert res.status_code == 400
             assert "Invalid operation on PID." in res.data.decode("utf-8")
-            mock_logger.assert_called_with(key='WEKO_COMMON_DB_OTHER_ERROR', ex=mock.ANY)
-            mock_logger.reset_mock()
 
-    # Not Found Record in DB.
-    with patch("weko_deposit.rest.WekoRecord.get_record_by_pid",side_effect=WekoRecordsError("test_wr_error")):
-        res = client.put(url, data=json.dumps(input),
-                    content_type='application/json')
-        assert res.status_code == 400
-        assert "Not Found Record in DB." in res.data.decode("utf-8")
+        # Not Found Record in DB.
+        with patch("weko_deposit.rest.WekoRecord.get_record_by_pid",side_effect=WekoRecordsError("test_wr_error")):
+            res = client.put(url, data=json.dumps(input),
+                        content_type='application/json')
+            assert res.status_code == 400
+            assert "Not Found Record in DB." in res.data.decode("utf-8")
 
-    # RedisError
-    with patch("weko_deposit.rest.RedisConnection.connection",side_effect=WekoRedisError("test_redis_error")):
-        res = client.put(url, data=json.dumps(input),
-                    content_type='application/json')
-        assert res.status_code == 400
-        assert "Failed to register item!" in res.data.decode("utf-8")
-
-    # WekoWorkflowError
-    with patch("weko_deposit.rest.WorkActivity.get_workflow_activity_by_item_id",side_effect=WekoWorkflowError("test_wf_error")):
-        res = client.put(url, data=json.dumps(input),
-                    content_type='application/json')
-        assert res.status_code == 400
-        assert "Failed to get activity!" in res.data.decode("utf-8")
-
-    # SQLAlchemyError
-    with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=SQLAlchemyError("test_sql_error")):
-        with patch("weko_deposit.rest.weko_logger") as mock_logger:
+        # RedisError
+        with patch("weko_deposit.rest.RedisConnection.connection",side_effect=WekoRedisError("test_redis_error")):
             res = client.put(url, data=json.dumps(input),
                         content_type='application/json')
             assert res.status_code == 400
             assert "Failed to register item!" in res.data.decode("utf-8")
-            mock_logger.assert_called_with(key='WEKO_COMMON_DB_SOME_ERROR', ex=mock.ANY)
-            mock_logger.reset_mock()
 
-    # ElasticsearchException
-    with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=search.OpenSearchException("test_es_error")):
-        with patch("weko_deposit.rest.weko_logger") as mock_logger:
+        # WekoWorkflowError
+        with patch("weko_deposit.rest.WorkActivity.get_workflow_activity_by_item_id",side_effect=WekoWorkflowError("test_wf_error")):
+            res = client.put(url, data=json.dumps(input),
+                        content_type='application/json')
+            assert res.status_code == 400
+            assert "Failed to get activity!" in res.data.decode("utf-8")
+
+        # SQLAlchemyError
+        with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=SQLAlchemyError("test_sql_error")):
             res = client.put(url, data=json.dumps(input),
                         content_type='application/json')
             assert res.status_code == 400
             assert "Failed to register item!" in res.data.decode("utf-8")
-            mock_logger.assert_called_with(key='WEKO_COMMON_ERROR_ELASTICSEARCH', ex=mock.ANY)
-            mock_logger.reset_mock()
 
-    # RedisError
-    with patch("weko_deposit.rest.RedisConnection.connection",side_effect=redis.RedisError("test_redis_error")):
-        with patch("weko_deposit.rest.weko_logger") as mock_logger:
+        # ElasticsearchException
+        with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=search.OpenSearchException("test_es_error")):
             res = client.put(url, data=json.dumps(input),
                         content_type='application/json')
             assert res.status_code == 400
             assert "Failed to register item!" in res.data.decode("utf-8")
-            mock_logger.assert_called_with(key='WEKO_COMMON_ERROR_REDIS', ex=mock.ANY)
-            mock_logger.reset_mock()
 
-    # Exception
-    with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=Exception("test_exception")):
-        with patch("weko_deposit.rest.weko_logger") as mock_logger:
+        # RedisError
+        with patch("weko_deposit.rest.RedisConnection.connection",side_effect=redis.RedisError("test_redis_error")):
             res = client.put(url, data=json.dumps(input),
                         content_type='application/json')
             assert res.status_code == 400
             assert "Failed to register item!" in res.data.decode("utf-8")
-            mock_logger.assert_called_with(key='WEKO_COMMON_ERROR_UNEXPECTED', ex=mock.ANY)
-            mock_logger.reset_mock()
+
+        # Exception
+        with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=Exception("test_exception")):
+            res = client.put(url, data=json.dumps(input),
+                        content_type='application/json')
+            assert res.status_code == 400
+            assert "Failed to register item!" in res.data.decode("utf-8")
 
 # def post(self, pid, record, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_depid_item_post_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp

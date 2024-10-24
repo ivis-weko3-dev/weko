@@ -86,9 +86,9 @@ class TestInclusionRequest:
 #     def delete(self):
 #     def create(cls, community, record, user=None, expires_at=None,
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_models.py::TestInclusionRequest::test_create -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
-    def test_create(self,db,db_records,communities,users,mocker):
-        mocker.patch("invenio_records.api.before_record_update.send")
-        mocker.patch("invenio_records.api.after_record_update.send")
+    def test_create(self,db,db_records,communities,users):
+        patch("invenio_records.api.before_record_update.send")
+        patch("invenio_records.api.after_record_update.send")
         record = db_records[2]
         comm = communities[0]
         increq = InclusionRequest.create(
@@ -188,9 +188,9 @@ class TestCommunity:
 #     def filter_communities(cls, p, so, with_deleted=False):
 #     def add_record(self, record):
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_models.py::TestCommunity::test_add_record -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
-    def test_add_record(self, app, db, db_records,communities,mocker):
-        mocker.patch("invenio_records.api.before_record_update.send")
-        mocker.patch("invenio_records.api.after_record_update.send")
+    def test_add_record(self, app, db, db_records,communities):
+        patch("invenio_records.api.before_record_update.send")
+        patch("invenio_records.api.after_record_update.send")
 
         record = db_records[2]
         comm = communities[0]
@@ -215,9 +215,9 @@ class TestCommunity:
 
 #     def remove_record(self, record):
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_models.py::TestCommunity::test_remove_record -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
-    def test_remove_record(self, app, db, db_records, communities, mocker):
-        mocker.patch("invenio_records.api.before_record_update.send")
-        mocker.patch("invenio_records.api.after_record_update.send")
+    def test_remove_record(self, app, db, db_records, communities):
+        patch("invenio_records.api.before_record_update.send")
+        patch("invenio_records.api.after_record_update.send")
         record = db_records[2]
         comm = communities[0]
         rec = Record.get_record(record.id)

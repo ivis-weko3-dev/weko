@@ -25,10 +25,9 @@ from os.path import join
 from datetime import date, datetime, timedelta
 from time import sleep
 import pytest
-from mock import Mock, patch
-from pytest_mock import mocker
+from unittest.mock import Mock, patch
 from flask import Flask, url_for
-from flask_babelex import Babel, lazy_gettext as _
+from flask_babel import Babel, lazy_gettext as _
 from flask_celeryext import FlaskCeleryExt
 from flask_menu import Menu
 from flask_login import current_user, login_user, LoginManager
@@ -71,7 +70,6 @@ from invenio_oaiserver.models import OAISet
 from invenio_pidrelations import InvenioPIDRelations
 from invenio_records import InvenioRecords
 from invenio_search import InvenioSearch
-from inveion_search.engiine import search
 from invenio_stats.config import SEARCH_INDEX_PREFIX as index_prefix
 from invenio_oaiharvester.models import HarvestSettings
 from invenio_stats import InvenioStats
@@ -83,7 +81,7 @@ from invenio_records.models import RecordMetadata
 from invenio_deposit.api import Deposit
 from invenio_communities.models import Community
 from invenio_search import current_search_client, current_search
-from inveion_search.engine import search
+from invenio_search.engine import search
 from invenio_queues.proxies import current_queues
 from invenio_files_rest.permissions import bucket_listmultiparts_all, \
     bucket_read_all, bucket_read_versions_all, bucket_update_all, \
@@ -101,6 +99,7 @@ from invenio_records_rest import InvenioRecordsREST, config
 from invenio_records_rest.facets import terms_filter
 from invenio_rest import InvenioREST
 from invenio_records_rest.views import create_blueprint_from_app
+from invenio_resourcesyncserver.ext import InvenioResourceSyncServer
 from invenio_resourcesyncserver.views import blueprint as resourcesyncserver_blueprint
 
 from weko_deposit.config import WEKO_BUCKET_QUOTA_SIZE, WEKO_MAX_FILE_SIZE
@@ -160,22 +159,35 @@ def celery_config():
 def create_app(instance_path):
     """Application factory fixture."""
     def factory(**config):
-        app = Flask('testapp', instance_path=instance_path)
-        app.config.update(**config)
-        Babel(app)
-        InvenioResourceSyncServer(app)
-        app.register_blueprint(blueprint)
-        return app
+        app_ = Flask('testapp', instance_path=instance_path)
+        app_.config.update(**config)
+        Babel(app_)
+        InvenioResourceSyncServer(app_)
+        app_.register_blueprint(resourcesyncserver_blueprint)
+        return app_
     return factory
 
+class TestSearch(RecordsSearch):
+    """Test record search."""
 
-@pytest.yield_fixture(scope='session')
+    class Meta:
+        """Test configuration."""
+
+        index = 'invenio-records-rest'
+        doc_types = None
+
+    def __init__(self, **kwargs):
+        """Add extra options."""
+        super(TestSearch, self).__init__(**kwargs)
+        self._extra.update(**{'_source': {'excludes': ['_access']}})
+
+@pytest.fixture(scope='session')
 def search_class():
     """Search class."""
     yield TestSearch
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -220,8 +232,7 @@ def base_app(instance_path, request):
         INDEX_IMG='indextree/36466818-image.jpg',
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
-        # SQLALCHEMY_DATABASE_URI=os.environ.get(
-        #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
+
         SEARCH_ELASTIC_HOSTS=os.environ.get(
                     'SEARCH_ELASTIC_HOSTS', 'opensearch'),
         SEARCH_HOSTS=os.environ.get(
@@ -240,15 +251,12 @@ def base_app(instance_path, request):
         DEPOSIT_RECORDS_UI_ENDPOINTS=DEPOSIT_RECORDS_UI_ENDPOINTS,
         DEPOSIT_REST_ENDPOINTS=DEPOSIT_REST_ENDPOINTS,
         DEPOSIT_DEFAULT_STORAGE_CLASS=DEPOSIT_DEFAULT_STORAGE_CLASS,
-        # RECORDS_REST_SORT_OPTIONS=RECORDS_REST_SORT_OPTIONS,
         RECORDS_REST_DEFAULT_LOADERS = {
             'application/json': lambda: request.get_json(),
             'application/json-patch+json': lambda: request.get_json(force=True),
         },
         FILES_REST_OBJECT_KEY_MAX_LEN = 255,
-        # SEARCH_UI_SEARCH_INDEX=SEARCH_UI_SEARCH_INDEX,
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        # SEARCH_ELASTIC_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
         SEARCH_INDEX_PREFIX="{}-".format('test'),
         OAISERVER_ID_PREFIX="oai:inveniosoftware.org:recid/",
         OAISERVER_RECORD_INDEX="_all",
@@ -276,24 +284,6 @@ def base_app(instance_path, request):
         RECORDS_REST_DEFAULT_READ_PERMISSION_FACTORY=None,
         RECORDS_REST_DEFAULT_UPDATE_PERMISSION_FACTORY=None,
         RECORDS_REST_DEFAULT_RESULTS_SIZE=10,
-        # RECORDS_REST_DEFAULT_SEARCH_INDEX=search_class.Meta.index,
-        # RECORDS_REST_FACETS={
-        #     search_class.Meta.index: {
-        #         'aggs': {
-        #             'stars': {'terms': {'field': 'stars'}}
-        #         },
-        #         'post_filters': {
-        #             'stars': terms_filter('stars'),
-        #         }
-        #     }
-        # },
-        # RECORDS_REST_SORT_OPTIONS={
-        #     search_class.Meta.index: dict(
-        #         year=dict(
-        #             fields=['year'],
-        #         )
-        #     )
-        # },
         FILES_REST_DEFAULT_MAX_FILE_SIZE=None,
         WEKO_ADMIN_ENABLE_LOGIN_INSTRUCTIONS = False,
         WEKO_ADMIN_MANAGEMENT_OPTIONS=WEKO_ADMIN_MANAGEMENT_OPTIONS,
@@ -507,8 +497,6 @@ def base_app(instance_path, request):
                 record_class='weko_indextree_journal.api:Journals',
                 admin_indexjournal_route='/admin/indexjournal/<int:journal_id>',
                 journal_route='/admin/indexjournal',
-                # item_tree_journal_route='/tree/journal/<int:pid_value>',
-                # journal_move_route='/tree/journal/move/<int:index_id>',
                 default_media_type='application/json',
                 create_permission_factory_imp='weko_indextree_journal.permissions:indextree_journal_permission',
                 read_permission_factory_imp='weko_indextree_journal.permissions:indextree_journal_permission',
@@ -537,12 +525,9 @@ def base_app(instance_path, request):
                 pid_fetcher='recid',
                 pid_value='1.0',
                 search_class=RecordsSearch,
-                # search_index="test-weko",
-                # search_index=SEARCH_UI_SEARCH_INDEX,
                 search_index="test-weko",
                 search_type='item-v1.0.0',
                 search_factory_imp='weko_search_ui.query.weko_search_factory',
-                # record_class='',
                 record_serializers={
                     'application/json': ('invenio_records_rest.serializers'
                                         ':json_v1_response'),
@@ -615,6 +600,7 @@ def base_app(instance_path, request):
     InvenioJSONSchemas(app_)
     InvenioSearch(app_)
     InvenioRecords(app_)
+    InvenioRecordsREST(app_)
     InvenioREST(app_)
     InvenioIndexer(app_)
     InvenioI18N(app_)
@@ -629,15 +615,6 @@ def base_app(instance_path, request):
     WekoWorkflow(app_)
     WekoGroups(app_)
     WekoAdmin(app_)
-    # WekoTheme(app_)
-    # InvenioCommunities(app_)
-
-    # search = InvenioSearch(app_, client=MockEs())
-    # search.register_mappings(search_class.Meta.index, 'mock_module.mappings')
-    InvenioRecordsREST(app_)
-    # app_.register_blueprint(create_blueprint_from_app(app_))
-    # app_.register_blueprint(weko_theme_blueprint)
-    # app_.register_blueprint(invenio_communities_blueprint)
 
     current_assets = LocalProxy(lambda: app_.extensions["invenio-assets"])
     current_assets.collect.collect()
@@ -645,28 +622,29 @@ def base_app(instance_path, request):
     return app_
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app(base_app):
     """Flask application fixture."""
+    InvenioResourceSyncServer(base_app)
     with base_app.app_context():
         yield base_app
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client(app):
     """Get test client."""
     with app.test_client() as client:
         yield client
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client_api(app):
     app.register_blueprint(resourcesyncserver_blueprint)
     with app.test_client() as client:
         yield client
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def db(app):
     """Get setup database."""
     if not database_exists(str(db_.engine.url)):
@@ -678,12 +656,13 @@ def db(app):
     drop_alembic_version_table()
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def es(app):
     """Elasticsearch fixture."""
     try:
+        current_search_client.indices.delete(index='test-*')
         list(current_search.create())
-    except search..exceptions.RequestError:
+    except search.exceptions.RequestError:
         list(current_search.delete(ignore=[404]))
         list(current_search.create(ignore=[400]))
     current_search_client.indices.refresh()
@@ -691,7 +670,7 @@ def es(app):
     list(current_search.delete(ignore=[404]))
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def i18n_app(app):
     with app.test_request_context(
         headers=[('Accept-Language','ja')]):
@@ -1033,19 +1012,15 @@ def es_records(app, db, db_index, location, db_itemtype, db_oaischema):
                 hdl = PersistentIdentifier.create('hdl', "https://hdl.handle.net/0000/{}".format((str(i)).zfill(10)),object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
 
             record = WekoRecord.create(record_data, id_=rec_uuid)
-            # from six import BytesIO
             from invenio_files_rest.models import Bucket
             from invenio_records_files.models import RecordsBuckets
             import base64
             bucket = Bucket.create()
             record_buckets = RecordsBuckets.create(record=record.model, bucket=bucket)
             stream = BytesIO(b'Hello, World')
-            # record.files['hello.txt'] = stream
-            # obj=ObjectVersion.create(bucket=bucket.id, key='hello.txt', stream=stream)
             record['item_1617605131499']['attribute_value_mlt'][0]['file'] = (base64.b64encode(stream.getvalue())).decode('utf-8')
             deposit = WekoDeposit(record, record.model)
             deposit.commit()
-            # record['item_1617605131499']['attribute_value_mlt'][0]['version_id'] = str(obj.version_id)
             record['item_1617605131499']['attribute_value_mlt'][0]['version_id'] = '1'
 
             record_data['content']= [{"date":[{"dateValue":"2021-07-12","dateType":"Available"}],"accessrole":"open_access","displaytype" : "simple","filename" : "hello.txt","attachment" : {},"format" : "text/plain","mimetype" : "text/plain","filesize" : [{"value" : "1 KB"}],"version_id" : "{}".format('1'),"url" : {"url":"http://localhost/record/{}/files/hello.txt".format(i)},"file":(base64.b64encode(stream.getvalue())).decode('utf-8')}]
@@ -1055,8 +1030,7 @@ def es_records(app, db, db_index, location, db_itemtype, db_oaischema):
             results.append({"depid":depid, "recid":recid, "parent": parent, "doi":doi, "hdl": hdl,"record":record, "record_data":record_data,"item":item , "item_data":item_data,"deposit": deposit})
 
     sleep(3)
-    es = search.client.Opensearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
-    # print(es.cat.indices())
+    es = search.client.OpenSearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
     return {
         "indexer": indexer,
         "results": results

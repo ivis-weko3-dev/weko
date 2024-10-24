@@ -62,7 +62,7 @@ from invenio_stats.contrib.config import (
     EVENTS_CONFIG,
     QUERIES_CONFIG,
 )
-from invenio_stats.config import STATS_EVENTS, STATS_AGGREGATIONS, STATS_QUERIES
+from invenio_stats.config import STATS_EVENTS, STATS_AGGREGATIONS, STATS_QUERIES,STATS_WEKO_DEFAULT_TIMEZONE
 from invenio_stats.contrib.event_builders import (
     build_file_unique_id,
     build_record_unique_id,
@@ -233,6 +233,7 @@ def base_app(instance_path, mock_gethostbyaddr):
         CACHE_REDIS_DB=0,
         CACHE_REDIS_HOST="redis",
         QUEUES_BROKER_URL="amqp://guest:guest@rabbitmq:5672//",
+        STATS_WEKO_DEFAULT_TIMEZONE=STATS_WEKO_DEFAULT_TIMEZONE,
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
@@ -257,7 +258,8 @@ def base_app(instance_path, mock_gethostbyaddr):
         STATS_EVENT_STRING='events',
         INDEXER_MQ_QUEUE=Queue("indexer", exchange=Exchange(
             "indexer", type="direct"), routing_key="indexer", queue_arguments={"x-queue-type": "quorum"}),
-        INDEXER_DEFAULT_INDEX="test-events-stats-file-download-0001",
+        INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
+        SEARCH_UI_SEARCH_INDEX="{}-weko-item-v1.0.0".format("test"),
         I18N_LANGUAGES=[('en', 'English'), ('ja', 'Japanese')],
         SEARCH_ELASTIC_HOSTS=os.environ.get(
             'SEARCH_ELASTIC_HOSTS', 'opensearch'
@@ -457,41 +459,11 @@ def role_users(app, db):
 def queries_config(app, custom_permission_factory):
     """Queries config for the tests."""
     stats_queries = deepcopy(QUERIES_CONFIG)
-    # stats_queries.update(
-    #     {
-    #         "test-query": {
-    #             "cls": CustomQuery,
-    #             "params": {
-    #                 "index": "stats-file-download",
-    #                 "copy_fields": {
-    #                     "bucket_id": "bucket_id",
-    #                 },
-    #                 "required_filters": {
-    #                     "bucket_id": "bucket_id",
-    #                 },
-    #             },
-    #             "permission_factory": custom_permission_factory,
-    #         },
-    #         "test-query2": {
-    #             "cls": CustomQuery,
-    #             "params": {
-    #                 "index": "stats-file-download",
-    #                 "copy_fields": {
-    #                     "bucket_id": "bucket_id",
-    #                 },
-    #                 "required_filters": {
-    #                     "bucket_id": "bucket_id",
-    #                 },
-    #             },
-    #             "permission_factory": custom_permission_factory,
-    #         },
-    #     }
-    # )
-
     # store the original config value
     original_value = app.config.get("STATS_QUERIES")
-    app.config["STATS_QUERIES"] = stats_queries
-    yield stats_queries
+    app.config["STATS_QUERIES"] = original_value
+    # app.config["STATS_QUERIES"] = stats_queries
+    yield original_value
     # set the original value back
     app.config["STATS_QUERIES"] = original_value
 
@@ -589,11 +561,11 @@ def es(app):
 @pytest.fixture(scope='function')
 def db(app):
     """Database fixture."""
-    if not database_exists(str(db_.engine.url)):
-        create_database(str(db_.engine.url))
     with app.app_context():
+        if not database_exists(str(db_.engine.url)):
+            create_database(str(db_.engine.url))
         db_.create_all()
-    return db_
+        return db_
 
 
 @pytest.fixture(scope='function', autouse=True)
@@ -849,8 +821,8 @@ def mock_es_execute():
         if isinstance(data, str):
             with open(data, "r") as f:
                 data = json.load(f)
-        dummy = dsl.response.Response(dsl.Search(), data)
-        return dummy
+            dummy = dsl.response.Response(dsl.Search(), data)
+            return dummy
     return _dummy_response
 
 
@@ -957,8 +929,8 @@ def aggregated_file_download_events(app, es, mock_user_ctx, request):
             app=app, event_type="file-download", **request.param)
 
         from datetime import datetime, timezone
-        start_date = datetime(2022, 10, 1, tzinfo=timezone.utc).isoformat()
-        end_date = datetime(2022, 10, 30, tzinfo=timezone.utc).isoformat()
+        start_date = datetime(2022, 10, 1).isoformat()
+        end_date = datetime(2022, 10, 30).isoformat()
 
         aggregate_events(
             ["file-download-agg"],
@@ -993,23 +965,24 @@ def aggregated_file_preview_events(app, es, mock_user_ctx, request):
 
 @pytest.yield_fixture()
 def stats_events_for_db(app, db):
-    def base_event(id, event_type):
-        return StatsEvents(
-            source_id=str(id),
-            index="test-events-stats-{}".format(event_type),
-            type="stats-{}".format(event_type),
-            source=json.dumps({"test": "test"}),
-            date=datetime.datetime(2023, 1, 1, 1, 0, 0)
-        )
+    with app.test_request_context():
+        def base_event(id, event_type):
+            return StatsEvents(
+                source_id=str(id),
+                index="test-events-stats-{}".format(event_type),
+                type="stats-{}".format(event_type),
+                source=json.dumps({"test": "test"}),
+                date=datetime.datetime(2023, 1, 1, 1, 0, 0)
+            )
 
-    try:
-        with db.session.begin_nested():
-            db.session.add(base_event(1, "top-view"))
-        db.session.commit()
-    except:
-        db.session.rollback()
+        try:
+            with db.session.begin_nested():
+                db.session.add(base_event(1, "top-view"))
+            db.session.commit()
+        except:
+            db.session.rollback()
 
-        yield
+            yield
 
 
 @pytest.fixture()
@@ -1139,29 +1112,42 @@ class CustomQuery:
 
 
 @pytest.fixture()
-def esindex(app):
+def esindex(app,base_app):
     from invenio_search import current_search_client as client
     index_name = app.config["INDEXER_DEFAULT_INDEX"]
     alias_name = "test-events-stats-file-download"
-
-    with open("tests/data/mappings/stats-file-download.json", "r") as f:
+    with open("tests/data/mappings/item-v1.0.0.json", "r") as f:
+#     with open("tests/data/mappings/stats-file-download.json", "r") as f:
         mapping = json.load(f)
+    search_hosts = base_app.config["SEARCH_ELASTIC_HOSTS"]
+    search_client_config = base_app.config["SEARCH_CLIENT_CONFIG"]
+    es = OpenSearch(
+        hosts=[{'host': search_hosts, 'port': 9200}],
+        http_auth=search_client_config['http_auth'],
+        use_ssl=search_client_config['use_ssl'],
+        verify_certs=search_client_config['verify_certs'],
+    )
+    es.indices.delete_alias(
+        index=base_app.config["INDEXER_DEFAULT_INDEX"],
+        name=base_app.config["SEARCH_UI_SEARCH_INDEX"],
+        ignore=[400, 404],
+    )
+    es.indices.delete(index=base_app.config["INDEXER_DEFAULT_INDEX"], ignore=[400, 404])
 
-    with app.test_request_context():
-        client.indices.create(index=index_name, body=mapping)
-        client.indices.put_alias(index=index_name, name=alias_name)
-
-    yield client
-
-    with app.test_request_context():
-        client.indices.delete_alias(index=index_name, name=alias_name)
-        client.indices.delete(index=index_name, ignore=[400, 404])
-
+    es.indices.create(
+        index=base_app.config["INDEXER_DEFAULT_INDEX"], body=mapping, ignore=[400, 404]
+    )
+    es.indices.put_alias(
+        index=base_app.config["INDEXER_DEFAULT_INDEX"],
+        name=base_app.config["SEARCH_UI_SEARCH_INDEX"],
+        ignore=[400, 404],
+    )
+    with base_app.app_context():
+        yield es
 
 @pytest.fixture()
 def i18n_app(app):
-    with app.test_request_context(
-            headers=[('Accept-Language', 'ja')]):
+    with app.test_request_context(headers=[('Accept-Language','ja')]):
         app.extensions['invenio-oauth2server'] = 1
         app.extensions['invenio-search'] = MagicMock()
         app.extensions['invenio-i18n'] = MagicMock()

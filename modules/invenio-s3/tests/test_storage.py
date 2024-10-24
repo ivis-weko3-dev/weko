@@ -54,7 +54,13 @@ def test_non_s3_path(location, tmpdir):
     S3FileSystem.default_block_size + 1,
     S3FileSystem.default_block_size * 2,
     (S3FileSystem.default_block_size * 2) + 1,
-))
+), ids=[
+    '1_bytes',
+    'default_block_size',
+    'default_block_size_plus_1',
+    'default_block_size_times_2',
+    'default_block_size_times_2_plus_1'
+])
 def test_initialize(location, s3_bucket, s3fs, file_size):
     """Test init of files."""
     uri, size, checksum = s3fs.initialize(size=file_size)
@@ -108,7 +114,13 @@ def test_delete(location, s3_bucket, s3fs_testpath, s3fs):
     os.urandom((S3FileSystem.default_block_size + 1)),
     os.urandom((S3FileSystem.default_block_size * 2)),
     os.urandom(((S3FileSystem.default_block_size * 2) + 1)),
-))
+), ids=[
+    'test',
+    'default_block_size',
+    'default_block_size_plus_1',
+    'default_block_size_times_2',
+    'default_block_size_times_2_plus_1'
+])
 def test_save(location, s3_bucket, s3fs_testpath, s3fs, get_md5, data):
     """Test save."""
     uri, size, checksum = s3fs.save(BytesIO(data))
@@ -189,7 +201,13 @@ def test_save_limits(location, s3fs):
     S3FileSystem.default_block_size + 1,
     S3FileSystem.default_block_size * 2,
     (S3FileSystem.default_block_size * 2) + 1,
-))
+), ids=[
+    '100_bytes',
+    'default_block_size',
+    'default_block_size_plus_1',
+    'default_block_size_times_2',
+    'default_block_size_times_2_plus_1'
+])
 def test_update(location, s3fs, get_md5, file_size):
     """Test update file."""
     s3fs.initialize(size=file_size)

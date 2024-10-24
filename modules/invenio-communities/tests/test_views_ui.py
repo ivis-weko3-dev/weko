@@ -23,18 +23,18 @@ def test_sanitize_html(app):
 
 # def pass_community(f):
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_views_ui.py::test_pass_community -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp    
-def test_pass_community(app,db,communities,mocker):
+def test_pass_community(app,db,communities):
     result = pass_community(lambda x:x)(community_id="comm1")
     assert result.id == "comm1"
     
-    mock_abort = mocker.patch("invenio_communities.views.ui.abort",return_value=make_response())
-    result = pass_community(lambda x:x)(community_id="not_exist_comm")
-    mock_abort.assert_called_with(404)
+    with patch("invenio_communities.views.ui.abort",return_value=make_response()) as mock_abort:
+        result = pass_community(lambda x:x)(community_id="not_exist_comm")
+        mock_abort.assert_called_with(404)
 
 
 # def permission_required(action):
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_views_ui.py::test_permission_required -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp    
-def test_permission_required(app,db,users,mocker):
+def test_permission_required(app,db,users):
    
     index = Index()
     db.session.add(index)
@@ -53,15 +53,15 @@ def test_permission_required(app,db,users,mocker):
 
         with patch("flask_login.utils._get_user", return_value=users[7]["obj"]):
             client.get("/")
-            mock_abort = mocker.patch("invenio_communities.views.ui.abort",return_value=make_response())
-            result = permission_required("community-edit")(lambda x: x)(community=comm0)
-            mock_abort.assert_called_with(403)
+            with patch("invenio_communities.views.ui.abort",return_value=make_response()) as mock_abort:
+                result = permission_required("community-edit")(lambda x: x)(community=comm0)
+                mock_abort.assert_called_with(403)
 
 # def format_item(item, template, name='item'):
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_views_ui.py::test_format_item -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp    
-def test_format_item(app,mocker):
+def test_format_item(app):
     template_value = app.jinja_env.from_string("test_value: {{ name }}")
-    mocker.patch("invenio_communities.utils.current_app.jinja_env.get_or_select_template",return_value=template_value)
+    patch("invenio_communities.utils.current_app.jinja_env.get_or_select_template",return_value=template_value)
     item = "test_item"
     template = "test_template"
     name = "name"
@@ -87,7 +87,7 @@ def test_mycommunities_ctx(app,db,users):
 # def index():
 # def view(community):
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_views_ui.py::test_view -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp    
-def test_view(client,app,db,communities,mocker):
+def test_view(client,app,db,communities):
     app.config.update(
         WEKO_INDEX_TREE_STYLE_OPTIONS={
                 'id': 'weko',
@@ -111,37 +111,37 @@ def test_view(client,app,db,communities,mocker):
         ),
         THEME_FRONTPAGE_TEMPLATE = "weko_theme/frontpage.html"
         )
-    mocker.patch("invenio_communities.views.ui.get_search_detail_keyword",return_value=[])
+    patch("invenio_communities.views.ui.get_search_detail_keyword",return_value=[])
 
     url = url_for("invenio_communities.view",community_id="comm1")
-    mock_render = mocker.patch("invenio_communities.views.ui.render_template",return_value=make_response())
-    res = client.get(url)
-    assert res.status_code == 200
-    args, kwargs = mock_render.call_args
-    assert args[0] == "weko_theme/frontpage.html"
-    assert kwargs["sort_option"] == {"records": {"bestmatch": {"title": "Best match", "fields": ["_score"], "default_order": "desc", "order": 1}, "mostrecent": {"title": "Most recent", "fields": ["-_created"], "default_order": "asc", "order": 2}}}
-    assert kwargs["detail_condition"] == []
-    assert kwargs["community_id"] == "comm1"
-    assert kwargs["width"] == "3"
-    assert kwargs["height"] == None
-    assert kwargs["community"].id == "comm1"
-    assert kwargs["display_facet_search"] == False
-    assert kwargs["display_index_tree"] == True
+    with patch("invenio_communities.views.ui.render_template",return_value=make_response()) as mock_render:
+        res = client.get(url)
+        assert res.status_code == 200
+        args, kwargs = mock_render.call_args
+        assert args[0] == "weko_theme/frontpage.html"
+        assert kwargs["sort_option"] == {"records": {"bestmatch": {"title": "Best match", "fields": ["_score"], "default_order": "desc", "order": 1}, "mostrecent": {"title": "Most recent", "fields": ["-_created"], "default_order": "asc", "order": 2}}}
+        assert kwargs["detail_condition"] == []
+        assert kwargs["community_id"] == "comm1"
+        assert kwargs["width"] == "3"
+        assert kwargs["height"] == None
+        assert kwargs["community"].id == "comm1"
+        assert kwargs["display_facet_search"] == False
+        assert kwargs["display_index_tree"] == True
     
     url = url_for("invenio_communities.view",community_id="comm1",view="weko")
-    mock_render = mocker.patch("invenio_communities.views.ui.render_template",return_value=make_response())
-    res = client.get(url)
-    assert res.status_code == 200
-    args, kwargs = mock_render.call_args
-    assert args[0] == "weko_theme/frontpage.html"
-    assert kwargs["sort_option"] == {"records": {"bestmatch": {"title": "Best match", "fields": ["_score"], "default_order": "desc", "order": 1}, "mostrecent": {"title": "Most recent", "fields": ["-_created"], "default_order": "asc", "order": 2}}}
-    assert kwargs["detail_condition"] == []
-    assert kwargs["community_id"] == "comm1"
-    assert kwargs["width"] == "3"
-    assert kwargs["height"] == None
-    assert kwargs["community"].id == "comm1"
-    assert kwargs["display_facet_search"] == False
-    assert kwargs["display_index_tree"] == True
+    with patch("invenio_communities.views.ui.render_template",return_value=make_response()) as mock_render:
+        res = client.get(url)
+        assert res.status_code == 200
+        args, kwargs = mock_render.call_args
+        assert args[0] == "weko_theme/frontpage.html"
+        assert kwargs["sort_option"] == {"records": {"bestmatch": {"title": "Best match", "fields": ["_score"], "default_order": "desc", "order": 1}, "mostrecent": {"title": "Most recent", "fields": ["-_created"], "default_order": "asc", "order": 2}}}
+        assert kwargs["detail_condition"] == []
+        assert kwargs["community_id"] == "comm1"
+        assert kwargs["width"] == "3"
+        assert kwargs["height"] == None
+        assert kwargs["community"].id == "comm1"
+        assert kwargs["display_facet_search"] == False
+        assert kwargs["display_index_tree"] == True
 
 
 # # def detail(community):
@@ -150,7 +150,7 @@ def test_view(client,app,db,communities,mocker):
 
 # def generic_item(community, template, **extra_ctx):
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_views_ui.py::test_generic_item -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp    
-def test_generic_item(app,db,users,mocker):
+def test_generic_item(app,db,users):
     index = Index()
     db.session.add(index)
     db.session.commit()
@@ -160,7 +160,7 @@ def test_generic_item(app,db,users,mocker):
                              root_node_id=1)
     db.session.commit()
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
-        mock_render = mocker.patch("invenio_communities.views.ui.render_template",return_value=make_response())
+        mock_render = patch("invenio_communities.views.ui.render_template",return_value=make_response())
         result = generic_item(community,"test_template.html")
         args,kwargs = mock_render.call_args
         
@@ -177,7 +177,7 @@ def test_generic_item(app,db,users,mocker):
 # # def curate(community):
 # def community_list():
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_views_ui.py::test_community_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp    
-def test_community_list(client,app,db,users,mocker):
+def test_community_list(client,app,db,users):
     index = Index()
     db.session.add(index)
     db.session.commit()
@@ -191,7 +191,7 @@ def test_community_list(client,app,db,users,mocker):
     )
     url = url_for("invenio_communities.community_list")
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
-        mock_render = mocker.patch("invenio_communities.views.ui.render_template",return_value=make_response())
+        mock_render = patch("invenio_communities.views.ui.render_template",return_value=make_response())
         res = client.get(url)
         assert res.status_code == 200
         args,kwargs = mock_render.call_args

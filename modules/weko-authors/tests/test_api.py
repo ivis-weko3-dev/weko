@@ -45,10 +45,10 @@ class MockClient():
 class TestWekoAuthors:
 #     def create(cls, data):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_api.py::TestWekoAuthors::test_create -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
-    @pytest.mark.parametrize('base_app2',[dict(
+    @pytest.mark.parametrize('base_app',[dict(
         is_es=True
-    )],indirect=['base_app2'])
-    def test_create(self,app2,db,esindex):
+    )],indirect=['base_app'])
+    def test_create(self,app,db,esindex):
         id = 1
         es_id = uuid.uuid4()
         with patch("weko_authors.api.Authors.get_sequence",return_value=id):
@@ -57,7 +57,7 @@ class TestWekoAuthors:
                 WekoAuthors.create(data)
                 db.session.commit()
                 author = Authors.query.filter_by(id=id).one()
-                test = {"authorIdInfo": [{"authorId": "1", "authorIdShowFlg": "true", "idType": "1"}], "gather_flg": 0, "id": 1, "pk_id": "1"}
+                test = {"authorIdInfo": [{"authorId": "1", "authorIdShowFlg": "true", "idType": "1"}], "gather_flg": 0, "id": str(es_id), "pk_id": "1"}
                 assert author
                 assert author.json == test
                 # res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],id=str(es_id))
@@ -75,17 +75,17 @@ class TestWekoAuthors:
 
                     author = Authors.query.filter_by(id=id).one_or_none()
                     assert author == None
-                    with pytest.raises(search.NotFound):
+                    with pytest.raises(search.NotFoundError):
                         # res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],id=str(es_id))
                         res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],id=str(es_id))
 
 #     def update(cls, author_id, data):
 #         def update_es_data(data):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_api.py::TestWekoAuthors::test_update -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
-    @pytest.mark.parametrize('base_app2',[dict(
+    @pytest.mark.parametrize('base_app',[dict(
         is_es=True
-    )],indirect=['base_app2'])
-    def test_update(self,app2,db,esindex,create_author):
+    )],indirect=['base_app'])
+    def test_update(self,app,db,esindex,create_author):
         test_data = {
             "authorNameInfo": [{"familyName": "テスト","firstName": "ハナコ","fullName": "","language": "ja-Kana","nameFormat": "familyNmAndNm","nameShowFlg": "true"}],
             "authorIdInfo": [{"idType": "2","authorId": "01234","authorIdShowFlg": "true"}],
@@ -153,7 +153,7 @@ class TestWekoAuthors:
         author = Authors(id=author_id,json=test_data)
         db.session.add(author)
         db.session.commit()
-        with pytest.raises(search.NotFound):
+        with pytest.raises(search.NotFoundError):
             # res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],id=str(es_id))
             res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],id=str(es_id))
         data={
@@ -165,7 +165,6 @@ class TestWekoAuthors:
         WekoAuthors.update(author_id,data)
         db.session.commit()
         assert Authors.query.filter_by(id=author_id).one().is_deleted==True
-        # res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],id=str(es_id))
         res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],id=str(es_id))
         assert res["_source"]["is_deleted"] == True
 
@@ -187,8 +186,7 @@ class TestWekoAuthors:
         db.session.add(author)
         db.session.commit()
         current_search_client.index(
-            index=app2.config["WEKO_AUTHORS_ES_INDEX_NAME"],
-            # doc_type=app.config['WEKO_AUTHORS_ES_DOC_TYPE'],
+            index=app.config["WEKO_AUTHORS_ES_INDEX_NAME"],
             id=es_id2,
             body=es_data,
             refresh='true')
@@ -201,13 +199,12 @@ class TestWekoAuthors:
         WekoAuthors.update(author_id,data)
         db.session.commit()
         assert Authors.query.filter_by(id=author_id).one().is_deleted==True
-        # res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],id=str(es_id))
         res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],id=str(es_id))
         assert res["_source"]["is_deleted"] == True
 
 #     def get_all(cls, with_deleted=True, with_gather=True):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_api.py::TestWekoAuthors::test_get_all -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
-    def test_get_all(self,app2,authors):
+    def test_get_all(self,app,authors):
         result = WekoAuthors.get_all()
         assert authors
         result = WekoAuthors.get_all(False,False)
@@ -242,44 +239,44 @@ class TestWekoAuthors:
 #     def prepare_export_data(cls, mappings, authors, schemes):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_api.py::TestWekoAuthors::test_prepare_export_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
     def test_prepare_export_data(self,db, authors):
-        patch("weko_authors.api.WekoAuthors.get_all",return_value=authors)
-        scheme_info={"1":{"scheme":"WEKO","url":None},"2":{"scheme":"ORCID","url":"https://orcid.org/##"}}
-        patch("weko_authors.api.WekoAuthors.get_identifier_scheme_info",return_value=scheme_info)
-        header, label_en,label_jp,data = WekoAuthors.prepare_export_data(None,None,None)
-        assert header == ["#pk_id","authorNameInfo[0].familyName","authorNameInfo[0].firstName","authorNameInfo[0].language","authorNameInfo[0].nameFormat","authorNameInfo[0].nameShowFlg","authorIdInfo[0].idType","authorIdInfo[0].authorId","authorIdInfo[0].authorIdShowFlg","emailInfo[0].email","is_deleted"]
-        assert label_en == ["#WEKO ID","Family Name[0]","Given Name[0]","Language[0]","Name Format[0]","Name Display[0]","Identifier Scheme[0]","Identifier[0]","Identifier Display[0]","Mail Address[0]","Delete Flag"]
-        assert label_jp == ["#WEKO ID","姓[0]","名[0]","言語[0]","フォーマット[0]","姓名・言語 表示／非表示[0]","外部著者ID 識別子[0]","外部著者ID[0]","外部著者ID 表示／非表示[0]","メールアドレス[0]","削除フラグ"]
+        with patch("weko_authors.api.WekoAuthors.get_all",return_value=authors):
+            scheme_info={"1":{"scheme":"WEKO","url":None},"2":{"scheme":"ORCID","url":"https://orcid.org/##"}}
+            with patch("weko_authors.api.WekoAuthors.get_identifier_scheme_info",return_value=scheme_info):
+                header, label_en,label_jp,data = WekoAuthors.prepare_export_data(None,None,None)
+                assert header == ["#pk_id","authorNameInfo[0].familyName","authorNameInfo[0].firstName","authorNameInfo[0].language","authorNameInfo[0].nameFormat","authorNameInfo[0].nameShowFlg","authorIdInfo[0].idType","authorIdInfo[0].authorId","authorIdInfo[0].authorIdShowFlg","emailInfo[0].email","is_deleted"]
+                assert label_en == ["#WEKO ID","Family Name[0]","Given Name[0]","Language[0]","Name Format[0]","Name Display[0]","Identifier Scheme[0]","Identifier[0]","Identifier Display[0]","Mail Address[0]","Delete Flag"]
+                assert label_jp == ["#WEKO ID","姓[0]","名[0]","言語[0]","フォーマット[0]","姓名・言語 表示／非表示[0]","外部著者ID 識別子[0]","外部著者ID[0]","外部著者ID 表示／非表示[0]","メールアドレス[0]","削除フラグ"]
 
-        assert data == [["1","テスト","太郎","ja","familyNmAndNm","Y","ORCID","1234","Y","test.taro@test.org",""],
-                        ["2","test","smith","en","familyNmAndNm","Y","ORCID","5678","Y","test.smith@test.org",""]]
+                assert data == [["1","テスト","太郎","ja","familyNmAndNm","Y","ORCID","1234","Y","test.taro@test.org",""],
+                                ["2","test","smith","en","familyNmAndNm","Y","ORCID","5678","Y","test.smith@test.org",""]]
 
         # authors is false
-        patch("weko_authors.api.WekoAuthors.get_all",return_value=[])
-        header, label_en,label_jp,data = WekoAuthors.prepare_export_data(None,None,None)
-        assert header == ["#pk_id","authorNameInfo[0].familyName","authorNameInfo[0].firstName","authorNameInfo[0].language","authorNameInfo[0].nameFormat","authorNameInfo[0].nameShowFlg","authorIdInfo[0].idType","authorIdInfo[0].authorId","authorIdInfo[0].authorIdShowFlg","emailInfo[0].email","is_deleted"]
-        assert label_en == ["#WEKO ID","Family Name[0]","Given Name[0]","Language[0]","Name Format[0]","Name Display[0]","Identifier Scheme[0]","Identifier[0]","Identifier Display[0]","Mail Address[0]","Delete Flag"]
-        assert label_jp == ["#WEKO ID","姓[0]","名[0]","言語[0]","フォーマット[0]","姓名・言語 表示／非表示[0]","外部著者ID 識別子[0]","外部著者ID[0]","外部著者ID 表示／非表示[0]","メールアドレス[0]","削除フラグ"]
+        with patch("weko_authors.api.WekoAuthors.get_all",return_value=[]):
+            header, label_en,label_jp,data = WekoAuthors.prepare_export_data(None,None,None)
+            assert header == ["#pk_id","authorNameInfo[0].familyName","authorNameInfo[0].firstName","authorNameInfo[0].language","authorNameInfo[0].nameFormat","authorNameInfo[0].nameShowFlg","authorIdInfo[0].idType","authorIdInfo[0].authorId","authorIdInfo[0].authorIdShowFlg","emailInfo[0].email","is_deleted"]
+            assert label_en == ["#WEKO ID","Family Name[0]","Given Name[0]","Language[0]","Name Format[0]","Name Display[0]","Identifier Scheme[0]","Identifier[0]","Identifier Display[0]","Mail Address[0]","Delete Flag"]
+            assert label_jp == ["#WEKO ID","姓[0]","名[0]","言語[0]","フォーマット[0]","姓名・言語 表示／非表示[0]","外部著者ID 識別子[0]","外部著者ID[0]","外部著者ID 表示／非表示[0]","メールアドレス[0]","削除フラグ"]
 
-        assert data == []
+            assert data == []
 
 
-        author = {
-            "authorNameInfo":[],
-            "authorIdInfo":[],
-            "emailInfo":[]
-        }
-        a = Authors(
-            gather_flg=0,
-            is_deleted=False,
-            json=author
-        )
-        mapping = WEKO_AUTHORS_FILE_MAPPING
-        header, label_en,label_jp,data = WekoAuthors.prepare_export_data(mapping,[a],scheme_info)
+            author = {
+                "authorNameInfo":[],
+                "authorIdInfo":[],
+                "emailInfo":[]
+            }
+            a = Authors(
+                gather_flg=0,
+                is_deleted=False,
+                json=author
+            )
+            mapping = WEKO_AUTHORS_FILE_MAPPING
+            header, label_en,label_jp,data = WekoAuthors.prepare_export_data(mapping,[a],scheme_info)
 
-        assert header == ["#pk_id","authorNameInfo[0].familyName","authorNameInfo[0].firstName","authorNameInfo[0].language","authorNameInfo[0].nameFormat","authorNameInfo[0].nameShowFlg","authorIdInfo[0].idType","authorIdInfo[0].authorId","authorIdInfo[0].authorIdShowFlg","emailInfo[0].email","is_deleted"]
-        assert label_en == ["#WEKO ID","Family Name[0]","Given Name[0]","Language[0]","Name Format[0]","Name Display[0]","Identifier Scheme[0]","Identifier[0]","Identifier Display[0]","Mail Address[0]","Delete Flag"]
-        assert label_jp == ["#WEKO ID","姓[0]","名[0]","言語[0]","フォーマット[0]","姓名・言語 表示／非表示[0]","外部著者ID 識別子[0]","外部著者ID[0]","外部著者ID 表示／非表示[0]","メールアドレス[0]","削除フラグ"]
+            assert header == ["#pk_id","authorNameInfo[0].familyName","authorNameInfo[0].firstName","authorNameInfo[0].language","authorNameInfo[0].nameFormat","authorNameInfo[0].nameShowFlg","authorIdInfo[0].idType","authorIdInfo[0].authorId","authorIdInfo[0].authorIdShowFlg","emailInfo[0].email","is_deleted"]
+            assert label_en == ["#WEKO ID","Family Name[0]","Given Name[0]","Language[0]","Name Format[0]","Name Display[0]","Identifier Scheme[0]","Identifier[0]","Identifier Display[0]","Mail Address[0]","Delete Flag"]
+            assert label_jp == ["#WEKO ID","姓[0]","名[0]","言語[0]","フォーマット[0]","姓名・言語 表示／非表示[0]","外部著者ID 識別子[0]","外部著者ID[0]","外部著者ID 表示／非表示[0]","メールアドレス[0]","削除フラグ"]
 
-        assert data == [[None,None,None,None,None,None,None,None,None,None,None]]
+            assert data == [[None,None,None,None,None,None,None,None,None,None,None]]
 
 

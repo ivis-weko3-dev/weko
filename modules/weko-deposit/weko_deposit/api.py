@@ -23,7 +23,7 @@ import copy
 import uuid
 
 from collections import OrderedDict
-
+from opensearchpy.helpers import bulk
 from datetime import datetime, timezone,date
 from typing import NoReturn, Union
 from tika import parser
@@ -31,7 +31,6 @@ from redis import RedisError
 from dictdiffer import dot_lookup
 from dictdiffer.merge import Merger, UnresolvedConflictsException
 from invenio_search.engine import search
-
 from flask import abort, current_app, json, request, session
 from flask_security import current_user
 from invenio_db import db
@@ -322,6 +321,7 @@ class WekoIndexer(RecordIndexer):
 
         Raises:
             search.OpenSearchException:
+
                 If an error occurs during the update process (excluding errors
                 with status codes 400 and 404, which are ignored).
         """
@@ -397,13 +397,12 @@ class WekoIndexer(RecordIndexer):
                 }
             }
 
-        if update_revision:# TODO version があるとエラー
+        if update_revision:
             weko_logger(key='WEKO_COMMON_IF_ENTER',
                         branch='update_revision is True')
             result = self.client.update(
                 index=self.es_index,
                 id=str(record.id),
-                version=record.revision_id,
                 body=body
             )
 
@@ -1160,7 +1159,6 @@ class WekoDeposit(Deposit):
                     'displayname': user._displayname if user else '',
                     'email': current_user.email
                 }
-
         if recid:
             weko_logger(key='WEKO_COMMON_IF_ENTER',
                         branch='recid is not None')
@@ -1615,8 +1613,8 @@ class WekoDeposit(Deposit):
             weko_logger(key='WEKO_DEPOSIT_PID_STATUS_NOT_REGISTERED',
                         pid=pid)
             raise WekoDepositError(msg="PID status is not registered.")
-
-        if not record or versioning.is_child is None or versioning.draft_child:
+            
+        if not record or parent_pid is None or versioning.draft_child:
             weko_logger(key='WEKO_COMMON_IF_ENTER',
                         branch='record is None or versioning does not exists '
                                 'or draft_child exists')
@@ -1654,7 +1652,7 @@ class WekoDeposit(Deposit):
 
         PIDNodeVersioning(
             pid=parent_pid).insert_draft_child(
-            child=recid)
+            recid)
         PIDNodeDraft(pid=recid).insert_child(depid)
         if is_draft:
             weko_logger(key='WEKO_COMMON_IF_ENTER',

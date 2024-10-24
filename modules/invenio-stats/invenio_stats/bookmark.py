@@ -52,7 +52,7 @@ class BookmarkAPI(object):
     def set_bookmark(self, value):
         """Set bookmark for starting next aggregation."""
         _id = self.agg_type
-        _source = {"date": value, "aggregation_type": self.agg_type}
+        _source = {"date": value, "type": self.agg_type}
 
         # Save stats bookmark into Database.
         StatsBookmark.save({

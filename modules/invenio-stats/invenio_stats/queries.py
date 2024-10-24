@@ -514,8 +514,7 @@ class WekoTermsQuery(TermsQuery):
                 time_range["gte"] = start_date.isoformat()
             if end_date is not None:
                 time_range["lte"] = end_date.isoformat()
-            time_range["time_zone"] = current_app.config[
-                "STATS_WEKO_DEFAULT_TIMEZONE"]
+            time_range["time_zone"] = str(current_app.config['STATS_WEKO_DEFAULT_TIMEZONE']())
             agg_query = agg_query.filter("range", **{self.time_field: time_range})
 
         for modifier in self.query_modifiers:

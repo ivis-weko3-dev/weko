@@ -31,7 +31,7 @@ def test_get_service_document(client,users,tokens):
 
 # def post_service_document():
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_post_service_document -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test_post_service_document(app,client,db,users,esindex,location,index,make_zip,tokens,item_type,doi_identifier,mocker):
+def test_post_service_document(app,client,db,users,esindex,location,index,make_zip,tokens,item_type,doi_identifier):
     login_user_via_session(client=client,email=users[0]["email"])
     token=tokens["token"].access_token
     url = url_for("weko_swordserver.post_service_document")
@@ -45,9 +45,9 @@ def test_post_service_document(app,client,db,users,esindex,location,index,make_z
         loc = db.session.query(Location).filter(
                     Location.id == 1).one()
         loc.size = 1547
-    mocker.patch("weko_swordserver.views._get_status_document",side_effect=lambda x:{"recid":x})
-    mocker.patch("weko_search_ui.utils.find_and_update_location_size",side_effect=update_location_size)
-    mocker.patch("weko_search_ui.utils.send_item_created_event_to_es")
+    patch("weko_swordserver.views._get_status_document",side_effect=lambda x:{"recid":x})
+    patch("weko_search_ui.utils.find_and_update_location_size",side_effect=update_location_size)
+    patch("weko_search_ui.utils.send_item_created_event_to_es")
     zip = make_zip()
     storage = FileStorage(filename="payload.zip",stream=zip)
     res = client.post(url, data=dict(file=storage),content_type="multipart/form-data",headers=headers)
@@ -245,8 +245,8 @@ def test_delete_item(client, tokens, users,es_records):
 
 # def _create_error_document(type, error):
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__create_error_document -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test__create_error_document(mocker):
-    mock_datetime = mocker.patch("weko_swordserver.views.datetime")
+def test__create_error_document():
+    mock_datetime = patch("weko_swordserver.views.datetime")
     mock_datetime.now.return_value=datetime.datetime(2022,10,1,2,3,4)
     test = {
         "@context":"https://swordapp.github.io/swordv3/swordv3.jsonld",

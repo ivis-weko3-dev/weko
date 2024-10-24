@@ -150,9 +150,9 @@ def test_manifest_view(app,records):
                 assert httperror.value.code == 500
 
             with patch("invenio_iiif.views.Resolver.resolve",side_effect=PIDRedirectedError("error_pid",records[0][0])):
-                mock_redirect = mocker.patch("invenio_iiif.views.redirect",return_value=make_response())
-                result = manifest_view(pid_value,resolver,permission_factory,manifest_class)
-                mock_redirect.assert_called_with(".recid1")
+                with patch("invenio_iiif.views.redirect", return_value=make_response()) as mock_redirect:
+                    result = manifest_view(pid_value, resolver, permission_factory, manifest_class)
+                    mock_redirect.assert_called_with(".recid1")
                 with patch("invenio_iiif.views.redirect",side_effect=BuildError("endpoint","value","method")):
                     with pytest.raises(HTTPException) as httperror:
                         result = manifest_view(pid_value,resolver,permission_factory,manifest_class)

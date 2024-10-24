@@ -121,7 +121,7 @@ def test_format_request_email_templ(app,db,db_records,communities):
     assert result == test
 
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_utils.py::test_send_community_request_email -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
-def test_send_community_request_email(app,db,db_records,communities,users,mocker):
+def test_send_community_request_email(app,db,db_records,communities,users):
     increq = InclusionRequest(id_community="comm1",id_record=db_records[2].id,id_user=1)
     db.session.add(increq)
     db.session.commit()
@@ -143,24 +143,24 @@ def test_send_community_request_email(app,db,db_records,communities,users,mocker
         "rcpt_options":[],
         "attachments": []
     }
-    mock_send = mocker.patch("invenio_mail.tasks.send_email.delay")
-    send_community_request_email(increq)
-    args, kwargs = mock_send.call_args
-    data = args[0]
-    assert data["recipients"] == ["sysadmin@test.org"]
-    assert data["subject"] == "A record was requested to be added to your community (Title1)."
-    assert data["sender"] == "info@inveniosoftware.org"
-    assert data["reply_to"] == None
-    assert data["cc"] == []
-    assert data["bcc"] == []
-    assert data["body"] == "A new upload requests to be added to your community (Title1):\n\n\nRequested by:  (user@test.org)\n\nRecord Title: [&#39;test_title1&#39;]\nRecord Description: \n\nYou can accept or reject this record in your community curation page:\nhttps://inveniosoftware.org/communities/comm1/curate/"
-    assert data["html"] == None
-    assert data["date"] == None
-    assert data["charset"] == None
-    assert data["extra_headers"] == None
-    assert data["mail_options"] == []
-    assert data["rcpt_options"] ==[]
-    assert data["attachments"] == []
+    with patch("invenio_mail.tasks.send_email.delay") as mock_send:
+        send_community_request_email(increq)
+        args, kwargs = mock_send.call_args
+        data = args[0]
+        assert data["recipients"] == ["sysadmin@test.org"]
+        assert data["subject"] == "A record was requested to be added to your community (Title1)."
+        assert data["sender"] == "info@inveniosoftware.org"
+        assert data["reply_to"] == None
+        assert data["cc"] == []
+        assert data["bcc"] == []
+        assert data["body"] == "A new upload requests to be added to your community (Title1):\n\n\nRequested by:  (user@test.org)\n\nRecord Title: [&#39;test_title1&#39;]\nRecord Description: \n\nYou can accept or reject this record in your community curation page:\nhttps://inveniosoftware.org/communities/comm1/curate/"
+        assert data["html"] == None
+        assert data["date"] == None
+        assert data["charset"] == None
+        assert data["extra_headers"] == None
+        assert data["mail_options"] == []
+        assert data["rcpt_options"] ==[]
+        assert data["attachments"] == []
 
 
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_utils.py::test_get_user_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp

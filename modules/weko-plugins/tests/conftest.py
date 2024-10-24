@@ -29,7 +29,7 @@ from flask import Flask
 from flask_babel import Babel
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -49,7 +49,7 @@ def base_app(instance_path):
     return app_
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app(base_app):
     """Flask application fixture."""
     with base_app.app_context():

@@ -7,6 +7,7 @@ import pytest
 from invenio_accounts.testutils import login_user_via_session
 from invenio_cache import current_cache
 from invenio_files_rest.models import FileInstance
+from jinja2 import Environment
 
 def assert_role(response,is_permission,status_code=403):
     if is_permission:
@@ -43,6 +44,7 @@ class TestAuthorManagementView():
             assert_role(res,is_permission)
     # .tox/c1/bin/pytest --cov=weko_authors tests/test_admin.py::TestAuthorManagementView::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
     def test_index(self,client,users):
+        client.application.jinja_env.add_extension("jinja2.ext.do")
         login_user_via_session(client=client, email=users[0]['email'])
         url = url_for('authors.index')
         # tab_value = author
@@ -104,6 +106,7 @@ class TestAuthorManagementView():
 
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_admin.py::TestAuthorManagementView::test_add -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
     def test_add(self,client,users):
+        client.application.jinja_env.add_extension("jinja2.ext.do")
         login_user_via_session(client=client, email=users[0]['email'])
         url = url_for('authors.add')
         mock_render = patch("weko_authors.admin.AuthorManagementView.render",return_value=make_response())
@@ -144,6 +147,7 @@ class TestAuthorManagementView():
 
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_admin.py::TestAuthorManagementView::test_edit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
     def test_edit(self,client,users):
+        client.application.jinja_env.add_extension("jinja2.ext.do")
         login_user_via_session(client=client, email=users[0]['email'])
         url = url_for('authors.edit')
         mock_render = patch("weko_authors.admin.AuthorManagementView.render",return_value=make_response())
@@ -187,6 +191,7 @@ class TestExportView():
 
     # .tox/c1/bin/pytest --cov=weko_authors tests/test_admin.py::TestExportView::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
     def test_index(self,client,users):
+        client.application.jinja_env.add_extension("jinja2.ext.do")
         login_user_via_session(client=client, email=users[0]['email'])
         url = url_for('authors/export.index')
         mock_render = patch("weko_authors.admin.ExportView.render",return_value=make_response())
@@ -446,6 +451,7 @@ class TestImportView():
 
     # .tox/c1/bin/pytest --cov=weko_authors tests/test_admin.py::TestImportView::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
     def test_index(self,client,users):
+        client.application.jinja_env.add_extension("jinja2.ext.do")
         login_user_via_session(client=client, email=users[0]['email'])
         url = url_for('authors/import.index')
         mock_render = patch("weko_authors.admin.ImportView.render",return_value=make_response())
@@ -561,7 +567,8 @@ class TestImportView():
 
         # not is_available
         with patch("weko_authors.admin.check_is_import_available",return_value={"is_available":False}):
-            res = client.post(url)
+            # res = client.post(url)
+            res = client.post(url,json={})
             assert json.loads(res.data) == {"is_available":False}
 
         patch("weko_authors.admin.check_is_import_available",return_value={"is_available":True})
@@ -637,19 +644,18 @@ class TestImportView():
         tasks = list()
         tasks.append(MockAsyncResult(1,"2022-10-01 01:02:03","2022-10-01 02:03:04","SUCCESS","not_error"))
         tasks.append(MockAsyncResult(2,None,None,None,None))
-        patch("weko_authors.admin.import_author.AsyncResult",side_effect=lambda x:[task for task in tasks if task.id == x][0])
+        with patch("weko_authors.admin.import_author.AsyncResult", side_effect=lambda x: next(task for task in tasks if task.id == x)):
+            # not exist data
+            data = {}
+            res = client.post(url,json=data)
+            assert res.status_code == 200
+            assert json.loads(res.data) == []
 
-        # not exist data
-        data = {}
-        res = client.post(url,json=data)
-        assert res.status_code == 200
-        assert json.loads(res.data) == []
-
-        data = {"tasks":[1,2]}
-        test = [
-            {"task_id":1,"start_date":"2022-10-01 01:02:03","end_date":"2022-10-01 02:03:04","status":"SUCCESS","error_id":"not_error"},
-            {"task_id":2,"start_date":"","end_date":"","status":"PENDING","error_id":None}
-        ]
-        res = client.post(url,json=data)
-        assert res.status_code == 200
-        assert json.loads(res.data) == test
+            data = {"tasks":[1,2]}
+            test = [
+                {"task_id":1,"start_date":"2022-10-01 01:02:03","end_date":"2022-10-01 02:03:04","status":"SUCCESS","error_id":"not_error"},
+                {"task_id":2,"start_date":"","end_date":"","status":"PENDING","error_id":None}
+            ]
+            res = client.post(url,json=data)
+            assert res.status_code == 200
+            assert json.loads(res.data) == test

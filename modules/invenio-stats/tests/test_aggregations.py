@@ -40,19 +40,17 @@ from freezegun import freeze_time
 #     def get_bookmark(self):
 #     def list_bookmarks(self, start_date=None, end_date=None, limit=None):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_aggregations.py::test_BookmarkAPI -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
-def test_BookmarkAPI(app):
+def test_BookmarkAPI(app,db):
     with app.app_context():
-        bookmark_api = BookmarkAPI(current_search_client,
-                                "file-download-agg",
-                                "day")
+        bookmark_api = BookmarkAPI("file-download-agg","day")
         bookmark_api.set_bookmark("2021-01-01")
         time.sleep(10)
-        res = bookmark_api.get_bookmark()
+        res = bookmark_api.get_bookmark(refresh_time=0)
         assert res==datetime.datetime(2021, 1, 1)
 
         res = bookmark_api.list_bookmarks(start_date="2021-01-01", end_date="2021-02-01")
         for b in res:
-            assert b.date=="2021-01-01"
+            assert b.date==datetime.datetime(2021, 1, 1, 0, 0)
 
 # class StatAggregator(object):
 #     def __init__(self, name, event, client=None,

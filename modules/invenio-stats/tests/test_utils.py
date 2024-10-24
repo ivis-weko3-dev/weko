@@ -176,7 +176,7 @@ def test_is_valid_access(app):
                                start_date=datetime.date(2022, 10, 3),
                                end_date=datetime.date(2022, 10, 3))],
                          indirect=['aggregated_file_download_events'])
-def test_query_file_reports_helper(app, event_queues, aggregated_file_download_events):
+def test_query_file_reports_helper(app, db, event_queues, aggregated_file_download_events):
     with app.app_context():# calc_per_group_counts
         res = QueryFileReportsHelper.calc_per_group_counts('test1, test1, test2', {}, 1)
         assert res=={'test1': 2, 'test2': 1}
@@ -367,6 +367,7 @@ def test_query_search_report_helper(app):
                 year=2022, month=10, start_date='2022-10-01', end_date='2022-10-31')
             assert res=={'all': [{'search_key': 'key2', 'count': 7}, {'search_key': 'key1', 'count': 4}]}
 
+# .tox/c1/bin/pytest --cov=invenio_stats tests/test_utils.py::test_query_search_report_helper_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 def test_query_search_report_helper_error(app):
     with app.app_context():
         res = QuerySearchReportHelper.get(
@@ -476,8 +477,10 @@ def test_query_common_reports_helper_error(app):
 #     def parse_bucket_response(cls, aggs, result):
 #     def get(cls, **kwargs):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_utils.py::test_query_record_view_per_index_report_helper -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
-def test_query_record_view_per_index_report_helper(app):
+def test_query_record_view_per_index_report_helper(app,esindex):
     with app.app_context():
+        app.config["SEARCH_INDEX_PREFIX"]="tenant1"
+        # app.SEARCH_INDEX_PREFIX
         # build_query
         res = QueryRecordViewPerIndexReportHelper.build_query(None, None, 'test_key')
         assert res.to_dict()=={'aggs': {'record_index_list': {'nested': {'path': 'record_index_list'}, 'aggs': {'my_buckets': {'composite': {'size': 6000, 'sources': [{'record_index_list.index_id': {'terms': {'field': 'record_index_list.index_id'}}}, {'record_index_list.index_name': {'terms': {'field': 'record_index_list.index_name'}}}], 'after': 'test_key'}}}}}, 'from': 0, 'size': 0}
@@ -600,12 +603,13 @@ def test_query_record_view_report_helper(app, db, records):
 
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_utils.py::test_query_record_view_report_helper_error -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 def test_query_record_view_report_helper_error(app, db):
-    # get
-    res = QueryRecordViewReportHelper.get(start_date='2022-09-01', end_date='2022-09-30', ranking=True)
-    assert res=={'all': [], 'date': ''}
+    with app.app_context():
+        # get
+        res = QueryRecordViewReportHelper.get(start_date='2022-09-01', end_date='2022-09-30', ranking=True)
+        assert res=={'all': [], 'date': ''}
 
-    res = QueryRecordViewReportHelper.get()
-    assert res=={'all': [], 'date': 'None-None'}
+        res = QueryRecordViewReportHelper.get()
+        assert res=={'all': [], 'date': 'None-None'}
 
 # class QueryItemRegReportHelper(object):
 #     def get(cls, **kwargs):
@@ -788,8 +792,11 @@ def test_query_item_reg_report_helper(app, db, event_queues):
     ]
     res = QueryItemRegReportHelper.merge_items_results(_results)
     assert res==[{'col1': 1.0, 'col3': 5}, {'col1': 2.0, 'col3': 4}]
-
-def test_query_item_reg_report_helper_error(i18n_app, queries_config):
+    
+# .tox/c1/bin/pytest --cov=invenio_stats tests/test_utils.py::test_query_item_reg_report_helper_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
+def test_query_item_reg_report_helper_error(i18n_app):
+    if 'invenio-search' in i18n_app.extensions:
+        del i18n_app.extensions['invenio-search']
     # get
     res = QueryItemRegReportHelper.get(target_report='1', unit='Day', start_date='2022-09-01', end_date='2022-09-15')
     assert res=={'data': [], 'num_page': 2, 'page': 1}
@@ -866,13 +873,15 @@ def test_query_ranking_helper(app, db):
         res = QueryRankingHelper.get_new_items(must_not=json.dumps([{"wildcard": {"control_number": "*.*"}}]), start_date='2022-09-01', end_date='2022-09-15')
         assert res==[{'path': 'path1'}]
 
+# .tox/c1/bin/pytest --cov=invenio_stats tests/test_utils.py::test_query_ranking_helper_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 def test_query_ranking_helper_error(app, db):
     # get
-    res = QueryRankingHelper.get(event_type='record-view', group_field='pid_value', count_field='count', start_date='2022-09-01', end_date='2022-09-15')
-    assert res==[]
-    # get_new_items
-    res = QueryRankingHelper.get_new_items(must_not=json.dumps([{"wildcard": {"control_number": "*.*"}}]), start_date='2022-09-01', end_date='2022-09-15')
-    assert res==[]
+    with app.app_context():
+        res = QueryRankingHelper.get(event_type='record-view', group_field='pid_value', count_field='count', start_date='2022-09-01', end_date='2022-09-15')
+        assert res==[]
+        # get_new_items
+        res = QueryRankingHelper.get_new_items(must_not=json.dumps([{"wildcard": {"control_number": "*.*"}}]), start_date='2022-09-01', end_date='2022-09-15')
+        assert res==[]
 
 
 # class StatsCliUtil:
@@ -893,124 +902,125 @@ def test_query_ranking_helper_error(app, db):
 #         def _parse_year():
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_utils.py::test_StatsCliUtil -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 def test_StatsCliUtil(app, db):
-    _empty_types = [None]
-    _event_types = ['file-download']
-    _agg_types = ['file-download-agg']
-    _return_event = [
-        StatsEvents(
-            index='stats-file-download',
-            source_id='1',
-            source={'event_type': 'file-download'}
+    with app.app_context():
+        _empty_types = [None]
+        _event_types = ['file-download']
+        _agg_types = ['file-download-agg']
+        _return_event = [
+            StatsEvents(
+                index='stats-file-download',
+                source_id='1',
+                source={'event_type': 'file-download'}
+            )
+        ]
+        _return_agg = [
+            StatsAggregation(
+                index='test_index_agg',
+                source_id='1',
+                source={'event_type': 'file-download-agg'}
+            )
+        ]
+
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.EVENTS_TYPE, _event_types, 202201
         )
-    ]
-    _return_agg = [
-        StatsAggregation(
-            index='test_index_agg',
-            source_id='1',
-            source={'event_type': 'file-download-agg'}
+        assert stats_cli.start_date == None
+
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.EVENTS_TYPE, _event_types, '2022-01-01', '2022-01-03'
         )
-    ]
+        assert stats_cli.start_date == datetime.datetime(2022, 1, 1)
+        assert stats_cli.end_date == datetime.datetime(2022, 1, 3, 23, 59, 59)
 
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _event_types, 202201
-    )
-    assert stats_cli.start_date == None
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.EVENTS_TYPE, _event_types, '2022-01', '2022-03'
+        )
+        assert stats_cli.start_date == datetime.datetime(2022, 1, 5)
+        assert stats_cli.end_date == datetime.datetime(2022, 3, 31, 23, 59, 59)
 
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _event_types, '2022-01-01', '2022-01-03'
-    )
-    assert stats_cli.start_date == datetime.datetime(2022, 1, 1)
-    assert stats_cli.end_date == datetime.datetime(2022, 1, 3, 23, 59, 59)
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.EVENTS_TYPE, _event_types, '2022', '2023'
+        )
+        assert stats_cli.start_date == datetime.datetime(2022, 1, 1)
+        assert stats_cli.end_date == datetime.datetime(2023, 12, 31, 23, 59, 59)
 
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _event_types, '2022-01', '2022-03'
-    )
-    assert stats_cli.start_date == datetime.datetime(2022, 1, 5)
-    assert stats_cli.end_date == datetime.datetime(2022, 3, 31, 23, 59, 59)
+        # delete_data
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.EVENTS_TYPE, _event_types, verbose=False, start_date='2022-01-01', end_date='2022-01-03'
+        )
+        assert not stats_cli.delete_data(True)
 
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _event_types, '2022', '2023'
-    )
-    assert stats_cli.start_date == datetime.datetime(2022, 1, 1)
-    assert stats_cli.end_date == datetime.datetime(2023, 12, 31, 23, 59, 59)
-
-    # delete_data
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _event_types, verbose=False, start_date='2022-01-01', end_date='2022-01-03'
-    )
-    assert not stats_cli.delete_data(True)
-
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _event_types, verbose=False
-    )
-    assert not stats_cli.delete_data(True)
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.EVENTS_TYPE, _event_types, verbose=False
+        )
+        assert not stats_cli.delete_data(True)
 
 
 
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _empty_types, verbose=False
-    )
-    assert not stats_cli.delete_data(True)
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.EVENTS_TYPE, _empty_types, verbose=False
+        )
+        assert not stats_cli.delete_data(True)
 
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _event_types, verbose=False
-    )
-    assert not stats_cli.delete_data(False)
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.EVENTS_TYPE, _event_types, verbose=False
+        )
+        assert not stats_cli.delete_data(False)
 
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.AGGREGATIONS_TYPE, _agg_types, verbose=False
-    )
-    assert not stats_cli.delete_data(True)
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.AGGREGATIONS_TYPE, _agg_types, verbose=False
+        )
+        assert not stats_cli.delete_data(True)
 
-    with patch("invenio_stats.utils.len", return_value=2):
+        with patch("invenio_stats.utils.len", return_value=2):
+            stats_cli = StatsCliUtil(
+                StatsCliUtil.EVENTS_TYPE, _event_types, verbose=True, force=False
+            )
+            assert not stats_cli.delete_data(True)
+
         stats_cli = StatsCliUtil(
             StatsCliUtil.EVENTS_TYPE, _event_types, verbose=True, force=False
         )
         assert not stats_cli.delete_data(True)
 
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _event_types, verbose=True, force=False
-    )
-    assert not stats_cli.delete_data(True)
-
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _event_types, verbose=True, force=True
-    )
-    assert not stats_cli.delete_data(True)
-
-    # restore_data
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _event_types, verbose=False
-    )
-    assert not stats_cli.restore_data()
-
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _empty_types, verbose=False
-    )
-    assert not stats_cli.restore_data()
-
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _event_types, verbose=False
-    )
-    assert not stats_cli.restore_data()
-
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.AGGREGATIONS_TYPE, _agg_types, verbose=False
-    )
-    assert not stats_cli.restore_data()
-
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, _empty_types, verbose=True, start_date='2022-01-01', end_date='2022-01-03'
-    )
-    assert not stats_cli.restore_data()
-
-    stats_cli = StatsCliUtil(
-        StatsCliUtil.EVENTS_TYPE, None, verbose=True, start_date='2022-01-01', end_date='2022-01-03'
-    )
-    assert not stats_cli.restore_data()
-
-    with patch("invenio_stats.models.StatsEvents.get_by_index", return_value=_return_event):
         stats_cli = StatsCliUtil(
-            StatsCliUtil.EVENTS_TYPE, _agg_types, verbose=True, start_date='2022-01-01', end_date='2022-01-03'
+            StatsCliUtil.EVENTS_TYPE, _event_types, verbose=True, force=True
+        )
+        assert not stats_cli.delete_data(True)
+
+        # restore_data
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.EVENTS_TYPE, _event_types, verbose=False
         )
         assert not stats_cli.restore_data()
+
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.EVENTS_TYPE, _empty_types, verbose=False
+        )
+        assert not stats_cli.restore_data()
+
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.EVENTS_TYPE, _event_types, verbose=False
+        )
+        assert not stats_cli.restore_data()
+
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.AGGREGATIONS_TYPE, _agg_types, verbose=False
+        )
+        assert not stats_cli.restore_data()
+
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.EVENTS_TYPE, _empty_types, verbose=True, start_date='2022-01-01', end_date='2022-01-03'
+        )
+        assert not stats_cli.restore_data()
+
+        stats_cli = StatsCliUtil(
+            StatsCliUtil.EVENTS_TYPE, None, verbose=True, start_date='2022-01-01', end_date='2022-01-03'
+        )
+        assert not stats_cli.restore_data()
+
+        with patch("invenio_stats.models.StatsEvents.get_by_index", return_value=_return_event):
+            stats_cli = StatsCliUtil(
+                StatsCliUtil.EVENTS_TYPE, _agg_types, verbose=True, start_date='2022-01-01', end_date='2022-01-03'
+            )
+            assert not stats_cli.restore_data()
