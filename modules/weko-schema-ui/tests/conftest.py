@@ -212,7 +212,7 @@ def base_app(instance_path):
     WEKO_DEPOSIT_REST_ENDPOINTS["depid"][
         "pub_route"
     ] = "/deposits/publish/<{0}:pid_value>".format(_PID)
-    
+
     app_.config.update(
         SECRET_KEY="SECRET_KEY",
         SERVER_NAME="test_server",
@@ -306,7 +306,7 @@ def base_app(instance_path):
     # app_.register_blueprint(weko_records_ui_blueprint)
     app_.register_blueprint(invenio_files_rest_blueprint)  # invenio_files_rest
     app_.register_blueprint(invenio_oaiserver_blueprint)
-    
+
     current_assets = LocalProxy(lambda: app_.extensions["invenio-assets"])
     current_assets.collect.collect()
 
@@ -538,7 +538,7 @@ def db_oaischema(app, db):
     )
 
     schema_name = "jpcoar_mapping"
-    
+
     form_data = dict()
     with open("tests/data/oaischema/jpcoar_mapping_form_data.json", "r") as f:
         form_data = json.load(f)
@@ -550,7 +550,7 @@ def db_oaischema(app, db):
     namespaces = dict()
     with open("tests/data/oaischema/jpcoar_mapping_namespaces.json", "r") as f:
         namespaces = json.load(f)
-    
+
     schema_location = "https://github.com/JPCOAR/schema/blob/master/2.0/jpcoar_scm.xsd"
     jpcoarv2 = OAIServerSchema(
         id=uuid.uuid4(),
@@ -566,7 +566,7 @@ def db_oaischema(app, db):
     )
 
     schema_name = "jpcoar_v1_mapping"
-    
+
     form_data = dict()
     with open("tests/data/oaischema/jpcoar_v1_mapping_form_data.json", "r") as f:
         form_data = json.load(f)
@@ -621,7 +621,7 @@ def db_oaischema(app, db):
         target_namespace="oai_dc",
     )
 
-    
+
     with db.session.begin_nested():
         db.session.add(ddi25)
         db.session.add(jpcoarv1)
@@ -738,7 +738,7 @@ def esindex(app):
         current_search_client.indices.put_alias(
             index=app.config["INDEXER_DEFAULT_INDEX"], name="test-weko"
         )
-        
+
         es = OpenSearch(
             [app.config['SEARCH_ELASTIC_HOSTS']],
             scheme="http",
@@ -914,7 +914,7 @@ def records(app, db, esindex, indextree, location, itemtypes, db_oaischema):
         mimetype = "application/pdf"
         filepath = "tests/data/helloworld.pdf"
         results.append(make_record(db, indexer, i, filepath, filename, mimetype))
-        
+
         i = 2
         filename = "helloworld.docx"
         mimetype = (
@@ -2227,7 +2227,7 @@ def make_record(db, indexer, i, filepath, filename, mimetype):
         }
     ]
     indexer.upload_metadata(record_data, rec_uuid, 1, False)
-    
+
     item = ItemsMetadata.create(item_data, id_=rec_uuid, item_type_id=1)
 
     record_v1 = WekoRecord.create(record_data, id_=rec_uuid2)

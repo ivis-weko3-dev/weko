@@ -116,5 +116,6 @@ def test_wekobibtexserializer(app, records, db_oaischema, itemtypes):
     record.update({'@export_schema_type': 'ddi'})
     serializer = WekoXMLSerializer()
     data = serializer.serialize(pid, record)
-    assert b'<metadata>\n        <codeBook xmlns:dc="http://purl.org/dc/terms/" xmlns:fn="http://www.w3.org/2005/xpath-functions" xmlns:saxon="http://xml.apache.org/xslt" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="ddi:codebook:2_5" xsi:schemaLocation="https://ddialliance.org/Specification/DDI-Codebook/2.5/XMLSchema/codebook.xsd"/>\n      </metadata>' in data
+    expected_data = b'<metadata>\n        <codeBook xmlns:dc="http://purl.org/dc/terms/" xmlns:fn="http://www.w3.org/2005/xpath-functions" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:saxon="http://xml.apache.org/xslt" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns="ddi:codebook:2_5" xsi:schemaLocation="https://ddialliance.org/Specification/DDI-Codebook/2.5/XMLSchema/codebook.xsd"/>\n      </metadata>'
+    assert expected_data in data
 
