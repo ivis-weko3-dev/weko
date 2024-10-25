@@ -11,6 +11,7 @@
 
 import json
 import pytest
+from unittest.mock import patch, PropertyMock
 
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_records import Record
@@ -132,26 +133,26 @@ def test_transform_jsonld(indexed_10records, mocker):
         "dct:title":"test record01",
         "@id":"12345"
         }
-    mocker.patch("invenio_records_rest.serializers.jsonld.JSONLDTransformerMixin.expanded", return_value=False,  new_callable=mocker.PropertyMock)
-    data = JSONLDSerializer(CONTEXT, schema_class=_TestSchema).transform_jsonld(obj)
-    result = {
-        "@context": {
-            "dct": "http://purl.org/dc/terms/",
-            "@base": "http://localhost/record/",
-            "recid": "@id",
-            "title": "dct:title"
-        },
-        "recid": "12345",
-        "http://localhost/record/": "test server",
-        "title": "test record01"
-    }
-    assert data == result
+    with patch("invenio_records_rest.serializers.jsonld.JSONLDTransformerMixin.expanded", return_value=False,  new_callable=PropertyMock):
+        data = JSONLDSerializer(CONTEXT, schema_class=_TestSchema).transform_jsonld(obj)
+        result = {
+            "@context": {
+                "dct": "http://purl.org/dc/terms/",
+                "@base": "http://localhost/record/",
+                "recid": "@id",
+                "title": "dct:title"
+            },
+            "recid": "12345",
+            "http://localhost/record/": "test server",
+            "title": "test record01"
+        }
+        assert data == result
     
-    mocker.patch("invenio_records_rest.serializers.jsonld.JSONLDTransformerMixin.expanded", return_value=True, new_callable=mocker.PropertyMock)
-    data = JSONLDSerializer(CONTEXT, schema_class=_TestSchema).transform_jsonld(obj)
-    result = {
-        "http://localhost/record/":[{"@value": "test server"}],
-        "@id": "12345",
-        "http://purl.org/dc/terms/title":[{"@value": "test record01"}]
-    }
-    assert data == result
+    with patch("invenio_records_rest.serializers.jsonld.JSONLDTransformerMixin.expanded", return_value=True, new_callable=PropertyMock):
+        data = JSONLDSerializer(CONTEXT, schema_class=_TestSchema).transform_jsonld(obj)
+        result = {
+            "http://localhost/record/":[{"@value": "test server"}],
+            "@id": "12345",
+            "http://purl.org/dc/terms/title":[{"@value": "test record01"}]
+        }
+        assert data == result

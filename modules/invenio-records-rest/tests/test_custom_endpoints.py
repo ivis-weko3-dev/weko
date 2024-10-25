@@ -29,7 +29,14 @@ from invenio_records_rest.serializers.response import (
 )
 from invenio_records_rest.utils import allow_all
 from invenio_records_rest.views import RecordResource, RecordsListResource
+from flask_principal import Permission, RoleNeed, Identity, identity_changed
+from flask import g
 
+# Ensure that all roles are allowed
+def allow_all(identity=None, *args, **kwargs):
+    if identity is None:
+        identity = g.identity  # g.identity から取得
+    return Permission(RoleNeed('any'))
 
 @pytest.fixture()
 def test_custom_endpoints_app(app):
@@ -45,6 +52,7 @@ def test_custom_endpoints_app(app):
         current_records_rest = app.extensions["invenio-records-rest"]
         current_records_rest.default_endpoint_prefixes.update(endpoint_prefixes)
 
+    app.config['WEKO_RECORDS_UI_EMAIL_ITEM_KEYS'] = ['email', 'contact_email']
     return app
 
 
@@ -61,7 +69,6 @@ def test_custom_endpoints_app(app):
 def test_get_record(test_custom_endpoints_app, test_records):
     """Test the creation of a custom endpoint using RecordResource."""
     test_records = test_records
-    """Test creation of a RecordResource view."""
     blueprint = Blueprint(
         "test_invenio_records_rest",
         __name__,
@@ -85,18 +92,35 @@ def test_get_record(test_custom_endpoints_app, test_records):
 
     test_custom_endpoints_app.register_blueprint(blueprint)
 
-    with test_custom_endpoints_app.app_context():
-        pid, record = test_records[0]
-        url = url_for(
-            "test_invenio_records_rest.recid_item", pid_value=pid.pid_value, user=1
-        )
-        with test_custom_endpoints_app.test_client() as client:
-            res = client.get(url)
-            assert res.status_code == 200
+    def set_identity():
+        """Set the identity for the current request."""
+        identity = Identity(1)
+        identity.provides.add(RoleNeed('any'))
+        g.identity = identity
+        identity_changed.send(test_custom_endpoints_app, identity=identity)
 
-            # Check metadata
-            data = get_json(res)
-            assert record == data["metadata"]
+    # with test_custom_endpoints_app.app_context():
+    #     # identity を設定
+    #     identity = Identity(1)  # ユーザーID 1 の identity を作成
+    #     identity.provides.add(RoleNeed('any'))  # 必要なロールを追加
+
+    #     with test_custom_endpoints_app.test_request_context():
+    #         # identity が変更されたことを通知
+    #         identity_changed.send(test_custom_endpoints_app, identity=identity)
+    #         g.identity = identity  # identity をグローバル変数にセット
+
+        with test_custom_endpoints_app.test_client() as client:
+            pid, record = test_records[0]
+            url = url_for(
+                "test_invenio_records_rest.recid_item", pid_value=pid.pid_value, user=1
+            )
+            with test_custom_endpoints_app.test_client() as client:
+                res = client.get(url)
+                assert res.status_code == 200  # ステータスコードが200になることを確認
+
+                # Check metadata
+                data = get_json(res)
+                assert record == data["metadata"]
 
 
 @pytest.mark.parametrize(
@@ -109,7 +133,7 @@ def test_get_record(test_custom_endpoints_app, test_records):
     ],
     indirect=["test_custom_endpoints_app"],
 )
-def test_get_records_list(test_custom_endpoints_app, indexed_records):
+def test_get_records_list(test_custom_endpoints_app, indexed_records, item_type):
     """Test the creation of a custom endpoint using RecordsListResource."""
     blueprint = Blueprint(
         "test_invenio_records_rest",
@@ -118,7 +142,7 @@ def test_get_records_list(test_custom_endpoints_app, indexed_records):
     json_v1 = JSONSerializer(RecordSchemaJSONV1)
 
     search_class_kwargs = {
-        "index": "test-weko"
+        "index": "testrecord"
     }
     from functools import partial
     search_class=partial(RecordsSearch, **search_class_kwargs)

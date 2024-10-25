@@ -10,7 +10,8 @@
 """Facets tests."""
 
 import pytest
-from flask import Flask
+from flask import Flask, g
+from flask_principal import Identity
 from invenio_rest.errors import RESTValidationError
 from invenio_search.engine import dsl
 from werkzeug.datastructures import MultiDict
@@ -149,10 +150,16 @@ def test_default_facets_factory(app, db, search_user, redis_connect):
         aggs=dict(
             type=dict(
                 filter=dict(
-                    must=[dict(term=dict(publish_status="0"))]
+                    bool=dict(
+                        must=[dict(term=dict(publish_status="0"))]
+                    )
                 ),
                 aggs=dict(
-                    type=dict(field="upload_type",size=1000)
+                    type=dict(
+                        terms=dict(
+                            field="upload_type",size=1000
+                        )
+                    )
                 )
             ),
             subtype=dict(
@@ -191,7 +198,7 @@ def test_default_facets_factory(app, db, search_user, redis_connect):
     db.session.commit()
     app.config['SEARCH_UI_SEARCH_INDEX'] = 'testidx'
     app.config["RECORDS_REST_FACETS"]["testidx"] = defs
-    from mock import patch
+    from unittest.mock import patch
     with patch("weko_search_ui.permissions.search_permission.can",return_value=True):
         with patch("weko_admin.utils.get_query_key_by_permission", return_value=test_redis_key):
             with app.test_request_context("?type=a&subtype=b"):
@@ -232,6 +239,7 @@ def test_selecting_one_specified_facet(app):
     expected_agg = dict(facet_2=dict(terms=dict(field="other_field")))
     app.config["RECORDS_REST_FACETS"]["test_facet_names"] = defs
     with app.test_request_context("?type=a&subtype=b&facets=facet_2"):
+        g.identity = Identity('test_user')
         search = dsl.Search().query(dsl.Q(query="value"))
         search, urlkwargs = default_facets_factory(search, "test_facet_names")
         assert search.to_dict().get("aggs") == expected_agg
@@ -264,6 +272,7 @@ def test_selecting_specified_facet(app):
     )
     app.config["RECORDS_REST_FACETS"]["test_facet_names"] = defs
     with app.test_request_context("?type=a&subtype=b&facets=facet_1,facet_3"):
+        g.identity = Identity('test_user')
         search = dsl.Search().query(dsl.Q(query="value"))
         search, urlkwargs = default_facets_factory(search, "test_facet_names")
         assert search.to_dict().get("aggs") == expected_agg
@@ -290,6 +299,7 @@ def test_turn_off_facets(app):
 
     app.config["RECORDS_REST_FACETS"]["test_facet_names"] = defs
     with app.test_request_context("?type=a&subtype=b&facets=null"):
+        g.identity = Identity('test_user')
         search = dsl.Search().query(dsl.Q(query="value"))
         search, urlkwargs = default_facets_factory(search, "test_facet_names")
         assert search.to_dict().get("aggs") is None
@@ -317,6 +327,7 @@ def test_selecting_all_facets_by_default(app):
     expected_agg = defs["aggs"]
     app.config["RECORDS_REST_FACETS"]["test_facet_names"] = defs
     with app.test_request_context("?type=a&subtype=b"):
+        g.identity = Identity('test_user')
         search = dsl.Search().query(dsl.Q(query="value"))
         search, urlkwargs = default_facets_factory(search, "test_facet_names")
         assert search.to_dict().get("aggs") == expected_agg

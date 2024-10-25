@@ -38,6 +38,9 @@ def create_record(data):
 def assert_hits_len(res, hit_length):
     """Assert number of hits."""
     assert res.status_code == 200
+    res_json = get_json(res)
+    if "hits" not in res_json or "hits" not in res_json["hits"]:
+        raise AssertionError(f"Expected 'hits' in response, but got: {res_json}")
     assert len(get_json(res)["hits"]["hits"]) == hit_length
 
 

@@ -13,7 +13,7 @@ import re
 import pytest
 from flask import url_for, current_app
 from helpers import assert_hits_len, get_json, parse_url, to_relative_url
-from mock import patch
+from unittest.mock import patch
 
 from invenio_accounts.testutils import login_user_via_session
 def test_json_result_serializer(app, indexed_10records, search_url, admin_settings):
@@ -118,6 +118,15 @@ def test_page_size_exceed_max_result_window(app,indexed_100records, aggs_and_fac
         
         # The page is the first page where page*size>max_result_window
         res = client.get(search_url, query_string=dict(page=3, size=7))
+
+        # デバッグ用にレスポンス全体を出力
+        print("Response data:", res.get_data(as_text=True))
+
+        # hits キーが存在するか確認
+        res_json = get_json(res)
+        if "hits" not in res_json or "hits" not in res_json["hits"]:
+            raise KeyError(f"'hits' key not found in the response: {res_json}")
+        
         res_control_numbers = [d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]]
         assert res_control_numbers == ["15", "16", "17", "18", "19", "20", "21"]
         assert json.loads(account_redis.get(page_cache)) == {"3":{"control_number":14.0}}
@@ -165,6 +174,9 @@ def test_page_size_exceed_max_result_window(app,indexed_100records, aggs_and_fac
 def test_pagination(app, indexed_10records, aggs_and_facet, search_url, admin_settings):
     """Test pagination."""
     with app.test_client() as client:
+         # current_app.config["RECORDS_REST_SORT_OPTIONS"]を出力
+        print("RECORDS_REST_SORT_OPTIONS:", current_app.config["RECORDS_REST_SORT_OPTIONS"])
+        
         # Limit records
         res = client.get(search_url, query_string=dict(size=1, page=1))
         assert_hits_len(res, 1)
@@ -232,6 +244,14 @@ def test_query(app, indexed_10records, aggs_and_facet, search_url, admin_setting
     with app.test_client() as client:
         # Valid query syntax
         res = client.get(search_url, query_string=dict(q="control_number:1"))
+        # レスポンスのデバッグ出力
+        res_json = get_json(res)
+        print("Response data:", res_json)
+
+        # hits キーが存在するか確認し、なければエラーを出力
+        if "hits" not in res_json or "hits" not in res_json["hits"]:
+            raise KeyError(f"'hits' key not found in the response: {res_json}")
+
         assert len(get_json(res)["hits"]["hits"]) == 1
 
 
@@ -251,6 +271,17 @@ def test_search_query_syntax(app, indexed_10records, aggs_and_facet, search_url,
     with app.test_client() as client:
         # Valid search query syntax
         res = client.get(search_url, query_string=dict(q="+control_number:1"))
+        # レスポンス全体をデバッグ出力
+        res_json = get_json(res)
+        print(f"Response JSON: {res_json}")
+        
+        res_json = get_json(res)
+        print(f"Response JSON: {res_json}")
+        
+        # hits キーが存在するか確認し、なければエラーメッセージを出力
+        if "hits" not in res_json or "hits" not in res_json["hits"]:
+            raise KeyError(f"'hits' key not found in the response: {res_json}")
+        
         assert len(get_json(res)["hits"]["hits"]) == 1
 
 
@@ -258,7 +289,7 @@ def test_sort(app, indexed_10records, aggs_and_facet, search_url, admin_settings
     """Test invalid accept header."""
     with app.test_client() as client:
         res = client.get(search_url, query_string={"sort": "-control_number"})
-        assert res.status_code == 200
+        assert res.status_code == 200, f"Unexpected status code: {res.status_code}. Response: {res.get_data(as_text=True)}"
         # Min control_number in test records set.
         assert get_json(res)["hits"]["hits"][0]["metadata"]["control_number"] == "10"
 
@@ -286,6 +317,14 @@ def test_aggregations_info(app, indexed_10records, aggs_and_facet, search_url, a
         # Facets are defined in the "app" fixture.
         res = client.get(search_url)
         data = get_json(res)
+        # レスポンスのステータスコードとエラーメッセージを出力
+        print(f"Status code: {res.status_code}")
+        print(f"Response data: {data}")
+
+        if res.status_code == 500:
+            print(f"Response data: {res.get_data(as_text=True)}")
+            raise RuntimeError(f"Internal server error: {data.get('message')}")
+        
         assert "aggregations" in data
         # len 3 because testrecords.json have three diff values for "control_number"
         assert len(data["aggregations"]["control_number"]["buckets"]) == 10
