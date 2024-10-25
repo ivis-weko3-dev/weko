@@ -1,6 +1,6 @@
 import json
 import pytest
-from mock import patch, MagicMock
+from unittest.mock import patch, MagicMock
 from lxml import etree
 from urllib.error import URLError
 from resync.client_utils import ClientFatalError
@@ -138,7 +138,7 @@ def test_process_sync(app, test_resync):
         res = process_sync(50, _counter)
         assert json.loads(res.data) == {'message': 'Bad URL', 'status': 'error'}
 
-    
+
     with patch('invenio_resourcesyncclient.utils.read_capability', return_value='test'):
         res = process_sync(30, _counter)
         assert json.loads(res.data) == {'message': 'Bad URL', 'status': 'error'}
@@ -154,7 +154,7 @@ def test_process_sync(app, test_resync):
             with patch('invenio_resourcesyncclient.utils.sync_audit', return_value=dict(same=0, updated=0, deleted=0, created=0)):
                 res = process_sync(50, _counter)
                 assert json.loads(res.data) == {'message': "unhashable type: 'dict'", 'status': 'error'}
-    
+
     with patch('invenio_resourcesyncclient.utils.read_capability', return_value='changelist'):
         with patch('invenio_resourcesyncclient.utils.sync_incremental', return_value=True):
             res = process_sync(40, _counter)

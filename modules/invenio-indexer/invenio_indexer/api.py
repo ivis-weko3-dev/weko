@@ -96,6 +96,7 @@ class RecordIndexer(object):
             bulk indexing.
         """
         self.client = search_client or current_search_client
+        self.count = 0
         self._exchange = exchange
         self._queue = queue
         self._record_to_index = record_to_index or current_record_to_index

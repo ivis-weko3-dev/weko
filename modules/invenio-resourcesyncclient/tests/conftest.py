@@ -59,6 +59,7 @@ from weko_records import WekoRecords
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
 from weko_search_ui import WekoSearchUI
 from weko_schema_ui.models import OAIServerSchema
+from weko_schema_ui.config import WEKO_SCHEMA_JPCOAR_V2_SCHEMA_NAME as _WEKO_SCHEMA_JPCOAR_V2_SCHEMA_NAME
 
 
 from invenio_resourcesyncclient import INVENIOResourceSyncClient
@@ -133,6 +134,14 @@ def base_app(instance_path):
         DEPOSIT_RECORDS_UI_ENDPOINTS=DEPOSIT_RECORDS_UI_ENDPOINTS,
         DEPOSIT_REST_ENDPOINTS=DEPOSIT_REST_ENDPOINTS,
         DEPOSIT_DEFAULT_STORAGE_CLASS=DEPOSIT_DEFAULT_STORAGE_CLASS,
+        WEKO_SCHEMA_JPCOAR_V2_SCHEMA_NAME=_WEKO_SCHEMA_JPCOAR_V2_SCHEMA_NAME,
+        WEKO_SCHEMA_JPCOAR_V2_RESOURCE_TYPE_REPLACE={
+            'periodical':'journal',
+            'interview':'other',
+            'internal report':'other',
+            'report part':'other',
+            'conference object':'conference output',
+        },
     )
 
     Babel(app_)

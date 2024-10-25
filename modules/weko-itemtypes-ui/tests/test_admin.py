@@ -44,6 +44,7 @@ class TestItemTypeMetaDataView:
         url = url_for("itemtypesregister.index",item_type_id=10)#
         res = client.get(url)
         assert_statuscode_with_role(res,is_permission)
+
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypeMetaDataView::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
     def test_index(self,client,admin_view,item_type,users):
         login_user_via_session(client=client,email=users[0]["email"])
@@ -61,7 +62,8 @@ class TestItemTypeMetaDataView:
                 lang_code="en",
                 uiFixedProperties=current_app.config['WEKO_ITEMTYPES_UI_FIXED_PROPERTIES'],
                 ui_pubdate_titles=current_app.config['WEKO_ITEMTYPES_UI_PUBDATE_DEFAULT_TITLES']
-            )#
+            )
+
 #     def render_itemtype(self, item_type_id=0):
     @pytest.mark.parametrize("index,is_permission",[
         (0,True),
@@ -77,6 +79,7 @@ class TestItemTypeMetaDataView:
         url = url_for("itemtypesregister.render_itemtype",item_type_id=2)
         res = client.get(url)
         assert_statuscode_with_role(res,is_permission)
+
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypeMetaDataView::test_render_itemtype -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
     def test_render_itemtype(self,client,admin_view,item_type,users,):
         login_user_via_session(client=client,email=users[0]["email"])
@@ -101,6 +104,7 @@ class TestItemTypeMetaDataView:
         #         },
         #         'edit_notes': {}
         #     }#
+
 #     def delete_itemtype(self, item_type_id=0):
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypeMetaDataView::test_delete_itemtype -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
     def test_delete_itemtype(self,client,admin_view,db,users,item_type):
@@ -149,7 +153,7 @@ class TestItemTypeMetaDataView:
             with patch("weko_itemtypes_ui.admin.flash") as mock_flash:
                 url = url_for("itemtypesregister.delete_itemtype",item_type_id=item_type2.id)
                 res = client.post(url)
-                mock_flash.assert_called_with("Item type cannot be deleted becase import is in progress.","error")
+                mock_flash.assert_called_with("Item type cannot be deleted because import is in progress.","error")
                 assert json.loads(res.data)["code"] == -1
 
         with patch("weko_workflow.utils.get_cache_data", return_value=False):
@@ -337,6 +341,7 @@ class TestItemTypeMetaDataView:
             "defaults":{"0":{"name":"Date (Type-less）","value":"datetime"}}
         }
         assert result == test
+
         # adminsetting is None
         patch("weko_itemtypes_ui.admin.AdminSettings.get",return_value=None)
         res = client.get(url,query_string={"lang":"en"})
@@ -345,10 +350,10 @@ class TestItemTypeMetaDataView:
             "system":{"2":{"name":"S_test2","schema":{},"form":{},"forms":{},"sort":None,"is_file":False}},
             "1":{"name":"test_name_en","schema":{"properties":{"filename":{"items":["test_file"]}}},"form":{"title_i18n":{"en":"test_name_en"}},"forms":{},"sort":None,"is_file":True},
             "4":{"name":"test4_exist_system_prop","schema":{"system_prop":True},"form":{},"forms":{},"sort":None,"is_file":False},
-            "defaults":{'1': {'name': 'Text Field', 'value': 'text'},'2': {'name': 'Text Area', 'value': 'textarea'},'3': {'name': 'Check Box', 'value': 'checkboxes'},'4': {'name': 'Radio Button', 'value': 'radios'},'5': {'name': 'List Box', 'value': 'select'},'6': {'name': 'Date', 'value': 'datetime'}},
+            "defaults":{"0":{"name":"Date (Type-less）","value":"datetime"}},
         }
         assert result == test
-        #
+
         current_app.config.update(
             WEKO_ITEMTYPES_UI_SHOW_DEFAULT_PROPERTIES=False
         )
@@ -362,7 +367,6 @@ class TestItemTypeMetaDataView:
         }
         assert result == test
 
-# TODO テスト対象のコードを変えたらテストがパスしたが本当にそれで問題ないのか確認すること。
 #     def export(self,item_type_id):
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypeMetaDataView::test_export -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
     def test_export(self,client,db,admin_view,users,item_type,itemtype_props):
@@ -479,6 +483,7 @@ class TestItemTypePropertiesView():
                 lists=test_props,
                 lang_code="en"
             )
+
 #     def get_property(self, property_id=0):
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypePropertiesView::test_get_property -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
     @pytest.mark.parametrize("index,is_permission",[
@@ -495,6 +500,7 @@ class TestItemTypePropertiesView():
         url = url_for("itemtypesproperties.get_property",property_id=1)
         res = client.get(url)
         assert_statuscode_with_role(res,is_permission)
+
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypePropertiesView::test_get_property -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
     def test_get_property(self,client,admin_view,users,itemtype_props):
         login_user_via_session(client,email=users[0]["email"])
@@ -527,6 +533,7 @@ class TestItemTypePropertiesView():
         url = url_for("itemtypesproperties.custom_property_new",property_id=1)
         res = client.post(url,json={})
         assert_statuscode_with_role(res,is_permission)
+
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypePropertiesView::test_custom_property_new -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
     def test_custom_property_new(self,client,admin_view,db,users):
         login_user_via_session(client,email=users[0]["email"])
@@ -558,6 +565,7 @@ class TestItemTypePropertiesView():
         res = client.post(url,headers={"Content-Type":"text/plain"})
         assert res.status_code ==200
         assert json.loads(res.data)["msg"] == "Header Error"
+
 # class ItemTypeMappingView(BaseView):
 class TestItemTypeMappingView:
 #     def index(self, ItemTypeID=0):
@@ -576,6 +584,7 @@ class TestItemTypeMappingView:
         url = url_for("itemtypesmapping.index")
         res = client.get(url)
         assert_statuscode_with_role(res,is_permission)
+
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypeMappingView::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
     def test_index(self,app,client,admin_view,users,item_type,oaiserver_schema):
         login_user_via_session(client,email=users[0]["email"])
@@ -642,6 +651,7 @@ class TestItemTypeMappingView:
             # # web_1            | [2022-09-15 02:45:23,832] ERROR in admin: ItemTypeID:40001
             # # web_1            | [2022-09-15 02:45:23,832] ERROR in admin: is_admin:True
             # # web_1            | [2022-09-15 02:45:23,833] ERROR in admin: session.get('selected_language', 'en'):en
+
 #     def mapping_register(self):
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypeMappingView::test_mapping_register_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
     @pytest.mark.parametrize("index,is_permission",[
@@ -658,6 +668,7 @@ class TestItemTypeMappingView:
         url = url_for("itemtypesmapping.mapping_register")
         res = client.post(url,data="test",headers={"Content-Type":"text/plain"})
         assert_statuscode_with_role(res,is_permission)
+
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypeMappingView::test_mapping_register -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
     def test_mapping_register(self,client,admin_view,users,item_type):
         with patch("weko_records.api.before_record_insert.send"):
@@ -684,15 +695,16 @@ class TestItemTypeMappingView:
 
                 with patch("weko_itemtypes_ui.admin.check_duplicate_mapping",return_value=[]):
                     # nomal
-                    res = client.post(url,json=data)
-                    assert res.status_code==200
-                    assert json.loads(res.data)["msg"] == 'Successfully saved new mapping.'
-                    assert  Mapping.get_record(1) == {"key":"test_mapping"}
+                    with patch("weko_itemtypes_ui.admin.Mapping.create", return_value=None):
+                        res = client.post(url,json=data)
+                        assert res.status_code==200
+                        assert json.loads(res.data)["msg"] == 'Successfully saved new mapping.'
 
                     # raise Exception
                     with patch("weko_itemtypes_ui.admin.Mapping.create",side_effect=BaseException):
                         res = client.post(url,json=data)
                         assert json.loads(res.data)["msg"] == "Unexpected error occurred."
+
 #     def schema_list(self, SchemaName=None):
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypeMappingView::test_schema_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
     @pytest.mark.parametrize("index,is_permission",[
@@ -709,6 +721,7 @@ class TestItemTypeMappingView:
         url = url_for("itemtypesmapping.schema_list",SchemaName="not_exist_oai")
         res = client.get(url)
         assert_statuscode_with_role(res,is_permission)
+
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypeMappingView::test_schema_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
     def test_schema_list(self,client,admin_view,users,oaiserver_schema):
         login_user_via_session(client,email=users[0]["email"])

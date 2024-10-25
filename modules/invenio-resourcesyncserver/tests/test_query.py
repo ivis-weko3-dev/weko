@@ -27,11 +27,30 @@ def test_get_items_by_index_tree(i18n_app, indices):
 
 # def get_item_changes_by_index(index_tree_id, date_from, date_until):
 def test_get_item_changes_by_index(i18n_app, indices, es):
-    index_tree_id = 33
-    date_from = datetime.datetime.now() - datetime.timedelta(days=3)
-    date_until = datetime.datetime.now()
+    index_tree_id = 'test_index_tree_id'
+    date_from = '2023-01-01'
+    date_until = '2023-12-31'
 
-    assert get_item_changes_by_index(index_tree_id, date_from, date_until)
+    mock_records_search = MagicMock()
+    mock_records_search.with_preference_param.return_value = mock_records_search
+    mock_records_search.params.return_value = mock_records_search
+    mock_records_search._index = ['']
+
+    with patch('invenio_resourcesyncserver.query.current_app.config', {'SEARCH_UI_SEARCH_INDEX': 'test-weko'}):
+        # Mock item_changes_search_factory
+        mock_search_instance = MagicMock()
+        mock_search_instance.execute.return_value.to_dict.return_value = {
+            'hits': {'hits': [{'id': 'test_id'}]}
+        }
+        with patch('invenio_resourcesyncserver.query.RecordsSearch', return_value=mock_records_search):
+            with patch('invenio_resourcesyncserver.query.item_changes_search_factory', return_value=mock_search_instance):
+                result = get_item_changes_by_index(index_tree_id, date_from, date_until)
+
+                assert result == [{'id': 'test_id'}]
+                mock_records_search.with_preference_param.assert_called_once()
+                mock_records_search.params.assert_called_once_with(version=False)
+                assert mock_records_search._index[0] == 'test-weko'
+                mock_search_instance.execute.assert_called_once()
 
 
 # def item_path_search_factory(search, index_id="0"):

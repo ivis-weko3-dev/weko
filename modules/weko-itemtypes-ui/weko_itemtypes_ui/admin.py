@@ -124,7 +124,7 @@ class ItemTypeMetaDataView(BaseView):
         from weko_workflow.utils import get_cache_data
 
         if get_cache_data("import_start_time"):
-            flash(_('Item type cannot be deleted becase import is in progress.'), 'error')
+            flash(_('Item type cannot be deleted because import is in progress.'), 'error')
             return jsonify(code=-1)
         
         if item_type_id > 0:
@@ -184,7 +184,7 @@ class ItemTypeMetaDataView(BaseView):
             return jsonify(msg=_('Header Error'))
 
         if get_cache_data("import_start_time"):
-            response = jsonify(msg=_('Item type cannot be updated becase '
+            response = jsonify(msg=_('Item type cannot be updated because '
                                      'import is in progress.'))
             response.status_code = 400
             return response
@@ -312,9 +312,9 @@ class ItemTypeMetaDataView(BaseView):
             tmp = {'name': name, 'schema': k.schema, 'form': k.form,
                    'forms': k.forms, 'sort': k.sort, 'is_file': is_file}
             if name and name[:2] == 'S_':
-                lists['system'][k.id] = tmp
+                lists['system'][str(k.id)] = tmp
             else:
-                lists[k.id] = tmp
+                lists[str(k.id)] = tmp
 
         settings = AdminSettings.get('default_properties_settings')
         default_properties = current_app.config[
@@ -337,7 +337,7 @@ class ItemTypeMetaDataView(BaseView):
                         'value': 'datetime'}}
 
         return jsonify(lists)
-    
+
     @expose('/<int:item_type_id>/export', methods=['GET'])
     def export(self,item_type_id):
         item_types = ItemTypes.get_by_id(id_=item_type_id)
@@ -356,12 +356,12 @@ class ItemTypeMetaDataView(BaseView):
         fp = io.BytesIO()
         with ZipFile(fp, 'w', compression=ZIP_DEFLATED) as new_zip:
             # zipファイルにJSON文字列を追加
-            new_zip.writestr("ItemType.json", ItemTypeSchema().dumps(item_types).data.encode().decode('unicode-escape').encode())
-            new_zip.writestr("ItemTypeName.json", ItemTypeNameSchema().dumps(item_type_names).data.encode().decode('unicode-escape').encode())
-            new_zip.writestr("ItemTypeMapping.json", ItemTypeMappingSchema().dumps(item_type_mappings.model).data.encode().decode('unicode-escape').encode())
+            new_zip.writestr("ItemType.json", ItemTypeSchema().dumps(item_types).encode().decode('unicode-escape').encode())
+            new_zip.writestr("ItemTypeName.json", ItemTypeNameSchema().dumps(item_type_names).encode().decode('unicode-escape').encode())
+            new_zip.writestr("ItemTypeMapping.json", ItemTypeMappingSchema().dumps(item_type_mappings.model).encode().decode('unicode-escape').encode())
             json_str = ""
             for item_type_property in item_type_properties :
-                prop_str = ItemTypePropertySchema().dumps(item_type_property).data
+                prop_str = ItemTypePropertySchema().dumps(item_type_property)
                 if len(json_str) > 0:
                     json_str += ","
                 json_str += prop_str
@@ -374,7 +374,7 @@ class ItemTypeMetaDataView(BaseView):
             attachment_filename ='ItemType_export.zip' ,
             as_attachment = True
         )
-    
+
     @expose('/import', methods=['POST'])
     @item_type_permission.require(http_exception=403)
     def item_type_import(self):
@@ -391,7 +391,7 @@ class ItemTypeMetaDataView(BaseView):
         if input_file.mimetype is None:
             current_app.logger.debug(input_file.mimetype)
             return jsonify(msg=_('Illegal mimetype Error'))
-        
+
         try:
             readable_files = ["ItemType.json", "ItemTypeName.json", "ItemTypeMapping.json", "ItemTypeProperty.json"]
             import_data = {
@@ -422,17 +422,17 @@ class ItemTypeMetaDataView(BaseView):
                             elif file_name == "ItemTypeProperty.json":
                                 import_data["ItemTypeProperty"] = json_obj
                                 #print(json_obj)
-            
+
             # ZIPファイル内に規定のアイテムタイプデータが無ければエラー
             if import_data["ItemType"] is null or import_data["ItemTypeName"] is null or import_data["ItemTypeMapping"] is null or import_data["ItemTypeProperty"] is null :
                 raise ValueError('Zip file contents invalid.')
-            
-            
+
+
             json_schema = fix_json_schema(import_data["ItemType"].get('schema'))
             json_form = import_data["ItemType"].get('form')
             json_schema = update_required_schema_not_exist_in_form(
                 json_schema, json_form)
-            
+
             if not json_schema:
                 raise ValueError('Schema is in wrong format.')
 
@@ -470,7 +470,7 @@ class ItemTypeMetaDataView(BaseView):
 class ItemTypeSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ItemType
-        
+
 class ItemTypeNameSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ItemTypeName
@@ -492,7 +492,7 @@ class ItemTypePropertiesView(BaseView):
     def index(self, property_id=0):
         """Renders an primitive property view."""
         lists = ItemTypeProps.get_records([])
-        
+
         # remove default properties
         properties = lists.copy()
         defaults_property_ids = [prop.id for prop in lists if

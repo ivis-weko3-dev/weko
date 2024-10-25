@@ -54,15 +54,14 @@ class WekoLoggingConsole(WekoLoggingBase):
         Configure the log level and format of the log output.
 
         Args:
-            app (Flask): \
+            app (Flask):
                 The Flask application.
 
         Returns:
             None
         """
         # Configure python logging
-        if app.config["WEKO_LOGGING_CONSOLE_LEVEL"] is not None:
-            app.logger.setLevel(app.config["WEKO_LOGGING_CONSOLE_LEVEL"])
+        app.logger.setLevel(app.config.get("WEKO_LOGGING_CONSOLE_LEVEL", "ERROR"))
 
         format = '[%(asctime)s,%(msecs)03d][%(levelname)s] weko - '\
                  '(id %(user_id)s, ip %(ip_address)s) - %(message)s '\
@@ -73,9 +72,7 @@ class WekoLoggingConsole(WekoLoggingBase):
         if app.logger.handlers:
             # if app.logger has handlers, set level and formatter
             for h in app.logger.handlers:
-                if app.config["WEKO_LOGGING_CONSOLE_LEVEL"] is not None:
-                    h.setLevel(app.config["WEKO_LOGGING_CONSOLE_LEVEL"])
-
+                h.setLevel(app.config.get("WEKO_LOGGING_CONSOLE_LEVEL", "ERROR"))
                 h.setFormatter(formatter)
         else:
             # if app.logger has no handlers, add StreamHandler
@@ -93,19 +90,19 @@ class WekoLoggingConsole(WekoLoggingBase):
         Method to output logs in current_app.logger using the resource.
 
         Args:
-            app (Flask): \
+            app (Flask):
                 The Flask application.
                 Not required.
-            key (str): \
+            key (str):
                 key of message.
                 Not required if param is specified.
-            param (dict): \
+            param (dict):
                 message parameters.
                 Not required if key is specified.
-            ex (Exception): \
+            ex (Exception):
                 exception object.
                 Not required.
-            **kwargs (dict): \
+            **kwargs (dict):
                 message parameters.
                 If you want to replace the placeholder in the message,
                 specify the key-value pair here.
