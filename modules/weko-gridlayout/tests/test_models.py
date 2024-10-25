@@ -21,7 +21,7 @@ def test_WidgetType_create(i18n_app, db):
     }
 
     assert WidgetType.create(data)
-def test_WidgetType_create_2(i18n_app):
+def test_WidgetType_create_2(i18n_app, db):
     data = {
         "type_id": 1,
         "type_name": "test",
@@ -124,7 +124,7 @@ def test_delete_by_id(i18n_app, widget_items):
     widget_id = "1"
 
     assert WidgetItem.delete_by_id(widget_id, session)
-    assert not WidgetItem.delete_by_id(False, session)
+    assert not WidgetItem.delete_by_id(None, session)
 
 
 # class WidgetMultiLangData(db.Model):
@@ -280,7 +280,8 @@ def test_delete_WidgetDesignPage(i18n_app, widget_items):
 
     assert WidgetDesignPage.delete(page_id)
     assert not WidgetDesignPage.delete(False)
-    assert not WidgetDesignPage.delete("a")
+    with pytest.raises(ValueError):
+        WidgetDesignPage.delete("a")
 
     
 #     def update_settings(cls, page_id, settings=None):
@@ -296,7 +297,8 @@ def test_update_settings(i18n_app, db):
 
     assert WidgetDesignPage.update_settings(page_id)
     assert not WidgetDesignPage.update_settings(9)
-    assert not WidgetDesignPage.update_settings("a")
+    with pytest.raises(ValueError):
+        WidgetDesignPage.update_settings("a")
 
 
 #     def update_settings_by_repository_id(cls, repository_id, settings=None):

@@ -189,56 +189,56 @@ class TestCommunity:
 #     def add_record(self, record):
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_models.py::TestCommunity::test_add_record -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
     def test_add_record(self, app, db, db_records,communities):
-        patch("invenio_records.api.before_record_update.send")
-        patch("invenio_records.api.after_record_update.send")
+        with patch("invenio_records.api.before_record_update.send"):
+            with patch("invenio_records.api.after_record_update.send"):
 
-        record = db_records[2]
-        comm = communities[0]
-        rec = Record.get_record(record.id)
-        comm.add_record(rec)
-        rec.commit()
-        from invenio_records.models import RecordMetadata
-        metadata =RecordMetadata.query.filter_by(id=record.id).one().json
-        assert metadata["communities"] == ["comm1"]
-        db.session.commit()
+                record = db_records[2]
+                comm = communities[0]
+                rec = Record.get_record(record.id)
+                comm.add_record(rec)
+                rec.commit()
+                from invenio_records.models import RecordMetadata
+                metadata =RecordMetadata.query.filter_by(id=record.id).one().json
+                assert metadata["communities"] == ["comm1"]
+                db.session.commit()
 
-        # has_record is true, oaiset.has_record is true
-        rec = Record.get_record(record.id)
-        comm.add_record(rec)
+                # has_record is true, oaiset.has_record is true
+                rec = Record.get_record(record.id)
+                comm.add_record(rec)
 
-        # COMMUNITIES_OAI_ENABLED is false
-        app.config.update(
-            COMMUNITIES_OAI_ENABLED=False
-        )
-        comm.add_record(rec)
+                # COMMUNITIES_OAI_ENABLED is false
+                app.config.update(
+                    COMMUNITIES_OAI_ENABLED=False
+                )
+                comm.add_record(rec)
 
 
 #     def remove_record(self, record):
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_models.py::TestCommunity::test_remove_record -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
     def test_remove_record(self, app, db, db_records, communities):
-        patch("invenio_records.api.before_record_update.send")
-        patch("invenio_records.api.after_record_update.send")
-        record = db_records[2]
-        comm = communities[0]
-        rec = Record.get_record(record.id)
-        rec.setdefault("communities", [])
-        rec["communities"].append(comm.id)
-        rec["communities"] = sorted(rec["communities"])
-        comm.oaiset.add_record(rec)
-        rec.commit()
-        db.session.commit()
+        with patch("invenio_records.api.before_record_update.send"):
+            with patch("invenio_records.api.after_record_update.send"):
+                record = db_records[2]
+                comm = communities[0]
+                rec = Record.get_record(record.id)
+                rec.setdefault("communities", [])
+                rec["communities"].append(comm.id)
+                rec["communities"] = sorted(rec["communities"])
+                comm.oaiset.add_record(rec)
+                rec.commit()
+                db.session.commit()
 
-        rec = Record.get_record(record.id)
-        comm.remove_record(rec)
+                rec = Record.get_record(record.id)
+                comm.remove_record(rec)
 
-        # has_record is false, oaiset.has_record is false
-        comm.remove_record(rec)
+                # has_record is false, oaiset.has_record is false
+                comm.remove_record(rec)
 
-        # COMMUNITIES_OAI_ENABLED is false
-        app.config.update(
-            COMMUNITIES_OAI_ENABLED=False
-        )
-        comm.remove_record(rec)
+                # COMMUNITIES_OAI_ENABLED is false
+                app.config.update(
+                    COMMUNITIES_OAI_ENABLED=False
+                )
+                comm.remove_record(rec)
 
 #     def has_record(self, record):
 #     def accept_record(self, record):

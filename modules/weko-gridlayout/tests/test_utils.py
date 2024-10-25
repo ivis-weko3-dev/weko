@@ -641,7 +641,8 @@ def test_find_rss_value(i18n_app, keyword, item_type):
                     with patch('weko_gridlayout.utils.Mapping.get_record', return_value=""):
                         with patch('weko_gridlayout.utils.get_mapping', return_value=item_map):
                             with patch('weko_gridlayout.utils.get_pair_value', return_value=[("Abstract", "Abstract")]):
-                                assert find_rss_value(data6, keyword) != ""
+                                with patch('weko_items_ui.utils.get_options_and_order_list', return_value=({"option": {"hidden": False}}, None)):
+                                    assert find_rss_value(data6, keyword) != ""
 
 
 
@@ -678,7 +679,7 @@ def test_get_elasticsearch_result_by_date(i18n_app):
 
 # def validate_main_widget_insertion(repository_id, new_settings, page_id=0):
 def test_validate_main_widget_insertion(i18n_app, widget_item):
-    repository_id = 1
+    repository_id = "1"
     new_settings = ""
     return_data = MagicMock()
 
@@ -786,7 +787,14 @@ def test_delete_widget_cache(i18n_app):
     repository_id = 1
     page_id = 1
 
-    assert delete_widget_cache(repository_id=repository_id, page_id=page_id) == None
+    with patch("weko_redis.redis.RedisStore") as mock_redis_store:
+        mock_redis_instance = MagicMock()
+        mock_redis_store.return_value = mock_redis_instance
+
+        with patch("weko_redis.redis.RedisConnection.connection") as mock_connection:
+            mock_connection.return_value = mock_redis_instance
+
+            assert delete_widget_cache(repository_id=repository_id, page_id=page_id) == None
 
 
 # def validate_upload_file(community_id: str): ~ ERROR

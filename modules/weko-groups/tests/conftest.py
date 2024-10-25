@@ -78,6 +78,7 @@ def app(request):
     InvenioAccounts(app)
     WekoGroups(app)
     InvenioI18N(app)
+    InvenioAccess(app)
 
     with app.app_context():
         if str(db.engine.url) != 'sqlite://' and \

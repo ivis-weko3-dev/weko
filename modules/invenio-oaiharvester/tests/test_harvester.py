@@ -501,7 +501,7 @@ def test_add_contributor_jpcoar(mapper_jpcoar):
     add_contributor_jpcoar(schema, mapping, res1, metadata)
 
     assert "item_1551264418667" in res1
-    assert res1["item_1551264418667"] == [{'subitem_1551257036415': 'ContactPerson', 'subitem_1551257339190': [{'subitem_1551257342360': '', 'subitem_1551257343979': 'en'}], 'subitem_1551257272214': [{'subitem_1551257314588': 'test', 'subitem_1551257316910': 'en'}], 'subitem_1551257245638': [{'subitem_1551257276108': 'test, smith', 'subitem_1551257279831': 'en'}], 'subitem_1551257372442': [{'subitem_1551257374288': 'other smith', 'subitem_1551257375939': 'en'}]}]
+    assert res1["item_1551264418667"] == [{'subitem_1551257036415': 'ContactPerson', 'subitem_1551257150927': [{'subitem_1551257152742': '5678','subitem_1551257172531': 'ORCID','subitem_1551257228080': 'https://orcid.org/5678'}],'subitem_1551257339190': [{'subitem_1551257342360': '', 'subitem_1551257343979': 'en'}], 'subitem_1551257272214': [{'subitem_1551257314588': 'test', 'subitem_1551257316910': 'en'}], 'subitem_1551257245638': [{'subitem_1551257276108': 'test, smith', 'subitem_1551257279831': 'en'}], 'subitem_1551257372442': [{'subitem_1551257374288': 'other smith', 'subitem_1551257375939': 'en'}]}]
 
 # def add_access_right(schema, mapping, res, metadata):
 # .tox/c1/bin/pytest --cov=invenio_oaiharvester tests/test_harvester.py::test_add_access_right -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiharvester/.tox/c1/tmp

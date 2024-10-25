@@ -40,4 +40,4 @@ def test___call__(app):
 
     field = subfield
 
-    test.__call__(field=[field])
+    test.__call__(field=field)

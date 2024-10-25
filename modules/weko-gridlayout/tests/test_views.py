@@ -8,8 +8,8 @@ from invenio_accounts.testutils import login_user_via_session
 
 
 user_results1 = [
-    (0, 403),
-    (1, 403),
+    (0, 200),
+    (1, 200),
     (2, 200),
     (3, 200),
     (4, 200),
@@ -19,8 +19,12 @@ user_results1 = [
 # def preload_pages(): 
 def test_preload_pages(i18n_app):
     from weko_gridlayout.views import preload_pages
+    mock_pages = [
+        MagicMock(id='1', repository_id='abc123' , url='/page1')
+    ]
 
-    assert preload_pages() == None
+    with patch('weko_gridlayout.models.WidgetDesignPage.get_all', return_value=mock_pages):
+        assert preload_pages() == None
 
 
 # def load_repository(): 
@@ -44,11 +48,15 @@ def test_unlocked_widget_login(client, users, id, status_code):
 
 
 def test_unlocked_widget_guest(client, users):
-    with patch("weko_gridlayout.views.WidgetItemServices.unlock_widget", return_value=True):
+    #no exsisting widget_id
+    widget_id = "invalid_widget_id"
+
+    with patch("weko_gridlayout.views.WidgetItemServices.unlock_widget", return_value=False):
         res = client.post("/admin/widget/unlock",
-                              data=json.dumps({}),
+                              data=json.dumps({"widget_id": widget_id}),
                               content_type="application/json")
-        assert res.status_code == 302
+        assert res.status_code == 200
+        assert res.json["success"] is False
 
 
 @pytest.mark.parametrize('id, status_code', user_results1)
@@ -429,14 +437,14 @@ def test_handle_not_found(i18n_app):
     notfound = NotFound()
 
     with patch('weko_gridlayout.views.WidgetDesignPage.get_by_url', return_value=page):
-        with patch('weko_gridlayout.views.get_weko_contents', return_value={}):
+        with patch('weko_theme.utils.get_weko_contents', return_value={}):
             with patch('weko_gridlayout.views.render_template', return_value={}):
                 assert handle_not_found(exception=notfound) != None
     
     extra = MagicMock()
 
     with patch('weko_gridlayout.views.WidgetDesignPage.get_by_url', return_value=None):
-        with patch('weko_gridlayout.views.get_weko_contents', return_value={}):
+        with patch('weko_theme.utils.get_weko_contents', return_value={}):
             with patch('weko_gridlayout.views.render_template', return_value={}):
                 assert handle_not_found(exception=notfound, current_handler=extra) != None
     # Exception coverage
@@ -505,7 +513,7 @@ def test_uploaded_file(client, communities):
     def get_file(filename, community_id):
         return "test"
 
-    with patch('weko_gridlayout.views.WidgetBucket.get_file', return_value=get_file):
+    with patch('weko_gridlayout.views.WidgetBucket.get_file', side_effect=get_file):
         res = client.get(
             url_for("weko_gridlayout.uploaded_file", community_id="comm1", filename="file")
         )

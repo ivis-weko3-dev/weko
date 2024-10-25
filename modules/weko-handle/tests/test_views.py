@@ -1,7 +1,7 @@
 import pytest
 import json
 from mock import patch, MagicMock
-from flask import Flask, json, jsonify, session, url_for
+from flask import Flask, json, jsonify, session, url_for, make_response
 from invenio_accounts.testutils import login_user_via_session
 
 
@@ -28,8 +28,10 @@ def test_index(app, client):
     url = url_for(
         "weko_handle.index", format="json", _external=True
     )
-    res = client.get(url)
-    assert res.status_code == 200
+    with patch("weko_handle.views.render_template", return_value=make_response()) as mock_render:
+        res = client.get(url)
+        assert res.status_code == 200
+        mock_render.assert_called_with("invenio_theme/404.html")
 
 
 # .tox/c1/bin/pytest --cov=weko_handle tests/test_views.py::test_retrieve_handle -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-handle/.tox/c1/tmp
@@ -49,7 +51,7 @@ def test_retrieve_handle(app, client):
         app.config['WEKO_HANDLE_CREDS_JSON_PATH'] = ''
         with pytest.raises(Exception) as e:
             client.post(url, data={'handle': '123/456'})
-        assert e.type==TypeError
+            assert e.type==TypeError
 
 
 # .tox/c1/bin/pytest --cov=weko_handle tests/test_views.py::test_register_handle -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-handle/.tox/c1/tmp

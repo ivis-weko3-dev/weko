@@ -51,33 +51,39 @@ class TestWekoAuthors:
     def test_create(self,app,db,esindex):
         id = 1
         es_id = uuid.uuid4()
-        with patch("weko_authors.api.Authors.get_sequence",return_value=id):
-            with patch("weko_authors.api.uuid.uuid4",return_value = es_id):
-                data = {"authorIdInfo":[]}
-                WekoAuthors.create(data)
-                db.session.commit()
-                author = Authors.query.filter_by(id=id).one()
-                test = {"authorIdInfo": [{"authorId": "1", "authorIdShowFlg": "true", "idType": "1"}], "gather_flg": 0, "id": str(es_id), "pk_id": "1"}
-                assert author
-                assert author.json == test
-                # res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],id=str(es_id))
-                res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],id=str(es_id))
-                assert res["_source"]["pk_id"]==str(id)
+        # テスト用にトランザクションをネスト
+        with db.session.begin_nested():
+            # 既に id=1 のレコードが存在する場合は削除
+            Authors.query.filter_by(id=id).delete()
+            with patch("weko_authors.api.Authors.get_sequence",return_value=id):
+                with patch("weko_authors.api.uuid.uuid4",return_value = es_id):
+                    data = {"authorIdInfo":[]}
+                    WekoAuthors.create(data)
+                    author = Authors.query.filter_by(id=id).one()
+                    test = {"authorIdInfo": [{"authorId": "1", "authorIdShowFlg": "true", "idType": "1"}], "gather_flg": 0, "id": str(es_id), "pk_id": "1"}
+                    assert author
+                    assert author.json == test
+                    # res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],id=str(es_id))
+                    res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],id=str(es_id))
+                    assert res["_source"]["pk_id"]==str(id)
 
         id = 2
         es_id = uuid.uuid4()
-        with patch("weko_authors.api.Authors.get_sequence",return_value=id):
-            with patch("weko_authors.api.uuid.uuid4",return_value = es_id):
-                with patch("weko_authors.api.db.session.add",side_effect=Exception("test_error")):
-                    with pytest.raises(Exception):
-                        data = {"authorIdInfo":[]}
-                        WekoAuthors.create(data)
+        with db.session.begin_nested():
+            # 既に id=1 のレコードが存在する場合は削除
+            Authors.query.filter_by(id=id).delete()
+            with patch("weko_authors.api.Authors.get_sequence",return_value=id):
+                with patch("weko_authors.api.uuid.uuid4",return_value = es_id):
+                    with patch("weko_authors.api.db.session.add",side_effect=Exception("test_error")):
+                        with pytest.raises(Exception):
+                            data = {"authorIdInfo":[]}
+                            WekoAuthors.create(data)
 
-                    author = Authors.query.filter_by(id=id).one_or_none()
-                    assert author == None
-                    with pytest.raises(search.NotFoundError):
-                        # res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],id=str(es_id))
-                        res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],id=str(es_id))
+                        author = Authors.query.filter_by(id=id).one_or_none()
+                        assert author == None
+                        with pytest.raises(search.NotFoundError):
+                            # res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],id=str(es_id))
+                            res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],id=str(es_id))
 
 #     def update(cls, author_id, data):
 #         def update_es_data(data):
@@ -94,6 +100,7 @@ class TestWekoAuthors:
         }
 
         author_id=1
+        Authors.query.filter_by(id=author_id).delete()
         es_id = create_author(json.loads(json.dumps(test_data)), author_id)
 
         # is_deleted is false,
@@ -127,6 +134,7 @@ class TestWekoAuthors:
         assert res["_source"]["is_deleted"] == True
 
         author_id=2
+        Authors.query.filter_by(id=author_id).delete()
         es_id = create_author(json.loads(json.dumps(test_data)), author_id)
         with patch("weko_authors.api.db.session.merge",side_effect=Exception("test_error")):
 
@@ -141,6 +149,7 @@ class TestWekoAuthors:
 
         # not hit in es
         author_id=3
+        Authors.query.filter_by(id=author_id).delete()
         es_id = str(uuid.uuid4())
         test_data = {
             "authorNameInfo": [{"familyName": "テスト","firstName": "ハナコ","fullName": "","language": "ja-Kana","nameFormat": "familyNmAndNm","nameShowFlg": "true"}],
@@ -172,6 +181,7 @@ class TestWekoAuthors:
         es_id1 = str(uuid.uuid4())
         es_id2 = str(uuid.uuid4())
         author_id=4
+        Authors.query.filter_by(id=author_id).delete()
         test_data = {
             "authorNameInfo": [{"familyName": "テスト","firstName": "ハナコ","fullName": "","language": "ja-Kana","nameFormat": "familyNmAndNm","nameShowFlg": "true"}],
             "authorIdInfo": [{"idType": "2","authorId": "01234","authorIdShowFlg": "true"}],
@@ -212,11 +222,10 @@ class TestWekoAuthors:
 #     def get_author_for_validation(cls):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_api.py::TestWekoAuthors::test_get_author_for_validation -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
     def test_get_author_for_validation(self,authors):
-        patch("weko_authors.api.WekoAuthors.get_all",return_value=authors)
-
-        authors_result, external_result = WekoAuthors.get_author_for_validation()
-        assert authors_result == {"1":True,"2":True}
-        assert external_result == {"2":{"1234":["1"],"5678":["2"]}}
+        with patch("weko_authors.api.WekoAuthors.get_all",return_value=authors):
+            authors_result, external_result = WekoAuthors.get_author_for_validation()
+            assert authors_result == {"1":True,"2":True}
+            assert external_result == {"2":{"1234":["1"],"5678":["2"]}}
 
 #     def get_identifier_scheme_info(cls):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_api.py::TestWekoAuthors::test_get_identifier_scheme_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
@@ -232,7 +241,7 @@ class TestWekoAuthors:
         assert result == test
 
         AuthorsPrefixSettings.query.delete()
-        db.session.commit()
+        # db.session.commit()
         result = WekoAuthors.get_identifier_scheme_info()
         assert result == {}
 

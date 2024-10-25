@@ -318,7 +318,7 @@ class TestProfileForm:
         login(app,client,obj=user)
         
         res = client.post("/test_form/profile_form",data=data)
-        assert res.data == bytes('Username already exists.',"utf-8")
+        assert res.data == bytes('The username is already exists. Please input other username',"utf-8")
         
         # raise NoResultFound
         data["username"]="other user"

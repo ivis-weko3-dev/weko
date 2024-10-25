@@ -43,14 +43,14 @@ def test_get_user_profile_info(users,user_profiles):
 # def handle_verification_form(form):
 # .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_utils.py::test_handle_verification_form -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
 def test_handle_verification_form(app):
-    patch("weko_user_profiles.utils.send_confirmation_instructions")
-    class TestForm(FlaskForm):
-        send_verification_email = SubmitField('Resend verification email')
-    with app.test_request_context(method="POST",data={"send_verification_email":"test@test.org"}):
-        form = TestForm(formdata=None,prefix="verification")
-        mock_flash = patch("weko_user_profiles.utils.flash")
-        handle_verification_form(form)
-        mock_flash.assert_called_with("Verification email sent.",category="success")
+    with patch("weko_user_profiles.utils.send_confirmation_instructions"):
+        class TestForm(FlaskForm):
+            send_verification_email = SubmitField('Resend verification email')
+        with app.test_request_context(method="POST",data={"send_verification_email":"test@test.org"}):
+            form = TestForm(formdata=None,prefix="verification")
+            with patch("weko_user_profiles.utils.flash") as mock_flash:
+                handle_verification_form(form)
+                mock_flash.assert_called_with("Sent a Verification email",category="success")
 
 
 # def handle_profile_form(form):
@@ -101,11 +101,11 @@ def test_handle_profile_form(app,users,user_profiles):
             instituteName5=userprofile.instituteName5,
             institutePosition5=userprofile.institutePosition5,
             prefix='profile', )
-        mock_flash = patch("weko_user_profiles.utils.flash")
-        handle_profile_form(form)
-        mock_flash.assert_called_with('Profile was updated.',category="success")
-        assert current_userprofile.timezone == "Etc/GMT"
-        assert current_userprofile.username == "test_sysadmin"
+        with patch("weko_user_profiles.utils.flash") as mock_flash:
+            handle_profile_form(form)
+            mock_flash.assert_called_with('Updated your profile',category="success")
+            assert current_userprofile.timezone == "Etc/GMT"
+            assert current_userprofile.username == "test_sysadmin"
     
     # changed email
     current_app.config.update(
@@ -155,12 +155,12 @@ def test_handle_profile_form(app,users,user_profiles):
             instituteName5=userprofile.instituteName5,
             institutePosition5=userprofile.institutePosition5,
             prefix='profile', )
-        mock_flash = patch("weko_user_profiles.utils.flash")
-        mock_send = patch("weko_user_profiles.utils.send_confirmation_instructions")
-        patch("weko_user_profiles.utils.get_role_by_position",return_value="Original Role")
-        handle_profile_form(form)
-        mock_flash.assert_called_with("Profile was updated. We have sent a verification email to new_repoadmin@test.org. Please check it.",category="success")
-        mock_send.assert_called_once()
+        with patch("weko_user_profiles.utils.flash") as mock_flash:
+            with patch("weko_user_profiles.utils.send_confirmation_instructions") as mock_send:
+                with patch("weko_user_profiles.utils.get_role_by_position",return_value="Original Role"):
+                    handle_profile_form(form)
+                    mock_flash.assert_called_with("Profile was updated. We have sent a verification email to new_repoadmin@test.org. Please check it.",category="success")
+                    mock_send.assert_called_once()
 
 
     # validate_on_submit is false

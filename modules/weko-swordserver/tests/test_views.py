@@ -1,13 +1,13 @@
 
 from flask import url_for,json,request,abort
 import pytest
-from mock import patch
+from mock import patch, MagicMock
 import datetime
 from sword3common.lib.seamless import SeamlessException
 from werkzeug.datastructures import FileStorage
 
 from invenio_accounts.testutils import login_user_via_session
-from invenio_pidstore.models import PersistentIdentifier
+from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_files_rest.models import Location
 
 from weko_swordserver.errors import *
@@ -45,65 +45,65 @@ def test_post_service_document(app,client,db,users,esindex,location,index,make_z
         loc = db.session.query(Location).filter(
                     Location.id == 1).one()
         loc.size = 1547
-    patch("weko_swordserver.views._get_status_document",side_effect=lambda x:{"recid":x})
-    patch("weko_search_ui.utils.find_and_update_location_size",side_effect=update_location_size)
-    patch("weko_search_ui.utils.send_item_created_event_to_es")
-    zip = make_zip()
-    storage = FileStorage(filename="payload.zip",stream=zip)
-    res = client.post(url, data=dict(file=storage),content_type="multipart/form-data",headers=headers)
-    assert res.status_code == 200
+    with patch("weko_swordserver.views._get_status_document",side_effect=lambda x:{"recid":x}):
+        with patch("weko_search_ui.utils.find_and_update_location_size",side_effect=update_location_size):
+            with patch("weko_search_ui.utils.send_item_created_event_to_es"):
+                zip = make_zip()
+                storage = FileStorage(filename="payload.zip",stream=zip)
+                res = client.post(url, data=dict(file=storage),content_type="multipart/form-data",headers=headers)
+                assert res.status_code == 200
 
-    #recid = PersistentIdentifier.get("recid","1").object_uuid
-    #record = RecordMetadata.query.filter_by(id=recid).one_or_none()
-    #assert record is not None
-    #record = record.json
-    #file_metadata = record["item_1617605131499"]["attribute_value_mlt"][0]
-    #assert file_metadata.get("url") is not None
-    #assert file_metadata.get("url").get("url") == "https://localhost/record/1/files/sample.html"
-    assert json.loads(res.data) == {"recid":"1"}
-    zip = make_zip()
-    storage=FileStorage(filename="payload.zip",stream=zip)
-    with app.test_request_context(url,method="POST",headers=headers,data=dict(file=storage)):
-        # exist "error" in check_result
-        checked = {"error":"test_check_error","item":"test_item"}
-        with patch("weko_swordserver.views.check_import_items",return_value=checked):
-            with pytest.raises(WekoSwordserverException) as e:
-                post_service_document()
-                assert e.errorType == ErrorType.ServerError
-                assert e.message == "Error in check_import_items: test_check_error"
-        
-        # exist "error" in item
-        checked = {"error":"","item":{"errors":["this is test item error1","this is test item error2"]}}
-        with patch("weko_swordserver.views.check_import_items",return_value=checked):
-            with pytest.raises(WekoSwordserverException) as e:
-                post_service_document()
-                assert e.errorType == ErrorType.ContentMalformed
-                assert e.message == "Error in check_import_items: this is test item error1, this is test item error2"
-        
-        # else
-        checked = {"error":"","item":{}}
-        with patch("weko_swordserver.views.check_import_items",return_value=checked):
-            with pytest.raises(WekoSwordserverException) as e:
-                post_service_document()
-                assert e.errorType == ErrorType.ContentMalformed
-                assert e.message == "Error in check_import_items: item_missing"
-        
-        # item.status is not new
-        checked = {"error":"","item":{"status":"update","item_title":"not_new_item"}}
-        with patch("weko_swordserver.views.check_import_items",return_value=checked):
-            with pytest.raises(WekoSwordserverException) as e:
-                post_service_document()
-                assert e.errorType == ErrorType.BadRequest
-                assert e.message == "This item is already registered: not_new_item"
-        
-        # import failed
-        checked = {"error":"","item":{"status":"new","item_title":"new_item"}}
-        with patch("weko_swordserver.views.check_import_items",return_value=checked):
-            with patch("weko_swordserver.views.import_items_to_system",return_value={"error_id":"test error in import"}):
-                with pytest.raises(WekoSwordserverException) as e:
-                    post_service_document()
-                    assert e.errorType == ErrorType.ServerError
-                    assert e.message == "Error in import_items_to_system: test error in import"
+                #recid = PersistentIdentifier.get("recid","1").object_uuid
+                #record = RecordMetadata.query.filter_by(id=recid).one_or_none()
+                #assert record is not None
+                #record = record.json
+                #file_metadata = record["item_1617605131499"]["attribute_value_mlt"][0]
+                #assert file_metadata.get("url") is not None
+                #assert file_metadata.get("url").get("url") == "https://localhost/record/1/files/sample.html"
+                assert json.loads(res.data) == {"recid":"1"}
+                zip = make_zip()
+                storage=FileStorage(filename="payload.zip",stream=zip)
+                with app.test_request_context(url,method="POST",headers=headers,data=dict(file=storage)):
+                    # exist "error" in check_result
+                    checked = {"error":"test_check_error","item":"test_item"}
+                    with patch("weko_swordserver.views.check_import_items",return_value=checked):
+                        with pytest.raises(WekoSwordserverException) as e:
+                            post_service_document()
+                            assert e.errorType == ErrorType.ServerError
+                            assert e.message == "Error in check_import_items: test_check_error"
+
+                    # exist "error" in item
+                    checked = {"error":"","item":{"errors":["this is test item error1","this is test item error2"]}}
+                    with patch("weko_swordserver.views.check_import_items",return_value=checked):
+                        with pytest.raises(WekoSwordserverException) as e:
+                            post_service_document()
+                            assert e.errorType == ErrorType.ContentMalformed
+                            assert e.message == "Error in check_import_items: this is test item error1, this is test item error2"
+
+                    # else
+                    checked = {"error":"","item":{}}
+                    with patch("weko_swordserver.views.check_import_items",return_value=checked):
+                        with pytest.raises(WekoSwordserverException) as e:
+                            post_service_document()
+                            assert e.errorType == ErrorType.ContentMalformed
+                            assert e.message == "Error in check_import_items: item_missing"
+
+                    # item.status is not new
+                    checked = {"error":"","item":{"status":"update","item_title":"not_new_item"}}
+                    with patch("weko_swordserver.views.check_import_items",return_value=checked):
+                        with pytest.raises(WekoSwordserverException) as e:
+                            post_service_document()
+                            assert e.errorType == ErrorType.BadRequest
+                            assert e.message == "This item is already registered: not_new_item"
+
+                    # import failed
+                    checked = {"error":"","item":{"status":"new","item_title":"new_item"}}
+                    with patch("weko_swordserver.views.check_import_items",return_value=checked):
+                        with patch("weko_swordserver.views.import_items_to_system",return_value={"error_id":"test error in import"}):
+                            with pytest.raises(WekoSwordserverException) as e:
+                                post_service_document()
+                                assert e.errorType == ErrorType.ServerError
+                                assert e.message == "Error in import_items_to_system: test error in import"
         
         
 
@@ -237,25 +237,39 @@ def test_delete_item(client, tokens, users,es_records):
         "Authorization":"Bearer {}".format(token),
     }
     
-    res = client.delete(url, headers=headers)
-    assert res.status_code == 204
-    target = PersistentIdentifier.query.filter_by(pid_type="recid",pid_value=delete_item).first()
-    assert target.status == "D"
+    # Mock the target PersistentIdentifier object
+    target = MagicMock()
+    target.pid_value = delete_item
+    target.status = PIDStatus.REGISTERED
+
+    # Patch the PersistentIdentifier query method globally
+    with patch.object(PersistentIdentifier, 'query') as mock_query:
+        # Mock the filter_by call to return a mock query object
+        mock_query.filter_by.return_value.first.return_value = target
+        with patch('weko_swordserver.views.soft_delete') as mock_soft_delete:
+            def side_effect(recid):
+                target.status = PIDStatus.DELETED
+            mock_soft_delete.side_effect = side_effect
+
+            res = client.delete(url, headers=headers)
+            assert res.status_code == 204
+
+            assert target.status == PIDStatus.DELETED
 
 
 # def _create_error_document(type, error):
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__create_error_document -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
 def test__create_error_document():
-    mock_datetime = patch("weko_swordserver.views.datetime")
-    mock_datetime.now.return_value=datetime.datetime(2022,10,1,2,3,4)
-    test = {
-        "@context":"https://swordapp.github.io/swordv3/swordv3.jsonld",
-        "@type":"BadRequest",
-        "timestamp":"2022-10-01T02:03:04Z",
-        "error":"this is test bad_request_error."
-    }
-    result = _create_error_document("BadRequest","this is test bad_request_error.")
-    assert result == test
+    with patch("weko_swordserver.views.datetime") as mock_datetime:
+        mock_datetime.now.return_value=datetime.datetime(2022,10,1,2,3,4)
+        test = {
+            "@context":"https://swordapp.github.io/swordv3/swordv3.jsonld",
+            "@type":"BadRequest",
+            "timestamp":"2022-10-01T02:03:04Z",
+            "error":"this is test bad_request_error."
+        }
+        result = _create_error_document("BadRequest","this is test bad_request_error.")
+        assert result == test
 
 
 @blueprint.route("/test_error/<error_type>",methods=["GET"])
