@@ -152,7 +152,7 @@ def receive_after_begin(session, transaction, connection):
     connection.execute("PRAGMA foreign_keys=OFF;")
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -340,14 +340,14 @@ def base_app(instance_path):
 
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app(base_app):
     """Flask application fixture."""
     with base_app.app_context():
         yield base_app
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client_api(app):
     app.register_blueprint(weko_items_ui_blueprint_api, url_prefix="/api/items")
     with app.test_client() as client:
@@ -355,7 +355,7 @@ def client_api(app):
 
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client(app):
     """make a test client.
 

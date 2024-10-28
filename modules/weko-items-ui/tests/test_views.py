@@ -34,10 +34,10 @@ from weko_items_ui.views import (
 # def index(item_type_id=0):
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_index_acl_nologin -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
 def test_index_acl_nologin(client, db_sessionlifetime):
-    url = url_for("weko_items_ui.index", _external=True)
+    url = url_for("weko_items_ui.index", _external=False)
     res = client.get("http://test_server/items/")
     assert res.status_code == 302
-    assert res.location == url_for("security.login", next="/items/", _external=True)
+    assert res.location == url_for("security.login", next="/items/", _external=False)
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_index_acl -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
@@ -56,11 +56,11 @@ def test_index_acl_nologin(client, db_sessionlifetime):
 )
 def test_index_acl(client, db_itemtype, users, id, status_code):
     login_user_via_session(client=client, email=users[id]["email"])
-    url = url_for("weko_items_ui.index", _external=True)
+    url = url_for("weko_items_ui.index", _external=False)
     res = client.get(url)
     assert res.status_code == status_code
     if res.status_code == 302:
-        assert res.location == "{}1".format(url)
+        assert res.location == f"{url}1"
     else:
         assert res.location == None
 
@@ -113,7 +113,7 @@ def test_iframe_index_acl_nologin(client, db_sessionlifetime):
     res = client.get(url)
     assert res.status_code == 302
     assert res.location == url_for(
-        "security.login", next="/items/iframe", _external=True
+        "security.login", next="/items/iframe", _external=False
     )
 
 
