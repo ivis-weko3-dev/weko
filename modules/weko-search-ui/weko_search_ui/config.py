@@ -132,7 +132,7 @@ from invenio_stats.config import SEARCH_INDEX_PREFIX as index_prefix
 INDEXER_DEFAULT_INDEX = "{}-weko-item-v1.0.0".format(index_prefix)  # Use direct index
 INDEXER_FILE_DOC_TYPE = "content"
 
-SEARCH_UI_SEARCH_INDEX = "{}-weko".format(index_prefix)
+SEARCH_UI_SEARCH_INDEX = "weko"
 
 # set item type aggs
 RECORDS_REST_FACETS = dict()
