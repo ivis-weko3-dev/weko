@@ -16,6 +16,7 @@ import uuid
 from zipfile import ZipFile
 
 import pytest
+import json
 from flask import Flask
 from flask_webpackext import current_webpack
 from invenio_accounts import InvenioAccounts
@@ -37,8 +38,9 @@ from sqlalchemy_utils.functions import create_database, database_exists
 from six import BytesIO
 
 from invenio_previewer import InvenioPreviewer
+from invenio_previewer.views import preview
 
-@pytest.yield_fixture(scope='session', autouse=True)
+@pytest.yield_fixture(scope='function')
 def app():
     """Flask application fixture with database initialization."""
     instance_path = tempfile.mkdtemp()
@@ -71,8 +73,38 @@ def app():
             ),
         ),
         SERVER_NAME='localhost',
-        SECRET_KEY="SECRET_KEY"
+        SECRET_KEY="SECRET_KEY",
+        IIIF_PREVIEWER_PARAMS = {
+            'size': '750,'
+        },
+        IIIF_PREVIEW_TEMPLATE = 'invenio_iiif/preview.html',
+        IIIF_UI_URL = '/api/iiif/',
     )
+    mock_manifest_path = os.path.join(instance_path, 'dist', 'manifest.json')
+    os.makedirs(os.path.dirname(mock_manifest_path), exist_ok=True)
+
+    mock_data = {
+        "main.js": "dist/main.js",
+        "styles.css": "dist/styles.css",
+        "previewer_theme.css": "dist/previewer_theme.css",
+        "previewer_theme.js": "dist/previewer_theme.js",
+        "pdfjs_css.css": "dist/pdfjs_css.css",
+        "pdfjs_js.js": "dist/pdfjs_js.js",
+        "fullscreen_js.js": "dist/fullscreen_js.js",
+        "open_pdf.js": "dist/open_pdf.js",
+        "open_pdf.css": "dist/open_pdf.css",
+        "papaparse_csv.js": "dist/papaparse_csv.js",
+        "papaparse_csv.css": "dist/papaparse_csv.css",
+        "zip_js.js": "dist/zip_js.js",
+        "zip_css.css": "dist/zip_css.css",
+        "prism_js.js": "dist/prism_js.js",
+        "prism_css.css": "dist/prism_css.css",
+        "txt_js.js": "dist/txt_js.js",
+        "txt_css.css": "dist/txt_css.css"
+    }
+
+    with open(mock_manifest_path, 'w') as f:
+        json.dump(mock_data, f)
     Babel(app_)
     assets_ext = InvenioAssets(app_)
     InvenioDB(app_)
@@ -93,6 +125,19 @@ def app():
 
     shutil.rmtree(instance_path)
 
+def set_url_rule_preview(app, record):
+    # set endpoint
+    view_function = preview
+    app.add_url_rule(
+        '/record/<pid_value>/files/<filename>',
+        'invenio_records_ui.recid_files',
+        lambda pid_value, filename: f"/record/{pid_value}/files/{filename}?download=1"
+    )
+    app.add_url_rule(
+        '/record/<pid_value>/preview/<filename>',
+        'invenio_records_ui.recid_previewer',
+        lambda pid_value, filename, **kwargs: view_function(pid_value, record, **kwargs)
+    )
 
 @pytest.fixture(scope="module")
 def app_config(app_config):
@@ -149,12 +194,13 @@ def create_app(instance_path):
     return _create_app
 
 
-@pytest.fixture(scope="module")
-def testapp(app):
+@pytest.fixture(scope='function')
+def testapp(app, record):
     """Application with just a database.
 
     Pytest-Invenio also initialise search with the app fixture.
     """
+    set_url_rule_preview(app, record)
     yield app
 
 
@@ -204,7 +250,7 @@ def location(db):
     shutil.rmtree(tmppath)
 
 
-@pytest.fixture()
+@pytest.fixture(scope='function')
 def record(db, location):
     """Record fixture."""
     rec_uuid = uuid.uuid4()
@@ -255,12 +301,12 @@ def zip_fp(db):
     fp.seek(0)
     return fp
 
-@pytest.yield_fixture()
+@pytest.yield_fixture(scope='function')
 def db(app):
     """Database fixture."""
     if not database_exists(str(db_.engine.url)):
         create_database(str(db_.engine.url))
-        db_.create_all()
+    db_.create_all()
     yield db_
     db_.session.remove()
-    # db_.drop_all()
+    db_.drop_all()

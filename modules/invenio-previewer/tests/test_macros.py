@@ -13,7 +13,8 @@ import zipfile
 from flask import render_template_string, url_for
 from invenio_db import db
 from invenio_files_rest.models import ObjectVersion
-from mock import patch
+from invenio_previewer.views import preview
+from mock import patch, MagicMock
 from six import BytesIO, b
 
 
@@ -44,7 +45,7 @@ def preview_url(pid_val, filename):
     )
 
 
-def test_default_extension(testapp, webassets, record):
+def test_default_extension(testapp, record):
     """Test view by default."""
     create_file(record, "testfile", BytesIO(b"empty"))
 
@@ -53,9 +54,10 @@ def test_default_extension(testapp, webassets, record):
         assert "we are unfortunately not" in res.get_data(as_text=True)
 
 
-def test_markdown_extension(testapp, webassets, record):
+def test_markdown_extension(testapp, record):
     """Test view with md files."""
     create_file(record, "markdown.md", BytesIO(b"### Testing markdown ###"))
+    testapp.jinja_env.filters['sanitize_html'] = lambda x: x
     with testapp.test_client() as client:
         res = client.get(preview_url(record["control_number"], "markdown.md"))
         assert "<h3>Testing markdown" in res.get_data(as_text=True)
@@ -64,7 +66,7 @@ def test_markdown_extension(testapp, webassets, record):
             assert "we are unfortunately not" in res.get_data(as_text=True)
 
 
-def test_pdf_extension(testapp, webassets, record):
+def test_pdf_extension(testapp, record):
     """Test view with pdf files."""
     create_file(record, "test.pdf", BytesIO(b"Content not used"))
 
@@ -73,7 +75,7 @@ def test_pdf_extension(testapp, webassets, record):
         assert "pdf-file-uri" in res.get_data(as_text=True)
 
 
-def test_csv_papaparsejs_extension(testapp, webassets, record):
+def test_csv_papaparsejs_extension(testapp, record):
     """Test view with csv files."""
     create_file(record, "test.csv", BytesIO(b"A,B\n1,2"))
     with testapp.test_client() as client:
@@ -81,7 +83,7 @@ def test_csv_papaparsejs_extension(testapp, webassets, record):
         assert 'data-csv-source="' in res.get_data(as_text=True)
 
 
-def test_csv_papaparsejs_delimiter(testapp, webassets, record):
+def test_csv_papaparsejs_delimiter(testapp, record):
     """Test view with csv files."""
     create_file(record, "test.csv", BytesIO(b"A#B\n1#2"))
     with testapp.test_client() as client:
@@ -89,7 +91,7 @@ def test_csv_papaparsejs_delimiter(testapp, webassets, record):
         assert 'data-csv-source="' in res.get_data(as_text=True)
 
 
-def test_zip_extension(testapp, webassets, record, zip_fp):
+def test_zip_extension(testapp, record, zip_fp):
     """Test view with a zip file."""
     create_file(record, "test.zip", zip_fp)
 
@@ -107,7 +109,7 @@ def test_zip_extension(testapp, webassets, record, zip_fp):
             assert "Zipfile is not previewable" in res.get_data(as_text=True)
 
 
-def test_json_extension_valid_file(testapp, webassets, record):
+def test_json_extension_valid_file(testapp, record):
     """Test view with JSON files."""
     json_data = (
         '{"name":"invenio","num":42,'
@@ -140,7 +142,7 @@ def test_json_extension_valid_file(testapp, webassets, record):
         assert rendered_json in res.get_data(as_text=True)
 
 
-def test_json_extension_invalid_file(testapp, webassets, record):
+def test_json_extension_invalid_file(testapp, record):
     """Test view with JSON files."""
     wrong_json_data = '{"name":"invenio","num'
     create_file(record, "test_wrong.json", BytesIO(b(wrong_json_data)))
@@ -150,7 +152,7 @@ def test_json_extension_invalid_file(testapp, webassets, record):
         assert "we are unfortunately not" in res.get_data(as_text=True)
 
 
-def test_max_file_size(testapp, webassets, record):
+def test_max_file_size(testapp, record):
     """Test file size limitation."""
     max_file_size = testapp.config.get("PREVIEWER_MAX_FILE_SIZE_BYTES", 1 * 1024 * 1024)
     too_large_string = "1" * (max_file_size + 1)
@@ -161,10 +163,14 @@ def test_max_file_size(testapp, webassets, record):
         assert "we are unfortunately not" in res.get_data(as_text=True)
 
 
-def test_xml_extension(testapp, webassets, record):
+def test_xml_extension(testapp, record):
     """Test view with XML files."""
     xml_data = b'<el a="some"><script>alert(1)</script><c>1</c><c>2</c></el>'
     create_file(record, "test.xml", BytesIO(xml_data))
+    mock_file = MagicMock()
+    mock_file.key = "test.xml"
+    mock_file.pid.pid_type = "recid"
+    mock_file.pid.pid_value = "1"
 
     with testapp.test_client() as client:
         res = client.get(preview_url(record["control_number"], "test.xml"))
@@ -174,12 +180,13 @@ def test_xml_extension(testapp, webassets, record):
         assert "&lt;c&gt;2&lt;/c&gt;" in res.get_data(as_text=True)
         assert "&lt;/el&gt;" in res.get_data(as_text=True)
 
-        with patch("xml.dom.minidom.Node.toprettyxml", side_effect=Exception):
-            res = client.get(preview_url(record["control_number"], "test.xml"))
-            assert "we are unfortunately not" in res.get_data(as_text=True)
+        with patch("invenio_previewer.views.current_previewer.record_file_factory", return_value=mock_file):
+            with patch("xml.dom.minidom.Node.toprettyxml", side_effect=Exception):
+                res = client.get(preview_url(record["control_number"], "test.xml"))
+                assert "we are unfortunately not" in res.get_data(as_text=True)
 
 
-def test_ipynb_extension(testapp, webassets, record):
+def test_ipynb_extension(testapp, record):
     """Test view with IPython notebooks files."""
     create_file(
         record,
@@ -229,18 +236,27 @@ def test_ipynb_extension(testapp, webassets, record):
         assert "<script>alert();</script>" not in as_text
 
 
-def test_simple_image_extension(testapp, webassets, record):
+def test_simple_image_extension(testapp, record):
     """Test view with simple image files (PNG)."""
     create_file(record, "test.png", BytesIO(b"Content not used"))
 
-    with testapp.test_client() as client:
-        res = client.get(preview_url(record["control_number"], "test.png"))
-        as_text = res.get_data(as_text=True)
-        assert '<img src="' in as_text
-        assert 'class="previewer-simple-image"' in as_text
+    mock_template_content = (
+        '<div>Mocked Simple Image Preview Template</div>'
+        '<img src="/api/iiif/records/1/preview/test.png" class="previewer-simple-image" />'
+    )
+
+    with patch('jinja2.FileSystemLoader.get_source') as mock_get_source:
+        mock_get_source.side_effect = lambda environment, template: (
+            mock_template_content, None, None
+        ) if template == 'invenio_iiif/preview.html' else (None, None, None)
+        with testapp.test_client() as client:
+            res = client.get(preview_url(record["control_number"], "test.png"))
+            as_text = res.get_data(as_text=True)
+            assert '<img src="' in as_text
+            assert 'class="previewer-simple-image"' in as_text
 
 
-def test_txt_extension_valid_file(testapp, webassets, record):
+def test_txt_extension_valid_file(testapp, record):
     """Text .txt file viewer."""
     create_file(record, "test1.txt", BytesIO(b"test content foobar"))
 
@@ -249,7 +265,7 @@ def test_txt_extension_valid_file(testapp, webassets, record):
         assert "<pre>test content foobar</pre>" in res.get_data(as_text=True)
 
 
-def test_txt_extension_large_file(testapp, webassets, record):
+def test_txt_extension_large_file(testapp, record):
     """Text .txt file viewer for large files."""
     max_file_size = testapp.config.get("PREVIEWER_TXT_MAX_BYTES", 1 * 1024 * 1024)
     too_large_string = "1" * (max_file_size + 1)
@@ -288,6 +304,6 @@ def test_view_macro_file_list(testapp):
         )
 
         assert 'href="/record/1/files/test1.txt?download=1"' in result
-        assert "<td>10 Bytes</td>" in result
+        assert '<td class="nowrap">10 Bytes</td>' in result
         assert 'href="/record/1/files/test2.txt?download=1"' in result
-        assert "<td>12.0 MB</td>" in result
+        assert '<td class="nowrap">12.0 MB</td>' in result

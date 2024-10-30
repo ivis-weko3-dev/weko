@@ -80,6 +80,7 @@ def is_previewable(extension):
 
 @blueprint.teardown_request
 def dbsession_clean(exception):
+    from invenio_db import db
     current_app.logger.debug("invenio_previewer dbsession_clean: {}".format(exception))
     if exception is None:
         try:
