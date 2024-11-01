@@ -34,6 +34,12 @@ var webpackConfig = {
   mode: process.env.NODE_ENV,
   entry: config.entry,
   context: config.build.context,
+  externals: [
+    {
+      react: 'React',
+      'react-dom': 'ReactDOM',
+    }
+  ],
   resolve: {
     extensions: ["*", ".js", ".jsx"],
     symlinks: false,
