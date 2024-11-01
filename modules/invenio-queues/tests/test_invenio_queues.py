@@ -9,6 +9,7 @@
 """Module tests."""
 import sys
 import os
+import invenio_queues
 from unittest.mock import patch
 # テストディレクトリをsys.pathに追加
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
@@ -22,6 +23,24 @@ from invenio_queues.errors import DuplicateQueueError
 from invenio_queues.queue import Queue
 from conftest import MOCK_MQ_EXCHANGE, mock_iter_entry_points_factory
 from invenio_queues.proxies import current_queues
+from kombu import Connection, Exchange, Queue, exceptions
+
+MOCK_MQ_EXCHANGE = Exchange(
+    "test_events",
+    type="direct",
+    delivery_mode="transient",  # in-memory queue
+    durable=True,
+)
+
+def ensure_connection(conn, retries=5, delay=2):
+    """Ensure connection with retries."""
+    for _ in range(retries):
+        try:
+            conn.connect()
+            return
+        except exceptions.OperationalError:
+            time.sleep(delay)
+    raise exceptions.OperationalError("Failed to connect after retries")
 
 def test_version():
     """Test version import."""
@@ -68,8 +87,8 @@ with_different_brokers = pytest.mark.parametrize(
         {},
         # test with in memory broker as the exception is not the same
         {"QUEUES_BROKER_URL": "memory://"},
-        {"QUEUES_BROKER_URL": "amqp://"},
-        {"QUEUES_BROKER_URL": "redis://"},
+        {"QUEUES_BROKER_URL": "amqp://guest:guest@rabbitmq:5672//"},
+        {"QUEUES_BROKER_URL": "redis://redis:6379//"},
     ],
 )
 """Test with standard and in memory broker."""
@@ -80,6 +99,7 @@ def test_publish_and_consume(app, test_queues, config):
     """Test queue.publish and queue.consume."""
     app.config.update(config)
     with app.app_context():
+        broker_url = app.config.get("QUEUES_BROKER_URL")
         queue = current_queues.queues[test_queues[0]["name"]]
         queue.publish([1, 2, 3])
         queue.publish([4, 5])
@@ -87,16 +107,18 @@ def test_publish_and_consume(app, test_queues, config):
 
 
 @with_different_brokers
-def test_queue_exists(app,  config):
+def test_queue_exists(app, test_queues_entrypoints, config):
     """Test the "declare" CLI."""
     app.config.update(config)
     with app.app_context():
+        broker_url = app.config.get("QUEUES_BROKER_URL")
+        conn = Connection(broker_url)
+        ensure_connection(conn)
         for queue in current_queues.queues.values():
             assert not queue.exists
         current_queues.declare()
         for queue in current_queues.queues.values():
             # NOTE: skip existence check for redis since is not supported
-            broker_url = app.config.get("CELERY_BROKER_URL") or app.config.get("BROKER_URL") or ""
             if broker_url.startswith("redis"):
                 continue
             assert queue.exists
@@ -107,6 +129,7 @@ def test_routing(app, test_queues, config):
     """Test basic routing of messages."""
     app.config.update(config)
     with app.app_context():
+        broker_url = app.config.get("QUEUES_BROKER_URL")
         q0 = current_queues.queues[test_queues[0]["name"]]
         q1 = current_queues.queues[test_queues[1]["name"]]
         q0.publish([{"event": "0"}])

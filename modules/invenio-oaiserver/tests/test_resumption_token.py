@@ -1,5 +1,5 @@
 
-
+from unittest.mock import patch
 from invenio_oaiserver.resumption_token import (
     _schema_from_verb,
     serialize,

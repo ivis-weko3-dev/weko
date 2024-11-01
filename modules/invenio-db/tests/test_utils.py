@@ -24,25 +24,6 @@ from invenio_db.utils import (
     drop_alembic_version_table,
 )
 
-@pytest.fixture()
-def app():
-    app = Flask(__name__)
-    app.config.update(
-        SECRET_KEY="SECRET_KEY",
-        TESTING=True,
-        SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg2://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}",  # PostgreSQL データベースに接続
-        DB_VERSIONING=False,
-        DB_VERSIONING_USER_MODEL=None,
-    )
-    InvenioDB(app)
-    return app
-
-@pytest.fixture()
-def db(app):
-    with app.app_context():
-        db_ = shared.db
-        yield db_
-        db_.session.remove()
 
 # .tox/c1/bin/pytest --cov=invenio_db tests/test_utils.py::test_rebuild_encrypted_properties -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-db/.tox/c1/tmp
 def test_rebuild_encrypted_properties(db, app):
@@ -105,13 +86,31 @@ def test_versioning_model_classname(db, app):
     remove_versioning(manager=manager)
 
 # .tox/c1/bin/pytest --cov=invenio_db tests/test_utils.py::test_versioning_models_registered -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/invenio-db/.tox/c1/tmp
-def test_versioning_models_registered(db, app, mock_entry_points):
-    app.config['DB_VERSIONING'] = True
-    idb = InvenioDB(app, db=db)
-    manager = idb.versioning_manager
-    result = versioning_models_registered(manager, db.Model)
-    assert result == True
-    remove_versioning(manager=manager)
+def test_versioning_models_registered(db, app):
+    """Test versioning models registered."""
+
+    class VersionedModel(db.Model):
+        __tablename__ = "versioned_model"
+        pk = db.Column(db.Integer, primary_key=True)
+
+    app.config["DB_VERSIONING"] = True
+    idb = InvenioDB(app)
+
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
+
+        versioned_model_table = db.Table(
+            'versioned_model', db.metadata,
+            db.Column('pk', db.Integer, primary_key=True),
+            extend_existing=True
+        )
+
+        assert versioned_model_table is not None
+
+        assert db.metadata.tables.get('versioned_model_version') is not None
+
+        db.drop_all()
 
 # .tox/c1/bin/pytest --cov=invenio_db tests/test_utils.py::test_create_alembic_version_table -v -vv -s --cov-branch --cov-report=term --cov-report=xml --basetemp=/code/modules/invenio-db/.tox/c1/tmp
 @pytest.mark.parametrize("has_version_table",[True,False])

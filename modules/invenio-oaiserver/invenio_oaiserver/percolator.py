@@ -21,11 +21,21 @@ from flask import current_app
 
 from invenio_oaiserver.query import query_string_parser
 
-
 def _build_percolator_index_name(index):
     """Build percolator index name."""
     suffix = "-percolators"
     return build_index_name(index, suffix=suffix, app=current_app)
+
+
+# def _create_percolator_mapping(index, mapping_path=None):
+#     """Update mappings with the percolator field."""
+#     percolator_index = _build_percolator_index_name(index.index_name)
+#     if not mapping_path:
+#         mapping_path = current_search.mappings[index.index_name]
+#     with open(mapping_path) as f:
+#         mapping = json.load(f)
+#     mapping["mappings"]["properties"]["query"] = {"type": "percolator"}
+#     current_search_client.indices.create(index=percolator_index, body=mapping)
 
 
 def _create_percolator_mapping(index, mapping_path=None):
@@ -82,7 +92,24 @@ def _delete_percolator(spec, search_pattern):
             id="oaiset-{}".format(spec),
             ignore=[404],
         )
+import os
+def _get_percolator_doc_type(index):
+    es_ver = ES_VERSION[0]
+    if es_ver == 2:
+        return '.percolator'
+    elif es_ver == 5:
+        return 'percolators'
+    elif es_ver == 6:
+        mapping_path = current_search.mappings[index]
+        parts=mapping_path.split("/")
+        doc_type=os.path.splitext(parts[-1])
+        #_, doc_type = schema_to_index(mapping_path)
+        return doc_type
 
+
+PERCOLATOR_MAPPING = {
+    'properties': {'query': {'type': 'percolator'}}
+}
 
 def create_percolate_query(
     percolator_ids=None,
@@ -188,3 +215,23 @@ def sets_search_all(records):
 def find_sets_for_record(record):
     """Fetch a record's sets."""
     return sets_search_all([record])[0]
+
+def _build_cache():
+    """Build sets cache."""
+    sets = current_oaiserver.sets
+    if sets is None:
+        # build sets cache
+        sets = current_oaiserver.sets = [
+            oaiset.spec for oaiset in OAISet.query.filter(
+                OAISet.search_pattern.is_(None)).all()]
+    return sets
+
+
+def get_record_sets(record):
+    """Find matching sets."""
+    # get lists of sets with search_pattern equals to None but already in the
+    # set list inside the record
+    record_sets = set(record.get('_oai', {}).get('sets', []))
+    for spec in _build_cache():
+        if spec in record_sets:
+            yield spec

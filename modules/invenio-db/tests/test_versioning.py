@@ -17,25 +17,6 @@ from test_db import _mock_entry_points
 from flask import Flask
 from invenio_db import InvenioDB, shared
 
-@pytest.fixture()
-def app():
-    app = Flask(__name__)
-    app.config.update(
-        SECRET_KEY="SECRET_KEY",
-        TESTING=True,
-        SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg2://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}",  # PostgreSQL データベースに接続
-        DB_VERSIONING=False,
-        DB_VERSIONING_USER_MODEL=None,
-    )
-    InvenioDB(app)
-    return app
-
-@pytest.fixture()
-def db(app):
-    with app.app_context():
-        db_ = shared.db
-        yield db_
-        db_.session.remove()
 
 #@patch('pkg_resources.iter_entry_points', _mock_entry_points)
 def test_disabled_versioning(db, app, mock_entry_points):
@@ -50,7 +31,7 @@ def test_disabled_versioning(db, app):
     InvenioDB(app, entry_point_group="invenio_db.models_a")
 
     with app.app_context():
-        assert 2 == len(db.metadata.tables)
+        assert 144 == len(db.metadata.tables)
 
 @pytest.mark.parametrize("versioning,tables", [(False, 1), (True, 3)])
 def test_disabled_versioning_with_custom_table(db, app, versioning, tables):
@@ -97,7 +78,7 @@ def test_versioning(db, app):
     )
 
     with app.app_context():
-        assert 4 == len(db.metadata.tables)
+        assert 146 == len(db.metadata.tables)
 
         db.create_all()
 

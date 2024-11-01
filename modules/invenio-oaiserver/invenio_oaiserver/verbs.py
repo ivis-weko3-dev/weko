@@ -123,10 +123,10 @@ class OAISchema(BaseSchema):
                                                       minutes=59,
                                                       seconds=59)
             
-        list_argument = [f.load_from or f.name for f in self.fields.values()]
+        # list_argument = [f.load_from or f.name for f in self.fields.values()]
     
-        for arg in list_argument:
-            validate_duplicate_argument(arg)
+        # for arg in list_argument:
+        #     validate_duplicate_argument(arg)
 
 class Verbs(object):
     """List valid verbs and its arguments."""

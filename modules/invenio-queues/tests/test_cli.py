@@ -7,7 +7,7 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 
 """Module tests."""
-
+import invenio_queues
 import pytest
 from click.testing import CliRunner
 from flask.cli import ScriptInfo

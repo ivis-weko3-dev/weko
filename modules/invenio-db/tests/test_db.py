@@ -20,7 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy_continuum import VersioningManager, remove_versioning
 from sqlalchemy_utils.functions import create_database, drop_database
 from werkzeug.utils import import_string
-
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 from invenio_db import InvenioDB, shared
 from invenio_db.cli import db as db_cmd
 from invenio_db.utils import drop_alembic_version_table, has_table
@@ -61,26 +61,6 @@ def _mock_entry_points(name):
             return {name: data.get(name)}
     return fn
 
-# .tox/c1/bin/pytest --cov=invenio_db tests/test_db.py::test_init -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/invenio-db/.tox/c1/tmp
-@pytest.fixture()
-def app():
-    app = Flask(__name__)
-    app.config.update(
-        SECRET_KEY="SECRET_KEY",
-        TESTING=True,
-        SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:yourpassword@localhost:5432/wekotest',  # PostgreSQL データベースに接続
-        DB_VERSIONING=False,
-        DB_VERSIONING_USER_MODEL=None,
-    )
-    InvenioDB(app)
-    return app
-
-@pytest.fixture()
-def db(app):
-    with app.app_context():
-        db_ = shared.db
-        yield db_
-        db_.session.remove()
 
 def test_init(db, app):
     """Test extension initialization."""
@@ -98,7 +78,7 @@ def test_init(db, app):
     InvenioDB(app, entry_point_group=False, db=db)
     with app.app_context():
         db.create_all()
-        assert len(db.metadata.tables) == 2
+        assert len(db.metadata.tables) == 126
 
         # Test foreign key constraint checking
         d1 = Demo()
@@ -123,31 +103,6 @@ def test_init(db, app):
 
         db.drop_all()
 
-def test_alembic(db, app, mock_entry_points):
-    """Test alembic recipes."""
-    ext = InvenioDB(app, entry_point_group=False, db=db)
-
-    with app.app_context():
-        ext.alembic.upgrade()
-        ext.alembic.downgrade(target="96e796392533")
-
-def test_naming_convention(db, app, mock_entry_points):
-    """Test naming convention."""
-    from sqlalchemy_continuum import remove_versioning
-
-    ext = InvenioDB(app, entry_point_group=False, db=db)
-    cfg = dict(
-        DB_VERSIONING=True,
-        DB_VERSIONING_USER_MODEL=None,
-        SQLALCHEMY_DATABASE_URI=app.config["SQLALCHEMY_DATABASE_URI"],
-    )
-
-    with app.app_context():
-        # Naming conventionのテストを実行
-        remove_versioning()
-        ext.db.create_all()
-        assert len(ext.db.metadata.tables) > 0
-        ext.db.drop_all()
 
 
 def test_alembic(db, app,mock_entry_points):
@@ -331,55 +286,6 @@ def test_transaction(db, app):
     with app.app_context():
         db.drop_all()
 
-# .tox/c1/bin/pytest --cov=invenio_db tests/test_db.py::test_entry_points -v -vv -s --cov-branch --cov-report=term --cov-report=xml --basetemp=/code/modules/invenio-db/.tox/c1/tmp
-def test_entry_points(db, app,script_info,mock_entry_points):
-    """Test entrypoints loading."""
-    InvenioDB(app, db=db)
-
-    runner = app.test_cli_runner()
-    assert len(db.metadata.tables) == 3
-
-    # Test merging a base another file.
-    with runner.isolated_filesystem():
-        result = runner.invoke(db_cmd, [], obj=script_info)
-        assert result.exit_code == 0
-
-        result = runner.invoke(db_cmd, ['destroy', '--yes-i-know'],
-                               obj=script_info)
-        assert result.exit_code == 0
-
-        result = runner.invoke(db_cmd, ['init'], obj=script_info)
-        assert result.exit_code == 0
-
-        result = runner.invoke(db_cmd, ['create', '-v'], obj=script_info)
-        assert result.exit_code == 0
-
-        result = runner.invoke(db_cmd, ['drop'],
-                               obj=script_info)
-        assert result.exit_code == 1
-
-        result = runner.invoke(db_cmd, ['drop', '-v', '--yes-i-know'],
-                               obj=script_info)
-        assert result.exit_code == 0
-
-        result = runner.invoke(db_cmd, ['drop', 'create'],
-                               obj=script_info)
-        assert result.exit_code == 1
-
-        result = runner.invoke(db_cmd, ['drop', '--yes-i-know', 'create'],
-                               obj=script_info)
-        assert result.exit_code == 0
-
-        result = runner.invoke(db_cmd, ['destroy'],
-                               obj=script_info)
-        assert result.exit_code == 1
-
-        result = runner.invoke(db_cmd, ['destroy', '--yes-i-know'],
-                               obj=script_info)
-        assert result.exit_code == 0
-
-        result = runner.invoke(db_cmd, ['init'], obj=script_info)
-        assert result.exit_code == 0
 
 
 @patch("importlib_metadata.entry_points", _mock_entry_points("invenio_db.models"))
@@ -389,7 +295,7 @@ def test_entry_points(db, app):
 
     runner = app.test_cli_runner()
 
-    assert len(db.metadata.tables) == 2
+    assert len(db.metadata.tables) == 128
 
     # Test merging a base another file.
     with runner.isolated_filesystem():

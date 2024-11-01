@@ -71,7 +71,7 @@ from invenio_stats.contrib.event_builders import (
 from invenio_stats.processors import EventsIndexer, anonymize_user
 from invenio_stats.models import StatsEvents, StatsAggregation, StatsBookmark
 from invenio_stats.tasks import aggregate_events, process_events
-
+from opensearchpy import OpenSearch
 
 def mock_iter_entry_points_factory(data, mocked_group):
     """Create a mock iter_entry_points function."""

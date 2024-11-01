@@ -408,7 +408,7 @@ def getrecord(**kwargs):
     identify = OaiIdentify.get_all()
     if not identify or not identify.outPutSetting:
         return error([("idDoesNotExist", "No matching identifier")])
-    
+
     record_dumper = serializer(kwargs["metadataPrefix"])
 
     pid_object = OAIIDProvider.get(pid_value=kwargs["identifier"]).pid
@@ -451,17 +451,17 @@ def getrecord(**kwargs):
         header(
             e_record,
             identifier=pid_object.pid_value,
-            datestamp=record.updated,
+            datestamp=record.get('_updated', record.get('updated', None)),  # 修正点: record['updated'] を record.get('_updated', record.get('updated', None)) に変更
             deleted=True
         )
         return e_tree
 
-    _sets = list(set(record.get("path", [])+record["_oai"].get("sets", [])))
+    _sets = list(set(record.get("path", []) + record["_oai"].get("sets", [])))
 
     header(
         e_record,
         identifier=pid_object.pid_value,
-        datestamp=record.updated,
+        datestamp=record.get('_updated', record.get('updated', None)),  # 修正点: record['updated'] を record.get('_updated', record.get('updated', None)) に変更
         sets=_sets
     )
     e_metadata = SubElement(e_record, etree.QName(NS_OAIPMH, "metadata"))
@@ -479,7 +479,6 @@ def getrecord(**kwargs):
     e_metadata.append(root)
 
     return e_tree
-
 
 def listidentifiers(**kwargs):
     """Create OAI-PMH response for verb ListIdentifiers."""

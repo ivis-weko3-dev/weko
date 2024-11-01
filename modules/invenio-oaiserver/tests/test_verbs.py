@@ -104,8 +104,9 @@ def test_identify(app, db, identify):
     ]
 
     with app.test_client() as c:
-        result = c.get("/oai?verb=Identify")
-        assert 200 == result.status_code
+        with patch.dict(app.config, {'SEARCH_INDEX_PREFIX': ""}):
+            result = c.get("/oai?verb=Identify")
+            assert 200 == result.status_code
 
         tree = etree.fromstring(result.data)
 
@@ -220,60 +221,61 @@ def test_identify(app, db, identify):
         assert children[3].text == sampleIdentifier
 
 
-def test_identify_earliest_date(app, schema):
+def test_identify_earliest_date(app, schema, db):
     """Test identify earliest date."""
     with app.test_client() as c:
-        result = c.get("/oai2d?verb=Identify")
-        assert 200 == result.status_code
+        with patch.dict(app.config, {'SEARCH_INDEX_PREFIX': ""}): 
+            result = c.get("/oai?verb=Identify")
+            assert 200 == result.status_code
 
-        tree = etree.fromstring(result.data)
-        earliestDatestamp = tree.xpath(
-            "/x:OAI-PMH/x:Identify/x:earliestDatestamp", namespaces=NAMESPACES
+            tree = etree.fromstring(result.data)
+            earliestDatestamp = tree.xpath(
+                "/x:OAI-PMH/x:Identify/x:earliestDatestamp", namespaces=NAMESPACES
+            )
+            assert earliestDatestamp[0].text == "0001-01-01T00:00:00Z"
+
+        first_record = create_record(
+            app,
+            {
+                "_oai": {"sets": ["a"]},
+                "title_statement": {"title": "Test0"},
+                "_oai_id": 1,
+                "$schema": schema,
+            },
         )
-        assert earliestDatestamp[0].text == "0001-01-01T00:00:00Z"
 
-    first_record = create_record(
-        app,
-        {
-            "_oai": {"sets": ["a"]},
-            "title_statement": {"title": "Test0"},
-            "_oai_id": 1,
-            "$schema": schema,
-        },
-    )
+        first_record.model.created = datetime(2000, 1, 1, 13, 0, 0)
+        RecordIndexer().index(first_record)
 
-    first_record.model.created = datetime(2000, 1, 1, 13, 0, 0)
-    RecordIndexer().index(first_record)
-
-    create_record(
-        app,
-        {
-            "_oai": {"sets": ["a"]},
-            "title_statement": {"title": "Test1"},
-            "_oai_id": 2,
-            "$schema": schema,
-        },
-    )
-    create_record(
-        app,
-        {
-            "_oai": {"sets": ["a"]},
-            "title_statement": {"title": "Test2"},
-            "_oai_id": 3,
-            "$schema": schema,
-        },
-    )
-    app.extensions["invenio-search"].flush_and_refresh("records")
-
-    with app.test_client() as c:
-        result = c.get("/oai2d?verb=Identify")
-        assert 200 == result.status_code
-
-        tree = etree.fromstring(result.data)
-        earliestDatestamp = tree.xpath(
-            "/x:OAI-PMH/x:Identify/x:earliestDatestamp", namespaces=NAMESPACES
+        create_record(
+            app,
+            {
+                "_oai": {"sets": ["a"]},
+                "title_statement": {"title": "Test1"},
+                "_oai_id": 2,
+                "$schema": schema,
+            },
         )
-        assert earliestDatestamp[0].text == "2000-01-01T13:00:00Z"
+        create_record(
+            app,
+            {
+                "_oai": {"sets": ["a"]},
+                "title_statement": {"title": "Test2"},
+                "_oai_id": 3,
+                "$schema": schema,
+            },
+        )
+        app.extensions["invenio-search"].flush_and_refresh("records")
+
+        with app.test_client() as c:
+            result = c.get("/oai2d?verb=Identify")
+            assert 200 == result.status_code
+
+            tree = etree.fromstring(result.data)
+            earliestDatestamp = tree.xpath(
+                "/x:OAI-PMH/x:Identify/x:earliestDatestamp", namespaces=NAMESPACES
+            )
+            assert earliestDatestamp[0].text == "2000-01-01T13:00:00Z"
 
 
 def test_getrecord_fail(es_app, db,identify):
@@ -547,7 +549,7 @@ def test_list_sets_with_resumption_token_and_other_args(app):
     pass
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_verbs.py::test_validate_metadata_prefix -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_validate_metadata_prefix(app, mocker):
+def test_validate_metadata_prefix(app):
     oai_metadata_formats = {
         "oai_dc": {
             "serializer": ("invenio_oaiserver.utils:dumps_etree", {"xslt_filename": "/code/modules/invenio-oaiserver/invenio_oaiserver/static/xsl/MARC21slim2OAIDC.xsl"}),
@@ -575,9 +577,9 @@ def test_validate_metadata_prefix(app, mocker):
             "serializer": ("invenio_oaiserver.utils:dumps_etree", {"schema_type": "jpcoar"})
         }
     }
-    mocker.patch("invenio_oaiserver.verbs.get_oai_metadata_formats",return_value=oai_metadata_formats)
+    with patch("invenio_oaiserver.verbs.get_oai_metadata_formats",return_value=oai_metadata_formats):
 
-    validate_metadata_prefix("jpcoar")
+     validate_metadata_prefix("jpcoar")
 
     with pytest.raises(ValidationError) as e:
         validate_metadata_prefix("not_oai")
@@ -605,7 +607,7 @@ def test_DateTime_from_iso_permissive():
         date = DateTime(format="permissive")
     result = TestScheme().load({"date":"2023-02-10T12:01:10"})
 
-    assert result.data["date"].strftime("%Y-%m-%dT%H:%M:%S") == "2023-02-10T12:01:10"
+    assert result["date"].strftime("%Y-%m-%dT%H:%M:%S") == "2023-02-10T12:01:10"
     assert result.errors == {}
     def mock_import(name,globals=None, locals=None,fromlist=(),level=0):
         if name in ("dateutil"):
@@ -615,7 +617,7 @@ def test_DateTime_from_iso_permissive():
         class TestScheme(Schema):
             date = DateTime(format="permissive")
         result = TestScheme().load({"date":"2023-02-10T12:01:10"})
-        assert result.data["date"].strftime("%Y-%m-%dT%H:%M:%S") == "2023-02-10T12:01:10"
+        assert result["date"].strftime("%Y-%m-%dT%H:%M:%S") == "2023-02-10T12:01:10"
         assert result.errors == {}
 
 

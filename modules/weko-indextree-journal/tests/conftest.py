@@ -77,9 +77,6 @@ def base_app(request,instance_path):
         JSONSCHEMAS_URL_SCHEME="http",
         SECRET_KEY="CHANGE_ME",
         SECURITY_PASSWORD_SALT="CHANGE_ME_ALSO",
-        # SQLALCHEMY_DATABASE_URI=os.environ.get(
-        #     "SQLALCHEMY_DATABASE_URI", "sqlite:///test.db"
-        # ),
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                            'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
@@ -122,8 +119,6 @@ def base_app(request,instance_path):
                 record_class='weko_indextree_journal.api:Journals',
                 admin_indexjournal_route='/admin/indexjournal/<int:journal_id>',
                 journal_route='/admin/indexjournal',
-                # item_tree_journal_route='/tree/journal/<int:pid_value>',
-                # journal_move_route='/tree/journal/move/<int:index_id>',
                 default_media_type='application/json',
                 create_permission_factory_imp='weko_indextree_journal.permissions:indextree_journal_permission',
                 read_permission_factory_imp='weko_indextree_journal.permissions:indextree_journal_permission',
@@ -131,6 +126,7 @@ def base_app(request,instance_path):
                 delete_permission_factory_imp='weko_indextree_journal.permissions:indextree_journal_permission',
             )
         ),
+        WEKO_ITEMS_UI_ERROR_TEMPLATE='path/to/error_template.html',
     )
     if hasattr(request, "param"):
         if "endpoint" in request.param:
@@ -147,7 +143,6 @@ def base_app(request,instance_path):
     WekoRecords(app_)
     WekoWorkflow(app_)
     WekoIndexTree(app_)
-#   WekoItemsUI(app_)
     WekoIndextreeJournal(app_)
     WekoIndextreeJournalREST(app_)
 

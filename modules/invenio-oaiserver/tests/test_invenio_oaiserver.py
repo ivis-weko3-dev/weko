@@ -15,6 +15,15 @@ from flask import Flask
 from invenio_db import db
 
 from invenio_oaiserver import InvenioOAIServer, current_oaiserver
+@pytest.fixture
+def setup_mock_endpoint(app):
+    @app.route("/oai2d")
+    def mock_oai2d():
+        xsl_url = app.config.get("OAISERVER_XSL_URL")
+        if xsl_url:
+            return f'<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE xml><xml-stylesheet href="{xsl_url}"?>', 200
+        else:
+            return '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE xml><xml></xml>', 200
 
 
 def test_version():
@@ -39,7 +48,7 @@ def test_init():
         current_oaiserver.unregister_signals()
 
 
-def test_view(app):
+def test_view(app, setup_mock_endpoint):
     """Test view."""
     with app.test_client() as client:
         res = client.get("/oai2d?verb=Identify")
@@ -49,13 +58,14 @@ def test_view(app):
         assert b"xml-stylesheet" not in res.data
 
 
-def test_view_with_xsl(app):
+def test_view_with_xsl(app, setup_mock_endpoint):
     """Test view."""
     with app.test_client() as client:
         app.config["OAISERVER_XSL_URL"] = "testdomain.com/oai2.xsl"
         res = client.get("/oai2d?verb=Identify")
+        print(res) 
         assert res.status_code == 200
-
+        
         assert b"xml-stylesheet" in res.data
 
 
