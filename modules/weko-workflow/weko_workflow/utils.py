@@ -4408,6 +4408,10 @@ def is_terms_of_use_only(workflow_id :int) -> bool:
 
     wf:_WorkFlow = WorkFlow().get_workflow_by_ids(ids)
     current_app.logger.info(wf)
+    if not wf:
+        current_app.logger.error(f"Workflow with ID {workflow_id} not found.")
+        return False
+    
     if wf[0].open_restricted :
         fa :list[FlowAction] =Flow().get_flow_action_list(wf[0].flow_id)
         if len(fa) == 2 :
