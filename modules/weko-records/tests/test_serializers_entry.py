@@ -336,4 +336,3 @@ def test_register_extension(app):
     except:
         pass
 
-

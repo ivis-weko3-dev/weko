@@ -42,3 +42,4 @@ def test_search_romeo_jtitle(app):
             d,r = search_romeo_jtitle("query")
             assert d==OrderedDict([('book', OrderedDict([('title', 'title')]))])
             assert r.status=='200 OK'
+            

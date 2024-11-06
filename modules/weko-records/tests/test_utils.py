@@ -3,12 +3,11 @@
 from collections import OrderedDict
 from datetime import datetime
 import json
-# from tkinter import W
 import pytest
 import os
 import copy
 import mock
-from mock import patch, MagicMock
+from unittest.mock import patch, MagicMock
 from tests.helpers import json_data
 
 from invenio_accounts import testutils

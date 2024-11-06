@@ -19,3 +19,4 @@ def test_edit_permission_factory(db_records):
     expect = page_permission_factory(record, flg='Edit').can()
     ret = edit_permission_factory(record)
     assert ret.can()==True
+

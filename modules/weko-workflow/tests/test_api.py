@@ -1,5 +1,5 @@
 from flask_login.utils import login_user
-
+from unittest.mock import patch, MagicMock
 from weko_workflow.api import Flow, WorkActivity
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_Flow_action -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
@@ -118,14 +118,16 @@ def test_WorkActivity_get_activity_index_search(app, db_register):
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_WorkActivity_upt_activity_detail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_WorkActivity_upt_activity_detail(app, db_register, db_records):
     activity = WorkActivity()
-    db_activity = activity.upt_activity_detail(db_records[2][2].id)
-    assert db_activity.id == 4
-    assert db_activity.action_id == 2
-    assert db_activity.title == 'test item1'
-    assert db_activity.activity_id == '2'
-    assert db_activity.flow_id == 1
-    assert db_activity.workflow_id == 1
-    assert db_activity.action_order == 1
+    with patch('weko_workflow.api.current_user', new=MagicMock(get_id=lambda: 1)):
+        db_activity = activity.upt_activity_detail(db_records[2][2].id)
+        
+        assert db_activity.id == 4
+        assert db_activity.action_id == 2
+        assert db_activity.title == 'test item1'
+        assert db_activity.activity_id == '2'
+        assert db_activity.flow_id == 1
+        assert db_activity.workflow_id == 1
+        assert db_activity.action_order == 1
 
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_WorkActivity_get_corresponding_usage_activities -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
@@ -134,3 +136,4 @@ def test_WorkActivity_get_corresponding_usage_activities(app, db_register):
     usage_application_list, output_report_list = activity.get_corresponding_usage_activities(1)
     assert usage_application_list == {'activity_data_type': {}, 'activity_ids': []}
     assert output_report_list == {'activity_data_type': {}, 'activity_ids': []}
+

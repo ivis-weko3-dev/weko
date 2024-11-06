@@ -44,14 +44,11 @@ from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import Role, User
 from invenio_accounts.testutils import create_test_user, login_user_via_session
-# from invenio_accounts.views.settings import blueprint as invenio_accounts_blueprint
 from invenio_admin import InvenioAdmin
 from invenio_admin.views import blueprint as invenio_admin_blueprint
 from invenio_assets import InvenioAssets
-# from invenio_assets.cli import collect, npm
 from invenio_cache import InvenioCache
 from invenio_communities import InvenioCommunities
-#from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
 from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_deposit import InvenioDeposit
@@ -175,7 +172,6 @@ def base_app(instance_path):
         SQLALCHEMY_DATABASE_URI=os.environ.get(
              "SQLALCHEMY_DATABASE_URI", "sqlite:///test.db"
         ),
-        #SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         ACCOUNTS_USERINFO_HEADERS=True,
         WEKO_PERMISSION_SUPER_ROLE_USER=[
@@ -207,8 +203,6 @@ def base_app(instance_path):
         WEKO_SCHEMA_UI_LIST_SCHEME_AFFILIATION = [
             'ISNI', 'kakenhi', 'Ringgold', 'GRID','ROR'
         ],
-        #  WEKO_ITEMS_UI_BASE_TEMPLATE = 'weko_items_ui/base.html',
-        #  WEKO_ITEMS_UI_INDEX_TEMPLATE= 'weko_items_ui/item_index.html',
         CACHE_TYPE="redis",
         ACCOUNTS_SESSION_REDIS_DB_NO=1,
         CACHE_REDIS_HOST="redis",
@@ -256,8 +250,6 @@ def base_app(instance_path):
         WEKO_USERPROFILES_GENERAL_ROLE=WEKO_USERPROFILES_GENERAL_ROLE,
         CACHE_REDIS_DB = 2,
         WEKO_DEPOSIT_ITEMS_CACHE_PREFIX=WEKO_DEPOSIT_ITEMS_CACHE_PREFIX,
-        # INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
-        # INDEXER_FILE_DOC_TYPE="item-v1.0.0",
         WEKO_INDEX_TREE_DEFAULT_DISPLAY_NUMBER=WEKO_INDEX_TREE_DEFAULT_DISPLAY_NUMBER,
         DEPOSIT_DEFAULT_JSONSCHEMA=DEPOSIT_DEFAULT_JSONSCHEMA,
         DEPOSIT_JSONSCHEMAS_PREFIX=DEPOSIT_JSONSCHEMAS_PREFIX,
@@ -282,56 +274,26 @@ def base_app(instance_path):
     InvenioAccounts(app_)
     InvenioAccess(app_)
     InvenioCache(app_)
-    # InvenioTheme(app_)
-    # InvenioREST(app_)
-
-    # InvenioCache(app_)
-
-    # InvenioDeposit(app_)
     InvenioPIDStore(app_)
-    # InvenioPIDRelations(app_)
     InvenioRecords(app_)
-    # InvenioRecordsREST(app_)
     InvenioFilesREST(app_)
     InvenioJSONSchemas(app_)
-    # InvenioOAIServer(app_)
 
     InvenioSearch(app_)
 
-    # WekoSchemaUI(app_)
     InvenioStats(app_)
 
-    # InvenioAdmin(app_)
     Menu(app_)
     WekoRecords(app_)
     WekoDeposit(app_)
     WekoWorkflow(app_)
     WekoGroups(app_)
-    # WekoAdmin(app_)
-    # WekoTheme(app_)
-    # WekoRecordsUI(app_)
-    # InvenioCommunities(app_)
 
     InvenioIndexer(app_)
-    # WekoSearchREST(app_)
-    # WekoIndexTree(app_)
-    # WekoIndexTreeREST(app_)
     WekoRecords(app_)
     WekoSearchUI(app_)
-    # ext.init_config(app_)
     WekoItemsUI(app_)
     WekoItemsREST(app_)
-    # app_.register_blueprint(invenio_accounts_blueprint)
-    # app_.register_blueprint(weko_theme_blueprint)
-    # app_.register_blueprint(weko_items_ui_blueprint)
-    # app_.register_blueprint(invenio_communities_blueprint)
-    # app_.register_blueprint(weko_workflow_blueprint)
-
-    # runner = CliRunner()
-    # result = runner.invoke(collect, [],obj=weko_items_ui_blueprint)
-    # Run build
-    # result = runner.invoke(assets, ['build'],obj=weko_items_ui_blueprint)
-    # result = runner.invoke(npm,obj=weko_items_ui_blueprint)
 
     current_assets = LocalProxy(lambda: app_.extensions["invenio-assets"])
     current_assets.collect.collect()
@@ -769,6 +731,7 @@ def db_itemtype5(app, db):
         db.session.add(item_type_mapping)
 
     return {"item_type_name": item_type_name, "item_type": item_type, "item_type_mapping":item_type_mapping}
+
 
 @pytest.fixture()
 def db_itemtype(app, db):
@@ -23285,3 +23248,4 @@ def make_record(db, indexer, i, files, thumbnail=None):
         "deposit": deposit,
         "files": files,
     }
+

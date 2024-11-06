@@ -102,6 +102,7 @@ from weko_admin.models import SiteInfo
 from weko_admin import WekoAdmin
 from weko_deposit import WekoDeposit
 
+
 sys.path.append(os.path.dirname(__file__))
 # @event.listens_for(Engine, "connect")
 # def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -2230,7 +2231,4 @@ def db_guestactivity(app, db, db_register):
     db.session.commit()
 
     return [token1, token2]
-
-
-
 

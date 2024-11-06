@@ -14,7 +14,6 @@ from jinja2.exceptions import TemplateNotFound
 from invenio_accounts.testutils import login_user_via_session
 from invenio_i18n import get_locale
 from invenio_pidstore.errors import PIDDoesNotExistError
-#from mock import patch
 from unittest.mock import patch
 from weko_redis.redis import RedisConnection
 from weko_deposit.api import WekoRecord
@@ -21236,3 +21235,4 @@ def test_check_record_doi_indexes(
 
     with pytest.raises(PIDDoesNotExistError):
         res = client_api.get("{}?doi=1".format(url))
+

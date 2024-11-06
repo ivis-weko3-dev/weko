@@ -40,12 +40,11 @@ ranking_type = [
 opensearch_username = os.getenv('OPENSEARCH_USERNAME', 'admin')
 opensearch_password = os.getenv('OPENSEARCH_PASSWORD', 'admin')
 
-# OpenSearchクライアントの設定
 client = search.client.OpenSearch(
     hosts=[{'host': 'localhost', 'port': 9200}],
-    http_auth=(opensearch_username, opensearch_password),  # 認証情報を追加
+    http_auth=(opensearch_username, opensearch_password),
     use_ssl=True,
-    verify_certs=False,  # テストのためにSSL検証を無効にする
+    verify_certs=False,
     ssl_show_warn=False
 )
 
@@ -150,10 +149,8 @@ def test_WekoFileRanking_error(app, client, records, db_itemtype):
         'new_items': []
     }
     
-    # 基本URLを定義
     url = '/v1/ranking/11/files'
     
-    # アクセス権限を制御するパッチを適用
     with patch('weko_records_ui.permissions.check_publish_status', MagicMock(return_value=True)), \
          patch('weko_records_ui.permissions.page_permission_factory', MagicMock(return_value=True)):
         

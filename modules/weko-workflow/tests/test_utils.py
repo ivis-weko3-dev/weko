@@ -3448,4 +3448,3 @@ def test_grant_access_rights_to_all_open_restricted_files(app ,db,users ):
 
     res = grant_access_rights_to_all_open_restricted_files(activity_id ,None, activity_detail )
     assert res == {}
-

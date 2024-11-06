@@ -18,3 +18,4 @@ def test_weko_doi_fetcher(app):
     data = {"doi": "doi"}
 
     assert weko_doi_fetcher(dummy_record_uuid=dummy_record_uuid, data=data) != None
+    

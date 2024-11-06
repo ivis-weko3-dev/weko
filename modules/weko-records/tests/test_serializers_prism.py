@@ -65,3 +65,4 @@ def test_serialize_search_PrismEntryExtension(app):
     entry = "entry"
 
     assert test.extend_atom(entry=entry) != None
+

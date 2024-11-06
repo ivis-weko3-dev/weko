@@ -47,3 +47,4 @@ def test_get_dst_references(app, db, db_ItemReference):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_models.py::test_relation_exists -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records/.tox/c1/tmp
 def test_relation_exists(app, db, db_ItemReference):
     assert db_ItemReference.relation_exists("1","2","reference_type") == True
+    

@@ -49,3 +49,4 @@ class TestObjectType:
         with pytest.raises(Exception) as e:
             res = ObjectType.get_openaire_subtype(_value)
         assert e.type==NameError
+

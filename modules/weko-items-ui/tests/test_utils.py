@@ -10,7 +10,6 @@ import copy
 import tempfile
 from uuid import UUID
 from dictdiffer import diff, patch, swap, revert
-# from elasticsearch import exceptions as es_exceptions
 from invenio_search.engine import search
 import uuid
 
@@ -179,23 +178,6 @@ def test_get_user_info_by_username_exception():
         assert get_user_info_by_username("repoadmin@test.org")==None
 
 
-# def validate_user(username, email):
-# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_validate_user -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-# def test_validate_user(users, db_userprofile):
-#     assert validate_user(
-#         db_userprofile[users[0]["email"]].get_username, users[0]["email"]
-#     ) == {
-#         "results": {
-#             "username": "contributor",
-#             "user_id": 2,
-#             "email": "contributor@test.org",
-#         },
-#         "validation": True,
-#         "error": "",
-#     }
-#     assert validate_user(
-#         db_userprofile[users[0]["email"]].get_username, users[1]["email"]
-#     )=={'results': '', 'validation': False, 'error': ''}
 def test_validate_user(users, db_userprofile):
     user_email = users[0]["email"]
     expected_user_id = users[0]["id"]
@@ -10461,3 +10443,4 @@ def test_get_file_download_data(app, client, records):
         record = results[5]["record"]
         with pytest.raises(AvailableFilesNotFoundRESTError):
             get_file_download_data(record.id, record, filenames)
+

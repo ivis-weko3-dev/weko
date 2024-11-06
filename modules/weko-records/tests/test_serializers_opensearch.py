@@ -31,3 +31,4 @@ def test_extend_atom_OpensearchEntryExtension(app):
     test._extend_xml = _extend_xml
 
     assert test.extend_atom(entry="entry") == "entry"
+    

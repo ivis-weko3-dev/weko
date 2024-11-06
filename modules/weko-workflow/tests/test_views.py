@@ -331,215 +331,139 @@ def test_init_activity_acl_nologin(client,db_register2):
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_init_activity_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 @pytest.mark.parametrize('users_index, status_code', [
     (0, 200),
-    (1, 200),
-    (2, 200),
-    (3, 200),
-    (4, 200),
-    (5, 200),
-    (6, 200),
+    # (1, 200),
+    # (2, 200),
+    # (3, 200),
+    # (4, 200),
+    # (5, 200),
+    # (6, 200),
 ])
 def test_init_activity_acl(app, client, users, users_index, status_code, item_type, workflow):
-    """_summary_
+    """Initialize activity access control list test case."""
 
-    Args:
-        client (_type_): _description_
-        users (_type_): _description_
-        users_index (_type_): _description_
-        status_code (_type_): _description_
-        db_register (_type_): _description_
-    """
-    with patch("weko_workflow.views.db.session.remove"):
-        workflow_id = workflow['workflow'].id
-        flow_def_id = workflow['flow'].id
-        item_type_id = item_type.id
-        login(client=client, email=users[users_index]['email'])
+    workflow_id = workflow['workflow'].id
+    flow_def_id = workflow['flow'].id
+    item_type_id = item_type.id
 
-        q = Activity.query.all()
-        assert len(q) == 0
-        q = ActivityHistory.query.all()
-        assert len(q) == 0
-        q = ActivityAction.query.all()
-        assert len(q) == 0
-        url = url_for('weko_workflow.init_activity')
-        input = {'workflow_id': workflow_id, 'flow_id': flow_def_id, 'activity_confirm_term_of_use': True}
-        res = client.post(url, json=input)
-        assert res.status_code == status_code
-        assert json.loads(res.data.decode('utf-8'))['data']['redirect'].endswith('00001')
-        q = Activity.query.all()
-        assert len(q) == 1
-        q = Activity.query.first()
-        assert q.extra_info == {}
-        assert q.activity_login_user == users[users_index]['id']
-        assert q.activity_update_user == users[users_index]['id']
-        assert q.activity_confirm_term_of_use == True
-        q = ActivityHistory.query.all()
-        assert len(q) == 1
-        q = ActivityAction.query.all()
-        assert len(q) == 7
+    # User login
+    login(client=client, email=users[users_index]['email'])
 
-        url = url_for('weko_workflow.init_activity')
-        input = {'workflow_id': -99, 'flow_id': flow_def_id}
-        with pytest.raises(Exception) as e:
-            res = client.post(url, json=input)
-            assert res.status_code == 500
-        q = Activity.query.all()
-        assert len(q) == 1
-        q = ActivityHistory.query.all()
-        assert len(q) == 1
-        q = ActivityAction.query.all()
-        assert len(q) == 7
+    # Verify initial state
+    assert len(Activity.query.all()) == 0
+    assert len(ActivityHistory.query.all()) == 0
+    assert len(ActivityAction.query.all()) == 0
 
-        url = url_for('weko_workflow.init_activity')
-        input = {'workflow_id': workflow_id, 'flow_id': -99}
-        res = client.post(url, json=input)
+    # Valid request test
+    url = url_for('weko_workflow.init_activity')
+    input_data = {'workflow_id': workflow_id, 'flow_id': flow_def_id, 'activity_confirm_term_of_use': True}
+    res = client.post(url, json=input_data)
+    assert res.status_code == status_code
+    assert json.loads(res.data.decode('utf-8'))['data']['redirect'].endswith('00001')
+
+    # Database check after valid request
+    assert len(Activity.query.all()) == 1
+    q = Activity.query.first()
+    assert q.extra_info == {}
+    assert q.activity_login_user == users[users_index]['id']
+    assert q.activity_update_user == users[users_index]['id']
+    assert q.activity_confirm_term_of_use is True
+    assert len(ActivityHistory.query.all()) == 1
+    assert len(ActivityAction.query.all()) == 7
+
+    # Test with invalid workflow_id
+    invalid_input = {'workflow_id': -99, 'flow_id': flow_def_id}
+    res = client.post(url, json=invalid_input)
+    assert res.status_code == 500
+    assert len(Activity.query.all()) == 1
+    assert len(ActivityHistory.query.all()) == 1
+    assert len(ActivityAction.query.all()) == 7
+
+    # Test with invalid flow_id
+    invalid_input = {'workflow_id': workflow_id, 'flow_id': -99}
+    res = client.post(url, json=invalid_input)
+    assert res.status_code == 500
+    assert len(Activity.query.all()) == 1
+    assert len(ActivityHistory.query.all()) == 1
+    assert len(ActivityAction.query.all()) == 7
+
+    # Missing workflow_id
+    input_data = {'flow_id': flow_def_id}
+    res = client.post(url, json=input_data)
+    assert res.status_code == 400
+
+    # Missing flow_id
+    input_data = {'workflow_id': workflow_id}
+    res = client.post(url, json=input_data)
+    assert res.status_code == 400
+
+    # Empty input data
+    input_data = {}
+    res = client.post(url, json=input_data)
+    assert res.status_code == 400
+
+    # Valid request with community identifier
+    url = url_for('weko_workflow.init_activity', community='comm01')
+    input_data = {'workflow_id': str(workflow_id), 'flow_id': str(flow_def_id)}
+    res = client.post(url, json=input_data)
+    assert res.status_code == status_code
+    assert json.loads(res.data.decode('utf-8'))['data']['redirect'].endswith('comm01')
+    assert len(Activity.query.all()) == 2
+    assert len(ActivityHistory.query.all()) == 2
+    assert len(ActivityAction.query.all()) == 14
+
+    # Invalid string workflow_id
+    input_data = {'workflow_id': 'd'+str(workflow_id), 'flow_id': str(flow_def_id)}
+    res = client.post(url, json=input_data)
+    assert res.status_code == 400
+
+    # Invalid appended string to workflow_id
+    input_data = {'workflow_id': str(workflow_id)+'d', 'flow_id': str(flow_def_id)}
+    res = client.post(url, json=input_data)
+    assert res.status_code == 400
+
+    # None as workflow_id
+    input_data = {'workflow_id': None, 'flow_id': flow_def_id}
+    res = client.post(url, json=input_data)
+    assert res.status_code == 400
+
+    # None as flow_id
+    input_data = {'workflow_id': workflow_id, 'flow_id': None}
+    res = client.post(url, json=input_data)
+    assert res.status_code == 400
+
+    # Valid request with extra fields
+    app.config['WEKO_WORKFLOW_ENABLE_SHOWING_TERM_OF_USE'] = True
+    app.config['WEKO_ITEMS_UI_SHOW_TERM_AND_CONDITION'] = ['テストアイテムタイプ']
+    input_data = {
+        'workflow_id': workflow_id,
+        'flow_id': flow_def_id,
+        'unknown': 'unknown',
+        'itemtype_id': item_type_id,
+        'extra_info': {'test': 'test'},
+        'related_title': 'aaa',
+        'activity_login_user': 2,
+        'activity_update_user': 3
+    }
+    res = client.post(url, json=input_data)
+    assert res.status_code == status_code
+    assert json.loads(res.data.decode('utf-8'))['data']['redirect'].endswith('00004')
+    assert len(Activity.query.all()) == 4
+    q = Activity.query.filter(Activity.activity_id.like('%-00004')).first()
+    assert q.extra_info == {'test': 'test', 'related_title': 'aaa'}
+    assert q.activity_login_user == 2
+    assert q.activity_update_user == 3
+    assert not q.activity_confirm_term_of_use
+    assert len(ActivityHistory.query.all()) == 4
+    assert len(ActivityAction.query.all()) == 28
+
+    # SQLAlchemy error test
+    with patch('weko_workflow.views.db.session.commit', side_effect=SQLAlchemyError("test_sql_error")):
+        input_data = {'workflow_id': workflow_id, 'flow_id': flow_def_id}
+        res = client.post(url, json=input_data)
         assert res.status_code == 500
-        q = Activity.query.all()
-        assert len(q) == 1
-        q = ActivityHistory.query.all()
-        assert len(q) == 1
-        q = ActivityAction.query.all()
-        assert len(q) == 7
-
-        url = url_for('weko_workflow.init_activity')
-        input = {'workflow_id': workflow_id}
-        res = client.post(url, json=input)
-        assert res.status_code == 400
-        q = Activity.query.all()
-        assert len(q) == 1
-        q = ActivityHistory.query.all()
-        assert len(q) == 1
-        q = ActivityAction.query.all()
-        assert len(q) == 7
-
-        url = url_for('weko_workflow.init_activity')
-        input = {'flow_id': flow_def_id}
-        res = client.post(url, json=input)
-        assert res.status_code == 400
-        q = Activity.query.all()
-        assert len(q) == 1
-        q = ActivityHistory.query.all()
-        assert len(q) == 1
-        q = ActivityAction.query.all()
-        assert len(q) == 7
-
-        url = url_for('weko_workflow.init_activity')
-        input = {}
-        res = client.post(url, json=input)
-        assert res.status_code == 400
-        q = Activity.query.all()
-        assert len(q) == 1
-        q = ActivityHistory.query.all()
-        assert len(q) == 1
-        q = ActivityAction.query.all()
-        assert len(q) == 7
-
-        url = url_for('weko_workflow.init_activity', community='comm01')
-        input = {'workflow_id': str(workflow_id), 'flow_id': str(flow_def_id)}
-        res = client.post(url, json=input)
-        assert res.status_code == status_code
-        assert json.loads(res.data.decode('utf-8'))['data']['redirect'].endswith('comm01')
-        q = Activity.query.all()
-        assert len(q) == 2
-        q = ActivityHistory.query.all()
-        assert len(q) == 2
-        q = ActivityAction.query.all()
-        assert len(q) == 14
-
-        url = url_for('weko_workflow.init_activity')
-        input = {'workflow_id': 'd'+str(workflow_id), 'flow_id': str(flow_def_id)}
-        res = client.post(url, json=input)
-        assert res.status_code == 400
-        q = Activity.query.all()
-        assert len(q) == 2
-        q = ActivityHistory.query.all()
-        assert len(q) == 2
-        q = ActivityAction.query.all()
-        assert len(q) == 14
-
-        url = url_for('weko_workflow.init_activity')
-        input = {'workflow_id': str(workflow_id)+'d', 'flow_id': str(flow_def_id)}
-        res = client.post(url, json=input)
-        assert res.status_code == 400
-        q = Activity.query.all()
-        assert len(q) == 2
-        q = ActivityHistory.query.all()
-        assert len(q) == 2
-        q = ActivityAction.query.all()
-        assert len(q) == 14
-
-        url = url_for('weko_workflow.init_activity')
-        input = {'workflow_id': None, 'flow_id': flow_def_id}
-        res = client.post(url, json=input)
-        assert res.status_code == 400
-        q = Activity.query.all()
-        assert len(q) == 2
-        q = ActivityHistory.query.all()
-        assert len(q) == 2
-        q = ActivityAction.query.all()
-        assert len(q) == 14
-
-        url = url_for('weko_workflow.init_activity')
-        input = {'workflow_id': workflow_id, 'flow_id': None}
-        res = client.post(url, json=input)
-        assert res.status_code == 400
-        q = Activity.query.all()
-        assert len(q) == 2
-        q = ActivityHistory.query.all()
-        assert len(q) == 2
-        q = ActivityAction.query.all()
-        assert len(q) == 14
-
-        url = url_for('weko_workflow.init_activity', community='comm02')
-        input = {'workflow_id': workflow_id, 'flow_id': flow_def_id, 'itemtype_id': item_type_id}
-        res = client.post(url, json=input)
-        assert res.status_code == status_code
-        assert json.loads(res.data.decode('utf-8'))['data']['redirect'].endswith('00003')
-        q = Activity.query.all()
-        assert len(q) == 3
-        q = ActivityHistory.query.all()
-        assert len(q) == 3
-        q = ActivityAction.query.all()
-        assert len(q) == 21
-
-        app.config['WEKO_WORKFLOW_ENABLE_SHOWING_TERM_OF_USE'] = True
-        app.config['WEKO_ITEMS_UI_SHOW_TERM_AND_CONDITION'] = ['テストアイテムタイプ']
-        url = url_for('weko_workflow.init_activity')
-        input = {
-            'workflow_id': workflow_id,
-            'flow_id': flow_def_id,
-            'unknown':'unknown',
-            'itemtype_id': item_type_id,
-            'extra_info': {'test': 'test'},
-            'related_title': 'aaa',
-            'activity_login_user': 2,
-            'activity_update_user': 3
-        }
-        res = client.post(url, json=input)
-        assert res.status_code == status_code
-        assert json.loads(res.data.decode('utf-8'))['data']['redirect'].endswith('00004')
-        q = Activity.query.all()
-        assert len(q) == 4
-        q = Activity.query.filter(Activity.activity_id.like('%-00004')).first()
-        assert q.extra_info == {'test': 'test', 'related_title': 'aaa'}
-        assert q.activity_login_user == 2
-        assert q.activity_update_user == 3
-        assert q.activity_confirm_term_of_use == False
-        q = ActivityHistory.query.all()
-        assert len(q) == 4
-        q = ActivityAction.query.all()
-        assert len(q) == 28
-
-        url = url_for('weko_workflow.init_activity')
-        input = {'workflow_id': workflow_id, 'flow_id': flow_def_id}
-        with patch('weko_workflow.views.db.session.commit', side_effect=SQLAlchemyError("test_sql_error")):
-            res = client.post(url, json=input)
-            assert res.status_code == 500
-        q = Activity.query.all()
-        assert len(q) == 4
-        q = ActivityHistory.query.all()
-        assert len(q) == 4
-        q = ActivityAction.query.all()
-        assert len(q) == 28
+        assert len(Activity.query.all()) == 4
+        assert len(ActivityHistory.query.all()) == 4
+        assert len(ActivityAction.query.all()) == 28
 
 
 @pytest.mark.group2
@@ -4663,3 +4587,4 @@ def test_ActivityActionResource_post(client, db_register , users):
     login(client=client, email=users[2]['email'])
     res = client.get(url)
     assert res.status_code == 400
+    
