@@ -38,13 +38,13 @@ def test_reverse_order():
 
 def test_eval_field_string():
     """Test string evaluation."""
-    assert eval_field("myfield", True) == dict(myfield=dict(order="asc"))
-    assert eval_field("myfield", False) == dict(myfield=dict(order="desc"))
-    assert eval_field("-myfield", True) == dict(myfield=dict(order="desc"))
-    assert eval_field("-myfield", False) == dict(myfield=dict(order="asc"))
+    assert eval_field("myfield", True) == dict(myfield=dict(order="asc", unmapped_type="long"))
+    assert eval_field("myfield", False) == dict(myfield=dict(order="desc", unmapped_type="long"))
+    assert eval_field("-myfield", True) == dict(myfield=dict(order="desc", unmapped_type="long"))
+    assert eval_field("-myfield", False) == dict(myfield=dict(order="asc", unmapped_type="long"))
     assert eval_field("myfield", True, True) == dict(myfield=dict(order="asc",unmapped_type="long",nested=True))
     assert eval_field("date_range", True) == {"_script":{"type":"number", "script":{"lang":"painless","source":"def x = params._source.date_range1;Date dt = new Date();if (x != null && x instanceof List) { if (x[0] != null && x[0] instanceof Map){ def st = x[0].getOrDefault(\"gte\",\"\");SimpleDateFormat format = new SimpleDateFormat();if (st.length()>7) {format.applyPattern(\"yyyy-MM-dd\");}else if (st.length()>4){format.applyPattern(\"yyyy-MM\");}else if (st.length()==4){format.applyPattern(\"yyyy\");} try { dt = format.parse(st);} catch (Exception e){}}} return dt.getTime()"},"order": "asc"}}
-    assert eval_field("control_number", True) == {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}
+    assert eval_field("control_number", True) == {'_script': {'type': 'number', 'script': "if ( doc['control_number'].size() != 0 ) { return Float.parseFloat(doc['control_number'].value) } else { return 0.0 }", 'order': 'asc'}}
 
 
 def test_eval_field_callable():
@@ -119,7 +119,7 @@ def test_default_sorter_factory(app):
         assert query.to_dict()["sort"] == [
             {"field1": {"order": "asc", "unmapped_type": "long"}},
             {"field2": {"order": "desc", "unmapped_type": "long"}},
-            {"_script": {"type": "number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}
+            {"_script": {"type": "number", "script": "if ( doc['control_number'].size() != 0 ) { return Float.parseFloat(doc['control_number'].value) } else { return 0.0 }", "order": "asc"}}
         ]
         assert urlargs["sort"] == "myfield"
 
@@ -129,7 +129,7 @@ def test_default_sorter_factory(app):
         assert query.to_dict()["sort"] == [
             {"field1": {"order": "desc", "unmapped_type": "long"}},
             {"field2": {"order": "asc", "unmapped_type": "long"}},
-            {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}
+            {"_script":{"type":"number", "script": "if ( doc['control_number'].size() != 0 ) { return Float.parseFloat(doc['control_number'].value) } else { return 0.0 }", "order": "asc"}}
         ]
         assert urlargs["sort"] == "-myfield"
 
@@ -145,7 +145,7 @@ def test_default_sorter_factory(app):
         assert query.to_dict()["sort"] == [
             {"field1": {"order": "asc", "unmapped_type": "long"}},
             {"field2": {"order": "desc", "unmapped_type": "long"}},
-            {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}
+            {"_script":{"type":"number", "script": "if ( doc['control_number'].size() != 0 ) { return Float.parseFloat(doc['control_number'].value) } else { return 0.0 }", "order": "asc"}}
         ]
         assert urlargs == dict(sort="myfield")
 
@@ -155,7 +155,7 @@ def test_default_sorter_factory(app):
         assert query.to_dict()["sort"] == [
             {"field1": {"order": "desc", "unmapped_type": "long"}},
             {"field2": {"order": "asc", "unmapped_type": "long"}},
-            {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}
+            {"_script":{"type":"number", "script": "if ( doc['control_number'].size() != 0 ) { return Float.parseFloat(doc['control_number'].value) } else { return 0.0 }", "order": "asc"}}
         ]
         assert urlargs == dict(sort="-myfield")
 
@@ -165,7 +165,7 @@ def test_default_sorter_factory(app):
         assert query.to_dict()["sort"] == [
             {"field1": {"order": "desc", "unmapped_type": "long"}},
             {"field2": {"order": "asc", "unmapped_type": "long"}},
-            {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}
+            {"_script":{"type":"number", "script": "if ( doc['control_number'].size() != 0 ) { return Float.parseFloat(doc['control_number'].value) } else { return 0.0 }", "order": "asc"}}
         ]
         assert urlargs == dict(sort="-myfield")
 
@@ -178,14 +178,14 @@ def test_default_sorter_factory(app):
     with app.test_request_context("/?sort=controlnumber"):
         query, urlargs = default_sorter_factory(dsl.Search(), "myindex")
         assert query.to_dict()["sort"] == \
-            [{"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}]
+            [{"_script":{"type":"number", "script": "if ( doc['control_number'].size() != 0 ) { return Float.parseFloat(doc['control_number'].value) } else { return 0.0 }", "order": "asc"}}]
         assert urlargs == dict(sort="controlnumber")
     
     # Reverse sort with control_number
     with app.test_request_context("/?sort=-controlnumber"):
         query, urlargs = default_sorter_factory(dsl.Search(), "myindex")
         assert query.to_dict()["sort"] == \
-            [{"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "desc"}}]
+            [{"_script":{"type":"number", "script": "if ( doc['control_number'].size() != 0 ) { return Float.parseFloat(doc['control_number'].value) } else { return 0.0 }", "order": "desc"}}]
         assert urlargs == dict(sort="-controlnumber")
 
     # Sort with temporal
@@ -193,7 +193,7 @@ def test_default_sorter_factory(app):
         query, urlargs = default_sorter_factory(dsl.Search(), "myindex")
         assert query.to_dict()["sort"] == \
             [{"_script":{"type":"number","script":{"lang":"painless","source":"def x = params._source.date_range1;Date dt = new Date();if (x != null && x instanceof List) { if (x[0] != null && x[0] instanceof Map){ def st = x[0].getOrDefault(\"gte\",\"\");SimpleDateFormat format = new SimpleDateFormat();if (st.length()>7) {format.applyPattern(\"yyyy-MM-dd\");}else if (st.length()>4){format.applyPattern(\"yyyy-MM\");}else if (st.length()==4){format.applyPattern(\"yyyy\");} try { dt = format.parse(st);} catch (Exception e){}}} return dt.getTime()"},"order": 'asc'}},
-            {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}]
+            {"_script":{"type":"number", "script": "if ( doc['control_number'].size() != 0 ) { return Float.parseFloat(doc['control_number'].value) } else { return 0.0 }", "order": "asc"}}]
         assert urlargs == dict(sort="temporal")
     
     # Reverse sort with control_number
@@ -201,5 +201,5 @@ def test_default_sorter_factory(app):
         query, urlargs = default_sorter_factory(dsl.Search(), "myindex")
         assert query.to_dict()["sort"] == \
             [{"_script":{"type":"number","script":{"lang":"painless","source":"def x = params._source.date_range1;Date dt = new Date();if (x != null && x instanceof List) { if (x[0] != null && x[0] instanceof Map){ def st = x[0].getOrDefault(\"gte\",\"\");SimpleDateFormat format = new SimpleDateFormat();if (st.length()>7) {format.applyPattern(\"yyyy-MM-dd\");}else if (st.length()>4){format.applyPattern(\"yyyy-MM\");}else if (st.length()==4){format.applyPattern(\"yyyy\");} try { dt = format.parse(st);} catch (Exception e){}}} return dt.getTime()"},"order": 'desc'}},
-            {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}]
+            {"_script":{"type":"number", "script": "if ( doc['control_number'].size() != 0 ) { return Float.parseFloat(doc['control_number'].value) } else { return 0.0 }", "order": "asc"}}]
         assert urlargs == dict(sort="-temporal")

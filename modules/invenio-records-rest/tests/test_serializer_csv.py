@@ -66,7 +66,7 @@ class SimpleSchema(Schema):
     related = fields.Raw(attribute="metadata.related")
 
 
-def test_serialize():
+def test_serialize(app, mock_itemtypes):
     """Test JSON serialize."""
 
     EXCLUDE_FIELDS = [
@@ -94,7 +94,7 @@ def test_serialize():
     )
 
 
-def test_serialize_with_extra_col_other_separator():
+def test_serialize_with_extra_col_other_separator(app, mock_itemtypes):
     """Test JSON serialize."""
 
     EXCLUDE_FIELDS = [

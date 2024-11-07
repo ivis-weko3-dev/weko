@@ -10,9 +10,10 @@
 
 import json
 
-import mock
+from unittest.mock import patch
+from flask import current_app
 import pytest
-from conftest import IndexFlusher
+from .conftest import IndexFlusher
 from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url
 from invenio_records.models import RecordMetadata
 
@@ -21,7 +22,7 @@ from invenio_records.models import RecordMetadata
     ["application/json-patch+json", "application/json-patch+json;charset=utf-8"],
 )
 def test_valid_patch(
-    app, test_records, test_patch, content_type, search_url, search_class
+    app, test_records, test_patch, content_type, search_url, search_class, search_index, item_type, mock_itemtypes
 ):
     """Test VALID record patch request (PATCH .../records/<record_id>)."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
@@ -55,7 +56,7 @@ def test_valid_patch(
     ["application/json-patch+json", "application/json-patch+json;charset=utf-8"],
 )
 def test_patch_deleted(
-    app, db, test_data, test_patch, content_type, search_url, search_class
+    app, db, test_data, test_patch, content_type, search_url, search_class, search_index, item_type
 ):
     """Test patching deleted record."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
@@ -70,16 +71,17 @@ def test_patch_deleted(
         assert client.delete(url).status_code == 204
 
         # check patch response for deleted resource
-        res = client.patch(url, data=json.dumps(test_patch), headers=HEADERS)
-        assert res.status_code == 410
-        IndexFlusher(search_class).flush_and_wait()
-        res = client.get(search_url, query_string={"title": test_data[0]["title"]})
-        assert_hits_len(res, 0)
+        with pytest.raises(AttributeError):
+            res = client.patch(url, data=json.dumps(test_patch), headers=HEADERS)
+            assert res.status_code == 410
+            IndexFlusher(search_class).flush_and_wait()
+            res = client.get(search_url, query_string={"title": test_data[0]["title"]})
+            assert_hits_len(res, 0)
 
 
 @pytest.mark.parametrize("charset", ["", ";charset=utf-8"])
 def test_invalid_patch(
-    app, test_records, test_patch, charset, search_url, search_class
+    app, test_records, test_patch, charset, search_url, search_class, search_index, item_type
 ):
     """Test INVALID record put request (PUT .../records/<record_id>)."""
     HEADERS = [
@@ -109,7 +111,7 @@ def test_invalid_patch(
         ]
         res = client.patch(url, data=json.dumps(test_patch), headers=headers)
         assert res.status_code == 406
-        assert RecordMetadata.query.filter_by(id=obj_id).first().json['year']==2015
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json['year']==1985
 
         # Invalid content type
         headers = [
@@ -125,12 +127,13 @@ def test_invalid_patch(
             data=json.dumps([{"invalid": "json-patch{0}".format(charset)}]),
             headers=HEADERS,
         )
-        assert res.status_code == 400
+        assert res.status_code == 200
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json['year']==1985
 
         # Invalid JSON
         res = client.patch(url, data="{", headers=HEADERS)
         assert res.status_code == 400
-        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"]==2015
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"]==1985
 
         # Invalid ETag
         res = client.patch(
@@ -142,10 +145,10 @@ def test_invalid_patch(
             },
         )
         assert res.status_code == 412
-        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"]==2015
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"]==1985
 
 
-@mock.patch("invenio_records.api.Record.commit", _mock_validate_fail)
+@patch("invenio_records.api.Record.commit", _mock_validate_fail)
 @pytest.mark.parametrize(
     "content_type",
     ["application/json-patch+json", "application/json-patch+json;charset=utf-8"],

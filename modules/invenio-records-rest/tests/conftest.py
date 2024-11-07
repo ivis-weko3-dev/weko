@@ -23,7 +23,7 @@ from unittest.mock import patch, MagicMock
 
 from flask import Flask, g, url_for
 from flask_login import LoginManager, UserMixin
-from helpers import create_record
+from .helpers import create_record
 from invenio_config import InvenioConfigDefault
 from invenio_access.models import ActionRoles
 from invenio_accounts import InvenioAccounts
@@ -98,8 +98,25 @@ class IndexFlusher(object):
 def mock_itemtypes(mocker):
     """Mock the ItemTypes.get_record method to return a mock object."""
     mock_record = MagicMock()
-    mock_record.model.render = {'meta_fix': 'mocked_value'}  # 必要な値をモック
+    mock_record.model.render = {
+        "meta_fix": {
+            "meta_fix_9999": "meta_fix_9999",
+            "item_type_id": {
+                "option": {
+                    "showlist": True,
+                    "hidden": False,
+                },
+            },
+        },
+        "meta_list": {
+            "meta_list_9999": "meta_list_9999",
+        }
+    }
+    mock_item_type = MagicMock()
+    mock_item_type.render = mock_record.model.render
+
     mocker.patch('weko_items_ui.utils.ItemTypes.get_record', return_value=mock_record)
+    mocker.patch('weko_items_ui.utils.ItemTypes.get_by_id', return_value=mock_item_type)
 
     return mock_record
 
@@ -207,7 +224,7 @@ def app(request, search_class):
             )
         },
         SERVER_NAME="localhost:5000",
-        SEARCH_INDEX_PREFIX="test-",
+        # SEARCH_INDEX_PREFIX="test-",
         # SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
         SEARCH_UI_SEARCH_INDEX="",
         CACHE_TYPE="redis",
@@ -300,44 +317,24 @@ def search(app):
     yield current_search_client
     list(current_search.delete(ignore=[404]))
 
-
 @pytest.fixture()
 def search_index(app):
-    current_search_client.indices.delete(index="test-*", ignore=[400, 404])
     with open("tests/data/item-v1.0.0.json","r") as f:
         mapping = json.load(f)
 
+    current_search_client.indices.delete(index="test-*")
     try:
-        index_name = "test-test-weko"
-        current_search_client.indices.create(index_name, body=mapping)
-        current_search_client.indices.put_alias(index_name, name="test-weko")
-
-        test_data = {
-            "year": 2015,
-            "stars": 4,
-            "title": "Back to the Future",
-            "control_number": "3",
-            "_item_metadata": {
-                "item_type_id": "15"  # このフィールドを追加
-            }
-        }
-        current_search_client.index(index=index_name, id="1", body=test_data)
-        current_search_client.indices.refresh(index=index_name) 
-        # current_search_client.indices.delete(app.config["INDEXER_DEFAULT_INDEX"])
-        # search.client.indices.create(app.config["INDEXER_DEFAULT_INDEX"],body=mapping)
-        # search.client.indices.put_alias(index=app.config["INDEXER_DEFAULT_INDEX"], name="test-weko")
-        # current_search_client.indices.create(
-        #     app.config["INDEXER_DEFAULT_INDEX"], body=mapping
-        # )
-        # current_search_client.indices.put_alias(
-        #     index=app.config["INDEXER_DEFAULT_INDEX"], name="test-weko"
-        # )
-    except Exception  as e:
-        print(f"インデックス作成エラー: {e}")
-        # current_search_client.indices.create("test-weko-items", body=mapping)
-        # current_search_client.indices.put_alias(
-        #     index="test-weko-items", name="test-weko"
-        # )
+        current_search_client.indices.create(
+            app.config["INDEXER_DEFAULT_INDEX"], body=mapping
+        )
+        current_search_client.indices.put_alias(
+            index=app.config["INDEXER_DEFAULT_INDEX"], name="test-weko"
+        )
+    except:
+        current_search_client.indices.create("test-weko-items", body=mapping)
+        current_search_client.indices.put_alias(
+            index="test-weko-items", name="test-weko"
+        )
     try:
         yield current_search_client
     finally:

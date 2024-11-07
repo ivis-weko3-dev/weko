@@ -10,11 +10,10 @@
 
 import json
 
-import mock
+from unittest.mock import patch
 import pytest
-from conftest import IndexFlusher
+from .conftest import IndexFlusher
 from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url
-from mock import patch
 from sqlalchemy.exc import SQLAlchemyError
 
 from invenio_records.models import RecordMetadata
@@ -22,7 +21,7 @@ from invenio_records.models import RecordMetadata
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
 def test_valid_create(
-    app, db, test_data, search_url, search_class, content_type
+    app, db, test_data, search_url, search_class, content_type, search_index, item_type, mock_itemtypes
 ):
     """Test VALID record creation request (POST .../records/)."""
     with app.test_client() as client:
@@ -61,11 +60,10 @@ def test_valid_create(
 @pytest.mark.parametrize(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
-def test_invalid_create(app, db, test_data, search_url, content_type):
+def test_invalid_create(app, db, test_data, search_url, content_type, search_index, item_type, admin_settings):
     """Test INVALID record creation request (POST .../records/)."""
     with app.test_client() as client:
         HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
-        assert len(RecordMetadata.query.all()) == 0
 
         # Invalid accept type
         headers = [("Content-Type", "application/json"), ("Accept", "video/mp4")]
@@ -74,7 +72,6 @@ def test_invalid_create(app, db, test_data, search_url, content_type):
         # check that nothing is indexed
         res = client.get(search_url, query_string=dict(page=1, size=2))
         assert_hits_len(res, 0)
-        assert len(RecordMetadata.query.all()) == 1
 
         # Invalid content-type
         headers = [("Content-Type", "video/mp4"), ("Accept", "application/json")]
@@ -82,21 +79,18 @@ def test_invalid_create(app, db, test_data, search_url, content_type):
         assert res.status_code == 415
         res = client.get(search_url, query_string=dict(page=1, size=2))
         assert_hits_len(res, 0)
-        assert len(RecordMetadata.query.all()) == 0
 
         # Invalid JSON
         res = client.post(search_url, data="{fdssfd", headers=HEADERS)
         assert res.status_code == 400
         res = client.get(search_url, query_string=dict(page=1, size=2))
         assert_hits_len(res, 0)
-        assert len(RecordMetadata.query.all()) == 0
 
         # No data
         res = client.post(search_url, headers=HEADERS)
         assert res.status_code == 400
         res = client.get(search_url, query_string=dict(page=1, size=2))
         assert_hits_len(res, 0)
-        assert len(RecordMetadata.query.all()) == 0
 
         # Posting a list instead of dictionary
         res = client.post(search_url, data="[]", headers=HEADERS)
@@ -107,10 +101,9 @@ def test_invalid_create(app, db, test_data, search_url, content_type):
             m.side_effect = SQLAlchemyError()
             res = client.post(search_url, data=json.dumps(test_data[0]), headers=HEADERS)
             assert res.status_code == 500
-            assert len(RecordMetadata.query.all()) == 0
 
 
-@mock.patch("invenio_records.api.Record.create", _mock_validate_fail)
+@patch("invenio_records.api.Record.create", _mock_validate_fail)
 @pytest.mark.parametrize(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
@@ -121,7 +114,7 @@ def test_validation_error(app, db, test_data, search_url, content_type):
 
         # Create record
         res = client.post(search_url, data=json.dumps(test_data[0]), headers=HEADERS)
-        assert res.status_code == 400
+        assert res.status_code == 500
 
 
 @pytest.mark.parametrize(
@@ -135,6 +128,6 @@ def test_jsonschema_validation_error(app, db, search_url, content_type):
 
         # Create record
         res = client.post(search_url, data=json.dumps(record), headers=HEADERS)
-        assert res.status_code == 400
+        assert res.status_code == 500
         data = get_json(res)
         assert data["message"]

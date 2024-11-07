@@ -8,8 +8,8 @@
 
 
 """Facets tests."""
-
 import pytest
+from unittest.mock import patch
 from flask import Flask, g
 from flask_principal import Identity
 from invenio_rest.errors import RESTValidationError
@@ -217,117 +217,156 @@ def test_default_facets_factory(app, db, search_user, redis_connect):
     redis_connect.delete(test_redis_key)
 
 
-def test_selecting_one_specified_facet(app):
-    defs = dict(
-        aggs=dict(
-            facet_1=dict(
-                terms=dict(field="one_field"),
-            ),
-            facet_2=dict(
-                terms=dict(field="other_field"),
-            ),
-            facet_3=dict(terms=dict(field="some_other_field")),
-        ),
-        filters=dict(
-            subtype=terms_filter("subtype"),
-        ),
-        post_filters=dict(
-            type=terms_filter("type"),
-        ),
+def test_selecting_one_specified_facet(app, db, search_user, redis_connect):
+    test_redis_key = "test_facet_search_query_has_permission"
+
+    type_setting = FacetSearchSetting(
+        name_en="type",
+        name_jp="type",
+        mapping="upload_type",
+        aggregations=[],
+        active=True,
+        ui_type="SelectBox",
+        display_number=1,
+        is_open=True
     )
-
-    expected_agg = dict(facet_2=dict(terms=dict(field="other_field")))
-    app.config["RECORDS_REST_FACETS"]["test_facet_names"] = defs
-    with app.test_request_context("?type=a&subtype=b&facets=facet_2"):
-        g.identity = Identity('test_user')
-        search = dsl.Search().query(dsl.Q(query="value"))
-        search, urlkwargs = default_facets_factory(search, "test_facet_names")
-        assert search.to_dict().get("aggs") == expected_agg
-
-
-def test_selecting_specified_facet(app):
-    defs = dict(
-        aggs=dict(
-            facet_1=dict(
-                terms=dict(field="one_field"),
-            ),
-            facet_2=dict(
-                terms=dict(field="other_field"),
-            ),
-            facet_3=dict(terms=dict(field="some_other_field")),
-        ),
-        filters=dict(
-            subtype=terms_filter("subtype"),
-        ),
-        post_filters=dict(
-            type=terms_filter("type"),
-        ),
+    subtype_setting = FacetSearchSetting(
+        name_en="subtype",
+        name_jp="subtype",
+        mapping="subtype",
+        aggregations=[],
+        active=True,
+        ui_type="SelectBox",
+        display_number=2,
+        is_open=True
     )
+    db.session.add(type_setting)
+    db.session.add(subtype_setting)
+    db.session.commit()
 
-    expected_agg = dict(
-        facet_1=dict(
-            terms=dict(field="one_field"),
-        ),
-        facet_3=dict(terms=dict(field="some_other_field")),
+    expected_agg = {"filtered": {"filter": {"bool": {"must": [{"term": {"publish_status": "0"}}]}}, "aggs": {"type": {"terms": {"field": "upload_type", "size": 1000}}}}}
+    index = "{}-weko".format("test")
+    app.config['SEARCH_UI_SEARCH_INDEX'] = index
+    app.config['RECORDS_REST_FACETS_POST_FILTERS_PROPAGATE'] = True
+    with patch("weko_search_ui.permissions.search_permission.can",return_value=True):
+        with patch("weko_admin.utils.get_query_key_by_permission", return_value=test_redis_key):
+            with app.test_request_context("?type=a&subtype=b&facets=type"):
+                g.identity = Identity('test_user')
+                search = dsl.Search().query(dsl.Q(query="value"))
+                search, urlkwargs = default_facets_factory(search, index)
+                assert search.to_dict().get("aggs").get('type').get('aggs') == expected_agg
+
+
+def test_selecting_specified_facet(app, db, aggs_and_facet):
+    test_redis_key = "test_facet_search_query_has_permission"
+    type_setting = FacetSearchSetting(
+        name_en="type",
+        name_jp="type",
+        mapping="upload_type",
+        aggregations=[],
+        active=True,
+        ui_type="SelectBox",
+        display_number=1,
+        is_open=True
     )
-    app.config["RECORDS_REST_FACETS"]["test_facet_names"] = defs
-    with app.test_request_context("?type=a&subtype=b&facets=facet_1,facet_3"):
-        g.identity = Identity('test_user')
-        search = dsl.Search().query(dsl.Q(query="value"))
-        search, urlkwargs = default_facets_factory(search, "test_facet_names")
-        assert search.to_dict().get("aggs") == expected_agg
-
-
-def test_turn_off_facets(app):
-    defs = dict(
-        aggs=dict(
-            facet_1=dict(
-                terms=dict(field="one_field"),
-            ),
-            facet_2=dict(
-                terms=dict(field="other_field"),
-            ),
-            facet_3=dict(terms=dict(field="some_other_field")),
-        ),
-        filters=dict(
-            subtype=terms_filter("subtype"),
-        ),
-        post_filters=dict(
-            type=terms_filter("type"),
-        ),
+    subtype_setting = FacetSearchSetting(
+        name_en="subtype",
+        name_jp="subtype",
+        mapping="subtype",
+        aggregations=[],
+        active=True,
+        ui_type="SelectBox",
+        display_number=2,
+        is_open=True
     )
+    db.session.add(type_setting)
+    db.session.add(subtype_setting)
+    db.session.commit()
 
-    app.config["RECORDS_REST_FACETS"]["test_facet_names"] = defs
-    with app.test_request_context("?type=a&subtype=b&facets=null"):
-        g.identity = Identity('test_user')
-        search = dsl.Search().query(dsl.Q(query="value"))
-        search, urlkwargs = default_facets_factory(search, "test_facet_names")
-        assert search.to_dict().get("aggs") is None
+    expected_agg = {"filtered": {"filter": {"bool": {"must": [{"term": {"publish_status": "0"}}]}}, "aggs": {"type": {"terms": {"field": "upload_type", "size": 1000}}}}}
+    index = "{}-weko".format("test")
+    app.config['SEARCH_UI_SEARCH_INDEX'] = index
+    app.config['RECORDS_REST_FACETS_POST_FILTERS_PROPAGATE'] = True
+    with patch("weko_search_ui.permissions.search_permission.can",return_value=True):
+        with patch("weko_admin.utils.get_query_key_by_permission", return_value=test_redis_key):
+            with app.test_request_context("?type=a&subtype=b&facets=type,subtype"):
+                g.identity = Identity('test_user')
+                search = dsl.Search().query(dsl.Q(query="value"))
+                search, urlkwargs = default_facets_factory(search, index)
+                assert search.to_dict().get("aggs").get('type').get('aggs') == expected_agg
 
 
-def test_selecting_all_facets_by_default(app):
-    defs = dict(
-        aggs=dict(
-            facet_1=dict(
-                terms=dict(field="one_field"),
-            ),
-            facet_2=dict(
-                terms=dict(field="other_field"),
-            ),
-            facet_3=dict(terms=dict(field="some_other_field")),
-        ),
-        filters=dict(
-            subtype=terms_filter("subtype"),
-        ),
-        post_filters=dict(
-            type=terms_filter("type"),
-        ),
+def test_turn_off_facets(app, db, aggs_and_facet):
+    test_redis_key = "test_facet_search_query_has_permission"
+    type_setting = FacetSearchSetting(
+        name_en="type",
+        name_jp="type",
+        mapping="upload_type",
+        aggregations=[],
+        active=True,
+        ui_type="SelectBox",
+        display_number=1,
+        is_open=True
     )
+    subtype_setting = FacetSearchSetting(
+        name_en="subtype",
+        name_jp="subtype",
+        mapping="subtype",
+        aggregations=[],
+        active=True,
+        ui_type="SelectBox",
+        display_number=2,
+        is_open=True
+    )
+    db.session.add(type_setting)
+    db.session.add(subtype_setting)
+    db.session.commit()
 
-    expected_agg = defs["aggs"]
-    app.config["RECORDS_REST_FACETS"]["test_facet_names"] = defs
-    with app.test_request_context("?type=a&subtype=b"):
-        g.identity = Identity('test_user')
-        search = dsl.Search().query(dsl.Q(query="value"))
-        search, urlkwargs = default_facets_factory(search, "test_facet_names")
-        assert search.to_dict().get("aggs") == expected_agg
+    index = "{}-weko".format("test")
+    app.config['SEARCH_UI_SEARCH_INDEX'] = index
+    app.config['RECORDS_REST_FACETS_POST_FILTERS_PROPAGATE'] = True
+    with patch("weko_search_ui.permissions.search_permission.can",return_value=True):
+        with patch("weko_admin.utils.get_query_key_by_permission", return_value=test_redis_key):
+            with app.test_request_context("?type=a&subtype=b&facets=null"):
+                g.identity = Identity('test_user')
+                search = dsl.Search().query(dsl.Q(query="value"))
+                search, urlkwargs = default_facets_factory(search, "test_facet_names")
+                assert search.to_dict().get("aggs") is None
+
+
+def test_selecting_all_facets_by_default(app, db, aggs_and_facet):
+    test_redis_key = "test_facet_search_query_has_permission"
+    type_setting = FacetSearchSetting(
+        name_en="type",
+        name_jp="type",
+        mapping="upload_type",
+        aggregations=[],
+        active=True,
+        ui_type="SelectBox",
+        display_number=1,
+        is_open=True
+    )
+    subtype_setting = FacetSearchSetting(
+        name_en="subtype",
+        name_jp="subtype",
+        mapping="subtype",
+        aggregations=[],
+        active=True,
+        ui_type="SelectBox",
+        display_number=2,
+        is_open=True
+    )
+    db.session.add(type_setting)
+    db.session.add(subtype_setting)
+    db.session.commit()
+
+    index = "{}-weko".format("test")
+    app.config['SEARCH_UI_SEARCH_INDEX'] = index
+    app.config['RECORDS_REST_FACETS_POST_FILTERS_PROPAGATE'] = True
+    with patch("weko_search_ui.permissions.search_permission.can",return_value=True):
+        with patch("weko_admin.utils.get_query_key_by_permission", return_value=test_redis_key):
+            with app.test_request_context("?type=a&subtype=b"):
+                g.identity = Identity('test_user')
+                search = dsl.Search().query(dsl.Q(query="value"))
+                search, urlkwargs = default_facets_factory(search, "test_facet_names")
+                assert search.to_dict().get("aggs") is None

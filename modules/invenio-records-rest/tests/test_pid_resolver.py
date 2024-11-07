@@ -9,12 +9,13 @@
 
 """PID resolver tests."""
 
+from unittest.mock import patch
 from flask import url_for
 from helpers import create_record
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus, RecordIdentifier
 
-
-def test_record_resolution(app, db, test_records, item_type):
+@patch("invenio_records_rest.views.db.session.remove")
+def test_record_resolution(mock_remove, app, db, test_records, item_type):
     """Test resolution of PIDs to records."""
     # OK PID
     pid_ok, record = create_record({"title": "test"})

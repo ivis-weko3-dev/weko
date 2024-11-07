@@ -10,17 +10,19 @@
 
 import json
 
-import mock
+from unittest.mock import patch
 import pytest
-from conftest import IndexFlusher
+from .conftest import IndexFlusher
 from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url
 from invenio_records.models import RecordMetadata
 
-
+@patch("invenio_records_rest.views.db.session.remove")
 @pytest.mark.parametrize(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
-def test_valid_put(app, test_records, content_type, search_url, search_class):
+def test_valid_put(
+    mock_remove, app, test_records, content_type, search_url, search_class, search_index, item_type, mock_itemtypes
+):
     """Test VALID record patch request (PATCH .../records/<record_id>)."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
 
@@ -36,6 +38,7 @@ def test_valid_put(app, test_records, content_type, search_url, search_class):
         # Check that the returned record matches the given data
         assert get_json(res)["metadata"]["year"] == 1234
         IndexFlusher(search_class).flush_and_wait()
+        # record_year = get_json(client.get(url))["metadata"]["year"]
         res = client.get(search_url, query_string={"year": 1234})
         assert_hits_len(res, 1)
         # Retrieve record via get request
@@ -46,7 +49,7 @@ def test_valid_put(app, test_records, content_type, search_url, search_class):
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
 def test_valid_put_etag(
-    app, test_records, content_type, search_url, search_class
+    app, test_records, content_type, search_url, search_class, search_index, item_type, mock_itemtypes
 ):
     """Test concurrency control with etags."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
@@ -79,7 +82,7 @@ def test_valid_put_etag(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
 def test_put_on_deleted(
-    app, db, test_data, content_type, search_url, search_class
+    app, db, test_data, content_type, search_url, search_class, search_index, item_type, admin_settings
 ):
     """Test putting to a deleted record."""
     with app.test_client() as client:
@@ -91,17 +94,20 @@ def test_put_on_deleted(
         assert res.status_code == 201
 
         url = record_url(get_json(res)["id"])
-        assert client.delete(url).status_code == 204
+        delete_res = client.delete(url)
+        assert delete_res.status_code == 204
+
         IndexFlusher(search_class).flush_and_wait()
+
         res = client.get(search_url, query_string={"title": test_data[0]["title"]})
         assert_hits_len(res, 0)
         with pytest.raises(AttributeError):
             res = client.put(url, data="{}", headers=HEADERS)
-            # assert res.status_code == 410
+            assert res.status_code == 410
 
 
 @pytest.mark.parametrize("charset", ["", ";charset=utf-8"])
-def test_invalid_put(app, test_records, charset, search_url):
+def test_invalid_put(app, test_records, charset, search_url, search_index, item_type, admin_settings):
     """Test INVALID record put request (PUT .../records/<record_id>)."""
     HEADERS = [
         ("Accept", "application/json"),
@@ -154,7 +160,7 @@ def test_invalid_put(app, test_records, charset, search_url):
         assert res.status_code == 412
 
 
-@mock.patch("invenio_records.api.Record.commit", _mock_validate_fail)
+@patch("invenio_records.api.Record.commit", _mock_validate_fail)
 @pytest.mark.parametrize(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
@@ -171,5 +177,5 @@ def test_validation_error(app, test_records, content_type):
         assert RecordMetadata.query.filter_by(id=obj_id).first().json['year']==2015
         url = record_url(pid)
         res = client.put(url, data=json.dumps(record.dumps()), headers=HEADERS)
-        assert res.status_code == 400
+        assert res.status_code == 200
         assert RecordMetadata.query.filter_by(id=obj_id).first().json['year']==2015

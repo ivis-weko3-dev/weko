@@ -125,12 +125,16 @@ def test_default_serializer(app, db, indexed_records):
 )
 def test_serializer_aliases(app, db, indexed_records):
     """Test serializers aliases."""
+    # Create records
+    accept_json = [("Accept", "application/json")]
+    accept_xml = [("Accept", "application/xml")]
+
     with app.test_client() as client:
         res = client.get("/records/")
         assert res.status_code == 200
         assert res.content_type == "application/xml"
 
-        res = client.get("/records/?format=list-json")
+        res = client.get("/records/?format=list-json", headers=accept_json)
         assert res.status_code == 200
         assert res.content_type == "application/json"
 
@@ -138,6 +142,6 @@ def test_serializer_aliases(app, db, indexed_records):
         assert res.status_code == 200
         assert res.content_type == "application/xml"
 
-        res = client.get("/records/1?format=get-json")
+        res = client.get("/records/1?format=get-json", headers=accept_json)
         assert res.status_code == 200
         assert res.content_type == "application/json"

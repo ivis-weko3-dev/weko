@@ -133,7 +133,7 @@ def test_get_record(test_custom_endpoints_app, test_records):
     ],
     indirect=["test_custom_endpoints_app"],
 )
-def test_get_records_list(test_custom_endpoints_app, indexed_records, item_type):
+def test_get_records_list(test_custom_endpoints_app, indexed_records, item_type, mock_itemtypes):
     """Test the creation of a custom endpoint using RecordsListResource."""
     blueprint = Blueprint(
         "test_invenio_records_rest",
