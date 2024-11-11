@@ -70,7 +70,7 @@ from tests.helpers import json_data, create_record
 
 sys.path.append(os.path.dirname(__file__))
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -132,19 +132,19 @@ def base_app(instance_path):
     return app_
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app(base_app):
     """Flask application fixture."""
     with base_app.app_context():
         yield base_app
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def i18n_app(app):
     with app.test_request_context(headers=[('Accept-Language','en')]):
         yield app
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client(app):
     with app.test_client() as client:
         yield
