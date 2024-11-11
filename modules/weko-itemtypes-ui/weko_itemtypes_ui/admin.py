@@ -485,8 +485,8 @@ class ItemTypeMetaDataView(BaseView):
                 prop.get('id'): prop
                 for prop in import_data['ItemTypeProperty']
             }
-            new_prop_ids = []
-            duplicated_prop_ids = []
+            new_prop_ids = set()
+            duplicated_prop_ids = set()
             for row_id in table_row_ids:
                 # Extract the property ID from 'input_type'
                 input_type = meta_list.get(row_id).get('input_type')
@@ -494,14 +494,14 @@ class ItemTypeMetaDataView(BaseView):
                 record = ItemTypeProps.get_record(prop_id)
 
                 if not record:
-                    new_prop_ids.append(prop_id)
+                    new_prop_ids.add(prop_id)
                 else:
                     importing_prop = importing_props.get(prop_id)
                     importing_updated = (
                         importing_prop.get('updated').split('+')[0])
                     record_updated = record.updated.isoformat()
                     if importing_updated != record_updated:
-                        duplicated_prop_ids.append(prop_id)
+                        duplicated_prop_ids.add(prop_id)
 
             forced_import = current_app.config[
                 'WEKO_ITEMTYPES_UI_FORCED_IMPORT_ENABLED'

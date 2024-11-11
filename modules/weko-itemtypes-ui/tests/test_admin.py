@@ -574,7 +574,7 @@ class TestItemTypeMetaDataView:
             'Failed to import the item type. '
             '"render" is missing or invalid in ItemType.json.'
         )
-        
+
         # Error if 'render' value does not have a 'table_row' key
         file = BytesIO(zip_file.getvalue())
         no_table_row_zip = BytesIO()
@@ -689,37 +689,9 @@ class TestItemTypeMetaDataView:
             {'WEKO_ITEMTYPES_UI_FORCED_IMPORT_ENABLED': True}
         ):
             file = BytesIO(zip_file.getvalue())
-            new_prop_zip = BytesIO()
-            file_contents = {}
-            with ZipFile(file, 'r') as zip_in:
-                for file_name in zip_in.namelist():
-                    with zip_in.open(file_name) as f:
-                        content = f.read().decode('utf-8')
-                        file_contents[file_name] = json.loads(content)
-            file_contents['ItemType.json']['render']['table_row'] = ['row1', 'row2']
-            file_contents['ItemType.json']['render']['meta_list'] = {
-                'row1': {'input_type': 'cus_1'},
-                'row2': {'input_type': 'cus_2'}
-            }
-            new_prop = {
-                'id': 2,
-                'name': 'test property 2',
-                'schema': {'type': 'integer'},
-                'form': {'title_i18n': {'en': 'test property 2'}},
-                'forms': ['test form 2'],
-                'delflg': False,
-                'sort': None,
-                'created': '2024-09-07T00:00:00+00:00',
-                'updated': '2024-09-07T00:00:00+00:00'
-            }
-            file_contents['ItemTypeProperty.json'].append(new_prop)
-            with ZipFile(new_prop_zip, 'w', ZIP_DEFLATED) as zip_out:
-                for file_name, content in file_contents.items():
-                    zip_out.writestr(file_name, json.dumps(content))
-            new_prop_zip.seek(0)
             data = {
                 'item_type_name': 'success test 3',
-                'file': (new_prop_zip, 'test.zip')
+                'file': (file, 'test.zip')
             }
             res = client.post(url, data=data, content_type='multipart/form-data')
             assert json.loads(res.data)['msg'] == (
@@ -761,11 +733,11 @@ class TestItemTypeMetaDataView:
             res = client.post(url, data=data, content_type='multipart/form-data')
             assert res.status_code == 400
             assert 'Failed to import the item type' in json.loads(res.data)['msg']
-        
+
         # Import suceeds but duplicated IDs reported
         with patch.dict(
             current_app.config,
-            {'WEKO_ITEMTYPES_UI_FORCED_IMPORT_ENABLED': True} 
+            {'WEKO_ITEMTYPES_UI_FORCED_IMPORT_ENABLED': True}
         ):
             test_id = 1
             expected_json = {
