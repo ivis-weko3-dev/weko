@@ -30,12 +30,14 @@
 
 {%- block javascript %}
 {{ super() }}
+ <script src="/assets/js/weko_gridlayout/react.production.min.js"></script>
+ <script src="/assets/js/weko_gridlayout/react-dom.production.min.js"></script>
+ <script src="/assets/js/weko_gridlayout/browser.min.js"></script>
  {{ webpack['gridlayout_js_widget_design_reactjs_lib.js']}}
- {{ webpack['gridlayout_js_widget_design_js_lib.js']}}
  {{ webpack['gridlayout_js_widget_design_js.js']}}
  {{ webpack['gridlayout_js_katex_min_js.js']}}
  {{ webpack['gridlayout_js_prop_types_js.js']}}
- {{ webpack['gridlayout_js_react_quill_js.js']}}
+ <script src="/assets/js/weko_gridlayout/react.quill.js"></script>
 {%- endblock javascript %}
 
 {%- block body %}

@@ -19,7 +19,7 @@ import $ from 'jquery';
 
             // page init
             $scope.initData = function (data) {
-                let json_obj = angular.fromJson(data)
+                let json_obj = data ? angular.fromJson(data) : {};
                 db_data = json_obj.condition_setting;
 
                 angular.forEach(db_data, function (item, index, array) {

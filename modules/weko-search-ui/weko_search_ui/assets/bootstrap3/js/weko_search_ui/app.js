@@ -214,7 +214,7 @@ function searchResCtrl($scope, $rootScope, $http, $location) {
 
     $rootScope.display_comment_jounal = function () {
         let aggregations = $rootScope.vm.invenioSearchResults.aggregations || {};
-        if (aggregations['path']) {
+        if (aggregations['path'] && aggregations.path.buckets.length > 0) {
             $('#index_comment').append(format_comment(aggregations.path.buckets[0][0].comment))
         }
     }
@@ -323,7 +323,7 @@ function searchResCtrl($scope, $rootScope, $http, $location) {
     $scope.getPathName = function () {
         let aggregations = $rootScope.vm.invenioSearchResults.aggregations || {};
         let path_str = "";
-        if (aggregations.hasOwnProperty("path") && aggregations.path.hasOwnProperty("buckets")) {
+        if (aggregations.hasOwnProperty("path") && aggregations.path.hasOwnProperty("buckets") && aggregations.path.buckets.length > 0) {
             path_str = aggregations.path.buckets[0][0].key;
         }
         if (path_str) {
@@ -529,8 +529,8 @@ function itemExportCtrl($scope, $rootScope, $http, $location) {
     });
 }
 angular.module('invenioSearch')
-    .controller('searchResCtrl', searchResCtrl)
-    .controller('itemExportCtrl', itemExportCtrl)
+    .controller('searchResCtrl', ["$scope", "$rootScope", "$http", "$location", searchResCtrl])
+    .controller('itemExportCtrl', ["$scope", "$rootScope", "$http", "$location", itemExportCtrl])
     .filter("sanitize", ['$sce', function ($sce) {
         return function (htmlCode) {
             return $sce.trustAsHtml(htmlCode);

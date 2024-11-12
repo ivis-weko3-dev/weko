@@ -74,8 +74,8 @@ def check_is_import_available(group_task_id=None):
         'is_available': True
         }
 
-    inspect = current_app.extensions['celery'].control.inspect()
-    if not inspect.ping():
+    inspect = current_app.extensions.get('celery')
+    if inspect is None or not inspect.control.inspect().ping():
         result['is_available'] = False
         result['celery_not_run'] = True
         return result

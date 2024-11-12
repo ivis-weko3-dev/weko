@@ -95,7 +95,6 @@ function preparePostData(tmp_save, actionButton) {
     let identifier_grant_jalc_dc_doi_link = $("span[name='idf_grant_link_3']").text() + getVal($("input[name='idf_grant_input_3']"));
     let identifier_grant_ndl_jalc_doi_suffix = getVal($("input[name='idf_grant_input_4']"));
     let identifier_grant_ndl_jalc_doi_link = $("span[name='idf_grant_link_4']").text() + getVal($("input[name='idf_grant_input_4']"));
-    let identifier_grant_crni_link = $("span[name='idf_grant_link_5']").text();
 
     data_global.post_data = {
         identifier_grant: identifier_grant,
@@ -107,7 +106,6 @@ function preparePostData(tmp_save, actionButton) {
         identifier_grant_jalc_dc_doi_link: identifier_grant_jalc_dc_doi_link,
         identifier_grant_ndl_jalc_doi_suffix: identifier_grant_ndl_jalc_doi_suffix,
         identifier_grant_ndl_jalc_doi_link: identifier_grant_ndl_jalc_doi_link,
-        identifier_grant_crni_link: identifier_grant_crni_link,
         action_version: $('.cur_step').data('action-version'),
         commond: '',
         temporary_save: tmp_save

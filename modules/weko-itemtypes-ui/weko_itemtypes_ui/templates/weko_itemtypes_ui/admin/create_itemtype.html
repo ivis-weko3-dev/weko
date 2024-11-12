@@ -29,6 +29,8 @@
 {%- endblock css %}
 
 {%- block javascript %}
+  <script src="/assets/node_modules/react/dist/react.min.js"></script>
+  <script src="/assets/node_modules/react-dom/dist/react-dom.min.js"></script>
   {{ webpack['itemstypes_ui_js_schema_editor.js']}}
   {{ super() }}
   {{ webpack['itemstypes_ui_js_js.js']}}

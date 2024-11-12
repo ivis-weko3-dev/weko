@@ -433,7 +433,7 @@ class Pagination extends React.Component {
                         </button>
                     </li> : null}
                 <li >
-                    // FIXME: apply CSS to the button-tag same as the a-tag
+                    {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                     <button
                         onClick={() => this.locatePageResult(this.state.currentPage - 1)}
                         onKeyDown={() => { }}
@@ -443,7 +443,7 @@ class Pagination extends React.Component {
                 </li>
                 {listPage}
                 <li >
-                    // FIXME: apply CSS to the button-tag same as the a-tag
+                    {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                     <button
                         onClick={() => this.locatePageResult(this.state.currentPage + 1)}
                         onKeyDown={() => { }}

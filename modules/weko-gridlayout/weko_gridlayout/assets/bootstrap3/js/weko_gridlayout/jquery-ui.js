@@ -4,6 +4,7 @@
 * Copyright jQuery Foundation and other contributors; Licensed MIT */
 
 import $ from "jquery";
+import 'jqueryui';
 import Globalize from "globalize";
 
 /*!

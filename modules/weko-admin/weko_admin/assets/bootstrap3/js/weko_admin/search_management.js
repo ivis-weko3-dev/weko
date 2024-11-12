@@ -1,5 +1,4 @@
 import $ from 'jquery';
-import action from 'bootstrap';
 import angular from 'angular';
 
 const SPECIFIC_INDEX_VALUE = '1';
@@ -417,7 +416,7 @@ const SPECIFIC_INDEX_VALUE = '1';
             });
 
             $('button[type="button"]').on('click', function (ev) {
-                action = this.dataset.action;
+                let action = this.dataset.action;
 
                 if ('add' == action) {
                     frm_cnt++;

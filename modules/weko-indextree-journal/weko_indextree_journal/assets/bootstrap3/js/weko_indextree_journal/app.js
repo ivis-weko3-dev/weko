@@ -144,7 +144,7 @@ angular.element(document).ready(function () {
         'mgcrea.ngStrap.modal', 'pascalprecht.translate', 'ui.sortable',
         'ui.select', 'mgcrea.ngStrap.select', 'mgcrea.ngStrap.datepicker',
         'mgcrea.ngStrap.helpers.dateParser', 'mgcrea.ngStrap.tooltip',
-        'invenioFiles'
+        'invenioFiles', 'ngSanitize'
     ]
     );
 });

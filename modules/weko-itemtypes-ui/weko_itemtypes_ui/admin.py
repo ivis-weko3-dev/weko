@@ -312,9 +312,9 @@ class ItemTypeMetaDataView(BaseView):
             tmp = {'name': name, 'schema': k.schema, 'form': k.form,
                    'forms': k.forms, 'sort': k.sort, 'is_file': is_file}
             if name and name[:2] == 'S_':
-                lists['system'][k.id] = tmp
+                lists['system'][str(k.id)] = tmp
             else:
-                lists[k.id] = tmp
+                lists[str(k.id)] = tmp
 
         settings = AdminSettings.get('default_properties_settings')
         default_properties = current_app.config[
