@@ -17,17 +17,67 @@ from unittest.mock import patch
 from flask import Flask
 from flask_babel import Babel
 from flask.cli import ScriptInfo
-# from os.path import dirname, join
 from pkg_resources import EntryPoint
 from werkzeug.utils import import_string
 
 import pytest
-
+from flask import Flask
+from invenio_db import InvenioDB, shared
 import invenio_db
 from invenio_db import shared
 from invenio_db.utils import alembic_test_context
+import psycopg2
+from psycopg2 import sql
 
 sys.path.append(os.path.dirname(__file__))
+
+def drop_database():
+    try:
+        conn = psycopg2.connect(dbname='postgres', user='invenio', password='dbpass123', host='postgresql')
+        conn.autocommit = True
+        cursor = conn.cursor()
+        cursor.execute(sql.SQL("SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = 'wekotest' AND pid <> pg_backend_pid();"))
+        cursor.execute(sql.SQL("DROP DATABASE IF EXISTS wekotest"))
+        cursor.close()
+        conn.close()
+        print("Database 'wekotest' dropped.")
+    except Exception as e:
+        print(f"Error during dropping database: {e}")
+
+def create_database():
+    try:
+        conn = psycopg2.connect(dbname='postgres', user='invenio', password='dbpass123', host='postgresql')
+        conn.autocommit = True
+        cursor = conn.cursor()
+        cursor.execute(sql.SQL("CREATE DATABASE wekotest"))
+        cursor.close()
+        conn.close()
+        print("Database 'wekotest' created.")
+    except Exception as e:
+        print(f"Error during creating database: {e}")
+
+@pytest.fixture(scope='function', autouse=True)
+def setup_database():
+    """Setup the test database."""
+    try:
+        drop_database()  
+        print("Database 'wekotest' dropped if it existed.")
+    except Exception as e:
+        print(f"Error during dropping database: {e}")
+    
+    try:
+        create_database() 
+        print("Database 'wekotest' created.")
+    except Exception as e:
+        print(f"Error during creating database: {e}")
+
+    yield  
+
+    try:
+        drop_database()
+        print("Database 'wekotest' dropped.")
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
 
 @pytest.yield_fixture()
 def db(app):
@@ -72,6 +122,26 @@ def base_app(instance_path):
 
     return app_
 
+@pytest.fixture()
+def app():
+    app = Flask(__name__)
+    app.config.update(
+        SECRET_KEY="SECRET_KEY",
+        TESTING=True,
+        SQLALCHEMY_DATABASE_URI=f"postgresql+psycopg2://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}",
+        DB_VERSIONING=False,
+        DB_VERSIONING_USER_MODEL=None,
+    )
+    InvenioDB(app)
+    return app
+
+@pytest.fixture()
+def db(app):
+    with app.app_context():
+        db_ = shared.db
+        yield db_
+        db_.session.remove()
+        
 @pytest.yield_fixture()
 def app(base_app):
     """Flask application fixture."""

@@ -90,7 +90,8 @@ def test_OAISetModelView(es_app, db,without_oaiset_signals):
                           spec='test',
                           name='test_name',
                           description='some test description',
-                          search_pattern='test search')
+                          search_pattern='test search',
+                          system_created=True)
     db.session.add(test_set)
     db.session.commit()
     url = url_for("oaiset.edit_view",id=1)

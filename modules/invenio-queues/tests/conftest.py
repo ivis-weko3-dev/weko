@@ -9,10 +9,12 @@
 """Pytest configuration."""
 
 from unittest.mock import patch
-
+import invenio_queues
+import time
 import pytest
 from flask import Flask
-from kombu import Exchange
+from kombu import Exchange, Queue, Connection, exceptions
+from invenio_queues import InvenioQueues
 
 MOCK_MQ_EXCHANGE = Exchange(
     "test_events",
@@ -21,6 +23,15 @@ MOCK_MQ_EXCHANGE = Exchange(
     durable=True,
 )
 
+def ensure_connection(conn, retries=5, delay=2):
+    """Ensure connection with retries."""
+    for _ in range(retries):
+        try:
+            conn.connect()
+            return
+        except exceptions.OperationalError:
+            time.sleep(delay)
+    raise exceptions.OperationalError("Failed to connect after retries")
 
 def remove_queues(app):
     """Delete all queues declared on the current app."""
@@ -89,11 +100,24 @@ def test_queues(app, test_queues_entrypoints):
 def app():
     """Flask application fixture."""
     from invenio_queues import InvenioQueues
-
     app_ = Flask("testapp")
     app_.config.update(
         SECRET_KEY="SECRET_KEY",
         TESTING=True,
+        BROKER_URL="amqp://guest:guest@rabbitmq:5672//",  
+        CELERY_BROKER_URL="amqp://guest:guest@rabbitmq:5672//",  
+        QUEUES_BROKER_URL="amqp://guest:guest@rabbitmq:5672//" 
     )
     InvenioQueues(app_)
+    
+    # Ensure connection with retries
+    conn = Connection(app_.config['BROKER_URL'])
+    ensure_connection(conn)
+    
     return app_
+
+@pytest.fixture(autouse=True)
+def set_redis_host():
+    """Set Redis host to 'redis' instead of 'localhost'."""
+    import os
+    os.environ['REDIS_HOST'] = 'redis'

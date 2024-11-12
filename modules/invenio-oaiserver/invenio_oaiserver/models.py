@@ -11,10 +11,16 @@
 
 from datetime import datetime
 import sqlalchemy as sa
+from flask_babel import lazy_gettext as _
 from invenio_db import db
-from invenio_i18n import lazy_gettext as _
+from sqlalchemy.event import listen
 from sqlalchemy.orm import validates
 from sqlalchemy_utils import Timestamp
+
+from .errors import OAISetSpecUpdateError
+from .proxies import current_oaiserver
+from .utils import datetime_to_datestamp
+
 
 from .errors import OAISetSpecUpdateError
 
@@ -89,6 +95,21 @@ class OAISet(db.Model, Timestamp):
         """Get OAISet object by spec info."""
         return cls.query.filter_by(spec=spec).one_or_none()
 
+def oaiset_removed_or_inserted(mapper, connection, target):
+    """Invalidate cache on collection insert or delete."""
+    current_oaiserver.sets = None
+
+
+def oaiset_attribute_changed(target, value, oldvalue, initiator):
+    """Invalidate cache if dbquery change."""
+    if value != oldvalue:
+        current_oaiserver.sets = None
+
+
+# update cache with list of collections
+listen(OAISet, 'after_insert', oaiset_removed_or_inserted)
+listen(OAISet, 'after_delete', oaiset_removed_or_inserted)
+listen(OAISet.search_pattern, 'set', oaiset_attribute_changed)
 
 __all__ = ("OAISet",)
 

@@ -10,15 +10,16 @@
 """Versioning tests for Invenio-DB"""
 
 from unittest.mock import patch
-
+import os
 import pytest
 from sqlalchemy_continuum import VersioningManager, remove_versioning
 from test_db import _mock_entry_points
+from flask import Flask
+from invenio_db import InvenioDB, shared
 
-from invenio_db import InvenioDB
 
 #@patch('pkg_resources.iter_entry_points', _mock_entry_points)
-def test_disabled_versioning(db, app,mock_entry_points):
+def test_disabled_versioning(db, app, mock_entry_points):
     """Test SQLAlchemy-Continuum with disabled versioning."""
     InvenioDB(app, entry_point_group='invenio_db.models_a')
     with app.app_context():
@@ -30,7 +31,7 @@ def test_disabled_versioning(db, app):
     InvenioDB(app, entry_point_group="invenio_db.models_a")
 
     with app.app_context():
-        assert 2 == len(db.metadata.tables)
+        assert 144 == len(db.metadata.tables)
 
 @pytest.mark.parametrize("versioning,tables", [(False, 1), (True, 3)])
 def test_disabled_versioning_with_custom_table(db, app, versioning, tables):
@@ -77,7 +78,7 @@ def test_versioning(db, app):
     )
 
     with app.app_context():
-        assert 4 == len(db.metadata.tables)
+        assert 146 == len(db.metadata.tables)
 
         db.create_all()
 

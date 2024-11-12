@@ -2,7 +2,18 @@
 from invenio_oaiserver.proxies import current_oaiserver
 
 from invenio_oaiserver.models import OAISet,oaiset_attribute_changed
-
+import pytest
+@pytest.fixture
+def oaiset(db):
+    oaiset = OAISet(
+        spec="test",
+        name="test_name",
+        search_pattern="test search",
+        system_created=False 
+    )
+    db.session.add(oaiset)
+    db.session.commit()
+    return oaiset
 class TestOAISet:
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_models.py::TestOAISet::test_get_set_by_spec -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
     def test_get_set_by_spec(self,es_app,oaiset):
@@ -11,7 +22,7 @@ class TestOAISet:
         assert result.search_pattern == "test search"
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_models.py::test_oaiset_attribute_changed -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_oaiset_attribute_changed(app,db,mocker):
+def test_oaiset_attribute_changed(app,db):
     # value == oldvalue
     oaiset_attribute_changed("","value","value",None)
     assert current_oaiserver.sets == None

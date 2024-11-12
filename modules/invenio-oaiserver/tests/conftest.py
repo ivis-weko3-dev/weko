@@ -11,17 +11,23 @@
 import os
 import shutil
 import tempfile
+import tempfile
+
+import tempfile 
 
 import pytest
 import json
+import sqlite3
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String
+from invenio_i18n import InvenioI18N
 from os.path import join, dirname
 from unittest.mock import patch
 from flask import Flask
 from flask_celeryext import FlaskCeleryExt
 from flask_babel import Babel
 from sqlalchemy_utils.functions import create_database, database_exists
-from elasticsearch_dsl import response, Search
-
+from opensearch_dsl import Search, response
+from opensearchpy import OpenSearch
 from invenio_access import InvenioAccess
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import User, Role
@@ -36,7 +42,7 @@ from invenio_jsonschemas import InvenioJSONSchemas
 from invenio_pidstore import InvenioPIDStore
 from invenio_records import InvenioRecords
 from invenio_search import InvenioSearch
-from invenio_search.engine import search, dsl
+from invenio_search.engine import search
 
 from weko_records.api import ItemTypes
 from weko_records.models import ItemTypeName
@@ -50,6 +56,13 @@ from invenio_oaiserver.provider import OAIIDProvider
 from .helpers import load_records, remove_records, create_record_oai
 
 
+@pytest.fixture
+def mock_execute():
+    def factory(data):
+        dummy = response.Response(Search(), data)
+        return dummy
+    return factory
+      
 @pytest.fixture()
 def instance_path():
     """Temporary instance path."""
@@ -76,7 +89,7 @@ def base_app(instance_path):
         SECRET_KEY="CHANGE_ME",
         SQLALCHEMY_DATABASE_URI=os.environ.get("SQLALCHEMY_DATABASE_URI",
                                                 "sqlite:///test.db"),
-        #SQLALCHEMY_DATABASE_URI=os.getenv("SQLALCHEMY_DATABASE_URI",
+        # SQLALCHEMY_DATABASE_URI=os.getenv("SQLALCHEMY_DATABASE_URI",
         #                                  "postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest"),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         SERVER_NAME="app",
@@ -98,15 +111,14 @@ def base_app(instance_path):
         WEKO_RECORDS_UI_LICENSE_DICT=WEKO_RECORDS_UI_LICENSE_DICT,
         INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
-        INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
+        INDEXER_DEFAULT_INDEX="weko-item-v1.0.0",
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
         SEARCH_ELASTIC_HOSTS=os.environ.get(
-                'SEARCH_ELASTIC_HOSTS', 'opensearch'),
+                    'SEARCH_ELASTIC_HOSTS', 'opensearch'),
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'
         ),
-
-        SEARCH_CLIENT_CONFIG={"http_auth":("invenio","openpass123!"),"use_ssl":True, "verify_certs":False},
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         SEARCH_INDEX_PREFIX="test-"
     )
     if not hasattr(app_, "cli"):
@@ -121,12 +133,21 @@ def base_app(instance_path):
     InvenioRecords(app_)
     InvenioPIDStore(app_)
     InvenioIndexer(app_)
+    InvenioSearch(app_)
+    InvenioI18N(app_)
     InvenioOAIServer(app_)
 
     app_.register_blueprint(blueprint)
 
     return app_
-
+@pytest.fixture()
+def db(app):
+    """Return a database session."""
+    with app.app_context():
+        db_.create_all()
+        yield db_
+        db_.session.remove()
+        db_.drop_all()
 @pytest.fixture()
 def app(base_app):
     with base_app.app_context():
@@ -158,7 +179,9 @@ def users(app, db):
         comadmin = create_test_user(email="comadmin@test.org")
         repoadmin = create_test_user(email="repoadmin@test.org")
         sysadmin = create_test_user(email="sysadmin@test.org")
-        generaluser = create_test_user(email="generaluser@test.org")
+        generaluser = User.query.filter_by(email="generaluser@test.org").first()
+        if generaluser is None:
+            generaluser = create_test_user(email="generaluser@test.org")
         originalroleuser = create_test_user(email="originalroleuser@test.org")
         originalroleuser2 = create_test_user(email="originalroleuser2@test.org")
         student = create_test_user(email="student@test.org")
@@ -168,7 +191,9 @@ def users(app, db):
         comadmin = User.query.filter_by(email="comadmin@test.org").first()
         repoadmin = User.query.filter_by(email="repoadmin@test.org").first()
         sysadmin = User.query.filter_by(email="sysadmin@test.org").first()
-        generaluser = User.query.filter_by(email="generaluser@test.org")
+        generaluser = User.query.filter_by(email="generaluser@test.org").first()
+        if generaluser is None:
+            generaluser = create_test_user(email="generaluser@test.org")
         originalroleuser = create_test_user(email="originalroleuser@test.org")
         originalroleuser2 = create_test_user(email="originalroleuser2@test.org")
         student = User.query.filter_by(email="student@test.org").first()
@@ -198,9 +223,8 @@ def users(app, db):
     ds.add_role_to_user(generaluser, general_role)
     ds.add_role_to_user(originalroleuser, originalrole)
     ds.add_role_to_user(originalroleuser2, originalrole)
-    ds.add_role_to_user(originalroleuser2, repoadmin_role)
-    ds.add_role_to_user(student,studentrole)
-
+    ds.add_role_to_user(student, studentrole)
+    
     # Assign access authorization
     with db.session.begin_nested():
         action_users = [
@@ -220,14 +244,14 @@ def users(app, db):
             ActionRoles(action="files-rest-object-delete-version", role=repoadmin_role),
             ActionRoles(action="files-rest-object-read", role=repoadmin_role),
             ActionRoles(action="search-access", role=repoadmin_role),
-            ActionRoles(action="detail-page-acces", role=repoadmin_role),
+            ActionRoles(action="detail-page-access", role=repoadmin_role),
             ActionRoles(action="download-original-pdf-access", role=repoadmin_role),
             ActionRoles(action="author-access", role=repoadmin_role),
             ActionRoles(action="items-autofill", role=repoadmin_role),
             ActionRoles(action="stats-api-access", role=repoadmin_role),
             ActionRoles(action="read-style-action", role=repoadmin_role),
             ActionRoles(action="update-style-action", role=repoadmin_role),
-            ActionRoles(action="detail-page-acces", role=repoadmin_role),
+            ActionRoles(action="detail-page-access", role=repoadmin_role),
 
             ActionRoles(action="admin-access", role=comadmin_role),
             ActionRoles(action="index-tree-access", role=comadmin_role),
@@ -238,12 +262,12 @@ def users(app, db):
             ActionRoles(action="files-rest-object-delete-version", role=comadmin_role),
             ActionRoles(action="files-rest-object-read", role=comadmin_role),
             ActionRoles(action="search-access", role=comadmin_role),
-            ActionRoles(action="detail-page-acces", role=comadmin_role),
+            ActionRoles(action="detail-page-access", role=comadmin_role),
             ActionRoles(action="download-original-pdf-access", role=comadmin_role),
             ActionRoles(action="author-access", role=comadmin_role),
             ActionRoles(action="items-autofill", role=comadmin_role),
-            ActionRoles(action="detail-page-acces", role=comadmin_role),
-            ActionRoles(action="detail-page-acces", role=comadmin_role),
+            ActionRoles(action="detail-page-access", role=comadmin_role),
+            ActionRoles(action="detail-page-access", role=comadmin_role),
 
             ActionRoles(action="item-access", role=contributor_role),
             ActionRoles(action="files-rest-bucket-update", role=contributor_role),
@@ -251,12 +275,12 @@ def users(app, db):
             ActionRoles(action="files-rest-object-delete-version", role=contributor_role),
             ActionRoles(action="files-rest-object-read", role=contributor_role),
             ActionRoles(action="search-access", role=contributor_role),
-            ActionRoles(action="detail-page-acces", role=contributor_role),
+            ActionRoles(action="detail-page-access", role=contributor_role),
             ActionRoles(action="download-original-pdf-access", role=contributor_role),
             ActionRoles(action="author-access", role=contributor_role),
             ActionRoles(action="items-autofill", role=contributor_role),
-            ActionRoles(action="detail-page-acces", role=contributor_role),
-            ActionRoles(action="detail-page-acces", role=contributor_role),
+            ActionRoles(action="detail-page-access", role=contributor_role),
+            ActionRoles(action="detail-page-access", role=contributor_role),
         ]
         db.session.add_all(action_roles)
     index = Index()
@@ -283,19 +307,29 @@ def users(app, db):
 @pytest.fixture()
 def es_app(app):
     with open(join(dirname(__file__),"data/mappings/item-v1.0.0.json"),"r") as f:
-    #with open(join(dirname(__file__),"data/v6/records/record-v1.0.0.json"),"r") as f:
         mapping = json.load(f)
-    es = search.cilent.Opensearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
 
+
+    search_hosts = app.config["SEARCH_ELASTIC_HOSTS"]
+    search_client_config = app.config["SEARCH_CLIENT_CONFIG"]
+
+    es = OpenSearch(
+        hosts=[{'host': search_hosts, 'port': 9200}],
+        http_auth=search_client_config['http_auth'],
+        use_ssl=search_client_config['use_ssl'],
+        verify_certs=search_client_config['verify_certs'],
+    )
+
+    es.indices.delete(index="test-*")
     es.indices.create(
-        index=app.config["INDEXER_DEFAULT_INDEX"],
-        body=mapping, ignore=[400, 404]
+        index=app.config["SEARCH_INDEX_PREFIX"]+app.config["INDEXER_DEFAULT_INDEX"],
+        body=mapping, #ignore=[400, 404]
     )
 
     es.indices.put_alias(
-        index=app.config["INDEXER_DEFAULT_INDEX"],
+        index=app.config["SEARCH_INDEX_PREFIX"]+app.config["INDEXER_DEFAULT_INDEX"],
         name=app.config["SEARCH_UI_SEARCH_INDEX"],
-        ignore=[400, 404],
+        # ignore=[400, 404],
     )
     InvenioSearch(app, client=es)
     #search.register_mappings("items", "tests.data")
@@ -370,12 +404,12 @@ def schema():
     }
 
 
-@pytest.fixture()
-def mock_execute():
-    def factory(data):
-        dummy = dsl.response.Response(dsl.Search(), data)
-        return dummy
-    return factory
+# @pytest.fixture()
+# def mock_execute():
+#     def factory(data):
+#         dummy = dsl.response.Response(dsl.Search(), data)
+#         return dummy
+#     return factory
 
 @pytest.fixture()
 def item_type(app, db):
@@ -538,7 +572,7 @@ def oaiset(app, db,without_oaiset_signals):
         spec='test',
         name='test_name',
         description='some test description',
-        search_pattern='test search')
+        system_created=True)
 
     db.session.add(oai)
     db.session.commit()

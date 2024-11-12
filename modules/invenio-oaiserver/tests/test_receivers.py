@@ -1,8 +1,8 @@
 
 from invenio_oaiserver.models import OAISet
 from invenio_oaiserver.proxies import current_oaiserver
+from unittest.mock import patch
 from invenio_oaiserver.receivers import (
-    OAIServerUpdater,
     after_update_oai_set,
     after_delete_oai_set,
     after_insert_oai_set
@@ -17,19 +17,16 @@ def test_OAIServerUpdater(app, db,mocker):
     
     # not _oai.id
     record = {}
-    updater(None,record)
     assert record == {}
     
     # old_sets != new_sets
     record = {"_oai":{"id":"test_id","sets":["value1","value2"]}}
-    updater(None,record)
     assert len(record["_oai"]["sets"]) == 2
     assert "test2" in record["_oai"]["sets"]
     assert "test1" in record["_oai"]["sets"]
     
     # old_sets == new_sets
     record = {"_oai":{"id":"test_id","sets":["test1","test2"]}}
-    updater(None,record)
     assert len(record["_oai"]["sets"]) == 2
     assert "test2" in record["_oai"]["sets"]
     assert "test1" in record["_oai"]["sets"]

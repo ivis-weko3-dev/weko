@@ -83,8 +83,10 @@ def datetime_to_datestamp(dt, day_granularity=False):
     """
     # assert dt.tzinfo is None  # only accept timezone naive datetimes
     # ignore microseconds
-    if type(dt) == str:
+    if isinstance(dt, str):
         dt = datetime.fromisoformat(dt)
+    elif not isinstance(dt, datetime):
+        raise TypeError("dt must be a string or datetime object")
 
     dt = dt.replace(microsecond=0, tzinfo=None)
     result = dt.isoformat() + "Z"

@@ -21,8 +21,8 @@ def test_index():
     app.register_blueprint(blueprint)
 
     with app.app_context():
-        with app.test_client() as client:
-            mock_render = patch("weko_bulkupdate.views.render_template",return_value=make_response())
+     with app.test_client() as client:
+        with patch("weko_bulkupdate.views.render_template", return_value=make_response()) as mock_render:
             res = client.get(url_for("weko_bulkupdate.index"))
             assert res.status_code == 200
             mock_render.assert_called_with("weko_bulkupdate/index.html",module_name="WEKO-Bulkupdate")
