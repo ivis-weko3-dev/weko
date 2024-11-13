@@ -57,4 +57,4 @@ def test_serialize_search_OpenSearchSerializer(app):
                                 pid_fetcher=pid_fetcher,
                                 search_result=search_result,
                             ) != None
-            
+

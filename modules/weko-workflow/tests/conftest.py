@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+
 #
 # This file is part of WEKO3.
 # Copyright (C) 2017 National Institute of Informatics.
@@ -102,6 +102,7 @@ from weko_admin.models import SiteInfo
 from weko_admin import WekoAdmin
 from weko_deposit import WekoDeposit
 
+
 sys.path.append(os.path.dirname(__file__))
 # @event.listens_for(Engine, "connect")
 # def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -126,12 +127,12 @@ class TestSearch(RecordsSearch):
         super(TestSearch, self).__init__(**kwargs)
         self._extra.update(**{'_source': {'excludes': ['_access']}})
 
-@pytest.yield_fixture(scope='session')
+@pytest.fixture(scope='session')
 def search_class():
     """Search class."""
     yield TestSearch
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -569,14 +570,14 @@ def base_app(instance_path, search_class, cache_config):
     return app_
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app(base_app):
     """Flask application fixture."""
     with base_app.app_context():
         yield base_app
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def db(app):
     """Database fixture."""
     if not database_exists(str(db_.engine.url)):
@@ -588,7 +589,7 @@ def db(app):
     # drop_database(str(db_.engine.url))
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client(app):
     """make a test client.
     Args:
@@ -599,7 +600,7 @@ def client(app):
     with app.test_client() as client:
         yield client
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def guest(client):
     with client.session_transaction() as sess:
         sess['guest_token'] = "test_guest_token"
@@ -607,7 +608,7 @@ def guest(client):
         sess['guest_url'] = url_for("weko_workflow.display_guest_activity",file_name="test_file")
     yield client
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def req_context(client,app):
     with app.test_request_context():
         yield client
@@ -2175,20 +2176,7 @@ def db_register_usage_application(app, db, db_records, users, action_data, item_
         )
         db.session.add(activity_action)
 
-    # setting activity_action in activity existed item
-    # for flow_action in flow_actions:
-    #     action = action_data[0][flow_action.action_id-1]
-    #     set_activityaction(activity_item1, action, flow_action)
-    #     set_activityaction(activity_item2, action, flow_action)
-    #     set_activityaction(activity_item3, action, flow_action)
-    #     set_activityaction(activity_item4, action, flow_action)
-    #     set_activityaction(activity_item5, action, flow_action)
-    #     set_activityaction(activity_item6, action, flow_action)
-
-    # db.session.commit()
     return workflows
-    # {"flow_actions":flow_actions,
-    #         "activities":[activity,activity_item1,activity_item2,activity_item3,activity_item4,activity_item5,activity_item6]}
 
 
 
@@ -2243,7 +2231,4 @@ def db_guestactivity(app, db, db_register):
     db.session.commit()
 
     return [token1, token2]
-
-
-
 

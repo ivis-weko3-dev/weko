@@ -29,7 +29,6 @@ from weko_theme.config import BASE_PAGE_TEMPLATE
 from weko_items_ui.ext import _WekoItemsUIState
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_weko_items_ui.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-
 def test_version():
     """Test version import."""
     from weko_items_ui import __version__
@@ -89,3 +88,4 @@ def test_prepare_edit_item(app):
         json_response = json.loads(res.get_data())
         assert json_response.get('code') == -1
         assert json_response.get('msg') == 'An error has occurred.'
+

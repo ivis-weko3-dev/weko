@@ -8,6 +8,7 @@ import json
 from weko_items_ui.api import item_login
 from flask import session,jsonify
 
+
 # def item_login(item_type_id: int = 0):
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_api.py::test_item_login -vv -s --cov-branch --cov-report=term --cov-report=xml --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
 def test_item_login(app,client,db_itemtype,db_itemtype2,db_itemtype3,db_itemtype4,db_itemtype5,users):
@@ -137,3 +138,4 @@ def test_item_login(app,client,db_itemtype,db_itemtype2,db_itemtype3,db_itemtype
                         session['activity_info'] = None    
                     res =client.get("/test_itemlogin/1")
                     assert res.status_code==200
+

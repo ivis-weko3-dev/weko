@@ -44,14 +44,11 @@ from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import Role, User
 from invenio_accounts.testutils import create_test_user, login_user_via_session
-# from invenio_accounts.views.settings import blueprint as invenio_accounts_blueprint
 from invenio_admin import InvenioAdmin
 from invenio_admin.views import blueprint as invenio_admin_blueprint
 from invenio_assets import InvenioAssets
-# from invenio_assets.cli import collect, npm
 from invenio_cache import InvenioCache
 from invenio_communities import InvenioCommunities
-#from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
 from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_deposit import InvenioDeposit
@@ -77,8 +74,8 @@ from celery.messaging import establish_connection
 from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore import InvenioPIDStore
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus, Redirect
-from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
 from invenio_pidrelations.contrib.draft import PIDNodeDraft
+from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
 from invenio_records import InvenioRecords
 from invenio_records_rest import InvenioRecordsREST
 from weko_redis.redis import RedisConnection
@@ -152,7 +149,7 @@ def receive_after_begin(session, transaction, connection):
     connection.execute("PRAGMA foreign_keys=OFF;")
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -175,7 +172,6 @@ def base_app(instance_path):
         SQLALCHEMY_DATABASE_URI=os.environ.get(
              "SQLALCHEMY_DATABASE_URI", "sqlite:///test.db"
         ),
-        #SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         ACCOUNTS_USERINFO_HEADERS=True,
         WEKO_PERMISSION_SUPER_ROLE_USER=[
@@ -207,8 +203,6 @@ def base_app(instance_path):
         WEKO_SCHEMA_UI_LIST_SCHEME_AFFILIATION = [
             'ISNI', 'kakenhi', 'Ringgold', 'GRID','ROR'
         ],
-        #  WEKO_ITEMS_UI_BASE_TEMPLATE = 'weko_items_ui/base.html',
-        #  WEKO_ITEMS_UI_INDEX_TEMPLATE= 'weko_items_ui/item_index.html',
         CACHE_TYPE="redis",
         ACCOUNTS_SESSION_REDIS_DB_NO=1,
         CACHE_REDIS_HOST="redis",
@@ -256,8 +250,6 @@ def base_app(instance_path):
         WEKO_USERPROFILES_GENERAL_ROLE=WEKO_USERPROFILES_GENERAL_ROLE,
         CACHE_REDIS_DB = 2,
         WEKO_DEPOSIT_ITEMS_CACHE_PREFIX=WEKO_DEPOSIT_ITEMS_CACHE_PREFIX,
-        # INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
-        # INDEXER_FILE_DOC_TYPE="item-v1.0.0",
         WEKO_INDEX_TREE_DEFAULT_DISPLAY_NUMBER=WEKO_INDEX_TREE_DEFAULT_DISPLAY_NUMBER,
         DEPOSIT_DEFAULT_JSONSCHEMA=DEPOSIT_DEFAULT_JSONSCHEMA,
         DEPOSIT_JSONSCHEMAS_PREFIX=DEPOSIT_JSONSCHEMAS_PREFIX,
@@ -282,56 +274,26 @@ def base_app(instance_path):
     InvenioAccounts(app_)
     InvenioAccess(app_)
     InvenioCache(app_)
-    # InvenioTheme(app_)
-    # InvenioREST(app_)
-
-    # InvenioCache(app_)
-
-    # InvenioDeposit(app_)
     InvenioPIDStore(app_)
-    # InvenioPIDRelations(app_)
     InvenioRecords(app_)
-    # InvenioRecordsREST(app_)
     InvenioFilesREST(app_)
     InvenioJSONSchemas(app_)
-    # InvenioOAIServer(app_)
 
     InvenioSearch(app_)
 
-    # WekoSchemaUI(app_)
     InvenioStats(app_)
 
-    # InvenioAdmin(app_)
     Menu(app_)
     WekoRecords(app_)
     WekoDeposit(app_)
     WekoWorkflow(app_)
     WekoGroups(app_)
-    # WekoAdmin(app_)
-    # WekoTheme(app_)
-    # WekoRecordsUI(app_)
-    # InvenioCommunities(app_)
 
     InvenioIndexer(app_)
-    # WekoSearchREST(app_)
-    # WekoIndexTree(app_)
-    # WekoIndexTreeREST(app_)
     WekoRecords(app_)
     WekoSearchUI(app_)
-    # ext.init_config(app_)
     WekoItemsUI(app_)
     WekoItemsREST(app_)
-    # app_.register_blueprint(invenio_accounts_blueprint)
-    # app_.register_blueprint(weko_theme_blueprint)
-    # app_.register_blueprint(weko_items_ui_blueprint)
-    # app_.register_blueprint(invenio_communities_blueprint)
-    # app_.register_blueprint(weko_workflow_blueprint)
-
-    # runner = CliRunner()
-    # result = runner.invoke(collect, [],obj=weko_items_ui_blueprint)
-    # Run build
-    # result = runner.invoke(assets, ['build'],obj=weko_items_ui_blueprint)
-    # result = runner.invoke(npm,obj=weko_items_ui_blueprint)
 
     current_assets = LocalProxy(lambda: app_.extensions["invenio-assets"])
     current_assets.collect.collect()
@@ -340,14 +302,14 @@ def base_app(instance_path):
 
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app(base_app):
     """Flask application fixture."""
     with base_app.app_context():
         yield base_app
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client_api(app):
     app.register_blueprint(weko_items_ui_blueprint_api, url_prefix="/api/items")
     with app.test_client() as client:
@@ -355,7 +317,7 @@ def client_api(app):
 
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client(app):
     """make a test client.
 
@@ -437,7 +399,6 @@ def esindex2(app):
 @pytest.fixture()
 def users(app, db):
     """Create users."""
-    db.create_all()  # データベースの初期化
 
     ds = app.extensions["invenio-accounts"].datastore
     user_count = User.query.filter_by(email="user@test.org").count()
@@ -731,7 +692,7 @@ def db_itemtype4(app, db):
 
 @pytest.fixture()
 def db_itemtype5(app, db):
-    item_type_name = ItemTypeName(id=None,
+    item_type_name = ItemTypeName(id=5,
         name="テストアイテムタイプ5", has_site_license=True, is_active=True
     )
     item_type_schema = dict()
@@ -770,6 +731,7 @@ def db_itemtype5(app, db):
         db.session.add(item_type_mapping)
 
     return {"item_type_name": item_type_name, "item_type": item_type, "item_type_mapping":item_type_mapping}
+
 
 @pytest.fixture()
 def db_itemtype(app, db):
@@ -976,17 +938,41 @@ def db_workflow(app, db, db_itemtype, users):
         action_date=datetime.strptime("2018/07/28 0:00:00", "%Y/%m/%d %H:%M:%S"),
         send_mail_setting={},
     )
+    flow_action4 = FlowAction(
+        status="N",
+        id=31005,
+        flow_id=flow_id,
+        action_id=5,
+        action_version="1.0.0",
+        action_order=3,
+        action_condition="",
+        action_status="A",
+        action_date=datetime.strptime("2018/07/28 0:00:00", "%Y/%m/%d %H:%M:%S"),
+        send_mail_setting={},
+    )
+    flow_action5 = FlowAction(
+        status="N",
+        id=31006,
+        flow_id=flow_id,
+        action_id=5,
+        action_version="1.0.0",
+        action_order=3,
+        action_condition="",
+        action_status="A",
+        action_date=datetime.strptime("2018/07/28 0:00:00", "%Y/%m/%d %H:%M:%S"),
+        send_mail_setting={},
+    )
     flow_action_role1 = FlowActionRole(
-        flow_action_id=1,
-        action_role=1,
+        flow_action_id=31005,
+        action_role='Community Administrator',
         action_role_exclude=False,
         action_user=1,
         action_user_exclude=False,
         specify_property='user_a'
     )
     flow_action_role2 = FlowActionRole(
-        flow_action_id=1,
-        action_role=1,
+        flow_action_id=31006,
+        action_role='Community Administrator',
         action_role_exclude=False,
         action_user=1,
         action_user_exclude=False,
@@ -1038,6 +1024,8 @@ def db_workflow(app, db, db_itemtype, users):
         db.session.add(flow_action1)
         db.session.add(flow_action2)
         db.session.add(flow_action3)
+        db.session.add(flow_action4)
+        db.session.add(flow_action5)
         db.session.add(flow_action_role1)
         db.session.add(flow_action_role2)
         db.session.add(workflow1)
@@ -1051,6 +1039,8 @@ def db_workflow(app, db, db_itemtype, users):
         "flow_action1": flow_action1,
         "flow_action2": flow_action2,
         "flow_action3": flow_action3,
+        "flow_action4": flow_action4,
+        "flow_action5": flow_action5,
     }
 
 
@@ -23177,12 +23167,12 @@ def make_record(db, indexer, i, files, thumbnail=None):
         status=PIDStatus.REGISTERED,
     )
 
-    h1 = PIDNodeVersioning(parent=parent)
-    h1.insert_child(child=recid)
-    h1.insert_child(child=recid_v1)
-    RecordDraft.link(recid, depid)
-    RecordDraft.link(recid_v1, depid_v1)
 
+    h1 = PIDNodeVersioning(pid=parent)
+    h1.insert_child(child_pid=recid)
+    h1.insert_child(child_pid=recid_v1)
+    PIDNodeDraft(pid=recid).insert_child(depid)
+    PIDNodeDraft(pid=recid_v1).insert_child(depid_v1)
     if i % 2 == 1:
         doi = PersistentIdentifier.create(
             "doi",
@@ -23258,3 +23248,4 @@ def make_record(db, indexer, i, files, thumbnail=None):
         "deposit": deposit,
         "files": files,
     }
+
