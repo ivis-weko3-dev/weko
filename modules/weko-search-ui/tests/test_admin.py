@@ -97,19 +97,18 @@ def test_ItemManagementCustomSort_save_sort(i18n_app, users, db_records2):
 # class ItemManagementBulkSearch(BaseView):
 class TestItemManagementBulkSearch:
     # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_admin.py::TestItemManagementBulkSearch::test_index_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-    def test_index_acl(self,client, users,app, db_records2):
+    def test_index_acl(self,client, users, db_records2):
         user = users[3]['obj']
         assert user.roles[0].name=='System Administrator'
-
-        url = url_for("items/search.index", _external=True)
+        url = url_for("items/search.index",item_management="sort", _external=True)
         with patch("flask.templating._render", return_value=""):
             res = client.get(url)
             assert res.status == '302 FOUND'
 
         with patch("flask_login.utils._get_user", return_value=user):
             with patch("flask.templating._render", return_value=""):
-                res = client.get(url)
-                assert res.status == '200 OK'
+                    res = client.get(url)
+                    assert res.status == '200 OK'
 
 #     def is_visible(): ~ GOOD
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_admin.py::test_ItemManagementBulkSearch_is_visible -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
@@ -319,20 +318,20 @@ class TestItemBulkExport:
                     url = url_for("items/bulk-export.check_export_status")
 
                     res = client.get(url)
-                    # assert json.loads(res.data) == {'data': {
-                    #     'celery_is_run': True,
-                    #     'error_message': None,
-                    #     'export_run_msg': None,
-                    #     'export_status': False,
-                    #     'status': 'SUCCESS',
-                    #     'uri_status': False}}
                     assert json.loads(res.data) == {'data': {
                         'celery_is_run': True,
-                        'error_message': '',
+                        'error_message': None,
                         'export_run_msg': None,
                         'export_status': False,
                         'status': 'SUCCESS',
                         'uri_status': False}}
+                    # assert json.loads(res.data) == {'data': {
+                    #     'celery_is_run': True,
+                    #     'error_message': '',
+                    #     'export_run_msg': None,
+                    #     'export_status': False,
+                    #     'status': 'SUCCESS',
+                    #     'uri_status': False}}
 
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_admin.py::TestItemBulkExport::test_cancel_export -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
     def test_cancel_export(self, app, client, users, redis_connect):

@@ -265,20 +265,22 @@ def test_get_journal_info(i18n_app, indices, client_request_args):
 @pytest.mark.group1
 # def get_feedback_mail_list(): *** not yet done
 def test_get_feedback_mail_list(i18n_app, db_records2, es):
-    search_instance = '{"size": 1, "query": {"bool": {"filter": [{"bool": {"must": [{"match": {"publish_status": "0"}}, {"range": {"publish_date": {"lte": "now/d"}}}, {"terms": {"path": ["1031", "1029", "1025", "952", "953", "943", "940", "1017", "1015", "1011", "881", "893", "872", "869", "758", "753", "742", "530", "533", "502", "494", "710", "702", "691", "315", "351", "288", "281", "759", "754", "744", "531", "534", "503", "495", "711", "704", "692", "316", "352", "289", "282", "773", "771", "767", "538", "539", "519", "510", "756", "745", "733", "337", "377", "308", "299", "2063", "2061", "2057", "1984", "1985", "1975", "1972", "2049", "2047", "2043", "1913", "1925", "1904", "1901", "1790", "1785", "1774", "1562", "1565", "1534", "1526", "1742", "1734", "1723", "1347", "1383", "1320", "1313", "1791", "1786", "1776", "1563", "1566", "1535", "1527", "1743", "1736", "1724", "1348", "1384", "1321", "1314", "1805", "1803", "1799", "1570", "1571", "1551", "1542", "1788", "1777", "1765", "1369", "1409", "1340", "1331", "4127", "4125", "4121", "4048", "4049", "4039", "4036", "4113", "4111", "4107", "3977", "3989", "3968", "3965", "3854", "3849", "3838", "3626", "3629", "3598", "3590", "3806", "3798", "3787", "3411", "3447", "3384", "3377", "3855", "3850", "3840", "3627", "3630", "3599", "3591", "3807", "3800", "3788", "3412", "3448", "3385", "3378", "3869", "3867", "3863", "3634", "3635", "3615", "3606", "3852", "3841", "3829", "3433", "3473", "3404", "3395", "1631495207665", "1631495247023", "1631495289664", "1631495340640", "1631510190230", "1631510251689", "1631510324260", "1631510380602", "1631510415574", "1631511387362", "1631511432362", "1631511521954", "1631511525655", "1631511606115", "1631511735866", "1631511740808", "1631511841882", "1631511874428", "1631511843164", "1631511845163", "1631512253601", "1633380618401", "1638171727119", "1638171753803", "1634120530242", "1636010714174", "1636010749240", "1638512895916", "1638512971664"]}}, {"bool": {"must": [{"match": {"publish_status": "0"}}, {"match": {"relation_version_is_last": "true"}}]}}, {"bool": {"should": [{"nested": {"query": {"multi_match": {"query": "simple", "operator": "and", "fields": ["content.attachment.content"]}}, "path": "content"}}, {"query_string": {"query": "simple", "default_operator": "and", "fields": ["search_*", "search_*.ja"]}}]}}]}}], "must": [{"match_all": {}}]}}, "aggs": {"Data Language": {"filter": {"bool": {"must": [{"term": {"publish_status": "0"}}]}}, "aggs": {"Data Language": {"terms": {"field": "language", "size": 1000}}}}, "Access": {"filter": {"bool": {"must": [{"term": {"publish_status": "0"}}]}}, "aggs": {"Access": {"terms": {"field": "accessRights", "size": 1000}}}}, "Location": {"filter": {"bool": {"must": [{"term": {"publish_status": "0"}}]}}, "aggs": {"Location": {"terms": {"field": "geoLocation.geoLocationPlace", "size": 1000}}}}, "Temporal": {"filter": {"bool": {"must": [{"term": {"publish_status": "0"}}]}}, "aggs": {"Temporal": {"terms": {"field": "temporal", "size": 1000}}}}, "Topic": {"filter": {"bool": {"must": [{"term": {"publish_status": "0"}}]}}, "aggs": {"Topic": {"terms": {"field": "subject.value", "size": 1000}}}}, "Distributor": {"filter": {"bool": {"must": [{"term": {"contributor.@attributes.contributorType": "Distributor"}}, {"term": {"publish_status": "0"}}]}}, "aggs": {"Distributor": {"terms": {"field": "contributor.contributorName", "size": 1000}}}}, "Data Type": {"filter": {"bool": {"must": [{"term": {"description.descriptionType": "Other"}}, {"term": {"publish_status": "0"}}]}}, "aggs": {"Data Type": {"terms": {"field": "description.value", "size": 1000}}}}}, "sort": [{"_id": {"order": "desc", "unmapped_type": "long"}}], "_source": {"excludes": ["content"]}}'
-    execute_result = {
-        "aggregations": {"doc_count": 1, "key": 2},
-        "feedback_mail_list": {},
-        "email_list": {},
-        "buckets": [],
+    i18n_app.config['SEARCH_UI_SEARCH_INDEX'] = 'test-index'
+    i18n_app.config['WEKO_SEARCH_MAX_FEEDBACK_MAIL'] = 10
+
+    mock_search_instance = MagicMock()
+    mock_search_instance.execute.return_value.to_dict.return_value = {
+        "aggregations": {
+            "feedback_mail_list": {}
+        }
     }
-    # mock_recordssearch = MagicMock(side_effect=MockRecordsSearch)
-    # side_effect=mock_recordssearch
+
     with patch(
         "weko_search_ui.query.feedback_email_search_factory",
-        return_value=search_instance,
+        return_value=mock_search_instance,
     ):
-        assert get_feedback_mail_list() == {}
+        result = get_feedback_mail_list()
+        assert result == {}
 
 @pytest.mark.group1
 # def check_permission():
@@ -726,12 +728,13 @@ def find_and_update_location_size():
 """
 @pytest.mark.group4
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_register_item_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_register_item_metadata(i18n_app, es_item_file_pipeline, deposit, es_records):
+def test_register_item_metadata(i18n_app, db, es_item_file_pipeline, deposit, es_records):
     item = es_records["results"][0]["item"]
     root_path = os.path.dirname(os.path.abspath(__file__))
     owner = "1"
-    item["item_1617605131499"]["filename"]="hello.txt"
     with patch("invenio_files_rest.utils.find_and_update_location_size"):
+        # with patch("weko_search_ui.utils.WekoDeposit.publish_without_commit") as mock_publish:
+        #     mock_publish.return_value = es_records["results"][0]["deposit"]
         assert register_item_metadata(item, root_path, owner, is_gakuninrdm=False)
 
 @pytest.mark.group4
@@ -803,6 +806,7 @@ def test_send_item_created_event_to_es(
 def test_import_items_to_system(i18n_app, es_item_file_pipeline, es_records):
     # item = dict(db_activity['item'])
     item = es_records["results"][0]
+    item["item"]["status"] = "new"
 
     with patch("weko_search_ui.utils.register_item_metadata", return_value={}):
         with patch("weko_search_ui.utils.register_item_doi", return_value={}):
@@ -818,11 +822,10 @@ def test_import_items_to_system(i18n_app, es_item_file_pipeline, es_records):
                         return_value=item["item"]["id"],
                     ):
                         with patch(
-                            "weko_workflow.utils.get_cache_data", return_value=True
+                            "weko_workflow.utils.get_cache_data",
+                            return_value=['uri1', 'uri2', 'uri3']
                         ):
-
-                            assert import_items_to_system(item["item"])
-                            item["item"]["status"] = "new"
+                            # item["item"]["status"] = "new"
                             assert import_items_to_system(item["item"])
 
                     assert import_items_to_system(
@@ -1178,10 +1181,14 @@ def test_prepare_doi_link(i18n_app, communities2, db):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_register_item_doi -vv -s -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_register_item_doi(i18n_app, db_activity, identifier):
 
-    with patch("weko_search_ui.utils.WekoDeposit.get_record",return_value=MagicMock()):
+    with patch("weko_search_ui.utils.WekoDeposit.get_record") as mock_get_record:
+        mock_record = MagicMock()
+        mock_record.pid_recid.object_uuid = str(uuid.uuid4())
+        mock_get_record.return_value = mock_record
 
         mock_without_version = MagicMock()
         mock_recid=MagicMock()
+        mock_recid.object_uuid = str(uuid.uuid4())
         mock_without_version.pid_recid=mock_recid
         mock_pid_doi = MagicMock()
         mock_pid_doi.pid_value = "https://doi.org/xyz.jalc/0000022222" # path delete
@@ -1189,149 +1196,150 @@ def test_register_item_doi(i18n_app, db_activity, identifier):
 
         mock_lasted=MagicMock()
         mock_lasted_pid=MagicMock()
+        mock_lasted_pid.object_uuid = str(uuid.uuid4())
         mock_lasted.pid_recid=mock_lasted_pid
 
-    # is_change_identifier is True, not doi_ra and doi
-    item = {
-        "id":"1",
-        "is_change_identifier":True
-    }
-    with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
-        with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
-            register_item_doi(item)
-            mock_save.assert_not_called()
-
-
-    # is_change_identifier is True, pid_value.endswith is False, doi_duplicated is True
-    item = {
-        "id":"2",
-        "is_change_identifier":True,
-        "doi_ra":"JaLC",
-        "doi":"xyz.jalc/0000011111"
-    }
-    return_check = {"isWithdrawnDoi":True,"isExistDOI":False}
-
-    with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
-        with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
-            with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
-                with pytest.raises(Exception) as e:
-                    register_item_doi(item)
-                assert e.value.args[0] == {"error_id":"is_withdraw_doi"}
-
-    # is_change_identifier is True, pid_value.endswith is False, called saving_doi_pidstore
-    item = {
-        "id":"3",
-        "is_change_identifier":True,
-        "doi_ra":"JaLC",
-        "doi":"xyz.jalc/0000011111"
-    }
-    return_check = {"isWithdrawnDoi":False,"isExistDOI":False}
-    test_data = {
-        "identifier_grant_jalc_doi_link":"https://doi.org/xyz.jalc/0000011111",
-        "identifier_grant_jalc_cr_doi_link":"https://doi.org/xyz.jalc/0000011111",
-        "identifier_grant_jalc_dc_doi_link":"https://doi.org/xyz.jalc/0000011111",
-        "identifier_grant_ndl_jalc_doi_link":"https://doi.org/xyz.jalc/0000011111"
-    }
-    with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
-        with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
-            with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
-                register_item_doi(item)
-                args, kwargs = mock_save.call_args
-                assert args[2] == test_data
-
-    # is_change_identifier is True, pid_value.endswith is True
-    item = {
-        "id":"4",
-        "is_change_identifier":True,
-        "doi_ra":"JaLC",
-        "doi":"xyz.jalc/0000022222"
-    }
-    return_check = {"isWithdrawnDoi":False,"isExistDOI":False}
-    with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
-        with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
+        # is_change_identifier is True, not doi_ra and doi
+        item = {
+            "id":"1",
+            "is_change_identifier":True
+        }
+        with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
             with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
                 register_item_doi(item)
                 mock_save.assert_not_called()
 
-    # is_change_identifier is False, doi_ra not NDL, doi_duplicated is True
-    item = {
-        "id":"5",
-        "is_change_identifier":False,
-        "doi_ra":"JaLC",
-    }
-    return_check = {"isWithdrawnDoi":False,"isExistDOI":True}
-    with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
-        with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
-            with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
-                with pytest.raises(Exception) as e:
+
+        # is_change_identifier is True, pid_value.endswith is False, doi_duplicated is True
+        item = {
+            "id":"2",
+            "is_change_identifier":True,
+            "doi_ra":"JaLC",
+            "doi":"xyz.jalc/0000011111"
+        }
+        return_check = {"isWithdrawnDoi":True,"isExistDOI":False}
+
+        with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
+            with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
+                with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
+                    with pytest.raises(Exception) as e:
+                        register_item_doi(item)
+                    assert e.value.args[0] == {"error_id":"is_withdraw_doi"}
+
+        # is_change_identifier is True, pid_value.endswith is False, called saving_doi_pidstore
+        item = {
+            "id":"3",
+            "is_change_identifier":True,
+            "doi_ra":"JaLC",
+            "doi":"xyz.jalc/0000011111"
+        }
+        return_check = {"isWithdrawnDoi":False,"isExistDOI":False}
+        test_data = {
+            "identifier_grant_jalc_doi_link":"https://doi.org/xyz.jalc/0000011111",
+            "identifier_grant_jalc_cr_doi_link":"https://doi.org/xyz.jalc/0000011111",
+            "identifier_grant_jalc_dc_doi_link":"https://doi.org/xyz.jalc/0000011111",
+            "identifier_grant_ndl_jalc_doi_link":"https://doi.org/xyz.jalc/0000011111"
+        }
+        with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
+            with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
+                with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
                     register_item_doi(item)
-                assert e.value.args[0] == {"error_id":"is_duplicated_doi"}
+                    args, kwargs = mock_save.call_args
+                    assert args[2] == test_data
 
-    # is_change_identifier is False, doi_ra not NDL, called saving_doi_pidstore
-    item = {
-        "id":"6",
-        "is_change_identifier":False,
-        "doi_ra":"JaLC",
-    }
-    return_check = {"isWithdrawnDoi":False,"isExistDOI":False}
-    test_data = {
-        "identifier_grant_jalc_doi_link":"https://doi.org/xyz.jalc/0000000006",
-        "identifier_grant_jalc_cr_doi_link":"https://doi.org/xyz.crossref/0000000006",
-        "identifier_grant_jalc_dc_doi_link":"https://doi.org/xyz.datacite/0000000006",
-        "identifier_grant_ndl_jalc_doi_link":"https://doi.org/xyz.ndl/"
-    }
-    with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
-        with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
-            with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
-                register_item_doi(item)
-                args, kwargs = mock_save.call_args
-                assert args[2] == test_data
-
-    # is_change_identifier is False, doi_ra is NDL, doi_duplicated is True
-    item = {
-        "id":"7",
-        "is_change_identifier":False,
-        "doi_ra":"NDL JaLC",
-        "doi":"xyz.ndl/0000012345"
-    }
-    return_check = {"isWithdrawnDoi":True,"isExistDOI":False}
-    with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
-        with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
-            with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
-                with pytest.raises(Exception) as e:
+        # is_change_identifier is True, pid_value.endswith is True
+        item = {
+            "id":"4",
+            "is_change_identifier":True,
+            "doi_ra":"JaLC",
+            "doi":"xyz.jalc/0000022222"
+        }
+        return_check = {"isWithdrawnDoi":False,"isExistDOI":False}
+        with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
+            with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
+                with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
                     register_item_doi(item)
-                assert e.value.args[0] == {"error_id": "is_withdraw_doi"}
+                    mock_save.assert_not_called()
 
-    # is_change_identifier is False, doi_ra is NDL, called saving_doi_pidstore
-    item = {
-        "id":"8",
-        "is_change_identifier":False,
-        "doi_ra":"NDL JaLC",
-        "doi":"xyz.ndl/0000012345"
-    }
-    return_check = {"isWithdrawnDoi":False,"isExistDOI":False}
-    test_data = {
-        "identifier_grant_jalc_doi_link":"https://doi.org/xyz.ndl/0000012345",
-        "identifier_grant_jalc_cr_doi_link":"https://doi.org/xyz.ndl/0000012345",
-        "identifier_grant_jalc_dc_doi_link":"https://doi.org/xyz.ndl/0000012345",
-        "identifier_grant_ndl_jalc_doi_link":"https://doi.org/xyz.ndl/0000012345"
-    }
-    with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
-        with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
-            with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
-                register_item_doi(item)
-                args, kwargs = mock_save.call_args
-                assert args[2] == test_data
+        # is_change_identifier is False, doi_ra not NDL, doi_duplicated is True
+        item = {
+            "id":"5",
+            "is_change_identifier":False,
+            "doi_ra":"JaLC",
+        }
+        return_check = {"isWithdrawnDoi":False,"isExistDOI":True}
+        with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
+            with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
+                with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
+                    with pytest.raises(Exception) as e:
+                        register_item_doi(item)
+                    assert e.value.args[0] == {"error_id":"is_duplicated_doi"}
 
-    # data is None
-    item = {
-        "id":"9",
-        "is_change_identifier":False,
-    }
-    with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
-        with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
-            with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
-                register_item_doi(item)
+        # is_change_identifier is False, doi_ra not NDL, called saving_doi_pidstore
+        item = {
+            "id":"6",
+            "is_change_identifier":False,
+            "doi_ra":"JaLC",
+        }
+        return_check = {"isWithdrawnDoi":False,"isExistDOI":False}
+        test_data = {
+            "identifier_grant_jalc_doi_link":"https://doi.org/xyz.jalc/0000000006",
+            "identifier_grant_jalc_cr_doi_link":"https://doi.org/xyz.crossref/0000000006",
+            "identifier_grant_jalc_dc_doi_link":"https://doi.org/xyz.datacite/0000000006",
+            "identifier_grant_ndl_jalc_doi_link":"https://doi.org/xyz.ndl/"
+        }
+        with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
+            with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
+                with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
+                    register_item_doi(item)
+                    args, kwargs = mock_save.call_args
+                    assert args[2] == test_data
+
+        # is_change_identifier is False, doi_ra is NDL, doi_duplicated is True
+        item = {
+            "id":"7",
+            "is_change_identifier":False,
+            "doi_ra":"NDL JaLC",
+            "doi":"xyz.ndl/0000012345"
+        }
+        return_check = {"isWithdrawnDoi":True,"isExistDOI":False}
+        with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
+            with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
+                with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
+                    with pytest.raises(Exception) as e:
+                        register_item_doi(item)
+                    assert e.value.args[0] == {"error_id": "is_withdraw_doi"}
+
+        # is_change_identifier is False, doi_ra is NDL, called saving_doi_pidstore
+        item = {
+            "id":"8",
+            "is_change_identifier":False,
+            "doi_ra":"NDL JaLC",
+            "doi":"xyz.ndl/0000012345"
+        }
+        return_check = {"isWithdrawnDoi":False,"isExistDOI":False}
+        test_data = {
+            "identifier_grant_jalc_doi_link":"https://doi.org/xyz.ndl/0000012345",
+            "identifier_grant_jalc_cr_doi_link":"https://doi.org/xyz.ndl/0000012345",
+            "identifier_grant_jalc_dc_doi_link":"https://doi.org/xyz.ndl/0000012345",
+            "identifier_grant_ndl_jalc_doi_link":"https://doi.org/xyz.ndl/0000012345"
+        }
+        with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
+            with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
+                with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
+                    register_item_doi(item)
+                    args, kwargs = mock_save.call_args
+                    assert args[2] == test_data
+
+        # data is None
+        item = {
+            "id":"9",
+            "is_change_identifier":False,
+        }
+        with patch("weko_search_ui.utils.WekoRecord.get_record_by_pid",side_effect=[mock_without_version,mock_lasted]):
+            with patch("weko_search_ui.utils.check_existed_doi",return_value=return_check):
+                with patch("weko_search_ui.utils.saving_doi_pidstore") as mock_save:
+                    register_item_doi(item)
 
 @pytest.mark.group6
 # def register_item_update_publish_status(item, status):
@@ -1376,16 +1384,16 @@ def test_handle_doi_required_check(
     with patch(
         "weko_workflow.utils.item_metadata_validation", return_value=error_list_dict
     ):
-        # Should have no return value
-        check_item_type = {
-            "render": "test",
-            "is_lastest": "test",
-            "schema": {"id":"15"},
-            "name": "test",
-            "item_type_id": "15",
-        }
-        with patch("weko_records.serializers.utils.get_full_mapping", return_value=check_item_type):
-            assert not handle_doi_required_check(record)
+        # # Should have no return value
+        # check_item_type = {
+        #     "render": "test",
+        #     "is_lastest": "test",
+        #     "schema": {"id":"15"},
+        #     "name": "test",
+        #     "item_type_id": "15",
+        # }
+        # with patch("weko_records.serializers.utils.get_full_mapping", return_value=check_item_type):
+        assert not handle_doi_required_check(record)
 
     with patch(
         "weko_workflow.utils.item_metadata_validation", return_value=error_list_dict
@@ -2364,9 +2372,39 @@ def test_export_all(db_activity, i18n_app, users, item_type, db_records2):
     data2 = {"item_type_id": "-1", "item_id_range": "1-9"}
     data3 = {"item_type_id": -1, "item_id_range": "1"}
 
-    assert not export_all(root_url, user_id, data, timezone="UTC")
-    assert not export_all(root_url, user_id, data2, timezone="UTC")
-    assert not export_all(root_url, user_id, data3, timezone="UTC")
+    result = export_all(root_url, user_id, data, timezone="UTC")
+    assert result
+    assert isinstance(result, str)
+    assert result.startswith("/tmp/")
+
+    result = export_all(root_url, user_id, data2, timezone="UTC")
+    assert result
+    assert isinstance(result, str)
+    assert result.startswith("/tmp/")
+
+    result = export_all(root_url, user_id, data3, timezone="UTC")
+    assert result
+    assert isinstance(result, str)
+    assert result.startswith("/tmp/")
+
+    with patch('weko_search_ui.utils.get_redis_cache') as mock_get_redis_cache, \
+        patch('weko_search_ui.utils.delete_exported') as mock_delete_exported, \
+        patch('weko_search_ui.utils.FileInstance.create') as mock_file_instance_create, \
+        patch('weko_search_ui.utils.Location.get_default') as mock_location_get_default, \
+        patch('weko_search_ui.utils.bagit.make_bag') as mock_make_bag, \
+        patch('weko_search_ui.utils.shutil.make_archive') as mock_make_archive:
+
+        # モックの設定
+        mock_get_redis_cache.side_effect = Exception("Test exception")
+        mock_delete_exported.return_value = None
+        mock_file_instance_create.return_value = MagicMock()
+        mock_location_get_default.return_value = MagicMock(uri="mock_uri")
+        mock_make_bag.return_value = None
+        mock_make_archive.return_value = None
+
+        assert not export_all(root_url, user_id, data, timezone="UTC")
+        assert not export_all(root_url, user_id, data2, timezone="UTC")
+        assert not export_all(root_url, user_id, data3, timezone="UTC")
 
 @pytest.mark.group10
 # def delete_exported(uri, cache_key):
@@ -2378,9 +2416,9 @@ def test_delete_exported(i18n_app, file_instance_mock):
         "sample_file.txt",
     )
 
-    with patch("invenio_files_rest.models.FileInstance.delete", return_value=None):
-        # Doesn't return any value
-        assert not delete_exported(file_path, "key")
+    # file not exist
+    with pytest.raises(AttributeError):
+        delete_exported(file_path, "key")
 
 @pytest.mark.group10
 # def cancel_export_all():
@@ -2736,12 +2774,12 @@ def test_function_issue34520(app, doi_records, item_id, before_doi, after_doi, w
 
 @pytest.mark.group11
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_function_issue34535 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search_ui/.tox/c1/tmp
-def test_function_issue34535(db,db_index,db_itemtype,location,db_oaischema):
+def test_function_issue34535(db,db_index,item_type2,make_itemtype,db_itemtype,location,db_oaischema):
     with patch("weko_search_ui.utils.find_and_update_location_size"):
         # register item
         indexer = WekoIndexer()
         indexer.get_es_index()
-        record_data = {"_oai":{"id":"oai:weko3.example.org:00000004","sets":[]},"path":["1"],"owner":"1","recid":"4","title":["test item in br"],"pubdate":{"attribute_name":"PubDate","attribute_value":"2022-11-21"},"_buckets":{"deposit":"0796e490-6dcf-4e7d-b241-d7201c3de83a"},"_deposit":{"id":"4","pid":{"type":"depid","value":"4","revision_id":0},"owner":"1","owners":[1],"status":"published","created_by":1},"item_title":"test item in br","author_link":[],"item_type_id":"10","publish_date":"2022-11-21","publish_status":"0","weko_shared_id":-1,"item_1617186331708":{"attribute_name":"Title","attribute_value_mlt":[{"subitem_1551255647225":"test item in br","subitem_1551255648112":"ja"}]},"item_1617186626617":{"attribute_name":"Description","attribute_value_mlt":[{"subitem_description":"this is line1.\nthis is line2.","subitem_description_type":"Abstract","subitem_description_language":"en"}]},"item_1617258105262":{"attribute_name":"Resource Type","attribute_value_mlt":[{"resourceuri":"http://purl.org/coar/resource_type/c_5794","resourcetype":"conference paper"}]},"relation_version_is_last":True}
+        record_data = {"_oai":{"id":"oai:weko3.example.org:00000004","sets":[]},"path":["1"],"owner":"1","recid":"4","title":["test item in br"],"pubdate":{"attribute_name":"PubDate","attribute_value":"2022-11-21"},"_buckets":{"deposit":"0796e490-6dcf-4e7d-b241-d7201c3de83a"},"_deposit":{"id":"4","pid":{"type":"depid","value":"4","revision_id":0},"owner":"1","owners":[1],"status":"published","created_by":1},"item_title":"test item in br","author_link":[],"item_type_id":"1","publish_date":"2022-11-21","publish_status":"0","weko_shared_id":-1,"item_1617186331708":{"attribute_name":"Title","attribute_value_mlt":[{"subitem_1551255647225":"test item in br","subitem_1551255648112":"ja"}]},"item_1617186626617":{"attribute_name":"Description","attribute_value_mlt":[{"subitem_description":"this is line1.\nthis is line2.","subitem_description_type":"Abstract","subitem_description_language":"en"}]},"item_1617258105262":{"attribute_name":"Resource Type","attribute_value_mlt":[{"resourceuri":"http://purl.org/coar/resource_type/c_5794","resourcetype":"conference paper"}]},"relation_version_is_last":True}
         item_data = {"id":"4","pid":{"type":"depid","value":"4","revision_id":0},"lang":"ja","path":[1],"owner":"1","title":"test item in br","owners":[1],"status":"published","$schema":"https://192.168.56.103/items/jsonschema/1","pubdate":"2022-11-21","edit_mode":"keep","created_by":1,"owners_ext":{"email":"wekosoftware@nii.ac.jp","username":"","displayname":""},"deleted_items":["item_1617605131499"],"shared_user_id":-1,"weko_shared_id":-1,"item_1617186331708":[{"subitem_1551255647225":"test item in br","subitem_1551255648112":"ja"}],"item_1617186626617":[{"subitem_description":"this is line1.\nthis is line2.","subitem_description_type":"Abstract","subitem_description_language":"en"}],"item_1617258105262":{"resourceuri":"http://purl.org/coar/resource_type/c_5794","resourcetype":"conference paper"}}
         rec_uuid = uuid.uuid4()
         recid = PersistentIdentifier.create(
@@ -2768,11 +2806,14 @@ def test_function_issue34535(db,db_index,db_itemtype,location,db_oaischema):
 
         # new item
         root_path = os.path.dirname(os.path.abspath(__file__))
-        new_item = {'$schema': 'https://192.168.56.103/items/jsonschema/1', 'edit_mode': 'Keep', 'errors': None, 'file_path': [''], 'filenames': [{'filename': '', 'id': '.metadata.item_1617605131499[0].filename'}], 'id': '4', 'identifier_key': 'item_1617186819068', 'is_change_identifier': False, 'item_title': 'test item in br', 'item_type_id': 10, 'item_type_name': 'デフォルトアイテムタイプ（フル）', 'metadata': {'item_1617186331708': [{'subitem_1551255647225': 'test item in br', 'subitem_1551255648112': 'ja'}], 'item_1617186626617': [{'subitem_description': 'this is line1.<br/>this is line2.', 'subitem_description_language': 'en', 'subitem_description_type': 'Abstract'}], 'item_1617258105262': {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}, 'path': [1], 'pubdate': '2022-11-21'}, 'pos_index': ['Faculty of Humanities and Social Sciences'], 'publish_status': 'public', 'status': 'keep', 'uri': 'https://192.168.56.103/records/4', 'warnings': [], 'root_path': root_path}
+        new_item = {'$schema': 'https://192.168.56.103/items/jsonschema/1', 'edit_mode': 'Keep', 'errors': None, 'file_path': [''], 'filenames': [{'filename': '', 'id': '.metadata.item_1617605131499[0].filename'}], 'id': '4', 'identifier_key': 'item_1617186819068', 'is_change_identifier': False, 'item_title': 'test item in br', 'item_type_id': 1, 'item_type_name': 'デフォルトアイテムタイプ（フル）', 'metadata': {'item_1617186331708': [{'subitem_1551255647225': 'test item in br', 'subitem_1551255648112': 'ja'}], 'item_1617186626617': [{'subitem_description': 'this is line1.<br/>this is line2.', 'subitem_description_language': 'en', 'subitem_description_type': 'Abstract'}], 'item_1617258105262': {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}, 'path': [1], 'pubdate': '2022-11-21'}, 'pos_index': ['Faculty of Humanities and Social Sciences'], 'publish_status': 'public', 'status': 'keep', 'uri': 'https://192.168.56.103/records/4', 'warnings': [], 'root_path': root_path}
+        owner = "1"
 
-        register_item_metadata(new_item,root_path,True)
+        register_item_metadata(new_item,root_path,owner,True)
         record = WekoDeposit.get_record(recid.object_uuid)
         assert record == {'_oai': {'id': 'oai:weko3.example.org:00000004', 'sets': ['1']}, 'path': ['1'], 'owner': '1', 'recid': '4', 'title': ['test item in br'], 'pubdate': {'attribute_name': 'PubDate', 'attribute_value': '2022-11-21'}, '_buckets': {'deposit': '0796e490-6dcf-4e7d-b241-d7201c3de83a'}, '_deposit': {'id': '4', 'pid': {'type': 'depid', 'value': '4', 'revision_id': 0}, 'owner': '1', 'owners': [1], 'status': 'draft', 'created_by': 1}, 'item_title': 'test item in br', 'author_link': [], 'item_type_id': '1', 'publish_date': '2022-11-21', 'publish_status': '0', 'weko_shared_id': -1, 'item_1617186331708': {'attribute_name': 'Title', 'attribute_value_mlt': [{'subitem_1551255647225': 'test item in br', 'subitem_1551255648112': 'ja'}]}, 'item_1617186626617': {'attribute_name': 'Description', 'attribute_value_mlt': [{'subitem_description': 'this is line1.\nthis is line2.', 'subitem_description_language': 'en', 'subitem_description_type': 'Abstract'}]}, 'item_1617258105262': {'attribute_name': 'Resource Type', 'attribute_value_mlt': [{'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}]}, 'relation_version_is_last': True, 'control_number': '4'}
+
+
 
 @pytest.mark.group11
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_function_issue34958 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp

@@ -153,7 +153,7 @@ from weko_theme.config import THEME_BODY_TEMPLATE, WEKO_THEME_ADMIN_ITEM_MANAGEM
 from weko_workflow import WekoWorkflow
 from weko_workflow.models import Action, ActionStatus, ActionStatusPolicy, Activity, FlowAction, FlowDefine, WorkFlow
 from weko_search_ui import WekoSearchREST, WekoSearchUI
-from weko_search_ui.config import SEARCH_UI_SEARCH_INDEX, WEKO_SEARCH_TYPE_DICT, WEKO_SEARCH_UI_BASE_TEMPLATE, WEKO_SEARCH_KEYWORDS_DICT
+from weko_search_ui.config import SEARCH_UI_SEARCH_INDEX, WEKO_SEARCH_TYPE_DICT, WEKO_SEARCH_UI_BASE_TEMPLATE, WEKO_SEARCH_KEYWORDS_DICT, WEKO_SEARCH_UI_IMPORT_UNUSE_FILES_URI
 from weko_search_ui.rest import create_blueprint
 from weko_search_ui.views import blueprint_api
 
@@ -595,6 +595,7 @@ def base_app(instance_path, search_class, request):
         WEKO_MAX_FILE_SIZE=WEKO_MAX_FILE_SIZE,
         WEKO_SEARCH_TYPE_INDEX = "index",
         WEKO_SEARCH_UI_BULK_EXPORT_TASKID_EXPIRED_TIME = 1,
+        WEKO_SEARCH_UI_IMPORT_UNUSE_FILES_URI = WEKO_SEARCH_UI_IMPORT_UNUSE_FILES_URI,
         WEKO_ITEMS_UI_INDEX_PATH_SPLIT = '///',
         WEKO_RECORDS_UI_EMAIL_ITEM_KEYS=[
                 'creatorMails', 'contributorMails', 'mails'],
@@ -657,7 +658,15 @@ def base_app(instance_path, search_class, request):
         WEKO_SEARCH_UI_TO_NUMBER_FORMAT="99999999999999.99",
         WEKO_SEARCH_UI_BASE_TEMPLATE=WEKO_SEARCH_UI_BASE_TEMPLATE,
         WEKO_SEARCH_KEYWORDS_DICT=WEKO_SEARCH_KEYWORDS_DICT,
-        WEKO_COMMUNITIES_DEFAULT_PROPERTIES=WEKO_COMMUNITIES_DEFAULT_PROPERTIES
+        WEKO_COMMUNITIES_DEFAULT_PROPERTIES=WEKO_COMMUNITIES_DEFAULT_PROPERTIES,
+        WEKO_SCHEMA_JPCOAR_V2_SCHEMA_NAME='jpcoar_mapping',
+        WEKO_SCHEMA_JPCOAR_V2_RESOURCE_TYPE_REPLACE={
+            'periodical':'journal',
+            'interview':'other',
+            'internal report':'other',
+            'report part':'other',
+            'conference object':'conference output',
+        },
     )
     app_.url_map.converters["pid"] = PIDConverter
     app_.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_class"] = search_class
@@ -701,7 +710,7 @@ def base_app(instance_path, search_class, request):
     InvenioFilesREST(app_)
     InvenioDeposit(app_)
     WekoRecords(app_)
-    # WekoSearchUI(app_)
+    WekoSearchUI(app_)
     WekoWorkflow(app_)
     WekoGroups(app_)
     WekoAdmin(app_)
@@ -1918,7 +1927,6 @@ def db_itemtype(app, db, make_itemtype):
 
     return make_itemtype(itemtype_id, itemtype_data)
 
-
 @pytest.fixture()
 def db_workflow(app, db, db_itemtype, users):
     action_datas = dict()
@@ -2442,10 +2450,39 @@ def es_records(base_app, app, db, db_index, location, db_itemtype, db_oaischema)
                 "owners": [1],
                 "item_type_id": 10,
                 "status": "keep",
-                "$schema": "/items/jsonschema/1",
+                "$schema": "/items/jsonschema/10",
                 "item_title": "item_title",
-                "metadata": record_data,
-                "pubdate": "2022-08-20",
+                "metadata": {
+                    "pubdate": "2022-08-20",
+                    "path": ["{}".format((i % 2) + 1)],
+                    "item_1617186331708": [
+                        {"subitem_1551255647225": "タイトル", "subitem_1551255648112": "ja"},
+                        {"subitem_1551255647225": "title", "subitem_1551255648112": "en"},
+                    ],
+                    "item_1617258105262": {
+                        "resourceuri": "http://purl.org/coar/resource_type/c_5794",
+                        "resourcetype": "conference paper",
+                    },
+                    "item_1617605131499":[
+                        {
+                            "url": {
+                                "url": "https://weko3.example.org/record/{}/files/hello.txt".format(
+                                    i
+                                )
+                            },
+                            "date": [
+                                {"dateType": "Available", "dateValue": "2022-09-07"}
+                            ],
+                            "format": "plain/text",
+                            "filename": "hello.txt",
+                            "filesize": [{"value": "146 KB"}],
+                            "accessrole": "open_access",
+                            "version_id": "",
+                            "mimetype": "application/pdf",
+                            "file": "",
+                        }
+                    ],
+                },
                 "created_by": 1,
                 "owners_ext": {
                     "email": "wekosoftware@nii.ac.jp",
@@ -2453,14 +2490,6 @@ def es_records(base_app, app, db, db_index, location, db_itemtype, db_oaischema)
                     "displayname": "",
                 },
                 "shared_user_id": -1,
-                "item_1617186331708": [
-                    {"subitem_1551255647225": "タイトル", "subitem_1551255648112": "ja"},
-                    {"subitem_1551255647225": "title", "subitem_1551255648112": "en"},
-                ],
-                "item_1617258105262": {
-                    "resourceuri": "http://purl.org/coar/resource_type/c_5794",
-                    "resourcetype": "conference paper",
-                },
             }
 
             rec_uuid = uuid.uuid4()
@@ -2481,6 +2510,7 @@ def es_records(base_app, app, db, db_index, location, db_itemtype, db_oaischema)
             )
             rel = PIDRelation.create(recid, depid, 3)
             db.session.add(rel)
+            db.session.commit()
             parent = None
             doi = None
             parent = PersistentIdentifier.create(
@@ -2492,6 +2522,7 @@ def es_records(base_app, app, db, db_index, location, db_itemtype, db_oaischema)
             )
             rel = PIDRelation.create(parent, recid, 2, 0)
             db.session.add(rel)
+            db.session.commit()
             if i % 2 == 1:
                 doi = PersistentIdentifier.create(
                     "doi",
@@ -3997,3 +4028,29 @@ def db_rocrate_mapping(db):
     with db.session.begin_nested():
         db.session.add(rocrate_mapping)
     db.session.commit()
+
+@pytest.fixture()
+def mock_itemtypes(mocker):
+    """Mock the ItemTypes.get_record method to return a mock object."""
+    mock_record = MagicMock()
+    mock_record.model.render = {
+        "meta_fix": {
+            "meta_fix_9999": "meta_fix_9999",
+            "item_type_id": {
+                "option": {
+                    "showlist": True,
+                    "hidden": False,
+                },
+            },
+        },
+        "meta_list": {
+            "meta_list_9999": "meta_list_9999",
+        }
+    }
+    mock_item_type = MagicMock()
+    mock_item_type.render = mock_record.model.render
+
+    mocker.patch('weko_items_ui.utils.ItemTypes.get_record', return_value=mock_record)
+    mocker.patch('weko_items_ui.utils.ItemTypes.get_by_id', return_value=mock_item_type)
+
+    return mock_record
