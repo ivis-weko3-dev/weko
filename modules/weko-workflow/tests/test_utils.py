@@ -20,6 +20,7 @@ from invenio_files_rest.models import Bucket
 from invenio_cache import current_cache
 from invenio_accounts.testutils import login_user_via_session as login
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
+from invenio_pidrelations.models import PIDRelation
 from flask_login.utils import login_user,logout_user
 from tests.helpers import json_data
 from invenio_mail.models import MailConfig
@@ -660,7 +661,7 @@ def test_handle_check_required_data(db_records, item_type):#c
 @pytest.mark.group2
 # def handle_check_required_pattern_and_either(mapping_data, mapping_keys,
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_handle_check_required_pattern_and_either -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_handle_check_required_pattern_and_either(db,item_type):
+def test_handle_check_required_pattern_and_either(db,item_type,location):
     # mapping_data is None, mapping_key is None
     result = handle_check_required_pattern_and_either(None,None,None)
     assert result == None
@@ -1003,18 +1004,17 @@ def test_prepare_edit_workflow(app, workflow, db_records,users):
 @pytest.mark.group6 
 # def handle_finish_workflow(deposit, current_pid, recid):
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_handle_finish_workflow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_handle_finish_workflow(workflow, db_records):
+def test_handle_finish_workflow(workflow, db_records, mocker):
     result = handle_finish_workflow(None, None, None)
     assert result == None
-    with patch("weko_deposit.api.WekoDeposit.publish"):
-        with patch("weko_deposit.api.WekoDeposit.commit"):
-            with patch("invenio_oaiserver.tasks.update_records_sets.delay"):
+    mocker.patch("weko_deposit.api.WekoDeposit.publish")
+    mocker.patch("weko_deposit.api.WekoDeposit.commit")
     
-                deposit = db_records[2][6]
-                current_pid = db_records[2][0]
-                recid = db_records[2][2]
-                result = handle_finish_workflow(deposit,current_pid,recid)
-                assert result == None
+    deposit = db_records[2][6]
+    current_pid = db_records[2][0]
+    recid = db_records[2][2]
+    result = handle_finish_workflow(deposit,current_pid,recid)
+    assert result == None
 
 @pytest.mark.group6
 # def delete_cache_data(key: str):
@@ -1627,18 +1627,18 @@ def test_register_info(app, db, db_register,users):
 @pytest.mark.group10
 # def get_approval_dates(mail_info):
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_get_approval_dates -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_get_approval_dates(app):
-    with patch("weko_workflow.utils.datetime") as datetime_mock:
-        datetime_mock.today.return_value=datetime.datetime(2022,10,6,1,2,3,4)
-        mail_info = {
-        }
-        test = {
-            "approval_date":"2022-10-06",
-            'approval_date_after_7_days': '2022-10-13',
-            '31_march_corresponding_year': '2023-03-31'
-        }
-        get_approval_dates(mail_info)
-        assert mail_info == test
+def test_get_approval_dates(app,mocker):
+    datetime_mock = mocker.patch("weko_workflow.utils.datetime")
+    datetime_mock.today.return_value=datetime.datetime(2022,10,6,1,2,3,4)
+    mail_info = {
+    }
+    test = {
+        "approval_date":"2022-10-06",
+        'approval_date_after_7_days': '2022-10-13',
+        '31_march_corresponding_year': '2023-03-31'
+    }
+    get_approval_dates(mail_info)
+    assert mail_info == test
 
     
     datetime_mock.today.return_value=datetime.datetime(2022,10,1,1,2,3,4)
@@ -1730,30 +1730,30 @@ def test_get_default_mail_sender(db):
 @pytest.mark.group11
 # def set_mail_info(item_info, activity_detail, guest_user=False):
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_set_mail_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_set_mail_info(app, db_register):
-    with patch("weko_workflow.utils.get_site_info_name",return_value=("name_en","name_ja")):
-        with patch("weko_workflow.utils.get_default_mail_sender",return_value="default_sender"):
-            with patch("weko_workflow.utils.get_register_info",return_value=("user@test.org","2022-10-10")):
-                item_info = {
-                    "subitem_university/institution":"test_institution",
-                    "subitem_fullname":"test_fullname",
-                    "subitem_mail_address":"test@test.org",
-                    "subitem_research_title":"test_research_title",
-                    "subitem_dataset_usage":"test_dataset",
-                    "subitem_advisor_fullname":"test advisor",
-                    "subitem_guarantor_fullname":"test guarantor",
-                    "subitem_advisor_affiliation":"test advisor affiliation",
-                    "subitem_guarantor_affiliation":"test guarantor affiliation",
-                    "subitem_advisor_mail_address":"advisor@test.org",
-                    "subitem_guarantor_mail_address":"guarantor@test.org",
-                    "subitem_title":"test_sub_title",
-                    "subitem_restricted_access_name":"test access name",
-                    'subitem_restricted_access_university/institution':"test_restricted_institution",
-                    "subitem_restricted_access_research_title":"test_restricted_research_title",
-                    "subitem_restricted_access_dataset_usage":"test_restricted_dataset",
-                    "subitem_restricted_access_application_date":"test_restricted_date",
-                    "subitem_restricted_access_mail_address":"restricted@test.org",
-                }
+def test_set_mail_info(app, db_register, mocker):
+    mocker.patch("weko_workflow.utils.get_site_info_name",return_value=("name_en","name_ja"))
+    mocker.patch("weko_workflow.utils.get_default_mail_sender",return_value="default_sender")
+    mocker.patch("weko_workflow.utils.get_register_info",return_value=("user@test.org","2022-10-10"))
+    item_info = {
+        "subitem_university/institution":"test_institution",
+        "subitem_fullname":"test_fullname",
+        "subitem_mail_address":"test@test.org",
+        "subitem_research_title":"test_research_title",
+        "subitem_dataset_usage":"test_dataset",
+        "subitem_advisor_fullname":"test advisor",
+        "subitem_guarantor_fullname":"test guarantor",
+        "subitem_advisor_affiliation":"test advisor affiliation",
+        "subitem_guarantor_affiliation":"test guarantor affiliation",
+        "subitem_advisor_mail_address":"advisor@test.org",
+        "subitem_guarantor_mail_address":"guarantor@test.org",
+        "subitem_title":"test_sub_title",
+        "subitem_restricted_access_name":"test access name",
+        'subitem_restricted_access_university/institution':"test_restricted_institution",
+        "subitem_restricted_access_research_title":"test_restricted_research_title",
+        "subitem_restricted_access_dataset_usage":"test_restricted_dataset",
+        "subitem_restricted_access_application_date":"test_restricted_date",
+        "subitem_restricted_access_mail_address":"restricted@test.org",
+    }
     activity_id = db_register["activities"][0].activity_id
     test = {
         "university_institution":"test_institution",
@@ -1841,11 +1841,11 @@ def test_set_mail_info(app, db_register):
 @pytest.mark.group11
 # def process_send_reminder_mail(activity_detail, mail_template):
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_process_send_reminder_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_process_send_reminder_mail(db, db_register):
-    with patch("weko_workflow.utils.get_item_info",return_value={}):
-        with patch("weko_workflow.utils.set_mail_info",return_value={}):
-            with patch("weko_workflow.utils.send_mail_reminder") as mock_sender:
-                process_send_reminder_mail(db_register["activities"][1],"template")
+def test_process_send_reminder_mail(db, db_register, mocker):
+    mocker.patch("weko_workflow.utils.get_item_info",return_value={})
+    mocker.patch("weko_workflow.utils.set_mail_info",return_value={})
+    mock_sender = mocker.patch("weko_workflow.utils.send_mail_reminder")
+    process_send_reminder_mail(db_register["activities"][1],"template")
     mock_sender.assert_called_with({"mail_address":"comadmin@test.org","template":"template"})
     
     user_profile = UserProfile(
@@ -1857,9 +1857,9 @@ def test_process_send_reminder_mail(db, db_register):
     )
     db.session.add(user_profile)
     db.session.commit()
-    with patch("weko_workflow.utils.send_mail_reminder") as mock_sender:
-        process_send_reminder_mail(db_register["activities"][1],"template")
-        mock_sender.assert_called_with({"mail_address":"comadmin@test.org","template":"template","fullname":"sysadmin user"})
+    mock_sender = mocker.patch("weko_workflow.utils.send_mail_reminder")
+    process_send_reminder_mail(db_register["activities"][1],"template")
+    mock_sender.assert_called_with({"mail_address":"comadmin@test.org","template":"template","fullname":"sysadmin user"})
 
     with patch("weko_items_ui.utils.get_user_information",return_value={"email":""}):
         with pytest.raises(ValueError) as e:
@@ -1876,25 +1876,25 @@ def test_process_send_reminder_mail(db, db_register):
 @pytest.mark.group11
 # def process_send_notification_mail(
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_process_send_notification_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_process_send_notification_mail(db,db_register):
-    with patch("weko_workflow.utils.get_item_info",return_value={}):
-        with patch("weko_workflow.utils.set_mail_info",return_value={}):
-            def mock_approval_date(data):
-                data["approval_date"] = "2022-10-10"
-                data["approval_date_after_7_days"] = "2022-10-17"
-                data["31_march_corresponding_year"] = "2023-03-31"
+def test_process_send_notification_mail(db,db_register, mocker):
+    mocker.patch("weko_workflow.utils.get_item_info",return_value={})
+    mocker.patch("weko_workflow.utils.set_mail_info",return_value={})
+    def mock_approval_date(data):
+        data["approval_date"] = "2022-10-10"
+        data["approval_date_after_7_days"] = "2022-10-17"
+        data["31_march_corresponding_year"] = "2023-03-31"
     activity = db_register["activities"][0]
-    with patch("weko_workflow.utils.get_approval_dates",side_effect=mock_approval_date):
-        with patch("weko_workflow.utils.send_mail_registration_done") as mock_send_registration:
-            with patch("weko_workflow.utils.send_mail_request_approval") as mock_send_approval_req:
-                with patch("weko_workflow.utils.send_mail_approval_done") as mock_send_approval_done:
-                    data = {
-                        "item_type_name":"テストアイテムタイプ",
-                        "next_step":"next_step",
-                        "approval_date":"2022-10-10",
-                        "approval_date_after_7_days": "2022-10-17",
-                        "31_march_corresponding_year": "2023-03-31"
-                    }
+    mocker.patch("weko_workflow.utils.get_approval_dates",side_effect=mock_approval_date)
+    mock_send_registration = mocker.patch("weko_workflow.utils.send_mail_registration_done")
+    mock_send_approval_req = mocker.patch("weko_workflow.utils.send_mail_request_approval")
+    mock_send_approval_done = mocker.patch("weko_workflow.utils.send_mail_approval_done")
+    data = {
+        "item_type_name":"テストアイテムタイプ",
+        "next_step":"next_step",
+        "approval_date":"2022-10-10",
+        "approval_date_after_7_days": "2022-10-17",
+        "31_march_corresponding_year": "2023-03-31"
+    }
     
     process_send_notification_mail(activity,"item_login","next_step")
     mock_send_registration.assert_called_with(data)
@@ -1980,7 +1980,7 @@ def test_create_usage_report(app,db_register):
 @pytest.mark.group12
 # def create_record_metadata(
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_create_record_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_create_record_metadata(app,db,users,db_register):
+def test_create_record_metadata(app,db,users,db_register,mocker):
     activity = db_register["activities"][1]
     
     item_id = activity.item_id
@@ -1992,42 +1992,42 @@ def test_create_record_metadata(app,db,users,db_register):
     }
     def mock_modify_item_metadata(item_,item_type_id_,new_activity_id_,activity_id_,data_dict_,schema_,owner_id_,related_title_):
         item_ = {'id': '1.1', 'pid': {'type': 'depid', 'value': '1.1', 'revision_id': 0}, 'lang': 'ja', 'owner': '1', 'title': 'related_title - ja_usage_title - 2 - ', 'owners': [1], 'status': 'published', '$schema': 'items/jsonschema/1', 'pubdate': '2022-08-20', 'created_by': 1, 'owners_ext': {'email': 'wekosoftware@nii.ac.jp', 'username': '', 'displayname': ''}, 'shared_user_id': -1, 'item_1617186331708': [{'subitem_1551255647225': 'ff', 'subitem_1551255648112': 'ja'}], 'item_1617258105262': {'resourceuri': 'http://purl.org/coar/resource_type/c_5794', 'resourcetype': 'conference paper'}}
-    with patch("weko_workflow.utils.modify_item_metadata",side_effect=mock_modify_item_metadata):
+    mocker.patch("weko_workflow.utils.modify_item_metadata",side_effect=mock_modify_item_metadata)
     
-        class MockDeposit:
-            def __init__(self,record_,model):
-                pass
-            @classmethod
-            def get_record(pid_id):
-                return "test_record"
-            def update(self, status, metadata):
-                pass
-            def commit(self):
-                pass
-            def publish(self):
-                pass
-            def newversion(self, pid):
-                return None
-            @property
-            def id(self):
-                return uuid.uuid4()
-            def __getitem__(self,key):
-                if key == "_deposit":
-                    return {"id":"test id"}
-        with patch("weko_workflow.utils.WekoDeposit",side_effect=MockDeposit):
-            def mock_create_deposit(pid_):
-                PersistentIdentifier.create(
-                    pid_type='recid',
-                    pid_value=str(pid_),
-                    object_type="rec",
-                    status=PIDStatus.REGISTERED)
-    with patch("weko_workflow.utils.create_deposit",side_effect=mock_create_deposit):
-        with patch("weko_workflow.utils.update_activity_action"):
-            with patch("weko_workflow.api.WorkActivity.get_new_activity_id",return_value="new_activity"):
-                with app.test_request_context():
-                    login_user(users[2]["obj"])
-                    result = create_record_metadata(activity_data,item_id,activity_id,workflow,"related_title")
-                    assert result == "new_activity"
+    class MockDeposit:
+        def __init__(self,record_,model):
+            pass
+        @classmethod
+        def get_record(pid_id):
+            return "test_record"
+        def update(self, status, metadata):
+            pass
+        def commit(self):
+            pass
+        def publish(self):
+            pass
+        def newversion(self, pid):
+            return None
+        @property
+        def id(self):
+            return uuid.uuid4()
+        def __getitem__(self,key):
+            if key == "_deposit":
+                return {"id":"test id"}
+    mocker.patch("weko_workflow.utils.WekoDeposit",side_effect=MockDeposit)
+    def mock_create_deposit(pid_):
+        PersistentIdentifier.create(
+            pid_type='recid',
+            pid_value=str(pid_),
+            object_type="rec",
+            status=PIDStatus.REGISTERED)
+    mocker.patch("weko_workflow.utils.create_deposit",side_effect=mock_create_deposit)
+    mocker.patch("weko_workflow.utils.update_activity_action")
+    mocker.patch("weko_workflow.api.WorkActivity.get_new_activity_id",return_value="new_activity")
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        result = create_record_metadata(activity_data,item_id,activity_id,workflow,"related_title")
+        assert result == "new_activity"
 
 @pytest.mark.group12
 # def modify_item_metadata(

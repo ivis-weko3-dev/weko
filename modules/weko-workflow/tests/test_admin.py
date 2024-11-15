@@ -110,7 +110,7 @@ class TestFlowSettingView:
             url = '/admin/flowsetting/{}'.format(0)
             q = FlowDefine.query.all()
             assert len(q) == 0
-            with patch("weko_workflow.models.FlowDefine.query", side_effect=Exception("Forced 500 Error")):
+            with patch("weko_workflow.api.Flow.create_flow", side_effect=Exception("Forced 500 Error")):
                 with patch("flask.templating._render", return_value=""):
                     res = client.post(url, json={"key": "value"})
                     assert res.status_code == 500
@@ -184,9 +184,10 @@ class TestFlowSettingView:
 
             login(client=client, email=users[1]['email'])
             url = '/admin/flowsetting/{}'.format(flow_id)
-            with patch("flask.templating._render", return_value=""):
-                res =  client.post(url)
-                assert res.status_code == 500
+            with patch("weko_workflow.api.Flow.upt_flow", side_effect=Exception("Forced 500 Error")):
+                with patch("flask.templating._render", return_value=""):
+                    res =  client.post(url, json={"key": "value"})
+                    assert res.status_code == 500
             q = FlowDefine.query.first()
             assert q.flow_name == 'test2'
 
@@ -346,22 +347,25 @@ class TestWorkFlowSettingView:
 
         # Case 1: Invalid workflow_id ('0')
         url = generate_url('0')
-        with patch("flask.render_template", return_value=make_response("template response")):
+        with patch.object(app, 'view_functions') as mock_view_functions:
+            mock_view_functions["workflowsetting.workflow_detail"] = make_response("template response")
             res = client.get(url)
             assert res.status_code == status_code, f"Failed for workflow_id=0 with status {res.status_code}"
 
         # Case 2: Valid workflow_id from workflow_open_restricted
         wf_open_restricted: WorkFlow = workflow_open_restricted[0]["workflow"]
         url = generate_url(wf_open_restricted.flows_id)
-        with patch("flask.render_template", return_value=make_response("template response")):
+        with patch.object(app, 'view_functions') as mock_view_functions:
+            mock_view_functions["workflowsetting.workflow_detail"] = make_response("template response")
             res = client.get(url)
             assert res.status_code == status_code, f"Failed for workflow_id={wf_open_restricted.flows_id} with status {res.status_code}"
 
         # Case 3: Valid workflow_id from db_register with specific config patched
         wf_db_register: WorkFlow = db_register["workflow"]
         url = generate_url(wf_db_register.flows_id)
-        with patch("flask.render_template", return_value=make_response("template response")), \
+        with patch.object(app, 'view_functions') as mock_view_functions, \
             patch('weko_workflow.admin.WEKO_WORKFLOW_SHOW_HARVESTING_ITEMS', False):
+            mock_view_functions["workflowsetting.workflow_detail"] = make_response("template response")
             res = client.get(url)
             assert res.status_code == status_code, f"Failed for workflow_id={wf_db_register.flows_id} with status {res.status_code}"
     
