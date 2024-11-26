@@ -12,17 +12,17 @@ from weko_sitemap import WekoSitemap
 
 # .tox/c1/bin/pytest --cov=weko_sitemap tests/test_ext.py::test_create_page -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-sitemap/.tox/c1/tmp
 def test_create_page(create_app):
-    mock_cache = patch("weko_sitemap.ext.WekoSitemap.set_cache_page")
-    patch("weko_sitemap.ext.format_datetime",return_value="2022-10-01T01:02:03")
-    app = create_app()
+    with patch("weko_sitemap.ext.WekoSitemap.set_cache_page") as mock_cache:
+        with patch("weko_sitemap.ext.format_datetime",return_value="2022-10-01T01:02:03"):
+            app = create_app()
 
-    with app.app_context():
-        url_set = ["http://test1.com","http://test2.com"]
-        current_app.extensions["weko-sitemap"].create_page(1,url_set)
+            with app.app_context():
+                url_set = ["http://test1.com","http://test2.com"]
+                current_app.extensions["weko-sitemap"].create_page(1,url_set)
 
-        args,kwargs = mock_cache.call_args
-        assert args[0] == "sitemap_0001"
-        assert args[1]["lastmod"] == "2022-10-01T01:02:03"
+                args,kwargs = mock_cache.call_args
+                assert args[0] == "sitemap_0001"
+                assert args[1]["lastmod"] == "2022-10-01T01:02:03"
 
 # .tox/c1/bin/pytest --cov=weko_sitemap tests/test_ext.py::test_load_page -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-sitemap/.tox/c1/tmp
 def test_load_page(create_app):
@@ -94,13 +94,13 @@ def test_sitemap(create_app):
         ]
         for d in data:
             yield d
-    patch("weko_sitemap.ext.WekoSitemap._load_cache_pages",side_effect=mock_load)
-    with app.app_context():
-        mock_render = patch("weko_sitemap.ext.render_template", return_value=make_response())
-        res = current_app.extensions["weko-sitemap"].sitemap()
-        assert res.status_code == 200
-        args, kwargs = mock_render.call_args
-        assert args[0] == "flask_sitemap/sitemapindex.xml"
+    with patch("weko_sitemap.ext.WekoSitemap._load_cache_pages",side_effect=mock_load):
+        with app.app_context():
+            with patch("weko_sitemap.ext.render_template", return_value=make_response()) as mock_render:
+                res = current_app.extensions["weko-sitemap"].sitemap()
+                assert res.status_code == 200
+                args, kwargs = mock_render.call_args
+                assert args[0] == "flask_sitemap/sitemapindex.xml"
 
 # .tox/c1/bin/pytest --cov=weko_sitemap tests/test_ext.py::test_page -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-sitemap/.tox/c1/tmp
 def test_page(create_app):
@@ -110,13 +110,13 @@ def test_page(create_app):
     InvenioCache(app)
     with app.app_context():
         current_cache.set("sitemap_0001",{"page":"test_data"})
-        mock_zip = patch("weko_sitemap.ext.WekoSitemap.gzip_response",return_value=make_response())
-        current_app.extensions["weko-sitemap"].page(1)
-        mock_zip.assert_called_with("test_data")
+        with patch("weko_sitemap.ext.WekoSitemap.gzip_response",return_value=make_response()) as mock_zip:
+            current_app.extensions["weko-sitemap"].page(1)
+            mock_zip.assert_called_with("test_data")
 
-        mock_page = patch("weko_sitemap.ext.WekoSitemap.render_page",return_value=make_response())
-        current_app.extensions["weko-sitemap"].page(2)
-        mock_page.assert_called_with(urlset=[None])
+        with patch("weko_sitemap.ext.WekoSitemap.render_page",return_value=make_response()) as mock_page:
+            current_app.extensions["weko-sitemap"].page(2)
+            mock_page.assert_called_with(urlset=[None])
 
 
 # .tox/c1/bin/pytest --cov=weko_sitemap tests/test_ext.py::test_gzip_response -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-sitemap/.tox/c1/tmp

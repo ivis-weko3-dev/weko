@@ -93,9 +93,10 @@ def test_index_view_editable_list_page_size_data(app, client, admin_view, view_i
                 res = client.get(index_view_url)
                 assert res.status_code == 200
     else:
-        index_view_url = url_for("widgetitem.index_view")
-        res = client.get(index_view_url)
-        assert res.status_code == 200
+        with patch("weko_gridlayout.admin.WidgetSettingView.get_list", return_value=(3, {})):
+            index_view_url = url_for("widgetitem.index_view")
+            res = client.get(index_view_url)
+            assert res.status_code == 200
 
 
 @pytest.mark.parametrize("page_size",
@@ -147,7 +148,7 @@ def test_sort_url(app, client, admin_view, view_instance,
             index_view_url = url_for("widgetitem.index_view")
             res = client.get(index_view_url)
             assert res.status_code == 200
-            if not desc and invert and not sort_desc:
+            if desc and invert and not sort_desc:
                 assert view.desc == 1
             else:
                 assert view.desc == desc

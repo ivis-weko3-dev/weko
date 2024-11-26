@@ -61,6 +61,7 @@ from weko_authors import WekoAuthors
 from weko_authors.models import Authors, AuthorsPrefixSettings, AuthorsAffiliationSettings
 from weko_theme import WekoTheme
 import weko_authors.mappings.v2
+from unittest.mock import patch
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -142,11 +143,6 @@ class MockEs():
         def health(self, wait_for_status="", request_timeout=0):
             pass
 
-def make_celery(app):
-    celery = Celery(app.import_name, broker=app.config['CELERY_BROKER_URL'])
-    celery.conf.update(app.config)
-    return celery
-
 @pytest.fixture()
 def base_app(instance_path,search_class):
     """Flask application fixture for ES."""
@@ -169,11 +165,13 @@ def base_app(instance_path,search_class):
         WEKO_AUTHORS_AFFILIATION_IDENTIFIER_ITEM_OTHER=4,
         WEKO_AUTHORS_LIST_SCHEME_AFFILIATION=[
             'ISNI', 'GRID', 'Ringgold', 'kakenhi', 'Other'],
-        BROKER_URL='amqp://guest:guest@172.19.0.4:5672/',
-        CELERY_BROKER_URL=os.environ.get("BROKER_URL", "amqp://guest:guest@rabbitmq:5672//"),
+        CELERY_BROKER_URL=os.environ.get("CELERY_BROKER_URL", "amqp://guest:guest@rabbitmq:5672//"),
         CELERY_ALWAYS_EAGER=True,
+        CELERY_TASK_SERIALIZER='json',
+        CELERY_RESULT_SERIALIZER='json',
+        CELERY_ACCEPT_CONTENT=['json', 'msgpack'],
         CELERY_CACHE_BACKEND="memory",
-        CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+        CELERY_EAGER_PROPAGATES=True,
         CELERY_RESULT_BACKEND="cache",
         CACHE_REDIS_URL='redis://redis:6379/0',
         CACHE_REDIS_DB='0',
@@ -182,6 +180,18 @@ def base_app(instance_path,search_class):
         SEARCH_HOSTS=os.environ.get('SEARCH_HOST', 'opensearch'),
         SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
     )
+
+    # Initialize Celery
+    celery_app = Celery(app_.import_name, 
+                         backend=app_.config['CELERY_RESULT_BACKEND'], 
+                         broker=app_.config['CELERY_BROKER_URL'])
+
+    # Apply Flask settings to Celery
+    celery_app.conf.update(app_.config)
+
+    # Register the Celery extension in the application
+    app_.extensions['celery'] = celery_app
+
     Babel(app_)
     InvenioDB(app_)
     InvenioCache(app_)
@@ -201,7 +211,6 @@ def base_app(instance_path,search_class):
 
     # app_.register_blueprint(blueprint)
     app_.register_blueprint(blueprint_api, url_prefix='/api/authors')
-    app_.celery = make_celery(app_)
     return app_
 
 
@@ -211,15 +220,20 @@ def app(base_app):
     with base_app.app_context():
         yield base_app
 
+@pytest.fixture()
+def celery(base_app):
+    """Create and configure a new Celery application for testing using base_app settings."""
+    return base_app.extensions['celery']
 
 @pytest.yield_fixture()
 def db(app):
     """Database fixture."""
     if not database_exists(str(db_.engine.url)):
         create_database(str(db_.engine.url))
-        db_.create_all()
+    db_.create_all()
     yield db_
     db_.session.remove()
+    db_.drop_all()
     # drop_database(str(db_.engine.url))
 
 
@@ -408,11 +422,21 @@ def authors(app,db,esindex):
     datas = json_data("data/author.json")
     returns = list()
     for data in datas:
-        returns.append(Authors(
-            gather_flg=0,
-            is_deleted=False,
-            json=data
-        ))
+        author_ids = [author_id["authorId"] for author_id in data["authorIdInfo"]]
+        existing_author = Authors.query.filter_by(id=author_ids[0]).first()
+
+        if existing_author:
+            existing_author.json = data
+            existing_author.is_deleted = False
+            existing_author.gather_flg = 0
+            returns.append(existing_author)
+        else:
+            author = Authors(
+                gather_flg=0,
+                is_deleted=False,
+                json=data
+            )
+            returns.append(author)
         es_id = data["id"]
         es_data = json.loads(json.dumps(data))
         es_data["id"]=""
@@ -433,11 +457,11 @@ def authors_prefix_settings(db):
     existing_schemes = {s.scheme for s in existing_schemes}
 
     data = [
-        {"name": "WEKO", "scheme": "WEKO", "url": None},
-        {"name": "ORCID", "scheme": "ORCID", "url": "https://orcid.org/##"},
-        {"name": "CiNii", "scheme": "CiNii", "url": "https://ci.nii.ac.jp/author/##"},
-        {"name": "KAKEN2", "scheme": "KAKEN2", "url": "https://nrid.nii.ac.jp/nrid/##"},
-        {"name": "ROR", "scheme": "ROR", "url": "https://ror.org/##"}
+        {"id": 1, "name": "WEKO", "scheme": "WEKO", "url": None},
+        {"id": 2, "name": "ORCID", "scheme": "ORCID", "url": "https://orcid.org/##"},
+        {"id": 3, "name": "CiNii", "scheme": "CiNii", "url": "https://ci.nii.ac.jp/author/##"},
+        {"id": 4, "name": "KAKEN2", "scheme": "KAKEN2", "url": "https://nrid.nii.ac.jp/nrid/##"},
+        {"id": 5, "name": "ROR", "scheme": "ROR", "url": "https://ror.org/##"}
     ]
 
     for entry in data:
@@ -447,6 +471,8 @@ def authors_prefix_settings(db):
     if apss:
         db.session.add_all(apss)
         db.session.commit()
+    else:
+        apss = db.session.query(AuthorsPrefixSettings).all()
     return apss
 
 @pytest.fixture()
@@ -456,19 +482,33 @@ def authors_affiliation_settings(db):
     aass.append(AuthorsAffiliationSettings(name="GRID",scheme="GRID",url="https://www.grid.ac/institutes/##"))
     aass.append(AuthorsAffiliationSettings(name="Ringgold",scheme="Ringgold"))
     aass.append(AuthorsAffiliationSettings(name="kakenhi",scheme="kakenhi"))
-    db.session.add_all(aass)
+
+    for aa in aass:
+        existing_record = db.session.query(AuthorsAffiliationSettings).filter_by(scheme=aa.scheme).first()
+        if existing_record:
+            existing_record.name = aa.name
+            existing_record.url = aa.url
+        else:
+            db.session.add(aa)
+
     db.session.commit()
     
     return aass
 
 @pytest.fixture()
 def file_instance(db):
-    file = FileInstance(
-        uri="/var/tmp/test_dir",
-        storage_class="S",
-        size=18,
-    )
-    db.session.add(file)
+    uri = "/var/tmp/test_dir"
+    file = db.session.query(FileInstance).filter_by(uri=uri).first()
+    if not file:
+        file = FileInstance(
+            uri=uri,
+            storage_class="S",
+            size=18,
+        )
+        db.session.add(file)
+    else:
+        file.storage_class = "S"
+        file.size = 18
     db.session.commit()
 
 

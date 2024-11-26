@@ -59,7 +59,11 @@ def test_get_author_prefix_obj(authors_prefix_settings):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_get_author_affiliation_obj -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 def test_get_author_affiliation_obj(authors_affiliation_settings):
     result = get_author_affiliation_obj("ISNI")
-    assert result == authors_affiliation_settings[0]
+    # assert result == authors_affiliation_settings[0]
+    expected = authors_affiliation_settings[0]
+    assert result.name == expected.name
+    assert result.scheme == expected.scheme
+    assert result.url == expected.url
 
     # raise Exception
     with patch("weko_authors.utils.db.session.query") as mock_query:
@@ -74,14 +78,14 @@ def test_check_email_existed(app):
     mock_indexer = RecordIndexer()
     mock_indexer.client = MockClient()
     mock_indexer.client.return_value=data
-    patch("weko_authors.utils.RecordIndexer",return_value=mock_indexer)
-    result = check_email_existed("test@test.org")
-    assert result == {"email":"test@test.org","author_id":1}
+    with patch("weko_authors.utils.RecordIndexer",return_value=mock_indexer):
+        result = check_email_existed("test@test.org")
+        assert result == {"email":"test@test.org","author_id":1}
 
-    data = {"hits":{"total":0}}
-    mock_indexer.client.return_value=data
-    result = check_email_existed("test@test.org")
-    assert result == {"email":"test@test.org","author_id":""}
+        data = {"hits": {"total": 0, "hits": []}}
+        mock_indexer.client.return_value=data
+        result = check_email_existed("test@test.org")
+        assert result == {"email":"test@test.org","author_id":""}
 
 
 # def get_export_status():
@@ -133,29 +137,29 @@ def test_save_export_url(app):
 # def export_authors():
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_export_authors -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 def test_export_authors(app,authors,file_instance):
-    patch("weko_authors.utils.WekoAuthors.get_all",return_value=authors)
-    scheme_info={"1":{"scheme":"WEKO","url":None},"2":{"scheme":"ORCID","url":"https://orcid.org/##"}}
-    patch("weko_authors.utils.WekoAuthors.get_identifier_scheme_info",return_value=scheme_info)
-    header = ["#pk_id","authorNameInfo[0].familyName","authorNameInfo[0].firstName","authorNameInfo[0].language","authorNameInfo[0].nameFormat","authorNameInfo[0].nameShowFlg","authorIdInfo[0].idType","authorIdInfo[0].authorId","authorIdInfo[0].authorIdShowFlg","emailInfo[0].email","is_deleted"]
-    label_en=["#WEKO ID","Family Name[0]","Given Name[0]","Language[0]","Name Format[0]","Name Display[0]","Identifier Scheme[0]","Identifier[0]","Identifier Display[0]","Mail Address[0]","Delete Flag"]
-    label_jp=["#WEKO ID","姓[0]","名[0]","言語[0]","フォーマット[0]","姓名・言語 表示／非表示[0]","外部著者ID 識別子[0]","外部著者ID[0]","外部著者ID 表示／非表示[0]","メールアドレス[0]","削除フラグ"]
-    row_data = [["1","テスト","太郎","ja","familyNmAndNm","Y","ORCID","1234","Y","test.taro@test.org",""],
-            ["2","test","smith","en","familyNmAndNm","Y","ORCID","5678","Y","test.smith@test.org",""]]
-    patch("weko_authors.utils.WekoAuthors.prepare_export_data",return_value=(header,label_en,label_jp,row_data))
-    with patch("weko_authors.utils.get_export_url",return_value={}):
-        result = export_authors()
-        assert result
+    with patch("weko_authors.utils.WekoAuthors.get_all",return_value=authors):
+        scheme_info={"1":{"scheme":"WEKO","url":None},"2":{"scheme":"ORCID","url":"https://orcid.org/##"}}
+        with patch("weko_authors.utils.WekoAuthors.get_identifier_scheme_info",return_value=scheme_info):
+            header = ["#pk_id","authorNameInfo[0].familyName","authorNameInfo[0].firstName","authorNameInfo[0].language","authorNameInfo[0].nameFormat","authorNameInfo[0].nameShowFlg","authorIdInfo[0].idType","authorIdInfo[0].authorId","authorIdInfo[0].authorIdShowFlg","emailInfo[0].email","is_deleted"]
+            label_en=["#WEKO ID","Family Name[0]","Given Name[0]","Language[0]","Name Format[0]","Name Display[0]","Identifier Scheme[0]","Identifier[0]","Identifier Display[0]","Mail Address[0]","Delete Flag"]
+            label_jp=["#WEKO ID","姓[0]","名[0]","言語[0]","フォーマット[0]","姓名・言語 表示／非表示[0]","外部著者ID 識別子[0]","外部著者ID[0]","外部著者ID 表示／非表示[0]","メールアドレス[0]","削除フラグ"]
+            row_data = [["1","テスト","太郎","ja","familyNmAndNm","Y","ORCID","1234","Y","test.taro@test.org",""],
+                    ["2","test","smith","en","familyNmAndNm","Y","ORCID","5678","Y","test.smith@test.org",""]]
+            with patch("weko_authors.utils.WekoAuthors.prepare_export_data",return_value=(header,label_en,label_jp,row_data)):
+                with patch("weko_authors.utils.get_export_url",return_value={}):
+                    result = export_authors()
+                    assert result
 
-    current_app.config.update(WEKO_ADMIN_OUTPUT_FORMAT="csv")
-    cache_url = {"file_uri":"/var/tmp/test_dir"}
-    with patch("weko_authors.utils.get_export_url",return_value=cache_url):
-        result = export_authors()
-        assert result == "/var/tmp/test_dir"
+                current_app.config.update(WEKO_ADMIN_OUTPUT_FORMAT="csv")
+                cache_url = {"file_uri":"/var/tmp/test_dir"}
+                with patch("weko_authors.utils.get_export_url",return_value=cache_url):
+                    result = export_authors()
+                    assert result == "/var/tmp/test_dir"
 
-    # raise Exception
-    with patch("weko_authors.utils.WekoAuthors.get_all", side_effect=Exception("test_error")):
-        result = export_authors()
-        assert result == None
+                # raise Exception
+                with patch("weko_authors.utils.WekoAuthors.get_all", side_effect=Exception("test_error")):
+                    result = export_authors()
+                    assert result == None
 
 # def check_import_data(file_name: str, file_content: str):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_check_import_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
@@ -185,18 +189,17 @@ def test_check_import_data(app):
                  "emailInfo[0].email",
                  "is_deleted"
                  ]
-    patch("weko_authors.utils.flatten_authors_mapping",return_value=(mapping_all,mapping_ids))
-    file_data = [{'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'Y'}], 'authorIdInfo': [{'idType': 'ORCID', 'authorId': '1234', 'authorIdShowFlg': 'Y'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': ''}, {'pk_id': '2', 'authorNameInfo': [{'familyName': 'test', 'firstName': 'smith', 'language': 'en', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'Y'}], 'authorIdInfo': [{'idType': 'ORCID', 'authorId': '5678', 'authorIdShowFlg': 'Y'}], 'emailInfo': [{'email': 'test.smith@test.org'}], 'is_deleted': ''}]
-    patch("weko_authors.utils.unpackage_and_check_import_file",return_value=file_data)
-    return_validate = [{'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'true'}], 'authorIdInfo': [{'idType': 2, 'authorId': '1234', 'authorIdShowFlg': 'true'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': '', 'status': 'update'}, {'pk_id': '2', 'authorNameInfo': [{'familyName': 'test', 'firstName': 'smith', 'language': 'en', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'true'}], 'authorIdInfo': [{'idType': 2, 'authorId': '5678', 'authorIdShowFlg': 'true'}], 'emailInfo': [{'email': 'test.smith@test.org'}], 'is_deleted': '', 'status': 'update'}]
-    patch("weko_authors.utils.validate_import_data",return_value=return_validate)
+    with patch("weko_authors.utils.flatten_authors_mapping",return_value=(mapping_all,mapping_ids)):
+        file_data = [{'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'Y'}], 'authorIdInfo': [{'idType': 'ORCID', 'authorId': '1234', 'authorIdShowFlg': 'Y'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': ''}, {'pk_id': '2', 'authorNameInfo': [{'familyName': 'test', 'firstName': 'smith', 'language': 'en', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'Y'}], 'authorIdInfo': [{'idType': 'ORCID', 'authorId': '5678', 'authorIdShowFlg': 'Y'}], 'emailInfo': [{'email': 'test.smith@test.org'}], 'is_deleted': ''}]
+        with patch("weko_authors.utils.unpackage_and_check_import_file",return_value=file_data):
+            return_validate = [{'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'true'}], 'authorIdInfo': [{'idType': 2, 'authorId': '1234', 'authorIdShowFlg': 'true'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': '', 'status': 'update'}, {'pk_id': '2', 'authorNameInfo': [{'familyName': 'test', 'firstName': 'smith', 'language': 'en', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'true'}], 'authorIdInfo': [{'idType': 2, 'authorId': '5678', 'authorIdShowFlg': 'true'}], 'emailInfo': [{'email': 'test.smith@test.org'}], 'is_deleted': '', 'status': 'update'}]
+            with patch("weko_authors.utils.validate_import_data",return_value=return_validate):
 
-
-    file_name = "testfile.tsv"
-    file_content = b"test_content=="
-    test = {'list_import_data': [{'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'true'}], 'authorIdInfo': [{'idType': 2, 'authorId': '1234', 'authorIdShowFlg': 'true'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': '', 'status': 'update'}, {'pk_id': '2', 'authorNameInfo': [{'familyName': 'test', 'firstName': 'smith', 'language': 'en', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'true'}], 'authorIdInfo': [{'idType': 2, 'authorId': '5678', 'authorIdShowFlg': 'true'}], 'emailInfo': [{'email': 'test.smith@test.org'}], 'is_deleted': '', 'status': 'update'}]}
-    result = check_import_data(file_name,file_content)
-    assert result == test
+                file_name = "testfile.tsv"
+                file_content = b"test_content=="
+                test = {'list_import_data': [{'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'true'}], 'authorIdInfo': [{'idType': 2, 'authorId': '1234', 'authorIdShowFlg': 'true'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': '', 'status': 'update'}, {'pk_id': '2', 'authorNameInfo': [{'familyName': 'test', 'firstName': 'smith', 'language': 'en', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'true'}], 'authorIdInfo': [{'idType': 2, 'authorId': '5678', 'authorIdShowFlg': 'true'}], 'emailInfo': [{'email': 'test.smith@test.org'}], 'is_deleted': '', 'status': 'update'}]}
+                result = check_import_data(file_name,file_content)
+                assert result == test
 
     # raise Exception with args[0] is dict
     with patch("weko_authors.utils.flatten_authors_mapping",side_effect=Exception({"error_msg":"test_error"})):
@@ -303,69 +306,69 @@ def test_unpackage_and_check_import_file(app):
 # def validate_import_data(file_format, file_data, mapping_ids, mapping):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_validate_import_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 def test_validate_import_data(authors_prefix_settings):
-    patch("weko_authors.utils.WekoAuthors.get_author_for_validation",return_value=({"1":True,"2":True},{"2":{"1234":["1"],"5678":["2"]}}))
+    with patch("weko_authors.utils.WekoAuthors.get_author_for_validation",return_value=({"1":True,"2":True},{"2":{"1234":["1"],"5678":["2"]}})):
 
-    file_format = "tsv"
-    file_data = [
-        {'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'Y'}], 'authorIdInfo': [{'idType': 'ORCID', 'authorId': '1234', 'authorIdShowFlg': 'Y'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': ''},
-        {'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'Y'}], 'authorIdInfo': [{'idType': 'ORCID', 'authorId': '1234', 'authorIdShowFlg': 'Y'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': ''},
+        file_format = "tsv"
+        file_data = [
+            {'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'Y'}], 'authorIdInfo': [{'idType': 'ORCID', 'authorId': '1234', 'authorIdShowFlg': 'Y'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': ''},
+            {'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'Y'}], 'authorIdInfo': [{'idType': 'ORCID', 'authorId': '1234', 'authorIdShowFlg': 'Y'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': ''},
+            ]
+        mapping_ids = ["pk_id",
+                     "authorNameInfo[0].familyName",
+                     "authorNameInfo[0].firstName",
+                     "authorNameInfo[0].language",
+                     "authorNameInfo[0].nameFormat",
+                     "authorNameInfo[0].nameShowFlg",
+                     "authorIdInfo[0].idType",
+                     "authorIdInfo[0].authorId",
+                     "authorIdInfo[0].authorIdShowFlg",
+                     "emailInfo[0].email",
+                     "is_deleted"
+                     ]
+        mappings = [
+            {"key":"pk_id","label":{"en":"WEKO ID","jp":"WEKO ID"},"mask":{},"validation":{},"autofill":""},
+            {"key":"authorNameInfo[0].familyName","label":{"en":"Family Name","jp":"姓"},"mask":{},"validation":{},"autofill":""},
+            {"key":"authorNameInfo[0].firstName","label":{"en":"Given Name","jp":"名"},"mask":{},"validation":{},"autofill":""},
+            {"key":"authorNameInfo[0].language","label":{"en":"Language","jp":"言語"},"mask":{},"validation":{'map': ['ja', 'ja-Kana', 'en', 'fr','it', 'de', 'es', 'zh-cn', 'zh-tw','ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']},"autofill":""},
+            {"key":"authorNameInfo[0].nameFormat","label":{"en":"Name Format","jp":"フォーマット"},"mask":{},"validation":{'map': ['familyNmAndNm']},"autofill":{'condition': {'either_required': ['familyName', 'firstName']},'value': 'familyNmAndNm'}},
+            {"key":"authorNameInfo[0].nameShowFlg","label":{"en":"Name Display","jp":"姓名・言語 表示／非表示"},"mask":{'true': 'Y','false': 'N'},"validation":{'map': ['Y', 'N']},"autofill":""},
+            {"key":"authorIdInfo[0].idType","label":{"en":"Identifier Scheme","jp":"外部著者ID 識別子"},"mask":{},"validation":{'validator': {'class_name': 'weko_authors.contrib.validation','func_name': 'validate_identifier_scheme'},'required': {'if': ['authorId']}},"autofill":""},
+            {"key":"authorIdInfo[0].authorId","label":{"en":"Identifier","jp":"外部著者ID"},"mask":{},"validation":{'required': {'if': ['idType']}},"autofill":""},
+            {"key":"authorIdInfo[0].authorIdShowFlg","label":{"en":"Identifier Display","jp":"外部著者ID 表示／非表示"},"mask":{'true': 'Y','false': 'N'},"validation":{'map': ['Y', 'N']},"autofill":""},
+            {"key":"emailInfo[0].email","label":{"en":"Mail Address","jp":"メールアドレス"},"mask":{},"validation":{},"autofill":""},
+            {"key":"is_deleted","label":{"en":"Delete Flag","jp":"削除フラグ"},"mask":{'true': 'D','false': ''},"validation":{'map': ['D']},"autofill":""},
         ]
-    mapping_ids = ["pk_id",
-                 "authorNameInfo[0].familyName",
-                 "authorNameInfo[0].firstName",
-                 "authorNameInfo[0].language",
-                 "authorNameInfo[0].nameFormat",
-                 "authorNameInfo[0].nameShowFlg",
+
+        test = [
+            {'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'true'}], 'authorIdInfo': [{'idType': 2, 'authorId': '1234', 'authorIdShowFlg': 'true'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': '', 'status': 'update'},
+            {'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'Y'}], 'authorIdInfo': [{'idType': 2, 'authorId': '1234', 'authorIdShowFlg': 'Y'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': '', 'status': 'update', 'errors': ['There is duplicated data in the tsv file.']}
+        ]
+        result = validate_import_data(file_format,file_data,mapping_ids,mappings)
+        assert result == test
+
+        file_data = [
+            {'pk_id': None,  'authorIdInfo': [{'idType': 'ORCID', 'authorId': '1234', 'authorIdShowFlg': 'Y'}], 'is_deleted': ''},
+            ]
+        mappings = [
+            {"key":"pk_id","label":{"en":"WEKO ID","jp":"WEKO ID"},"mask":{},"validation":{},"autofill":""},
+            {"key":"authorIdInfo[0].idType","label":{"en":"Identifier Scheme","jp":"外部著者ID 識別子"},"mask":{},"validation":{'validator': {'class_name': 'weko_authors.contrib.validation','func_name': 'validate_identifier_scheme'}},"autofill":""},
+            {"key":"authorIdInfo[0].authorId","label":{"en":"Identifier","jp":"外部著者ID"},"mask":{},"validation":{'required': {'if': ['idType']}},"autofill":""},
+            {"key":"authorIdInfo[0].authorIdShowFlg","label":{"en":"Identifier Display","jp":"外部著者ID 表示／非表示"},"mask":{'true': 'Y','false': 'N'},"validation":{'map': ['Y', 'N']},"autofill":""},
+            {"key":"is_deleted","label":{"en":"Delete Flag","jp":"削除フラグ"},"mask":{'true': 'D','false': ''},"validation":{'map': ['D']},"autofill":""},
+        ]
+        mapping_ids = ["pk_id",
                  "authorIdInfo[0].idType",
                  "authorIdInfo[0].authorId",
                  "authorIdInfo[0].authorIdShowFlg",
-                 "emailInfo[0].email",
                  "is_deleted"
                  ]
-    mappings = [
-        {"key":"pk_id","label":{"en":"WEKO ID","jp":"WEKO ID"},"mask":{},"validation":{},"autofill":""},
-        {"key":"authorNameInfo[0].familyName","label":{"en":"Family Name","jp":"姓"},"mask":{},"validation":{},"autofill":""},
-        {"key":"authorNameInfo[0].firstName","label":{"en":"Given Name","jp":"名"},"mask":{},"validation":{},"autofill":""},
-        {"key":"authorNameInfo[0].language","label":{"en":"Language","jp":"言語"},"mask":{},"validation":{'map': ['ja', 'ja-Kana', 'en', 'fr','it', 'de', 'es', 'zh-cn', 'zh-tw','ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']},"autofill":""},
-        {"key":"authorNameInfo[0].nameFormat","label":{"en":"Name Format","jp":"フォーマット"},"mask":{},"validation":{'map': ['familyNmAndNm']},"autofill":{'condition': {'either_required': ['familyName', 'firstName']},'value': 'familyNmAndNm'}},
-        {"key":"authorNameInfo[0].nameShowFlg","label":{"en":"Name Display","jp":"姓名・言語 表示／非表示"},"mask":{'true': 'Y','false': 'N'},"validation":{'map': ['Y', 'N']},"autofill":""},
-        {"key":"authorIdInfo[0].idType","label":{"en":"Identifier Scheme","jp":"外部著者ID 識別子"},"mask":{},"validation":{'validator': {'class_name': 'weko_authors.contrib.validation','func_name': 'validate_identifier_scheme'},'required': {'if': ['authorId']}},"autofill":""},
-        {"key":"authorIdInfo[0].authorId","label":{"en":"Identifier","jp":"外部著者ID"},"mask":{},"validation":{'required': {'if': ['idType']}},"autofill":""},
-        {"key":"authorIdInfo[0].authorIdShowFlg","label":{"en":"Identifier Display","jp":"外部著者ID 表示／非表示"},"mask":{'true': 'Y','false': 'N'},"validation":{'map': ['Y', 'N']},"autofill":""},
-        {"key":"emailInfo[0].email","label":{"en":"Mail Address","jp":"メールアドレス"},"mask":{},"validation":{},"autofill":""},
-        {"key":"is_deleted","label":{"en":"Delete Flag","jp":"削除フラグ"},"mask":{'true': 'D','false': ''},"validation":{'map': ['D']},"autofill":""},
-    ]
-
-    test = [
-        {'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'true'}], 'authorIdInfo': [{'idType': 2, 'authorId': '1234', 'authorIdShowFlg': 'true'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': '', 'status': 'update'},
-        {'pk_id': '1', 'authorNameInfo': [{'familyName': 'テスト', 'firstName': '太郎', 'language': 'ja', 'nameFormat': 'familyNmAndNm', 'nameShowFlg': 'Y'}], 'authorIdInfo': [{'idType': 2, 'authorId': '1234', 'authorIdShowFlg': 'Y'}], 'emailInfo': [{'email': 'test.taro@test.org'}], 'is_deleted': '', 'status': 'update', 'errors': ['There is duplicated data in the tsv file.']}
-    ]
-    result = validate_import_data(file_format,file_data,mapping_ids,mappings)
-    assert result == test
-
-    file_data = [
-        {'pk_id': None,  'authorIdInfo': [{'idType': 'ORCID', 'authorId': '1234', 'authorIdShowFlg': 'Y'}], 'is_deleted': ''},
-        ]
-    mappings = [
-        {"key":"pk_id","label":{"en":"WEKO ID","jp":"WEKO ID"},"mask":{},"validation":{},"autofill":""},
-        {"key":"authorIdInfo[0].idType","label":{"en":"Identifier Scheme","jp":"外部著者ID 識別子"},"mask":{},"validation":{'validator': {'class_name': 'weko_authors.contrib.validation','func_name': 'validate_identifier_scheme'}},"autofill":""},
-        {"key":"authorIdInfo[0].authorId","label":{"en":"Identifier","jp":"外部著者ID"},"mask":{},"validation":{'required': {'if': ['idType']}},"autofill":""},
-        {"key":"authorIdInfo[0].authorIdShowFlg","label":{"en":"Identifier Display","jp":"外部著者ID 表示／非表示"},"mask":{'true': 'Y','false': 'N'},"validation":{'map': ['Y', 'N']},"autofill":""},
-        {"key":"is_deleted","label":{"en":"Delete Flag","jp":"削除フラグ"},"mask":{'true': 'D','false': ''},"validation":{'map': ['D']},"autofill":""},
-    ]
-    mapping_ids = ["pk_id",
-             "authorIdInfo[0].idType",
-             "authorIdInfo[0].authorId",
-             "authorIdInfo[0].authorIdShowFlg",
-             "is_deleted"
-             ]
-    patch("weko_authors.utils.validate_required",return_value=["required item"])
-    patch("weko_authors.utils.validate_map",return_value=["map item"])
-    patch("weko_authors.utils.validate_by_extend_validator",return_value=["validator error"])
-    patch("weko_authors.utils.validate_external_author_identifier",return_value="idType warning")
-    test = [{'pk_id': None, 'authorIdInfo': [{'idType': 2, 'authorId': '1234', 'authorIdShowFlg': 'Y'}], 'is_deleted': '', 'status': 'new', 'errors': ['validator error', 'required item is required item.', "map item should be set by one of ['Y', 'N'].", "map item should be set by one of ['D']."], 'warnings': ['idType warning']}]
-    result = validate_import_data(file_format,file_data,mapping_ids,mappings)
-    assert result == test
+        with patch("weko_authors.utils.validate_required", return_value=["required item"]), \
+             patch("weko_authors.utils.validate_map", return_value=["map item"]), \
+             patch("weko_authors.utils.validate_by_extend_validator", return_value=["validator error"]), \
+             patch("weko_authors.utils.validate_external_author_identifier", return_value="idType warning"):
+            test = [{'pk_id': None, 'authorIdInfo': [{'idType': 2, 'authorId': '1234', 'authorIdShowFlg': 'Y'}], 'is_deleted': '', 'status': 'new', 'errors': ['validator error', 'required item is required item.', "map item should be set by one of ['Y', 'N'].", "map item should be set by one of ['D']."], 'warnings': ['idType warning']}]
+            result = validate_import_data(file_format,file_data,mapping_ids,mappings)
+            assert result == test
 
 
 # def get_values_by_mapping(keys, data, parent_key=None):
@@ -609,66 +612,76 @@ def test_import_author_to_system(app):
     }
 
     # authorIdInfo is None,emailInfo is None,status is new
-    mock_create = patch("weko_authors.utils.WekoAuthors.create")
-    author = {
-        "status":"new",
-        "is_deleted":True,
-    }
-    test = {"is_deleted":True,"authorIdInfo":[],"emailInfo":[]}
-    result = import_author_to_system(author)
-    mock_create.assert_called_with(test)
-
-    patch("weko_authors.utils.get_count_item_link",return_value=1)
-    # status is not new
-    author = {
-        "status":"update",
-        "is_deleted":True,
-        "pk_id":"1",
-        "authorIdInfo": [{ "authorId": "1", "authorIdShowFlg": "true", "idType": "1" }],
-        "emailInfo": [{ "email": "test.taro@test.org" }]
-    }
-    test = {
-        "is_deleted":True,
-        "pk_id":"1",
-        "authorIdInfo": [
-            {"idType": "1","authorId":"1","authorIdShowFlg": "true"},
-            { "authorId": "1", "authorIdShowFlg": "true", "idType": "1" },
-            ],
-        "emailInfo": [{ "email": "test.taro@test.org" }],
-
+    with patch("weko_authors.utils.WekoAuthors.create") as mock_create:
+        author = {
+            "status":"new",
+            "is_deleted":True,
         }
-    mock_update = patch("weko_authors.utils.WekoAuthors.update")
-    result = import_author_to_system(author)
-    mock_update.assert_called_with("1",test)
+        test = {"is_deleted":True,"authorIdInfo":[],"emailInfo":[]}
+        result = import_author_to_system(author)
+        mock_create.assert_called_with(test)
 
-    # status is deleted
-    author = {
-        "status":"deleted",
-        "is_deleted":True,
-        "pk_id":"1"
-    }
-    with pytest.raises(Exception):
-        import_author_to_system(author)
+    with patch("weko_authors.utils.get_count_item_link",return_value=1):
+        # status is not new
+        author = {
+            "status":"update",
+            "is_deleted":True,
+            "pk_id":"1",
+            "authorIdInfo": [{ "authorId": "1", "authorIdShowFlg": "true", "idType": "1" }],
+            "emailInfo": [{ "email": "test.taro@test.org" }]
+        }
+        test = {
+            "is_deleted":True,
+            "pk_id":"1",
+            "authorIdInfo": [
+                {"idType": "1","authorId":"1","authorIdShowFlg": "true"},
+                { "authorId": "1", "authorIdShowFlg": "true", "idType": "1" },
+                ],
+            "emailInfo": [{ "email": "test.taro@test.org" }],
+
+            }
+        with patch("weko_authors.utils.WekoAuthors.update") as mock_update:
+            result = import_author_to_system(author)
+            mock_update.assert_called_with("1",test)
+    
+            # status is deleted
+            author = {
+                "status":"deleted",
+                "is_deleted":True,
+                "pk_id":"1"
+            }
+            with pytest.raises(Exception) as excinfo:
+                result = import_author_to_system(author)
+            assert excinfo.value.args[0] == {'error_id': 'delete_author_link'}
 # def get_count_item_link(pk_id):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_get_count_item_link -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
-def test_get_count_item_link(app):
+def test_get_count_item_link(app, esindex):
     class MockClient:
         def __init__(self):
             self.return_data=""
         def search(self,index,body):
             return self.return_data
 
+    esindex.indices.create(index="test-weko", ignore=400)
     record_indexer = RecordIndexer()
     record_indexer.client = MockClient()
     record_indexer.client.return_data=None
-    patch("weko_authors.utils.RecordIndexer",return_value=record_indexer)
+    with patch("weko_authors.utils.RecordIndexer",return_value=record_indexer):
 
-    result = get_count_item_link(1)
-    assert result == 0
+        result = get_count_item_link(1)
+        assert result == 0
 
-    record_indexer.client.return_data={"hits":{"total":10}}
-    result = get_count_item_link(1)
-    assert result == 10
+        record_indexer.client.return_data = {
+            "hits": {
+                "total": {
+                    "value": 10,
+                    "relation": "eq"
+                },
+                "hits": [{}]
+            }
+        }
+        result = get_count_item_link(1)
+        assert result == 10
 
 
 # def count_authors():
@@ -676,15 +689,17 @@ def test_get_count_item_link(app):
 def test_count_authors(app, esindex):
     import json
     index = app.config["WEKO_AUTHORS_ES_INDEX_NAME"]
-    doc_type = "author-v1.0.0"
+
 
     def register(i):
         with open(f"tests/data/test_authors/author{i:02}.json","r") as f:
-            esindex.index(index=index, doc_type=doc_type, id=f"{i}", body=json.load(f), refresh="true")
+            esindex.index(index=index, id=f"{i}", body=json.load(f), refresh="true")
 
     def delete(i):
-        esindex.delete(index=index, doc_type=doc_type, id=f"{i}", refresh="true")
+        esindex.delete(index=index, id=f"{i}", refresh="true")
 
+    esindex.indices.delete(index=index, ignore=[400, 404])
+    esindex.indices.create(index=index, ignore=400)
     # 3 Register 1 author data
     register(1)
     assert count_authors()['count'] == 1

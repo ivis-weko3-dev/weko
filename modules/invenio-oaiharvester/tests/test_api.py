@@ -51,46 +51,46 @@ def test_list_records(app,db,sample_list_xml_no_sets):
 @responses.activate
 def test_get_records(app,db,sample_record_xml):
 
-    patch("invenio_oaiharvester.api.get_info_by_oai_name",return_value=("http://export.arxiv.org/oai2","oai_dc","2023-01-10","physics"))
-    url = "http://export.arxiv.org/oai2"
-    responses.add(
-        responses.GET,
-        url,
-        body=sample_record_xml,
-        content_type="text/xml"
-    )
-    identifiers = ["oai:arXiv.org:1507.03011"]
-    # not name
-    request, records = get_records(identifiers,metadata_prefix="oai_dc",url=url,name=None,encoding="utf-8")
-    assert request.encoding == "utf-8"
-    assert request.endpoint == "http://export.arxiv.org/oai2"
-    assert request.oai_namespace == "{http://www.openarchives.org/OAI/2.0/}"
-    assert len(records) == 1
-    data = records[0].metadata
-    assert data["title"] == ["The Distribution of Star Formation and Metals in the Low Surface\\n  Brightness Galaxy UGC 628"]
+    with patch("invenio_oaiharvester.api.get_info_by_oai_name",return_value=("http://export.arxiv.org/oai2","oai_dc","2023-01-10","physics")):
+        url = "http://export.arxiv.org/oai2"
+        responses.add(
+            responses.GET,
+            url,
+            body=sample_record_xml,
+            content_type="text/xml"
+        )
+        identifiers = ["oai:arXiv.org:1507.03011"]
+        # not name
+        request, records = get_records(identifiers,metadata_prefix="oai_dc",url=url,name=None,encoding="utf-8")
+        assert request.encoding == "utf-8"
+        assert request.endpoint == "http://export.arxiv.org/oai2"
+        assert request.oai_namespace == "{http://www.openarchives.org/OAI/2.0/}"
+        assert len(records) == 1
+        data = records[0].metadata
+        assert data["title"] == ["The Distribution of Star Formation and Metals in the Low Surface\\n  Brightness Galaxy UGC 628"]
 
 
-    # not url
-    request, records = get_records(identifiers,metadata_prefix="oai_dc",name="test_name",encoding="utf-8")
-    assert request.encoding == "utf-8"
-    assert request.endpoint == "http://export.arxiv.org/oai2"
-    assert request.oai_namespace == "{http://www.openarchives.org/OAI/2.0/}"
-    assert len(records) == 1
-    data = records[0].metadata
-    assert data["title"] == ["The Distribution of Star Formation and Metals in the Low Surface\\n  Brightness Galaxy UGC 628"]
+        # not url
+        request, records = get_records(identifiers,metadata_prefix="oai_dc",name="test_name",encoding="utf-8")
+        assert request.encoding == "utf-8"
+        assert request.endpoint == "http://export.arxiv.org/oai2"
+        assert request.oai_namespace == "{http://www.openarchives.org/OAI/2.0/}"
+        assert len(records) == 1
+        data = records[0].metadata
+        assert data["title"] == ["The Distribution of Star Formation and Metals in the Low Surface\\n  Brightness Galaxy UGC 628"]
 
-    ## metadata_prefix is None
-    request, records = get_records(identifiers,metadata_prefix=None,name="test_name",encoding="utf-8")
-    assert request.encoding == "utf-8"
-    assert request.endpoint == "http://export.arxiv.org/oai2"
-    assert request.oai_namespace == "{http://www.openarchives.org/OAI/2.0/}"
-    assert len(records) == 1
-    data = records[0].metadata
-    assert data["title"] == ["The Distribution of Star Formation and Metals in the Low Surface\\n  Brightness Galaxy UGC 628"]
+        ## metadata_prefix is None
+        request, records = get_records(identifiers,metadata_prefix=None,name="test_name",encoding="utf-8")
+        assert request.encoding == "utf-8"
+        assert request.endpoint == "http://export.arxiv.org/oai2"
+        assert request.oai_namespace == "{http://www.openarchives.org/OAI/2.0/}"
+        assert len(records) == 1
+        data = records[0].metadata
+        assert data["title"] == ["The Distribution of Star Formation and Metals in the Low Surface\\n  Brightness Galaxy UGC 628"]
 
-    # not name and url
-    with pytest.raises(NameOrUrlMissing):
-        request, records = get_records(identifiers,metadata_prefix="oai_dc",url=None,name=None,encoding="utf-8")
+        # not name and url
+        with pytest.raises(NameOrUrlMissing):
+            request, records = get_records(identifiers,metadata_prefix="oai_dc",url=None,name=None,encoding="utf-8")
 
 
 
@@ -162,64 +162,64 @@ def test_send_run_status_mail(app,db,users):
     db.session.commit()
 
     # status is Successful
-    mock_send = patch("invenio_oaiharvester.api.send_mail")
-    mock_render = patch("invenio_oaiharvester.api.render_template",return_value="test_data")
-    send_run_status_mail(difference_harvest,success_logs)
-    args,kwargs = mock_send.call_args
-    assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
-    args,kwargs = mock_render.call_args
-    assert kwargs["result_text"] == "Successful"
-    assert kwargs["update_style"] == "Difference"
+    with patch("invenio_oaiharvester.api.send_mail") as mock_send:
+        with patch("invenio_oaiharvester.api.render_template",return_value="test_data") as mock_render:
+            send_run_status_mail(difference_harvest,success_logs)
+            args,kwargs = mock_send.call_args
+            assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
+            args,kwargs = mock_render.call_args
+            assert kwargs["result_text"] == "Successful"
+            assert kwargs["update_style"] == "Difference"
 
     # status is Suspended
-    mock_send = patch("invenio_oaiharvester.api.send_mail")
-    mock_render = patch("invenio_oaiharvester.api.render_template",return_value="test_data")
-    send_run_status_mail(difference_harvest,suspended_logs)
-    args,kwargs = mock_send.call_args
-    assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
-    args,kwargs = mock_render.call_args
-    assert kwargs["result_text"] == "Suspended"
-    assert kwargs["update_style"] == "Difference"
+    with patch("invenio_oaiharvester.api.send_mail") as mock_send:
+        with patch("invenio_oaiharvester.api.render_template",return_value="test_data") as mock_render:
+            send_run_status_mail(difference_harvest,suspended_logs)
+            args,kwargs = mock_send.call_args
+            assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
+            args,kwargs = mock_render.call_args
+            assert kwargs["result_text"] == "Suspended"
+            assert kwargs["update_style"] == "Difference"
 
     # status is Cancel
-    mock_send = patch("invenio_oaiharvester.api.send_mail")
-    mock_render = patch("invenio_oaiharvester.api.render_template",return_value="test_data")
-    send_run_status_mail(difference_harvest,cancel_logs)
-    args,kwargs = mock_send.call_args
-    assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
-    args,kwargs = mock_render.call_args
-    assert kwargs["result_text"] == "Cancel"
-    assert kwargs["update_style"] == "Difference"
+    with patch("invenio_oaiharvester.api.send_mail") as mock_send:
+        with patch("invenio_oaiharvester.api.render_template",return_value="test_data") as mock_render:
+            send_run_status_mail(difference_harvest,cancel_logs)
+            args,kwargs = mock_send.call_args
+            assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
+            args,kwargs = mock_render.call_args
+            assert kwargs["result_text"] == "Cancel"
+            assert kwargs["update_style"] == "Difference"
 
     # status is Failed
-    mock_send = patch("invenio_oaiharvester.api.send_mail")
-    mock_render = patch("invenio_oaiharvester.api.render_template",return_value="test_data")
-    send_run_status_mail(difference_harvest,failed_logs)
-    args,kwargs = mock_send.call_args
-    assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
-    args,kwargs = mock_render.call_args
-    assert kwargs["result_text"] == "Failed"
-    assert kwargs["update_style"] == "Difference"
+    with patch("invenio_oaiharvester.api.send_mail") as mock_send:
+        with patch("invenio_oaiharvester.api.render_template",return_value="test_data") as mock_render:
+            send_run_status_mail(difference_harvest,failed_logs)
+            args,kwargs = mock_send.call_args
+            assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
+            args,kwargs = mock_render.call_args
+            assert kwargs["result_text"] == "Failed"
+            assert kwargs["update_style"] == "Difference"
 
     # status is Running
-    mock_send = patch("invenio_oaiharvester.api.send_mail")
-    mock_render = patch("invenio_oaiharvester.api.render_template",return_value="test_data")
-    send_run_status_mail(difference_harvest,running_logs)
-    args,kwargs = mock_send.call_args
-    assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
-    args,kwargs = mock_render.call_args
-    assert kwargs["result_text"] == "Running"
-    assert kwargs["update_style"] == "Difference"
+    with patch("invenio_oaiharvester.api.send_mail") as mock_send:
+        with patch("invenio_oaiharvester.api.render_template",return_value="test_data") as mock_render:
+            send_run_status_mail(difference_harvest,running_logs)
+            args,kwargs = mock_send.call_args
+            assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
+            args,kwargs = mock_render.call_args
+            assert kwargs["result_text"] == "Running"
+            assert kwargs["update_style"] == "Difference"
 
     # harvest is bulk
-    mock_send = patch("invenio_oaiharvester.api.send_mail")
-    mock_render = patch("invenio_oaiharvester.api.render_template",return_value="test_data")
-    send_run_status_mail(bulk_harvest,running_logs)
-    args,kwargs = mock_send.call_args
-    assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
-    args,kwargs = mock_render.call_args
-    assert kwargs["result_text"] == "Running"
-    assert kwargs["update_style"] == "Bulk"
+    with patch("invenio_oaiharvester.api.send_mail") as mock_send:
+        with patch("invenio_oaiharvester.api.render_template",return_value="test_data") as mock_render:
+            send_run_status_mail(bulk_harvest,running_logs)
+            args,kwargs = mock_send.call_args
+            assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
+            args,kwargs = mock_render.call_args
+            assert kwargs["result_text"] == "Running"
+            assert kwargs["update_style"] == "Bulk"
 
     with patch("invenio_oaiharvester.api.send_mail",side_effect=Exception("test_error")):
         send_run_status_mail(bulk_harvest,running_logs)

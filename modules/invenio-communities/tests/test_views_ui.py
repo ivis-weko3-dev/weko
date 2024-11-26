@@ -8,8 +8,10 @@ from invenio_communities.views.ui import (
     pass_community,
     permission_required,
     generic_item,
-    dbsession_clean
+    dbsession_clean,
+    format_item
 )
+from invenio_accounts.models import Role
 
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_views_ui.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp    
 
@@ -61,12 +63,12 @@ def test_permission_required(app,db,users):
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_views_ui.py::test_format_item -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp    
 def test_format_item(app):
     template_value = app.jinja_env.from_string("test_value: {{ name }}")
-    patch("invenio_communities.utils.current_app.jinja_env.get_or_select_template",return_value=template_value)
-    item = "test_item"
-    template = "test_template"
-    name = "name"
-    result = app.jinja_env.filters["format_item"](item,template,name)
-    assert result == "test_value: test_item"
+    with patch("invenio_communities.utils.current_app.jinja_env.get_or_select_template",return_value=template_value):
+        item = "test_item"
+        template = "test_template"
+        name = "name"
+        result = app.jinja_env.filters["format_item"](item,template,name)
+        assert result == "test_value: test_item"
     
 # def mycommunities_ctx():
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_views_ui.py::test_mycommunities_ctx -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp    
@@ -111,37 +113,37 @@ def test_view(client,app,db,communities):
         ),
         THEME_FRONTPAGE_TEMPLATE = "weko_theme/frontpage.html"
         )
-    patch("invenio_communities.views.ui.get_search_detail_keyword",return_value=[])
+    with patch("invenio_communities.views.ui.get_search_detail_keyword",return_value=[]):
 
-    url = url_for("invenio_communities.view",community_id="comm1")
-    with patch("invenio_communities.views.ui.render_template",return_value=make_response()) as mock_render:
-        res = client.get(url)
-        assert res.status_code == 200
-        args, kwargs = mock_render.call_args
-        assert args[0] == "weko_theme/frontpage.html"
-        assert kwargs["sort_option"] == {"records": {"bestmatch": {"title": "Best match", "fields": ["_score"], "default_order": "desc", "order": 1}, "mostrecent": {"title": "Most recent", "fields": ["-_created"], "default_order": "asc", "order": 2}}}
-        assert kwargs["detail_condition"] == []
-        assert kwargs["community_id"] == "comm1"
-        assert kwargs["width"] == "3"
-        assert kwargs["height"] == None
-        assert kwargs["community"].id == "comm1"
-        assert kwargs["display_facet_search"] == False
-        assert kwargs["display_index_tree"] == True
-    
-    url = url_for("invenio_communities.view",community_id="comm1",view="weko")
-    with patch("invenio_communities.views.ui.render_template",return_value=make_response()) as mock_render:
-        res = client.get(url)
-        assert res.status_code == 200
-        args, kwargs = mock_render.call_args
-        assert args[0] == "weko_theme/frontpage.html"
-        assert kwargs["sort_option"] == {"records": {"bestmatch": {"title": "Best match", "fields": ["_score"], "default_order": "desc", "order": 1}, "mostrecent": {"title": "Most recent", "fields": ["-_created"], "default_order": "asc", "order": 2}}}
-        assert kwargs["detail_condition"] == []
-        assert kwargs["community_id"] == "comm1"
-        assert kwargs["width"] == "3"
-        assert kwargs["height"] == None
-        assert kwargs["community"].id == "comm1"
-        assert kwargs["display_facet_search"] == False
-        assert kwargs["display_index_tree"] == True
+        url = url_for("invenio_communities.view",community_id="comm1")
+        with patch("invenio_communities.views.ui.render_template",return_value=make_response()) as mock_render:
+            res = client.get(url)
+            assert res.status_code == 200
+            args, kwargs = mock_render.call_args
+            assert args[0] == "weko_theme/frontpage.html"
+            assert kwargs["sort_option"] == {"records": {"bestmatch": {"title": "Best match", "fields": ["_score"], "default_order": "desc", "order": 1}, "mostrecent": {"title": "Most recent", "fields": ["-_created"], "default_order": "asc", "order": 2}}}
+            assert kwargs["detail_condition"] == []
+            assert kwargs["community_id"] == "comm1"
+            assert kwargs["width"] == "3"
+            assert kwargs["height"] == None
+            assert kwargs["community"].id == "comm1"
+            assert kwargs["display_facet_search"] == False
+            assert kwargs["display_index_tree"] == True
+
+        url = url_for("invenio_communities.view",community_id="comm1",view="weko")
+        with patch("invenio_communities.views.ui.render_template",return_value=make_response()) as mock_render:
+            res = client.get(url)
+            assert res.status_code == 200
+            args, kwargs = mock_render.call_args
+            assert args[0] == "weko_theme/frontpage.html"
+            assert kwargs["sort_option"] == {"records": {"bestmatch": {"title": "Best match", "fields": ["_score"], "default_order": "desc", "order": 1}, "mostrecent": {"title": "Most recent", "fields": ["-_created"], "default_order": "asc", "order": 2}}}
+            assert kwargs["detail_condition"] == []
+            assert kwargs["community_id"] == "comm1"
+            assert kwargs["width"] == "3"
+            assert kwargs["height"] == None
+            assert kwargs["community"].id == "comm1"
+            assert kwargs["display_facet_search"] == False
+            assert kwargs["display_index_tree"] == True
 
 
 # # def detail(community):
@@ -160,15 +162,15 @@ def test_generic_item(app,db,users):
                              root_node_id=1)
     db.session.commit()
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
-        mock_render = patch("invenio_communities.views.ui.render_template",return_value=make_response())
-        result = generic_item(community,"test_template.html")
-        args,kwargs = mock_render.call_args
-        
-        assert args[0] == "test_template.html"
-        assert kwargs["mycommunities"][0].id == "comm1"
-        assert kwargs["is_owner"] == True
-        assert kwargs["community"].id == "comm1"
-        assert kwargs["detail"] == True
+        with patch("invenio_communities.views.ui.render_template",return_value=make_response()) as mock_render:
+            result = generic_item(community,"test_template.html")
+            args,kwargs = mock_render.call_args
+
+            assert args[0] == "test_template.html"
+            assert kwargs["mycommunities"][0].id == "comm1"
+            assert kwargs["is_owner"] == True
+            assert kwargs["community"].id == "comm1"
+            assert kwargs["detail"] == True
         
 # # def new():
 # # def edit(community):
@@ -180,6 +182,8 @@ def test_generic_item(app,db,users):
 def test_community_list(client,app,db,users):
     index = Index()
     db.session.add(index)
+    role = Role(id=2, name='Test Role')
+    db.session.add(role)
     db.session.commit()
     community = Community.create(community_id='comm1', role_id=2,
                              id_user=2, title='Title1',
@@ -191,23 +195,23 @@ def test_community_list(client,app,db,users):
     )
     url = url_for("invenio_communities.community_list")
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
-        mock_render = patch("invenio_communities.views.ui.render_template",return_value=make_response())
-        res = client.get(url)
-        assert res.status_code == 200
-        args,kwargs = mock_render.call_args
-        assert args[0] == "invenio_communities/communities_list.html"
-        assert kwargs["page"] == None
-        assert kwargs["render_widgets"] == False
-        assert kwargs["mycommunities"][0].id == "comm1"
-        assert kwargs["r_from"] == 0
-        assert kwargs["r_to"] == 1
-        assert kwargs["r_total"] == 1
-        assert kwargs["pagination"].page == 1
-        assert kwargs["form"].data == {"p": None, "csrf_token": None}
-        assert kwargs["title"] == "Communities"
-        assert kwargs["communities"][0].id == "comm1"
-        assert kwargs["featured_community"] == None
-        assert kwargs["display_community"] == False
+        with patch("invenio_communities.views.ui.render_template",return_value=make_response()) as mock_render:
+            res = client.get(url)
+            assert res.status_code == 200
+            args,kwargs = mock_render.call_args
+            assert args[0] == "invenio_communities/communities_list.html"
+            assert kwargs["page"] == None
+            assert kwargs["render_widgets"] == False
+            assert kwargs["mycommunities"][0].id == "comm1"
+            assert kwargs["r_from"] == 0
+            assert kwargs["r_to"] == 1
+            assert kwargs["r_total"] == 1
+            assert kwargs["pagination"].page == 1
+            assert kwargs["form"].data == {"p": None, "csrf_token": None}
+            assert kwargs["title"] == "Communities"
+            assert kwargs["communities"][0].id == "comm1"
+            assert kwargs["featured_community"] == None
+            assert kwargs["display_community"] == False
 
 class Dict2Obj:
     def __init__(self, **kwargs):
@@ -219,7 +223,7 @@ def test_community_list_settings(client,app,users):
     app.config.update(
         WEKO_THEME_DEFAULT_COMMUNITY="Root Index"
     )
-    # AdminSettings.getをモックし、DBからの設定を返す
+    # mock AdminSettings.get
     db_settings = Dict2Obj(
         title1='DB Title 1',
         title2='DB タイトル 2',
@@ -227,54 +231,46 @@ def test_community_list_settings(client,app,users):
         supplement='Database supplement text'
     )
     with patch("weko_admin.admin.AdminSettings.get", return_value=db_settings):
-        # get_languageをモックする
+        # mock get_language
         with patch("invenio_communities.views.ui.get_language", return_value='en'):
-            # render_template をモックし、引数をキャプチャする
+            # mock render_template
             mock_render_template = MagicMock(return_value=('<html></html>', 200))
             with patch("invenio_communities.views.ui.render_template", mock_render_template):
                 res = client.get(url)
                 assert res.status_code == 200
-                # モックされた render_template の引数を検証
+                # assert render_template
                 kwargs = mock_render_template.call_args[1]
                 assert kwargs['lists']['title'] == db_settings.title1
                 assert kwargs['lists']['icon_code'] == db_settings.icon_code
                 assert kwargs['lists']['supplement'] == db_settings.supplement
-        # get_languageをモックする
         with patch("invenio_communities.views.ui.get_language", return_value='ja'):
-            # render_template をモックし、引数をキャプチャする
             mock_render_template = MagicMock(return_value=('<html></html>', 200))
             with patch("invenio_communities.views.ui.render_template", mock_render_template):
                 res = client.get(url)
                 assert res.status_code == 200
-                # モックされた render_template の引数を検証
                 kwargs = mock_render_template.call_args[1]
                 assert kwargs['lists']['title'] == db_settings.title2
                 assert kwargs['lists']['icon_code'] == db_settings.icon_code
                 assert kwargs['lists']['supplement'] == db_settings.supplement
     with patch("weko_admin.admin.AdminSettings.get", return_value=None):
         with patch("invenio_communities.views.ui.get_language", return_value='en'):
-            # render_template をモックし、引数をキャプチャする
             mock_render_template = MagicMock(return_value=('<html></html>', 200))
             with patch("invenio_communities.views.ui.render_template", mock_render_template):
                 res = client.get(url)
                 assert res.status_code == 200
-                # モックされた render_template の引数を検証
                 kwargs = mock_render_template.call_args[1]
-                assert kwargs["lists"]["title"] == 'Communities'  # 英語ならconfigから英語のデフォルト値を使用
+                assert kwargs["lists"]["title"] == 'Communities'
                 assert kwargs["lists"]["icon_code"] == 'fa fa-group'
                 assert kwargs["lists"]["supplement"] == 'created and curated by WEKO3 users'
         with patch("invenio_communities.views.ui.get_language", return_value='ja'):
-            # render_template をモックし、引数をキャプチャする
             mock_render_template = MagicMock(return_value=('<html></html>', 200))
             with patch("invenio_communities.views.ui.render_template", mock_render_template):
                 res = client.get(url)
                 assert res.status_code == 200
-                # モックされた render_template の引数を検証
                 kwargs = mock_render_template.call_args[1]
-                assert kwargs["lists"]["title"] == 'コミュニティ'  # 日本語ならconfigから英語のデフォルト値を使用
+                assert kwargs["lists"]["title"] == 'コミュニティ'
                 assert kwargs["lists"]["icon_code"] == 'fa fa-group'
                 assert kwargs["lists"]["supplement"] == 'created and curated by WEKO3 users'
-    # AdminSettings.getをモックし、DBからの設定を返す
     db_settings = Dict2Obj(
         title1='DB Title 1',
         title2='',
@@ -282,16 +278,13 @@ def test_community_list_settings(client,app,users):
         supplement='Database supplement text'
     )
     with patch("weko_admin.admin.AdminSettings.get", return_value=db_settings):
-        # get_languageをモックする
         with patch("invenio_communities.views.ui.get_language", return_value='ja'):
-            # render_template をモックし、引数をキャプチャする
             mock_render_template = MagicMock(return_value=('<html></html>', 200))
             with patch("invenio_communities.views.ui.render_template", mock_render_template):
                 res = client.get(url)
                 assert res.status_code == 200
-                # モックされた render_template の引数を検証
                 kwargs = mock_render_template.call_args[1]
-                assert kwargs['lists']['title'] == db_settings.title1 # title2が未設定かつ言語が日本語の場合、title1を使用
+                assert kwargs['lists']['title'] == db_settings.title1
 
 # def dbsession_clean(exception):
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_views_ui.py::test_dbsession_clean -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp    

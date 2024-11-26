@@ -73,23 +73,23 @@ class TestSitemapSettingView:
     # .tox/c1/bin/pytest --cov=weko_sitemap tests/test_admin.py::TestSitemapSettingView::test_update_sitemap -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-sitemap/.tox/c1/tmp
     def test_update_sitemap(self, client, users):
         login_user_via_session(client=client, email=users[3]["email"])
-        patch("weko_sitemap.admin.validate_csrf_header")
+        with patch("weko_sitemap.admin.validate_csrf_header"):
 
-        class MockTask:
-            def __init__(self,id):
-                self.id = id
+            class MockTask:
+                def __init__(self,id):
+                    self.id = id
 
-        patch("weko_sitemap.tasks.link_success_handler.s",return_value=None)
-        patch("weko_sitemap.tasks.link_error_handler.s",return_value=None)
-        patch("weko_sitemap.tasks.update_sitemap.apply_async",return_value=MockTask("test_task"))
+            with patch("weko_sitemap.tasks.link_success_handler.s",return_value=None):
+                with patch("weko_sitemap.tasks.link_error_handler.s",return_value=None):
+                    with patch("weko_sitemap.tasks.update_sitemap.apply_async",return_value=MockTask("test_task")):
 
-        url = url_for("sitemap.update_sitemap")
-        test = {
-            "task_id": "test_task",
-            "loc":"/admin/sitemap/task_status/test_task",
-        }
-        res = client.post(url)
-        assert json.loads(res.data) == test
+                        url = url_for("sitemap.update_sitemap")
+                        test = {
+                            "task_id": "test_task",
+                            "loc":"/admin/sitemap/task_status/test_task",
+                        }
+                        res = client.post(url)
+                        assert json.loads(res.data) == test
 
     # def get_task_status(self, task_id):
     # .tox/c1/bin/pytest --cov=weko_sitemap tests/test_admin.py::TestSitemapSettingView::test_get_task_status_acl_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-sitemap/.tox/c1/tmp
@@ -139,22 +139,22 @@ class TestSitemapSettingView:
             return MockResult("ERROR")
 
         # task_result.state = success
-        patch("weko_sitemap.admin.AsyncResult",side_effect=mock_result_success)
-        url = url_for("sitemap.get_task_status", task_id="test_id",_external=True)
-        ret = client.get(url)
-        result = json.loads(ret.data)
-        assert result["start_time"] == "test_start_time"
-        assert result["end_time"] == "test_end_time"
-        assert result["total"] == "test_total"
-        assert result["state"] == "SUCCESS"
+        with patch("weko_sitemap.admin.AsyncResult",side_effect=mock_result_success):
+            url = url_for("sitemap.get_task_status", task_id="test_id",_external=True)
+            ret = client.get(url)
+            result = json.loads(ret.data)
+            assert result["start_time"] == "test_start_time"
+            assert result["end_time"] == "test_end_time"
+            assert result["total"] == "test_total"
+            assert result["state"] == "SUCCESS"
 
         # task_result.state != success
-        patch("weko_sitemap.admin.AsyncResult",side_effect=mock_result_else)
-        url = url_for("sitemap.get_task_status", task_id="test_id",_external=True)
-        ret = client.get(url)
-        result = json.loads(ret.data)
-        assert result["start_time"] == ""
-        assert result["end_time"] == ""
-        assert result["total"] == ""
-        assert result["state"] == "ERROR"
+        with patch("weko_sitemap.admin.AsyncResult",side_effect=mock_result_else):
+            url = url_for("sitemap.get_task_status", task_id="test_id",_external=True)
+            ret = client.get(url)
+            result = json.loads(ret.data)
+            assert result["start_time"] == ""
+            assert result["end_time"] == ""
+            assert result["total"] == ""
+            assert result["state"] == "ERROR"
 

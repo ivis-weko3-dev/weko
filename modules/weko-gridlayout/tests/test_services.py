@@ -18,7 +18,7 @@ from weko_gridlayout.services import (
     WidgetDesignPageServices,
     WidgetDataLoaderServices
 ) 
-from weko_gridlayout.models import WidgetDesignPage
+from weko_gridlayout.models import WidgetDesignPage, WidgetItem
 
 
 ### class WidgetItemServices:
@@ -422,7 +422,7 @@ def test_handle_change_item_in_preview_widget_item(i18n_app):
                     with patch("weko_gridlayout.models.WidgetDesignPage.update_settings", return_value=False):
                         assert not WidgetDesignServices.handle_change_item_in_preview_widget_item(widget_id, data_result)
                     with patch("weko_gridlayout.models.WidgetDesignPage.update_settings", return_value=True):
-                        with patch("weko_gridlayout.utils.delete_widget_cache", return_value="test"):
+                        with patch("weko_gridlayout.services.delete_widget_cache", return_value="test"):
                             assert WidgetDesignServices.handle_change_item_in_preview_widget_item(widget_id, data_result)
     assert not WidgetDesignServices.handle_change_item_in_preview_widget_item(widget_id, data_result)                            
 
@@ -486,10 +486,20 @@ def test__update_main_layout_id_for_widget(i18n_app, db):
     )
     db.session.add(test)
     db.session.commit()
+    # create mock
+    mock_widget_item = MagicMock(spec=WidgetItem)
+    mock_widget_item.settings = {"some_setting": "value"}
+    mock_widget_item.widget_id = 1
+    mock_widget_item.repository_id = "test"
+    mock_widget_item.widget_type = "test_type"
+    mock_widget_item.is_enabled = True
+
     with patch("weko_gridlayout.models.WidgetItem.get_id_by_repository_and_type", return_value=["1"]):
-        with patch("weko_gridlayout.models.WidgetItem.get_by_id", return_value=""):
-            with patch("weko_gridlayout.services.WidgetDesignPageServices._update_page_id_for_widget_item_setting", return_value=""):
-                assert WidgetDesignPageServices._update_main_layout_id_for_widget("test")
+        with patch("weko_gridlayout.models.WidgetItem.get_by_id", return_value=mock_widget_item):
+            with patch("weko_gridlayout.services.WidgetDesignPageServices._update_page_id_for_widget_item_setting", return_value="") as mock_update_page:
+                result = WidgetDesignPageServices._update_main_layout_id_for_widget("test")
+                mock_update_page.assert_called_once_with(1, mock_widget_item)
+                assert result is None
 
 
 #     def _update_main_layout_page_id_for_widget_design( ERR ~ 
@@ -652,9 +662,10 @@ def test_get_new_arrivals_data(i18n_app, widget_item):
 
     res.get_new_items = get_new_items_2
 
-    with patch("weko_gridlayout.services.WidgetItemServices.get_widget_data_by_widget_id", return_value=data4):
-        with patch("weko_gridlayout.services.QueryRankingHelper", res):
-            assert "Cannot search data" in w.get_new_arrivals_data(1)["error"]
+    with patch("weko_gridlayout.services.Indexes.get_browsing_tree_ignore_more", return_value=[{"id": "1","name": "index_name_1","pid": "parent_1","children": []}]):
+        with patch("weko_gridlayout.services.WidgetItemServices.get_widget_data_by_widget_id", return_value=data4):
+            with patch("weko_gridlayout.services.QueryRankingHelper", res):
+                assert "Cannot search data" in w.get_new_arrivals_data(1)["error"]
 
 
 #     def get_arrivals_rss(cls, data, term, count):

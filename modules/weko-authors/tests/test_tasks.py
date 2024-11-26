@@ -11,20 +11,20 @@ from weko_authors.tasks import export_all,import_author,check_is_import_availabl
 # def export_all():
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_tasks.py::test_export_all -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 def test_export_all(app):
-    patch("weko_authors.tasks.set_export_status")
-    patch("weko_authors.tasks.save_export_url")
-    patch("weko_authors.tasks.export_authors",return_value="test_url.txt")
+    with patch("weko_authors.tasks.set_export_status"), \
+         patch("weko_authors.tasks.save_export_url"):
+         
+        with patch("weko_authors.tasks.export_authors", return_value="test_url.txt"):
+            result = export_all()
+            assert result == "test_url.txt"
 
-    result = export_all()
-    assert result == "test_url.txt"
+        with patch("weko_authors.tasks.export_authors",return_value=None):
+            result = export_all()
+            assert result == None
 
-    patch("weko_authors.tasks.export_authors",return_value=None)
-    result = export_all()
-    assert result == None
-
-    patch("weko_authors.tasks.export_authors",side_effect=Exception)
-    result = export_all()
-    assert result == None
+        with patch("weko_authors.tasks.export_authors",side_effect=Exception):
+            result = export_all()
+            assert result == None
 
 # def import_author(author):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_tasks.py::test_import_author -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
@@ -43,7 +43,7 @@ def test_import_author(app):
 
 # def check_is_import_available(group_task_id=None):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_tasks.py::test_check_is_import_available -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
-def test_check_is_import_available(app):
+def test_check_is_import_available(app, celery):
     cache_key = "author_import_cache"
     class MockTask:
         def __init__(self,id,status):
@@ -74,46 +74,45 @@ def test_check_is_import_available(app):
                 return MockTask(2,"not success")
             elif task_id == "not_success_task2":
                 return MockTask("not_success_task2","not success")
-    patch("weko_authors.tasks.GroupResult",side_effect=MockGroupTask)
     class MockInspect:
         def __init__(self,flg):
             self.flg = flg
         def ping(self):
             return self.flg
-    # inspect.ping is false
-    patch("weko_authors.tasks.inspect",return_value=MockInspect(False))
-    result = check_is_import_available()
-    assert result == {"is_available":False,"celery_not_run":True}
+    with app.app_context():
+        # inspect.ping is false
+        with patch("weko_authors.tasks.GroupResult", new=MockGroupTask):
+            with patch.object(app.extensions['celery'].control, 'inspect', return_value=MockInspect(False)):
+                result = check_is_import_available()
+                assert result == {"is_available": False, "celery_not_run": True}
 
-    # inspect.ping is true
-    patch("weko_authors.tasks.inspect",return_value=MockInspect(True))
+        # inspect.ping is true
+        with patch("weko_authors.tasks.GroupResult.restore", side_effect=mock_restore):
+            with patch.object(app.extensions['celery'].control, 'inspect', return_value=MockInspect(True)):
+                current_cache.delete(cache_key)
+                result = check_is_import_available()
+                assert result == {"is_available":True}
 
-    current_cache.delete(cache_key)
-    # not exist cache
-    patch("weko_authors.tasks.GroupResult.restore",side_effect=mock_restore)
-    result = check_is_import_available()
-    assert result == {"is_available":True}
+                # not exist task
+                current_cache.set(cache_key,{"group_task_id":"not_exist_task"})
+                result = check_is_import_available()
+                assert result == {"is_available":True}
+                assert current_cache.get(cache_key) is None
 
-    # not exist task
-    current_cache.set(cache_key,{"group_task_id":"not_exist_task"})
-    result = check_is_import_available()
-    assert result == {"is_available":True}
-    assert current_cache.get(cache_key) is None
+                # task is successful
+                current_cache.set(cache_key,{"group_task_id":"success_task"})
+                result = check_is_import_available(1)
+                assert result == {"is_available":True}
+                assert current_cache.get(cache_key) is None
 
-    # task is successful
-    current_cache.set(cache_key,{"group_task_id":"success_task"})
-    result = check_is_import_available(1)
-    assert result == {"is_available":True}
-    assert current_cache.get(cache_key) is None
+                # task is not success,failed, group_task_id = taks.id
+                current_cache.set(cache_key,{"group_task_id":"not_success_task1"})
+                result = check_is_import_available(2)
+                assert result == {"is_available":False,"continue_data":{"group_task_id":"not_success_task1"}}
+                assert current_cache.get(cache_key) is not None
 
-    # task is not success,failed, group_task_id = taks.id
-    current_cache.set(cache_key,{"group_task_id":"not_success_task1"})
-    result = check_is_import_available(2)
-    assert result == {"is_available":False,"continue_data":{"group_task_id":"not_success_task1"}}
-    assert current_cache.get(cache_key) is not None
-
-    # task is not success,failed, group_task_id != taks.id
-    current_cache.set(cache_key,{"group_task_id":"not_success_task2"})
-    result = check_is_import_available(2)
-    assert result == {"is_available":False}
-    assert current_cache.get(cache_key) is not None
+                # task is not success,failed, group_task_id != taks.id
+                current_cache.set(cache_key,{"group_task_id":"not_success_task2"})
+                result = check_is_import_available(2)
+                assert result == {"is_available":False}
+                assert current_cache.get(cache_key) is not None

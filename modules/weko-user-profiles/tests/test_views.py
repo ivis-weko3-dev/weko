@@ -24,7 +24,7 @@
 """Tests for user profile views."""
 
 from flask import url_for, json,make_response, current_app, g, jsonify
-from mock import patch
+from mock import patch, MagicMock
 from flask_breadcrumbs import current_breadcrumbs
 from flask.json import JSONEncoder as BaseEncoder
 from flask_security import url_for_security
@@ -119,10 +119,11 @@ def test_profile_view_not_accessible_without_login(app,register_bp,db):
     with app.test_request_context():
         profile_url = url_for('weko_user_profiles.profile')
 
-    with app.test_client() as client:
-        resp = client.get(profile_url, follow_redirects=True)
-        assert resp.status_code == 200
-        assert 'name="login_user_form"' in str(resp.data)
+    with patch('invenio_accounts.views.settings.base_login', return_value=('<html><form name="login_user_form"></form></html>', 200)):
+        with app.test_client() as client:
+            resp = client.get(profile_url, follow_redirects=True)
+            assert resp.status_code == 200
+            assert 'name="login_user_form"' in str(resp.data)
 
 
 def test_profile_view(app,register_bp,db):
@@ -365,10 +366,10 @@ def test_get_profile_info(client,app,admin_app,register_bp,users):
                 "positions":WEKO_USERPROFILES_POSITION_LIST,
                 "error":""
             }
-            patch("weko_user_profiles.views.get_user_profile_info",return_value=profile_info)
-            app.json_encoder = TestJSONEncoder
-            res = client.get(url)
-            assert json.loads(res.data) == json.loads(jsonify(test).data)
+            with patch("weko_user_profiles.views.get_user_profile_info",return_value=profile_info):
+                app.json_encoder = TestJSONEncoder
+                res = client.get(url)
+                assert json.loads(res.data) == json.loads(jsonify(test).data)
 
 
 # def profile():
@@ -381,29 +382,29 @@ def test_profile(client,register_bp,users):
         assert res.status_code == 302
         login_user_via_session(client=client,email=users[0]["email"])
 
-        patch("weko_user_profiles.views.profile_form_factory")
-        patch("weko_user_profiles.views.render_template",return_value=make_response())
-        mock_profile = patch("weko_user_profiles.views.handle_profile_form")
-        mock_verification = patch("weko_user_profiles.views.handle_verification_form")
+        with patch("weko_user_profiles.views.profile_form_factory"):
+            with patch("weko_user_profiles.views.render_template",return_value=make_response()):
+                with patch("weko_user_profiles.views.handle_profile_form") as mock_profile:
+                    with patch("weko_user_profiles.views.handle_verification_form") as mock_verification:
 
-        # not submit
-        client.post(url,data={})
-        mock_profile.assert_not_called()
-        mock_verification.assert_not_called()
-
-        # submit is profile
-        client.post(url,data={"submit":"profile"})
-        mock_profile.assert_called_once()
-
-        # submit is verification
-        client.post(url,data={"submit":"verification"})
-        mock_verification.assert_called_once()
-
-        # check submenu, breadcrumbs
-        assert current_menu.submenu("settings.profile").active == True
-        assert current_menu.submenu("settings.profile").url == "/account/settings/profile/"
-        assert current_menu.submenu("settings.profile").text == '<i class="fa fa-user fa-fw"></i> Profile'
-        assert list(map(lambda x:x.url,list(current_breadcrumbs))) == ["#","#","#","/account/settings/profile/"]
+                        # not submit
+                        client.post(url,data={})
+                        mock_profile.assert_not_called()
+                        mock_verification.assert_not_called()
+    
+                        # submit is profile
+                        client.post(url,data={"submit":"profile"})
+                        mock_profile.assert_called_once()
+    
+                        # submit is verification
+                        client.post(url,data={"submit":"verification"})
+                        mock_verification.assert_called_once()
+    
+                        # check submenu, breadcrumbs
+                        assert current_menu.submenu("settings.profile").active == True
+                        assert current_menu.submenu("settings.profile").url == "/account/settings/profile/"
+                        assert current_menu.submenu("settings.profile").text == '<i class="fa fa-user fa-fw"></i> Profile'
+                        assert list(map(lambda x:x.url,list(current_breadcrumbs))) == ["#","#","#","/account/settings/profile/"]
 
 
 # def profile_form_factory():

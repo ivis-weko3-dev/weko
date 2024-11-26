@@ -86,7 +86,7 @@ def test_group_creation(app):
     """Test creation of groups."""
     with app.app_context():
         from weko_groups.models import Group, \
-            GroupAdmin, Membership, SubscriptionPolicy, PrivacyPolicy
+            GroupAdmin, Membership
 
         g = Group.create(name="test")
         assert g.name == 'test'
@@ -393,7 +393,7 @@ def test_group_add_member(app):
         assert isinstance(obj, Membership)
         assert Group.query.count() == 1
         assert Membership.query.count() == 1
-        with pytest.raises(FlushError):
+        with pytest.raises(IntegrityError):
             g.add_member(u)
 
 
@@ -469,7 +469,7 @@ def test_group_subscribe(app):
                            subscription_policy=SubscriptionPolicy.APPROVAL)
         g_c = Group.create(name="test_closed",
                            subscription_policy=SubscriptionPolicy.CLOSED)
-        u = User(email="test", password="test")
+        u = User(email="test@test.org", password="test")
         db.session.add(u)
         db.session.commit()
 
@@ -494,13 +494,11 @@ def test_group_is_admin(app):
         from invenio_accounts.models import User
 
         g = Group.create(name="test")
-        u = User(email="test", password="test")
+        u = User(email="test@test.org", password="test")
         db.session.add(u)
-        db.session.commit()
-
         g.add_admin(u)
-
         assert g.is_admin(u)
+        db.session.commit()
 
         a = Group.create(name="admin")
         g = Group.create(name="test2", admins=[a])
@@ -544,8 +542,7 @@ def test_membership_create(app):
     :param app: The flask application.
     """
     with app.app_context():
-        from weko_groups.models import Group, Membership, \
-            MembershipState
+        from weko_groups.models import Group, Membership
         from invenio_accounts.models import User
 
         g = Group.create(name="test")
@@ -557,7 +554,7 @@ def test_membership_create(app):
         assert m.state == MembershipState.ACTIVE
         assert m.group.name == g.name
         assert m.user.id == u.id
-        with pytest.raises(FlushError):
+        with pytest.raises(IntegrityError):
             Membership.create(g, u)
 
 

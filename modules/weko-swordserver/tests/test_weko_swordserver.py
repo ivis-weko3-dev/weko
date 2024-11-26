@@ -13,6 +13,7 @@ from flask import Flask
 
 from weko_swordserver import WekoSWORDServer
 
+from unittest.mock import patch, MagicMock
 
 def test_version():
     """Test version import."""
@@ -38,6 +39,9 @@ def test_view(client,sessionlifetime,install_node_module):
     """Test view."""
     import os
     os.environ["INVENIO_WEB_HOST_NAME"] = "weko3.example.org"
-    res = client.get("/")
-    assert res.status_code == 200
-    # assert 'Welcome to WEKO-SWORDServer' in str(res.data)
+    mock_render_template = MagicMock(return_value=('<html></html>', 200))
+    with patch("weko_theme.views.render_template", mock_render_template):
+        res = client.get("/")
+        assert res.status_code == 200
+        assert "invenio_theme/frontpage.html" in [call[0][0] for call in mock_render_template.call_args_list]
+        # assert 'Welcome to WEKO-SWORDServer' in str(res.data)

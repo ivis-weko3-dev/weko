@@ -23,7 +23,8 @@
 
 import pytest
 from mock import patch, MagicMock
-from flask import Flask, json, jsonify, session, url_for
+from flask import Flask, json, jsonify, session, url_for, g
+from sqlalchemy.exc import IntegrityError
 
 from weko_groups.models import Group
 from weko_groups.views import (
@@ -76,9 +77,11 @@ def test_groupcount(app_2):
 
 # def _has_admin_access():
 def test__has_admin_access(app):
+    from flask_principal import Identity
     with app.app_context():
         user = MagicMock()
         user.is_authenticated = True
+        g.identity = Identity(user.id)
         with patch("flask_login.utils._get_user", return_value=user):
             assert _has_admin_access() == False
 
@@ -134,10 +137,6 @@ def test_invitations(app_2, users):
 
 # def new():
 def test_new(app_2, users):
-    from sqlalchemy.exc import IntegrityError
-
-    def validate_on_submit_True():
-        return True
     
     def validate_on_submit_False():
         return False
@@ -158,8 +157,19 @@ def test_new(app_2, users):
                     except:
                         pass
 
-                form.validate_on_submit = validate_on_submit_True
+def test_new_2(app_2, users):
 
+    def validate_on_submit_True():
+        return True
+
+    form = MagicMock()
+    form.validate_on_submit = validate_on_submit_True
+    group = MagicMock()
+    group.name = "group_name"
+    
+    with app_2.test_request_context():
+        with app_2.test_client() as client:
+            with patch("flask_login.utils._get_user", return_value=users[3]["obj"]):
                 with patch("weko_groups.views.GroupForm", return_value=form):
                     with patch("weko_groups.views.Group.create", return_value=group):
                         res = client.get(url_for('weko_groups.new'))

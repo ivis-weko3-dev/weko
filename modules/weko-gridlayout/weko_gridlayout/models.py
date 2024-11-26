@@ -612,7 +612,7 @@ class WidgetDesignPage(db.Model):
         :return: True if successful, otherwise False.
         """
         try:
-            pages = cls.query.filter_by(repository_id=int(repository_id)).all()
+            pages = cls.query.filter_by(repository_id=str(repository_id)).all()
             for page in pages:
                 with db.session.begin_nested():
                     page.settings = settings

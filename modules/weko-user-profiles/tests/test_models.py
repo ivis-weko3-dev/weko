@@ -54,7 +54,7 @@ def test_profile_updating(base_app,db):
     app = base_app
 
     with app.app_context():
-        user = User(email='lollorosso', password='test_password')
+        user = User(email='lollorosso@test.org', password='test_password')
         db.session.add(user)
         db.session.commit()
 
