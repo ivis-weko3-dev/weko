@@ -32,7 +32,7 @@ def test_index_new(app, test_client, users):
     with app.test_request_context():
         index_url = url_for('invenio_deposit_ui.index')
         new_url = url_for('invenio_deposit_ui.new')
-    login_user_via_session(test_client, email=users[0]['email'])
+    login_user_via_session(test_client, email=users[0]['_email'])
     assert test_client.get(index_url).status_code == 200
     assert test_client.get(new_url).status_code == 200
 

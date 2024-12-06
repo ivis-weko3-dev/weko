@@ -1276,7 +1276,6 @@ def register_item_metadata(item, root_path, owner, is_gakuninrdm=False):
     pid = PersistentIdentifier.query.filter_by(
         pid_type="recid", pid_value=item_id
     ).first()
-
     record = WekoDeposit.get_record(pid.object_uuid)
 
     _deposit_data = record.dumps().get("_deposit")
@@ -1573,7 +1572,7 @@ def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
                 delete_cache_data(cache_key)
 
         except SQLAlchemyError as ex:
-            current_app.logger.error("sqlalchemy error: ", ex)
+            current_app.logger.error("sqlalchemy error: %s", ex)
             db.session.rollback()
             if item.get("id"):
                 pid = PersistentIdentifier.query.filter_by(
@@ -1598,7 +1597,7 @@ def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
 
             return {"success": False, "error_id": error_id}
         except OpenSearchException as ex:
-            current_app.logger.error("elasticsearch  error: ", ex)
+            current_app.logger.error("elasticsearch  error: {}".format(ex))
             db.session.rollback()
             if item.get("id"):
                 pid = PersistentIdentifier.query.filter_by(
@@ -1623,7 +1622,7 @@ def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
 
             return {"success": False, "error_id": error_id}
         except redis.RedisError as ex:
-            current_app.logger.error("redis  error: ", ex)
+            current_app.logger.error("redis error: {}".format(ex))
             db.session.rollback()
             if item.get("id"):
                 pid = PersistentIdentifier.query.filter_by(
@@ -1635,7 +1634,7 @@ def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
                     PIDNodeVersioning(pid=parent_pid).last_child.object_uuid
                 )
                 handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
-            current_app.logger.error("item id: %s update error." % item["id"])
+            current_app.logger.error("item id: %s update error.", item["id"], exc_info=True)
             traceback.print_exc(file=sys.stdout)
             error_id = None
             if (
@@ -4089,7 +4088,7 @@ def result_download_ui(search_results, input_json, language='en'):
     return send_file(
         f'{export_path}/search_result.tsv',
         as_attachment=True,
-        attachment_filename='search_result.tsv',
+        download_name='search_result.tsv',
         mimetype='text/tab-separated-values'
     )
 

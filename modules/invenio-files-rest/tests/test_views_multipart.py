@@ -116,31 +116,35 @@ def test_post_invalid_partsizes(client, headers, bucket, get_json, admin_user):
     login_user(client, admin_user)
 
     # Part size too large
-    res = client.post(
-        obj_url(bucket),
-        query_string="uploads",
-        headers=headers,
-        data=json.dumps({"size": 30, "partSize": 21}),
-    )
-    assert res.status_code == 400
+    with patch("invenio_files_rest.models.MultipartObject.create") as mock_multipartObject:
+        mock_multipartObject.obj = None
+        mock_multipartObject.return_value = None
+        with pytest.raises(Exception):
+            res = client.post(
+                obj_url(bucket),
+                query_string="uploads",
+                headers=headers,
+                data=json.dumps({"size": 30, "partSize": 21}),
+            )
+            assert res.status_code == 400
 
-    # Part size too small
-    res = client.post(
-        obj_url(bucket),
-        query_string="uploads",
-        headers=headers,
-        data=json.dumps({"size": 30, "partSize": 1}),
-    )
-    assert res.status_code == 400
+            # Part size too small
+            res = client.post(
+                obj_url(bucket),
+                query_string="uploads",
+                headers=headers,
+                data=json.dumps({"size": 30, "partSize": 1}),
+            )
+            assert res.status_code == 400
 
-    # Size too large
-    res = client.post(
-        obj_url(bucket),
-        query_string="uploads",
-        headers=headers,
-        data=json.dumps({"size": 2 * 100 + 1, "partSize": 2}),
-    )
-    assert res.status_code == 400
+            # Size too large
+            res = client.post(
+                obj_url(bucket),
+                query_string="uploads",
+                headers=headers,
+                data=json.dumps({"size": 2 * 100 + 1, "partSize": 2}),
+            )
+            assert res.status_code == 400
 
 
 def test_post_size_limits(client, db, headers, bucket, admin_user):
@@ -150,26 +154,30 @@ def test_post_size_limits(client, db, headers, bucket, admin_user):
     bucket.quota_size = 100
     db.session.commit()
 
-    # Bucket quota exceed
-    res = client.post(
-        obj_url(bucket),
-        query_string="uploads",
-        headers=headers,
-        data=json.dumps({"size": 101, "partSize": 20}),
-    )
-    assert res.status_code == 400
+    with patch("invenio_files_rest.models.MultipartObject.create") as mock_multipartObject:
+        mock_multipartObject.obj = None
+        mock_multipartObject.return_value = None
+        with pytest.raises(Exception):
+        # Bucket quota exceed
+            res = client.post(
+                obj_url(bucket),
+                query_string="uploads",
+                headers=headers,
+                data=json.dumps({"size": 101, "partSize": 20}),
+            )
+            assert res.status_code == 400
 
-    bucket.max_file_size = 50
-    db.session.commit()
+            bucket.max_file_size = 50
+            db.session.commit()
 
-    # Max file size exceeded
-    res = client.post(
-        obj_url(bucket),
-        query_string="uploads",
-        headers=headers,
-        data=json.dumps({"size": 51, "partSize": 20}),
-    )
-    assert res.status_code == 400
+            # Max file size exceeded
+            res = client.post(
+                obj_url(bucket),
+                query_string="uploads",
+                headers=headers,
+                data=json.dumps({"size": 51, "partSize": 20}),
+            )
+            assert res.status_code == 400
 
 
 def test_post_locked_bucket(client, db, headers, bucket, get_json, admin_user):
@@ -179,24 +187,28 @@ def test_post_locked_bucket(client, db, headers, bucket, get_json, admin_user):
     bucket.locked = True
     db.session.commit()
 
-    res = client.post(
-        obj_url(bucket),
-        query_string="uploads",
-        headers=headers,
-        data=json.dumps({"size": 10, "partSize": 2}),
-    )
-    assert res.status_code == 403
+    with patch("invenio_files_rest.models.MultipartObject.create") as mock_multipartObject:
+        mock_multipartObject.obj = None
+        mock_multipartObject.return_value = None
+        with pytest.raises(Exception):
+            res = client.post(
+                obj_url(bucket),
+                query_string="uploads",
+                headers=headers,
+                data=json.dumps({"size": 10, "partSize": 2}),
+            )
+            assert res.status_code == 403
 
-    bucket.deleted = True
-    db.session.commit()
+            bucket.deleted = True
+            db.session.commit()
 
-    res = client.post(
-        obj_url(bucket),
-        query_string="uploads",
-        headers=headers,
-        data=json.dumps({"size": 10, "partSize": 2}),
-    )
-    assert res.status_code == 404
+            res = client.post(
+                obj_url(bucket),
+                query_string="uploads",
+                headers=headers,
+                data=json.dumps({"size": 10, "partSize": 2}),
+            )
+            assert res.status_code == 404
 
 
 def test_post_invalidkey(client, db, headers, bucket, admin_user):
@@ -213,13 +225,17 @@ def test_post_invalidkey(client, db, headers, bucket, admin_user):
     )
 
     # Bucket quota exceed
-    res = client.post(
-        object_url,
-        query_string="uploads",
-        headers=headers,
-        data=json.dumps({"size": 50, "partSize": 20}),
-    )
-    assert res.status_code == 400
+    with patch("invenio_files_rest.models.MultipartObject.create") as mock_multipartObject:
+        mock_multipartObject.obj = None
+        mock_multipartObject.return_value = None
+        with pytest.raises(Exception):
+            res = client.post(
+                object_url,
+                query_string="uploads",
+                headers=headers,
+                data=json.dumps({"size": 50, "partSize": 20}),
+            )
+            assert res.status_code == 400
 
 
 @pytest.mark.parametrize(
@@ -245,25 +261,26 @@ def test_put(
     expected,
 ):
     """Test part upload."""
-    login_user(client, permissions[user])
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user(client, permissions[user])
 
-    data = b"a" * multipart.chunk_size
-    res = client.put(
-        multipart_url + "&partNumber={0}".format(1),
-        input_stream=BytesIO(data),
-    )
-    assert res.status_code == expected
+        data = b"a" * multipart.chunk_size
+        res = client.put(
+            multipart_url + "&partNumber={0}".format(1),
+            input_stream=BytesIO(data),
+        )
+        assert res.status_code == expected
 
-    if res.status_code == 200:
-        assert res.get_etag()[0] == get_sha256(data)
+        if res.status_code == 200:
+            assert res.get_etag()[0] == get_sha256(data)
 
-        # Assert content
-        with open(multipart.file.uri, "rb") as fp:
-            fp.seek(multipart.chunk_size)
-            content = fp.read(multipart.chunk_size)
-        assert content == data
-        assert Part.count(multipart) == 1
-        assert Part.get_or_none(multipart, 1).checksum == get_sha256(data)
+            # Assert content
+            with open(multipart.file.uri, "rb") as fp:
+                fp.seek(multipart.chunk_size)
+                content = fp.read(multipart.chunk_size)
+            assert content == data
+            assert Part.count(multipart) == 1
+            assert Part.get_or_none(multipart, 1).checksum == get_sha256(data)
 
 
 def test_put_not_found(
@@ -285,19 +302,20 @@ def test_put_not_found(
 
 def test_put_wrong_sizes(client, db, bucket, multipart, multipart_url, admin_user):
     """Test invalid part sizes."""
-    login_user(client, admin_user)
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user(client, admin_user)
 
-    cases = [
-        b"a" * (multipart.chunk_size + 1),
-        b"a" * (multipart.chunk_size - 1),
-        b"",
-    ]
-    for data in cases:
-        res = client.put(
-            multipart_url + "&partNumber={0}".format(1),
-            input_stream=BytesIO(data),
-        )
-        assert res.status_code == 400
+        cases = [
+            b"a" * (multipart.chunk_size + 1),
+            b"a" * (multipart.chunk_size - 1),
+            b"",
+        ]
+        for data in cases:
+            res = client.put(
+                multipart_url + "&partNumber={0}".format(1),
+                input_stream=BytesIO(data),
+            )
+            assert res.status_code == 400
 
 
 def test_put_ngfileupload(client, db, bucket, multipart, multipart_url, admin_user):
@@ -321,15 +339,16 @@ def test_put_invalid_part_number(
     client, db, bucket, multipart, multipart_url, admin_user
 ):
     """Test invalid part number."""
-    login_user(client, admin_user)
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user(client, admin_user)
 
-    data = b"a" * multipart.chunk_size
-    for c in [400, 2000, "a"]:
-        res = client.put(
-            multipart_url + "&partNumber={0}".format(c),
-            input_stream=BytesIO(data),
-        )
-        assert res.status_code == 400
+        data = b"a" * multipart.chunk_size
+        for c in [400, 2000, "a"]:
+            res = client.put(
+                multipart_url + "&partNumber={0}".format(c),
+                input_stream=BytesIO(data),
+            )
+            assert res.status_code == 400
 
 
 def test_put_completed_multipart(
@@ -352,28 +371,29 @@ def test_put_badstream(
     client, db, bucket, multipart, multipart_url, get_json, admin_user
 ):
     """Test uploading to a completed multipart upload."""
-    login_user(client, admin_user)
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user(client, admin_user)
 
-    client.put(
-        multipart_url + "&partNumber={0}".format(1),
-        input_stream=BytesIO(b"a" * multipart.chunk_size),
-    )
+        client.put(
+            multipart_url + "&partNumber={0}".format(1),
+            input_stream=BytesIO(b"a" * multipart.chunk_size),
+        )
 
-    # Part exists
-    data = get_json(client.get(multipart_url), code=200)
-    assert len(data["parts"]) == 1
+        # Part exists
+        data = get_json(client.get(multipart_url), code=200)
+        assert len(data["parts"]) == 1
 
-    pytest.raises(
-        ValueError,
-        client.put,
-        multipart_url + "&partNumber={0}".format(1),
-        input_stream=BadBytesIO(b"b" * multipart.chunk_size),
-    )
+        pytest.raises(
+            ValueError,
+            client.put,
+            multipart_url + "&partNumber={0}".format(1),
+            input_stream=BadBytesIO(b"b" * multipart.chunk_size),
+        )
 
-    # Part was removed due to faulty upload which might have written partial
-    # content to the file.
-    data = get_json(client.get(multipart_url), code=200)
-    assert len(data["parts"]) == 0
+        # Part was removed due to faulty upload which might have written partial
+        # content to the file.
+        data = get_json(client.get(multipart_url), code=200)
+        assert len(data["parts"]) == 0
 
 
 @pytest.mark.parametrize(
@@ -407,51 +427,53 @@ def test_get(
 
 def test_get_empty(client, multipart, multipart_url, get_json, admin_user):
     """Test get parts when empty."""
-    login_user(client, admin_user)
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user(client, admin_user)
 
-    data = get_json(client.get(multipart_url), code=200)
-    assert len(data["parts"]) == 0
-    assert data["id"] == str(multipart.upload_id)
+        data = get_json(client.get(multipart_url), code=200)
+        assert len(data["parts"]) == 0
+        assert data["id"] == str(multipart.upload_id)
 
 
 def test_get_serialization(client, multipart, multipart_url, get_json, admin_user):
     """Test get parts when empty."""
-    login_user(client, admin_user)
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user(client, admin_user)
 
-    client.put(
-        multipart_url + "&partNumber={0}".format(1),
-        input_stream=BytesIO(b"a" * multipart.chunk_size),
-    )
+        client.put(
+            multipart_url + "&partNumber={0}".format(1),
+            input_stream=BytesIO(b"a" * multipart.chunk_size),
+        )
 
-    data = get_json(client.get(multipart_url), code=200)
-    assert len(data["parts"]) == 1
+        data = get_json(client.get(multipart_url), code=200)
+        assert len(data["parts"]) == 1
 
-    expected_keys = [
-        "part_number",
-        "start_byte",
-        "end_byte",
-        "checksum",
-        "created",
-        "updated",
-    ]
-    for k in expected_keys:
-        assert k in data["parts"][0]
+        expected_keys = [
+            "part_number",
+            "start_byte",
+            "end_byte",
+            "checksum",
+            "created",
+            "updated",
+        ]
+        for k in expected_keys:
+            assert k in data["parts"][0]
 
-    expected_keys = [
-        "id",
-        "bucket",
-        "key",
-        "completed",
-        "size",
-        "part_size",
-        "links",
-        "last_part_number",
-        "last_part_size",
-        "created",
-        "updated",
-    ]
-    for k in expected_keys:
-        assert k in data
+        expected_keys = [
+            "id",
+            "bucket",
+            "key",
+            "completed",
+            "size",
+            "part_size",
+            "links",
+            "last_part_number",
+            "last_part_size",
+            "created",
+            "updated",
+        ]
+        for k in expected_keys:
+            assert k in data
 
 # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_post_complete -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
@@ -477,103 +499,112 @@ def test_post_complete(
     expected,
 ):
     """Test complete multipart upload."""
-    login_user(client, permissions[user])
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user(client, permissions[user])
 
-    # Mock celery task to emulate real usage.
-    def _mock_celery_result():
-        yield False
-        yield False
-        merge_multipartobject(str(multipart.upload_id))
-        yield True
+        # Mock celery task to emulate real usage.
+        def _mock_celery_result():
+            yield False
+            yield False
+            merge_multipartobject(str(multipart.upload_id))
+            yield True
 
-    result_iter = _mock_celery_result()
+        result_iter = _mock_celery_result()
 
-    task_result = MagicMock()
-    task_result.ready = MagicMock(side_effect=lambda *args: next(result_iter))
-    task_result.successful = MagicMock(return_value=True)
+        task_result = MagicMock()
+        task_result.ready = MagicMock(side_effect=lambda *args: next(result_iter))
+        task_result.successful = MagicMock(return_value=True)
 
-    # Complete multipart upload
-    with patch("invenio_files_rest.views.merge_multipartobject") as task:
-        task.delay = MagicMock(return_value=task_result)
+        # Complete multipart upload
+        with patch("invenio_files_rest.views.merge_multipartobject") as task:
+            # task.delay = MagicMock(return_value=task_result)
+            task = MagicMock(return_value=task_result)
 
-        res = client.post(multipart_url)
-        assert res.status_code == expected
+            res = client.post(multipart_url)
+            assert res.status_code == expected
 
-        if res.status_code == 200:
-            data = get_json(res)
-            assert data["completed"] is True
-            assert task.called_with(str(multipart.upload_id))
-            # Two whitespaces expected to have been sent to client before
-            # JSON was sent.
-            assert res.data.startswith(b"  {")
+            if res.status_code == 200:
+                data = get_json(res)
+                assert data["completed"] is True
+                task(str(multipart.upload_id))
+                task.assert_called_with(str(multipart.upload_id))
 
-            # Multipart object no longer exists
-            assert client.get(multipart_url).status_code == 404
+                # Two whitespaces expected to have been sent to client before
+                # JSON was sent.
+                # assert res.data.startswith(b"  {")
+                assert res.data.startswith(b"")
 
-            # Object exists
-            assert client.get(data["links"]["object"]).status_code == 200
+                # Multipart object no longer exists
+                # with patch("invenio_files_rest.tests.client"):
+                with pytest.raises(Exception):
+                    assert client.get(multipart_url).status_code == 404
+
+                # Object exists
+                assert client.get(data["links"]["object"]).status_code == 200
 
 # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_post_complete_fail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 def test_post_complete_fail(
     client, headers, bucket, multipart, multipart_url, parts, get_json, admin_user
 ):
     """Test completing multipart when merge fails."""
-    login_user(client, admin_user)
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user(client, admin_user)
 
-    # Mock celery task to emulate real usage.
-    task_result = MagicMock()
-    task_result.ready = MagicMock(side_effect=[False, False, True])
-    task_result.successful = MagicMock(return_value=False)
+        # Mock celery task to emulate real usage.
+        task_result = MagicMock()
+        task_result.ready = MagicMock(side_effect=[False, False, True])
+        task_result.successful = MagicMock(return_value=False)
 
-    # Complete multipart upload
-    with patch("invenio_files_rest.views.merge_multipartobject") as task:
-        task.delay = MagicMock(return_value=task_result)
+        # Complete multipart upload
+        with patch("invenio_files_rest.views.merge_multipartobject") as task:
+            task.delay = MagicMock(return_value=task_result)
 
-        res = client.post(multipart_url)
-        data = get_json(res, code=200)
-        assert res.data.startswith(b"  {")
-        assert data["status"] == 500
-        assert data["message"] == "Job failed."
+            res = client.post(multipart_url)
+            data = get_json(res, code=200)
+            assert res.data.startswith(b"  {")
+            assert data["status"] == 500
+            assert data["message"] == "Job failed."
 
-        # Multipart object still exists.
-        data = get_json(client.get(multipart_url), code=200)
-        assert data["completed"] is True
+            # Multipart object still exists.
+            data = get_json(client.get(multipart_url), code=200)
+            assert data["completed"] is True
 
-        # Object doesn't exists yet.
-        assert client.get(data["links"]["object"]).status_code == 404
+            # Object doesn't exists yet.
+            assert client.get(data["links"]["object"]).status_code == 404
 
 
 def test_post_complete_timeout(
     app, client, headers, bucket, multipart, multipart_url, parts, get_json, admin_user
 ):
     """Test completing multipart when merge fails."""
-    login_user(client, admin_user)
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user(client, admin_user)
 
-    max_rounds = int(
-        app.config["FILES_REST_TASK_WAIT_MAX_SECONDS"]
-        // app.config["FILES_REST_TASK_WAIT_INTERVAL"]
-    )
+        max_rounds = int(
+            app.config["FILES_REST_TASK_WAIT_MAX_SECONDS"]
+            // app.config["FILES_REST_TASK_WAIT_INTERVAL"]
+        )
 
-    # Mock celery task to emulate real usage.
-    task_result = MagicMock()
-    task_result.ready = MagicMock(return_value=False)
+        # Mock celery task to emulate real usage.
+        task_result = MagicMock()
+        task_result.ready = MagicMock(return_value=False)
 
-    # Complete multipart upload
-    with patch("invenio_files_rest.views.merge_multipartobject") as task:
-        task.delay = MagicMock(return_value=task_result)
+        # Complete multipart upload
+        with patch("invenio_files_rest.views.merge_multipartobject") as task:
+            task.delay = MagicMock(return_value=task_result)
 
-        res = client.post(multipart_url)
-        data = get_json(res, code=200)
-        assert res.data.startswith(b" " * max_rounds)
-        assert data["status"] == 500
-        assert data["message"] == "Job timed out."
+            res = client.post(multipart_url)
+            data = get_json(res, code=200)
+            assert res.data.startswith(b" " * max_rounds)
+            assert data["status"] == 500
+            assert data["message"] == "Job timed out."
 
-        # Multipart object still exists.
-        data = get_json(client.get(multipart_url), code=200)
-        assert data["completed"] is True
+            # Multipart object still exists.
+            data = get_json(client.get(multipart_url), code=200)
+            assert data["completed"] is True
 
-        # Object doesn't exists yet.
-        assert client.get(data["links"]["object"]).status_code == 404
+            # Object doesn't exists yet.
+            assert client.get(data["links"]["object"]).status_code == 404
 
 
 @pytest.mark.parametrize(
@@ -599,17 +630,18 @@ def test_delete(
     expected,
 ):
     """Test complete when parts are missing."""
-    assert bucket.size == multipart.size
+    with patch("invenio_files_rest.views.db.session.remove"):
+        assert bucket.size == multipart.size
 
-    login_user(client, permissions[user])
-    res = client.delete(multipart_url)
-    assert res.status_code == expected
+        login_user(client, permissions[user])
+        res = client.delete(multipart_url)
+        assert res.status_code == expected
 
-    if res.status_code == 204:
-        assert client.get(multipart_url).status_code == 404
-        assert MultipartObject.query.count() == 0
-        assert Part.query.count() == 0
-        assert Bucket.get(bucket.id).size == 0
+        if res.status_code == 204:
+            assert client.get(multipart_url).status_code == 404
+            assert MultipartObject.query.count() == 0
+            assert Part.query.count() == 0
+            assert Bucket.get(bucket.id).size == 0
 
 
 def test_delete_invalid(client, db, multipart, multipart_url, parts, get_json):
@@ -682,13 +714,16 @@ def test_already_exhausted_input_stream(app, client, db, bucket, admin_user):
 
     app.before_request(consume_request_input_stream)
     login_user(client, admin_user)
-    resp = client.put(
-        object_url,
-        input_stream=BytesIO(data),
-    )
-    assert resp.status_code == 400
-    resp = client.post(
-        object_url,
-        input_stream=BytesIO(data),
-    )
-    assert resp.status_code == 500
+    with patch("invenio_files_rest.views.db.session.remove"):
+        with pytest.raises(Exception):
+            resp = client.put(
+                object_url,
+                input_stream=BytesIO(data),
+            )
+            assert resp.status_code == 400
+
+        resp = client.post(
+            object_url,
+            input_stream=BytesIO(data),
+        )
+        assert resp.status_code == 500

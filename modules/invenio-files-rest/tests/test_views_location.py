@@ -31,44 +31,46 @@ def get_json(resp):
 )
 def test_post_bucket(app, client, headers, dummy_location, permissions, user, expected):
     """Test post a bucket."""
-    expected_keys = [
-        "id",
-        "links",
-        "size",
-        "quota_size",
-        "max_file_size",
-        "locked",
-        "created",
-        "updated",
-    ]
-    params = [{}, {"location_name": dummy_location.name}]
+    with patch("invenio_files_rest.views.db.session.remove"):
+        expected_keys = [
+            "id",
+            "links",
+            "size",
+            "quota_size",
+            "max_file_size",
+            "locked",
+            "created",
+            "updated",
+        ]
+        params = [{}, {"location_name": dummy_location.name}]
 
-    login_user(client, permissions[user])
+        login_user(client, permissions[user])
 
-    for data in params:
-        resp = client.post(
-            url_for("invenio_files_rest.location_api"), data=data, headers=headers
-        )
-        assert resp.status_code == expected
-        if resp.status_code == 200:
-            resp_json = get_json(resp)
-            for key in expected_keys:
-                assert key in resp_json
-            assert Bucket.get(resp_json["id"])
+        for data in params:
+            resp = client.post(
+                url_for("invenio_files_rest.location_api"), data=data, headers=headers
+            )
+            assert resp.status_code == expected
+            if resp.status_code == 200:
+                resp_json = get_json(resp)
+                for key in expected_keys:
+                    assert key in resp_json
+                assert Bucket.get(resp_json["id"])
 
 # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_location.py::test_post_fail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 def test_post_fail(app, client, headers, dummy_location, permissions):
     """Test post a bucket."""
-    params = [{}, {'location_name': dummy_location.name}]
-    login_user(client, permissions['location'])
-    with patch("invenio_files_rest.views.db.session.commit", side_effect=Exception('')):
-        for data in params:
-            resp = client.post(
-                url_for('invenio_files_rest.location_api'),
-                data=data,
-                headers=headers
-            )
-            assert resp.status_code == 200
+    with patch("invenio_files_rest.views.db.session.remove"):
+        params = [{}, {'location_name': dummy_location.name}]
+        login_user(client, permissions['location'])
+        with patch("invenio_files_rest.views.db.session.commit", side_effect=Exception('')):
+            for data in params:
+                resp = client.post(
+                    url_for('invenio_files_rest.location_api'),
+                    data=data,
+                    headers=headers
+                )
+                assert resp.status_code == 200
 
 @pytest.mark.parametrize(
     "user, expected",

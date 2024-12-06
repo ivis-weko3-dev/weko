@@ -66,7 +66,8 @@ def test_part_creation(app, db, bucket, get_md5):
     # Assert checksum of part.
     m = hashlib.sha256()
     m.update(b"p2")
-    assert "get_sha256:{0}".format(m.hexdigest()) == Part.get_or_none(mp, 1).checksum
+    # assert "get_sha256:{0}".format(m.hexdigest()) == Part.get_or_none(mp, 1).checksum
+    assert "sha256:{0}".format(m.hexdigest()) == Part.get_or_none(mp, 1).checksum
 
     obj = mp.merge_parts()
     db.session.commit()
@@ -76,7 +77,10 @@ def test_part_creation(app, db, bucket, get_md5):
     assert Part.query.count() == 0
 
     assert obj.file.size == 5
-    assert obj.file.checksum == get_md5(b"p1p2p")
+    m = hashlib.sha256()
+    m.update(b"p1p2p")
+    # assert obj.file.checksum == get_md5(b"p1p2p")
+    assert obj.file.checksum == "sha256:{0}".format(m.hexdigest())
     assert obj.file.storage().open().read() == b"p1p2p"
     assert obj.file.writable is False
     assert obj.file.readable is True

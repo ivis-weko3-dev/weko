@@ -13,7 +13,7 @@ from __future__ import absolute_import, print_function
 
 import json
 from time import sleep
-from mock import patch
+from unittest.mock import patch,MagicMock
 
 import pytest
 from flask import url_for
@@ -31,7 +31,7 @@ def test_publish_merge_conflict(api, es, users, location, deposit,
     """Test publish with merge conflicts."""
     with api.test_request_context():
         with api.test_client() as client:
-            user_info = dict(email=users[0]['email'], password='tester')
+            user_info = dict(email=users[0]['_email'], password='tester')
             # login
             res = client.post(url_for_security('login'), data=user_info)
 
@@ -168,7 +168,7 @@ def test_links_html_link_missing(api, es, location, fake_schemas,
         with api.test_client() as client:
             login_user_via_view(
                 client,
-                users[0]['email'],
+                users[0]['_email'],
                 'tester',
             )
             # try create deposit as logged in user
@@ -419,7 +419,7 @@ def test_simple_rest_flow(app, test_client, api, es, location, fake_schemas, use
         'invenio_records_rest.utils:allow_all'
     api.config['RECORDS_REST_DEFAULT_READ_PERMISSION_FACTORY'] = \
         'invenio_records_rest.utils:allow_all'
-    user_mail = users[0]['email']
+    user_mail = users[0]['_email']
 
     with api.test_request_context():
         with api.test_client() as client:

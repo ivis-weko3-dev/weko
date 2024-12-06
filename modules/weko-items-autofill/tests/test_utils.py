@@ -285,44 +285,44 @@ def test_get_crossref_record_data(db, itemtypes):
 
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_utils.py::test_get_crossref_record_data2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
 def test_get_crossref_record_data2(db, itemtypes):
-    patch("weko_items_autofill.utils.sort_by_item_type_order")
-    patch("weko_items_autofill.utils.get_autofill_key_tree")
-    patch("weko_items_autofill.utils.get_crossref_autofill_item")
-    patch(
-        "weko_items_autofill.utils.CrossRefOpenURL.get_data",
-        return_value={'response': '<?xml version="1.0" encoding="UTF-8"?>\n<crossref_result xmlns="http://www.crossref.org/qrschema/2.0" version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.crossref.org/qrschema/2.0 https://www.crossref.org/schema/crossref_query_output2.0.xsd"><query_result><head><doi_batch_id>none</doi_batch_id></head><body><query status="resolved" fl_count="0"><doi type="journal_article">10.17352/ojps.000010</doi><issn type="electronic">26407906</issn><journal_title>Open Journal of Plant Science</journal_title><contributors><contributor sequence="first" contributor_role="author"><given_name>Peertechz</given_name><surname>Publications</surname></contributor></contributors><year media_type="online">2018</year><publication_type>full_text</publication_type><article_title>Open Journal of Plant Science</article_title></query></body></query_result></crossref_result>', 'error': ''})
+    with patch("weko_items_autofill.utils.sort_by_item_type_order"):
+        with patch("weko_items_autofill.utils.get_autofill_key_tree"):
+            with patch("weko_items_autofill.utils.get_crossref_autofill_item"):
+                with patch(
+                    "weko_items_autofill.utils.CrossRefOpenURL.get_data",
+                    return_value={'response': '<?xml version="1.0" encoding="UTF-8"?>\n<crossref_result xmlns="http://www.crossref.org/qrschema/2.0" version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.crossref.org/qrschema/2.0 https://www.crossref.org/schema/crossref_query_output2.0.xsd"><query_result><head><doi_batch_id>none</doi_batch_id></head><body><query status="resolved" fl_count="0"><doi type="journal_article">10.17352/ojps.000010</doi><issn type="electronic">26407906</issn><journal_title>Open Journal of Plant Science</journal_title><contributors><contributor sequence="first" contributor_role="author"><given_name>Peertechz</given_name><surname>Publications</surname></contributor></contributors><year media_type="online">2018</year><publication_type>full_text</publication_type><article_title>Open Journal of Plant Science</article_title></query></body></query_result></crossref_result>', 'error': ''}):
 
-    data = [
-        {
-            "test_item1": {
-                "test1_subitem1": "test_article_title",
-                "test1_subitem2": "en",
-            }
-        },
-        {
-            "test_item6": {
-                "creatorNames": {"creatorName": "A.Test1", "creatorNameLang": "en"}
-            }
-        },
-        {
-            "test_item7": {
-                "contributorNames": {"contributorName": "B.Test2", "lang": "en"}
-            }
-        },
-        {
-            "test_item8": {
-                "test8_subitem1": {
-                    "test8_subitem2": "10.1103/PhysRev.47.777",
-                    "test8_subitem3": "DOI",
-                }
-            }
-        },
-        {"test_item16": {"test16_subitem1": "47"}},
-    ]
-    patch("weko_items_autofill.utils.build_record_model", return_value=data)
-    patch("weko_items_autofill.utils.convert_crossref_xml_data_to_dictionary",return_value={'error': '','response': {'article_title': 'article title','contributor': [{'family': 'Test1', 'given': 'A.'}],'doi': 'xxx/yyy','journal_title': 'journal title'}})
-    result = get_crossref_record_data("test_pid1", "test_doi1", itemtypes[0][0].id)
-    assert result == [{'test_item1': {'test1_subitem1': 'test_article_title','test1_subitem2': 'en'}},{'test_item6': {'creatorNames': {'creatorName': 'A.Test1','creatorNameLang': 'en'}}},{'test_item7': {'contributorNames': {'contributorName': 'B.Test2','lang': 'en'}}},{'test_item8': {'test8_subitem1': {'test8_subitem2': '10.1103/PhysRev.47.777','test8_subitem3': 'DOI'}}},{'test_item16': {'test16_subitem1': '47'}}]
+                    data = [
+                        {
+                            "test_item1": {
+                                "test1_subitem1": "test_article_title",
+                                "test1_subitem2": "en",
+                            }
+                        },
+                        {
+                            "test_item6": {
+                                "creatorNames": {"creatorName": "A.Test1", "creatorNameLang": "en"}
+                            }
+                        },
+                        {
+                            "test_item7": {
+                                "contributorNames": {"contributorName": "B.Test2", "lang": "en"}
+                            }
+                        },
+                        {
+                            "test_item8": {
+                                "test8_subitem1": {
+                                    "test8_subitem2": "10.1103/PhysRev.47.777",
+                                    "test8_subitem3": "DOI",
+                                }
+                            }
+                        },
+                        {"test_item16": {"test16_subitem1": "47"}},
+                    ]
+                    with patch("weko_items_autofill.utils.build_record_model", return_value=data):
+                        with patch("weko_items_autofill.utils.convert_crossref_xml_data_to_dictionary",return_value={'error': '','response': {'article_title': 'article title','contributor': [{'family': 'Test1', 'given': 'A.'}],'doi': 'xxx/yyy','journal_title': 'journal title'}}):
+                            result = get_crossref_record_data("test_pid1", "test_doi1", itemtypes[0][0].id)
+                            assert result == [{'test_item1': {'test1_subitem1': 'test_article_title','test1_subitem2': 'en'}},{'test_item6': {'creatorNames': {'creatorName': 'A.Test1','creatorNameLang': 'en'}}},{'test_item7': {'contributorNames': {'contributorName': 'B.Test2','lang': 'en'}}},{'test_item8': {'test8_subitem1': {'test8_subitem2': '10.1103/PhysRev.47.777','test8_subitem3': 'DOI'}}},{'test_item16': {'test16_subitem1': '47'}}]
 
     patch("weko_items_autofill.utils.convert_crossref_xml_data_to_dictionary",return_value={'error': 'Opening and ending tag mismatch: body line 2 and query_result, line 2, column 331 (<string>, line 2)','response': {}})
     result = get_crossref_record_data("test_pid2", "test_doi2", itemtypes[0][0].id)
@@ -351,90 +351,90 @@ def test_get_crossref_record_data2(db, itemtypes):
 def test_get_cinii_record_data(db, itemtypes):
     current_cache.delete("cinii_datatest_naid1")
     current_cache.delete("cinii_datatest_naid100")
-    patch("weko_items_autofill.utils.get_cinii_data_by_key")
-    patch("weko_items_autofill.utils.get_autofill_key_tree")
-    patch("weko_items_autofill.utils.get_cinii_autofill_item")
-    data = [
-        {
-            "test_item1": {
-                "test1_subitem1": "this is test Dissertation",
-                "test1_subitem2": "ja",
-            }
-        },
-        {
-            "test_item6": {
-                "creatorNames": {"creatorName": "テスト 太郎", "creatorNameLang": "ja"}
-            }
-        },
-        {
-            "test_item7": {
-                "contributorNames": {"contributorName": "テスト組織", "lang": "ja"}
-            }
-        },
-        {
-            "test_item8": {
-                "test8_subitem1": {
-                    "test8_subitem2": "10.1016/j.test.2022.146234",
-                    "test8_subitem3": "DOI",
-                }
-            }
-        },
-        {"test_item16": {"test16_subitem1": "10"}},
-    ]
-    patch("weko_items_autofill.utils.build_record_model", return_value=data)
+    with patch("weko_items_autofill.utils.get_cinii_data_by_key"):
+        with patch("weko_items_autofill.utils.get_autofill_key_tree"):
+            with patch("weko_items_autofill.utils.get_cinii_autofill_item"):
+                data = [
+                    {
+                        "test_item1": {
+                            "test1_subitem1": "this is test Dissertation",
+                            "test1_subitem2": "ja",
+                        }
+                    },
+                    {
+                        "test_item6": {
+                            "creatorNames": {"creatorName": "テスト 太郎", "creatorNameLang": "ja"}
+                        }
+                    },
+                    {
+                        "test_item7": {
+                            "contributorNames": {"contributorName": "テスト組織", "lang": "ja"}
+                        }
+                    },
+                    {
+                        "test_item8": {
+                            "test8_subitem1": {
+                                "test8_subitem2": "10.1016/j.test.2022.146234",
+                                "test8_subitem3": "DOI",
+                            }
+                        }
+                    },
+                    {"test_item16": {"test16_subitem1": "10"}},
+                ]
+                with patch("weko_items_autofill.utils.build_record_model", return_value=data):
 
-    # get_data is error
-    with patch(
-        "weko_items_autofill.utils.CiNiiURL.get_data",
-        return_value={"error": "test_error", "response": ""},
-    ):
-        result = get_cinii_record_data("test_naid", itemtypes[0][0].id)
-        assert result == []
-    current_cache.delete("cinii_datatest_naid1")
+                    # get_data is error
+                    with patch(
+                        "weko_items_autofill.utils.CiNiiURL.get_data",
+                        return_value={"error": "test_error", "response": ""},
+                    ):
+                        result = get_cinii_record_data("test_naid", itemtypes[0][0].id)
+                        assert result == []
+                    current_cache.delete("cinii_datatest_naid1")
 
-    with patch(
-        "weko_items_autofill.utils.CiNiiURL.get_data",
-        return_value={"error": None, "response": {}},
-    ):
-        # not exist itemtype
-        result = get_cinii_record_data("test_naid", 100)
-        assert result == []
+                    with patch(
+                        "weko_items_autofill.utils.CiNiiURL.get_data",
+                        return_value={"error": None, "response": {}},
+                    ):
+                        # not exist itemtype
+                        result = get_cinii_record_data("test_naid", 100)
+                        assert result == []
 
-        result = get_cinii_record_data("test_naid", itemtypes[0][0].id)
-        assert result == [
-            {
-                "test_item1": {
-                    "test1_subitem1": "this is test Dissertation",
-                    "test1_subitem2": "ja",
-                }
-            },
-            {
-                "test_item6": {
-                    "creatorNames": {"creatorName": "テスト 太郎", "creatorNameLang": "ja"}
-                }
-            },
-            {
-                "test_item7": {
-                    "contributorNames": {"contributorName": "テスト組織", "lang": "ja"}
-                }
-            },
-            {
-                "test_item8": {
-                    "test8_subitem1": {
-                        "test8_subitem2": "10.1016/j.test.2022.146234",
-                        "test8_subitem3": "DOI",
-                    }
-                }
-            },
-            {"test_item16": {"test16_subitem1": "10"}},
-        ]
+                        result = get_cinii_record_data("test_naid", itemtypes[0][0].id)
+                        assert result == [
+                            {
+                                "test_item1": {
+                                    "test1_subitem1": "this is test Dissertation",
+                                    "test1_subitem2": "ja",
+                                }
+                            },
+                            {
+                                "test_item6": {
+                                    "creatorNames": {"creatorName": "テスト 太郎", "creatorNameLang": "ja"}
+                                }
+                            },
+                            {
+                                "test_item7": {
+                                    "contributorNames": {"contributorName": "テスト組織", "lang": "ja"}
+                                }
+                            },
+                            {
+                                "test_item8": {
+                                    "test8_subitem1": {
+                                        "test8_subitem2": "10.1016/j.test.2022.146234",
+                                        "test8_subitem3": "DOI",
+                                    }
+                                }
+                            },
+                            {"test_item16": {"test16_subitem1": "10"}},
+                        ]
 
-        # not exist itemtype.form
-        itemtypes[1][0].form = None
-        db.session.merge(itemtypes[1][0])
-        db.session.commit()
-        result = get_cinii_record_data("test_naid", itemtypes[1][0].id)
-        assert result == []
+                        # not exist itemtype.form
+                        itemtypes[1][0].form = None
+                        db.session.merge(itemtypes[1][0])
+                        db.session.commit()
+                        result = get_cinii_record_data("test_naid", itemtypes[1][0].id)
+                        assert result == []
 
 
 # def get_basic_cinii_data(data):
@@ -486,24 +486,27 @@ def test_pack_data_with_multiple_type_cinii():
 def test_get_cinii_creator_data():
     data = json_data("data/cinii_response_sample1.json")['response']['creator']
     result = get_cinii_creator_data(data)
-    test = [
-        {"@value":"テスト 太郎", "@language":"ja"},
-        {"@value":"TEST Taro", "@language":"en"},
-        {"@value":"テスト 三郎", "@language":"ja"},
-        {"@value":"TEST Saburo", "@language":"en"},
-    ]
+    # test = [
+    #     {"@value":"テスト 太郎", "@language":"ja"},
+    #     {"@value":"TEST Taro", "@language":"en"},
+    #     {"@value":"テスト 三郎", "@language":"ja"},
+    #     {"@value":"TEST Saburo", "@language":"en"},
+    # ]
+    test = [[{'@value': 'テスト 太郎', '@language': 'ja'}, {'@value': 'TEST Taro', '@language': 'en'}], [{'@value': 'テスト 三郎', '@language': 'ja'}, {'@value': 'TEST Saburo', '@language': 'en'}]]
     assert result == test
 
 
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_utils.py::test_get_cinii_contributor_data -vv -v -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
 def test_get_cinii_contributor_data():
     data = json_data("data/cinii_response_sample1.json")['response']["contributor"]
-    test = [
-        {"@value": "テスト 次郎", "@language": "ja"},
-        {"@value": "TEST Ziro", "@language": "en"},
-        {"@value": "テスト 花子", "@language": "ja"},
-        {"@value": "TEST Hanako", "@language": "en"},
-    ]
+    # test = [
+    #     {"@value": "テスト 次郎", "@language": "ja"},
+    #     {"@value": "TEST Ziro", "@language": "en"},
+    #     {"@value": "テスト 花子", "@language": "ja"},
+    #     {"@value": "TEST Hanako", "@language": "en"},
+    # ]
+    test = [[{'@value': 'テスト 次郎', '@language': 'ja'}, {'@value': 'TEST Ziro', '@language': 'en'}], [{'@value': 'テスト 花子', '@language': 'ja'}, {'@value': 'TEST Hanako', '@language': 'en'}]]
+
     result = get_cinii_contributor_data(data)
     assert result == test
 
@@ -575,12 +578,12 @@ def test_get_cinii_numpage(app):
         "prism:endingPage": "15",
     }
     result = get_cinii_numpage(data)
-    assert result == {"@value": 6}
+    assert result == {"@value": '6'}
 
     # not exist numPage, exist startingPage, endingPage
     data = {"prism:startingPage": "10", "prism:endingPage": "15"}
     result = get_cinii_numpage(data)
-    assert result == {"@value": 6}
+    assert result == {"@value": '6'}
 
     # not exist numPage, startingPage, endingPage
     data = {}
@@ -624,6 +627,71 @@ def test_get_cinii_data_by_key(app):
     assert result == {}
 
     api = json_data("data/cinii_response_sample1.json")
+    # test = {
+    #     "title": [
+    #         {"@value": "テストタイトル", "@language": "ja"},
+    #         {"@value": "test title", "@language": "en"},
+    #         {"@value": "テストのタイトル", "@language": "ja"},
+    #     ],
+    #     "alternative": [
+    #         {"@value": "other title", "@language": "en"},
+    #         {"@value": "別タイトル", "@language": "ja"},
+    #     ],
+    #     "creator": [
+    #         {"@value": "テスト 太郎", "@language": "ja"},
+    #         {"@value": "TEST Taro", "@language": "en"},
+    #         {"@value": "テスト 三郎", "@language": "ja"},
+    #         {"@value": "TEST Saburo", "@language": "en"},
+    #     ],
+    #     "contributor": [
+    #         {"@value": "テスト 次郎", "@language": "ja"},
+    #         {"@value": "TEST Ziro", "@language": "en"},
+    #         {"@value": "テスト 花子", "@language": "ja"},
+    #         {"@value": "TEST Hanako", "@language": "en"}
+    #     ],
+    #     "description": [
+    #         {"@value": "this is test abstract.", "@type": "Abstract", "@language": "en"},
+    #         {"@value": "これはテストの抄録です。", "@type": "Abstract", "@language": "ja"},
+    #         {"@value": "this is other abstract.", "@type": "Other", "@language": "en"},
+    #         {"@value": "これはその他の抄録です。", "@type": "Other", "@language": "ja"},
+    #     ],
+    #     "subject": [
+    #         {
+    #             "@scheme": "Other",
+    #             "@URI": "https://cir.nii.ac.jp/all?q=%E3%82%B7%E3%82%B9%E3%83%86%E3%83%A0%E3%83%87%E3%82%B6%E3%82%A4%E3%83%B3",
+    #             "@value": "システムデザイン",
+    #             "@language": "ja",
+    #         },
+    #         {
+    #             "@scheme": "Other",
+    #             "@URI": "https://cir.nii.ac.jp/all?q=%E6%A4%9C%E7%B4%A2%E3%82%A8%E3%83%B3%E3%82%B8%E3%83%B3",
+    #             "@value": "検索エンジン",
+    #             "@language": "ja",
+    #         }
+    #     ],
+    #     "sourceTitle": [
+    #         {"@value": "テスト雑誌", "@language": "ja"},
+    #         {"@value": "test journal", "@language": "en"}
+    #     ],
+    #     "volume": {"@value": "62"},
+    #     "issue": {"@value": "11"},
+    #     "pageStart": {"@value": "473"},
+    #     "pageEnd": {"@value": "477"},
+    #     "numPages": {"@value": "5"},
+    #     "date": {"@value": "2012-11-02", "@type": "Issued"},
+    #     "publisher": [
+    #         {"@value": "test publisher", "@language": "en"},
+    #         {"@value": "テスト公開", "@language": "ja"}
+    #     ],
+    #     "sourceIdentifier": [
+    #         {"@value": "87654321", "@type": "ISSN"},
+    #         {"@value": "AN34567890", "@type": "NCID"}
+    #     ],
+    #     "relation": [
+    #         {"@value": "001122334455", "@type": "NAID"},
+    #         {"@value": "10.12334/jkg.12.11_222", "@type": "DOI"},
+    #     ],
+    # }
     test = {
         "title": [
             {"@value": "テストタイトル", "@language": "ja"},
@@ -635,16 +703,16 @@ def test_get_cinii_data_by_key(app):
             {"@value": "別タイトル", "@language": "ja"},
         ],
         "creator": [
-            {"@value": "テスト 太郎", "@language": "ja"},
-            {"@value": "TEST Taro", "@language": "en"},
-            {"@value": "テスト 三郎", "@language": "ja"},
-            {"@value": "TEST Saburo", "@language": "en"},
+            [{"@value": "テスト 太郎", "@language": "ja"},
+            {"@value": "TEST Taro", "@language": "en"}],
+            [{"@value": "テスト 三郎", "@language": "ja"},
+            {"@value": "TEST Saburo", "@language": "en"}]
         ],
         "contributor": [
-            {"@value": "テスト 次郎", "@language": "ja"},
-            {"@value": "TEST Ziro", "@language": "en"},
-            {"@value": "テスト 花子", "@language": "ja"},
-            {"@value": "TEST Hanako", "@language": "en"}
+            [{"@value": "テスト 次郎", "@language": "ja"},
+            {"@value": "TEST Ziro", "@language": "en"}],
+            [{"@value": "テスト 花子", "@language": "ja"},
+            {"@value": "TEST Hanako", "@language": "en"}]
         ],
         "description": [
             {"@value": "this is test abstract.", "@type": "Abstract", "@language": "en"},
@@ -731,26 +799,26 @@ def test__build_name_data():
 
 # def get_crossref_creator_data(data):
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_utils.py::test_get_crossref_creator_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
-def test_get_crossref_creator_data(mocker):
-    patch(
+def test_get_crossref_creator_data():
+    with patch(
         "weko_items_autofill.utils._build_name_data",
         return_value=[{"@value": "Test1 A.", "@language": "en"}],
-    )
-    data = [{"given": "A.", "family": "Test1"}]
-    result = get_crossref_creator_data(data)
-    assert result == [{"@value": "Test1 A.", "@language": "en"}]
+    ):
+        data = [{"given": "A.", "family": "Test1"}]
+        result = get_crossref_creator_data(data)
+        assert result == [{"@value": "Test1 A.", "@language": "en"}]
 
 
 # def get_crossref_contributor_data(data):
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_utils.py::test_get_crossref_contributor_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
-def test_get_crossref_contributor_data(mocker):
-    patch(
+def test_get_crossref_contributor_data():
+    with patch(
         "weko_items_autofill.utils._build_name_data",
         return_value=[{"@value": "Test1 A.", "@language": "en"}],
-    )
-    data = [{"given": "A.", "family": "Test1"}]
-    result = get_crossref_contributor_data(data)
-    assert result == [{"@value": "Test1 A.", "@language": "en"}]
+    ):
+        data = [{"given": "A.", "family": "Test1"}]
+        result = get_crossref_contributor_data(data)
+        assert result == [{"@value": "Test1 A.", "@language": "en"}]
 
 
 # def get_start_and_end_page(data):
@@ -798,28 +866,28 @@ def test_get_crossref_publisher_data():
 
 # def get_crossref_relation_data(isbn, doi):
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_utils.py::test_get_crossref_relation_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
-def test_get_crossref_relation_data(mocker):
-    patch(
+def test_get_crossref_relation_data():
+    with patch(
         "weko_items_autofill.utils.pack_single_value_as_dict",
         side_effect=lambda x: {"@value": x},
-    )
-    isbn = []
-    doi = "test_doi"
-    result = get_crossref_relation_data(isbn, doi)
-    assert result == [{"@value": "test_doi", "@type": "DOI"}]
+    ):
+        isbn = []
+        doi = "test_doi"
+        result = get_crossref_relation_data(isbn, doi)
+        assert result == [{"@value": "test_doi", "@type": "DOI"}]
 
-    isbn = ["test_isbn1", "test_isbn2"]
-    doi = ""
-    result = get_crossref_relation_data(isbn, doi)
-    assert result == [
-        {"@value": "test_isbn1", "@type": "ISBN"},
-        {"@value": "test_isbn2", "@type": "ISBN"},
-    ]
+        isbn = ["test_isbn1", "test_isbn2"]
+        doi = ""
+        result = get_crossref_relation_data(isbn, doi)
+        assert result == [
+            {"@value": "test_isbn1", "@type": "ISBN"},
+            {"@value": "test_isbn2", "@type": "ISBN"},
+        ]
 
-    isbn = []
-    doi = ""
-    result = get_crossref_relation_data(isbn, doi)
-    assert result == {"@value": None}
+        isbn = []
+        doi = ""
+        result = get_crossref_relation_data(isbn, doi)
+        assert result == {"@value": None}
 
 
 # def get_crossref_source_data(data):
@@ -893,6 +961,19 @@ def test_get_crossref_data_by_key(app):
     }
     api = {"error": "", "response": data}
 
+    # test = {
+    #     "title": [{"@value": "test_article_title", "@language": "en"}],
+    #     "creator": [{"@value": "A.Test1", "@language": "en"}],
+    #     "contributor": [{"@value": "B.Test2", "@language": "en"}],
+    #     "sourceTitle": {"@value": "test_journal_title", "@language": "en"},
+    #     "sourceIdentifier": [{"@value": "0031-899X", "@type": "ISSN"}],
+    #     "volume": {"@value": "47"},
+    #     "issue": {"@value": "10"},
+    #     "pageStart": {"@value": 777},
+    #     "pageEnd": {"@value": 780},
+    #     "date": {"@value": "1935", "@type": "Issued"},
+    #     "relation": [{"@value": "10.1103/PhysRev.47.777", "@type": "DOI"}],
+    # }
     test = {
         "title": [{"@value": "test_article_title", "@language": "en"}],
         "creator": [{"@value": "A.Test1", "@language": "en"}],
@@ -901,8 +982,8 @@ def test_get_crossref_data_by_key(app):
         "sourceIdentifier": [{"@value": "0031-899X", "@type": "ISSN"}],
         "volume": {"@value": "47"},
         "issue": {"@value": "10"},
-        "pageStart": {"@value": 777},
-        "pageEnd": {"@value": 780},
+        "pageStart": {"@value": '777'},
+        "pageEnd": {"@value": '780'},
         "date": {"@value": "1935", "@type": "Issued"},
         "relation": [{"@value": "10.1103/PhysRev.47.777", "@type": "DOI"}],
     }
@@ -919,11 +1000,11 @@ def test_get_cinii_autofill_item(app):
     get_item = {
         "title": [{"title": {"@value": "test1_subitem1", "model_id": "test_item1"}}],
     }
-    patch("weko_items_autofill.utils.get_item_id", return_value=get_item)
-    result = get_cinii_autofill_item(1)
-    assert result == {
-        "title": [{"title": {"@value": "test1_subitem1", "model_id": "test_item1"}}]
-    }
+    with patch("weko_items_autofill.utils.get_item_id", return_value=get_item):
+        result = get_cinii_autofill_item(1)
+        assert result == {
+            "title": [{"title": {"@value": "test1_subitem1", "model_id": "test_item1"}}]
+        }
 
 
 # def get_crossref_autofill_item(item_id):
@@ -932,16 +1013,16 @@ def test_get_crossref_autofill_item(app):
     get_item = {
         "title": [{"title": {"@value": "test1_subitem1", "model_id": "test_item1"}}],
     }
-    patch("weko_items_autofill.utils.get_item_id", return_value=get_item)
-    result = get_crossref_autofill_item(1)
-    assert result == {
-        "title": [{"title": {"@value": "test1_subitem1", "model_id": "test_item1"}}]
-    }
+    with patch("weko_items_autofill.utils.get_item_id", return_value=get_item):
+        result = get_crossref_autofill_item(1)
+        assert result == {
+            "title": [{"title": {"@value": "test1_subitem1", "model_id": "test_item1"}}]
+        }
 
 
 # def get_autofill_key_tree(schema_form, item, result=None):
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_utils.py::test_get_autofill_key_tree -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
-def test_get_autofill_key_tree(mocker):
+def test_get_autofill_key_tree():
     # item is not dict
     result = get_autofill_key_tree({}, "item")
     assert result == None
@@ -1042,9 +1123,9 @@ def test_get_autofill_key_tree(mocker):
             "@type": "test_item8.test8_subitem1.test8_subitem3",
         },
     }
-    patch("weko_items_autofill.utils.get_key_value", side_effect=rtns)
-    result = get_autofill_key_tree({}, item)
-    assert result == test
+    with patch("weko_items_autofill.utils.get_key_value", side_effect=rtns):
+        result = get_autofill_key_tree({}, item)
+        assert result == test
 
     # not exist creatorName, contributorName, relatedIdentifier, key_data
     # not dict and list
@@ -1688,17 +1769,17 @@ def test_get_workflow_journal(app, db, actions):
     db.session.commit()
 
     # not exist journal
-    result = get_workflow_journal(100)
+    result = get_workflow_journal('100')
     assert result == None
 
     # exist journal
-    result = get_workflow_journal(1)
+    result = get_workflow_journal('1')
     assert result == {"key": "value"}
 
 
 # def convert_crossref_xml_data_to_dictionary(api_data):
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_utils.py::test_convert_crossref_xml_data_to_dictionary -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
-def test_convert_crossref_xml_data_to_dictionary(mocker):
+def test_convert_crossref_xml_data_to_dictionary():
     data = (
         "<body>"
         '<doi type="journal_article">10.1103/PhysRev.47.777</doi>'
@@ -1721,41 +1802,41 @@ def test_convert_crossref_xml_data_to_dictionary(mocker):
     def mock_cont_data(elem, roles, rtn_data):
         rtn_data.update({"contributor": [{"given": "A.", "family": "Test1"}]})
 
-    patch(
+    with patch(
         "weko_items_autofill.utils._get_contributor_and_author_names",
         side_effect=mock_cont_data,
-    )
-    test = {
-        "response": {
-            "doi": "10.1103/PhysRev.47.777",
-            "issn": "0031-899X",
-            "contributor": [{"given": "A.", "family": "Test1"}],
-            "year": "1936",
-            "article_title": "this is article title",
-        },
-        "error": "",
-    }
-    result = convert_crossref_xml_data_to_dictionary(data)
-    assert result == test
+        ):
+        test = {
+            "response": {
+                "doi": "10.1103/PhysRev.47.777",
+                "issn": "0031-899X",
+                "contributor": [{"given": "A.", "family": "Test1"}],
+                "year": "1936",
+                "article_title": "this is article title",
+            },
+            "error": "",
+        }
+        result = convert_crossref_xml_data_to_dictionary(data)
+        assert result == test
 
-    result = convert_crossref_xml_data_to_dictionary(data,'utf-8')
-    assert result == test
+        result = convert_crossref_xml_data_to_dictionary(data,'utf-8')
+        assert result == test
 
-    data = '<?xml version="1.0" encoding="UTF-8"?>\n<crossref_result xmlns="http://www.crossref.org/qrschema/2.0" version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.crossref.org/qrschema/2.0 https://www.crossref.org/schema/crossref_query_output2.0.xsd"><query_result><head><doi_batch_id>none</doi_batch_id></head><body><query status="resolved" fl_count="0"><doi type="journal_article">xxx/yyy</doi><issn type="electronic">1234567</issn><journal_title>journal title</journal_title><contributors><contributor sequence="first" contributor_role="author"><given_name>John</given_name><surname>Doe</surname></contributor></contributors><year media_type="online">2018</year><publication_type>full_text</publication_type><article_title>article title</article_title></query></body></query_result></crossref_result>'
-    result = convert_crossref_xml_data_to_dictionary(data)
-    assert result == {'error': '','response': {'article_title': 'article title','contributor': [{'family': 'Test1', 'given': 'A.'}],'doi': 'xxx/yyy','journal_title': 'journal title'}}
+        data = '<?xml version="1.0" encoding="UTF-8"?>\n<crossref_result xmlns="http://www.crossref.org/qrschema/2.0" version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.crossref.org/qrschema/2.0 https://www.crossref.org/schema/crossref_query_output2.0.xsd"><query_result><head><doi_batch_id>none</doi_batch_id></head><body><query status="resolved" fl_count="0"><doi type="journal_article">xxx/yyy</doi><issn type="electronic">1234567</issn><journal_title>journal title</journal_title><contributors><contributor sequence="first" contributor_role="author"><given_name>John</given_name><surname>Doe</surname></contributor></contributors><year media_type="online">2018</year><publication_type>full_text</publication_type><article_title>article title</article_title></query></body></query_result></crossref_result>'
+        result = convert_crossref_xml_data_to_dictionary(data)
+        assert result == {'error': '','response': {'article_title': 'article title','contributor': [{'family': 'Test1', 'given': 'A.'}],'doi': 'xxx/yyy','journal_title': 'journal title'}}
 
-    data = '<?xml version="1.0" encoding="UTF-8"?>\n<crossref_result xmlns="http://www.crossref.org/qrschema/2.0" version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.crossref.org/qrschema/2.0 https://www.crossref.org/schema/crossref_query_output2.0.xsd"><query_result><head><doi_batch_id>none</doi_batch_id></head><body></body></query_result></crossref_result>'
-    result = convert_crossref_xml_data_to_dictionary(data)
-    assert result == {'error': '', 'response': {}}
+        data = '<?xml version="1.0" encoding="UTF-8"?>\n<crossref_result xmlns="http://www.crossref.org/qrschema/2.0" version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.crossref.org/qrschema/2.0 https://www.crossref.org/schema/crossref_query_output2.0.xsd"><query_result><head><doi_batch_id>none</doi_batch_id></head><body></body></query_result></crossref_result>'
+        result = convert_crossref_xml_data_to_dictionary(data)
+        assert result == {'error': '', 'response': {}}
 
-    data = '<crossref_result xmlns="http://www.crossref.org/qrschema/2.0" version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.crossref.org/qrschema/2.0 https://www.crossref.org/schema/crossref_query_output2.0.xsd"><query_result><head><doi_batch_id>none</doi_batch_id></head><body></body></query_result></crossref_result>'
-    result = convert_crossref_xml_data_to_dictionary(data)
-    assert result == {'error': '', 'response': {}}
+        data = '<crossref_result xmlns="http://www.crossref.org/qrschema/2.0" version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.crossref.org/qrschema/2.0 https://www.crossref.org/schema/crossref_query_output2.0.xsd"><query_result><head><doi_batch_id>none</doi_batch_id></head><body></body></query_result></crossref_result>'
+        result = convert_crossref_xml_data_to_dictionary(data)
+        assert result == {'error': '', 'response': {}}
 
-    error_data = '<?xml version="1.0" encoding="UTF-8"?>\n<crossref_result xmlns="http://www.crossref.org/qrschema/2.0" version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.crossref.org/qrschema/2.0 https://www.crossref.org/schema/crossref_query_output2.0.xsd"><query_result><head><doi_batch_id>none</doi_batch_id></head><body></query_result></crossref_result>'
-    result = convert_crossref_xml_data_to_dictionary(error_data)
-    assert result == {'error': 'Opening and ending tag mismatch: body line 2 and query_result, line 2, column 331 (<string>, line 2)','response': {}}
+        error_data = '<?xml version="1.0" encoding="UTF-8"?>\n<crossref_result xmlns="http://www.crossref.org/qrschema/2.0" version="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.crossref.org/qrschema/2.0 https://www.crossref.org/schema/crossref_query_output2.0.xsd"><query_result><head><doi_batch_id>none</doi_batch_id></head><body></query_result></crossref_result>'
+        result = convert_crossref_xml_data_to_dictionary(error_data)
+        assert result == {'error': 'Opening and ending tag mismatch: body line 2 and query_result, line 2, column 331 (<string>, line 2)','response': {}}
 
 
 
@@ -1826,24 +1907,24 @@ def test_get_wekoid_record_data(app, client, users, records, itemtypes):
             == "The item cannot be copied because you do not have permission to view it."
         )
 
-    login(app, client, obj=users[0]["obj"])
-    test = [
-        {
-            "item_1617186331708": [
-                {"subitem_1551255647225": "title", "subitem_1551255648112": "ja"}
-            ]
-        },
-        {"item_1617186476635": {"subitem_1600958577026": "test_access_url"}},
-        {
-            "item_1617258105262": {
-                "resourceuri": "http://purl.org/coar/resource_type/c_5794",
-                "resourcetype": "conference paper",
-            }
-        },
-    ]
-    result = get_wekoid_record_data(recid, item_type_id)
-    assert result == test
-    logout(app, client)
+        login(app, client, obj=users[0]["obj"])
+        test = [
+            {
+                "item_1617186331708": [
+                    {"subitem_1551255647225": "title", "subitem_1551255648112": "ja"}
+                ]
+            },
+            {"item_1617186476635": {"subitem_1600958577026": "test_access_url"}},
+            {
+                "item_1617258105262": {
+                    "resourceuri": "http://purl.org/coar/resource_type/c_5794",
+                    "resourcetype": "conference paper",
+                }
+            },
+        ]
+        result = get_wekoid_record_data(recid, item_type_id)
+        assert result == test
+        logout(app, client)
 
 
 # def build_record_model_for_wekoid(item_type_id, item_map_data):

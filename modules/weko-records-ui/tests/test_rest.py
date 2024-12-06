@@ -92,7 +92,7 @@ def test_WekoRecordsCitesResource(app, records):
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoRecordsResource -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_WekoRecordsResource(app, records_rest, db_rocrate_mapping):
+def test_WekoRecordsResource(app, records_rest, db_rocrate_mapping, location):
     app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         res = client.get('/v1/records/1')
@@ -102,7 +102,7 @@ def test_WekoRecordsResource(app, records_rest, db_rocrate_mapping):
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoRecordsResource_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_WekoRecordsResource_error(app, records_rest, db_rocrate_mapping):
+def test_WekoRecordsResource_error(app, records_rest, db_rocrate_mapping, location):
     app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         url = '/v1/records/1'
@@ -146,7 +146,7 @@ def test_WekoRecordsResource_error(app, records_rest, db_rocrate_mapping):
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoRecordsStats -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_WekoRecordsStats(app, records_rest, db_rocrate_mapping):
+def test_WekoRecordsStats(app, records_rest, db_rocrate_mapping, location):
     app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         res = client.get('/v1/records/1/stats')
@@ -157,7 +157,7 @@ def test_WekoRecordsStats(app, records_rest, db_rocrate_mapping):
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoRecordsStats_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_WekoRecordsStats_error(app, records_rest, db_rocrate_mapping):
+def test_WekoRecordsStats_error(app, records_rest, db_rocrate_mapping, location):
     app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         url = '/v1/records/1/stats'
@@ -333,11 +333,11 @@ def test_WekoFileListGetAll(app, records):
             res = client.get('/v1/records/1/files/all')
             assert res.status_code == 200
 
-    test_mock = patch('weko_records_ui.fd.file_list_ui', return_value=Response(status=200))
-    # 2 Exist thumbnail
-    url = '/v1/records/7/files/all'
-    res = client.get(url)
-    assert len(test_mock.call_args[0][1]) == 1
+    with patch('weko_records_ui.fd.file_list_ui', return_value=Response(status=200)) as test_mock:
+        # 2 Exist thumbnail
+        url = '/v1/records/7/files/all'
+        res = client.get(url)
+        assert len(test_mock.call_args[0][1]) == 1
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoFileListGetAll_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp

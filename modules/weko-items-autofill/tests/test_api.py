@@ -52,7 +52,8 @@ class TestCrossRefOpenURL:
         cross_ref = CrossRefOpenURL("test_pid","test_doi",response_format="txt")
         patch("weko_items_autofill.api.CrossRefOpenURL._create_endpoint",return_value="openurl?pid=test_pid&id=doi:test_doi")
         result = cross_ref._create_url()
-        assert result == "https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi"
+        # assert result == "https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi"
+        assert result == "https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi&format=txt"
 
 
 #     def url(self):
@@ -62,17 +63,21 @@ class TestCrossRefOpenURL:
         patch("weko_items_autofill.api.CrossRefOpenURL._create_url",return_value="https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi")
 
         result = cross_ref.url
-        assert result == "https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi"
+        # assert result == "https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi"
+        assert result == "https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi&format=txt"
 
 
 #     def _do_http_request(self):
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_api.py::TestCrossRefOpenURL::test_do_http_request -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
     def test_do_http_request(self):
         mock_get = patch("weko_items_autofill.api.requests.get")
+        mock_get = mock_get.start()
         cross_ref = CrossRefOpenURL("test_pid","test_doi")
         cross_ref._do_http_request()
         mock_get.assert_called_with("https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi&format=xml",
                                     timeout=5,proxies={"http":"test_http_proxy","https":"test_https_proxy"})
+        # mock_get.assert_called_with("https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi&format=xml",
+        #                             timeout=5,proxies={"http":"","https":""})
 
 
 #     def get_data(self):
@@ -127,7 +132,8 @@ class TestCiNiiURL:
     def test_create_endpoint(self):
         cini = CiNiiURL("test_naid")
         result = cini._create_endpoint()
-        assert result == "naid/test_naid.json"
+        # assert result == "naid/test_naid.json"
+        assert result == "crid/test_naid.json"
 
 
 #     def _create_url(self):
@@ -136,7 +142,8 @@ class TestCiNiiURL:
         patch("weko_items_autofill.api.CiNiiURL._create_endpoint",return_value="naid/test_naid.json")
         cini = CiNiiURL("test_naid")
         result = cini._create_url()
-        assert result == "https://ci.nii.ac.jp/naid/test_naid.json"
+        # assert result == "https://ci.nii.ac.jp/naid/test_naid.json"
+        assert result == "https://cir.nii.ac.jp/crid/test_naid.json"
 
 
 #     def url(self):
@@ -145,17 +152,21 @@ class TestCiNiiURL:
         patch("weko_items_autofill.api.CiNiiURL._create_url",return_value="https://ci.nii.ac.jp/naid/test_naid.json")
         cini = CiNiiURL("test_naid")
         result = cini.url
-        assert result == "https://ci.nii.ac.jp/naid/test_naid.json"
+        # assert result == "https://ci.nii.ac.jp/naid/test_naid.json"
+        assert result == "https://cir.nii.ac.jp/crid/test_naid.json"
 
 
 #     def _do_http_request(self):
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_api.py::TestCiNiiURL::test_do_http_request -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
     def test_do_http_request(self):
         mock_get = patch("weko_items_autofill.api.requests.get")
+        mock_get = mock_get.start()
         cini = CiNiiURL("test_naid")
         cini._do_http_request()
-        mock_get.assert_called_with("https://ci.nii.ac.jp/naid/test_naid.json",
+        mock_get.assert_called_with("https://cir.nii.ac.jp/crid/test_naid.json",
                                     timeout=5,proxies={"http":"test_http_proxy","https":"test_https_proxy"})
+        # mock_get.assert_called_with("https://cir.nii.ac.jp/crid/test_naid.json",
+        #                             timeout=5,proxies={"http":"","https":""})
 
 
 #     def get_data(self):

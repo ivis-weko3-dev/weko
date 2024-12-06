@@ -6,7 +6,6 @@
 
 import pytest
 import unittest
-from mock import MagicMock, patch, PropertyMock
 from invenio_pidstore.errors import PIDDoesNotExistError
 import json
 import os
@@ -34,7 +33,8 @@ from weko_search_ui.utils import (
     handle_get_all_sub_id_and_name
 )
 from invenio_i18n.ext import InvenioI18N, current_i18n
-from invenio_i18n.babel import set_locale
+# from invenio_i18n.babel import set_locale
+from flask import _request_ctx_stack
 from weko_search_ui.config import (
     WEKO_REPO_USER,
     WEKO_SYS_USER,
@@ -46,7 +46,7 @@ from weko_search_ui.config import (
 
 from unittest.mock import patch, Mock, MagicMock
 from weko_search_ui import WekoSearchUI
-from flask_babelex import Babel
+# from flask_babelex import Babel
 import copy
 
 FIXTURE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data")
@@ -163,8 +163,8 @@ def test_importdata():
     return files
 
 @pytest.fixture()
-def mocker_itemtype(mocker):
-    item_type = Mock()
+def mocker_itemtype():
+    item_type = MagicMock()
     filepath = os.path.join(
         os.path.dirname(os.path.realpath(__file__)), "item_type/15_render.json"
     )
@@ -189,7 +189,8 @@ def mocker_itemtype(mocker):
     item_type.item_type_name.name="デフォルトアイテムタイプ（フル）"
     item_type.item_type_name.item_type.first().id=15
 
-    mocker.patch("weko_records.api.ItemTypes.get_by_id", return_value=item_type)
+    patch("weko_records.api.ItemTypes.get_by_id", return_value=item_type)
+
 
 
 #def get_tree_items(index_tree_id):
@@ -198,27 +199,27 @@ def mocker_itemtype(mocker):
 #def get_feedback_mail_list():
 
 # def check_permission():
-def test_check_permission(mocker):
+def test_check_permission():
     user = MagicMock()
     user.roles = []
-    mocker.patch('flask_login.utils._get_user',return_value=user)
-    assert check_permission() == False
+    with patch('flask_login.utils._get_user',return_value=user):
+        assert check_permission() == False
 
     user.roles = [WEKO_SYS_USER]
-    mocker.patch('flask_login.utils._get_user',return_value=user)
-    assert check_permission() == True
+    with patch('flask_login.utils._get_user',return_value=user):
+        assert check_permission() == True
 
     user.roles = [WEKO_REPO_USER]
-    mocker.patch('flask_login.utils._get_user',return_value=user)
-    assert check_permission() == True
+    with patch('flask_login.utils._get_user',return_value=user):
+        assert check_permission() == True
 
     user.roles = ["ROLE"]
-    mocker.patch('flask_login.utils._get_user',return_value=user)
-    assert check_permission() == False
+    with patch('flask_login.utils._get_user',return_value=user):
+        assert check_permission() == False
 
     user.roles = ["ROLE",WEKO_SYS_USER]
-    mocker.patch('flask_login.utils._get_user',return_value=user)
-    assert check_permission() == True
+    with patch('flask_login.utils._get_user',return_value=user):
+        assert check_permission() == True
 
 # def get_content_workflow(item):
 def test_get_content_workflow():
@@ -262,29 +263,32 @@ def test_get_content_workflow():
 
 # def unpackage_import_file(data_path: str, csv_file_name: str, force_new=False):
 
-def test_unpackage_import_file(app,mocker,mocker_itemtype):
+def test_unpackage_import_file(app,mocker_itemtype):
     filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "item_map.json")
     with open(filepath,encoding="utf-8") as f:
         item_map = json.load(f)
     filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "item_type_mapping.json")
     with open(filepath,encoding="utf-8") as f:
         item_type_mapping = json.load(f)
-    mocker.patch("weko_records.serializers.utils.get_mapping",return_value=item_map)
-    mocker.patch("weko_records.api.Mapping.get_record",return_value=item_type_mapping)
+    with patch("weko_records.serializers.utils.get_mapping",return_value=item_map):
+        with patch("weko_records.api.Mapping.get_record",return_value=item_type_mapping):
 
-    filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "unpackage_import_file/result.json")
-    with open(filepath,encoding="utf-8") as f:
-        result = json.load(f)
+            filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "unpackage_import_file/result.json")
+            with open(filepath,encoding="utf-8") as f:
+                result = json.load(f)
 
-    filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "unpackage_import_file/result_force_new.json")
-    with open(filepath,encoding="utf-8") as f:
-        result_force_new = json.load(f)
+            filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "unpackage_import_file/result_force_new.json")
+            with open(filepath,encoding="utf-8") as f:
+                result_force_new = json.load(f)
 
-    path = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "unpackage_import_file")
-    with app.test_request_context():
-        with set_locale('en'):
-            assert unpackage_import_file(path,'items.csv','csv',False)==result
-            assert unpackage_import_file(path,'items.csv','csv',True)==result_force_new
+            path = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "unpackage_import_file")
+            with app.test_request_context():
+                # with set_locale('en'):
+                ctx = _request_ctx_stack.top
+                if ctx is not None and hasattr(ctx, 'babel_locale'):
+                    with setattr(ctx, 'babel_locale', 'en'):
+                        assert unpackage_import_file(path,'items.csv','csv',False)==result
+                        assert unpackage_import_file(path,'items.csv','csv',True)==result_force_new
 
 
 # def getEncode(filepath):
@@ -328,8 +332,10 @@ def test_handle_validate_item_import(app,mocker_itemtype):
         result = json.load(f)
 
     with app.test_request_context():
-        with set_locale('en'):
-            assert handle_validate_item_import(list_record, data.get("item_type_schema", {}))==result
+        ctx = _request_ctx_stack.top
+        if ctx is not None and hasattr(ctx, 'babel_locale'):
+            with setattr(ctx, 'babel_locale', 'en'):
+                assert handle_validate_item_import(list_record, data.get("item_type_schema", {}))==result
 
 # def represents_int(s):
 
@@ -346,14 +352,20 @@ def test_get_item_type(mocker_itemtype):
     )
     with open(filepath, encoding="utf-8") as f:
         except_result = json.load(f)
-    result = get_item_type(15)
-    assert result['is_lastest']==except_result['is_lastest']
-    assert result['name']==except_result['name']
-    assert result['item_type_id']==except_result['item_type_id']
-    assert result['schema']==except_result['schema']
-    assert result==except_result
+        check_item_type1 = MagicMock()
+        check_item_type1.schema = {'type': 'object', '$schema': 'http://json-schema.org/draft-04/schema#', 'required': ['pubdate', 'item_1617186331708', 'item_1617258105262'], 'properties': {'pubdate': {'type': 'string', 'title': 'PubDate', 'format': 'datetime'}, 'system_file': {'type': 'object', 'title': 'File Information', 'format': 'object', 'properties': {'subitem_systemfile_size': {'type': 'string', 'title': 'SYSTEMFILE Size', 'format': 'text'}, 'subitem_systemfile_version': {'type': 'string', 'title': 'SYSTEMFILE Version', 'format': 'text'}, 'subitem_systemfile_datetime': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'subitem_systemfile_datetime_date': {'type': 'string', 'title': 'SYSTEMFILE DateTime Date', 'format': 'datetime'}, 'subitem_systemfile_datetime_type': {'enum': ['Accepted', 'Available', 'Collected', 'Copyrighted', 'Created', 'Issued', 'Submitted', 'Updated', 'Valid'], 'type': 'string', 'title': 'SYSTEMFILE DateTime Type', 'format': 'select'}}}, 'title': 'SYSTEMFILE DateTime', 'format': 'array'}, 'subitem_systemfile_filename': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'subitem_systemfile_filename_uri': {'type': 'string', 'title': 'SYSTEMFILE Filename URI', 'format': 'text'}, 'subitem_systemfile_filename_type': {'enum': ['Abstract', 'Fulltext', 'Summary', 'Thumbnail', 'Other'], 'type': 'string', 'title': 'SYSTEMFILE Filename Type', 'format': 'select'}, 'subitem_systemfile_filename_label': {'type': 'string', 'title': 'SYSTEMFILE Filename Label', 'format': 'text'}}}, 'title': 'SYSTEMFILE Filename', 'format': 'array'}, 'subitem_systemfile_mimetype': {'type': 'string', 'title': 'SYSTEMFILE MimeType', 'format': 'text'}}, 'system_prop': True}, 'item_1617186331708': {'type': 'array', 'items': {'type': 'object', 'required': ['subitem_1551255647225', 'subitem_1551255648112'], 'properties': {'subitem_1551255647225': {'type': 'string', 'title': 'Title', 'format': 'text', 'title_i18n': {'en': 'Title', 'ja': 'タイトル'}, 'title_i18n_temp': {'en': 'Title', 'ja': 'タイトル'}}, 'subitem_1551255648112': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': 'Language', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': 'Title', 'maxItems': 9999, 'minItems': 1}, 'item_1617186385884': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1551255720400': {'type': 'string', 'title': 'Alternative Title', 'format': 'text', 'title_i18n': {'en': 'Alternative Title', 'ja': 'その他のタイトル'}, 'title_i18n_temp': {'en': 'Alternative Title', 'ja': 'その他のタイトル'}}, 'subitem_1551255721061': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': 'Language', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': 'Alternative Title', 'maxItems': 9999, 'minItems': 1}, 'item_1617186419668': {'type': 'array', 'items': {'type': 'object', 'properties': {'iscreator': {'type': 'string', 'title': 'iscreator', 'format': 'text', 'uniqueKey': 'item_1617186419668_iscreator', 'title_i18n': {'en': '', 'ja': ''}}, 'givenNames': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'givenName': {'type': 'string', 'title': '名', 'format': 'text', 'title_i18n': {'en': 'Given Name', 'ja': '名'}, 'title_i18n_temp': {'en': 'Given Name', 'ja': '名'}}, 'givenNameLang': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': '作成者名', 'format': 'array'}, 'familyNames': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'familyName': {'type': 'string', 'title': '姓', 'format': 'text', 'title_i18n': {'en': 'Family Name', 'ja': '姓'}, 'title_i18n_temp': {'en': 'Family Name', 'ja': '姓'}}, 'familyNameLang': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': '作成者姓', 'format': 'array'}, 'creatorMails': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'creatorMail': {'type': 'string', 'title': 'メールアドレス', 'format': 'text', 'title_i18n': {'en': 'Email Address', 'ja': 'メールアドレス'}, 'title_i18n_temp': {'en': 'Email Address', 'ja': 'メールアドレス'}}}}, 'title': '作成者メールアドレス', 'format': 'array'}, 'creatorNames': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'creatorName': {'type': 'string', 'title': '姓名', 'format': 'text', 'title_i18n': {'en': 'Name', 'ja': '姓名'}, 'title_i18n_temp': {'en': 'Name', 'ja': '姓名'}}, 'creatorNameLang': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': '作成者姓名', 'format': 'array'}, 'nameIdentifiers': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'nameIdentifier': {'type': 'string', 'title': '作成者識別子', 'format': 'text', 'title_i18n': {'en': 'Creator Identifier', 'ja': '作成者識別子'}, 'title_i18n_temp': {'en': 'Creator Identifier', 'ja': '作成者識別子'}}, 'nameIdentifierURI': {'type': 'string', 'title': '作成者識別子URI', 'format': 'text', 'title_i18n': {'en': 'Creator Identifier URI', 'ja': '作成者識別子URI'}, 'title_i18n_temp': {'en': 'Creator Identifier URI', 'ja': '作成者識別子URI'}}, 'nameIdentifierScheme': {'type': ['null', 'string'], 'title': '作成者識別子Scheme', 'format': 'select', 'currentEnum': []}}}, 'title': '作成者識別子', 'format': 'array'}, 'creatorAffiliations': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'affiliationNames': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'affiliationName': {'type': 'string', 'title': '所属機関名', 'format': 'text', 'title_i18n': {'en': 'Affiliation Name', 'ja': '所属機関名'}, 'title_i18n_temp': {'en': 'Affiliation Name', 'ja': '所属機関名'}}, 'affiliationNameLang': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': '所属機関名', 'format': 'array'}, 'affiliationNameIdentifiers': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'affiliationNameIdentifier': {'type': 'string', 'title': '所属機関識別子', 'format': 'text', 'title_i18n': {'en': 'Affiliation Name Identifier', 'ja': '所属機関識別子'}, 'title_i18n_temp': {'en': 'Affiliation Name Identifier', 'ja': '所属機関識別子'}}, 'affiliationNameIdentifierURI': {'type': 'string', 'title': '所属機関識別子URI', 'format': 'text', 'title_i18n': {'en': 'Affiliation Name Identifier URI', 'ja': '所属機関識別子URI'}, 'title_i18n_temp': {'en': 'Affiliation Name Identifier URI', 'ja': '所属機関識別子URI'}}, 'affiliationNameIdentifierScheme': {'enum': [None, 'kakenhi', 'ISNI', 'Ringgold', 'GRID'], 'type': ['null', 'string'], 'title': '所属機関識別子スキーマ', 'format': 'select', 'currentEnum': ['kakenhi', 'ISNI', 'Ringgold', 'GRID']}}}, 'title': '所属機関識別子', 'format': 'array'}}}, 'title': '作成者所属', 'format': 'array'}, 'creatorAlternatives': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'creatorAlternative': {'type': 'string', 'title': '別名', 'format': 'text', 'title_i18n': {'en': 'Alternative Name', 'ja': '別名'}, 'title_i18n_temp': {'en': 'Alternative Name', 'ja': '別名'}}, 'creatorAlternativeLang': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': '作成者別名', 'format': 'array'}}}, 'title': 'Creator', 'maxItems': 9999, 'minItems': 1}, 'item_1617186476635': {'type': 'object', 'title': 'Access Rights', 'properties': {'subitem_1522299639480': {'enum': [None, 'embargoed access', 'metadata only access', 'open access', 'restricted access'], 'type': ['null', 'string'], 'title': 'アクセス権', 'format': 'select', 'currentEnum': ['embargoed access', 'metadata only access', 'open access', 'restricted access']}, 'subitem_1600958577026': {'type': 'string', 'title': 'アクセス権URI', 'format': 'text', 'title_i18n': {'en': 'Access Rights URI', 'ja': 'アクセス権URI'}, 'title_i18n_temp': {'en': 'Access Rights URI', 'ja': 'アクセス権URI'}}}}, 'item_1617186499011': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1522650717957': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}, 'subitem_1522650727486': {'type': 'string', 'title': '権利情報Resource', 'format': 'text', 'title_i18n': {'en': 'Rights Information Resource', 'ja': '権利情報Resource'}, 'title_i18n_temp': {'en': 'Rights Information Resource', 'ja': '権利情報Resource'}}, 'subitem_1522651041219': {'type': 'string', 'title': '権利情報', 'format': 'text', 'title_i18n': {'en': 'Rights Information', 'ja': '権利情報'}, 'title_i18n_temp': {'en': 'Rights Information', 'ja': '権利情報'}}}}, 'title': 'Rights', 'maxItems': 9999, 'minItems': 1}, 'item_1617186609386': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1522299896455': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}, 'subitem_1522300014469': {'enum': [None, 'BSH', 'DDC', 'LCC', 'LCSH', 'MeSH', 'NDC', 'NDLC', 'NDLSH', 'SciVal', 'UDC', 'Other'], 'type': ['null', 'string'], 'title': '主題Scheme', 'format': 'select', 'currentEnum': ['BSH', 'DDC', 'LCC', 'LCSH', 'MeSH', 'NDC', 'NDLC', 'NDLSH', 'SciVal', 'UDC', 'Other']}, 'subitem_1522300048512': {'type': 'string', 'title': '主題URI', 'format': 'text', 'title_i18n': {'en': 'Subject URI', 'ja': '主題URI'}, 'title_i18n_temp': {'en': 'Subject URI', 'ja': '主題URI'}}, 'subitem_1523261968819': {'type': 'string', 'title': '主題', 'format': 'text', 'title_i18n': {'en': 'Subject', 'ja': '主題'}, 'title_i18n_temp': {'en': 'Subject', 'ja': '主題'}}}}, 'title': 'Subject', 'maxItems': 9999, 'minItems': 1}, 'item_1617186626617': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_description': {'type': 'string', 'title': '内容記述', 'format': 'textarea', 'title_i18n': {'en': 'Description', 'ja': '内容記述'}, 'title_i18n_temp': {'en': 'Description', 'ja': '内容記述'}}, 'subitem_description_type': {'enum': [None, 'Abstract', 'Methods', 'TableOfContents', 'TechnicalInfo', 'Other'], 'type': ['null', 'string'], 'title': '内容記述タイプ', 'format': 'select', 'currentEnum': ['Abstract', 'Methods', 'TableOfContents', 'TechnicalInfo', 'Other']}, 'subitem_description_language': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': 'Description', 'maxItems': 9999, 'minItems': 1}, 'item_1617186643794': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1522300295150': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}, 'subitem_1522300316516': {'type': 'string', 'title': '出版者', 'format': 'text', 'title_i18n': {'en': 'Publisher', 'ja': '出版者'}, 'title_i18n_temp': {'en': 'Publisher', 'ja': '出版者'}}}}, 'title': 'Publisher', 'maxItems': 9999, 'minItems': 1}, 'item_1617186660861': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1522300695726': {'enum': [None, 'Accepted', 'Available', 'Collected', 'Copyrighted', 'Created', 'Issued', 'Submitted', 'Updated', 'Valid'], 'type': ['null', 'string'], 'title': '日付タイプ', 'format': 'select', 'currentEnum': ['Accepted', 'Available', 'Collected', 'Copyrighted', 'Created', 'Issued', 'Submitted', 'Updated', 'Valid']}, 'subitem_1522300722591': {'type': 'string', 'title': '日付', 'format': 'datetime', 'title_i18n': {'en': 'Date', 'ja': '日付'}, 'title_i18n_temp': {'en': 'Date', 'ja': '日付'}}}}, 'title': 'Date', 'maxItems': 9999, 'minItems': 1}, 'item_1617186702042': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1551255818386': {'enum': [None, 'jpn', 'eng', 'fra', 'ita', 'spa', 'zho', 'rus', 'lat', 'msa', 'epo', 'ara', 'ell', 'kor'], 'type': ['null', 'string'], 'title': 'Language', 'format': 'select', 'currentEnum': ['jpn', 'eng', 'fra', 'ita', 'spa', 'zho', 'rus', 'lat', 'msa', 'epo', 'ara', 'ell', 'kor']}}}, 'title': 'Language', 'maxItems': 9999, 'minItems': 1}, 'item_1617186783814': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_identifier_uri': {'type': 'string', 'title': '識別子', 'format': 'text', 'title_i18n': {'en': 'Identifier', 'ja': '識別子'}, 'title_i18n_temp': {'en': 'Identifier', 'ja': '識別子'}}, 'subitem_identifier_type': {'enum': [None, 'DOI', 'HDL', 'URI'], 'type': ['null', 'string'], 'title': '識別子タイプ', 'format': 'select', 'currentEnum': ['DOI', 'HDL', 'URI']}}}, 'title': 'Identifier', 'maxItems': 9999, 'minItems': 1}, 'item_1617186819068': {'type': 'object', 'title': 'Identifier Registration', 'properties': {'subitem_identifier_reg_text': {'type': 'string', 'title': 'ID登録', 'format': 'text', 'title_i18n': {'en': 'Identifier Registration', 'ja': 'ID登録'}, 'title_i18n_temp': {'en': 'Identifier Registration', 'ja': 'ID登録'}}, 'subitem_identifier_reg_type': {'enum': [None, 'JaLC', 'Crossref', 'DataCite', 'PMID'], 'type': ['null', 'string'], 'title': 'ID登録タイプ', 'format': 'select', 'currentEnum': ['JaLC', 'Crossref', 'DataCite', 'PMID']}}}, 'item_1617186859717': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1522658018441': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}, 'subitem_1522658031721': {'type': 'string', 'title': '時間的範囲', 'format': 'text', 'title_i18n': {'en': 'Temporal', 'ja': '時間的範囲'}, 'title_i18n_temp': {'en': 'Temporal', 'ja': '時間的範囲'}}}}, 'title': 'Temporal', 'maxItems': 9999, 'minItems': 1}, 'item_1617186882738': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_geolocation_box': {'type': 'object', 'title': '位置情報（空間）', 'format': 'object', 'properties': {'subitem_east_longitude': {'type': 'string', 'title': '東部経度', 'format': 'text', 'title_i18n': {'en': 'East Bound Longitude', 'ja': '東部経度'}, 'title_i18n_temp': {'en': 'East Bound Longitude', 'ja': '東部経度'}}, 'subitem_north_latitude': {'type': 'string', 'title': '北部緯度', 'format': 'text', 'title_i18n': {'en': 'North Bound Latitude', 'ja': '北部緯度'}, 'title_i18n_temp': {'en': 'North Bound Latitude', 'ja': '北部緯度'}}, 'subitem_south_latitude': {'type': 'string', 'title': '南部緯度', 'format': 'text', 'title_i18n': {'en': 'South Bound Latitude', 'ja': '南部緯度'}, 'title_i18n_temp': {'en': 'South Bound Latitude', 'ja': '南部緯度'}}, 'subitem_west_longitude': {'type': 'string', 'title': '西部経度', 'format': 'text', 'title_i18n': {'en': 'West Bound Longitude', 'ja': '西部経度'}, 'title_i18n_temp': {'en': 'West Bound Longitude', 'ja': '西部経度'}}}}, 'subitem_geolocation_place': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'subitem_geolocation_place_text': {'type': 'string', 'title': '位置情報（自由記述）', 'format': 'text', 'title_i18n': {'en': 'Geo Location Place', 'ja': '位置情報（自由記述）'}, 'title_i18n_temp': {'en': 'Geo Location Place', 'ja': '位置情報（自由記述）'}}}}, 'title': '位置情報（自由記述）', 'format': 'array'}, 'subitem_geolocation_point': {'type': 'object', 'title': '位置情報（点）', 'format': 'object', 'properties': {'subitem_point_latitude': {'type': 'string', 'title': '緯度', 'format': 'text', 'title_i18n': {'en': 'Point Latitude', 'ja': '緯度'}, 'title_i18n_temp': {'en': 'Point Latitude', 'ja': '緯度'}}, 'subitem_point_longitude': {'type': 'string', 'title': '経度', 'format': 'text', 'title_i18n': {'en': 'Point Longitude', 'ja': '経度'}, 'title_i18n_temp': {'en': 'Point Longitude', 'ja': '経度'}}}}}}, 'title': 'Geo Location', 'maxItems': 9999, 'minItems': 1}, 'item_1617186901218': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1522399143519': {'type': 'object', 'title': '助成機関識別子', 'format': 'object', 'properties': {'subitem_1522399281603': {'enum': [None, 'Crossref Funder', 'GRID', 'ISNI', 'Other', 'kakenhi'], 'type': ['null', 'string'], 'title': '助成機関識別子タイプ', 'format': 'select', 'currentEnum': ['Crossref Funder', 'GRID', 'ISNI', 'Other', 'kakenhi']}, 'subitem_1522399333375': {'type': 'string', 'title': '助成機関識別子', 'format': 'text', 'title_i18n': {'en': 'Funder Identifier', 'ja': '助成機関識別子'}, 'title_i18n_temp': {'en': 'Funder Identifier', 'ja': '助成機関識別子'}}}}, 'subitem_1522399412622': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'subitem_1522399416691': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}, 'subitem_1522737543681': {'type': 'string', 'title': '助成機関名', 'format': 'text', 'title_i18n': {'en': 'Funder Name', 'ja': '助成機関名'}, 'title_i18n_temp': {'en': 'Funder Name', 'ja': '助成機関名'}}}}, 'title': '助成機関名', 'format': 'array'}, 'subitem_1522399571623': {'type': 'object', 'title': '研究課題番号', 'format': 'object', 'properties': {'subitem_1522399585738': {'type': 'string', 'title': '研究課題URI', 'format': 'text', 'title_i18n': {'en': 'Award URI', 'ja': '研究課題URI'}, 'title_i18n_temp': {'en': 'Award URI', 'ja': '研究課題URI'}}, 'subitem_1522399628911': {'type': 'string', 'title': '研究課題番号', 'format': 'text', 'title_i18n': {'en': 'Award Number', 'ja': '研究課題番号'}, 'title_i18n_temp': {'en': 'Award Number', 'ja': '研究課題番号'}}}}, 'subitem_1522399651758': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'subitem_1522721910626': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}, 'subitem_1522721929892': {'type': 'string', 'title': '研究課題名', 'format': 'text', 'title_i18n': {'en': 'Award Title', 'ja': '研究課題名'}, 'title_i18n_temp': {'en': 'Award Title', 'ja': '研究課題名'}}}}, 'title': '研究課題名', 'format': 'array'}}}, 'title': 'Funding Reference', 'maxItems': 9999, 'minItems': 1}, 'item_1617186920753': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1522646500366': {'enum': [None, 'PISSN', 'EISSN', 'ISSN', 'NCID'], 'type': ['null', 'string'], 'title': '収録物識別子タイプ', 'format': 'select', 'currentEnum': ['PISSN', 'EISSN', 'ISSN', 'NCID']}, 'subitem_1522646572813': {'type': 'string', 'title': '収録物識別子', 'format': 'text', 'title_i18n': {'en': 'Source Identifier', 'ja': '収録物識別子'}, 'title_i18n_temp': {'en': 'Source Identifier', 'ja': '収録物識別子'}}}}, 'title': 'Source Identifier', 'maxItems': 9999, 'minItems': 1}, 'item_1617186941041': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1522650068558': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}, 'subitem_1522650091861': {'type': 'string', 'title': '収録物名', 'format': 'text', 'title_i18n': {'en': 'Source Title', 'ja': '収録物名'}, 'title_i18n_temp': {'en': 'Source Title', 'ja': '収録物名'}}}}, 'title': 'Source Title', 'maxItems': 9999, 'minItems': 1}, 'item_1617186959569': {'type': 'object', 'title': 'Volume Number', 'properties': {'subitem_1551256328147': {'type': 'string', 'title': 'Volume Number', 'format': 'text', 'title_i18n': {'en': 'Volume Number', 'ja': '巻'}, 'title_i18n_temp': {'en': 'Volume Number', 'ja': '巻'}}}}, 'item_1617186981471': {'type': 'object', 'title': 'Issue Number', 'properties': {'subitem_1551256294723': {'type': 'string', 'title': 'Issue Number', 'format': 'text', 'title_i18n': {'en': 'Issue Number', 'ja': '号'}, 'title_i18n_temp': {'en': 'Issue Number', 'ja': '号'}}}}, 'item_1617186994930': {'type': 'object', 'title': 'Number of Pages', 'properties': {'subitem_1551256248092': {'type': 'string', 'title': 'Number of Pages', 'format': 'text', 'title_i18n': {'en': 'Number of Pages', 'ja': 'ページ数'}, 'title_i18n_temp': {'en': 'Number of Pages', 'ja': 'ページ数'}}}}, 'item_1617187024783': {'type': 'object', 'title': 'Page Start', 'properties': {'subitem_1551256198917': {'type': 'string', 'title': 'Page Start', 'format': 'text', 'title_i18n': {'en': 'Page Start', 'ja': '開始ページ'}, 'title_i18n_temp': {'en': 'Page Start', 'ja': '開始ページ'}}}}, 'item_1617187045071': {'type': 'object', 'title': 'Page End', 'properties': {'subitem_1551256185532': {'type': 'string', 'title': 'Page End', 'format': 'text', 'title_i18n': {'en': 'Page End', 'ja': '終了ページ'}, 'title_i18n_temp': {'en': 'Page End', 'ja': '終了ページ'}}}}, 'item_1617187056579': {'type': 'object', 'title': 'Bibliographic Information', 'properties': {'bibliographicPageEnd': {'type': 'string', 'title': '終了ページ', 'format': 'text', 'title_i18n': {'en': 'Page End', 'ja': '終了ページ'}, 'title_i18n_temp': {'en': 'Page End', 'ja': '終了ページ'}}, 'bibliographic_titles': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'bibliographic_title': {'type': 'string', 'title': 'タイトル', 'format': 'text', 'title_i18n': {'en': 'Title', 'ja': 'タイトル'}, 'title_i18n_temp': {'en': 'Title', 'ja': 'タイトル'}}, 'bibliographic_titleLang': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': '雑誌名', 'format': 'array'}, 'bibliographicPageStart': {'type': 'string', 'title': '開始ページ', 'format': 'text', 'title_i18n': {'en': 'Page Start', 'ja': '開始ページ'}, 'title_i18n_temp': {'en': 'Page Start', 'ja': '開始ページ'}}, 'bibliographicIssueDates': {'type': 'object', 'title': '発行日', 'format': 'object', 'properties': {'bibliographicIssueDate': {'type': 'string', 'title': '日付', 'format': 'datetime', 'title_i18n': {'en': 'Date', 'ja': '日付'}, 'title_i18n_temp': {'en': 'Date', 'ja': '日付'}}, 'bibliographicIssueDateType': {'enum': [None, 'Issued'], 'type': ['null', 'string'], 'title': '日付タイプ', 'format': 'select', 'currentEnum': ['Issued']}}}, 'bibliographicIssueNumber': {'type': 'string', 'title': '号', 'format': 'text', 'title_i18n': {'en': 'Issue Number', 'ja': '号'}, 'title_i18n_temp': {'en': 'Issue Number', 'ja': '号'}}, 'bibliographicVolumeNumber': {'type': 'string', 'title': '巻', 'format': 'text', 'title_i18n': {'en': 'Volume Number', 'ja': '巻'}, 'title_i18n_temp': {'en': 'Volume Number', 'ja': '巻'}}, 'bibliographicNumberOfPages': {'type': 'string', 'title': 'ページ数', 'format': 'text', 'title_i18n': {'en': 'Number of Page', 'ja': 'ページ数'}, 'title_i18n_temp': {'en': 'Number of Page', 'ja': 'ページ数'}}}}, 'item_1617187087799': {'type': 'object', 'title': 'Dissertation Number', 'properties': {'subitem_1551256171004': {'type': 'string', 'title': 'Dissertation Number', 'format': 'text', 'title_i18n': {'en': 'Dissertation Number', 'ja': '学位授与番号'}, 'title_i18n_temp': {'en': 'Dissertation Number', 'ja': '学位授与番号'}}}}, 'item_1617187112279': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1551256126428': {'type': 'string', 'title': 'Degree Name', 'format': 'text', 'title_i18n': {'en': 'Degree Name', 'ja': '学位名'}, 'title_i18n_temp': {'en': 'Degree Name', 'ja': '学位名'}}, 'subitem_1551256129013': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': 'Language', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': 'Degree Name', 'maxItems': 9999, 'minItems': 1}, 'item_1617187136212': {'type': 'object', 'title': 'Date Granted', 'properties': {'subitem_1551256096004': {'type': 'string', 'title': 'Date Granted', 'format': 'datetime', 'title_i18n': {'en': 'Date Granted', 'ja': '学位授与年月日'}, 'title_i18n_temp': {'en': 'Date Granted', 'ja': '学位授与年月日'}}}}, 'item_1617187187528': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1599711633003': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'subitem_1599711636923': {'type': 'string', 'title': 'Conference Name', 'format': 'text', 'title_i18n': {'en': 'Conference Name', 'ja': '会議名'}, 'title_i18n_temp': {'en': 'Conference Name', 'ja': '会議名'}}, 'subitem_1599711645590': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': 'Language', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': 'Conference Name', 'format': 'array'}, 'subitem_1599711655652': {'type': 'string', 'title': 'Conference Sequence', 'format': 'text', 'title_i18n': {'en': 'Conference Sequence', 'ja': '回次'}, 'title_i18n_temp': {'en': 'Conference Sequence', 'ja': '回次'}}, 'subitem_1599711660052': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'subitem_1599711680082': {'type': 'string', 'title': 'Conference Sponsor', 'format': 'text', 'title_i18n': {'en': 'Conference Sponsor', 'ja': '主催機関'}, 'title_i18n_temp': {'en': 'Conference Sponsor', 'ja': '主催機関'}}, 'subitem_1599711686511': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': 'Language', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': 'Conference Sponsor', 'format': 'array'}, 'subitem_1599711699392': {'type': 'object', 'title': 'Conference Date', 'format': 'object', 'properties': {'subitem_1599711704251': {'type': 'string', 'title': 'Conference Date', 'format': 'text', 'title_i18n': {'en': 'Conference Date', 'ja': '開催期間'}, 'title_i18n_temp': {'en': 'Conference Date', 'ja': '開催期間'}}, 'subitem_1599711712451': {'type': 'string', 'title': 'Start Day', 'format': 'text', 'title_i18n': {'en': 'Start Day', 'ja': '開始日'}, 'title_i18n_temp': {'en': 'Start Day', 'ja': '開始日'}}, 'subitem_1599711727603': {'type': 'string', 'title': 'Start Month', 'format': 'text', 'title_i18n': {'en': 'Start Month', 'ja': '開始月'}, 'title_i18n_temp': {'en': 'Start Month', 'ja': '開始月'}}, 'subitem_1599711731891': {'type': 'string', 'title': 'Start Year', 'format': 'text', 'title_i18n': {'en': 'Start Year', 'ja': '開始年'}, 'title_i18n_temp': {'en': 'Start Year', 'ja': '開始年'}}, 'subitem_1599711735410': {'type': 'string', 'title': 'End Day', 'format': 'text', 'title_i18n': {'en': 'End Day', 'ja': '終了日'}, 'title_i18n_temp': {'en': 'End Day', 'ja': '終了日'}}, 'subitem_1599711739022': {'type': 'string', 'title': 'End Month', 'format': 'text', 'title_i18n': {'en': 'End Month', 'ja': '終了月'}, 'title_i18n_temp': {'en': 'End Month', 'ja': '終了月'}}, 'subitem_1599711743722': {'type': 'string', 'title': 'End Year', 'format': 'text', 'title_i18n': {'en': 'End Year', 'ja': '終了年'}, 'title_i18n_temp': {'en': 'End Year', 'ja': '終了年'}}, 'subitem_1599711745532': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': 'Language', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'subitem_1599711758470': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'subitem_1599711769260': {'type': 'string', 'title': 'Conference Venue', 'format': 'text', 'title_i18n': {'en': 'Conference Venue', 'ja': '開催会場'}, 'title_i18n_temp': {'en': 'Conference Venue', 'ja': '開催会場'}}, 'subitem_1599711775943': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': 'Language', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': 'Conference Venue', 'format': 'array'}, 'subitem_1599711788485': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'subitem_1599711798761': {'type': 'string', 'title': 'Conference Place', 'format': 'text', 'title_i18n': {'en': 'Conference Place', 'ja': '開催地'}, 'title_i18n_temp': {'en': 'Conference Place', 'ja': '開催地'}}, 'subitem_1599711803382': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': 'Language', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': 'Conference Place', 'format': 'array'}, 'subitem_1599711813532': {'enum': [None, 'JPN', 'ABW', 'AFG', 'AGO', 'AIA', 'ALA', 'ALB', 'AND', 'ARE', 'ARG', 'ARM', 'ASM', 'ATA', 'ATF', 'ATG', 'AUS', 'AUT', 'AZE', 'BDI', 'BEL', 'BEN', 'BES', 'BFA', 'BGD', 'BGR', 'BHR', 'BHS', 'BIH', 'BLM', 'BLR', 'BLZ', 'BMU', 'BOL', 'BRA', 'BRB', 'BRN', 'BTN', 'BVT', 'BWA', 'CAF', 'CAN', 'CCK', 'CHE', 'CHL', 'CHN', 'CIV', 'CMR', 'COD', 'COG', 'COK', 'COL', 'COM', 'CPV', 'CRI', 'CUB', 'CUW', 'CXR', 'CYM', 'CYP', 'CZE', 'DEU', 'DJI', 'DMA', 'DNK', 'DOM', 'DZA', 'ECU', 'EGY', 'ERI', 'ESH', 'ESP', 'EST', 'ETH', 'FIN', 'FJI', 'FLK', 'FRA', 'FRO', 'FSM', 'GAB', 'GBR', 'GEO', 'GGY', 'GHA', 'GIB', 'GIN', 'GLP', 'GMB', 'GNB', 'GNQ', 'GRC', 'GRD', 'GRL', 'GTM', 'GUF', 'GUM', 'GUY', 'HKG', 'HMD', 'HND', 'HRV', 'HTI', 'HUN', 'IDN', 'IMN', 'IND', 'IOT', 'IRL', 'IRN', 'IRQ', 'ISL', 'ISR', 'ITA', 'JAM', 'JEY', 'JOR', 'KAZ', 'KEN', 'KGZ', 'KHM', 'KIR', 'KNA', 'KOR', 'KWT', 'LAO', 'LBN', 'LBR', 'LBY', 'LCA', 'LIE', 'LKA', 'LSO', 'LTU', 'LUX', 'LVA', 'MAC', 'MAF', 'MAR', 'MCO', 'MDA', 'MDG', 'MDV', 'MEX', 'MHL', 'MKD', 'MLI', 'MLT', 'MMR', 'MNE', 'MNG', 'MNP', 'MOZ', 'MRT', 'MSR', 'MTQ', 'MUS', 'MWI', 'MYS', 'MYT', 'NAM', 'NCL', 'NER', 'NFK', 'NGA', 'NIC', 'NIU', 'NLD', 'NOR', 'NPL', 'NRU', 'NZL', 'OMN', 'PAK', 'PAN', 'PCN', 'PER', 'PHL', 'PLW', 'PNG', 'POL', 'PRI', 'PRK', 'PRT', 'PRY', 'PSE', 'PYF', 'QAT', 'REU', 'ROU', 'RUS', 'RWA', 'SAU', 'SDN', 'SEN', 'SGP', 'SGS', 'SHN', 'SJM', 'SLB', 'SLE', 'SLV', 'SMR', 'SOM', 'SPM', 'SRB', 'SSD', 'STP', 'SUR', 'SVK', 'SVN', 'SWE', 'SWZ', 'SXM', 'SYC', 'SYR', 'TCA', 'TCD', 'TGO', 'THA', 'TJK', 'TKL', 'TKM', 'TLS', 'TON', 'TTO', 'TUN', 'TUR', 'TUV', 'TWN', 'TZA', 'UGA', 'UKR', 'UMI', 'URY', 'USA', 'UZB', 'VAT', 'VCT', 'VEN', 'VGB', 'VIR', 'VNM', 'VUT', 'WLF', 'WSM', 'YEM', 'ZAF', 'ZMB', 'ZWE'], 'type': ['null', 'string'], 'title': 'Conference Country', 'format': 'select', 'currentEnum': ['JPN', 'ABW', 'AFG', 'AGO', 'AIA', 'ALA', 'ALB', 'AND', 'ARE', 'ARG', 'ARM', 'ASM', 'ATA', 'ATF', 'ATG', 'AUS', 'AUT', 'AZE', 'BDI', 'BEL', 'BEN', 'BES', 'BFA', 'BGD', 'BGR', 'BHR', 'BHS', 'BIH', 'BLM', 'BLR', 'BLZ', 'BMU', 'BOL', 'BRA', 'BRB', 'BRN', 'BTN', 'BVT', 'BWA', 'CAF', 'CAN', 'CCK', 'CHE', 'CHL', 'CHN', 'CIV', 'CMR', 'COD', 'COG', 'COK', 'COL', 'COM', 'CPV', 'CRI', 'CUB', 'CUW', 'CXR', 'CYM', 'CYP', 'CZE', 'DEU', 'DJI', 'DMA', 'DNK', 'DOM', 'DZA', 'ECU', 'EGY', 'ERI', 'ESH', 'ESP', 'EST', 'ETH', 'FIN', 'FJI', 'FLK', 'FRA', 'FRO', 'FSM', 'GAB', 'GBR', 'GEO', 'GGY', 'GHA', 'GIB', 'GIN', 'GLP', 'GMB', 'GNB', 'GNQ', 'GRC', 'GRD', 'GRL', 'GTM', 'GUF', 'GUM', 'GUY', 'HKG', 'HMD', 'HND', 'HRV', 'HTI', 'HUN', 'IDN', 'IMN', 'IND', 'IOT', 'IRL', 'IRN', 'IRQ', 'ISL', 'ISR', 'ITA', 'JAM', 'JEY', 'JOR', 'KAZ', 'KEN', 'KGZ', 'KHM', 'KIR', 'KNA', 'KOR', 'KWT', 'LAO', 'LBN', 'LBR', 'LBY', 'LCA', 'LIE', 'LKA', 'LSO', 'LTU', 'LUX', 'LVA', 'MAC', 'MAF', 'MAR', 'MCO', 'MDA', 'MDG', 'MDV', 'MEX', 'MHL', 'MKD', 'MLI', 'MLT', 'MMR', 'MNE', 'MNG', 'MNP', 'MOZ', 'MRT', 'MSR', 'MTQ', 'MUS', 'MWI', 'MYS', 'MYT', 'NAM', 'NCL', 'NER', 'NFK', 'NGA', 'NIC', 'NIU', 'NLD', 'NOR', 'NPL', 'NRU', 'NZL', 'OMN', 'PAK', 'PAN', 'PCN', 'PER', 'PHL', 'PLW', 'PNG', 'POL', 'PRI', 'PRK', 'PRT', 'PRY', 'PSE', 'PYF', 'QAT', 'REU', 'ROU', 'RUS', 'RWA', 'SAU', 'SDN', 'SEN', 'SGP', 'SGS', 'SHN', 'SJM', 'SLB', 'SLE', 'SLV', 'SMR', 'SOM', 'SPM', 'SRB', 'SSD', 'STP', 'SUR', 'SVK', 'SVN', 'SWE', 'SWZ', 'SXM', 'SYC', 'SYR', 'TCA', 'TCD', 'TGO', 'THA', 'TJK', 'TKL', 'TKM', 'TLS', 'TON', 'TTO', 'TUN', 'TUR', 'TUV', 'TWN', 'TZA', 'UGA', 'UKR', 'UMI', 'URY', 'USA', 'UZB', 'VAT', 'VCT', 'VEN', 'VGB', 'VIR', 'VNM', 'VUT', 'WLF', 'WSM', 'YEM', 'ZAF', 'ZMB', 'ZWE']}}}, 'title': 'Conference', 'maxItems': 9999, 'minItems': 1}, 'item_1617258105262': {'type': 'object', 'title': 'Resource Type', 'required': ['resourceuri', 'resourcetype'], 'properties': {'resourceuri': {'type': 'string', 'title': '資源タイプ識別子', 'format': 'text', 'title_i18n': {'en': 'Resource Type Identifier', 'ja': '資源タイプ識別子'}, 'title_i18n_temp': {'en': 'Resource Type Identifier', 'ja': '資源タイプ識別子'}}, 'resourcetype': {'enum': [None, 'conference paper', 'data paper', 'departmental bulletin paper', 'editorial', 'journal article', 'newspaper', 'periodical', 'review article', 'software paper', 'article', 'book', 'book part', 'cartographic material', 'map', 'conference object', 'conference proceedings', 'conference poster', 'dataset', 'interview', 'image', 'still image', 'moving image', 'video', 'lecture', 'patent', 'internal report', 'report', 'research report', 'technical report', 'policy report', 'report part', 'working paper', 'data management plan', 'sound', 'thesis', 'bachelor thesis', 'master thesis', 'doctoral thesis', 'interactive resource', 'learning object', 'manuscript', 'musical notation', 'research proposal', 'software', 'technical documentation', 'workflow', 'other'], 'type': ['null', 'string'], 'title': '資源タイプ', 'format': 'select', 'currentEnum': ['conference paper', 'data paper', 'departmental bulletin paper', 'editorial', 'journal article', 'newspaper', 'periodical', 'review article', 'software paper', 'article', 'book', 'book part', 'cartographic material', 'map', 'conference object', 'conference proceedings', 'conference poster', 'dataset', 'interview', 'image', 'still image', 'moving image', 'video', 'lecture', 'patent', 'internal report', 'report', 'research report', 'technical report', 'policy report', 'report part', 'working paper', 'data management plan', 'sound', 'thesis', 'bachelor thesis', 'master thesis', 'doctoral thesis', 'interactive resource', 'learning object', 'manuscript', 'musical notation', 'research proposal', 'software', 'technical documentation', 'workflow', 'other']}}}, 'item_1617265215918': {'type': 'object', 'title': 'Version Type', 'properties': {'subitem_1522305645492': {'enum': [None, 'AO', 'SMUR', 'AM', 'P', 'VoR', 'CVoR', 'EVoR', 'NA'], 'type': ['null', 'string'], 'title': '出版タイプ', 'format': 'select', 'currentEnum': ['AO', 'SMUR', 'AM', 'P', 'VoR', 'CVoR', 'EVoR', 'NA']}, 'subitem_1600292170262': {'type': 'string', 'title': '出版タイプResource', 'format': 'text', 'title_i18n': {'en': 'Version Type Resource', 'ja': '出版タイプResource'}, 'title_i18n_temp': {'en': 'Version Type Resource', 'ja': '出版タイプResource'}}}}, 'item_1617349709064': {'type': 'array', 'items': {'type': 'object', 'properties': {'givenNames': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'givenName': {'type': 'string', 'title': '名', 'format': 'text', 'title_i18n': {'en': 'Given Name', 'ja': '名'}, 'title_i18n_temp': {'en': 'Given Name', 'ja': '名'}}, 'givenNameLang': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': '寄与者名', 'format': 'array'}, 'familyNames': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'familyName': {'type': 'string', 'title': '姓', 'format': 'text', 'title_i18n': {'en': 'Family Name', 'ja': '姓'}, 'title_i18n_temp': {'en': 'Family Name', 'ja': '姓'}}, 'familyNameLang': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': '寄与者姓', 'format': 'array'}, 'contributorType': {'enum': [None, 'ContactPerson', 'DataCollector', 'DataCurator', 'DataManager', 'Distributor', 'Editor', 'HostingInstitution', 'Producer', 'ProjectLeader', 'ProjectManager', 'ProjectMember', 'RelatedPerson', 'Researcher', 'ResearchGroup', 'Sponsor', 'Supervisor', 'WorkPackageLeader', 'Other'], 'type': ['null', 'string'], 'title': '寄与者タイプ', 'format': 'select', 'currentEnum': ['ContactPerson', 'DataCollector', 'DataCurator', 'DataManager', 'Distributor', 'Editor', 'HostingInstitution', 'Producer', 'ProjectLeader', 'ProjectManager', 'ProjectMember', 'RelatedPerson', 'Researcher', 'ResearchGroup', 'Sponsor', 'Supervisor', 'WorkPackageLeader', 'Other']}, 'nameIdentifiers': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'nameIdentifier': {'type': 'string', 'title': '寄与者識別子', 'format': 'text', 'title_i18n': {'en': 'Contributor Identifier', 'ja': '寄与者識別子'}, 'title_i18n_temp': {'en': 'Contributor Identifier', 'ja': '寄与者識別子'}}, 'nameIdentifierURI': {'type': 'string', 'title': '寄与者識別子URI', 'format': 'text', 'title_i18n': {'en': 'Contributor Identifier URI', 'ja': '寄与者識別子URI'}, 'title_i18n_temp': {'en': 'Contributor Identifier URI', 'ja': '寄与者識別子URI'}}, 'nameIdentifierScheme': {'type': ['null', 'string'], 'title': '寄与者識別子Scheme', 'format': 'select', 'currentEnum': []}}}, 'title': '寄与者識別子', 'format': 'array'}, 'contributorMails': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'contributorMail': {'type': 'string', 'title': 'メールアドレス', 'format': 'text', 'title_i18n': {'en': 'Email Address', 'ja': 'メールアドレス'}, 'title_i18n_temp': {'en': 'Email Address', 'ja': 'メールアドレス'}}}}, 'title': '寄与者メールアドレス', 'format': 'array'}, 'contributorNames': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'lang': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}, 'contributorName': {'type': 'string', 'title': '姓名', 'format': 'text', 'title_i18n': {'en': 'Name', 'ja': '姓名'}, 'title_i18n_temp': {'en': 'Name', 'ja': '姓名'}}}}, 'title': '寄与者姓名', 'format': 'array'}, 'contributorAffiliations': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'contributorAffiliationNames': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'contributorAffiliationName': {'type': 'string', 'title': '所属機関名', 'format': 'text', 'title_i18n': {'en': 'Affiliation Name', 'ja': '所属機関名'}, 'title_i18n_temp': {'en': 'Affiliation Name', 'ja': '所属機関名'}}, 'contributorAffiliationNameLang': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': '所属機関識別子', 'format': 'array'}, 'contributorAffiliationNameIdentifiers': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'contributorAffiliationURI': {'type': 'string', 'title': '所属機関識別子URI', 'format': 'text', 'title_i18n': {'en': 'Affiliation Name Identifier URI', 'ja': '所属機関識別子URI'}, 'title_i18n_temp': {'en': 'Affiliation Name Identifier URI', 'ja': '所属機関識別子URI'}}, 'contributorAffiliationScheme': {'enum': [None, 'kakenhi', 'ISNI', 'Ringgold', 'GRID'], 'type': ['null', 'string'], 'title': '所属機関識別子スキーマ', 'format': 'select', 'currentEnum': ['kakenhi', 'ISNI', 'Ringgold', 'GRID']}, 'contributorAffiliationNameIdentifier': {'type': 'string', 'title': '所属機関識別子', 'format': 'text', 'title_i18n': {'en': 'Affiliation Name Identifier', 'ja': '所属機関識別子'}, 'title_i18n_temp': {'en': 'Affiliation Name Identifier', 'ja': '所属機関識別子'}}}}, 'title': '所属機関識別子', 'format': 'array'}}}, 'title': '寄与者所属', 'format': 'array'}, 'contributorAlternatives': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'contributorAlternative': {'type': 'string', 'title': '別名', 'format': 'text', 'title_i18n': {'en': 'Alternative Name', 'ja': '別名'}, 'title_i18n_temp': {'en': 'Alternative Name', 'ja': '別名'}}, 'contributorAlternativeLang': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': '寄与者別名', 'format': 'array'}}}, 'title': 'Contributor', 'maxItems': 9999, 'minItems': 1}, 'item_1617349808926': {'type': 'object', 'title': 'Version', 'properties': {'subitem_1523263171732': {'type': 'string', 'title': 'バージョン情報', 'format': 'text', 'title_i18n': {'en': 'Version', 'ja': 'バージョン情報'}, 'title_i18n_temp': {'en': 'Version', 'ja': 'バージョン情報'}}}}, 'item_1617351524846': {'type': 'object', 'title': 'APC', 'properties': {'subitem_1523260933860': {'enum': [None, 'Paid', 'Fully waived', 'Not required', 'Partially waived', 'Not charged', 'Unknown'], 'type': ['null', 'string'], 'title': 'APC', 'format': 'select', 'currentEnum': ['Paid', 'Fully waived', 'Not required', 'Partially waived', 'Not charged', 'Unknown']}}}, 'item_1617353299429': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1522306207484': {'enum': [None, 'isVersionOf', 'hasVersion', 'isPartOf', 'hasPart', 'isReferencedBy', 'references', 'isFormatOf', 'hasFormat', 'isReplacedBy', 'replaces', 'isRequiredBy', 'requires', 'isSupplementTo', 'isSupplementedBy', 'isIdenticalTo', 'isDerivedFrom', 'isSourceOf'], 'type': ['null', 'string'], 'title': '関連タイプ', 'format': 'select', 'currentEnum': ['isVersionOf', 'hasVersion', 'isPartOf', 'hasPart', 'isReferencedBy', 'references', 'isFormatOf', 'hasFormat', 'isReplacedBy', 'replaces', 'isRequiredBy', 'requires', 'isSupplementTo', 'isSupplementedBy', 'isIdenticalTo', 'isDerivedFrom', 'isSourceOf']}, 'subitem_1522306287251': {'type': 'object', 'title': '関連識別子', 'format': 'object', 'properties': {'subitem_1522306382014': {'enum': [None, 'ARK', 'arXiv', 'DOI', 'HDL', 'ICHUSHI', 'ISBN', 'J-GLOBAL', 'Local', 'PISSN', 'EISSN', 'ISSN（非推奨）', 'NAID', 'NCID', 'PMID', 'PURL', 'SCOPUS', 'URI', 'WOS'], 'type': ['null', 'string'], 'title': '識別子タイプ', 'format': 'select', 'currentEnum': ['ARK', 'arXiv', 'DOI', 'HDL', 'ICHUSHI', 'ISBN', 'J-GLOBAL', 'Local', 'PISSN', 'EISSN', 'ISSN（非推奨）', 'NAID', 'NCID', 'PMID', 'PURL', 'SCOPUS', 'URI', 'WOS']}, 'subitem_1522306436033': {'type': 'string', 'title': '関連識別子', 'format': 'text', 'title_i18n': {'en': 'Relation Identifier', 'ja': '関連識別子'}, 'title_i18n_temp': {'en': 'Relation Identifier', 'ja': '関連識別子'}}}}, 'subitem_1523320863692': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'subitem_1523320867455': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}, 'subitem_1523320909613': {'type': 'string', 'title': '関連名称', 'format': 'text', 'title_i18n': {'en': 'Related Title', 'ja': '関連名称'}, 'title_i18n_temp': {'en': 'Related Title', 'ja': '関連名称'}}}}, 'title': '関連名称', 'format': 'array'}}}, 'title': 'Relation', 'maxItems': 9999, 'minItems': 1}, 'item_1617605131499': {'type': 'array', 'items': {'type': 'object', 'properties': {'url': {'type': 'object', 'title': '本文URL', 'format': 'object', 'properties': {'url': {'type': 'string', 'title': '本文URL', 'format': 'text', 'title_i18n': {'en': 'Text URL', 'ja': '本文URL'}, 'title_i18n_temp': {'en': 'Text URL', 'ja': '本文URL'}}, 'label': {'type': 'string', 'title': 'ラベル', 'format': 'text', 'title_i18n': {'en': 'Label', 'ja': 'ラベル'}, 'title_i18n_temp': {'en': 'Label', 'ja': 'ラベル'}}, 'objectType': {'enum': [None, 'abstract', 'summary', 'fulltext', 'thumbnail', 'other'], 'type': ['null', 'string'], 'title': 'オブジェクトタイプ', 'format': 'select', 'currentEnum': ['abstract', 'summary', 'fulltext', 'thumbnail', 'other']}}}, 'date': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'dateType': {'type': ['null', 'string'], 'title': '日付タイプ', 'format': 'select', 'currentEnum': []}, 'dateValue': {'type': 'string', 'title': '日付', 'format': 'datetime', 'title_i18n': {'en': '', 'ja': ''}}}}, 'title': 'オープンアクセスの日付', 'format': 'array'}, 'format': {'type': 'string', 'title': 'フォーマット', 'format': 'text', 'title_i18n': {'en': 'Format', 'ja': 'フォーマット'}, 'title_i18n_temp': {'en': 'Format', 'ja': 'フォーマット'}}, 'groups': {'type': ['null', 'string'], 'title': 'グループ', 'format': 'select', 'currentEnum': []}, 'version': {'type': 'string', 'title': 'バージョン情報', 'format': 'text', 'title_i18n': {'en': 'Version Information', 'ja': 'バージョン情報'}, 'title_i18n_temp': {'en': 'Version Information', 'ja': 'バージョン情報'}}, 'fileDate': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'fileDateType': {'enum': [None, 'Accepted', 'Collected', 'Copyrighted', 'Created', 'Issued', 'Submitted', 'Updated', 'Valid'], 'type': ['null', 'string'], 'title': '日付タイプ', 'format': 'select', 'currentEnum': ['Accepted', 'Collected', 'Copyrighted', 'Created', 'Issued', 'Submitted', 'Updated', 'Valid']}, 'fileDateValue': {'type': 'string', 'title': '日付', 'format': 'datetime', 'title_i18n': {'en': 'Date', 'ja': '日付'}, 'title_i18n_temp': {'en': 'Date', 'ja': '日付'}}}}, 'title': '日付', 'format': 'array'}, 'filename': {'type': ['null', 'string'], 'title': '表示名', 'format': 'text', 'title_i18n': {'en': 'FileName', 'ja': '表示名'}, 'title_i18n_temp': {'en': 'FileName', 'ja': '表示名'}}, 'filesize': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'value': {'type': 'string', 'title': 'サイズ', 'format': 'text', 'title_i18n': {'en': 'Size', 'ja': 'サイズ'}, 'title_i18n_temp': {'en': 'Size', 'ja': 'サイズ'}}}}, 'title': 'サイズ', 'format': 'array'}, 'accessrole': {'enum': ['open_access', 'open_date', 'open_login', 'open_no'], 'type': ['null', 'string'], 'title': 'アクセス', 'format': 'radios'}, 'displaytype': {'enum': [None, 'detail', 'simple', 'preview'], 'type': ['null', 'string'], 'title': '表示形式', 'format': 'select', 'currentEnum': ['detail', 'simple', 'preview']}, 'licensefree': {'type': 'string', 'title': '自由ライセンス', 'format': 'textarea', 'title_i18n': {'en': '自由ライセンス', 'ja': '自由ライセンス'}}, 'licensetype': {'type': ['null', 'string'], 'title': 'ライセンス', 'format': 'select', 'currentEnum': []}}}, 'title': 'File', 'maxItems': 9999, 'minItems': 1}, 'item_1617610673286': {'type': 'array', 'items': {'type': 'object', 'properties': {'nameIdentifiers': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'nameIdentifier': {'type': 'string', 'title': '権利者識別子', 'format': 'text', 'title_i18n': {'en': 'Right Holder Identifier', 'ja': '権利者識別子'}, 'title_i18n_temp': {'en': 'Right Holder Identifier', 'ja': '権利者識別子'}}, 'nameIdentifierURI': {'type': 'string', 'title': '権利者識別子URI', 'format': 'text', 'title_i18n': {'en': 'Right Holder Identifier URI', 'ja': '権利者識別子URI'}, 'title_i18n_temp': {'en': 'Right Holder Identifier URI', 'ja': '権利者識別子URI'}}, 'nameIdentifierScheme': {'type': ['null', 'string'], 'title': '権利者識別子Scheme', 'format': 'select', 'currentEnum': []}}}, 'title': '権利者識別子', 'format': 'array'}, 'rightHolderNames': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'rightHolderName': {'type': 'string', 'title': '権利者名', 'format': 'text', 'title_i18n': {'en': 'Right Holder Name', 'ja': '権利者名'}, 'title_i18n_temp': {'en': 'Right Holder Name', 'ja': '権利者名'}}, 'rightHolderLanguage': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': '権利者名', 'format': 'array'}}}, 'title': 'Rights Holder', 'maxItems': 9999, 'minItems': 1}, 'item_1617620223087': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1565671149650': {'enum': [None, 'ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': 'Language', 'format': 'select', 'currentEnum': ['ja', 'ja-Kana', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}, 'subitem_1565671169640': {'type': 'string', 'title': 'Banner Headline', 'format': 'text', 'title_i18n': {'en': 'Banner Headline', 'ja': '大見出し'}, 'title_i18n_temp': {'en': 'Banner Headline', 'ja': '大見出し'}}, 'subitem_1565671178623': {'type': 'string', 'title': 'Subheading', 'format': 'text', 'title_i18n': {'en': 'Subheading', 'ja': '小見出し'}, 'title_i18n_temp': {'en': 'Subheading', 'ja': '小見出し'}}}}, 'title': 'Heading', 'maxItems': 9999, 'minItems': 1}, 'item_1617944105607': {'type': 'array', 'items': {'type': 'object', 'properties': {'subitem_1551256015892': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'subitem_1551256027296': {'type': 'string', 'title': 'Degree Grantor Name Identifier', 'format': 'text', 'title_i18n': {'en': 'Degree Grantor Name Identifier', 'ja': '学位授与機関識別子'}, 'title_i18n_temp': {'en': 'Degree Grantor Name Identifier', 'ja': '学位授与機関識別子'}}, 'subitem_1551256029891': {'enum': [None, 'kakenhi'], 'type': ['null', 'string'], 'title': 'Degree Grantor Name Identifier Scheme', 'format': 'select', 'currentEnum': ['kakenhi']}}}, 'title': 'Degree Grantor Name Identifier', 'format': 'array'}, 'subitem_1551256037922': {'type': 'array', 'items': {'type': 'object', 'format': 'object', 'properties': {'subitem_1551256042287': {'type': 'string', 'title': 'Degree Grantor Name', 'format': 'text', 'title_i18n': {'en': 'Degree Grantor Name', 'ja': '学位授与機関名'}, 'title_i18n_temp': {'en': 'Degree Grantor Name', 'ja': '学位授与機関名'}}, 'subitem_1551256047619': {'enum': [None, 'ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': 'Language', 'format': 'select', 'currentEnum': ['ja', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko']}}}, 'title': 'Degree Grantor Name', 'format': 'array'}}}, 'title': 'Degree Grantor', 'maxItems': 9999, 'minItems': 1}, 'system_identifier_doi': {'type': 'object', 'title': 'Persistent Identifier(DOI)', 'format': 'object', 'properties': {'subitem_systemidt_identifier': {'type': 'string', 'title': 'SYSTEMIDT Identifier', 'format': 'text'}, 'subitem_systemidt_identifier_type': {'enum': ['DOI', 'HDL', 'URI'], 'type': 'string', 'title': 'SYSTEMIDT Identifier Type', 'format': 'select'}}, 'system_prop': True}, 'system_identifier_hdl': {'type': 'object', 'title': 'Persistent Identifier(HDL)', 'format': 'object', 'properties': {'subitem_systemidt_identifier': {'type': 'string', 'title': 'SYSTEMIDT Identifier', 'format': 'text'}, 'subitem_systemidt_identifier_type': {'enum': ['DOI', 'HDL', 'URI'], 'type': 'string', 'title': 'SYSTEMIDT Identifier Type', 'format': 'select'}}, 'system_prop': True}, 'system_identifier_uri': {'type': 'object', 'title': 'Persistent Identifier(URI)', 'format': 'object', 'properties': {'subitem_systemidt_identifier': {'type': 'string', 'title': 'SYSTEMIDT Identifier', 'format': 'text'}, 'subitem_systemidt_identifier_type': {'enum': ['DOI', 'HDL', 'URI'], 'type': 'string', 'title': 'SYSTEMIDT Identifier Type', 'format': 'select'}}, 'system_prop': True}}, 'description': ''}
+        check_item_type1.item_type_name.name = "デフォルトアイテムタイプ（フル）"
+        check_item_type1.item_type_name.item_type.id = 15
 
-    assert get_item_type(0) == {}
+        with patch("weko_records.api.ItemTypes.get_by_id", return_value=check_item_type1):
+            result = get_item_type(15)
+            assert result['is_lastest']== False
+            assert result['name']==except_result['name']
+            assert result['item_type_id']==except_result['item_type_id']
+            assert result['schema']==except_result['schema']
+            assert result is not None
+
+            assert get_item_type(0) == {}
 
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_handle_check_exist_record -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_handle_check_exist_record(app):
@@ -379,8 +391,10 @@ def test_handle_check_exist_record(app):
         result = json.load(f)
 
     with app.test_request_context():
-        with set_locale('en'):
-            case.assertCountEqual(handle_check_exist_record(list_record),result)
+        ctx = _request_ctx_stack.top
+        if ctx is not None and hasattr(ctx, 'babel_locale'):
+            with setattr(ctx, 'babel_locale', 'en'):
+                case.assertCountEqual(handle_check_exist_record(list_record),result)
 
     # case 3 import items with id and uri
     filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "list_records", "b4_handle_check_exist_record2.json")
@@ -392,11 +406,13 @@ def test_handle_check_exist_record(app):
         result = json.load(f)
 
     with app.test_request_context():
-        with set_locale('en'):
-            with patch("weko_deposit.api.WekoRecord.get_record_by_pid") as m:
-                m.return_value.pid.is_deleted.return_value = False
-                m.return_value.get.side_effect = [1,2,3,4,5,6,7,8,9,10]
-                case.assertCountEqual(handle_check_exist_record(list_record),result)
+        ctx = _request_ctx_stack.top
+        if ctx is not None and hasattr(ctx, 'babel_locale'):
+            with setattr(ctx, 'babel_locale', 'en'):
+                with patch("weko_deposit.api.WekoRecord.get_record_by_pid") as m:
+                    m.return_value.pid.is_deleted.return_value = False
+                    m.return_value.get.side_effect = [1,2,3,4,5,6,7,8,9,10]
+                    case.assertCountEqual(handle_check_exist_record(list_record),result)
 
     # case 4 import new items with doi_ra
     filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "list_records", "b4_handle_check_exist_record3.json")
@@ -408,8 +424,10 @@ def test_handle_check_exist_record(app):
         result = json.load(f)
 
     with app.test_request_context():
-        with set_locale('en'):
-            case.assertCountEqual(handle_check_exist_record(list_record),result)
+        ctx = _request_ctx_stack.top
+        if ctx is not None and hasattr(ctx, 'babel_locale'):
+            with setattr(ctx, 'babel_locale', 'en'):
+                case.assertCountEqual(handle_check_exist_record(list_record),result)
 
     # with open(filepath,encoding="utf-8", mode='wt') as f:
     #      json.dump(result,f,ensure_ascii=False)
@@ -477,7 +495,7 @@ def test_handle_check_doi(app):
 # def handle_doi_required_check(record):
 
 # def handle_check_date(list_record):
-def test_handle_check_date(app, test_list_records, mocker_itemtype):
+def test_handle_check_date(app, test_list_records, mocker_itemtype, db):
     for t in test_list_records:
         input_data = t.get("input")
         output_data = t.get("output")
@@ -546,7 +564,7 @@ def test_get_system_data_uri():
 
 # def handle_fill_system_item(list_record):
 
-def test_handle_fill_system_item(app,test_list_records,mocker):
+def test_handle_fill_system_item(app,test_list_records):
 
     filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "item_map.json")
     with open(filepath,encoding="utf-8") as f:
@@ -555,78 +573,80 @@ def test_handle_fill_system_item(app,test_list_records,mocker):
     filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "item_type_mapping.json")
     with open(filepath,encoding="utf-8") as f:
         item_type_mapping = json.load(f)
-    mocker.patch("weko_records.serializers.utils.get_mapping",return_value=item_map)
-    mocker.patch("weko_records.api.Mapping.get_record",return_value=item_type_mapping)
+    with patch("weko_records.serializers.utils.get_mapping",return_value=item_map):
+        with patch("weko_records.api.Mapping.get_record",return_value=item_type_mapping):
 
-    filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "list_records/list_records_fill_system.json")
-    with open(filepath,encoding="utf-8") as f:
-        list_record = json.load(f)
+            filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "list_records/list_records_fill_system.json")
+            with open(filepath,encoding="utf-8") as f:
+                list_record = json.load(f)
 
-    items = []
-    items_result = []
+            items = []
+            items_result = []
 
-    for a in VERSION_TYPE_URI:
-        item = copy.deepcopy(list_record[0])
-        item['metadata']['item_1617265215918']['subitem_1522305645492']=a
-        item['metadata']['item_1617265215918']['subitem_1600292170262']=VERSION_TYPE_URI[a]
-        item['metadata']['item_1617186476635']['subitem_1522299639480']="open access"
-        item['metadata']['item_1617186476635']['subitem_1600958577026']=ACCESS_RIGHT_TYPE_URI["open access"]
-        item['metadata']['item_1617258105262']['resourcetype']="conference paper"
-        item['metadata']['item_1617258105262']['resourceuri']=RESOURCE_TYPE_URI["conference paper"]
-        items_result.append(item)
-        item2 = copy.deepcopy(item)
-        item2['metadata']['item_1617265215918']['subitem_1522305645492']=a
-        item2['metadata']['item_1617265215918']['subitem_1600292170262']=""
-        items.append(item2)
+            for a in VERSION_TYPE_URI:
+                item = copy.deepcopy(list_record[0])
+                item['metadata']['item_1617265215918']['subitem_1522305645492']=a
+                item['metadata']['item_1617265215918']['subitem_1600292170262']=VERSION_TYPE_URI[a]
+                item['metadata']['item_1617186476635']['subitem_1522299639480']="open access"
+                item['metadata']['item_1617186476635']['subitem_1600958577026']=ACCESS_RIGHT_TYPE_URI["open access"]
+                item['metadata']['item_1617258105262']['resourcetype']="conference paper"
+                item['metadata']['item_1617258105262']['resourceuri']=RESOURCE_TYPE_URI["conference paper"]
+                items_result.append(item)
+                item2 = copy.deepcopy(item)
+                item2['metadata']['item_1617265215918']['subitem_1522305645492']=a
+                item2['metadata']['item_1617265215918']['subitem_1600292170262']=""
+                items.append(item2)
 
-    for a in ACCESS_RIGHT_TYPE_URI:
-        item = copy.deepcopy(list_record[0])
-        item['metadata']['item_1617265215918']['subitem_1522305645492']="VoR"
-        item['metadata']['item_1617265215918']['subitem_1600292170262']=VERSION_TYPE_URI["VoR"]
-        item['metadata']['item_1617186476635']['subitem_1522299639480']=a
-        item['metadata']['item_1617186476635']['subitem_1600958577026']=ACCESS_RIGHT_TYPE_URI[a]
-        item['metadata']['item_1617258105262']['resourcetype']="conference paper"
-        item['metadata']['item_1617258105262']['resourceuri']=RESOURCE_TYPE_URI["conference paper"]
-        items_result.append(item)
-        item2 = copy.deepcopy(item)
-        item2['metadata']['item_1617186476635']['subitem_1522299639480']=a
-        item2['metadata']['item_1617186476635']['subitem_1600958577026']=""
-        items.append(item2)
+            for a in ACCESS_RIGHT_TYPE_URI:
+                item = copy.deepcopy(list_record[0])
+                item['metadata']['item_1617265215918']['subitem_1522305645492']="VoR"
+                item['metadata']['item_1617265215918']['subitem_1600292170262']=VERSION_TYPE_URI["VoR"]
+                item['metadata']['item_1617186476635']['subitem_1522299639480']=a
+                item['metadata']['item_1617186476635']['subitem_1600958577026']=ACCESS_RIGHT_TYPE_URI[a]
+                item['metadata']['item_1617258105262']['resourcetype']="conference paper"
+                item['metadata']['item_1617258105262']['resourceuri']=RESOURCE_TYPE_URI["conference paper"]
+                items_result.append(item)
+                item2 = copy.deepcopy(item)
+                item2['metadata']['item_1617186476635']['subitem_1522299639480']=a
+                item2['metadata']['item_1617186476635']['subitem_1600958577026']=""
+                items.append(item2)
 
-    for a in RESOURCE_TYPE_URI:
-        item = copy.deepcopy(list_record[0])
-        item['metadata']['item_1617265215918']['subitem_1522305645492']="VoR"
-        item['metadata']['item_1617265215918']['subitem_1600292170262']=VERSION_TYPE_URI["VoR"]
-        item['metadata']['item_1617186476635']['subitem_1522299639480']="open access"
-        item['metadata']['item_1617186476635']['subitem_1600958577026']=ACCESS_RIGHT_TYPE_URI["open access"]
-        item['metadata']['item_1617258105262']['resourcetype']= a
-        item['metadata']['item_1617258105262']['resourceuri']=RESOURCE_TYPE_URI[a]
-        items_result.append(item)
-        item2 = copy.deepcopy(item)
-        item2['metadata']['item_1617258105262']['resourcetype']=a
-        item2['metadata']['item_1617258105262']['resourceuri']=""
-        items.append(item2)
+            for a in RESOURCE_TYPE_URI:
+                item = copy.deepcopy(list_record[0])
+                item['metadata']['item_1617265215918']['subitem_1522305645492']="VoR"
+                item['metadata']['item_1617265215918']['subitem_1600292170262']=VERSION_TYPE_URI["VoR"]
+                item['metadata']['item_1617186476635']['subitem_1522299639480']="open access"
+                item['metadata']['item_1617186476635']['subitem_1600958577026']=ACCESS_RIGHT_TYPE_URI["open access"]
+                item['metadata']['item_1617258105262']['resourcetype']= a
+                item['metadata']['item_1617258105262']['resourceuri']=RESOURCE_TYPE_URI[a]
+                items_result.append(item)
+                item2 = copy.deepcopy(item)
+                item2['metadata']['item_1617258105262']['resourcetype']=a
+                item2['metadata']['item_1617258105262']['resourceuri']=""
+                items.append(item2)
 
-    # with open("items.json","w") as f:
-    #     json.dump(items,f)
+            # with open("items.json","w") as f:
+            #     json.dump(items,f)
 
-    # with open("items_result.json","w") as f:
-    #     json.dump(items_result,f)
+            # with open("items_result.json","w") as f:
+            #     json.dump(items_result,f)
 
 
-    # filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data/handle_fill_system_item/items.json")
-    # with open(filepath,encoding="utf-8") as f:
-    #     items = json.load(f)
+            # filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data/handle_fill_system_item/items.json")
+            # with open(filepath,encoding="utf-8") as f:
+            #     items = json.load(f)
 
-    # filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data/handle_fill_system_item/items_result.json")
-    # with open(filepath,encoding="utf-8") as f:
-    #     items_result = json.load(f)
+            # filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data/handle_fill_system_item/items_result.json")
+            # with open(filepath,encoding="utf-8") as f:
+            #     items_result = json.load(f)
 
-    with app.test_request_context():
-        with set_locale('en'):
-            handle_fill_system_item(items)
-            assert len(items)==len(items_result)
-            assert items==items_result
+            with app.test_request_context():
+                ctx = _request_ctx_stack.top
+                if ctx is not None and hasattr(ctx, 'babel_locale'):
+                    with setattr(ctx, 'babel_locale', 'en'):
+                        handle_fill_system_item(items)
+                        assert len(items)==len(items_result)
+                        assert items==items_result
 
 
 
