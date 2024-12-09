@@ -349,13 +349,13 @@ def deposit(app, es, users, location):
 @pytest.fixture()
 def files(app, deposit):
     """Add a file to the deposit."""
-    # content = b'### Testing textfile ###'
-    # stream = BytesIO(content)
-    # key = 'hello.txt'
-    # deposit.files[key] = stream
-    # deposit.commit()
-    # db.session.commit()
-    return []
+    content = b'### Testing textfile ###'
+    stream = BytesIO(content)
+    key = 'hello.txt'
+    deposit.files[key] = stream
+    deposit.commit()
+    db.session.commit()
+    return deposit.files
 
 
 @pytest.fixture()

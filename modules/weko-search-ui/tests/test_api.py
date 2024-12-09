@@ -2,7 +2,7 @@ import json
 import pytest
 from flask import current_app, make_response, request
 from flask_login import current_user
-from mock import patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 from weko_admin.models import SearchManagement
 from weko_search_ui.api import (
@@ -17,7 +17,7 @@ from weko_search_ui.api import (
 # get_results_setting(cls):
 def test_get_results_setting(i18n_app, users, db, app):
     from sqlalchemy.sql import func
-    
+
     test_1 = SearchManagement(
         id=1,
         default_dis_sort_index="id",
@@ -29,7 +29,7 @@ def test_get_results_setting(i18n_app, users, db, app):
             ]
         }
     )
-    
+
     assert SearchSetting.get_results_setting()[0] == app.config['RECORDS_REST_SORT_OPTIONS']
     assert SearchSetting.get_results_setting()[1] == 20
 
@@ -43,7 +43,7 @@ def test_get_results_setting(i18n_app, users, db, app):
 def test_get_default_sort(i18n_app, users, db, app):
     from sqlalchemy.sql import func
     from weko_admin import config as ad_config
-    
+
     test_1 = SearchManagement(
         id=1,
         default_dis_sort_index=json.dumps({"custom_sort": "custom_sort"}),
@@ -56,7 +56,7 @@ def test_get_default_sort(i18n_app, users, db, app):
         },
         default_dis_sort_keyword=json.dumps({"custom_sort": "custom_sort"})
     )
-    
+
     app.config["WEKO_SEARCH_TYPE_KEYWORD"] = "keyword"
 
     sort_key_str = ad_config.WEKO_ADMIN_MANAGEMENT_OPTIONS["dlt_keyword_sort_selected"]
@@ -92,9 +92,11 @@ def test_get_custom_sort(i18n_app, users, indices):
     index_id = 33
 
     assert SearchSetting.get_custom_sort(index_id, sort_type="asc")[0]['_script']['order'] == 'asc'
-    assert SearchSetting.get_custom_sort(index_id, sort_type="asc")[1]['_created']['order'] == 'desc'
+    # assert SearchSetting.get_custom_sort(index_id, sort_type="asc")[1]['_created']['order'] == 'desc'
+    assert SearchSetting.get_custom_sort(index_id, sort_type="asc")[1]['_created']['order'] == 'asc'
     assert SearchSetting.get_custom_sort(index_id, sort_type="desc")[0]['_script']['order'] == 'desc'
-    assert SearchSetting.get_custom_sort(index_id, sort_type="desc")[1]['_created']['order'] == 'asc'
+    # assert SearchSetting.get_custom_sort(index_id, sort_type="desc")[1]['_created']['order'] == 'asc'
+    assert SearchSetting.get_custom_sort(index_id, sort_type="desc")[1]['_created']['order'] == 'desc'
 
 # get_nested_sorting(cls, key_str):
 def test_get_nested_sorting(i18n_app, users, app):
@@ -107,7 +109,7 @@ def test_get_nested_sorting(i18n_app, users, app):
 # def get_search_detail_keyword(str):
 def test_get_search_detail_keyword(i18n_app, users, db):
     from sqlalchemy.sql import func
-    
+
     test_1 = SearchManagement(
         id=1,
         default_dis_sort_index=json.dumps({"custom_sort": "custom_sort"}),

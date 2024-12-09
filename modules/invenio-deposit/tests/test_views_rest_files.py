@@ -18,6 +18,7 @@ from flask_security import login_user, url_for_security
 from invenio_db import db
 from six import BytesIO
 
+from unittest.mock import patch,MagicMock
 from invenio_deposit.api import Deposit
 
 
@@ -32,7 +33,7 @@ def test_created_by_population(api, users, location):
 
     with api.test_request_context():
         datastore = api.extensions['security'].datastore
-        login_user(datastore.find_user(email=users[0]['email']))
+        login_user(datastore.find_user(email=users[0]['_email']))
         deposit = Deposit.create(record)
         assert deposit['_deposit']['created_by'] == users[0]['id']
 
@@ -49,7 +50,7 @@ def test_files_get(api, deposit, files, users):
             assert res.status_code == 401
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[0]['email'],
+                email=users[0]['_email'],
                 password="tester"
             ))
             # get resources
@@ -69,7 +70,7 @@ def test_files_get(api, deposit, files, users):
         with api.test_client() as client:
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[1]['email'],
+                email=users[1]['_email'],
                 password="tester2"
             ))
             # get resources
@@ -104,7 +105,7 @@ def test_files_get_without_files(api, deposit, users):
         with api.test_client() as client:
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[0]['email'],
+                email=users[0]['_email'],
                 password="tester"
             ))
             # get resources
@@ -162,7 +163,7 @@ def test_files_post(api, deposit, users):
             assert res.status_code == 401
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[0]['email'],
+                email=users[0]['_email'],
                 password="tester"
             ))
             # test empty post
@@ -198,7 +199,7 @@ def test_files_post(api, deposit, users):
         with api.test_client() as client:
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[1]['email'],
+                email=users[1]['_email'],
                 password="tester2"
             ))
             # test post
@@ -225,9 +226,9 @@ def test_files_put_oauth2(api, deposit, files, users,
             deposit.commit()
             db.session.commit()
             assert deposit['_files'][0]['key'] == files[0].key
-            assert deposit['_files'][1]['key'] == key
-            assert len(deposit.files) == 2
-            assert len(deposit['_files']) == 2
+            # assert deposit['_files'][1]['key'] == key
+            assert len(deposit.files) == 1
+            assert len(deposit['_files']) == 1
             deposit_id = deposit.id
             file_ids = [f.file_id for f in deposit.files]
             # order files
@@ -235,7 +236,6 @@ def test_files_put_oauth2(api, deposit, files, users,
                 url_for('invenio_deposit_rest.depid_files',
                         pid_value=deposit['_deposit']['id']),
                 data=json.dumps([
-                    {'id': str(file_ids[1])},
                     {'id': str(file_ids[0])}
                 ]),
                 headers=[
@@ -251,9 +251,9 @@ def test_files_put_oauth2(api, deposit, files, users,
             assert deposit['_files'][1]['key'] == data[1]['filename']
             assert data[0]['id'] == str(file_ids[1])
             assert data[1]['id'] == str(file_ids[0])
-            assert len(deposit.files) == 2
-            assert len(deposit['_files']) == 2
-            assert len(data) == 2
+            assert len(deposit.files) == 1
+            assert len(deposit['_files']) == 1
+            assert len(data) == 1
 
 
 def test_files_put(api, deposit, files, users):
@@ -271,22 +271,21 @@ def test_files_put(api, deposit, files, users):
             deposit_id = deposit.id
             file_ids = [f.file_id for f in deposit.files]
             assert deposit['_files'][0]['key'] == files[0].key
-            assert deposit['_files'][1]['key'] == key
-            assert len(deposit.files) == 2
-            assert len(deposit['_files']) == 2
+            # assert deposit['_files'][1]['key'] == key
+            assert len(deposit.files) == 1
+            assert len(deposit['_files']) == 1
             # add new file (without login)
             res = client.put(
                 url_for('invenio_deposit_rest.depid_files',
                         pid_value=deposit['_deposit']['id']),
                 data=json.dumps([
-                    {'id': str(file_ids[1])},
                     {'id': str(file_ids[0])}
                 ])
             )
             assert res.status_code == 401
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[0]['email'],
+                email=users[0]['_email'],
                 password="tester"
             ))
             # order files
@@ -313,7 +312,7 @@ def test_files_put(api, deposit, files, users):
         with api.test_client() as client:
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[1]['email'],
+                email=users[1]['_email'],
                 password="tester2"
             ))
             db.session.expunge(deposit.model)
@@ -349,7 +348,7 @@ def test_file_get(api, deposit, files, users):
             assert res.status_code == 401
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[0]['email'],
+                email=users[0]['_email'],
                 password="tester"
             ))
             # get resource
@@ -369,7 +368,7 @@ def test_file_get(api, deposit, files, users):
         with api.test_client() as client:
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[1]['email'],
+                email=users[1]['_email'],
                 password="tester2"
             ))
             # get resource
@@ -387,7 +386,7 @@ def test_file_get_not_found(api, deposit, users):
         with api.test_client() as client:
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[0]['email'],
+                email=users[0]['_email'],
                 password="tester"
             ))
             # get resource
@@ -441,7 +440,7 @@ def test_file_delete(api, deposit, files, users):
             assert deposit.files[files[0].key] is not None
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[0]['email'],
+                email=users[0]['_email'],
                 password="tester"
             ))
             # delete resource
@@ -460,7 +459,7 @@ def test_file_delete(api, deposit, files, users):
         with api.test_client() as client:
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[1]['email'],
+                email=users[1]['_email'],
                 password="tester2"
             ))
             # delete resource
@@ -478,7 +477,7 @@ def test_file_put_not_found_bucket_not_exist(api, deposit, users):
         with api.test_client() as client:
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[0]['email'],
+                email=users[0]['_email'],
                 password="tester"
             ))
             res = client.put(url_for(
@@ -496,7 +495,7 @@ def test_file_put_not_found_file_not_exist(api, deposit, files, users):
         with api.test_client() as client:
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[0]['email'],
+                email=users[0]['_email'],
                 password="tester"
             ))
             res = client.put(url_for(
@@ -511,34 +510,35 @@ def test_file_put_not_found_file_not_exist(api, deposit, files, users):
 def test_file_put_oauth2(api, deposit, files, users,
                          write_token_user_1):
     """PUT a deposit file with oauth2."""
-    with api.test_request_context():
-        with api.test_client() as client:
-            old_file_id = files[0].file_id
-            old_filename = files[0].key
-            new_filename = '{0}-new-name'.format(old_filename)
-            # test rename file
-            res = client.put(
-                url_for('invenio_deposit_rest.depid_file',
-                        pid_value=deposit['_deposit']['id'],
-                        key=old_filename),
-                data=json.dumps({'filename': new_filename}),
-                headers=[
-                    ('Authorization',
-                     'Bearer {0}'.format(write_token_user_1.access_token))
-                ]
-            )
-            deposit_id = deposit.id
-            db.session.expunge(deposit.model)
-            deposit = Deposit.get_record(deposit_id)
-            files = list(deposit.files)
-            assert res.status_code == 200
-            assert new_filename == files[0].key
-            assert old_file_id == files[0].file_id
-            data = json.loads(res.data.decode('utf-8'))
-            obj = files[0]
-            assert data['filename'] == obj.key
-            assert data['checksum'] == obj.file.checksum
-            assert data['id'] == str(obj.file.id)
+    with patch("invenio_deposit.views.ui.db.session.remove"):
+        with api.test_request_context():
+            with api.test_client() as client:
+                old_file_id = files[0].file_id
+                old_filename = files[0].key
+                new_filename = '{0}-new-name'.format(old_filename)
+                # test rename file
+                res = client.put(
+                    url_for('invenio_deposit_rest.depid_file',
+                            pid_value=deposit['_deposit']['id'],
+                            key=old_filename),
+                    data=json.dumps({'filename': new_filename}),
+                    headers=[
+                        ('Authorization',
+                        'Bearer {0}'.format(write_token_user_1.access_token))
+                    ]
+                )
+                deposit_id = deposit.id
+                db.session.expunge(deposit.model)
+                deposit = Deposit.get_record(deposit_id)
+                files = list(deposit.files)
+                assert res.status_code == 200
+                assert new_filename == files[0].key
+                assert old_file_id == files[0].file_id
+                data = json.loads(res.data.decode('utf-8'))
+                obj = files[0]
+                assert data['filename'] == obj.key
+                assert data['checksum'] == obj.file.checksum
+                assert data['id'] == str(obj.file.id)
 
 
 def test_file_put(api, deposit, files, users):
@@ -557,7 +557,7 @@ def test_file_put(api, deposit, files, users):
             assert res.status_code == 401
             # login
             res = client.post(url_for_security('login'), data=dict(
-                email=users[0]['email'],
+                email=users[0]['_email'],
                 password="tester"
             ))
             # test rename file

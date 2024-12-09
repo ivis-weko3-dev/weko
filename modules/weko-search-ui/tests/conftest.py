@@ -38,8 +38,7 @@ from flask_babel import lazy_gettext as _
 from flask_celeryext import FlaskCeleryExt
 from flask_login import LoginManager, current_user, login_user
 from flask_menu import Menu
-from mock import Mock, patch, MagicMock
-from pytest_mock import mocker
+from unittest.mock import patch, MagicMock
 from simplekv.memory.redisstore import RedisStore
 from six import BytesIO
 from sqlalchemy import event
@@ -277,12 +276,12 @@ def base_app(instance_path, search_class, request):
         INDEXER_FILE_DOC_TYPE="content",
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         INDEX_IMG="indextree/36466818-image.jpg",
-        # SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
-        #                                   'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
+        SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
+                                          'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         # SQLALCHEMY_DATABASE_URI=os.environ.get(
         #     "SQLALCHEMY_DATABASE_URI", "sqlite:///test.db"
         # ),
-        SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
+        # SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
         SEARCH_ELASTIC_HOSTS=os.environ.get("SEARCH_ELASTIC_HOSTS", "opensearch"),
         SEARCH_HOSTS=os.environ.get("SEARCH_HOST", "opensearch"),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
@@ -307,7 +306,8 @@ def base_app(instance_path, search_class, request):
         SEARCH_UI_SEARCH_INDEX="test-weko",
         # SEARCH_ELASTIC_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
         SEARCH_INDEX_PREFIX="{}-".format("test"),
-        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
+        # SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ.get('INVENIO_OPENSEARCH_USER', 'invenio'),os.environ.get('INVENIO_OPENSEARCH_PASS', 'openpass123!')),"use_ssl":True, "verify_certs":False},
         OAISERVER_ID_PREFIX="oai:inveniosoftware.org:recid/",
         OAISERVER_RECORD_INDEX="_all",
         OAISERVER_REGISTER_SET_SIGNALS=True,
@@ -593,6 +593,13 @@ def base_app(instance_path, search_class, request):
         WEKO_OPENSEARCH_SYSTEM_SHORTNAME="WEKO",
         WEKO_BUCKET_QUOTA_SIZE=WEKO_BUCKET_QUOTA_SIZE,
         WEKO_MAX_FILE_SIZE=WEKO_MAX_FILE_SIZE,
+        WEKO_SEARCH_TYPE_INDEX = "index",
+        WEKO_SEARCH_UI_BULK_EXPORT_TASKID_EXPIRED_TIME = 1,
+        WEKO_ITEMS_UI_INDEX_PATH_SPLIT = '///',
+        WEKO_RECORDS_UI_EMAIL_ITEM_KEYS=[
+                'creatorMails', 'contributorMails', 'mails'],
+        WEKO_SEARCH_UI_BULK_EXPORT_MSG = "MSG_EXPORT_ALL",
+        WEKO_SEARCH_UI_BULK_EXPORT_RUN_MSG = "RUN_MSG_EXPORT_ALL",
         WEKO_OPENSEARCH_SYSTEM_DESCRIPTION=(
             "WEKO - NII Scholarly and Academic Information Navigator"
         ),
@@ -643,6 +650,7 @@ def base_app(instance_path, search_class, request):
         },
         WEKO_SEARCH_TYPE_KEYWORD="keyword",
         WEKO_SEARCH_UI_SEARCH_TEMPLATE="weko_search_ui/search.html",
+        SEARCH_UI_SEARCH_TEMPLATE = "weko_search_ui/search.html",
         WEKO_INDEX_TREE_INDEX_ADMIN_TEMPLATE="weko_index_tree/admin/index_edit_setting.html",
         WEKO_INDEX_TREE_LIST_API="/api/tree",
         WEKO_INDEX_TREE_API="/api/tree/index/",
@@ -693,7 +701,7 @@ def base_app(instance_path, search_class, request):
     InvenioFilesREST(app_)
     InvenioDeposit(app_)
     WekoRecords(app_)
-    WekoSearchUI(app_)
+    # WekoSearchUI(app_)
     WekoWorkflow(app_)
     WekoGroups(app_)
     WekoAdmin(app_)
@@ -1632,11 +1640,11 @@ def communities3(app, db, user, indices):
 @pytest.fixture()
 def mock_users():
     """Create mock users."""
-    mock_auth_user = Mock()
+    mock_auth_user = MagicMock()
     mock_auth_user.get_id = lambda: "123"
     mock_auth_user.is_authenticated = True
 
-    mock_anon_user = Mock()
+    mock_anon_user = MagicMock()
     mock_anon_user.is_authenticated = False
     return {"anonymous": mock_anon_user, "authenticated": mock_auth_user}
 
@@ -1673,21 +1681,38 @@ def file_instance_mock(db):
 
 
 @pytest.yield_fixture()
-def es(app):
+def es(base_app,app):
     """Provide elasticsearch access, create and clean indices.
 
     Don't create template so that the test or another fixture can modify the
     enabled events.
     """
-    current_search_client.indices.delete(index="*")
-    current_search_client.indices.delete_template("*")
-    list(current_search.create())
-    try:
-        yield current_search_client
-    finally:
-        current_search_client.indices.delete(index="*")
-        current_search_client.indices.delete_template("*")
+    # current_search_client.indices.delete(index="*")
+    # current_search_client.indices.delete_template("*")
+    # list(current_search.create())
+    # try:
+    #     yield current_search_client
+    # finally:
+    #     current_search_client.indices.delete(index="*")
+    #     current_search_client.indices.delete_template("*")
 
+    search_hosts = base_app.config["SEARCH_ELASTIC_HOSTS"]
+    search_client_config = base_app.config["SEARCH_CLIENT_CONFIG"]
+    search = OpenSearch(
+        hosts=[{'host': search_hosts, 'port': 9200}],
+        http_auth=search_client_config['http_auth'],
+        use_ssl=search_client_config['use_ssl'],
+        verify_certs=search_client_config['verify_certs'],
+    )
+
+    search.indices.delete(index='test-*')
+    search.indices.delete_template("*")
+    list(search.create())
+    try:
+        yield search
+    finally:
+        search.indices.delete(index="*")
+        search.indices.delete_template("*")
 
 def generate_events(
     app,
@@ -1724,7 +1749,7 @@ def generate_events(
 
             yield build_event(True)
 
-    mock_queue = Mock()
+    mock_queue = MagicMock()
     mock_queue.consume.return_value = generator_list()
     # mock_queue.routing_key = 'stats-file-download'
     mock_queue.routing_key = "generate-sample"
@@ -1890,7 +1915,7 @@ def db_itemtype(app, db, make_itemtype):
         "render": "tests/data/itemtype_render.json",
         "mapping":"tests/data/itemtype_mapping.json"
     }
-    
+
     return make_itemtype(itemtype_id, itemtype_data)
 
 
@@ -2174,8 +2199,8 @@ def test_importdata():
 
 
 @pytest.fixture()
-def mocker_itemtype(mocker):
-    item_type = Mock()
+def mocker_itemtype():
+    item_type = MagicMock()
     filepath = os.path.join(
         os.path.dirname(os.path.realpath(__file__)), "item_type/15_render.json"
     )
@@ -2200,7 +2225,7 @@ def mocker_itemtype(mocker):
     item_type.item_type_name.name = "デフォルトアイテムタイプ（フル）"
     item_type.item_type_name.item_type.first().id = 15
 
-    mocker.patch("weko_records.api.ItemTypes.get_by_id", return_value=item_type)
+    patch("weko_records.api.ItemTypes.get_by_id", return_value=item_type)
 
 
 @pytest.fixture()
@@ -2222,18 +2247,36 @@ def item_render():
 
 
 @pytest.yield_fixture()
-def es(app):
+def es(base_app,app):
     """Elasticsearch fixture."""
-    try:
-        list(current_search.create())
-    # except RequestError:
-    except:
-        list(current_search.delete(ignore=[404]))
-        list(current_search.create(ignore=[400]))
-    current_search_client.indices.refresh()
-    yield current_search_client
-    list(current_search.delete(ignore=[404]))
+    # try:
+    #     list(current_search.create())
+    # # except RequestError:
+    # except:
+    #     list(current_search.delete(ignore=[404]))
+    #     list(current_search.create(ignore=[400]))
+    # current_search_client.indices.refresh()
+    # yield current_search_client
+    # list(current_search.delete(ignore=[404]))
 
+    search_hosts = base_app.config["SEARCH_ELASTIC_HOSTS"]
+    search_client_config = base_app.config["SEARCH_CLIENT_CONFIG"]
+    search = OpenSearch(
+        hosts=[{'host': search_hosts, 'port': 9200}],
+        http_auth=search_client_config['http_auth'],
+        use_ssl=search_client_config['use_ssl'],
+        verify_certs=search_client_config['verify_certs'],
+    )
+
+    try:
+       list(search.create())
+    except:
+        pass
+        # list(search.delete(ignore=[404]))
+        # list(search.create(ignore=[400]))
+    # search.indices.refresh()
+    yield search
+    # list(search.delete(index='test-*'))
 
 @pytest.fixture()
 def deposit(app, es, users, location, db):
@@ -2301,7 +2344,7 @@ def db_index(client, users):
 
 
 @pytest.fixture()
-def es_records(app, db, db_index, location, db_itemtype, db_oaischema):
+def es_records(base_app, app, db, db_index, location, db_itemtype, db_oaischema):
     indexer = WekoIndexer()
     indexer.get_es_index()
     results = []
@@ -2521,7 +2564,16 @@ def es_records(app, db, db_index, location, db_itemtype, db_oaischema):
             )
 
     sleep(3)
-    es = OpenSearch("http://{}:9200".format(app.config["SEARCH_HOSTS"]))
+    # es = OpenSearch("http://{}:9200".format(app.config["SEARCH_HOSTS"]))
+
+    search_hosts = base_app.config["SEARCH_ELASTIC_HOSTS"]
+    search_client_config = base_app.config["SEARCH_CLIENT_CONFIG"]
+    es = OpenSearch(
+        hosts=[{'host': search_hosts, 'port': 9200}],
+        http_auth=search_client_config['http_auth'],
+        use_ssl=search_client_config['use_ssl'],
+        verify_certs=search_client_config['verify_certs'],
+    )
     # print(es.cat.indices())
     return {"indexer": indexer, "results": results}
 
@@ -2618,7 +2670,7 @@ def doi_records(app, db, identifier, indextree, location, db_itemtype, db_oaisch
         results.append(
             make_record(db, indexer, i, filepath, filename, mimetype, "xyz.ndl")
         )
-        
+
         i = 5
         filename = "helloworld.pdf"
         mimetype = "application/pdf"
@@ -2725,18 +2777,18 @@ def record_indexer_receiver(sender, json=None, record=None, index=None,
 
 
 
-@pytest.yield_fixture()
-def es(app):
+# @pytest.yield_fixture()
+# def es(app):
     """Elasticsearch fixture."""
-    try:
-        current_search_client.indices.delete(index="test-*")
-        list(current_search.create())
-    except RequestError:
-        list(current_search.delete(ignore=[404]))
-        list(current_search.create(ignore=[400]))
-    current_search_client.indices.refresh()
-    yield current_search_client
-    list(current_search.delete(ignore=[404]))
+    # try:
+    #     current_search_client.indices.delete(index="test-*")
+    #     list(current_search.create())
+    # except RequestError:
+    #     list(current_search.delete(ignore=[404]))
+    #     list(current_search.create(ignore=[400]))
+    # current_search_client.indices.refresh()
+    # yield current_search_client
+    # list(current_search.delete(ignore=[404]))
 
 
 @pytest.yield_fixture()
@@ -3895,7 +3947,7 @@ def make_itemtype(app,db):
             version_id=1,
             is_deleted=False,
         )
-        
+
         if "mapping" in datas:
             item_type_mapping = dict()
             with open(datas["mapping"], "r") as f:
@@ -3906,11 +3958,11 @@ def make_itemtype(app,db):
         with db.session.begin_nested():
             db.session.add(item_type_name)
             db.session.add(item_type)
-            
+
         db.session.commit()
         result["item_type_name"] = item_type_name
         result["item_type"] = item_type
-        
+
         return result
     return factory
 

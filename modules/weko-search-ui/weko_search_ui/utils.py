@@ -4089,7 +4089,7 @@ def result_download_ui(search_results, input_json, language='en'):
     return send_file(
         f'{export_path}/search_result.tsv',
         as_attachment=True,
-        attachment_filename='search_result.tsv',
+        download_name='search_result.tsv',
         mimetype='text/tab-separated-values'
     )
 

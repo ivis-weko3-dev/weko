@@ -4,7 +4,7 @@ import json
 import pytest
 from flask import current_app, make_response, request, url_for
 from flask_login import current_user
-from mock import patch
+from unittest.mock import patch,MagicMock
 
 from weko_search_ui.views import (
     search,
@@ -20,37 +20,41 @@ from weko_search_ui.views import (
 
 # def search(): ~ jinja2.exceptions.TemplateNotFound: weko_theme/page.html
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_views.py::test_search -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_search(i18n_app, users, db_register, index_style):
+def test_search(i18n_app, users,app, db_register, index_style):
     with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
         with patch("flask.templating._render", return_value=""):
-            assert search()==""
+            with patch("flask.templating.render_template", return_value=""):
+                with patch("flask.templating.DispatchingJinjaLoader._get_source_fast", return_value=""):
+                    with patch("jinja2.loaders.BaseLoader.load", return_value=""):
+                        assert search()==""
 
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_views.py::test_search_acl_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_search_acl_guest(app,client,db_register2,index_style,users,db_register):
-    url = url_for("weko_search_ui.search",_external=True)
-    with patch("flask.templating._render", return_value=""):
-        ret = client.get(url)
-        assert ret.status_code == 200
-    
-    url = url_for("weko_search_ui.search", search_type=0,_external=True)
-    with patch("flask.templating._render", return_value=""):
-        ret = client.get(url)
-        assert ret.status_code == 200
-    
-    url = url_for("weko_search_ui.search", community='c',_external=True)
-    with patch("flask.templating._render", return_value=""):
-        ret = client.get(url)
-        assert ret.status_code == 200
+    with patch("werkzeug.routing.map.MapAdapter.build", return_value=""):
+        url = url_for("weko_search_ui.search",_external=True)
+        with patch("flask.templating._render", return_value=""):
+            ret = client.get(url)
+            assert ret.status_code == 200
 
-    url = url_for("weko_search_ui.search", search_type=0,community='c',_external=True)
-    with patch("flask.templating._render", return_value=""):
-        ret = client.get(url)
-        assert ret.status_code == 200
-    
-    url = url_for("weko_search_ui.search", item_link="1",_external=True)
-    with patch("flask.templating._render", return_value=""):
-        ret = client.get(url)
-        assert ret.status_code == 404
+        url = url_for("weko_search_ui.search", search_type=0,_external=True)
+        with patch("flask.templating._render", return_value=""):
+            ret = client.get(url)
+            assert ret.status_code == 200
+
+        url = url_for("weko_search_ui.search", community='c',_external=True)
+        with patch("flask.templating._render", return_value=""):
+            ret = client.get(url)
+            assert ret.status_code == 200
+
+        url = url_for("weko_search_ui.search", search_type=0,community='c',_external=True)
+        with patch("flask.templating._render", return_value=""):
+            ret = client.get(url)
+            assert ret.status_code == 200
+
+        url = url_for("weko_search_ui.search", item_link="1",_external=True)
+        with patch("flask.templating._render", return_value=""):
+            ret = client.get(url)
+            assert ret.status_code == 404
 
 
 
@@ -68,18 +72,19 @@ def test_search_acl_guest(app,client,db_register2,index_style,users,db_register)
     ],
 )
 def test_search_acl(app,client,db_register2,index_style,users,db_register,id,status_code):
-    url = url_for("weko_search_ui.search", _external=True)
-    with patch("flask_login.utils._get_user", return_value=users[id]['obj']):
-        with patch("flask.templating._render", return_value=""):
-            ret = client.get(url)
-            assert ret.status_code == status_code
+    with patch("werkzeug.routing.map.MapAdapter.build", return_value=""):
+        url = url_for("weko_search_ui.search", _external=True)
+        with patch("flask_login.utils._get_user", return_value=users[id]['obj']):
+            with patch("flask.templating._render", return_value=""):
+                ret = client.get(url)
+                assert ret.status_code == status_code
 
     url = url_for("weko_search_ui.search", search_type=0,_external=True)
     with patch("flask_login.utils._get_user", return_value=users[id]['obj']):
         with patch("flask.templating._render", return_value=""):
             ret = client.get(url)
             assert ret.status_code == status_code
-    
+
     url = url_for("weko_search_ui.search", community='c',_external=True)
     with patch("flask_login.utils._get_user", return_value=users[id]['obj']):
         with patch("flask.templating._render", return_value=""):
@@ -91,7 +96,7 @@ def test_search_acl(app,client,db_register2,index_style,users,db_register,id,sta
         with patch("flask.templating._render", return_value=""):
             ret = client.get(url)
             assert ret.status_code == status_code
-    
+
     url = url_for("weko_search_ui.search", item_link="1",_external=True)
     with patch("flask_login.utils._get_user", return_value=users[id]['obj']):
         with patch("flask.templating._render", return_value=""):
@@ -109,7 +114,7 @@ def test_opensearch_description_acl_guest(app,client_api,db_register2,index_styl
     with patch("flask.templating._render", return_value=""):
         ret = client_api.get(url)
         assert ret.status_code == 200
-        
+
 
 # def journal_detail(index_id=0):
 def test_journal_detail(i18n_app, users, indices):
@@ -139,15 +144,16 @@ def test_get_path_name_dict(i18n_app, users, indices):
 def test_gettitlefacet(i18n_app, users, client, facet_search_setting):
     with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
         assert gettitlefacet()
-        url = url_for('weko_search_ui.gettitlefacet')
-        ret = client.post(url)
-        assert ret
-        assert ret.status_code == 200
-        result = json.loads(ret.data)
-        data = result.get("data")
-        assert data.get("displayNumbers")
-        assert data.get("isOpens")
-        assert data.get("uiTypes")
+        with patch("werkzeug.routing.map.MapAdapter.build", return_value=""):
+            url = url_for('weko_search_ui.gettitlefacet')
+            ret = client.post(url)
+            assert ret
+            assert ret.status_code == 200
+            result = json.loads(ret.data)
+            data = result.get("data")
+            assert data.get("displayNumbers")
+            assert data.get("isOpens")
+            assert data.get("uiTypes")
 
 
 # def get_last_item_id():

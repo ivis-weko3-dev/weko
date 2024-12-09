@@ -13,6 +13,7 @@ from flask import url_for
 from .testutils import login_user
 
 from invenio_files_rest.models import ObjectVersion
+from unittest.mock import patch
 
 
 @pytest.mark.parametrize(
@@ -27,24 +28,25 @@ from invenio_files_rest.models import ObjectVersion
 )
 def test_head(client, headers, bucket, permissions, user, expected):
     """Test checking existence of bucket."""
-    login_user(client, permissions[user])
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user(client, permissions[user])
 
-    # Existing bucket
-    resp = client.head(
-        url_for("invenio_files_rest.bucket_api", bucket_id=bucket.id),
-        headers=headers,
-    )
-    assert resp.status_code == expected
-    assert not resp.data
-
-    # Non-existing bucket
-    assert (
-        client.head(
-            url_for("invenio_files_rest.bucket_api", bucket_id="invalid"),
+        # Existing bucket
+        resp = client.head(
+            url_for("invenio_files_rest.bucket_api", bucket_id=bucket.id),
             headers=headers,
-        ).status_code
-        == 404
-    )
+        )
+        assert resp.status_code == expected
+        assert not resp.data
+
+        # Non-existing bucket
+        assert (
+            client.head(
+                url_for("invenio_files_rest.bucket_api", bucket_id="invalid"),
+                headers=headers,
+            ).status_code
+            == 404
+        )
 
 
 def test_head_locked_deleted(client, db, headers, bucket, permissions):
@@ -76,56 +78,75 @@ def test_head_locked_deleted(client, db, headers, bucket, permissions):
 )
 def test_get(client, headers, permissions, bucket, objects, get_json, user, expected):
     """Test listing objects."""
-    login_user(client, permissions[user])
-    # Existing bucket
-    resp = client.get(
-        url_for(
-            "invenio_files_rest.bucket_api",
-            bucket_id=bucket.id,
-        ),
-        headers=headers,
-    )
-    assert resp.status_code == expected
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user(client, permissions[user])
+        # Existing bucket
+        resp = client.get(
+            url_for(
+                "invenio_files_rest.bucket_api",
+                bucket_id=bucket.id,
+            ),
+            headers=headers,
+        )
+        assert resp.status_code == expected
 
-    if resp.status_code == 200:
-        data = get_json(resp)
-        assert len(data["contents"]) == 2
-        assert all([x["is_head"] for x in data["contents"]])
+        if resp.status_code == 200:
+            data = get_json(resp)
+            assert len(data["contents"]) == 2
+            assert all([x["is_head"] for x in data["contents"]])
 
-        assert set(data["contents"][0].keys()) == {
-            "checksum",
-            "created",
-            "delete_marker",
-            "is_head",
-            "key",
-            "links",
-            "mimetype",
-            "size",
-            "updated",
-            "version_id",
-            "tags",
-        }
-        assert set(data.keys()) == {
-            "contents",
-            "created",
-            "id",
-            "links",
-            "locked",
-            "max_file_size",
-            "quota_size",
-            "size",
-            "updated",
-        }
+            # assert set(data["contents"][0].keys()) == {
+            #     "checksum",
+            #     "created",
+            #     "delete_marker",
+            #     "is_head",
+            #     "key",
+            #     "links",
+            #     "mimetype",
+            #     "size",
+            #     "updated",
+            #     "version_id",
+            #     "tags",
+            # }
+            assert set(data["contents"][0].keys()) == {
+                "checksum",
+                "created",
+                'created_user_id',
+                "delete_marker",
+                "is_head",
+                'is_show',
+                'is_thumbnail',
+                "key",
+                "links",
+                "mimetype",
+                "size",
+                "updated",
+                'updated_user_id',
+                'uploaded_owners',
+                "version_id",
+                "tags",
+            }
+            assert set(data.keys()) == {
+                "contents",
+                "created",
+                "id",
+                "links",
+                "locked",
+                "max_file_size",
+                "quota_size",
+                "size",
+                "updated",
+            }
 
-    # Non-existing bucket
-    resp = client.get(
-        url_for(
-            "invenio_files_rest.bucket_api",
-            bucket_id="invalid",
-        ),
-        headers=headers,
-    )
-    assert resp.status_code == 404
+        # Non-existing bucket
+        resp = client.get(
+            url_for(
+                "invenio_files_rest.bucket_api",
+                bucket_id="invalid",
+            ),
+            headers=headers,
+        )
+        assert resp.status_code == 404
 
 
 @pytest.mark.parametrize(
@@ -142,22 +163,23 @@ def test_get_versions(
     client, headers, permissions, bucket, objects, get_json, user, expected
 ):
     """Test listing objects."""
-    login_user(client, permissions[user])
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user(client, permissions[user])
 
-    resp = client.get(
-        url_for(
-            "invenio_files_rest.bucket_api",
-            bucket_id=bucket.id,
-            versions="1",
-        ),
-        headers=headers,
-    )
-    assert resp.status_code == expected
+        resp = client.get(
+            url_for(
+                "invenio_files_rest.bucket_api",
+                bucket_id=bucket.id,
+                versions="1",
+            ),
+            headers=headers,
+        )
+        assert resp.status_code == expected
 
-    if resp.status_code == 200:
-        data = get_json(resp)
-        assert len(data["contents"]) == 4
-        assert data["id"] == str(bucket.id)
+        if resp.status_code == 200:
+            data = get_json(resp)
+            assert len(data["contents"]) == 4
+            assert data["id"] == str(bucket.id)
 
 
 @pytest.mark.parametrize(

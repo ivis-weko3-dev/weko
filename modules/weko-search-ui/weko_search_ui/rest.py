@@ -287,7 +287,7 @@ class IndexSearchResource(ContentNegotiatedMethodView):
                 "weko_search_rest.recid_index", page=page - 1, **urlkwargs
             )
         if (
-            size * page < search_result.hits.total.value
+            size * page < search_result.hits.total
             and size * page < self.max_result_window
         ):
             links["next"] = url_for(
@@ -680,14 +680,14 @@ class IndexSearchResourceAPI(ContentNegotiatedMethodView):
             indent = 4 if request.args.get('pretty') == 'true' else None
 
             cursor = None
-            if search_results['hits']['total']['value']:
+            if search_results['hits']['total']:
                 sort_key = search_results['hits']['hits'][-1].get('sort')
                 if sort_key:
                     cursor = sort_key[0]
 
             # Create result
             result = {
-                'total_results': search_results['hits']['total']['value'],
+                'total_results': search_results['hits']['total'],
                 'count_results': len(rocrate_list),
                 'cursor': cursor,
                 'page': page,

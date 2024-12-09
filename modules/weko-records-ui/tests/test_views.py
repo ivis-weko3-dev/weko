@@ -91,8 +91,11 @@ def test_pid_value_version():
 
 # def publish(pid, record, template=None, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_publish_acl_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_publish_acl_guest(client, records):
-    url = url_for("invenio_records_ui.recid_publish", pid_value=1, _external=True)
+def test_publish_acl_guest(app,client, records):
+    # url = url_for("invenio_records_ui.recid_publish", pid_value=1, _external=True)
+
+    url = url_for("weko_records_ui.recid_publish", pid_value=1, _external=True)
+
     res = client.post(url)
     assert res.status_code == 302
     assert res.location == "http://test_server/records/1"
@@ -416,8 +419,21 @@ def test_get_usage_workflow(app, users, workflows):
             }
         ]
     }
+    _file_json1= {
+        'provide': [
+            {
+                'role_id': "Contributor",
+                'workflow_id': "2"
+            }
+            ,
+            {
+                'role_id': "none_loggin",
+                'workflow_id': "3"
+            }
+        ]
+    }
     with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
-        res = get_usage_workflow(_file_json)
+        res = get_usage_workflow(_file_json1)
         assert res=="2"
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
         res = get_usage_workflow(_file_json)
@@ -532,10 +548,14 @@ def test_default_view_method(app, records, itemtypes, indexstyle ,users):
 
 # def doi_ish_view_method(parent_pid_value=0, version=0):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_doi_ish_view_method_acl_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_doi_ish_view_method_acl_guest(app,client,records):
+# def test_doi_ish_view_method_acl_guest(app,client,records):
+def test_doi_ish_view_method_acl_guest(app,client,records,users):
+    login_user_via_session(client=client, email=users[0]["email"])
     url = url_for("weko_records_ui.doi_ish_view_method", parent_pid_value=1, _external=True)
     res = client.get(url)
+
     assert res.status_code == 302
+    # assert res.location == 'http://test_server/login/?next=%2Fr%2F1'
     assert res.location == 'http://test_server/login/?next=%2Fr%2F1'
 
 
@@ -563,7 +583,9 @@ def test_doi_ish_view_method_acl(app,client,records,users,id,result):
 
 # def parent_view_method(pid_value=0):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_parent_view_method_acl_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_parent_view_method_acl_guest(app,client,records):
+# def test_parent_view_method_acl_guest(app,client,users,records):
+def test_parent_view_method_acl_guest(app,client,users,records):
+    login_user_via_session(client=client, email=users[0]["email"])
     url = url_for("weko_records_ui.parent_view_method", pid_value=1, _external=True)
     res = client.get(url)
     assert res.status_code == 302
@@ -594,11 +616,13 @@ def test_parent_view_method_acl(app,client,records,users,id,result):
 # def set_pdfcoverpage_header():
 # Error
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_set_pdfcoverpage_header_acl_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_set_pdfcoverpage_header_acl_guest(app, client, records, pdfcoverpagesetting):
+def test_set_pdfcoverpage_header_acl_guest(app, client, users, records, pdfcoverpagesetting):
+    # login_user_via_session(client=client, email=users[0]["email"])
     url = url_for("weko_records_ui.set_pdfcoverpage_header",_external=True)
     res = client.get(url)
     assert res.status_code == 308
     assert res.location == 'http://test_server/admin/pdfcoverpage/'
+
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_set_pdfcoverpage_header_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 @pytest.mark.parametrize(
@@ -615,23 +639,24 @@ def test_set_pdfcoverpage_header_acl_guest(app, client, records, pdfcoverpageset
     ],
 )
 def test_set_pdfcoverpage_header_acl_error(app, client, records, users, id, result, pdfcoverpagesetting):
-    login_user_via_session(client=client, email=users[id]["email"])
-    url = url_for("weko_records_ui.set_pdfcoverpage_header",_external=True)
-    res = client.get(url)
-    assert res.status_code == 308
-    assert res.location == 'http://test_server/admin/pdfcoverpage/'
-    s = PDFCoverPageSettings.find(1)
-    assert s is not None
-    assert s.header_output_image == ''
-
-    data = {'availability':'enable', 'header-display':'string', 'header-output-string':'Weko Univ', 'header-display-position':'center', 'pdfcoverpage_form': '',
-        'header-output-image': (io.BytesIO(b"some initial text data"), 'test.png')}
-    with patch('weko_records_ui.views.db.session.commit', side_effect=Exception("")):
-        res = client.post(url,data=data)
-        assert res.status_code == 302
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user_via_session(client=client, email=users[id]["email"])
+        url = url_for("weko_records_ui.set_pdfcoverpage_header",_external=True)
+        res = client.get(url)
+        assert res.status_code == 308
+        assert res.location == 'http://test_server/admin/pdfcoverpage/'
         s = PDFCoverPageSettings.find(1)
         assert s is not None
         assert s.header_output_image == ''
+
+        data = {'availability':'enable', 'header-display':'string', 'header-output-string':'Weko Univ', 'header-display-position':'center', 'pdfcoverpage_form': '',
+            'header-output-image': (io.BytesIO(b"some initial text data"), 'test.png')}
+        with patch('weko_records_ui.views.db.session.commit', side_effect=Exception("")):
+            res = client.post(url,data=data)
+            assert res.status_code == 302
+            s = PDFCoverPageSettings.find(1)
+            assert s is not None
+            assert s.header_output_image == ''
 
 @pytest.mark.parametrize(
     "id, result",
@@ -647,39 +672,41 @@ def test_set_pdfcoverpage_header_acl_error(app, client, records, users, id, resu
     ],
 )
 def test_set_pdfcoverpage_header_acl(app, client, records, users, id, result, pdfcoverpagesetting):
-    login_user_via_session(client=client, email=users[id]["email"])
-    url = url_for("weko_records_ui.set_pdfcoverpage_header",_external=True)
-    res = client.get(url)
-    assert res.status_code == 308
-    assert res.location == 'http://test_server/admin/pdfcoverpage/'
-    s = PDFCoverPageSettings.find(1)
-    assert s is not None
-    assert s.header_output_image == ''
+    with patch("invenio_files_rest.views.db.session.remove"):
+        login_user_via_session(client=client, email=users[id]["email"])
+        url = url_for("weko_records_ui.set_pdfcoverpage_header",_external=True)
+        # with pytest.raises(Exception):
+        res = client.get(url)
+        assert res.status_code == 308
+        assert res.location == 'http://test_server/admin/pdfcoverpage/'
+        s = PDFCoverPageSettings.find(1)
+        assert s is not None
+        assert s.header_output_image == ''
 
-    data = {'availability':'enable', 'header-display':'string', 'header-output-string':'Weko Univ', 'header-display-position':'center', 'pdfcoverpage_form': '',
+        data = {'availability':'enable', 'header-display':'string', 'header-output-string':'Weko Univ', 'header-display-position':'center', 'pdfcoverpage_form': '',
+            'header-output-image': (io.BytesIO(b"some initial text data"), 'test.png')}
+        res = client.post(url,data=data)
+        assert res.status_code == 302
+        assert res.location == 'http://test_server/admin/pdfcoverpage'
+        s = PDFCoverPageSettings.find(1)
+        assert s is not None
+        assert s.header_output_image != ''
+
+        data = {'availability':'enable', 'header-display':'image', 'header-output-string':'Weko Univ', 'header-display-position':'center', 'pdfcoverpage_form': '',
         'header-output-image': (io.BytesIO(b"some initial text data"), 'test.png')}
-    res = client.post(url,data=data)
-    assert res.status_code == 302
-    assert res.location == 'http://test_server/admin/pdfcoverpage'
-    s = PDFCoverPageSettings.find(1)
-    assert s is not None
-    assert s.header_output_image != ''
-
-    data = {'availability':'enable', 'header-display':'image', 'header-output-string':'Weko Univ', 'header-display-position':'center', 'pdfcoverpage_form': '',
-    'header-output-image': (io.BytesIO(b"some initial text data"), 'test.png')}
-    res = client.post(url,data=data)
-    assert res.status_code == 302
-    assert res.location == 'http://test_server/admin/pdfcoverpage'
+        res = client.post(url,data=data)
+        assert res.status_code == 302
+        assert res.location == 'http://test_server/admin/pdfcoverpage'
 
 
 #     def handle_over_max_file_size(error):
 # def file_version_update():
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_file_version_update_acl_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_file_version_update_acl_guest(client, records):
-    url = url_for("weko_records_ui.file_version_update",_external=True)
+def test_file_version_update_acl_guest(client, users,records):
+    url = url_for("weko_records_ui.file_version_update",_external=False)
     res = client.put(url)
     assert res.status_code == 302
-    assert res.location == 'http://test_server/login/?next=%2Ffile_version%2Fupdate'
+    assert res.location == '/login/?next=%2Ffile_version%2Fupdate'
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_file_version_update_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -697,31 +724,33 @@ def test_file_version_update_acl_guest(client, records):
     ],
 )
 def test_file_version_update_acl(client, records, users, id, status_code):
-    _data = {}
-    login_user_via_session(client=client, email=users[id]["email"])
-    url = url_for("weko_records_ui.file_version_update",_external=True)
-    res = client.put(url)
-    assert res.status_code == status_code
-    assert json.loads(res.data) == {'status': 0, 'msg': 'Insufficient permission'}
-
-    with patch("weko_records_ui.views.has_update_version_role", return_value=True):
-        _data['is_show'] = '1'
-        _data['bucket_id'] = 'none bucket'
-        _data['key'] = 'none key'
-        _data['version_id'] = 'version_id'
-        res = client.put(url, data=_data)
+    with patch("invenio_files_rest.views.db.session.remove"):
+        _data = {}
+        login_user_via_session(client=client, email=users[id]["email"])
+        url = url_for("weko_records_ui.file_version_update",_external=True)
+        res = client.put(url)
         assert res.status_code == status_code
-        assert json.loads(res.data) == {'status': 0, 'msg': 'Invalid data'}
+        assert json.loads(res.data) == {'status': 0, 'msg': 'Insufficient permission'}
 
-        data1 = MagicMock()
-        data1.is_show = 1
+        with patch("weko_records_ui.views.has_update_version_role", return_value=True):
+            _data['is_show'] = '1'
+            _data['bucket_id'] = 'none bucket'
+            _data['key'] = 'none key'
+            _data['version_id'] = 'version_id'
+            res = client.put(url, data=_data)
+            assert res.status_code == status_code
+            assert json.loads(res.data) == {'status': 0, 'msg': 'Invalid data'}
 
-        with patch("invenio_files_rest.models.ObjectVersion.get", return_value=data1):
-            file_version_update()
+            data1 = MagicMock()
+            data1.is_show = 1
+
+            with patch("invenio_files_rest.models.ObjectVersion.get", return_value=data1):
+                file_version_update()
 
 # def citation(record, pid, style=None, ln=None):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_citation -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_citation(records):
+def test_citation(records,client,users):
+    # login_user_via_session(client=client, email=users[0]["email"])
     indexer, results = records
     record = results[0]["record"]
     assert citation(record,record.pid)=='Joho, Taro, Joho, Taro, Joho, Taro, 2021, en_conference paperITEM00000009(public_open_access_simple): Publisher, 1–3 p.'

@@ -163,7 +163,7 @@ def make_combined_pdf(pid, fileobj, obj, lang_user):
         oa_policy = waj.get('keywords', '')
 
         return oa_policy
-    
+
     from weko_search_ui.utils import get_data_by_property
     from weko_items_ui.utils import get_options_and_order_list, get_hide_list_by_schema_form
     from weko_records.utils import selected_value_by_language
@@ -709,7 +709,6 @@ def make_combined_pdf(pid, fileobj, obj, lang_user):
     return send_file(
         combined_filepath,
         as_attachment=True,
-        attachment_filename=combined_filename,
-        mimetype='application/pdf',
-        cache_timeout=-1
+        download_name=combined_filename,
+        mimetype='application/pdf'
     )

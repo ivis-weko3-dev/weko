@@ -63,7 +63,6 @@ def test_get_init_display_setting(i18n_app, users, client_request_args, communit
     i18n_app.config['WEKO_SEARCH_TYPE_DICT'] = {'INDEX': "WEKO_SEARCH_TYPE_DICT-INDEX"}
     i18n_app.config['COMMUNITIES_SORTING_OPTIONS'] = {'INDEX': "COMMUNITIES_SORTING_OPTIONS-INDEX"}
     test = MainScreenInitDisplaySetting()
-
     with patch('weko_theme.utils.SearchManagement.get', return_value=search_setting):
         with patch('invenio_search.RecordsSearch.execute', return_value=dummy_response('{"hits": {"hits": [{"_source": {"path": ["44"]}},{"_source": {"path": ["11"]}}]}}')):
             with patch('weko_theme.utils.get_journal_info', return_value="get_journal_info"):
@@ -92,4 +91,6 @@ def test_get_init_display_setting(i18n_app, users, client_request_args, communit
         search_setting.init_disp_setting["init_disp_screen_setting"] = "2"
         assert isinstance(test.get_init_display_setting(), dict)
 
-    assert isinstance(test.get_init_display_setting(), dict)
+    with patch('invenio_search.RecordsSearch.execute', return_value=dummy_response('{"hits": {"hits": [{"_source": {"path": ["44"]}},{"_source": {"path": ["11"]}}]}}')):
+        with patch('weko_theme.utils.get_journal_info', return_value="get_journal_info"):
+            assert isinstance(test.get_init_display_setting(), dict)
