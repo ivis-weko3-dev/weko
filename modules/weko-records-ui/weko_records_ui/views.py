@@ -901,7 +901,7 @@ def set_pdfcoverpage_header():
             db.session.rollback()
             current_app.logger.error(e)
     
-    return redirect('/admin/pdfcoverpage')
+    return redirect('/admin/pdfcoverpage/')
 
 
 @blueprint.route("/file_version/update", methods=['PUT'])
