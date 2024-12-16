@@ -2896,6 +2896,8 @@ class WekoDeposit(Deposit):
 
         """
         draft_deposit = self.newversion(recid, is_draft=True)
+        draft_deposit.pid.register()
+        PersistentIdentifier.query.filter_by(pid_type="recid", pid_value=draft_deposit.pid.pid_value).one().register()
 
         weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=draft_deposit)
         return draft_deposit
@@ -3757,22 +3759,7 @@ class WekoRecord(Record):
         Returns:
             pid_value of parent.
         """
-        parent_pid = PIDNodeVersioning(pid=self.pid_recid).parents.one_or_none()
-        pid_ver = PIDNodeVersioning(pid=parent_pid)
-        # if pid_ver:
-        weko_logger(key='WEKO_COMMON_IF_ENTER',
-                    branch='pid_ver is not empty')
-        # Get pid parent of draft record
-        if ".0" in str(self.pid_recid.pid_value):
-            weko_logger(key='WEKO_COMMON_IF_ENTER',
-                        branch=f"'.0' in {str(self.pid_recid.pid_value)}")
-            pid_ver.relation_type = 3
-            weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=pid_ver.parents.one_or_none())
-            return pid_ver.parents.one_or_none()
-        weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=pid_ver.parents.one_or_none())
-        return pid_ver.parents.one_or_none()
-        # weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=None)
-        # return None
+        return PIDNodeVersioning(pid=self.pid_recid).parents.one_or_none()
 
     @classmethod
     def get_record_by_pid(cls, pid):

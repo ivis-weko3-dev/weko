@@ -383,7 +383,7 @@ class Record(RecordBase):
             obj = query.one()
             cls.__custom_record_metadata(obj.json)
             return cls(obj.data, model=obj)
-        
+
     @classmethod
     def __custom_record_metadata(cls, record_metadata: dict):
         """Custom record metadata.
@@ -634,26 +634,8 @@ class RevisionsIterator(object):
         return RecordRevision(next(self._it))
 
     def __getitem__(self, revision_id):
-        """Get a specific revision.
-
-        Revision id is always smaller by 1 from version_id. This was initially
-        to ensure that record revisions was zero-indexed similar to arrays
-        (e.g. you could do ``record.revisions[0]``). Due to SQLAlchemy
-        increasing the version counter via Python instead of the SQL
-        insert/update query it's possible to have an "array with holes" and
-        thus having it zero-indexed does not make much sense (thus it's like
-        this for historical reasons and has not been changed because it's
-        diffcult to change - e.g. implies all indexed records in existing
-        instances having to be updated.)
-        """
-        if revision_id < 0:
-            return RecordRevision(self.model.versions[revision_id])
-        try:
-            return RecordRevision(
-                self.model.versions.filter_by(version_id=revision_id + 1).one()
-            )
-        except NoResultFound:
-            raise IndexError
+        """Get a specific revision."""
+        return RecordRevision(self.model.versions[revision_id])
 
     def __contains__(self, revision_id):
         """Test if revision exists."""

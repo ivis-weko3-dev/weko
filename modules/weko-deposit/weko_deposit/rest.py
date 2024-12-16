@@ -110,7 +110,8 @@ def create_blueprint(app, endpoints):
                 weko_logger(app=app, key='WEKO_COMMON_DB_SOME_ERROR', ex=ex)
                 db.session.rollback()
                 raise WekoDepositError(ex=ex)
-        weko_logger(app=app, key='WEKO_COMMON_ERROR_UNEXPECTED', ex=exception)
+        else:
+            weko_logger(app=app, key='WEKO_COMMON_ERROR_UNEXPECTED', ex=exception)
         db.session.remove()
 
     weko_logger(app=app, key='WEKO_COMMON_FOR_START')

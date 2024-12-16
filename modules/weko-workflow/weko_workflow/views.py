@@ -368,9 +368,9 @@ def iframe_success():
             thumbnails_org=record_detail_alt.get('files_thumbnail')
         )
     )
-    
+
     form = FlaskForm(request.form)
-    
+
     return render_template('weko_workflow/item_login_success.html',
                            page=page,
                            render_widgets=render_widgets,
@@ -556,7 +556,7 @@ def init_activity():
 
 
 def _generate_download_url(record_id :str ,file_name :str) -> str:
-    """ generate file download url 
+    """ generate file download url
 
     Args:
         str: record_id :recid
@@ -564,7 +564,7 @@ def _generate_download_url(record_id :str ,file_name :str) -> str:
     Returns:
         str: url
     """
-    
+
     url:str = url_for(
             'invenio_records_ui.recid_files'
             ,pid_value=record_id, filename=file_name
@@ -609,10 +609,10 @@ def init_activity_guest():
         Return URL of workflow activity made from the request body.
     Returns:
         dict: json data validated by ResponseMessageSchema.
-        
+
     """
     post_data = request.get_json()
-    
+
     if is_terms_of_use_only(post_data["workflow_id"]):
         # if the workflow is terms_of_use_only(利用規約のみ) ,
         # do not create activity. redirect file download.
@@ -708,7 +708,7 @@ def display_guest_activity(file_name=""):
     )
 
     form = FlaskForm(request.form)
-    
+
     return render_template(
         'weko_workflow/activity_detail.html',
         form=form,
@@ -1000,21 +1000,31 @@ def display_activity(activity_id="0"):
 
     # Get item link info.
     if activity_detail.activity_status != ActivityStatusPolicy.ACTIVITY_CANCEL:
-        record_detail_alt = get_main_record_detail(
-            activity_id, activity_detail, action_endpoint, item,
-            approval_record, files, files_thumbnail)
-        if not record_detail_alt:
-            current_app.logger.error("display_activity: bad value for record_detail_alt")
-            return render_template("weko_theme/error.html",
-                        error="can not get data required for rendering")
+        try:
+            record_detail_alt = get_main_record_detail(
+                activity_id, activity_detail, action_endpoint, item,
+                approval_record, files, files_thumbnail)
+            if not record_detail_alt:
+                current_app.logger.error("display_activity: bad value for record_detail_alt")
+                return render_template("weko_theme/error.html",
+                            error="can not get data required for rendering")
 
-        ctx.update(
-            dict(
-                record_org=record_detail_alt.get('record'),
-                files_org=record_detail_alt.get('files'),
-                thumbnails_org=record_detail_alt.get('files_thumbnail')
+            ctx.update(
+                dict(
+                    record_org=record_detail_alt.get('record'),
+                    files_org=record_detail_alt.get('files'),
+                    thumbnails_org=record_detail_alt.get('files_thumbnail')
+                )
             )
-        )
+
+        except PIDDeletedError:
+            current_app.logger.debug("PIDDeletedError: {}".format(sys.exc_info()))
+            abort(404)
+        except PIDDoesNotExistError:
+            current_app.logger.debug("PIDDoesNotExistError: {}".format(sys.exc_info()))
+            abort(404)
+        except Exception:
+            current_app.logger.error("Unexpected error: {}".format(sys.exc_info()))
 
     # Get email approval key
     approval_email_key = get_approval_keys()
@@ -1037,7 +1047,7 @@ def display_activity(activity_id="0"):
     _id = None
     if recid:
         _id = re.sub("\.[0-9]+", "", recid.pid_value)
-    
+
     form = FlaskForm(request.form)
 
     return render_template(
@@ -1408,7 +1418,7 @@ def next_action(activity_id='0', action_id=0):
                 # 利用申請(ゲスト)なら、WF作成時にFilePermissionが作られていないが、GuestActivityが作られている。
                 url_and_expired_date = grant_access_rights_to_all_open_restricted_files(activity_id,guest_activity[0] ,activity_detail)
 
-            
+
             if not url_and_expired_date:
                 url_and_expired_date = {}
         action_mails_setting = {"previous":
@@ -2135,7 +2145,7 @@ def cancel_action(activity_id='0', action_id=0):
         activity_id=activity_id, action_id=action_id,
         action_status=ActionStatusPolicy.ACTION_CANCELED,
         action_order=activity_detail.action_order)
-    
+
 
 
     rtn = work_activity.quit_activity(activity)
@@ -2162,8 +2172,8 @@ def cancel_action(activity_id='0', action_id=0):
     permission = FilePermission.find_by_activity(activity_id)
     if permission:
         FilePermission.delete_object(permission)
-    
-    #  not work 
+
+    #  not work
     cache_key = "workflow_userlock_activity_{}".format(str(current_user.get_id()))
     cur_locked_val = str(get_cache_data(cache_key)) or None
     if cur_locked_val and cur_locked_val==activity_id:
@@ -2173,7 +2183,7 @@ def cancel_action(activity_id='0', action_id=0):
             1
         )
         delete_cache_data(cache_key)
-    
+
     try:
         cache_key = 'workflow_locked_activity_{}'.format(activity_id)
         cur_locked_val = str(get_cache_data(cache_key)) or None
@@ -2186,7 +2196,7 @@ def cancel_action(activity_id='0', action_id=0):
             delete_cache_data(cache_key)
     except Exception as e:
         current_app.logger.error(traceback.format_exc())
-                 
+
     res = ResponseMessageSchema().load(
         {"code":0, "msg":_("success"),"data":{"redirect":url}}
         )
@@ -2417,8 +2427,8 @@ def is_user_locked():
     cache_key = "workflow_userlock_activity_{}".format(str(current_user.get_id()))
     cur_locked_val = str(get_cache_data(cache_key)) or str()
     current_app.logger.error("is_user_locked:{}".format(cur_locked_val))
-         
-        
+
+
     if cur_locked_val:
         work_activity = WorkActivity()
         act = work_activity.get_activity_by_id(cur_locked_val)
@@ -2429,7 +2439,7 @@ def is_user_locked():
             is_open = True
     else:
         is_open=False
-    
+
     res = {"is_open": is_open, "activity_id": cur_locked_val or ""}
     return jsonify(res), 200
 
@@ -2437,13 +2447,13 @@ def is_user_locked():
 @login_required
 def user_lock_activity(activity_id="0"):
     """アクティビティの操作者を確認し、そのユーザーが他にアクティビティを開いている場合ロックする
-    
+
     Args:
         activity_id (str, optional): 対象アクティビティID.パスパラメータから取得. Defaults to '0'.
-        
+
     Result:
         object: アクティビティの状態を示すjson data
-    
+
     ---
     post:
         description: "user lock activity"
@@ -2481,7 +2491,7 @@ def user_lock_activity(activity_id="0"):
             )
         # elif cur_locked_val==activity_id:
         #     delete_cache_data(cache_key)
-            
+
     locked_by_email, locked_by_username = get_account_info(str(current_user.get_id()))
     res = {"code":200,"msg": "" if err else _("Success"),"err": err or "", "locked_by_username":locked_by_username}
     return jsonify(res), 200
@@ -2496,7 +2506,7 @@ def user_unlock_activity(activity_id="0"):
 
     Returns:
         object: ロック解除が出来たかを示すResponse
-    
+
     ---
     post:
         description: "user unlock activity"
@@ -2597,8 +2607,8 @@ def lock_activity(activity_id="0"):
             if action_handler:
                 return int(current_user.get_id()) == int(action_handler)
         return False
-    
-    
+
+
     #validate_csrf_header(request)
 
     check_flg = type_null_check(activity_id, str)
@@ -2615,7 +2625,7 @@ def lock_activity(activity_id="0"):
         current_app.logger.error("lock_activity: "+str(err))
         res = ResponseMessageSchema().load({"code":-1, "msg":str(err)})
         return jsonify(res), 500
-    
+
     data = schema_load
     locked_value = data.get('locked_value')
     cur_locked_val = str(get_cache_data(cache_key)) or str()
@@ -2946,12 +2956,12 @@ def download_activitylog():
                 content:
                     test/tsv:
 
-            400: 
+            400:
                 description: "no activity error"
 
             403:
                 description: "permittion error"
-    
+
     """
     if not current_app.config.get("DELETE_ACTIVITY_LOG_ENABLE"):
         abort(403)
@@ -3004,12 +3014,12 @@ def clear_activitylog():
                 description: "success"
                 content:
                     test/tsv:
-            400: 
+            400:
                 description: "no activity error"  or "delete failed error"
 
             403:
                 description: "permittion error"
-    
+
     """
     def _quit_activity(del_activity):
         """ quit activity"""
@@ -3029,7 +3039,7 @@ def clear_activitylog():
                 activity_id=del_activity.activity_id,
                 action_id=del_activity.action_id,
                 action_status=ActionStatusPolicy.ACTION_CANCELED,
-                action_order=del_activity.action_order)    
+                action_order=del_activity.action_order)
             return True
 
     if not current_app.config.get("DELETE_ACTIVITY_LOG_ENABLE"):
@@ -3056,10 +3066,10 @@ def clear_activitylog():
         if del_activity.activity_status in [ActivityStatusPolicy.ACTIVITY_MAKING, ActivityStatusPolicy.ACTIVITY_BEGIN]:
             result = _quit_activity(del_activity)
             if not result:
-                return jsonify(code=-1, msg=str(DeleteActivityFailedRESTError())) ,400         
+                return jsonify(code=-1, msg=str(DeleteActivityFailedRESTError())) ,400
         try:
             with db.session.begin_nested():
-                workflow_activity_action.query.filter_by(activity_id=del_activity.activity_id).delete()                
+                workflow_activity_action.query.filter_by(activity_id=del_activity.activity_id).delete()
                 db.session.delete(del_activity)
             db.session.commit()
         except Exception as ex:
@@ -3068,7 +3078,7 @@ def clear_activitylog():
             return jsonify(code=-1, msg='delete failed error') ,400
     # delete all filitering activity
     else:
-    
+
         conditions = filter_all_condition(request.args)
         activities, maxpage, size, pages, name_param = activity.get_activity_list(conditions=conditions, activitylog=True)
 
@@ -3079,12 +3089,12 @@ def clear_activitylog():
             if del_activity.activity_status in [ActivityStatusPolicy.ACTIVITY_MAKING, ActivityStatusPolicy.ACTIVITY_BEGIN]:
                 result = _quit_activity(del_activity)
                 if not result:
-                   return jsonify(code=-1, msg=str(DeleteActivityFailedRESTError())) ,400 
+                   return jsonify(code=-1, msg=str(DeleteActivityFailedRESTError())) ,400
 
-        try:   
+        try:
             with db.session.begin_nested():
                 for activty in activities:
-                    workflow_activity_action.query.filter_by(activity_id=activty.activity_id).delete()                
+                    workflow_activity_action.query.filter_by(activity_id=activty.activity_id).delete()
                     db.session.delete(activty)
             db.session.commit()
         except Exception as ex:
