@@ -168,10 +168,11 @@ def get_user_info_by_username(username):
         data = record.all()
 
         for item in data:
-            if item[0] == user_id:
+            item_dict = dict(item)
+            if item_dict['id'] == user_id:
                 result['username'] = username
                 result['user_id'] = user_id
-                result['email'] = item[1]
+                result['email'] = item_dict['email']
                 return result
         return None
     except Exception as e:
@@ -213,8 +214,9 @@ def validate_user(username, email):
         data = record.all()
 
         for item in data:
-            if item[1] == email:
-                user_id = item[0]
+            item_dict = dict(item)
+            if item_dict['email'] == email:
+                user_id = item_dict['id']
                 break
 
         if user.user_id == user_id:
@@ -254,13 +256,14 @@ def get_user_info_by_email(email):
 
         data = record.all()
         for item in data:
-            if item[1] == email:
-                user = UserProfile.get_by_userid(item[0])
+            item_dict = dict(item)
+            if item_dict['email'] == email:
+                user = UserProfile.get_by_userid(item_dict['id'])
                 if user is None:
                     result['username'] = ""
                 else:
                     result['username'] = user.get_username
-                result['user_id'] = item[0]
+                result['user_id'] = item_dict['id']
                 result['email'] = email
                 return result
         return None
@@ -300,8 +303,9 @@ def get_user_information(user_id):
     data = record.all()
 
     for item in data:
-        if item[0] == user_id:
-            result['email'] = item[1]
+        item_dict = dict(item)
+        if item_dict['id'] == user_id:
+            result['email'] = item_dict['email']
             return result
 
     return result
