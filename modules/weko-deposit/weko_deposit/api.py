@@ -3759,7 +3759,15 @@ class WekoRecord(Record):
         Returns:
             pid_value of parent.
         """
-        return PIDNodeVersioning(pid=self.pid_recid).parents.one_or_none()
+        if ".0" in str(self.pid_recid.pid_value):
+            # Get pid parent of draft record
+            weko_logger(key='WEKO_COMMON_IF_ENTER',
+                        branch=f"'.0' in {str(self.pid_recid.pid_value)}")
+            weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=PIDNodeDraft(pid=self.pid_recid).parents.one_or_none())
+            return PIDNodeDraft(pid=self.pid_recid).parents.one_or_none()
+        else:
+            weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=PIDNodeVersioning(pid=self.pid_recid).parents.one_or_none())
+            return PIDNodeVersioning(pid=self.pid_recid).parents.one_or_none()
 
     @classmethod
     def get_record_by_pid(cls, pid):

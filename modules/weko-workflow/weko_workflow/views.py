@@ -1000,31 +1000,21 @@ def display_activity(activity_id="0"):
 
     # Get item link info.
     if activity_detail.activity_status != ActivityStatusPolicy.ACTIVITY_CANCEL:
-        try:
-            record_detail_alt = get_main_record_detail(
-                activity_id, activity_detail, action_endpoint, item,
-                approval_record, files, files_thumbnail)
-            if not record_detail_alt:
-                current_app.logger.error("display_activity: bad value for record_detail_alt")
-                return render_template("weko_theme/error.html",
-                            error="can not get data required for rendering")
+        record_detail_alt = get_main_record_detail(
+            activity_id, activity_detail, action_endpoint, item,
+            approval_record, files, files_thumbnail)
+        if not record_detail_alt:
+            current_app.logger.error("display_activity: bad value for record_detail_alt")
+            return render_template("weko_theme/error.html",
+                        error="can not get data required for rendering")
 
-            ctx.update(
-                dict(
-                    record_org=record_detail_alt.get('record'),
-                    files_org=record_detail_alt.get('files'),
-                    thumbnails_org=record_detail_alt.get('files_thumbnail')
-                )
+        ctx.update(
+            dict(
+                record_org=record_detail_alt.get('record'),
+                files_org=record_detail_alt.get('files'),
+                thumbnails_org=record_detail_alt.get('files_thumbnail')
             )
-
-        except PIDDeletedError:
-            current_app.logger.debug("PIDDeletedError: {}".format(sys.exc_info()))
-            abort(404)
-        except PIDDoesNotExistError:
-            current_app.logger.debug("PIDDoesNotExistError: {}".format(sys.exc_info()))
-            abort(404)
-        except Exception:
-            current_app.logger.error("Unexpected error: {}".format(sys.exc_info()))
+        )
 
     # Get email approval key
     approval_email_key = get_approval_keys()
