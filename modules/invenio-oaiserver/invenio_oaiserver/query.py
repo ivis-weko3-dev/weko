@@ -105,7 +105,7 @@ def get_records(**kwargs):
 
         search = (
             current_oaiserver.search_cls(
-                index=current_app.config["INDEXER_DEFAULT_INDEX"],
+                index=current_app.config["WEKO_ITEM_INDEX"],
             )
             .params(
                 scroll="{0}s".format(scroll),

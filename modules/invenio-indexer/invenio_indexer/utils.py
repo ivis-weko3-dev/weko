@@ -63,4 +63,4 @@ def default_record_to_index(record):
 
     index = schema_to_index(schema, index_names=index_names)
 
-    return index or current_app.config["INDEXER_DEFAULT_INDEX"]
+    return index or current_app.config["WEKO_ITEM_INDEX"]

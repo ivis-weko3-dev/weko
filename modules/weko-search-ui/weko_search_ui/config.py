@@ -133,6 +133,7 @@ INDEXER_DEFAULT_INDEX = "{}-weko-item-v1.0.0".format(index_prefix)  # Use direct
 INDEXER_FILE_DOC_TYPE = "content"
 
 SEARCH_UI_SEARCH_INDEX = "weko"
+WEKO_ITEM_INDEX = "weko-item-v1.0.0"
 
 # set item type aggs
 RECORDS_REST_FACETS = dict()
