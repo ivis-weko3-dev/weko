@@ -1873,7 +1873,3 @@ def test_item_link_bulk_delete(app, db, records):
     assert r[0]['item_title']==records[2][1]['item_title']
     assert r[0]['value']=='HDL'
 
-
-
-
-

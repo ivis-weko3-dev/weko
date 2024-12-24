@@ -10,6 +10,7 @@ from weko_records.serializers.opensearchresponse import (
 )
 from weko_records.serializers.opensearchserializer import OpenSearchSerializer
 
+
 # def oepnsearch_responsify(serializer):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_serializers_opensearch_response.py::test_oepnsearch_responsify -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
 params=[("data/record_hit/record_hit1.json")]
@@ -36,3 +37,4 @@ def test_add_link_header(app, db):
     assert _response.headers[1]==('Link', '<value1>; rel="key1", <value2>; rel="key2"')
 
 # def custom_output_open_search(record_lst: list):
+

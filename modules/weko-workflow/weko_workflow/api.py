@@ -35,6 +35,7 @@ from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from sqlalchemy import and_, asc, desc, func, or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.engine.row import Row
 from weko_deposit.api import WekoDeposit
 from weko_records.serializers.utils import get_item_type_name
 from weko_schema_ui.models import PublishStatus
@@ -2420,7 +2421,9 @@ class WorkActivity(object):
         @param activities_id:
         @return:
         """
-        activities = self.get_usage_report_activities(activities_id)
+        activities_id_list = [id[0] if isinstance(id, (tuple, Row)) else id for id in activities_id]
+        
+        activities = self.get_usage_report_activities(activities_id_list)
         item_id_lst = []
         if not activities:
             return item_id_lst

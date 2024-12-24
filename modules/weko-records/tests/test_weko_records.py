@@ -139,3 +139,4 @@ def test_weko_feed_generator(app, db):
         name='test',
         link='test'
     )
+

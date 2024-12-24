@@ -1,6 +1,6 @@
 import pytest
 import copy
-from mock import patch, MagicMock
+from unittest.mock import patch, MagicMock
 from marshmallow import ValidationError
 from invenio_pidstore.models import PersistentIdentifier
 
@@ -266,3 +266,4 @@ def test_get_doi_RecordSchemaCSLJSON(app):
     # with patch("marshmallow.fields.Method", return_value="doi.org"):
     with patch("weko_records.serializers.schemas.csl.fields.Method", return_value="doi.org"):
         test2 = RecordSchemaCSLJSON()
+        

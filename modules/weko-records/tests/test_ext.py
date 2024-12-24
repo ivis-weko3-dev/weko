@@ -11,3 +11,4 @@ def test_init_config(app):
     app.config["BASE_TEMPLATE"] = "BASE_TEMPLATE"
 
     assert test.init_config(app) == None
+    

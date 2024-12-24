@@ -589,3 +589,4 @@ def test_register_extension(app):
         sample_copy.register_extension(namespace="atom")
     except:
         pass
+

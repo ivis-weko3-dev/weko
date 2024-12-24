@@ -31,3 +31,4 @@ def test_extend_jpcoar(app):
     assert test.extend_jpcoar(
         item=item
     ) != None
+    

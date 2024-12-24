@@ -6,6 +6,7 @@ from invenio_pidstore.models import PersistentIdentifier
 from weko_records.serializers.json import WekoJSONSerializer
 from invenio_records_files.api import Record
 
+
 # class WekoJSONSerializer(JSONSerializer):
 #     def preprocess_record(self, pid, record, links_factory=None):
 #     def preprocess_search_hit(self, pid, record_hit, links_factory=None, **kwargs):
@@ -89,3 +90,4 @@ def test_json_serializer_3(app, db, records, hit):
 
     # serialize_exporter
     assert _json_serializer.serialize_exporter(records[0][0], json_data(hit))
+    

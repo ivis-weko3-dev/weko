@@ -69,3 +69,4 @@ def test_preprocess_related_identifiers(app, db, records):
 
                 pid.pid_value = "conceptrecid"
                 assert preprocess_related_identifiers(pid, record, result) != None
+

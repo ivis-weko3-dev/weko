@@ -25,3 +25,4 @@ def test_init_workflow_tables(app, db, db_itemtype, users):
     result = runner.invoke(init_workflow_tables,["gakuninrdm_data"])
     assert result.output == "workflow db has been initialised.\n"
     assert result.exit_code == 0
+

@@ -1,7 +1,7 @@
 import pytest
 import copy
 from lxml import etree
-from mock import patch, MagicMock
+from unittest.mock import patch, MagicMock
 from tests.helpers import json_data
 
 from invenio_pidstore.models import PersistentIdentifier
@@ -352,5 +352,4 @@ def test__set_description(app):
 
     with patch("weko_records_ui.utils.get_pair_value", return_value=data1):
         assert sample_copy._set_description(fe=fe, item_map=item_map, item_metadata=item_metadata, request_lang=request_lang) == None
-
 
