@@ -458,7 +458,10 @@ def get_elasticsearch_records_data_by_indexes(index_ids, start_date, end_date):
     records_search = RecordsSearch()
     records_search = records_search.with_preference_param().\
         params(version=False)
-    records_search._index[0] = current_app.config['SEARCH_UI_SEARCH_INDEX']
+    records_search._index[0] =  "{}{}".format(
+        current_app.config['SEARCH_INDEX_PREFIX'], 
+        current_app.config['SEARCH_UI_SEARCH_INDEX']
+    )
     result = None
     try:
         from weko_search_ui.query import item_search_factory
