@@ -2073,7 +2073,9 @@ def check_info_in_metadata(str_key_lang, str_key_val, str_lang, metadata):
             metadata.get("_item_metadata") if "_item_metadata" in metadata else metadata
         )
         if str_key_val[0] in metadata:
-            obj = metadata.get(str_key_val[0]).get("attribute_value_mlt")
+            obj = metadata.get(str_key_val[0])
+            if not isinstance(obj,list):
+                obj = obj.get("attribute_value_mlt",obj)
             save = obj
             for ob in str_key_val:
                 if (
@@ -2083,26 +2085,36 @@ def check_info_in_metadata(str_key_lang, str_key_val, str_lang, metadata):
                     for x in save:
                         if x.get(ob):
                             save = x.get(ob)
-            for s in save:
-                if s is not None and str_lang is None:
-                    value = s
-                    if isinstance(s,dict):
-                        value = s.get(str_key_val[len(str_key_val) - 1]).strip()
-                    if len(value) > 0:
-                        return value
-
-                if (
-                    s
-                    and isinstance(s, dict)
-                    and s.get(str_key_lang[-1])
-                    and s.get(str_key_val[-1])
-                ):
+            
+            if isinstance(save, list):
+                for s in save:
+                    if s is not None and str_lang is None:
+                        value = s
+                        if isinstance(s,dict):
+                            value = s.get(str_key_val[len(str_key_val) - 1]).strip()
+                        if len(value) > 0:
+                            return value
+    
                     if (
-                        s.get(str_key_lang[-1]).strip() == str_lang.strip()
-                        and str_key_val[-1] in s
-                        and len(s.get(str_key_val[-1]).strip()) > 0
+                        s
+                        and isinstance(s, dict)
+                        and s.get(str_key_lang[-1])
+                        and s.get(str_key_val[-1])
                     ):
-                        return s.get(str_key_val[-1])
+                        if (
+                            s.get(str_key_lang[-1]).strip() == str_lang.strip()
+                            and str_key_val[-1] in s
+                            and len(s.get(str_key_val[-1]).strip()) > 0
+                        ):
+                            return s.get(str_key_val[-1])
+            elif isinstance(save, dict):
+                if (
+                    save.get(str_key_lang[-1])
+                    and save.get(str_key_val[-1])
+                    and save.get(str_key_lang[-1]).strip() == str_lang.strip()
+                ):
+                    return save.get(str_key_val[-1])
+
     return None
 
 
