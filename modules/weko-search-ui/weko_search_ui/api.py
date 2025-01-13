@@ -124,7 +124,7 @@ class SearchSetting(object):
             script_str = {
                 "_script": {
                     "script": {
-                        "source": 'if(params.factor.get(doc["control_number"].size()!=0){params.factor.get(doc["control_number"].value.toString())}else{Integer.MAX_VALUE}',
+                        "source": 'if(doc["control_number"].size() > 0 && doc["control_number"].value != null) {if (params.factor.containsKey(doc["control_number"].value.toString())) {return params.factor.get(doc["control_number"].value.toString());} else {return Integer.MAX_VALUE;}} else {return Integer.MAX_VALUE;}',
                         "lang": "painless",
                         "params": {"factor": factor_obj},
                     },
@@ -138,7 +138,7 @@ class SearchSetting(object):
             script_str = {
                 "_script": {
                     "script": {
-                        "source": 'if(params.factor.get(doc["control_number"].size()!=0){params.factor.get(doc["control_number"].value.toString())}else{Integer.MAX_VALUE}',
+                        "source": 'if(doc["control_number"].size() > 0 && doc["control_number"].value != null) {if (params.factor.containsKey(doc["control_number"].value.toString())) {return params.factor.get(doc["control_number"].value.toString());} else {return Integer.MAX_VALUE;}} else {return Integer.MAX_VALUE;}',
                         "lang": "painless",
                         "params": {"factor": factor_obj},
                     },
