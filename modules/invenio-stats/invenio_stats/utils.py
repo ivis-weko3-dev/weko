@@ -20,6 +20,7 @@ from typing import Generator, Union
 
 import click
 import netaddr
+from datetime import datetime, timedelta
 from dateutil import parser
 from flask import current_app, request, session
 from flask_login import current_user
@@ -1285,10 +1286,11 @@ class QueryRankingHelper(object):
 
         try:
             start_date = kwargs.get("start_date")
-            end_date = kwargs.get("end_date")
+            end_date = datetime.strptime(kwargs.get("end_date"), "%Y-%m-%d") + timedelta(days=1)
+            end_date = end_date.strftime("%Y-%m-%d")
             params = {
                 "start_date": start_date,
-                "end_date": f"{end_date}T23:59:59",
+                "end_date": end_date,
                 "agg_size": str(kwargs.get("agg_size", 10)),
                 "must_not": kwargs.get("must_not", ""),
                 "new_items": True
