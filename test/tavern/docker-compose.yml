@@ -1,0 +1,14 @@
+version: '3.2'
+
+services:
+  tavern:
+    build:
+      context: .
+      dockerfile: tavern.Dockerfile
+    environment:
+      - TZ=Asia/Tokyo
+    volumes: 
+      - type: bind
+        source: .
+        target: /tavern
+    tty: true
