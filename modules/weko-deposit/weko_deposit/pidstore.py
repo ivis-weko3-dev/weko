@@ -140,7 +140,8 @@ def get_record_identifier(recid):
 
     Returns:
         RecordIdentifier: Record ID without version ID.\
-            If not found, return None.
+            If not found, return None.\
+            If recid is float, return None.
     """
     record_id = None
     try:
@@ -149,6 +150,9 @@ def get_record_identifier(recid):
     except SQLAlchemyError as ex:
         weko_logger(key='WEKO_COMMON_DB_SOME_ERROR', ex=ex)
         # raise WekoDepositError(ex=ex)
+    except ValueError:
+        # recid is not int tpye
+        pass
     except Exception as ex:
         weko_logger(key='WEKO_COMMON_ERROR_UNEXPECTED', ex=ex)
         # raise WekoDepositError(ex=ex)
