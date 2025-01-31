@@ -94,7 +94,6 @@ def get_records(**kwargs):
                         "bool",
                         **{"must_not": [
                             {"term": {"_id": str(record.id)}}]})
-        return query
     page_ = kwargs.get("resumptionToken", {}).get("page", 1)
     size_ = current_app.config["OAISERVER_PAGE_SIZE"]
     scroll = current_app.config["OAISERVER_RESUMPTION_TOKEN_EXPIRE_TIME"]
@@ -168,7 +167,7 @@ def get_records(**kwargs):
             search = search.query(
                 "bool", **{"must": [{"bool": {"should": query_filter}}]})
 
-        search = add_condition_doi_and_future_date(search)
+        add_condition_doi_and_future_date(search)
 
         current_app.logger.debug("query:{}".format(search.query.to_dict()))
 
