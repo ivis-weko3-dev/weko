@@ -94,6 +94,7 @@ def get_records(**kwargs):
                         "bool",
                         **{"must_not": [
                             {"term": {"_id": str(record.id)}}]})
+
     page_ = kwargs.get("resumptionToken", {}).get("page", 1)
     size_ = current_app.config["OAISERVER_PAGE_SIZE"]
     scroll = current_app.config["OAISERVER_RESUMPTION_TOKEN_EXPIRE_TIME"]
