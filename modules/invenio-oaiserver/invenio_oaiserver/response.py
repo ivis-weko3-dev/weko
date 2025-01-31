@@ -506,19 +506,10 @@ def listidentifiers(**kwargs):
         return error(get_error_code_msg(), **kwargs)
 
     all_records = [record for record in result.items]
-    records_sets = sets_search_all([r["json"]["_source"] for r in all_records])
 
     for index, r in enumerate(all_records):
-        pid = current_oaiserver.oaiid_fetcher(r["id"], r["json"]["_source"])
-        header(
-            e_listidentifiers,
-            identifier=pid.pid_value,
-            datestamp=r["updated"],
-            sets=records_sets[index],
-        )
-
         try:
-
+            pid = current_oaiserver.oaiid_fetcher(r["id"], r["json"]["_source"])
             pid_object = OAIIDProvider.get(pid_value=pid.pid_value).pid
             record = WekoRecord.get_record_by_uuid(pid_object.object_uuid)
             set_identifier(record, record)
@@ -625,7 +616,6 @@ def listrecords(**kwargs):
         return error(get_error_code_msg(), **kwargs)
 
     all_records = [record for record in result.items]
-    records_sets = sets_search_all([r["json"]["_source"] for r in all_records])
 
     for index, r in enumerate(all_records):
         try:

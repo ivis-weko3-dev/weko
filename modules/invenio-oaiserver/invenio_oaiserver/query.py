@@ -167,7 +167,7 @@ def get_records(**kwargs):
         if len(query_filter) > 0:
             search = search.query(
                 "bool", **{"must": [{"bool": {"should": query_filter}}]})
-        
+
         search = add_condition_doi_and_future_date(search)
 
         current_app.logger.debug("query:{}".format(search.query.to_dict()))
