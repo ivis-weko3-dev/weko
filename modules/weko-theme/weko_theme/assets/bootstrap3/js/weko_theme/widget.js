@@ -263,7 +263,7 @@ const PageBodyGrid = function () {
                 '</a>';
         }
 
-        if (!$.isEmptyObject(languageDescription)) {
+        if (languageDescription && !$.isEmptyObject(languageDescription)) {
             description = languageDescription.description + templateWriteMoreNotice;
         }
         return description;
@@ -422,12 +422,12 @@ const PageBodyGrid = function () {
         let languageDescription = "";
         let id = 'id="widget_body_' + index + '"';
 
-        if (!$.isEmptyObject(multiLangSetting.description)) {
+        if (multiLangSetting.description && !$.isEmptyObject(multiLangSetting.description)) {
             languageDescription = multiLangSetting.description;
         }
 
         if (node.type === FREE_DESCRIPTION_TYPE) {
-            if (!$.isEmptyObject(languageDescription)) {
+            if (languageDescription && !$.isEmptyObject(languageDescription)) {
                 content = languageDescription.description;
             }
         } else if (node.type === NOTICE_TYPE) {
@@ -454,12 +454,12 @@ const PageBodyGrid = function () {
             this.buildMenu(node.id, node.widget_id, innerID, menuSettings);
         } else if (node.type === HEADER_TYPE) {
             $("#community_header").attr("hidden", true);
-            if (!$.isEmptyObject(languageDescription)) {
+            if (languageDescription && !$.isEmptyObject(languageDescription)) {
                 content = languageDescription.description;
             }
         } else if (node.type === FOOTER_TYPE) {
             $("#community_footer").attr("hidden", true);
-            if (!$.isEmptyObject(languageDescription)) {
+            if (languageDescription && !$.isEmptyObject(languageDescription)) {
                 content = languageDescription.description;
             }
         }
