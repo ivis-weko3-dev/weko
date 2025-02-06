@@ -4211,7 +4211,7 @@ function toObject(arr) {
                     $("#allModal").modal("show");
                     $scope.endLoading();
                     return false;
-                } else if (enableFeedbackMail === 'True' && $scope.getFeedbackMailList().length > 1) {
+                } else if (enableFeedbackMail === 'True' && $scope.getFeedbackMailList().length > 0) {
                     let modalcontent = $('#invalid-email-format').val();
                     $("#inputModal").html(modalcontent);
                     $("#allModal").modal("show");
@@ -4467,7 +4467,7 @@ function toObject(arr) {
                             permission = true;
                         }
                         if (permission) {
-                            if ($scope.getFeedbackMailList().length > 1) {
+                            if ($scope.getFeedbackMailList().length > 0) {
                                 let modalcontent = $('#invalid-email-format').val();
                                 $("#inputModal").html(modalcontent);
                                 $("#allModal").modal("show");
