@@ -307,7 +307,7 @@ def get_feedback_mail_list():
     """Get feedback items."""
     records_search = RecordsSearch()
     records_search = records_search.with_preference_param().params(version=False)
-    records_search._index[0] = current_app.config["SEARCH_UI_SEARCH_INDEX"]
+    records_search._index[0] = build_alias_name(current_app.config["SEARCH_UI_SEARCH_INDEX"])
     ret = {}
 
     try:

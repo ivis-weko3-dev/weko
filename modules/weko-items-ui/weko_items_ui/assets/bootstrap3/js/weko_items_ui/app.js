@@ -3611,20 +3611,20 @@ function toObject(arr) {
                 $scope.feedback_emails = []
                 let invalid_emails = [];
                 let emails = []
-                emails = $('#sltBoxListEmail').children('a');
+                emails = $('#sltBoxListEmail').children('button');
                 if (emails.length === 0) {
                     return invalid_emails;
                 }
                 emails.each(function (idx) {
                     let email = emails[idx]
-                    let result = re.test(String(email.text).toLowerCase());
+                    let result = re.test(String(email.textContent).toLowerCase());
                     if (result) {
                         $scope.feedback_emails.push({
                             "author_id": email.attributes[1]['value'],
-                            "email": email.text
+                            "email": email.textContent
                         })
                     } else {
-                        invalid_emails.push(email.text);
+                        invalid_emails.push(email.textContent);
                     }
                 });
                 return invalid_emails;
