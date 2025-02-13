@@ -1068,7 +1068,7 @@ class FeedbackMail:
             }
         }
         result_itemCnt = indexer.client.search(
-            index=current_app.config['SEARCH_UI_SEARCH_INDEX'],
+            index=build_alias_name(current_app.config['SEARCH_UI_SEARCH_INDEX']),
             body=query_item
         )
 
