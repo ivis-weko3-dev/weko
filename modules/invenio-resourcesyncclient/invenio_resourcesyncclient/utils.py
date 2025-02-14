@@ -37,7 +37,8 @@ from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records.models import RecordMetadata
 from lxml import etree
 from resync.client import Client
-from resync.client_utils import init_logging, url_or_file_open
+from resync.client_utils import init_logging
+from resync.url_or_file_open import url_or_file_open
 from resync.mapper import MapperError
 from resync.resource_list_builder import ResourceListBuilder
 from resync.sitemap import Sitemap

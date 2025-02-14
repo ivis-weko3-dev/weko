@@ -3,8 +3,6 @@ import moment from "moment";
 import React from "react";
 import ReactDOM from "react-dom";
 
-import confirm from "jquery-confirm";
-
 const list_label = "List";
 const create_label = "Create";
 const edit_label = "Edit";
@@ -183,7 +181,7 @@ class ListResourceComponent extends React.Component {
     }
 
     handleDelete(item) {
-        const a = confirm("Are you sure to delete it ?");
+        const a = window.confirm("Are you sure to delete it ?");
         if (a) {
             fetch(urlDelete + "/" + item.id, {
                 method: "POST",
