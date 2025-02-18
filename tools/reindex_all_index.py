@@ -354,6 +354,7 @@ if gte_date and json_data_toggle_aliases["actions"]:
         raise Exception(res.text)
 
 def create_stats_index(index_name, stats_prefix, stats_types):
+    alias_actions = []
     print("## start create stats index: {}".format(index_name))
     index_with_prefix = f"{prefix}-{index_name}"
     new_index_name = f"{index_with_prefix}-000001"
@@ -377,17 +378,16 @@ def create_stats_index(index_name, stats_prefix, stats_types):
             print("## raise error: create index")
             raise Exception(res.text)
 
-    # エイリアス登録用データ作成
-    alias_actions = []
-    alias_actions.append(
-        {
-            "add": {
-                "index":new_index_name,
-                "alias":index_with_prefix,
-                "is_write_index":True
+        # エイリアス登録用データ作成
+        alias_actions.append(
+            {
+                "add": {
+                    "index":new_index_name,
+                    "alias":index_with_prefix,
+                    "is_write_index":True
+                }
             }
-        }
-    )
+        )
     return alias_actions
 
 def stats_reindex(stats_types, stats_prefix):
@@ -396,8 +396,8 @@ def stats_reindex(stats_types, stats_prefix):
     from_sizes = {}
 
     # 既存indexのsizeを調べる
-    def get_index_size(alias):
-        size_url = f"{es6_url}{alias}/_stats/store"
+    def get_index_size(alias, es_url):
+        size_url = f"{es_url}{alias}/_stats/store"
         res = requests.get(url=size_url, **req_args)
         if res.status_code == 200:
             stats = res.json()
@@ -408,10 +408,11 @@ def stats_reindex(stats_types, stats_prefix):
             raise Exception(res.text)
 
     for index in stats_indexes:
-        from_sizes[index] = get_index_size(index)
+        from_sizes[index] = get_index_size(index, es6_url)
 
     to_reindex = f"{prefix}-{stats_prefix}-index"
-    to_size = 0
+    to_size = get_index_size(to_reindex, es7_url)
+
     max_size = 50  # GB
     size_limit = max_size * 1024 * 1024 * 1024  # byteに変換する
 
@@ -521,10 +522,11 @@ alias_actions = []
 alias_actions += create_stats_index("events-stats-index", "events-stats", event_stats_types)
 alias_actions += create_stats_index("stats-index", "stats", stats_types)
 
-res = requests.post(es7_url+"_aliases",json={"actions":alias_actions},**req_args)
-if res.status_code!=200:
-    print("## raise error: put aliases")
-    raise Exception(res.text)
+if alias_actions:
+    res = requests.post(es7_url+"_aliases",json={"actions":alias_actions},**req_args)
+    if res.status_code!=200:
+        print("## raise error: put aliases")
+        raise Exception(res.text)
 
 stats_reindex(event_stats_types, "events-stats")
 stats_reindex(stats_types, "stats")
