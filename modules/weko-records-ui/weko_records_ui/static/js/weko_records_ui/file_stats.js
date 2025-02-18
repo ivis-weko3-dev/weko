@@ -26,11 +26,10 @@ $(document).ready(function () {
                 ddl.innerHTML = ddlHtml;
                 // country
                 let tableHtml = '';
-                for (let i in data.country_list) {
-                    d = data.country_list[i]
-                    tableHtml += '<tr><td>' + d.country + '</td><td>' + 
-                        d.download_counts + '</td><td>' + 
-                        d.preview_counts + '</td></tr>';
+                for (let list of data.country_list) {
+                    tableHtml += '<tr><td>' + list.country + '</td><td>' + 
+                        list.download_counts + '</td><td>' + 
+                        list.preview_counts + '</td></tr>';
                 }
                 document.getElementById("file_country").innerHTML = tableHtml;
             } else {
@@ -62,11 +61,10 @@ function period_change(control) {
                 document.getElementById("file_download_num").innerHTML = data.download_total;
                 document.getElementById("file_preview_num").innerHTML = data.preview_total;
                 let tableHtml = '';
-                for (let i in data.country_list) {
-                    d = data.country_list[i]
-                    tableHtml += '<tr><td>' + d.country + '</td><td>' +
-                        d.download_counts + '</td><td>' +
-                        d.preview_counts + '</td></tr>';
+                for (let list of data.country_list) {
+                    tableHtml += '<tr><td>' + list.country + '</td><td>' +
+                        list.download_counts + '</td><td>' +
+                        list.preview_counts + '</td></tr>';
                 }
                 document.getElementById("file_country").innerHTML = tableHtml;
             } else {
