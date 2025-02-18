@@ -184,7 +184,7 @@ for index, mapping in mappings.items():
     json_data_to_es7 = {
         "source": {
             "remote": {
-                "host": "http://elasticsearch:9200",
+                "host": es6_url,
             },
             "index": index,
             "query": {
@@ -275,7 +275,7 @@ for index, mapping in mappings.items():
             print(f"## Creating index: {index_percolator}")
             percolator_definition = copy.deepcopy(base_index_definition)
             percolator_definition["mappings"]["properties"].update(percolator_body["properties"])
-            res = requests.put(es7_url + index_percolator + "?pretty", json=base_index_definition, **req_args)
+            res = requests.put(es7_url + index_percolator + "?pretty", json=percolator_definition, **req_args)
             if res.status_code != 200:
                 raise Exception(res.text)
             print("Created index: {index}")
@@ -367,7 +367,10 @@ def create_stats_index(index_name, stats_prefix, stats_types):
         print("### raise error: put template")
         raise Exception(res.text)
     # index作成
-    if not gte_date:
+    res = requests.get(es7_url + new_index_name, **req_args)
+    if res.status_code == 200:
+        print(f"## Index {index} already exists, skipping creation.")
+    else:
         print("### craete index")
         res = requests.put(es7_url+new_index_name+"?pretty",**req_args)
         if res.status_code!=200:
