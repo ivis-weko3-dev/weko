@@ -11,8 +11,7 @@ from datetime import datetime, timedelta, timezone
 import traceback, copy
 
 now = datetime.now(timezone.utc)
-# today_str = now.strftime("%Y-%m-%dT00:00:00")
-today_str = "2024-11-01T00:00:00"
+today_str = now.strftime("%Y-%m-%dT00:00:00")
 
 def validate_date(date_str):
     try:
@@ -85,7 +84,7 @@ template_url = es7_url + "_template/{}"
 verify=False
 headers = {"Content-Type":"application/json"}
 bulk_headers = {"Content-Type":"application/x-ndjson"}
-percolator_prefix = "b"
+percolator_prefix = "oaiset-"
 
 req_args = {"headers":headers,"verify":verify}
 bulk_req_args = {"headers":bulk_headers,"verify":verify}
@@ -117,7 +116,6 @@ organization_aliases = prefix+"-*"
 indexes = requests.get(f"{es6_url}{organization_aliases}",**req_args).json()
 indexes_alias = {} # indexとaliasのリスト
 write_indexes = [] # is_write_indexがtrueのindexとaliasのリスト
-delete_target_stats = [] # 削除対象となるinvenio_statsのindexリスト
 for index in indexes:
     aliases = indexes[index].get("aliases",{})
     indexes_alias[index] = aliases
@@ -125,7 +123,6 @@ for index in indexes:
     index_tmp = replace_prefix_index(index)
     if index_tmp not in stats_indexes:
         continue
-    delete_target_stats.append(index)
     for alias, alias_info in aliases.items():
         if alias_info.get("is_write_index", False) is True:
             write_indexes.append(
