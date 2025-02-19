@@ -288,9 +288,12 @@ for index, mapping in mappings.items():
 
         if "author" not in index:
             if gte_date:
-                json_data_to_es7["source"]["query"]["bool"]["must"] = [query_before_today]
+                json_data_to_es7["source"]["query"]["bool"]["must"] = [query_after_specific_date]
                 json_data_to_es7["source"]["query"]["bool"]["filter"] = [filter_id_not_starts_with]
                 res = requests.post(url=reindex_url, json=json_data_to_es7, **req_args)
+                if res.status_code != 200:
+                    raise Exception(res.text)
+                json_data_to_es7["source"]["query"]["bool"]["must"] = []
                 json_data_to_es7["source"]["query"]["bool"]["filter"] = [filter_id_starts_with]
                 json_data_to_es7["dest"]["index"] = index_percolator
                 res = requests.post(url=reindex_url, json=json_data_to_es7, **req_args)
@@ -298,11 +301,8 @@ for index, mapping in mappings.items():
                     raise Exception(res.text)
                 print("## Second reindex from ES6 to ES7 (>= today 00:00:00)")
             else:
-                json_data_to_es7["source"]["query"]["bool"]["must"] = [query_after_specific_date]
+                json_data_to_es7["source"]["query"]["bool"]["must"] = [query_before_today]
                 json_data_to_es7["source"]["query"]["bool"]["filter"] = [filter_id_not_starts_with]
-                res = requests.post(url=reindex_url, json=json_data_to_es7, **req_args)
-                json_data_to_es7["source"]["query"]["bool"]["filter"] = [filter_id_starts_with]
-                json_data_to_es7["dest"]["index"] = index_percolator
                 res = requests.post(url=reindex_url, json=json_data_to_es7, **req_args)
                 if res.status_code != 200:
                     raise Exception(res.text)
@@ -329,29 +329,6 @@ for index, mapping in mappings.items():
         print("##raise error: {}".format(index))
         print(traceback.format_exc())
 
-# is_write_indexをfalseに切り替え
-print("# Start of invenio-stats index consolidation")
-print("## Change is_write_index to False")
-json_data_toggle_aliases={"actions":[]}
-for index in write_indexes:
-    json_data_toggle_aliases["actions"].append({
-        "remove":{
-            "index": index["index"],
-            "alias": index["alias"],
-        }
-    })
-    json_data_toggle_aliases["actions"].append({
-        "add":{
-            "index": index["index"],
-            "alias": index["alias"],
-            "is_write_index": False
-        }
-    })
-if gte_date and json_data_toggle_aliases["actions"]:
-    res = requests.post(es6_url+"_aliases",json=json_data_toggle_aliases,**req_args)
-    if res.status_code!=200:
-        print("##raise error: toggle is_write_index")
-        raise Exception(res.text)
 
 def create_stats_index(index_name, stats_prefix, stats_types):
     alias_actions = []
