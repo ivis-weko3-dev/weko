@@ -27,10 +27,10 @@
 {%- endblock css %}
 
 {%- block javascript %}
+  {{ super() }}
   {{ webpack['admin_js_admin_lte_js_dependecies.js']}}
   {{ webpack['angular_js.js']}}
   {{ webpack['admin_js_js.js']}}
-  {{ webpack['admin_js_admin_lte_js_dependecies.js']}}
 {%- endblock javascript %}
 
 {%- block body %}

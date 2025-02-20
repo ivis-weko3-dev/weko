@@ -495,7 +495,8 @@ def use_paginate_args(default_size=25, max_results=10000):
                             validate=validate.Range(min=1),
                         ),
                         "size": fields.Int(
-                            validate=validate.Range(min=1), missing=_default_size
+                            validate=validate.Range(min=1),
+                            missing=lambda: request.values.get("list_view_num", _default_size, type=int)
                         ),
                     },
                     locations=["querystring"],

@@ -314,8 +314,8 @@ const PageBodyGrid = function () {
                 }
                 let innerHTML = '<div class= "rss text-right">' + rssHtml + '</div>'
                     + '<div>';
-                for (let data in result) {
-                    innerHTML += '<div class="no-li-style no-padding-col"><li><a class="a-new-arrivals arrival-scale" href="' + result[data].url + '">' + result[data].name + '</a></li></div>';
+                for (let data of result) {
+                    innerHTML += '<div class="no-li-style no-padding-col"><li><a class="a-new-arrivals arrival-scale" href="' + data.url + '">' + data.name + '</a></li></div>';
                 }
                 innerHTML += '</div>';
                 $("#" + id).append(innerHTML);
@@ -340,12 +340,12 @@ const PageBodyGrid = function () {
                 let mainLayoutTitle = "";
                 let childNavBar = "";
                 let navbarHeader = "";
-                for (let i in endpoints) {  // Create links
+                for (let point of endpoints) {  // Create links
                     let liClass = '';
                     let communityArgs = (repoID === DEFAULT_REPOSITORY) ? '' : '?community=' + repoID;
-                    let title = endpoints[i].title;
-                    let endpointsURL = endpoints[i].url;
-                    if (endpoints[i].is_main_layout) {
+                    let title = point.title;
+                    let endpointsURL = point.url;
+                    if (point.is_main_layout) {
                         mainLayoutTitle = title;
                     } else {
                         if (window.location.pathname === endpointsURL) {
