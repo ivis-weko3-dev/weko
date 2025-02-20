@@ -1,5 +1,5 @@
 
-from marshmallow import Schema, fields 
+from marshmallow import Schema, fields, INCLUDE
 from marshmallow.validate import Range
 
 class ActivitySchema(Schema):
@@ -19,7 +19,7 @@ class ActionSchema(Schema):
     commond = fields.String(allow_none=True)
     temporary_save= fields.Integer(allow_none=True)
     class Meta:
-        strict = True
+        unknown = INCLUDE
 
 class CancelSchema(ActionSchema):
     pid_value = fields.String(allow_none=True)
