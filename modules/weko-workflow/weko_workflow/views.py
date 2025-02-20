@@ -1793,8 +1793,7 @@ def previous_action(activity_id='0', action_id=0, req=0):
         res = ResponseMessageSchema().load({"code":-1,"msg":"argument error"})
         return jsonify(res), 500
     try:
-        schema = get_schema_action(action_id)
-        schema_load = schema.load(request.get_json())
+        schema_load = ActionSchema().load(request.get_json())
     except ValidationError as err:
         current_app.logger.error("previous_action: "+str(err))
         res = ResponseMessageSchema().load({"code":-1, "msg":str(err)})
