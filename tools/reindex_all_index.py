@@ -1,36 +1,90 @@
 
 import sys
+import argparse
 import os
 import requests
 from requests.auth import HTTPBasicAuth
 from importlib import import_module
 import re
 import json
+from datetime import datetime, timedelta, timezone
+import traceback, copy
 
-args = sys.argv
-if len(args) == 4:
-    http_method = "https" if args[1] == "https" else "http"
-    user = args[2]
-    password = args[3]
-    auth = HTTPBasicAuth(user,password)
-elif len(args) == 2:
-    http_method = "https" if args[1] == "https" else "http"
-    auth = None
-else:
-    print("Usage: python reindex_all_index.py [http_method] [user] [password]")
-    sys.exit(1)
+now = datetime.now(timezone.utc)
+today_str = now.strftime("%Y-%m-%dT00:00:00")
 
-host = os.environ.get('INVENIO_ELASTICSEARCH_HOST','localhost')
+def validate_date(date_str):
+    try:
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+        return date_obj.strftime("%Y-%m-%dT00:00:00")
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"無効な日付形式: {date_str}（YYYY-MM-DD の形式で入力してください）")
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description="Elasticsearch v6 から v7 に reindex するツール",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+
+    parser.add_argument(
+        "http_method",
+        choices=["http", "https"],
+        help="Elasticsearch に接続するプロトコル（http または https）"
+    )
+
+    parser.add_argument(
+        "--es7_host",
+        type=str,
+        default="elasticsearch7",
+        help="Elasticsearch 7 のコンテナ名"
+    )
+
+    parser.add_argument(
+        "--user",
+        type=str,
+        help="Elasticsearch のユーザー名"
+    )
+
+    parser.add_argument(
+        "--password",
+        type=str,
+        help="Elasticsearch のパスワード"
+    )
+
+    parser.add_argument(
+        "--date",
+        type=validate_date,
+        default=None,
+        help="操作する日付（省略可能）\n"
+             "  ・日付なしで実行すると、前日23:59:59までのデータがreindexされる\n"
+             "  ・日付付きで実行すると、指定した日の23:59:59までのデータがreindexされる\n"
+             "  ・形式: YYYY-MM-DD（例: 2024-02-14）"
+    )
+
+    args = parser.parse_args()
+    return args
+
+args = parse_arguments()
+http_method = args.http_method
+user = args.user
+password = args.password
+es7_host = args.es7_host
+gte_date = args.date
+auth = HTTPBasicAuth(user, password) if user and password else None
+
+es6_host = os.environ.get('INVENIO_ELASTICSEARCH_HOST','localhost')
 version="v7"
 
-base_url = http_method + "://" + host +":9200/"
-reindex_url = base_url + "_reindex?pretty&refresh=true&wait_for_completion=true"
-bulk_url = base_url + "_bulk"
-template_url = base_url + "_template/{}"
+es6_url = http_method + "://" + es6_host +":9200/"
+es7_url = http_method + "://"+ es7_host +":9201/"
+reindex_url = es7_url + "_reindex?pretty&refresh=true&wait_for_completion=true"
+bulk_url = es7_url + "_bulk"
+template_url = es7_url + "_template/{}"
 verify=False
 headers = {"Content-Type":"application/json"}
 bulk_headers = {"Content-Type":"application/x-ndjson"}
-
+percolator_prefix = "oaiset-"
 
 req_args = {"headers":headers,"verify":verify}
 bulk_req_args = {"headers":bulk_headers,"verify":verify}
@@ -48,13 +102,6 @@ template_files = {
 }
 stats_indexes = ["events-stats-celery-task", "events-stats-file-download", "events-stats-file-preview", "events-stats-item-create", "events-stats-record-view", "events-stats-search", "events-stats-top-view", "stats-celery-task", "stats-file-download", "stats-file-preview", "stats-item-create", "stats-record-view", "stats-search", "stats-top-view"]
 
-delete_indexes = [
-    "stats-bookmarks",
-    "deposits-deposit-v1.0.0",
-    "marc21-holdings-hd-v1.0.0",
-    "marc21-authority-ad-v1.0.0",
-    "marc21-bibliographic-bd-v1.0.0",
-]
 
 prefix = os.environ.get('SEARCH_INDEX_PREFIX')
 
@@ -66,10 +113,9 @@ def replace_prefix_index(index_name):
 # indexとalias一覧取得
 print("# get indexes and aliases")
 organization_aliases = prefix+"-*"
-indexes = requests.get(f"{base_url}{organization_aliases}",**req_args).json()
+indexes = requests.get(f"{es6_url}{organization_aliases}",**req_args).json()
 indexes_alias = {} # indexとaliasのリスト
 write_indexes = [] # is_write_indexがtrueのindexとaliasのリスト
-delete_target_stats = [] # 削除対象となるinvenio_statsのindexリスト
 for index in indexes:
     aliases = indexes[index].get("aliases",{})
     indexes_alias[index] = aliases
@@ -77,13 +123,11 @@ for index in indexes:
     index_tmp = replace_prefix_index(index)
     if index_tmp not in stats_indexes:
         continue
-    delete_target_stats.append(index)
     for alias, alias_info in aliases.items():
         if alias_info.get("is_write_index", False) is True:
             write_indexes.append(
                 {"index":index,"alias":alias}
             )
-
 modules_dir = "/code/modules/"
 mappings = {}
 templates = {}
@@ -119,21 +163,11 @@ for index, path in template_files.items():
                 replace("__SEARCH_INDEX_PREFIX__",prefix+"-")
         )
 
-# 削除対象のインデックスの削除
-print("# delete indexes")
-delete_target_index = [index for index in indexes if re.sub(f"^{prefix}-", "", index) in delete_indexes]
-for target in delete_target_index:
-    delete_url = f"{base_url}{target}"
-    res = requests.delete(delete_url,**req_args)
-    if res.status_code!=200:
-        print("## raise error: delete index:{}".format(target))
-        raise Exception(res.text)
 
 percolator_body = {"properties": {"query": {"type": "percolator"}}}
 # for index in indexes_alias:
 for index, mapping in mappings.items():
     print("# start reindex: {}".format(index))
-    tmpindex = index+"-tmp"
 
     # target index is weko-item-v1.0.0
     is_weko_item = re.sub(f"^{prefix}-", "", index) == "weko-item-v1.0.0"
@@ -147,9 +181,61 @@ for index, mapping in mappings.items():
     performance_setting_body = {"index": {"number_of_replicas": 0, "refresh_interval": "-1"}}
     restore_setting_body = {"index": {"number_of_replicas": defalut_number_of_replicas, "refresh_interval": default_refresh_interval}}
 
-    # body for reindex
-    json_data_to_tmp = {"source":{"index":index},"dest":{"index":tmpindex}}
-    json_data_to_dest = {"source":{"index":tmpindex},"dest":{"index":index}}
+    json_data_to_es7 = {
+        "source": {
+            "remote": {
+                "host": es6_url,
+            },
+            "index": index,
+            "query": {
+                "bool": {
+                    "must": [],
+                    "filter": [],
+                }
+            }
+        },
+        "dest": {
+            "index": index
+        }
+    }
+
+    query_before_today = {
+        "range": {
+            "_updated": {
+                "lt": today_str
+            }
+        }
+    }
+
+    query_after_specific_date  = {
+        "range": {
+            "_updated": {
+                "gte": gte_date
+            }
+        }
+    }
+
+    filter_id_starts_with  = {
+        "script": {
+            "script": {
+                "source": "doc['_id'].value.startsWith(params.prefix)",
+                "params": {
+                    "prefix": percolator_prefix
+                }
+            }
+        }
+    }
+
+    filter_id_not_starts_with = {
+        "script": {
+            "script": {
+                "source": "!doc['_id'].value.startsWith(params.prefix)",
+                "params": {
+                    "prefix": percolator_prefix
+                }
+            }
+        }
+    }
 
     # body for setting alias
     json_data_set_aliases = {
@@ -162,105 +248,90 @@ for index, mapping in mappings.items():
         json_data_set_aliases["actions"].append({"add":alias_info})
 
     try:
-        # 一時保存用インデックス作成
-        res = requests.put(base_url+tmpindex+"?pretty",json=base_index_definition,**req_args)
-        if res.status_code!=200:
-            raise Exception(res.text)
-
-        if is_weko_item:
-            res = requests.put(base_url+tmpindex+"/_mapping/",json=percolator_body,**req_args)
-
-            if res.status_code!=200:
+        res = requests.get(es7_url + index, **req_args)
+        if res.status_code == 200:
+            print(f"## Index {index} already exists, skipping creation.")
+        else:
+            print(f"## Creating index: {index}")
+            res = requests.put(es7_url + index + "?pretty", json=base_index_definition, **req_args)
+            if res.status_code != 200:
                 raise Exception(res.text)
-        print("## create tmp index")
+            print("Created index: {index}")
 
-        # 高速化のための設定
-        res = requests.put(base_url+tmpindex+"/_settings?pretty",json=performance_setting_body,**req_args)
-        if res.status_code!=200:
-            raise Exception(res.text)
-        print("## speed-up setting for tmp_index")
 
-        # 一時保存用インデックスに元のインデックスの再インデックス
-        res = requests.post(url=reindex_url,json=json_data_to_tmp,**req_args)
-        if res.status_code!=200:
-            raise Exception(res.text)
-        print("## reindex to tmp_index")
+            if json_data_set_aliases["actions"]:
+                res = requests.post(es7_url + "_aliases", json=json_data_set_aliases, **req_args)
+                if res.status_code != 200:
+                    raise Exception(res.text)
+            print("## setting alias for new index")
 
-        # 再インデックス前のインデックスを削除
-        res = requests.delete(base_url+index,**req_args)
-        if res.status_code!=200:
-            raise Exception(res.text)
-        print("## delete old index")
 
-        # 新しくインデックス作成
-        res = requests.put(base_url+index+"?pretty",json=base_index_definition,**req_args)
+        index_percolator = index + "-percolator"
 
-        if is_weko_item:
-            res = requests.put(base_url+tmpindex+"/_mapping/",json=percolator_body,**req_args)
-            if res.status_code!=200:
+        res = requests.get(es7_url + index_percolator, **req_args)
+        if res.status_code == 200:
+            print(f"## Index {index_percolator} already exists, skipping creation.")
+        else:
+            print(f"## Creating index: {index_percolator}")
+            percolator_definition = copy.deepcopy(base_index_definition)
+            percolator_definition["mappings"]["properties"].update(percolator_body["properties"])
+            res = requests.put(es7_url + index_percolator + "?pretty", json=percolator_definition, **req_args)
+            if res.status_code != 200:
                 raise Exception(res.text)
-        print("## create new index")
+            print("Created index: {index}")
 
-        # 高速化のための設定
-        res = requests.put(base_url+index+"/_settings?pretty",json=performance_setting_body,**req_args)
-        if res.status_code!=200:
+        res = requests.put(es7_url + index + "/_settings?pretty", json=performance_setting_body, **req_args)
+        if res.status_code != 200:
             raise Exception(res.text)
-        print("## speed-up setting for new index")
+        print("## speed-up setting for reindex")
 
-        # aliasの設定
-        if json_data_set_aliases["actions"]:
-            res = requests.post(base_url+"_aliases",json=json_data_set_aliases,**req_args)
-            if res.status_code!=200:
-                raise Exception(res.text)
-        print("## setting alias for new index")
 
-        # アイテムの再挿入
-        res = requests.post(url=reindex_url,json=json_data_to_dest,**req_args)
-        if res.status_code!=200:
+        if "author" not in index:
+            if gte_date:
+                json_data_to_es7["source"]["query"]["bool"]["must"] = [query_after_specific_date]
+                json_data_to_es7["source"]["query"]["bool"]["filter"] = [filter_id_not_starts_with]
+                res = requests.post(url=reindex_url, json=json_data_to_es7, **req_args)
+                if res.status_code != 200:
+                    raise Exception(res.text)
+                json_data_to_es7["source"]["query"]["bool"]["must"] = []
+                json_data_to_es7["source"]["query"]["bool"]["filter"] = [filter_id_starts_with]
+                json_data_to_es7["dest"]["index"] = index_percolator
+                res = requests.post(url=reindex_url, json=json_data_to_es7, **req_args)
+                if res.status_code != 200:
+                    raise Exception(res.text)
+                print("## Second reindex from ES6 to ES7 (>= today 00:00:00)")
+            else:
+                json_data_to_es7["source"]["query"]["bool"]["must"] = [query_before_today]
+                json_data_to_es7["source"]["query"]["bool"]["filter"] = [filter_id_not_starts_with]
+                res = requests.post(url=reindex_url, json=json_data_to_es7, **req_args)
+                if res.status_code != 200:
+                    raise Exception(res.text)
+                print("## First reindex from ES6 to ES7 (<= yesterday 23:59:59)")
+        else:
+            if gte_date:
+                json_data_to_es7["source"]["query"]["bool"]["filter"] = [filter_id_not_starts_with]
+                res = requests.post(url=reindex_url, json=json_data_to_es7, **req_args)
+                json_data_to_es7["source"]["query"]["bool"]["filter"] = [filter_id_starts_with]
+                json_data_to_es7["dest"]["index"] = index_percolator
+                res = requests.post(url=reindex_url, json=json_data_to_es7, **req_args)
+                if res.status_code != 200:
+                    raise Exception(res.text)
+                print("## [Author] Reindex from ES6 to ES7 ALL")
+            else:
+                print("## [Author] Reindex next time")
+
+        res = requests.put(es7_url + index + "/_settings?pretty", json=restore_setting_body, **req_args)
+        if res.status_code != 200:
             raise Exception(res.text)
-        print("## put into new index")
-
-        # 高速化のための設定を元に戻す
-        res = requests.put(base_url+index+"/_settings?pretty",json=restore_setting_body,**req_args)
-        if res.status_code!=200:
-            raise Exception(res.text)
-
-        # 一時保存用のインデックスを削除
-        res = requests.delete(base_url+tmpindex,**req_args)
-        if res.status_code!=200:
-            raise Exception(res.text)
-        print("## delete tmp_index")
 
         print("# end reindex: {}\n".format(index))
     except Exception as e:
-        import traceback
         print("##raise error: {}".format(index))
         print(traceback.format_exc())
 
-# is_write_indexをfalseに切り替え
-print("# Start of invenio-stats index consolidation")
-print("## Change is_write_index to False")
-json_data_toggle_aliases={"actions":[]}
-for index in write_indexes:
-    json_data_toggle_aliases["actions"].append({
-        "remove":{
-            "index": index["index"],
-            "alias": index["alias"],
-        }
-    })
-    json_data_toggle_aliases["actions"].append({
-        "add":{
-            "index": index["index"],
-            "alias": index["alias"],
-            "is_write_index": False
-        }
-    })
-res = requests.post(base_url+"_aliases",json=json_data_toggle_aliases,**req_args)
-if res.status_code!=200:
-    print("##raise error: toggle is_write_index")
-    raise Exception(res.text)
 
 def create_stats_index(index_name, stats_prefix, stats_types):
+    alias_actions = []
     print("## start create stats index: {}".format(index_name))
     index_with_prefix = f"{prefix}-{index_name}"
     new_index_name = f"{index_with_prefix}-000001"
@@ -274,23 +345,26 @@ def create_stats_index(index_name, stats_prefix, stats_types):
         print("### raise error: put template")
         raise Exception(res.text)
     # index作成
-    print("### craete index")
-    res = requests.put(base_url+new_index_name+"?pretty",**req_args)
-    if res.status_code!=200:
-        print("## raise error: create index")
-        raise Exception(res.text)
+    res = requests.get(es7_url + new_index_name, **req_args)
+    if res.status_code == 200:
+        print(f"## Index {index} already exists, skipping creation.")
+    else:
+        print("### craete index")
+        res = requests.put(es7_url+new_index_name+"?pretty",**req_args)
+        if res.status_code!=200:
+            print("## raise error: create index")
+            raise Exception(res.text)
 
-    # エイリアス登録用データ作成
-    alias_actions = []
-    alias_actions.append(
-        {
-            "add": {
-                "index":new_index_name,
-                "alias":index_with_prefix,
-                "is_write_index":True
+        # エイリアス登録用データ作成
+        alias_actions.append(
+            {
+                "add": {
+                    "index":new_index_name,
+                    "alias":index_with_prefix,
+                    "is_write_index":True
+                }
             }
-        }
-    )
+        )
     return alias_actions
 
 def stats_reindex(stats_types, stats_prefix):
@@ -299,8 +373,8 @@ def stats_reindex(stats_types, stats_prefix):
     from_sizes = {}
 
     # 既存indexのsizeを調べる
-    def get_index_size(alias):
-        size_url = f"{base_url}{alias}/_stats/store"
+    def get_index_size(alias, es_url):
+        size_url = f"{es_url}{alias}/_stats/store"
         res = requests.get(url=size_url, **req_args)
         if res.status_code == 200:
             stats = res.json()
@@ -311,10 +385,11 @@ def stats_reindex(stats_types, stats_prefix):
             raise Exception(res.text)
 
     for index in stats_indexes:
-        from_sizes[index] = get_index_size(index)
+        from_sizes[index] = get_index_size(index, es6_url)
 
     to_reindex = f"{prefix}-{stats_prefix}-index"
-    to_size = 0
+    to_size = get_index_size(to_reindex, es7_url)
+
     max_size = 50  # GB
     size_limit = max_size * 1024 * 1024 * 1024  # byteに変換する
 
@@ -328,7 +403,7 @@ def stats_reindex(stats_types, stats_prefix):
 
         if from_size + to_size > size_limit:
             print(f"### Performing rollover for index: {to_reindex}")
-            rollover_url = base_url + "{}/_rollover".format(to_reindex)
+            rollover_url = es7_url + "{}/_rollover".format(to_reindex)
             res = requests.post(url=rollover_url, **req_args)
             if res.status_code != 200:
                 print(f"### raise error: rollover failed for index: {to_reindex}")
@@ -337,8 +412,41 @@ def stats_reindex(stats_types, stats_prefix):
             print(f"### New to_index size after rollover: {to_size} bytes")
 
         # Reindex process
+        remote = {
+            "host": es6_url,
+        }
+
+        if user and password:
+            remote["username"] = user
+            remote["password"] = password
+
+        if gte_date:
+            source_index = {
+                "remote": remote,
+                "index": from_reindex,
+                "query": {
+                    "range": {
+                        "timestamp": {
+                            "gte": gte_date
+                        }
+                    }
+                }
+            }
+        else:
+            source_index = {
+                "remote": remote,
+                "index": from_reindex,
+                "query": {
+                    "range": {
+                        "timestamp": {
+                            "lt": today_str
+                        }
+                    }
+                }
+            }
+
         body = {
-            "source": {"index": from_reindex},
+            "source": source_index,
             "dest": {"index": to_reindex},
             "script": {
                 "source": """
@@ -391,20 +499,11 @@ alias_actions = []
 alias_actions += create_stats_index("events-stats-index", "events-stats", event_stats_types)
 alias_actions += create_stats_index("stats-index", "stats", stats_types)
 
-res = requests.post(base_url+"_aliases",json={"actions":alias_actions},**req_args)
-if res.status_code!=200:
-    print("## raise error: put aliases")
-    raise Exception(res.text)
+if alias_actions:
+    res = requests.post(es7_url+"_aliases",json={"actions":alias_actions},**req_args)
+    if res.status_code!=200:
+        print("## raise error: put aliases")
+        raise Exception(res.text)
 
 stats_reindex(event_stats_types, "events-stats")
 stats_reindex(stats_types, "stats")
-
-# delete stats index
-print("# delete stats index")
-delete_bulk = ""
-for target in delete_target_stats:
-    delete_url = f"{base_url}{target}"
-    res = requests.delete(delete_url,**req_args)
-    if res.status_code!=200:
-        print("## raise error: delete stats index:{}".format(target))
-        raise Exception(res.text)
