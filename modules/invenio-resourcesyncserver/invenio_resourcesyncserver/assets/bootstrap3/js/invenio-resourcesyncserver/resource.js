@@ -1,5 +1,4 @@
 import $ from "jquery";
-import confirm from "jquery-confirm";
 import React from "react";
 import ReactDOM from "react-dom";
 
@@ -163,7 +162,7 @@ class ListResourceComponent extends React.Component {
     }
 
     handleDelete(item) {
-        const a = confirm("Are you sure to delete it ?");
+        const a = window.confirm("Are you sure to delete it ?");
         if (a) {
             fetch(urlDelete + "/" + item.id, {
                 method: "POST",
