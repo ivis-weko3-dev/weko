@@ -489,6 +489,7 @@ def use_paginate_args(default_size=25, max_results=10000):
                     {
                         "page": fields.Int(
                             validate=validate.Range(min=1),
+                            missing=lambda: request.values.get("page_no", 1, type=int)
                         ),
                         "from": fields.Int(
                             load_from="from",
