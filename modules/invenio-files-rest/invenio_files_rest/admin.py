@@ -85,7 +85,7 @@ class LocationModelView(ModelView):
     )
     column_searchable_list = ("uri", "name")
     column_default_sort = "name"
-    form_base_class = FlaskForm
+    form_base_class = SecureForm
     form_columns = (
         "name", "uri", "type", "access_key", "secret_key",
         "s3_endpoint_url", "s3_send_file_directly",
