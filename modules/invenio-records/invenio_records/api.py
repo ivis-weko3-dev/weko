@@ -367,7 +367,7 @@ class Record(RecordBase):
         return record
 
     @classmethod
-    def get_record(cls, id_, with_deleted=False):
+    def get_record(cls, id_, with_deleted=False,replace_fqdn=True):
         """Retrieve the record by id.
 
         Raise a database exception if the record does not exist.
@@ -381,7 +381,8 @@ class Record(RecordBase):
             if not with_deleted:
                 query = query.filter(cls.model_cls.is_deleted != True)  # noqa
             obj = query.one()
-            cls.__custom_record_metadata(obj.json)
+            if replace_fqdn:
+                cls.__custom_record_metadata(obj.json)
             return cls(obj.data, model=obj)
         
     @classmethod
