@@ -1504,7 +1504,7 @@ class WekoDeposit(Deposit):
                                         branch='file is in content')
                             del content['file']
                     weko_logger(key='WEKO_COMMON_FOR_END')
-
+        super(WekoDeposit, self).commit(*args, **kwargs)
         # fix schema url
         if record and record.json and '$schema' in record.json:
             weko_logger(key='WEKO_COMMON_IF_ENTER',
