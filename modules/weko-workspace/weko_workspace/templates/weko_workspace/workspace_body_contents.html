@@ -103,7 +103,7 @@
             </div>
             <div class="pull-right">
               <div class="form-group">
-                <a href="javascript:void(0)" class="btn btn-primary" id="">
+                <a href="{{ url_for('weko_workspace.itemregister') }}" class="btn btn-primary" id="">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
                     class="bi bi-diagram-3" viewBox="0 0 16 16"">
                     <path fill-rule=" evenodd"
@@ -606,47 +606,16 @@
 
   <!-- 関連リンク表示・非表示 -->
   <script>
-    const button = document.getElementById('relatedButton1');
-    const content = document.getElementById('relatedInfo');
-    button.addEventListener('click', function () {
-      if (content.classList.contains('expanded')) {
-        content.classList.remove('expanded');
-        content.style.display = 'none';
-      } else {
-        content.classList.add('expanded');
-        content.style.display = 'block';
-      }
-    });
+
   </script>
 
   <script>
-    const button3 = document.getElementById('relatedButton2');
-    const content3 = document.getElementById('relatedInfo2');
-    button3.addEventListener('click', function () {
-      if (content3.classList.contains('expanded')) {
-        content3.classList.remove('expanded');
-        content3.style.display = 'none';
-      } else {
-        content3.classList.add('expanded');
-        content3.style.display = 'block';
-      }
-    });
+
   </script>
 
   <!-- 絞込み条件表示・非表示 -->
   <script>
-    const button2 = document.getElementById('toggleButton');
-    const content2 = document.getElementById('content');
 
-    button2.addEventListener('click', function () {
-      if (content2.classList.contains('expanded')) {
-        content2.classList.remove('expanded');
-        content2.style.display = 'none';
-      } else {
-        content2.classList.add('expanded');
-        content2.style.display = 'block';
-      }
-    });
   </script>
 
   <!-- 折り畳み表示 -->

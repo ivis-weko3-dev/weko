@@ -111,11 +111,13 @@ setup(
         'invenio_base.api_apps': [
             'weko_workspace_rest = weko_workspace:WekoWorkspace',
         ],
-        # 'invenio_admin.views': [
-        #     'weko_workspace = weko_workspace.admin:workspace_adminview',
-        #     'weko_workspace = weko_workspace.admin:flow_adminview',
-        # ],
-        # 'invenio_assets.bundles': [
+        'invenio_admin.views': [
+            'weko_workspaceworkflow = weko_workflow.admin:workspace_workflow_adminview',
+            # 'weko_workspace = weko_workspace.admin:workspace_adminview',
+            # 'weko_workspace = weko_workspace.admin:flow_adminview',
+        ],
+        'invenio_assets.bundles': [
+            'workflow_workspace_js = weko_workflow.bundles:js_workspace',
         #     'workspace_js = weko_workspace.bundles:js_workspace',
         #     'workspace_item_link_js = weko_workspace.bundles:js_item_link',
         #     'workspace_activity_list_js = '
@@ -135,7 +137,7 @@ setup(
         #     'weko_workspace.bundles:js_admin_workspace_detail',
         #     'flow_detail_admin_js = '
         #     'weko_workspace.bundles:js_admin_flow_detail',
-        # ],
+        ],
         'invenio_i18n.translations': [
             'messages = weko_workspace',
         ],

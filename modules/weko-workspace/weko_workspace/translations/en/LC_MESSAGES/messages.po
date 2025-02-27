@@ -39,6 +39,10 @@ msgstr ""
 msgid "Approval by Guarantor action is not in the right order."
 msgstr ""
 
+#: weko_workspace/admin.py:238
+msgid "WorkSpaceWorkFlow Setting"
+msgstr "WorkSpace WorkFlow Setting"
+
 #: weko_workflow/admin.py:154
 msgid "Start or End action is not in the right order."
 msgstr ""

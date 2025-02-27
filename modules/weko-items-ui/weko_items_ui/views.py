@@ -315,6 +315,294 @@ def get_json_schema(item_type_id=0, activity_id=""):
     return abort(400)
 
 
+@blueprint.route('/schemaform_simple/<int:item_type_id>', methods=['GET'])
+@blueprint.route('/schemaform_simple/<int:item_type_id>/<string:activity_id>',
+                 methods=['GET'])
+@login_required_customize
+def get_schema_form_simple(item_type_id=0, activity_id=''):
+    """Get schema form.
+
+    :param item_type_id: Item type ID. (Default: 0)
+    :param activity_id: Activity ID.  (Default: Null)
+    :return: The json object.
+    """
+    try:
+        cur_lang = current_i18n.language
+        result = None
+        if item_type_id > 0:
+            result = ItemTypes.get_by_id(item_type_id)
+        if result is None:
+            return '["*"]'
+        schema_form = result.form
+        filemeta_form = schema_form[0]
+        if 'filemeta' == filemeta_form.get('key'):
+            group_list = Group.get_group_list()
+            filemeta_form_group = filemeta_form.get('items')[-1]
+            filemeta_form_group['type'] = 'select'
+            filemeta_form_group['titleMap'] = group_list
+
+        from .utils import recursive_form
+        recursive_form(schema_form)
+        # Check role for input(5 item type)
+        update_sub_items_by_user_role(item_type_id, schema_form)
+
+        # Hide form items
+        schema_form = hide_form_items(result, schema_form)
+
+        for elem in schema_form:
+            set_multi_language_name(elem, cur_lang)
+            if 'items' in elem:
+                items = elem['items']
+                for item in items:
+                    set_multi_language_name(item, cur_lang)
+
+        if 'default' != cur_lang:
+            for elem in schema_form:
+                translate_schema_form(elem, cur_lang)
+
+        if activity_id:
+            updated_schema_form = update_schema_form_by_activity_id(
+                schema_form,
+                activity_id)
+            if updated_schema_form:
+                schema_form = updated_schema_form
+
+        for item in schema_form[:]:
+            
+            if item.get('key') == 'pubdate':
+                item['templateUrl'] = '/static/templates/weko_deposit/datepicker_simple.html'
+
+            if item.get('key') == 'item_1617186331708':
+                item['items'] = [subitem for subitem in item['items'] if subitem.get('key') != 'item_1617186331708[].subitem_title_language']
+
+            if item.get('key') == 'item_1617186476635':
+                item['items'] = [subitem for subitem in item['items'] if subitem.get('key') != 'item_1617186476635.subitem_access_right_uri']
+            if item.get('key') == 'item_1617258105262':
+                item['items'] = [subitem for subitem in item['items'] if subitem.get('key') != 'item_1617258105262.resourceuri']
+
+            if item.get('key') == 'item_1617265215918':
+                item['items'] = [subitem for subitem in item['items'] if subitem.get('key') != 'item_1617265215918.subitem_version_resource']
+
+            if item.get('key') == 'item_1617353299429':
+                item['items'] = [
+                    subitem for subitem in item['items'] 
+                    if subitem.get('key') != 'item_1617353299429[].subitem_relation_type' 
+                        and subitem.get('key') != 'item_1617353299429[].subitem_relation_name']
+                for subitem in item['items']:
+                    if subitem.get('key') == 'item_1617353299429[].subitem_relation_type_id':
+                        subitem['items'] = [
+                            nested_subitem for nested_subitem in subitem.get('items', [])
+                            if nested_subitem.get('key') != 'item_1617353299429[].subitem_relation_type_id.subitem_relation_type_select'
+                        ]
+
+            if item.get('key') == 'item_1617186901218':
+                item['items'] = [
+                    subitem for subitem in item['items'] 
+                    if subitem.get('key') != 'item_1617186901218[].subitem_funder_identifiers' 
+                        and subitem.get('key') != 'item_1617186901218[].subitem_funding_stream_identifiers'
+                        and subitem.get('key') != 'item_1617186901218[].subitem_funding_streams'
+                        and subitem.get('key') != 'item_1617186901218[].subitem_award_numbers'
+                        and subitem.get('key') != 'item_1617186901218[].subitem_award_titles']
+                for subitem in item['items']:
+                    if subitem.get('key') == 'item_1617186901218[].subitem_funder_names':
+                        subitem['items'] = [
+                            nested_subitem for nested_subitem in subitem.get('items', [])
+                            if nested_subitem.get('key') != 'item_1617186901218[].subitem_funder_names[].subitem_funder_name_language'
+                        ]
+
+            if item.get('key') == 'item_1617187056579':
+                item['items'] = [
+                    subitem for subitem in item['items'] 
+                    if subitem.get('key') != 'item_1617187056579.bibliographicVolumeNumber' 
+                        and subitem.get('key') != 'item_1617187056579.bibliographicIssueNumber'
+                        and subitem.get('key') != 'item_1617187056579.bibliographicPageStart'
+                        and subitem.get('key') != 'item_1617187056579.bibliographicPageEnd'
+                        and subitem.get('key') != 'item_1617187056579.bibliographicIssueDates'
+                        and subitem.get('key') != 'item_1617187056579.bibliographicNumberOfPages']
+                for subitem in item['items']:
+                    if subitem.get('key') == 'item_1617187056579.bibliographic_titles':
+                        subitem['items'] = [
+                            nested_subitem for nested_subitem in subitem.get('items', [])
+                            if nested_subitem.get('key') != 'item_1617187056579.bibliographic_titles[].bibliographic_titleLang'
+                        ]
+
+                item['items'][0]['items'][0]['title_i18n']['ja'] = '雑誌名'
+                item['items'][0]['items'][0]['title'] = '雑誌名'
+
+            if item.get('key') == 'item_1617187187528':
+                item['items'] = [
+                    subitem for subitem in item['items'] 
+                    if subitem.get('key') != 'item_1617187187528[].subitem_conference_sequence' 
+                        and subitem.get('key') != 'item_1617187187528[].subitem_conference_sponsors'
+                        and subitem.get('key') != 'item_1617187187528[].subitem_conference_date'
+                        and subitem.get('key') != 'item_1617187187528[].subitem_conference_venues'
+                        and subitem.get('key') != 'item_1617187187528[].subitem_conference_places'
+                        and subitem.get('key') != 'item_1617187187528[].subitem_conference_country']
+                for subitem in item['items']:
+                    if subitem.get('key') == 'item_1617187187528[].subitem_conference_names':
+                        subitem['items'] = [
+                            nested_subitem for nested_subitem in subitem.get('items', [])
+                            if nested_subitem.get('key') != 'item_1617187187528[].subitem_conference_names[].subitem_conference_name_language'
+                        ]
+
+            if item.get('key') == 'item_1617186419668':
+                item['items'] = [
+                    subitem for subitem in item['items'] 
+                    if subitem.get('key') != 'item_1617186419668[].creatorType' 
+                        and subitem.get('key') != 'item_1617186419668[].nameIdentifiers'
+                        and subitem.get('key') != 'item_1617186419668[].familyNames'
+                        and subitem.get('key') != 'item_1617186419668[].givenNames'
+                        and subitem.get('key') != 'item_1617186419668[].creatorAffiliations'
+                        and subitem.get('key') != 'item_1617186419668[].creatorAlternatives'
+                        and subitem.get('key') != 'item_1617186419668[].authorInputButton'
+                        and subitem.get('key') != 'item_1617186419668[].creatorMails']
+                for subitem in item['items']:
+                    if subitem.get('key') == 'item_1617186419668[].creatorNames':
+                        subitem['items'] = [
+                            nested_subitem for nested_subitem in subitem.get('items', [])
+                            if nested_subitem.get('key') != 'item_1617186419668[].creatorNames[].creatorNameLang'
+                                and nested_subitem.get('key') != 'item_1617186419668[].creatorNames[].creatorNameType'
+                        ]
+                
+                item['items'][0]['items'][0]['title_i18n']['ja'] = '著者名'
+                item['items'][0]['items'][0]['title'] = '著者名'
+
+            if item.get('key') == 'item_1617605131499':
+                item['items'] = [
+                    subitem for subitem in item['items'] 
+                    if subitem.get('key') != 'item_1617605131499[].format' 
+                        and subitem.get('key') != 'item_1617605131499[].filesize'
+                        and subitem.get('key') != 'item_1617605131499[].fileDate'
+                        and subitem.get('key') != 'item_1617605131499[].version'
+                        and subitem.get('key') != 'item_1617605131499[].url'
+                        and subitem.get('key') != 'item_1617605131499[].displaytype'
+                        and subitem.get('key') != 'item_1617605131499[].licensetype'
+                        and subitem.get('key') != 'item_1617605131499[].accessrole']
+
+
+            if item.get('key') == 'item_1617258105262':
+                item['items'] = [subitem for subitem in item['items'] if subitem.get('key') != 'item_1617258105262[].resourceuri']
+
+            if item.get('key') == 'item_1617265215918':
+                item['items'] = [subitem for subitem in item['items'] if subitem.get('key') != 'item_1617265215918[].subitem_version_resource']
+
+            if item.get('key') == 'item_1617186783814':
+                item['items'] = [subitem for subitem in item['items'] if subitem.get('key') != 'item_1617186783814[].subitem_identifier_type']
+
+            if item.get('key') == 'item_1617186385884':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1617351524846':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1617186643794':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1617186626617':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1617186660861':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1617186702042':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1617349808926':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1617186819068':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1617186859717':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1617186882738':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1617186920753':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1617186941041':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1617186959569':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1617186981471':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1617186994930':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1617187024783':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1617187045071':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1617187087799':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1617187112279':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1617944105607':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1617620223087':
+                schema_form.remove(item)
+                
+            if item.get('key') == 'item_1698591601':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1698591602':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1698591603':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1698591604':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1698591605':
+                schema_form.remove(item)
+                
+            if item.get('key') == 'item_1698591606':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1698591607':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1698591608':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1698591609':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1698591610':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1617349709064':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1617187136212':
+                schema_form.remove(item)
+
+            if item.get('key') == 'item_1617186499011':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1617610673286':
+                schema_form.remove(item)
+            
+            if item.get('key') == 'item_1617186609386':
+                schema_form.remove(item)
+
+        return jsonify(schema_form)
+    except BaseException:
+        current_app.logger.error(
+            'Unexpected error: {}'.format(sys.exc_info()[0]))
+    return abort(400)
+
 @blueprint.route('/schemaform/<int:item_type_id>', methods=['GET'])
 @blueprint.route('/schemaform/<int:item_type_id>/<string:activity_id>',
                  methods=['GET'])
