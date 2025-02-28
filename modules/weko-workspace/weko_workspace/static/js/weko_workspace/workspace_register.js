@@ -25,7 +25,7 @@ require([
   $('#confirm_regist').on('click', function () {
     $('#regist_confirm_modal').fadeOut();
     
-    window.location.href = "/workflow/workspace";
+    window.location.href = "/workspace/workspace";
 });
 
   

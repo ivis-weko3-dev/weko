@@ -138,6 +138,10 @@ msgstr ""
 msgid "Making"
 msgstr ""
 
+#: weko_workflow/admin.py:473
+msgid "WorkSpaceWorkFlow Setting"
+msgstr ""
+
 #: weko_workflow/models.py:232
 msgid "Created"
 msgstr ""
