@@ -79,7 +79,7 @@ workspace_blueprint = Blueprint(
 )
 
 blueprint_itemapi = Blueprint(
-    "weko_workspace",
+    "weko_workspace_api",
     __name__,
     url_prefix="/workspaceAPI",
 )
@@ -388,8 +388,6 @@ def itemregister():
         try:
             rtn = activity.init_activity(post_activity)
             activity_id = rtn.activity_id
-            print(99999999999)
-            print(activity_id)
         except Exception as ex:
             current_app.logger.info('init_activity', str(ex))
             raise InvalidInputRESTError()
@@ -484,7 +482,7 @@ def itemregister():
                 session['itemlogin_community_id'] = community_id
 
         return render_template(
-            'weko_workflow/item_register.html',
+            'weko_workspace/item_register.html',
             # usage_type='Application',
             need_file=need_file,
             need_billing_file=need_billing_file,
