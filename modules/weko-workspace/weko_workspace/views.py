@@ -51,6 +51,22 @@ from flask import (
 from flask_babelex import gettext as _
 from flask_login import current_user, login_required
 
+from weko_admin.models import AdminSettings
+from weko_workflow.api import WorkActivity, WorkFlow
+from weko_workflow.errors import InvalidInputRESTError
+from weko_items_ui.utils import is_schema_include_key
+from flask_wtf import FlaskForm
+from weko_workflow.utils import auto_fill_title, is_show_autofill_metadata, \
+    is_hidden_pubdate, get_activity_display_info, get_cache_data
+# get_cinii_record_data, \
+#     get_jalc_record_data, get_datacite_record_data
+from weko_workflow.models import ActionStatusPolicy
+from weko_workflow.views import check_authority_action
+from weko_user_profiles.views import get_user_profile_info
+from weko_records_ui.utils import get_list_licence
+from weko_accounts.utils import login_required_customize
+from weko_workflow.headless import HeadlessActivity
+
 from .utils import *
 from .models import *
 
@@ -60,6 +76,12 @@ workspace_blueprint = Blueprint(
     template_folder="templates",
     static_folder="static",
     url_prefix="/workspace",
+)
+
+blueprint_itemapi = Blueprint(
+    "weko_workspace_api",
+    __name__,
+    url_prefix="/workspaceAPI",
 )
 
 # 2.1. アイテム一覧情報取得API
@@ -370,3 +392,327 @@ def update_workspace_status_management():
 @login_required
 def update_workspace_default_conditon(buttonTyp, default_con):
     return None
+
+
+
+# itemRegistration登録 ri 20250113 start
+@workspace_blueprint.route('/item_registration', endpoint='itemregister')
+@login_required
+def itemregister():
+        
+    print("========== workspace item_register =========")
+    need_billing_file = False
+    need_file = False
+    need_thumbnail = False
+    settings = AdminSettings.get('workspace_workflow_settings')
+    if settings.workFlow_select_flg == '0':
+        # activity_id = WorkActivity().get_new_activity_id(),
+
+        workflow = WorkFlow()
+        workflow_detail = workflow.get_workflow_by_id(settings.work_flow_id)
+        
+        item_type = ItemTypes.get_by_id(workflow_detail.itemtype_id)
+        user_id = current_user.id if hasattr(current_user , 'id') else None
+        user_profile = None
+        if user_id:
+            
+            user_profile={}
+            user_profile['results'] = get_user_profile_info(int(user_id))
+        activity = WorkActivity()
+        post_activity = {
+            'flow_id': workflow_detail.flow_id,
+            'itemtype_id': workflow_detail.itemtype_id,
+            'workflow_id': workflow_detail.id
+        }
+
+        # 保留
+        try:
+            rtn = activity.init_activity(post_activity)
+            activity_id = rtn.activity_id
+        except Exception as ex:
+            current_app.logger.info('init_activity', str(ex))
+            raise InvalidInputRESTError()
+
+
+        if item_type is None:
+            return render_template('weko_items_ui/iframe/error.html',
+                                    error_type='no_itemtype'),404
+        need_file, need_billing_file = is_schema_include_key(item_type.schema)
+
+
+        json_schema = '/items/jsonschema/{}'.format(workflow_detail.itemtype_id)
+        schema_form = '/items/schemaform_simple/{}'.format(workflow_detail.itemtype_id)
+        record = {}
+        files = []
+        # need_billing_file = []
+        # need_file = []
+        endpoints = {}
+        if "subitem_thumbnail" in json.dumps(item_type.schema):
+            need_thumbnail = True
+
+        form = FlaskForm(request.form)
+        institute_position_list = WEKO_USERPROFILES_INSTITUTE_POSITION_LIST
+        position_list = WEKO_USERPROFILES_POSITION_LIST
+        
+        list_license = get_list_licence()
+        # ctx={'community': None, 'record_org': [], 'files_org': [], 'thumbnails_org': [], 'files_thumbnail': [], 'files': [], 'record': []}
+        item_type_name = get_item_type_name(workflow_detail.itemtype_id)
+        title = auto_fill_title(item_type_name)
+        show_autofill_metadata = is_show_autofill_metadata(item_type_name)
+        is_hidden_pubdate_value = is_hidden_pubdate(item_type_name)
+
+
+        #index
+        # from invenio_records_rest.utils import obj_or_import_string
+        # ctx = dict(
+        #     'read_permission_factory': <Permission needs={Need(method='role', value='Repository Administrator'), Need(method='action', value='superuser-access'), Need(method='role', value='System Administrator'), Need(method='action', value='index-tree-access'), Need(method='role', value='Community Administrator')} excludes=set()>, 'create_permission_factory': <Permission needs={Need(method='role', value='Repository Administrator'), Need(method='action', value='superuser-access'), Need(method='role', value='System Administrator'), Need(method='action', value='index-tree-access'), Need(method='role', value='Community Administrator')} excludes=set()>, 'update_permission_factory': <Permission needs={Need(method='role', value='Repository Administrator'), Need(method='action', value='superuser-access'), Need(method='role', value='System Administrator'), Need(method='action', value='index-tree-access'), Need(method='role', value='Community Administrator')} excludes=set()>, 'delete_permission_factory': <Permission needs={Need(method='role', value='Repository Administrator'), Need(method='action', value='superuser-access'), Need(method='role', value='System Administrator'), Need(method='action', value='index-tree-access'), Need(method='role', value='Community Administrator')} excludes=set()>, 
+        #     'record_class': <class 'weko_index_tree.api.Indexes'>, 'loaders': {'application/json': <function create_blueprint.<locals>.<lambda> at 0x7f2865602950>}
+        # )
+        
+        # from weko_theme.utils import get_design_layout, has_widget_design
+        # from invenio_i18n.ext import current_i18n
+
+        action_endpoint, action_id, activity_detail, cur_action, histories, item, \
+            steps, temporary_comment, workflow_detail = \
+            get_activity_display_info(activity_id)
+
+        user_lock_key = "workflow_userlock_activity_{}".format(str(current_user.get_id()))
+        if action_endpoint in ['item_login',
+                            'item_login_application',
+                            'file_upload']:
+            if not activity.get_activity_by_id(activity_id):
+                pass
+            if activity.get_activity_by_id(activity_id).action_status != ActionStatusPolicy.ACTION_CANCELED:
+                cur_locked_val = str(get_cache_data(user_lock_key)) or str()
+                if not cur_locked_val:
+                    activity_session = dict(
+                        activity_id=activity_id,
+                        action_id=activity_detail.action_id,
+                        action_version=cur_action.action_version,
+                        action_status=ActionStatusPolicy.ACTION_DOING,
+                        commond=''
+                    )
+                    session['activity_info'] = activity_session
+
+        # be use for index tree and comment page.
+        redis_connection = RedisConnection()
+        sessionstore = redis_connection.connection(db=current_app.config['ACCOUNTS_SESSION_REDIS_DB_NO'], kv = True)
+
+        approval_record = []
+        is_auto_set_index_action = True
+        recid = None
+        community_id = ""
+        res_check = check_authority_action(str(activity_id), int(action_id),
+                                    is_auto_set_index_action,
+                                    activity_detail.action_order)
+        if 'item_login' == action_endpoint or \
+                'item_login_application' == action_endpoint or \
+                'file_upload' == action_endpoint:
+            cur_locked_val = str(get_cache_data(user_lock_key)) or str()
+            if not cur_locked_val:
+                session['itemlogin_id'] = activity_id
+                session['itemlogin_activity'] = activity_detail
+                session['itemlogin_item'] = item
+                session['itemlogin_steps'] = steps
+                session['itemlogin_action_id'] = action_id
+                session['itemlogin_cur_step'] = action_endpoint
+                session['itemlogin_record'] = approval_record
+                session['itemlogin_histories'] = histories
+                session['itemlogin_res_check'] = res_check
+                session['itemlogin_pid'] = recid
+                session['itemlogin_community_id'] = community_id
+
+        return render_template(
+            'weko_workspace/item_register.html',
+            # usage_type='Application',
+            need_file=need_file,
+            need_billing_file=need_billing_file,
+            records=record,
+            jsonschema=json_schema,
+            schemaform=schema_form,
+            id=workflow_detail.itemtype_id,
+            itemtype_id=workflow_detail.itemtype_id,
+            files=files,
+            # activity_id = 'A-20250130-00084',
+            licences=current_app.config.get('WEKO_RECORDS_UI_LICENSE_DICT'),
+            activity_id = activity_id,
+
+            # render_header_footer=render_header_footer,
+
+            institute_position_list=institute_position_list,
+            position_list=position_list,
+            # action_endpoint_key={},
+            action_id=3,
+            # activity='Activity 11',
+            endpoints=endpoints,
+            # allow_multi_thumbnail=False,
+            # application_item_type=False,
+            # approval_email_key=['parentkey.subitem_advisor_mail_address', 'parentkey.subitem_guarantor_mail_address'],
+            # auto_fill_data_type=None,
+            # auto_fill_title='',
+            # community_id='',
+            cur_step='item_login',
+            enable_contributor=current_app.config[
+                'WEKO_WORKFLOW_ENABLE_CONTRIBUTOR'],
+            enable_feedback_maillist=current_app.config[
+                'WEKO_WORKFLOW_ENABLE_FEEDBACK_MAIL'],
+            # error_type='item_login_error',
+            # idf_grant_data=None,
+            # idf_grant_method=current_app.config.get(
+            #     'IDENTIFIER_GRANT_SUFFIX_METHOD', IDENTIFIER_GRANT_SUFFIX_METHOD),
+            is_auto_set_index_action=True,
+            # is_enable_item_name_link=True,
+            item_save_uri='/items/iframe/model/save',
+            # item=None,
+            # links=None,
+            # list_license=list_license,
+            # need_thumbnail=False,
+            # out_put_report_title=current_app.config[
+            #     'WEKO_ITEMS_UI_OUTPUT_REGISTRATION_TITLE'],
+            page=None,
+            # pid=None,
+            # _id=None,
+            # render_widgets=False,
+            # res_check=0,
+            steps=steps,
+            # temporary_comment=None,
+            # temporary_idf_grant_suffix=[],
+            # temporary_idf_grant=0,
+            # temporary_journal=None,
+            # term_and_condition_content='',
+            # user_profile=user_profile,
+            # auto_fill_title=title,
+            # is_hidden_pubdate=is_hidden_pubdate_value,
+            is_show_autofill_metadata=show_autofill_metadata,
+            # render_widgets=render_widgets,
+            form=form
+        )
+
+
+@blueprint_itemapi.route('/get_auto_fill_record_data_ciniiapi', methods=['POST'])
+@login_required_customize
+def get_auto_fill_record_data_ciniiapi():
+    """Get auto fill record data.
+
+    :return: record model as json
+    """
+    result = {
+        'result': '',
+        'items': '',
+        'error': ''
+    }
+
+    if request.headers['Content-Type'] != 'application/json':
+        result['error'] = _('Header Error')
+        return jsonify(result)
+
+    data = request.get_json()
+    # api_type = data.get('api_type', '')
+    search_data = data.get('search_data', '')
+    item_type_id = data.get('item_type_id', '')
+
+    try:
+        api_response = get_cinii_record_data(
+            search_data, item_type_id)
+        result['result'] = api_response
+    except Exception as e:
+        result['error'] = str(e)
+    return jsonify(result)
+
+
+@blueprint_itemapi.route('/get_auto_fill_record_data_jalcapi', methods=['POST'])
+@login_required_customize
+def get_auto_fill_record_data_jalcapi():
+    """Get auto fill record data.
+
+    :return: record model as json
+    """
+    result = {
+        'result': '',
+        'items': '',
+        'error': ''
+    }
+
+    if request.headers['Content-Type'] != 'application/json':
+        result['error'] = _('Header Error')
+        return jsonify(result)
+
+    data = request.get_json()
+    search_data = data.get('search_data', '')
+    item_type_id = data.get('item_type_id', '')
+    try:
+        api_response = get_jalc_record_data(
+            search_data, item_type_id)
+        result['result'] = api_response
+    except Exception as e:
+        result['error'] = str(e)
+    return jsonify(result)
+
+
+@blueprint_itemapi.route('/get_auto_fill_record_data_dataciteapi', methods=['POST'])
+@login_required_customize
+def get_auto_fill_record_data_dataciteapi():
+    """Get auto fill record data.
+
+    :return: record model as json
+    """
+    result = {
+        'result': '',
+        'items': '',
+        'error': ''
+    }
+
+    if request.headers['Content-Type'] != 'application/json':
+        result['error'] = _('Header Error')
+        return jsonify(result)
+
+    data = request.get_json()
+    search_data = data.get('search_data', '')
+    item_type_id = data.get('item_type_id', '')
+    try:
+        api_response = get_datacite_record_data(
+            search_data, item_type_id)
+        result['result'] = api_response
+    except Exception as e:
+        result['error'] = str(e)
+    return jsonify(result)
+
+
+@workspace_blueprint.route('/workflow_registration')
+@login_required
+def itemregister_save(item):
+    # workflow_id = request_info.get("workflow_id")
+    # when metadata format was XML, get id from admin setting
+    # if workflow_id is None:
+    #     settings = AdminSettings.get("sword_api_setting", dict_to_object=False)
+    #     default_format = settings.get("default_format", "XML")
+    #     data_format = settings.get("data_format")
+    #     workflow_id = int(data_format.get(default_format, {}).get("workflow", "-1"))
+
+    # metadata = item.get("metadata")
+    # index = metadata.get("path")
+    # files_info = metadata.pop("files_info", [{}])
+    # files = [
+    #     os.path.join(item.get("root_path"), file_info.get("url", {}).get("label"))
+    #         for file_info
+    #         in files_info[0].get("items", {})
+    # ]
+    # comment = metadata.get("comment")
+    # link_data = item.get("link_data")
+    # grant_data = item.get("grant_data")
+    print(999999999999)
+    print(item)
+    try:
+        headless = HeadlessActivity()
+        # url, current_action, recid = headless.auto(
+        #     user_id= request_info.get("user_id"), workflow_id=workflow_id,
+        #     index=index, metadata=metadata, files=files, comment=comment,
+        #     link_data=link_data, grant_data=grant_data
+        # )
+        url, current_action, recid = headless.auto(item)
+    except Exception as ex:
+        current_app.logger.info('itemregister_save', str(ex))
+
+    return url, recid, current_action
+
+# itemRegistration登録　ri 20250113 end

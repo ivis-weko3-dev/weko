@@ -90,7 +90,7 @@
             <div class="pull-left">
               <div class="form-group">
                 <input type="checkbox" class="" id="" value="すべてチェック" />
-                <a href="javascript:void(0)" class="btn btn-primary" id="">
+                <a href="{{ url_for('weko_workspace.itemregister') }}" class="btn btn-primary" id="">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
                     class="bi bi-folder-plus" viewBox="0 0 16 16">
                     <path
@@ -500,18 +500,7 @@
 
   <!-- 絞込み条件表示・非表示 -->
   <script>
-    const button2 = document.getElementById('toggleButton');
-    const content2 = document.getElementById('content');
 
-    button2.addEventListener('click', function () {
-      if (content2.classList.contains('expanded')) {
-        content2.classList.remove('expanded');
-        content2.style.display = 'none';
-      } else {
-        content2.classList.add('expanded');
-        content2.style.display = 'block';
-      }
-    });
   </script>
 
   <!-- 折り畳み表示 -->

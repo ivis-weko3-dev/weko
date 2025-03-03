@@ -31,6 +31,10 @@ msgstr ""
 msgid "Approval by Administrator action does not exist, or not in the right order."
 msgstr ""
 
+#: weko_workspace/admin.py:238
+msgid "WorkSpaceWorkFlow Setting"
+msgstr "WorkSpace WorkFlow Setting"
+
 #: weko_workflow/admin.py:150
 msgid "Approval by Advisor action is not in the right order."
 msgstr ""

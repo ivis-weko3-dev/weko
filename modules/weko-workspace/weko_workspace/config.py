@@ -20,6 +20,8 @@
 
 """Configuration for weko-workspace."""
 
+from flask_babelex import lazy_gettext as _
+
 # Front-end variable definition
 WEKO_WORKSPACE_BASE_TEMPLATE = 'weko_workspace/workspace_base.html'
 """Default base template for the demo page."""
@@ -599,3 +601,238 @@ WEKO_WORKFLOW_ACTIVITYLOG_XLS_COLUMNS = [
     'action_name',
     'role_name'
 ]
+
+WEKO_WORKSPACE_API_UPDATED = True
+
+WEKO_WORKFLOW_SYS_HTTP_PROXY = ''
+"""HTTP proxy"""
+
+WEKO_WORKFLOW_SYS_HTTPS_PROXY = ''
+"""HTTPS proxy"""
+
+WEKO_WORKFLOW_REQUEST_TIMEOUT = 5
+"""Request time out"""
+
+WEKO_WORKSPACE_CiNii_API_URL = 'https://cir.nii.ac.jp/opensearch/all'
+"""CiNii API URL"""
+
+WEKO_WORKSPACE_JALC_API_URL = 'https://api.japanlinkcenter.org/dois/'
+"""JALC API URL"""
+
+WEKO_WORKSPACE_DATACITE_API_URL = 'https://api.datacite.org/dois/'
+"""DataCite API URL"""
+
+WEKO_ITEMS_AUTOFILL_CINII_REQUIRED_ITEM = [
+    "title",
+    "alternative",
+    "creator",
+    "contributor",
+    "description",
+    "subject",
+    "sourceTitle",
+    "volume",
+    "issue",
+    "pageStart",
+    "pageEnd",
+    "numPages",
+    "date",
+    "publisher",
+    "sourceIdentifier",
+    "relation"
+]
+
+WEKO_RECORDS_UI_LICENSE_DICT = [
+    {
+        'name': _('write your own license'),
+        'value': 'license_free',
+    },
+    # version 0
+    {
+        'name': _(
+            'Creative Commons CC0 1.0 Universal Public Domain Designation'),
+        'code': 'CC0',
+        'href_ja': 'https://creativecommons.org/publicdomain/zero/1.0/deed.ja',
+        'href_default': 'https://creativecommons.org/publicdomain/zero/1.0/',
+        'value': 'license_12',
+        'src': '88x31(0).png',
+        'src_pdf': 'cc-0.png',
+        'href_pdf': 'https://creativecommons.org/publicdomain/zero/1.0/'
+                    'deed.ja',
+        'txt': 'This work is licensed under a Public Domain Dedication '
+               'International License.'
+    },
+    # version 3.0
+    {
+        'name': _('Creative Commons Attribution 3.0 Unported (CC BY 3.0)'),
+        'code': 'CC BY 3.0',
+        'href_ja': 'https://creativecommons.org/licenses/by/3.0/deed.ja',
+        'href_default': 'https://creativecommons.org/licenses/by/3.0/',
+        'value': 'license_6',
+        'src': '88x31(1).png',
+        'src_pdf': 'by.png',
+        'href_pdf': 'http://creativecommons.org/licenses/by/3.0/',
+        'txt': 'This work is licensed under a Creative Commons Attribution'
+               ' 3.0 International License.'
+    },
+    {
+        'name': _(
+            'Creative Commons Attribution-ShareAlike 3.0 Unported '
+            '(CC BY-SA 3.0)'),
+        'code': 'CC BY-SA 3.0',
+        'href_ja': 'https://creativecommons.org/licenses/by-sa/3.0/deed.ja',
+        'href_default': 'https://creativecommons.org/licenses/by-sa/3.0/',
+        'value': 'license_7',
+        'src': '88x31(2).png',
+        'src_pdf': 'by-sa.png',
+        'href_pdf': 'http://creativecommons.org/licenses/by-sa/3.0/',
+        'txt': 'This work is licensed under a Creative Commons Attribution'
+               '-ShareAlike 3.0 International License.'
+    },
+    {
+        'name': _(
+            'Creative Commons Attribution-NoDerivs 3.0 Unported (CC BY-ND 3.0)'),
+        'code': 'CC BY-ND 3.0',
+        'href_ja': 'https://creativecommons.org/licenses/by-nd/3.0/deed.ja',
+        'href_default': 'https://creativecommons.org/licenses/by-nd/3.0/',
+        'value': 'license_8',
+        'src': '88x31(3).png',
+        'src_pdf': 'by-nd.png',
+        'href_pdf': 'http://creativecommons.org/licenses/by-nd/3.0/',
+        'txt': 'This work is licensed under a Creative Commons Attribution'
+               '-NoDerivatives 3.0 International License.'
+
+    },
+    {
+        'name': _(
+            'Creative Commons Attribution-NonCommercial 3.0 Unported'
+            ' (CC BY-NC 3.0)'),
+        'code': 'CC BY-NC 3.0',
+        'href_ja': 'https://creativecommons.org/licenses/by-nc/3.0/deed.ja',
+        'href_default': 'https://creativecommons.org/licenses/by-nc/3.0/',
+        'value': 'license_9',
+        'src': '88x31(4).png',
+        'src_pdf': 'by-nc.png',
+        'href_pdf': 'http://creativecommons.org/licenses/by-nc/3.0/',
+        'txt': 'This work is licensed under a Creative Commons Attribution'
+               '-NonCommercial 3.0 International License.'
+    },
+    {
+        'name': _(
+            'Creative Commons Attribution-NonCommercial-ShareAlike 3.0 '
+            'Unported (CC BY-NC-SA 3.0)'),
+        'code': 'CC BY-NC-SA 3.0',
+        'href_ja': 'https://creativecommons.org/licenses/by-nc-sa/3.0/deed.ja',
+        'href_default': 'https://creativecommons.org/licenses/by-nc-sa/3.0/',
+        'value': 'license_10',
+        'src': '88x31(5).png',
+        'src_pdf': 'by-nc-sa.png',
+        'href_pdf': 'http://creativecommons.org/licenses/by-nc-sa/3.0/',
+        'txt': 'This work is licensed under a Creative Commons Attribution'
+               '-NonCommercial-ShareAlike 3.0 International License.'
+    },
+    {
+        'name': _(
+            'Creative Commons Attribution-NonCommercial-NoDerivs '
+            '3.0 Unported (CC BY-NC-ND 3.0)'),
+        'code': 'CC BY-NC-ND 3.0',
+        'href_ja': 'https://creativecommons.org/licenses/by-nc-nd/3.0/deed.ja',
+        'href_default': 'https://creativecommons.org/licenses/by-nc-nd/3.0/',
+        'value': 'license_11',
+        'src': '88x31(6).png',
+        'src_pdf': 'by-nc-nd.png',
+        'href_pdf': 'http://creativecommons.org/licenses/by-nc-nd/3.0/',
+        'txt': 'This work is licensed under a Creative Commons Attribution'
+               '-NonCommercial-ShareAlike 3.0 International License.'
+    },
+    # version 4.0
+    {
+        'name': _('Creative Commons Attribution 4.0 International (CC BY 4.0)'),
+        'code': 'CC BY 4.0',
+        'href_ja': 'https://creativecommons.org/licenses/by/4.0/deed.ja',
+        'href_default': 'https://creativecommons.org/licenses/by/4.0/',
+        'value': 'license_0',
+        'src': '88x31(1).png',
+        'src_pdf': 'by.png',
+        'href_pdf': 'http://creativecommons.org/licenses/by/4.0/',
+        'txt': 'This work is licensed under a Creative Commons Attribution'
+               ' 4.0 International License.'
+    },
+    {
+        'name': _(
+            'Creative Commons Attribution-ShareAlike 4.0 International '
+            '(CC BY-SA 4.0)'),
+        'code': 'CC BY-SA 4.0',
+        'href_ja': 'https://creativecommons.org/licenses/by-sa/4.0/deed.ja',
+        'href_default': 'https://creativecommons.org/licenses/by-sa/4.0/',
+        'value': 'license_1',
+        'src': '88x31(2).png',
+        'src_pdf': 'by-sa.png',
+        'href_pdf': 'http://creativecommons.org/licenses/by-sa/4.0/',
+        'txt': 'This work is licensed under a Creative Commons Attribution'
+               '-ShareAlike 4.0 International License.'
+    },
+    {
+        'name': _(
+            'Creative Commons Attribution-NoDerivatives 4.0 International '
+            '(CC BY-ND 4.0)'),
+        'code': 'CC BY-ND 4.0',
+        'href_ja': 'https://creativecommons.org/licenses/by-nd/4.0/deed.ja',
+        'href_default': 'https://creativecommons.org/licenses/by-nd/4.0/',
+        'value': 'license_2',
+        'src': '88x31(3).png',
+        'src_pdf': 'by-nd.png',
+        'href_pdf': 'http://creativecommons.org/licenses/by-nd/4.0/',
+        'txt': 'This work is licensed under a Creative Commons Attribution'
+               '-NoDerivatives 4.0 International License.'
+    },
+    {
+        'name': _(
+            'Creative Commons Attribution-NonCommercial 4.0 International'
+            ' (CC BY-NC 4.0)'),
+        'code': 'CC BY-NC 4.0',
+        'href_ja': 'https://creativecommons.org/licenses/by-nc/4.0/deed.ja',
+        'href_default': 'https://creativecommons.org/licenses/by-nc/4.0/',
+        'value': 'license_3',
+        'src': '88x31(4).png',
+        'src_pdf': 'by-nc.png',
+        'href_pdf': 'http://creativecommons.org/licenses/by-nc/4.0/',
+        'txt': 'This work is licensed under a Creative Commons Attribution'
+               '-NonCommercial 4.0 International License.'
+    },
+    {
+        'name': _(
+            'Creative Commons Attribution-NonCommercial-ShareAlike 4.0'
+            ' International (CC BY-NC-SA 4.0)'),
+        'code': 'CC BY-NC-SA 4.0',
+        'href_ja': 'https://creativecommons.org/licenses/by-nc-sa/4.0/deed.ja',
+        'href_default': 'https://creativecommons.org/licenses/by-nc-sa/4.0/',
+        'value': 'license_4',
+        'src': '88x31(5).png',
+        'src_pdf': 'by-nc-sa.png',
+        'href_pdf': 'http://creativecommons.org/licenses/by-nc-sa/4.0/',
+        'txt': 'This work is licensed under a Creative Commons Attribution'
+               '-NonCommercial-ShareAlike 4.0 International License.'
+    },
+    {
+        'name': _(
+            'Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 '
+            'International (CC BY-NC-ND 4.0)'),
+        'code': 'CC BY-NC-ND 4.0',
+        'href_ja': 'https://creativecommons.org/licenses/by-nc-nd/4.0/deed.ja',
+        'href_default': 'https://creativecommons.org/licenses/by-nc-nd/4.0/',
+        'value': 'license_5',
+        'src': '88x31(6).png',
+        'src_pdf': 'by-nc-nd.png',
+        'href_pdf': 'http://creativecommons.org/licenses/by-nc-nd/4.0/',
+        'txt': 'This work is licensed under a Creative Commons Attribution'
+               '-NonCommercial-ShareAlike 4.0 International License.'
+    },
+]
+"""Define of list license will be used."""
+
+WEKO_THEME_DEFAULT_COMMUNITY = 'Root Index'
+"""Default community identifier."""
+
+DEPOSIT_UI_JSTEMPLATE_FORM = \
+    'templates/invenio_deposit/form.html'
+"""Template for <invenio-records-form> defined by `invenio-records-js`."""
