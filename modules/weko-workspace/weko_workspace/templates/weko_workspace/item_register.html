@@ -333,10 +333,9 @@
                   <div class="col-sm-12">
                     <div class="col-sm-offset-3 col-sm-6">
                       <div class="list-inline text-center" ng-cloak="" ng-hide="recordsVM.invenioRecordsLoading">
-                        <p id="activity_id" style="display: none;">{{activity_id}}</p>
                         <button ng-disabled="recordsVM.invenioRecordsLoading"
                                 class="btn btn-info next-button"
-                                ng-click="updateDataJson('{{activity_id}}',{{steps}},'{{item_save_uri}}',{{action_id}},'{{is_auto_set_index_action}}','{{enable_contributor}}','{{enable_feedback_maillist}}')"> {{_('Regist')}}&nbsp;
+                                ng-click="saveWorkspaceDataJson()"> {{_('Regist')}}&nbsp;
                         <span class="glyphicon glyphicon-chevron-right"></span>
                         </button>
                       </div>

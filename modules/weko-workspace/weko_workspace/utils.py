@@ -428,7 +428,7 @@ def pack_data_with_multiple_type_cinii(data):
     result = list()
     new_data = dict()
     new_data['@value'] = data
-    new_data['@type'] = "issn"
+    new_data['@type'] = "ISSN"
     result.append(new_data)
     # _data = {item["@type"]:item["@value"] for item in data}
     # if type1 in _data:

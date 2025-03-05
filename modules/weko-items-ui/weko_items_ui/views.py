@@ -634,8 +634,6 @@ def get_schema_form_simple(item_type_id=0, activity_id=''):
                             nested_subitem for nested_subitem in subitem.get('items', [])
                             if nested_subitem.get('key') != 'item_30002_funding_reference21[].subitem_funder_names[].subitem_funder_name_language'
                         ]
-                print(9999999999)
-                print(item['items'])
                 item['items'][0]['items'][0]['title_i18n']['ja'] = '資金名'
                 item['items'][0]['items'][0]['title'] = '資金名'
 
