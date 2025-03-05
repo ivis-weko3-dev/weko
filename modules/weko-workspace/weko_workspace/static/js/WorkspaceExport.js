@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
   // 🔹 アイテム出力ボタンを取得
-  const exportButton = document.getElementById('btn_todo1');
+  const exportButton = document.getElementById('btn_export');
 
   // 🔹 ボタンが存在する場合、クリックイベントを設定
   if (exportButton) {
@@ -8,10 +8,32 @@ document.addEventListener('DOMContentLoaded', function () {
       showExportModal(); // モーダル表示
     });
   } else {
-    console.error('アイテム出力ボタン (btn_todo1) が見つかりません。');
+    console.error('アイテム出力ボタン (btn_export) が見つかりません。');
   }
 });
+document.addEventListener('DOMContentLoaded', function () {
+  // 🔹 選択されたアイテムのみを取得する関数
+  function getSelectedItems() {
+    return Array.from(document.querySelectorAll('.item-checkbox:checked')).map(cb => cb.value);
+  }
 
+  // 🔹 「選択アイテム出力」ボタンのクリックイベント
+  const exportSelectedButton = document.getElementById('export_selected');
+  if (exportSelectedButton) {
+    exportSelectedButton.addEventListener('click', () => {
+      const selectedIds = getSelectedItems();
+
+      if (selectedIds.length === 0) {
+        showErrorMessage("エラー: 選択されたアイテムがありません。");
+        return;
+      }
+
+      exportItemListToTSV(window.workspaceItemList, true, selectedIds);
+    });
+  } else {
+    console.error('「選択アイテム出力」ボタン (export_selected) が見つかりません。');
+  }
+});
 // エラーメッセージを画面に表示する関数
 function showErrorMessage(message) {
   console.error(message);
@@ -157,15 +179,52 @@ function getItemsFromWorkspace() {
 }
 
 // TSV を作成してダウンロード
-function exportItemListToTSV(items, selectedOnly) {
+function exportItemListToTSV(items, selectedOnly, selectedIds) {
   const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, "").slice(0, 14);
   const filename = `itemlist_workspace_export_${timestamp}.tsv`;
-  const headers = ["No", "title", "authorName", "doi", "publicationDate", "downloadCnt", "accessCnt"];
+  const headers = [
+    "No", "お気に入りステータス", "既読未読ステータス", "査読チェック状況", "タイトル", "DOIリンク", "リソースタイプ", "著者名", "アクセス数",
+    "アイテムステータス", "雑誌名", "会議名", "巻", "号", "資金別情報機関名", "資金別情報課題名",
+    "ダウンロード数", "フィードバックメールステータス", "出版年月日", "関連情報タイプ", "関連情報タイトル", "関連情報URLやDOI",
+    "論文への関連チェック状況", "根拠データへの関連チェック状況", "本文ファイル数", "公開ファイル数", "エンバーゴ数", "制限公開ファイル数"
+  ];
   const tsvRows = [headers.join('\t')];
 
   items.forEach((item, index) => {
-    const row = headers.map(header => (item[header] !== undefined ? item[header] : "")).join('\t');
-    tsvRows.push(`${index + 1}\t${row}`);
+    if (selectedOnly && !selectedIds.includes(item.recid)) return;
+
+    const row = [
+      index + 1,
+      item.favoriteSts ? 1 : 0,
+      item.readSts ? 1 : 0,
+      item.peerReviewSts ? 1 : 0,
+      item.title || "",
+      item.doi || "",
+      item.resourceType || "",
+      item.authorlist ? item.authorlist.join(", ") : "",
+      item.accessCnt || 0,
+      item.itemStatus || "",
+      item.magazineName || "",
+      item.conferenceName || "",
+      item.volume || "",
+      item.issue || "",
+      item.funderName || "",
+      item.awardTitle || "",
+      item.downloadCnt || 0,
+      item.fbEmailSts ? 1 : 0,
+      item.publicationDate || "",
+      item.relation ? item.relation.map(r => r.relationType).join(", ") : "",
+      item.relation ? item.relation.map(r => r.relationTitle).join(", ") : "",
+      item.relation ? item.relation.map(r => r.relationUrl).join(", ") : "",
+      item.connectionToPaperSts ? 1 : 0,
+      item.connectionToDatasetSts ? 1 : 0,
+      item.fileCnt || 0,
+      item.publicCnt || 0,
+      item.embargoedCnt || 0,
+      item.restrictedPublicationCnt || 0
+    ].join('\t');
+
+    tsvRows.push(row);
   });
 
   const blob = new Blob(["\ufeff" + tsvRows.join('\n')], { type: "text/tab-separated-values;charset=utf-8;" });

@@ -74,10 +74,10 @@
 </style>
 
 <div id="search">
-  <div id="search_res" >
-    <div class="panel panel-default" >
+  <div id="search_res">
+    <div class="panel panel-default">
       <div role="navigation" style="display: flex; flex-direction: column; width: 300px;">
-        <input type="button" class="" id="btn_todo1" value="{{_('アイテム出力')}}"
+        <input type="button" class="" id="btn_export" value="{{_('アイテム出力')}}"
           style="margin-bottom: 10px; width: 50%; text-align: left;" />
         <input type="text" class=" -" id="" style="margin-bottom: 10px; width: 150%; text-align: left;"
           placeholder="Type and press enter to search" />
@@ -85,11 +85,11 @@
       </div>
 
       <div id="search-result-body" class="panel-body">
-        <div id="index_item_list" >
+        <div id="index_item_list">
           <div class="form-inline flow-root">
             <div class="pull-left">
               <div class="form-group">
-                <input type="checkbox" class="" id="" value="すべてチェック" />
+                <input type="checkbox" class="" id="check_all" value="すべてチェック" />
                 <a href="javascript:void(0)" class="btn btn-primary" id="">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
                     class="bi bi-folder-plus" viewBox="0 0 16 16">
@@ -108,7 +108,7 @@
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
                     class="bi bi-diagram-3" viewBox="0 0 16 16">
                     <path fill-rule=" evenodd"
-                    d="M6 3.5A1.5 1.5 0 0 1 7.5 2h1A1.5 1.5 0 0 1 10 3.5v1A1.5 1.5 0 0 1 8.5 6v1H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 2 7h5.5V6A1.5 1.5 0 0 1 6 4.5zM8.5 5a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5zM0 11.5A1.5 1.5 0 0 1 1.5 10h1A1.5 1.5 0 0 1 4 11.5v1A1.5 1.5 0 0 1 2.5 14h-1A1.5 1.5 0 0 1 0 12.5zm1.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm4.5.5A1.5 1.5 0 0 1 7.5 10h1a1.5 1.5 0 0 1 1.5 1.5v1A1.5 1.5 0 0 1 8.5 14h-1A1.5 1.5 0 0 1 6 12.5zm1.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm4.5.5a1.5 1.5 0 0 1 1.5-1.5h1a1.5 1.5 0 0 1 1.5 1.5v1a1.5 1.5 0 0 1-1.5 1.5h-1a1.5 1.5 0 0 1-1.5-1.5zm1.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5z" />
+                      d="M6 3.5A1.5 1.5 0 0 1 7.5 2h1A1.5 1.5 0 0 1 10 3.5v1A1.5 1.5 0 0 1 8.5 6v1H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 2 7h5.5V6A1.5 1.5 0 0 1 6 4.5zM8.5 5a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5zM0 11.5A1.5 1.5 0 0 1 1.5 10h1A1.5 1.5 0 0 1 4 11.5v1A1.5 1.5 0 0 1 2.5 14h-1A1.5 1.5 0 0 1 0 12.5zm1.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm4.5.5A1.5 1.5 0 0 1 7.5 10h1a1.5 1.5 0 0 1 1.5 1.5v1A1.5 1.5 0 0 1 8.5 14h-1A1.5 1.5 0 0 1 6 12.5zm1.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5zm4.5.5a1.5 1.5 0 0 1 1.5-1.5h1a1.5 1.5 0 0 1 1.5 1.5v1a1.5 1.5 0 0 1-1.5 1.5h-1a1.5 1.5 0 0 1-1.5-1.5zm1.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5z" />
                   </svg>
                 </a>
                 <a id="toggleButton" class="btn btn-primary" data-toggle="dropdown" href="javascript:void(0)"
@@ -311,29 +311,27 @@
 
                     <!-- 絞込みボタン、クリアボタン、保存ボタン、リセットボタン -->
                     <div class="col-xs-1 col-xs-offset-3">
-                      <button id="detail-search-btn" type="button" class="btn btn-primary"
-                        onclick="location.reload();" style="float:right;">
+                      <button id="detail-search-btn" type="button" class="btn btn-primary" onclick="location.reload();"
+                        style="float:right;">
                         <span class="glyphicon glyphicon-search"></span>
                         {{_('絞込')}}&nbsp
                       </button>
                     </div>
                     <div class="col-xs-1">
-                      <button id="clear-search-btn" type="button" class="btn btn-default"
-                         onclick="location.reload();">
+                      <button id="clear-search-btn" type="button" class="btn btn-default" onclick="location.reload();">
                         <span class="glyphicon glyphicon-remove"></span>
                         {{_('クリア')}}&nbsp
                       </button>
                     </div>
                     <div class="col-xs-1">
-                      <button id="clear-search-btn" type="button" class="btn btn-primary"
-                         onclick="location.reload();" style="float:right;">
+                      <button id="clear-search-btn" type="button" class="btn btn-primary" onclick="location.reload();"
+                        style="float:right;">
                         <span class="glyphicon glyphicon-save"></span>
                         {{_('保存')}}&nbsp
                       </button>
                     </div>
                     <div class="col-xs-1">
-                      <button id="clear-search-btn" type="button" class="btn btn-default"
-                         onclick="location.reload();">
+                      <button id="clear-search-btn" type="button" class="btn btn-default" onclick="location.reload();">
                         <span class="glyphicon glyphicon-remove"></span>
                         {{_('リセット')}}&nbsp
                       </button>
@@ -346,7 +344,7 @@
             <div class="panel-group m-top-5">
               <div class="row row-10">
                 <div class="col-xs-12 col-md-12">
-                  <div class="panel panel-default panel-default-2" >
+                  <div class="panel panel-default panel-default-2">
                     <div class="panel-body" style="display: flex; flex-direction: column; align-items: left;">
                       <div id="groupYear" style="display: block;">
                         <h3>2025</h3>
@@ -355,17 +353,11 @@
                         {% for workspaceitem in workspaceItemList %}
                         <tr>
                           <td style="text-align: center; vertical-align: top;">
-                            <div 
-                              class="favorite-mount-point"
-                              data-type="1" 
-                              data-item-recid="{{ workspaceitem.recid }}" 
+                            <div class="favorite-mount-point" data-type="1" data-item-recid="{{ workspaceitem.recid }}"
                               data-favorite-sts="{{ workspaceitem.favoriteSts | tojson }}">
                             </div>
                             <br>
-                            <div 
-                              class="read-mount-point"
-                              data-type="2"  
-                              data-item-recid="{{ workspaceitem.recid }}" 
+                            <div class="read-mount-point" data-type="2" data-item-recid="{{ workspaceitem.recid }}"
                               data-read-sts="{{ workspaceitem.readSts | tojson }}">
                             </div>
                             <br>
@@ -375,15 +367,18 @@
                             <strong><a href="records/{{ workspaceitem.recid }}">{{
                                 workspaceitem.title }} -- recid : {{ workspaceitem.recid}}</a></strong><br><br>
                             {% if workspaceitem.authorlist is not none and workspaceitem.authorlist|length > 0 %}
-                              <span>{{ workspaceitem.authorlist | join(', ') }}</span><br><br>
+                            <span>{{ workspaceitem.authorlist | join(', ') }}</span><br><br>
                             {% endif %}
-                            <span>{{ workspaceitem.magazineName }}／{{ workspaceitem.conferenceName}}</span><span>&nbsp;&nbsp;</span>
+                            <span>{{ workspaceitem.magazineName }}／{{
+                              workspaceitem.conferenceName}}</span><span>&nbsp;&nbsp;</span>
                             <span>{{ workspaceitem.volume }}（{{ workspaceitem.issue }}）</span><span>&nbsp;&nbsp;</span>
-                            </span>{{ workspaceitem.funderName }} | {{ workspaceitem.awardTitle }}</span><span>&nbsp;&nbsp;</span>
+                            </span>{{ workspaceitem.funderName }} | {{ workspaceitem.awardTitle
+                            }}</span><span>&nbsp;&nbsp;</span>
                             <br><br>
                             <span>{{ workspaceitem.publicationDate }}</span><span>&nbsp;&nbsp;</span>
                             {% if workspaceitem.relation|length > 0 %}
-                              <span><a href="javascript:void(0)" class="relatedButton"><strong>関連</strong></a></span><span>  </span>
+                            <span><a href="javascript:void(0)"
+                                class="relatedButton"><strong>関連</strong></a></span><span>  </span>
                             {% endif %}
                             {% if workspaceitem.fileSts %}
                             <span>本文ファイル ({{ workspaceitem.fileCnt }})： 公開（{{ workspaceitem.publicCnt }}）、エンバーゴ（{{
@@ -395,7 +390,8 @@
                             <br>
                             <div class="relatedInfo" style="display: none;">
                               {% for relatedItem in workspaceitem.relation %}
-                                <span>{{ relatedItem.relationType }}&nbsp;&nbsp;{{ relatedItem.relationTitle }}、<a>{{ relatedItem.relationUrl }}</a></span><br>
+                              <span>{{ relatedItem.relationType }}&nbsp;&nbsp;{{ relatedItem.relationTitle }}、<a>{{
+                                  relatedItem.relationUrl }}</a></span><br>
                               {% endfor %}
                             </div>
                           </td>
@@ -495,4 +491,17 @@
         element.textContent = 'see more';
       }
     }
+  </script>
+  <!-- すべてチェックの処理 -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const checkAll = document.getElementById('check_all');
+      const itemCheckboxes = document.querySelectorAll('tbody input[type="checkbox"]');
+
+      checkAll.addEventListener('change', function () {
+        itemCheckboxes.forEach(checkbox => {
+          checkbox.checked = checkAll.checked;
+        });
+      });
+    });
   </script>
