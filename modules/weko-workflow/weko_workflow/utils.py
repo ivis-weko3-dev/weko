@@ -1758,6 +1758,11 @@ def prepare_edit_workflow(post_activity, recid, deposit):
             _deposit['path'] = _parent.get('path')
             _deposit.merge_data_to_record_without_version(recid, True)
             _deposit.publish()
+            if not RecordsBuckets.query.filter_by(record_id=_deposit.id).first():
+                bucket = Bucket.create(storage_class=current_app.config[
+                    'DEPOSIT_DEFAULT_STORAGE_CLASS'
+                ])
+                RecordsBuckets.create(record=_deposit.model, bucket=bucket)
             _bucket = Bucket.get(_deposit.files.bucket.id)
 
             if not _bucket:
