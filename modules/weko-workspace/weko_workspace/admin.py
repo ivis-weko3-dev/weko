@@ -23,6 +23,7 @@
 import sys
 import re
 import uuid
+import json
 
 from flask_wtf import FlaskForm
 from flask import abort, current_app, jsonify, flash, request, url_for
@@ -31,17 +32,11 @@ from flask_login import current_user
 from flask_babelex import gettext as _
 from invenio_accounts.models import Role, User
 from invenio_db import db
-from invenio_files_rest.models import Location
 from invenio_i18n.ext import current_i18n
-from weko_index_tree.models import Index
 from weko_records.api import ItemTypes
-from weko_records.models import ItemTypeProperty
 from weko_admin.models import AdminSettings
 
-from .api import Action, Flow, WorkActivity, WorkFlow
-from .config import WEKO_WORKFLOW_SHOW_HARVESTING_ITEMS
-from .models import WorkflowRole
-from .utils import recursive_get_specified_properties
+from weko_workflow.api import WorkFlow
 
 
 class WorkSpaceWorkFlowSettingView(BaseView):
@@ -50,6 +45,18 @@ class WorkSpaceWorkFlowSettingView(BaseView):
     @expose('/', methods=['GET', 'POST'])
     def index(self):
         """Index."""
+        default_workspace_workflowselect_api = { "item_type_id": "30002",
+                            "work_flow_id": "1", "workFlow_select_flg":"1"}  # Default
+
+        current_settings = AdminSettings.get(
+                name='workspace_workflow_settings',
+                dict_to_object=False)
+        if not current_settings:  
+            AdminSettings.update('workspace_workflow_settings', default_workspace_workflowselect_api)
+            current_settings = AdminSettings.get(
+                name='workspace_workflow_settings',
+                dict_to_object=False)
+        current_settings_json = json.dumps(current_settings)
         try:
             form = FlaskForm(request.form)
             item_type_list = ItemTypes.get_latest_with_item_type(True)
@@ -61,17 +68,17 @@ class WorkSpaceWorkFlowSettingView(BaseView):
                 # Process forms
                 form = request.form.get('submit', None)
                 if form == 'set_workspace_workflow_setting_form':
-                    settings = AdminSettings.get('workspace_workflow_settings')
+                    # settings = AdminSettings.get('workspace_workflow_settings')
                     workFlow_select_flg = request.form.get('registrationRadio', '')
                     if workFlow_select_flg == '1':
-                        settings.workFlow_select_flg = '1'
-                        settings.item_type_id = request.form.get('itemType', '')
+                        current_settings_json.workFlow_select_flg = '1'
+                        current_settings_json.item_type_id = request.form.get('itemType', '')
                     else:
-                        settings.workFlow_select_flg = '0'
-                        settings.work_flow_id = request.form.get('workFlow', '')
+                        current_settings_json.workFlow_select_flg = '0'
+                        current_settings_json.work_flow_id = request.form.get('workFlow', '')
 
                     AdminSettings.update('workspace_workflow_settings',
-                                         settings.__dict__)
+                                         current_settings_json.__dict__)
                     flash(_('WorkSpace WorkFlow Setting was updated.'), category='success')
 
             return self.render('weko_workflow/admin/workspace_workflow_setting.html',
