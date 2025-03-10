@@ -435,7 +435,6 @@ get_autofill_data = function (keyword, data, mode) {
       }
     },
     error: function (data, status) {
-      //alert("Cannot connect to server!");
       var modalcontent = "Cannot connect to server!";
       $("#inputModal").html(modalcontent);
       $("#allModal").modal("show");
@@ -482,12 +481,10 @@ function toObject(arr) {
 
 
     function WekoRecordsCtrl($scope, $rootScope, InvenioRecordsAPI, $filter) {
-      // alert("called WekoRecordsCtrl");
       $scope.currentUrl = window.location.pathname + window.location.search;
       $scope.resourceTypeKey = "";
       $scope.groups = [];
       $scope.filemeta_keys = [];
-      // $scope.invenioRecordsSchemaTitle = []; 
       $scope.bibliographic_key = '';
       $scope.bibliographic_title_key = '';
       $scope.bibliographic_title_lang_key = '';
@@ -516,7 +513,11 @@ function toObject(arr) {
           uri : 'contributorAffiliationURI'
         }
       ]
-      
+      $scope.corssrefDataEmpty = false;
+      $scope.ciniiDataEmpty = false;
+      $scope.jalcDataEmpty = false;
+      $scope.datacitDataEmpty = false;
+
       $scope.identifiers = 'nameIdentifiers'
       $scope.identifier_mapping = 'nameIdentifier'
       $scope.scheme_identifier_mapping = 'nameIdentifierScheme'
@@ -620,7 +621,6 @@ function toObject(arr) {
         }
       }
 
-      // $scope.invenioRecordsSchemaTitle = []; 
 
       $scope.searchFilemetaKey = function () {
         if ($scope.filemeta_keys.length > 0) {
@@ -1550,8 +1550,6 @@ function toObject(arr) {
 
       $scope.isExistingTitleData = function () {
         let model = $rootScope.recordsVM.invenioRecordsModel;
-        // alert(18181818)
-        // alert(JSON.stringify(model))
         if (Object.keys(model).length === 0 && model.constructor === Object) {
           return false;
         } else {
@@ -1955,8 +1953,6 @@ function toObject(arr) {
       $scope.setFilesModel = function (recordsModel) {
         setTimeout(function (){
           let model = $rootScope.recordsVM.invenioRecordsModel;
-          // alert(1414141414)
-          // alert(JSON.stringify(model))
           $scope.searchFilemetaKey();
           if(!$.isEmptyObject(recordsModel)){
             $scope.filemeta_keys.forEach(function (filemeta_key) {
@@ -2047,22 +2043,7 @@ function toObject(arr) {
             );
           }
         }
-        // let model = $rootScope.recordsVM.invenioRecordsModel;
-        // let records = $rootScope.recordsVM.invenioRecordsForm;
-        // let form = $rootScope.recordsVM.invenioRecordsForm;
-        if ($scope.form) {
-          $scope.form.showButton = false;
-          $scope.form.showRadio = false;
-  
-          $scope.form.showArray = false;
-          $scope.form.showDefault = false;
-          $scope.form.showFieldset = false;
-          $scope.form.showRadios_inline = false;
-          $scope.form.showSelect = false;
-          $scope.form.showTextarea = false;
-        }
 
-        
 
         $scope.showError();
         // Delay 3s after page render
@@ -2384,37 +2365,24 @@ function toObject(arr) {
       }
 
       //Set data for input control, this not change data to model.
-      $scope.setValueForInputControl = function (dictionaries, modelValue, inputControl) {
+      // $scope.setValueForInputControl = function (dictionaries, modelValue, inputControl) {
+      $scope.setValueForInputControl = function (dictionaries, modelValue) {
         let exists = false;
         $.map(dictionaries, function(val, key) {
           if(key == modelValue){
-            $(inputControl).val(val);
             exists = true;
             return false;
           }
         });
         if(!exists){
-          $(inputControl).val('');
         }
       }
 
-      //Set data for model base on input control.
-      $scope.setValueForModelByInputControl = function (inputControl) {
-        let ngModel = $(inputControl).attr('ng-model');
-        const formKey = ngModel.replace('model', '').replace('][', '.').replace(/[\'\[\]]/g, '');
-        ngModel = ngModel.replace('model', '$rootScope.recordsVM.invenioRecordsModel');
-        let strSetModel = ngModel + '=$(inputControl).val();';
-        eval(strSetModel);
-        $scope.depositionForm[formKey].$setViewValue($(inputControl).val());
-        $scope.depositionForm[formKey].$render();
-        $scope.depositionForm[formKey].$commitViewValue();
-      }
 
       // This is callback function - Please do NOT change function name
       $scope.changedVersionType = function ($event, modelValue) {
         let curElement = event.target;
         let parForm = $(curElement).parents('.schema-form-fieldset ')[0];
-        let txtVersionResource = $(parForm).find('.txt-version-resource')[0];
         let dictionaries = {
           'AO': 'http://purl.org/coar/version/c_b1a7d7d4d402bcce',
           'SMUR': 'http://purl.org/coar/version/c_71e4c1898caa6e32',
@@ -2425,23 +2393,20 @@ function toObject(arr) {
           'EVoR': 'http://purl.org/coar/version/c_dc82b40f9837b551',
           'NA': 'http://purl.org/coar/version/c_be7fb7dd8ff6fe43',
         };
-        $scope.setValueForInputControl(dictionaries, modelValue, txtVersionResource);
-        $scope.setValueForModelByInputControl(txtVersionResource);
+        $scope.setValueForInputControl(dictionaries, modelValue);
       }
 
       // This is callback function - Please do NOT change function name
       $scope.changedAccessRights = function ($event, modelValue) {
         let curElement = event.target;
         let parForm = $(curElement).parents('.schema-form-fieldset ')[0];
-        let txtAccessRightsUri = $(parForm).find('.txt-access-rights-uri')[0];
         let dictionaries = {
           'embargoed access': 'http://purl.org/coar/access_right/c_f1cf',
           'metadata only access': 'http://purl.org/coar/access_right/c_14cb',
           'open access': 'http://purl.org/coar/access_right/c_abf2',
           'restricted access': 'http://purl.org/coar/access_right/c_16ec'
         };
-        $scope.setValueForInputControl(dictionaries, modelValue, txtAccessRightsUri);
-        $scope.setValueForModelByInputControl(txtAccessRightsUri);
+        $scope.setValueForInputControl(dictionaries, modelValue);
       }
 
       $scope.updateNumFiles = function () {
@@ -2597,12 +2562,13 @@ function toObject(arr) {
       angular.element(document).ready(function() {
         var element = angular.element(document.querySelector('.panel-footer'));
         if (element) {
-            element.remove(); // 删除元素
+            element.remove(); 
         }
       });
-
+      $scope.isButtonDisabled = false; 
       $scope.setItemMetadataAPI = function () {
         $("#autofill_item_get_button").prop('disabled', true);
+        $scope.isButtonDisabled = true;
         this.resetAutoFillErrorMessage();
         if ($("#autofill_item_get_button").is(":disabled")) {
           $scope.enableAutofillButton();
@@ -2612,6 +2578,7 @@ function toObject(arr) {
           alert('please input the DOI');
           return;
         }
+
         let value = $('#doiInput').val();
         let itemTypeId = $("#autofill_item_type_id").val();
         if (!value.length) {
@@ -2625,18 +2592,36 @@ function toObject(arr) {
           search_data: $.trim(value),
           item_type_id: itemTypeId
         }
-        this.setRecordDataFromCrossRefApi(param_crossApi);
+        
         
         let param_api = {
           search_data: $.trim(value),
           item_type_id: itemTypeId
         }
-        this.setRecordDataFromCINIIApi(param_api);
+        $scope.getItemMetadataAPI(param_crossApi,param_api)
+        
+        $scope.isButtonDisabled = false
 
-        this.setRecordDataFromJalcApi(param_api);
 
-        this.setRecordDataFromDataciteApi(param_api);
       }
+
+      $scope.checkBothDataEmpty = function (corssrefDataEmpty, ciniiDataEmpty, jalcDataEmpty, datacitDataEmpty) {
+        if ($scope.corssrefDataEmpty && $scope.ciniiDataEmpty && $scope.jalcDataEmpty && $scope.datacitDataEmpty) {
+          alert("No metadata was found that matches the DOI!");
+        }
+      }
+
+      $scope.getItemMetadataAPI = function (param_crossApi,param_api) {
+        corssrefDataEmpty = this.setRecordDataFromCrossRefApi(param_crossApi);
+        ciniiDataEmpty = this.setRecordDataFromCINIIApi(param_api);
+
+        jalcDataEmpty = this.setRecordDataFromJalcApi(param_api);
+
+        datacitDataEmpty = this.setRecordDataFromDataciteApi(param_api);
+        return corssrefDataEmpty,ciniiDataEmpty,jalcDataEmpty,datacitDataEmpty
+
+    }
+
 
       $scope.clearAllField = function () {
         $rootScope.recordsVM.invenioRecordsModel["pubdate"] = "";
@@ -2702,17 +2687,18 @@ function toObject(arr) {
               $("#metaDataSelectCrossRef").val(JSON.stringify(data.result))
             } else {
               $scope.enableAutofillButton();
+              $scope.corssrefDataEmpty = true;
               $scope.setAutoFillErrorMessage($("#autofill_error_doi").val());
             }
+            $scope.checkBothDataEmpty($scope.corssrefDataEmpty, $scope.ciniiDataEmpty, $scope.jalcDataEmpty, $scope.datacitDataEmpty);
           },
           function error(response) {
-            alert(2222222)
             $scope.enableAutofillButton();
             $scope.setAutoFillErrorMessage("Cannot connect to server!");
           }
         );
       }
-      
+
 
       $scope.setRecordDataFromCrossRefSelectedApi = function (param) {
         let request = {
@@ -2736,13 +2722,13 @@ function toObject(arr) {
               $("#metaDataSelectCrossRef").prop('disabled', false);
               $("#metaDataSelectCrossRef").val(JSON.stringify(data.result))
               $scope.setRecordDataCallBack(data);
+
             } else {
               $scope.enableAutofillButton();
               $scope.setAutoFillErrorMessage($("#autofill_error_doi").val());
             }
           },
           function error(response) {
-            alert(33333333)
             $scope.enableAutofillButton();
             $scope.setAutoFillErrorMessage("Cannot connect to server!");
           }
@@ -2771,12 +2757,14 @@ function toObject(arr) {
               $("#metaDataSelectCinii").prop('disabled', false);
               $("#metaDataSelectCinii").val(JSON.stringify(data.result))
             } else {
+              $scope.ciniiDataEmpty = true;
               $scope.enableAutofillButton();
               $scope.setAutoFillErrorMessage($("#autofill_error_doi").val());
             }
+            $scope.checkBothDataEmpty($scope.corssrefDataEmpty, $scope.ciniiDataEmpty, $scope.jalcDataEmpty, $scope.datacitDataEmpty);
+
           },
           function error(response) {
-            alert(44444)
             $scope.enableAutofillButton();
             $scope.setAutoFillErrorMessage("Cannot connect to server!");
           }
@@ -2805,13 +2793,13 @@ function toObject(arr) {
               $("#metaDataSelectCinii").prop('disabled', false);
               $("#metaDataSelectCinii").val(JSON.stringify(data.result))
               $scope.setRecordDataCallBack(data);
+
             } else {
               $scope.enableAutofillButton();
               $scope.setAutoFillErrorMessage($("#autofill_error_doi").val());
             }
           },
           function error(response) {
-            alert(55555)
             $scope.enableAutofillButton();
             $scope.setAutoFillErrorMessage("Cannot connect to server!");
           }
@@ -2840,12 +2828,14 @@ function toObject(arr) {
               $("#metaDataSelectJalc").prop('disabled', false);
               $("#metaDataSelectJalc").val(JSON.stringify(data.result))
             } else {
+              $scope.jalcDataEmpty = true;
               $scope.enableAutofillButton();
               $scope.setAutoFillErrorMessage($("#autofill_error_doi").val());
             }
+            $scope.checkBothDataEmpty($scope.corssrefDataEmpty, $scope.ciniiDataEmpty, $scope.jalcDataEmpty, $scope.datacitDataEmpty);
+
           },
           function error(response) {
-            alert(6666666)
             $scope.enableAutofillButton();
             $scope.setAutoFillErrorMessage("Cannot connect to server!");
           }
@@ -2875,12 +2865,12 @@ function toObject(arr) {
               $("#metaDataSelectJalc").val(JSON.stringify(data.result))
               $scope.setRecordDataCallBack(data);
             } else {
+              $scope.datacitDataEmpty = true;
               $scope.enableAutofillButton();
               $scope.setAutoFillErrorMessage($("#autofill_error_doi").val());
             }
           },
           function error(response) {
-            alert(77777777)
             $scope.enableAutofillButton();
             $scope.setAutoFillErrorMessage("Cannot connect to server!");
           }
@@ -2910,12 +2900,14 @@ function toObject(arr) {
               $("#metaDataSelectDataCite").prop('disabled', false);
               $("#metaDataSelectDataCite").val(JSON.stringify(data.result));
             } else {
+              $scope.datacitDataEmpty = true;
               $scope.enableAutofillButton();
               $scope.setAutoFillErrorMessage($("#autofill_error_doi").val());
             }
+            $scope.checkBothDataEmpty($scope.corssrefDataEmpty, $scope.ciniiDataEmpty, $scope.jalcDataEmpty, $scope.datacitDataEmpty);
+
           },
           function error(response) {
-            alert(777777)
             $scope.enableAutofillButton();
             $scope.setAutoFillErrorMessage("Cannot connect to server!");
           }
@@ -2944,28 +2936,18 @@ function toObject(arr) {
               $("#metaDataSelectDataCite").prop('disabled', false);
               $("#metaDataSelectDataCite").val(JSON.stringify(data.result));
               $scope.setRecordDataCallBack(data);
+
             } else {
               $scope.enableAutofillButton();
               $scope.setAutoFillErrorMessage($("#autofill_error_doi").val());
             }
           },
           function error(response) {
-            alert(777777)
             $scope.enableAutofillButton();
             $scope.setAutoFillErrorMessage("Cannot connect to server!");
           }
         );
       }
-
-      // $scope.toggleChildVisibility = function(node) {
-      //   if (node.children && node.children.length > 0) {
-      //     node.isCollapsed = !node.isCollapsed;
-      //   }
-      // };
-      // $scope.toggleChildVisibility = function(node) {
-      //   isCollapsed = true;
-      //   // node.isCollapsed = !node.isCollapsed;
-      // };
       
       
       $scope.metaDataSelectAPI = function () {
@@ -3004,74 +2986,6 @@ function toObject(arr) {
           this.setRecordDataFromDataciteSelectedApi(param_api);
         }
       }
-
-
-      // $scope.setCheckList = function (param_api) {
-      //   let request = {
-      //     url: '/api/workspaceAPI/get_auto_fill_record_data_dataciteapi',
-      //     headers: {
-      //       'Content-Type': 'application/json'
-      //     },
-      //     method: "POST",
-      //     data: JSON.stringify(param_api)
-      //   };
-        
-      //   InvenioRecordsAPI.request(request).then(
-      //     function success(response) {
-      //       let data = response.data;
-      //       if (data.error) {
-      //         $scope.enableAutofillButton();
-      //         $scope.setAutoFillErrorMessage("An error have occurred!\nDetail: " + data.error);
-      //       } else if (!$.isEmptyObject(data.result)) {
-      //         $scope.clearAllField();
-      //         $("#metaDataSelectDataCite").prop('disabled', false);
-      //         $("#metaDataSelectDataCite").val(JSON.stringify(data.result));
-      //         $scope.setRecordDataCallBack(data);
-      //       } else {
-      //         $scope.enableAutofillButton();
-      //         $scope.setAutoFillErrorMessage($("#autofill_error_doi").val());
-      //       }
-      //     },
-      //     function error(response) {
-      //       $scope.enableAutofillButton();
-      //       $scope.setAutoFillErrorMessage("Cannot connect to server!");
-      //     }
-      //   );
-      // }
-
-
-      // $scope.selectIndexLink = function (param_api) {
-      //   let request = {
-      //     url: '/api/workspaceAPI/get_auto_fill_record_data_dataciteapi',
-      //     headers: {
-      //       'Content-Type': 'application/json'
-      //     },
-      //     method: "POST",
-      //     data: JSON.stringify(param_api)
-      //   };
-        
-      //   InvenioRecordsAPI.request(request).then(
-      //     function success(response) {
-      //       let data = response.data;
-      //       if (data.error) {
-      //         $scope.enableAutofillButton();
-      //         $scope.setAutoFillErrorMessage("An error have occurred!\nDetail: " + data.error);
-      //       } else if (!$.isEmptyObject(data.result)) {
-      //         $scope.clearAllField();
-      //         $("#metaDataSelectDataCite").prop('disabled', false);
-      //         $("#metaDataSelectDataCite").val(JSON.stringify(data.result));
-      //         $scope.setRecordDataCallBack(data);
-      //       } else {
-      //         $scope.enableAutofillButton();
-      //         $scope.setAutoFillErrorMessage($("#autofill_error_doi").val());
-      //       }
-      //     },
-      //     function error(response) {
-      //       $scope.enableAutofillButton();
-      //       $scope.setAutoFillErrorMessage("Cannot connect to server!");
-      //     }
-      //   );
-      // }
 
 
       $scope.setRecordDataCallBack = function (data) {
@@ -3196,8 +3110,6 @@ function toObject(arr) {
             }
           },
           error: function (data, status) {
-            //alert('Cannot connect to server!');
-            alert(101010)
             var modalcontent = "Cannot connect to server!";
             $("#inputModal").html(modalcontent);
             $("#allModal").modal("show");
@@ -3223,106 +3135,6 @@ function toObject(arr) {
           result[item.key[item.key.length - 1]] = title;
         }
         return result;
-      };
-
-      $scope.validateInputData = function (activityId, steps, isAutoSetIndexAction) {
-        let schemaForm = $scope.depositionForm.$error.schemaForm;
-        //Get error of custom bs-datepicker fields.
-        let listCusItemErrors = CustomBSDatePicker.getInvalidFieldNameList();
-        if (!this.validateRequiredItem()) {
-          // Check required item
-          return false;
-        }else if(!this.validatePosition()) {
-          return false;
-        } else if (!this.validateFieldMaxItems()) {
-          return false;
-        } else if (($scope.depositionForm.$invalid && schemaForm) || listCusItemErrors.length > 0) {
-          // Check containing control or form is invalid
-
-          let recordsForm = $rootScope.recordsVM.invenioRecordsForm;
-          let itemsDict = {};
-          for (let i = 0; i < recordsForm.length; i++) {
-            itemsDict = Object.assign($scope.getItemsDictionary(recordsForm[i]), itemsDict);
-          }
-          //Get error from schemaForm
-          let listItemErrors = [];
-          if(schemaForm){
-            for (let i = 0; i < schemaForm.length; i++) {
-              let name_list = schemaForm[i].$name.split('.');
-              let name = schemaForm[i].$name;
-              if (name_list.length >= 1) {
-                name = name_list[name_list.length - 1];
-              }
-              if (itemsDict.hasOwnProperty(name)) {
-                name = itemsDict[name];
-              }
-              listItemErrors.push(name);
-            }
-          }
-          //Merge two array error to one array error.
-          listItemErrors = listItemErrors.concat(listCusItemErrors);
-          // Generate error message and show modal
-          let message = $("#validate_error").val() + '<br/><br/>';
-          message += listItemErrors.join(', ');
-          $("#inputModal").html(message);
-          $("#allModal").modal("show");
-          return false;
-        } else {
-          // Call API to validate input data base on json schema define
-          let validateURL = '/api/items/validate';
-          let isValid = false;
-          // Remove select value empty
-          let model = angular.copy($rootScope.recordsVM.invenioRecordsModel);
-          angular.forEach($rootScope.recordsVM.invenioRecordsModel, function (value, key) {
-            if (value instanceof Object) {
-              angular.forEach(value, function (_value, _key) {
-                if (_value == '') {
-                  delete model[key][_key];
-                }
-              });
-              if (angular.equals(model[key], {})) {
-                delete model[key];
-              }
-            }
-          });
-          let request = InvenioRecordsAPI.prepareRequest(
-            validateURL,
-            'POST',
-            model,
-            $rootScope.recordsVM.invenioRecordsArgs,
-            $rootScope.recordsVM.invenioRecordsEndpoints
-          );
-          let requestData = {
-            'item_id': $("#autofill_item_type_id").val(),
-            'data': request.data
-          }
-          $.ajax({
-            url: validateURL,
-            method: 'POST',
-            data: JSON.stringify(requestData),
-            contentType: "application/json",
-            async: false,
-            success: function (data, status) {
-              if (data.unauthorized) {
-                alert(data.error)
-                window.location.assign("/login/?next=" + window.location.pathname)
-              } else if (data.is_valid) {
-                isValid = true;
-              } else {
-                $("#inputModal").html(data.error);
-                $("#allModal").modal("show");
-                isValid = false;
-              }
-            },
-            error: function (data, status) {
-              var modalcontent = data;
-              $("#inputModal").html(modalcontent);
-              $("#allModal").modal("show");
-              isValid = false;
-            }
-          });
-          return isValid;
-        }
       };
 
 
@@ -3454,7 +3266,6 @@ function toObject(arr) {
             }
           },
           error: function (data, status) {
-            alert(1212121)
             $("#inputModal").html("Cannot connect to server!");
             $("#allModal").modal("show");
             result = false;
@@ -3681,76 +3492,57 @@ function toObject(arr) {
           }
         }
       }
-      // $scope.updateDataJson = function (activityId, steps, item_save_uri, currentActionId, isAutoSetIndexAction, enableContributor, enableFeedbackMail) {
-        
-      //   $scope.startLoading();
-      //   let currActivityId = $("#activity_id").text();
-      //   if (!$scope.saveDataJson(item_save_uri, currentActionId, isAutoSetIndexAction, enableContributor, enableFeedbackMail, true)) {
-      //     return;
-      //   }
 
-      //   // Mapping thumbnail data to record model.
-      //   let isValid = this.validateInputData(activityId, steps, isAutoSetIndexAction);
-      //   if (!isValid) {
-      //     $scope.endLoading();
-      //     return false;
-      //   } else {
-      //     $scope.genTitleAndPubDate();
-      //     let next_frame = $('#next-frame').val();
-      //     let next_frame_upgrade = $('#next-frame-upgrade').val();
-      //     if (enableContributor === 'True' && !this.registerUserPermission()) {
-      //       $scope.endLoading();
-      //     } else {
-      //       var jsonObj = $scope.cleanJsonObject($rootScope.recordsVM.invenioRecordsModel);
-      //       jsonObj['deleted_items'] = $scope.listRemovedItemKey(jsonObj);
-      //       var str = JSON.stringify(jsonObj);
-      //       var indexOfLink = str.indexOf("authorLink");
-      //       if (indexOfLink != -1) {
-      //         str = str.split(',"authorLink":[]').join('');
-      //       }
-      //       $rootScope.recordsVM.invenioRecordsModel = JSON.parse(str);
-      //       //If CustomBSDatePicker empty => remove attr.
-      //       CustomBSDatePicker.removeLastAttr($rootScope.recordsVM.invenioRecordsModel);
-
-      //       // Save required data into workflow activity
-      //       // if (!$scope.saveActivity()) {
-      //       //   $scope.endLoading();
-      //       //   return false;
-      //       // }
-
-      //       // Save required data into workflow activity
-      //       if (!$scope.saveActivityWorkspace()) {
-      //         $scope.endLoading();
-      //         return false;
-      //       }
-
-      //       $scope.updatePositionKey();
-      //       sessionStorage.removeItem(currActivityId);
-      //       // $rootScope.recordsVM.actionHandler(['index', 'PUT'], next_frame);
-      //     }
-      //   }
-      // };
+      
+      $scope.itemCancel = function () {
+        $('#metadata_input_check_modal').modal('hide');
+      }
 
       $scope.saveWorkspaceDataJson = function () {
+        let indexlist = []; 
+        $("#selected_indexs .list-group-item").each(function() {
+            indexlist.push($(this).text().trim()); 
+        });
         
-        $scope.startLoading();
-        // let currActivityId = $("#activity_id").text();
-        // if (!$scope.saveDataJson(item_save_uri, currentActionId, isAutoSetIndexAction, enableContributor, enableFeedbackMail, true)) {
-        //   return;
-        // }
 
-        // Mapping thumbnail data to record model.
-        // let isValid = this.validateInputData(activityId, steps, isAutoSetIndexAction);
-        // if (!isValid) {
-        //   $scope.endLoading();
-        //   return false;
-        // } else {
-          // $scope.genTitleAndPubDate();
-          // let next_frame = $('#next-frame').val();
-          // let next_frame_upgrade = $('#next-frame-upgrade').val();
-          // if (enableContributor === 'True' && !this.registerUserPermission()) {
-          //   $scope.endLoading();
-          // } else {
+        if (indexlist.length === 0) {
+            $('#index_select_confirm_modal').fadeIn();
+        }
+        
+
+
+        let subitem_title = "";
+
+        $("#subitem_title").each(function() {
+          subitem_title = $(this).val().trim();
+        });
+        
+        if (!subitem_title) {
+            $('#metadata_input_check_modal').fadeIn();
+            return
+        }
+        
+        let pubdate_date = ""; 
+
+        $('input[name="pubdate"]').each(function() {
+            pubdate_date = $(this).val().trim(); 
+        });
+        
+        if (!pubdate_date) {
+            $('#metadata_input_check_modal').fadeIn();
+            return
+        }
+
+        $scope.accessRoleChange()
+        let resourcetype = $("select[name$='resourcetype']").val();
+
+        if (!resourcetype) {
+            $('#metadata_input_check_modal').fadeIn();
+            return
+        }
+        
+            
+        $scope.startLoading();
         var jsonObj = $scope.cleanJsonObject($rootScope.recordsVM.invenioRecordsModel);
         jsonObj['deleted_items'] = $scope.listRemovedItemKey(jsonObj);
         var str = JSON.stringify(jsonObj);
@@ -3759,14 +3551,9 @@ function toObject(arr) {
           str = str.split(',"authorLink":[]').join('');
         }
         $rootScope.recordsVM.invenioRecordsModel = JSON.parse(str);
-        //If CustomBSDatePicker empty => remove attr.
+
         CustomBSDatePicker.removeLastAttr($rootScope.recordsVM.invenioRecordsModel);
 
-        // Save required data into workflow activity
-        // if (!$scope.saveActivity()) {
-        //   $scope.endLoading();
-        //   return false;
-        // }
 
         // Save required data into workflow activity
         if (!$scope.saveActivityWorkspace()) {
@@ -3775,10 +3562,7 @@ function toObject(arr) {
         }
 
         $scope.updatePositionKey();
-        // sessionStorage.removeItem(currActivityId);
-        // $rootScope.recordsVM.actionHandler(['index', 'PUT'], next_frame);
-        //   }
-        // }
+
       };
 
       /* Delete all empty and null Nodes in a JSON Object tree */
@@ -3847,10 +3631,9 @@ function toObject(arr) {
         });
         let requestData = {
           recordModel,
-          // index: ['1623632832836'],
           indexlist: indexlist
         }
-        // shared_user_id: ,
+
         $.ajax({
           url: URL,
           method: "POST",
@@ -3938,9 +3721,6 @@ function toObject(arr) {
               window.location.assign("/login/?next=" + window.location.pathname)
             } else if (response.status == 400) {
               window.location.reload();
-            } else {
-              // $("#inputModal").html(modalcontent);
-              // $("#allModal").modal("show");
             }
           }
         );
@@ -4062,26 +3842,26 @@ function toObject(arr) {
       'wekoRecords.controllers',
     ]);
 
-    // angular.module('uploadThumbnail', ['schemaForm', 'invenioFiles'])
-    // .controller('UploadController', function ($scope, $rootScope, InvenioFilesAPI) {
-    //     'use strict';
-    //     $scope.schema = {
-    //         type: 'object',
-    //         title: 'Upload',
-    //         properties: {
-    //             "thumbnail": {
-    //                 "title": "thumbnail",
-    //                 "type": 'string',
-    //                 "format": 'file'
-    //             }
-    //         }
-    //     };
+    angular.module('uploadThumbnail', ['schemaForm', 'invenioFiles'])
+    .controller('UploadController', function ($scope, $rootScope, InvenioFilesAPI) {
+        'use strict';
+        $scope.schema = {
+            type: 'object',
+            title: 'Upload',
+            properties: {
+                "thumbnail": {
+                    "title": "thumbnail",
+                    "type": 'string',
+                    "format": 'file'
+                }
+            }
+        };
 
-    // }).$inject = [
-    //   '$scope',
-    //   '$rootScope',
-    //   'InvenioFilesAPI',
-    // ];
+    }).$inject = [
+      '$scope',
+      '$rootScope',
+      'InvenioFilesAPI',
+    ];
 
     angular.bootstrap(
       document.getElementById('weko-records'), [

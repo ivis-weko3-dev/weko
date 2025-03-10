@@ -35,6 +35,14 @@ msgstr ""
 msgid "WorkSpaceWorkFlow Setting"
 msgstr "WorkSpace WorkFlow Setting"
 
+#: weko_workspace/item_register.html:38
+msgid "The item is successfully registered."
+msgstr "The item is successfully registered."
+
+#: weko_workspace/item_register.html:28
+msgid "At least one index should be selected."
+msgstr "At least one index should be selected."
+
 #: weko_workflow/admin.py:150
 msgid "Approval by Advisor action is not in the right order."
 msgstr ""

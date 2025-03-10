@@ -153,11 +153,16 @@
                       <div class="row col-sm-12">
                         <div class="col-sm-12">
                           <div class="col-sm-11">
-                            <input type="text" id="doiInput" name="doiInput" placeholder="DOIを入力してください。" style="border: 2px solid #ccc; padding: 5px; width: 100%;"></input>
+                            <input type="text" id="doiInput" name="doiInput" placeholder="DOIを入力してください。" 
+                                   style="border: 2px solid #ccc; padding: 5px; width: 100%;" ng-model="doiInput">
                           </div>
                           <div class="col-sm-1">
-                            <button type="button" class="btn btn-primary" id="autofill_item_get_button" ng-click="setItemMetadataAPI()">{{_('Get')}}</button>
+                            <button type="button" class="btn btn-primary" id="autofill_item_get_button" 
+                                    ng-click="setItemMetadataAPI()" ng-disabled="isButtonDisabled">
+                                {{_('Get')}}
+                            </button>
                           </div>
+                        
                         </div>
                       </div>
 
@@ -229,11 +234,6 @@
                       <h3 class="panel-title" style="color: #000000; font-weight: bold;">{{_('Metadata')}}</h3>
                     </div>&nbsp;
 
-                    <!-- <invenio-records-form
-                      form-templates='{{ config.DEPOSIT_FORM_TEMPLATES | tojson }}'
-                      form-templates-base="{{ url_for('static', filename=config.DEPOSIT_FORM_TEMPLATES_BASE) }}"
-                      template="{{ url_for('static', filename=config.DEPOSIT_UI_JSTEMPLATE_FORM) }}">
-                    </invenio-records-form> -->
                     <invenio-records-form
                       form-templates='{{ config.DEPOSIT_FORM_TEMPLATES_WORKSPACE | tojson }}'
                       form-templates-base="{{ url_for('static', filename=config.DEPOSIT_FORM_TEMPLATES_WORKSPACE_BASE) }}"
@@ -247,36 +247,6 @@
                     <div class="panel-heading" style="background-color: #dff0d8;">
                       <h3 class="panel-title" style="color: #000000; font-weight: bold;">{{_('File')}}</h3>
                     </div>&nbsp;
-                    <div class="panel panel-default" >
-                      <div class="panel-body panel-body2">
-                        <div class="form-group row col-sm-12">
-                          <div class="col-sm-12">
-                            <label class="control-label col-sm-1" ng-class="{'field-required': form.required}" style="color: blue;">
-                              {{_('FileName')}}
-                            </label>
-                            <div class="col-sm-11">
-                              <!-- <input type="text" ng-model="model['item_1617605131499']['0']['filename']" ng-disabled="form.readonly" sf-changed="form" class="form-control" name="filename" list="filename">
-                              <datalist id="filename">
-                              </datalist>
-                              <div class="help-block" sf-message="form.description"></div> -->
-                              
-                              <input type="text" id="filename" name="filename"
-                                ng-model="model['item_1617605131499']['0']['filename']"
-                                ng-required="form.readonly"
-                                sf-changed="form"
-                                class="form-control" name="filename" list="filename"
-                                ng-class="{'ng-dirty': recordsVM.invenioRecordsModel.filename}"
-                                uib-datepicker-popup="{{format}}" is-open="opened"
-                                datepicker-options="dateOptions"
-                                style="border: 2px solid #ccc; padding: 5px; width: 100%;"/>
-                                <datalist id="filename">
-                                </datalist>
-                                <div class="help-block" sf-message="form.description"></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                     <div id="file_upload" class="row row-4" ng-cloak="" ng-hide="recordsVM.invenioRecordsLoading">
                       <div class="col-sm-12">
                         <invenio-files-error
@@ -344,6 +314,66 @@
                     </div>
                   </div>
                 </div>
+
+
+                <div role="dialog" tabindex="-1" class="fade in modal" id='index_select_confirm_modal' aria-labelledby="updateHeader" aria-hidden="true">
+                  <div class="modal-dialog row popup_notice">
+                    <div class="modal-content" role="document">
+                      <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                          <span aria-hidden="true">&times;</span>
+                        </button>
+                        <h4 class="modal-title">{{_('WEKO')}}</h4>
+                      </div>
+                      <div class="modal-body">
+                        <div class="container-modal">
+                          <div class="row">
+                            <input id="regist_success" name="regist_success"
+                                  value="{{_('At least one index should be selected.')}}"
+                                  style="display: block; margin: 0 auto; border: none; text-align: center; width: 80%; padding: 10px;">
+                          </div>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-info cancel-button" data-dismiss="modal" onclick="window.location.href=window.location.href;">
+                          <span class="glyphicon glyphicon-remove"></span>
+                              {{_('Cancel')}}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Modal -->
+                <div role="dialog" tabindex="-1" class="fade in modal" id='metadata_input_check_modal' aria-labelledby="updateHeader" aria-hidden="true">
+                  <div class="modal-dialog row popup_notice">
+                    <div class="modal-content" role="document">
+                      <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                          <span aria-hidden="true">&times;</span>
+                        </button>
+                        <h4 class="modal-title">{{_('WEKO')}}</h4>
+                      </div>
+                      <div class="modal-body">
+                        <div class="container-modal">
+                          <div class="row">
+                            <input id="regist_success" name="regist_success"
+                                  value="{{_('The Required items is required. Please recheck and input.')}}"
+                                  style="display: block; margin: 0 auto; border: none; text-align: center; width: 80%; padding: 10px;">
+                          </div>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-info cancel-button" data-dismiss="modal" onclick="window.location.href=window.location.href;">
+                          <span class="glyphicon glyphicon-remove"></span>
+                              {{_('Cancel')}}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+    
               </div>&nbsp;
               </invenio-records>
             {%- if need_file %}
@@ -372,6 +402,10 @@
       </div><!-- /.modal-dialog -->
     </div><!-- /.modal -->
     {# Author search modal END #}
+    <input type="hidden" id="validate_error" name="validate_error"
+        value="{{_('The Required items is required. Please recheck and input.')}}">
+    <input type="hidden" id="duplicate_files_error" name="duplicate_files_error"
+        value="{{_('The same file name cannot be registered.')}}">
     <input type="hidden" id="autofill_item_type_id" name="autofill_item_type_id" value="{{id}}">
     <input type="hidden" id="item_save_uri" name="item_save_uri" value='{{item_save_uri}}'>
     <input type="hidden" id="item_save_frequency" name="item_save_frequency" value='{{config.WEKO_ITEMS_UI_SAVE_FREQUENCY}}'>
@@ -385,13 +419,41 @@
           <div class="modal-body">
             <div class="container-modal">
               <div class="row">
-                <div class="col-sm-12 col-md-12">{{ _('アイテムが登録されました。') }}</div>
+                <input id="regist_success" name="regist_success"
+                value="{{_('The item is successfully registered.')}}"
+                style="display: block; margin: 0 auto; border: none; text-align: center; width: 80%; padding: 10px;">
               </div>
             </div>
           </div>
           <div class="modal-footer">
             <div class="col text-center">
               <button type="button" class="btn btn-danger" id="confirm_regist">
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div role="dialog" tabindex="-1" class="fade in modal" id='index_select_confirm_modal'>
+      <div class="modal-dialog row popup_notice">
+        <div class="modal-content" role="document">
+          <div class="modal-header">
+            <h4 class="modal-title">{{_('WEKO')}}</h4>
+          </div>
+          <div class="modal-body">
+            <div class="container-modal">
+              <div class="row">
+                <input id="regist_success" name="regist_success"
+                value="{{_('At least one index should be selected.')}}"
+                style="display: block; margin: 0 auto; border: none; text-align: center; width: 80%; padding: 10px;">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <div class="col text-center">
+              <button type="button" class="btn btn-danger" id="confirm_index" ng-click="itemCancel()">
                 OK
               </button>
             </div>

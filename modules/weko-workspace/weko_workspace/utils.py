@@ -318,7 +318,8 @@ def get_cinii_record_data(doi, item_type_id):
     result = list()
     api_response = CiNiiURL(doi).get_data()
     if api_response["error"] \
-            or not isinstance(api_response['response'], dict):
+            or not isinstance(api_response['response'], dict) \
+            or not api_response['response']['items']:
         return result
     api_data = get_cinii_data_by_key(api_response, 'all')
     items = ItemTypes.get_by_id(item_type_id)
@@ -1484,7 +1485,6 @@ def get_datacite_data_by_key(api, keyword):
     #         data['data']['attributes']['dates'])
 
     elif keyword == 'sourceIdentifier' and data['data']['attributes']['identifiers']:
-        print(data['data']['attributes']['identifiers'])
         result[keyword] = pack_data_with_multiple_type_datacite(
             data['data']['attributes']['identifiers']
         )

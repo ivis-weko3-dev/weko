@@ -61,6 +61,14 @@ msgstr "フロー一覧"
 msgid "WorkSpaceWorkFlow Setting"
 msgstr "ワークスペースワークフロー設定"
 
+#: weko_workspace/item_register.html:38
+msgid "The item is successfully registered."
+msgstr "アイテムが正常に登録されました。"
+
+#: weko_workspace/item_register.html:28
+msgid "At least one index should be selected."
+msgstr "インデックスを指定してください。"
+
 #: weko_workflow/api.py:1130 weko_workflow/views.py:219
 msgid "End"
 msgstr "終了"
