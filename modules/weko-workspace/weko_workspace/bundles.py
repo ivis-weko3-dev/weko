@@ -22,11 +22,11 @@
 
 from flask_assets import Bundle
 
-js_workspace = Bundle(
-    'js/weko_workspace/workspace_register.js',
-    filters='requirejs',
-    output="gen/workspace_register.js"
-)
+# js_workspace = Bundle(
+#     'js/weko_workspace/workspace_register.js',
+#     filters='requirejs',
+#     output="gen/workspace_register.js"
+# )
 # from flask_assets import Bundle
 
 # js_workspace = Bundle(

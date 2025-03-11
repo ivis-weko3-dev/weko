@@ -29,7 +29,7 @@ import uuid
 from datetime import datetime
 from six import BytesIO
 import base64
-from mock import patch
+from mock import patch,Mock
 
 import pytest
 from flask import Flask, session, url_for, Response
@@ -58,7 +58,7 @@ from invenio_communities.views.ui import blueprint as invenio_communities_bluepr
 from invenio_communities.models import Community
 from invenio_jsonschemas import InvenioJSONSchemas
 from invenio_records_ui import InvenioRecordsUI
-# from weko_search_ui.config import WEKO_SYS_USER
+from weko_search_ui.config import WEKO_SYS_USER
 from weko_records_ui import WekoRecordsUI
 from weko_admin import WekoAdmin
 from weko_admin.models import SessionLifetime,Identifier 
@@ -70,7 +70,7 @@ from weko_user_profiles import WekoUserProfiles
 from weko_index_tree.models import Index
 
 from weko_workflow import WekoWorkflow
-# from weko_search_ui import WekoSearchUI
+from weko_search_ui import WekoSearchUI
 from weko_workflow.models import Activity, ActionStatus, Action, ActivityAction, WorkFlow, FlowDefine, FlowAction, ActionFeedbackMail, ActionIdentifier,FlowActionRole, ActivityHistory,GuestActivity, WorkflowRole
 from weko_workflow.views import workflow_blueprint as weko_workflow_blueprint
 from weko_workflow.config import WEKO_WORKFLOW_ACTION_START,WEKO_WORKFLOW_ACTION_END,WEKO_WORKFLOW_ACTION_ITEM_REGISTRATION,WEKO_WORKFLOW_ACTION_APPROVAL,WEKO_WORKFLOW_ACTION_ITEM_LINK,WEKO_WORKFLOW_ACTION_OA_POLICY_CONFIRMATION,WEKO_WORKFLOW_ACTION_IDENTIFIER_GRANT,WEKO_WORKFLOW_ACTION_ITEM_REGISTRATION_USAGE_APPLICATION,WEKO_WORKFLOW_ACTION_GUARANTOR,WEKO_WORKFLOW_ACTION_ADVISOR,WEKO_WORKFLOW_ACTION_ADMINISTRATOR,WEKO_WORKFLOW_ACTIVITYLOG_XLS_COLUMNS, DOI_VALIDATION_INFO, DOI_VALIDATION_INFO_CROSSREF, DOI_VALIDATION_INFO_DATACITE, DOI_VALIDATION_INFO_JALC
@@ -104,6 +104,9 @@ from weko_items_ui import WekoItemsUI
 from weko_admin.models import SiteInfo
 from weko_admin import WekoAdmin
 from weko_deposit import WekoDeposit
+
+from weko_workspace.views import workspace_blueprint as weko_workspace_blueprint
+from weko_workspace.views import blueprint_itemapi as weko_workspace_blueprint_itemapi
 
 sys.path.append(os.path.dirname(__file__))
 # @event.listens_for(Engine, "connect")
@@ -569,6 +572,9 @@ def base_app(instance_path, search_class, cache_config):
     # app_.register_blueprint(weko_theme_blueprint)
     # app_.register_blueprint(weko_admin_blueprint)
     app_.register_blueprint(weko_workflow_blueprint)
+    app_.register_blueprint(weko_workspace_blueprint)
+    app_.register_blueprint(weko_workspace_blueprint_itemapi)
+    
 
     return app_
 
@@ -591,6 +597,44 @@ def db(app):
     db_.drop_all()
     # drop_database(str(db_.engine.url))
 
+
+@pytest.fixture()
+def mocker_itemtype(mocker):
+    item_type = Mock()
+    filepath = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "item_type/15_render.json"
+    )
+    with open(filepath, encoding="utf-8") as f:
+        render = json.load(f)
+    item_type.render = render
+
+    filepath = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "item_type/15_schema.json"
+    )
+    with open(filepath, encoding="utf-8") as f:
+        schema = json.load(f)
+    item_type.schema = schema
+
+    filepath = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "item_type/15_form.json"
+    )
+    with open(filepath, encoding="utf-8") as f:
+        form = json.load(f)
+    item_type.form = form
+
+    item_type.item_type_name.name = "デフォルトアイテムタイプ（フル）"
+    item_type.item_type_name.item_type.first().id = 15
+
+    mocker.patch("weko_records.api.ItemTypes.get_by_id", return_value=item_type)
+
+
+@pytest.yield_fixture()
+def client_api(app):
+    from weko_workspace.views import blueprint_itemapi as weko_workspace_blueprint_itemapi
+    app.register_blueprint(weko_workspace_blueprint_itemapi)
+
+    with app.test_client() as client:
+        yield client
 
 @pytest.yield_fixture()
 def client(app):
@@ -1253,6 +1297,8 @@ def workflow(app, db, item_type, action_data, users):
         "flow_action":flow_actions,
         "workflow":workflow
     }
+
+
 
 @pytest.fixture()
 def workflow_open_restricted(app, db, item_type, action_data, users):

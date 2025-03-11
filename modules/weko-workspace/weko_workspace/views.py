@@ -401,7 +401,7 @@ def update_workspace_default_conditon(buttonTyp, default_con):
 
 
 # itemRegistration登録 ri 20250113 start
-@workspace_blueprint.route('/item_registration', endpoint='itemregister')
+@workspace_blueprint.route('/item_registration', methods=['GET', 'POST'], endpoint='itemregister')
 @login_required
 def itemregister():
         
@@ -614,7 +614,7 @@ def get_auto_fill_record_data_dataciteapi():
     return jsonify(result)
 
 
-@workspace_blueprint.route('/workflow_registration', methods=['POST'])
+@workspace_blueprint.route('/workflow_registration', methods=['POST'], endpoint='workflow_registration')
 @login_required
 def itemregister_save():
 
@@ -715,7 +715,7 @@ def itemregister_save():
                     f"Error in import_items_to_system: {item.get('error_id')}"
                 )
 
-                result['error'] = item.get('error_id')
+                result['error'] = "Error in import_items_to_system"
             result['result'] = register_result.get("recid")
         except Exception as e:
             current_app.logger.info('itemregister_save', str(e))
