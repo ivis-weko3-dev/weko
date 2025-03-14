@@ -30,15 +30,15 @@
 
 {%- block javascript %}
   {{ super() }}
-  <script src="{{ url_for('static', filename='js/weko_theme/inline.bundle.js') }}" defer></script>
-  <script src="{{ url_for('static', filename='js/weko_theme/polyfills.bundle.js') }}" defer></script>
-  <script src="{{ url_for('static', filename='js/weko_theme/main.bundle.js') }}" defer></script>
+  <script src="/assets/js/weko_theme/inline.bundle.js" defer></script>
+  <script src="/assets/js/weko_theme/polyfills.bundle.js" defer></script>
+  <script src="/assets/js/weko_theme/main.bundle.js" defer></script>
   {{ webpack['theme-js-top-page.js']}}
   {{ webpack['theme-search-detail.js']}}
   {{ webpack['records_ui_js_dependecies.js']}}
   {{ webpack['records_ui_js.js']}}
   {{ webpack['records_ui_preview_carousel.js']}}
-  <script src="{{ url_for('static', filename='js/weko_records_ui/file_stats.js')}}"></script>
+  <script src="/assets/js/weko_records_ui/file_stats.js"></script>
 <!-- start demo block-->
 
 <script type="text/javascript">var addthis_config = {"data_track_addressbar": true};</script>

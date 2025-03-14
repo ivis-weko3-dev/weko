@@ -36,9 +36,9 @@
 {%- endblock css %}
 
 {%- block javascript %}
-<script src="{{ url_for('static', filename='js/weko_indextree_journal/inline.bundle.js') }}" defer></script>
-<script src="{{ url_for('static', filename='js/weko_indextree_journal/polyfills.bundle.js') }}" defer></script>
-<script src="{{ url_for('static', filename='js/weko_indextree_journal/main.bundle.js') }}" defer></script>
+<script src="/assets/js/weko_indextree_journal/inline.bundle.js" defer></script>
+<script src="/assets/js/weko_indextree_journal/polyfills.bundle.js" defer></script>
+<script src="/assets/js/weko_indextree_journal/main.bundle.js" defer></script>
 <script src="/assets/node_modules/angular-schema-form/dist/bootstrap-decorator.js" defer></script>
   {{ super() }}
   {{ webpack['theme-angular.js']}}

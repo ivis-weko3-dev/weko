@@ -19,14 +19,14 @@
   {{ webpack['records_ui_js_dependecies.js']}}
   
   {{ super() }}
-  <script src="{{ url_for('static', filename='js/weko_theme/inline.bundle.js') }}" defer></script>
-  <script src="{{ url_for('static', filename='js/weko_theme/polyfills.bundle.js') }}" defer></script>
-  <script src="{{ url_for('static', filename='js/weko_theme/main.bundle.js') }}" defer></script>
+  <script src="/assets/js/weko_theme/inline.bundle.js" defer></script>
+  <script src="/assets/js/weko_theme/polyfills.bundle.js" defer></script>
+  <script src="/assets/js/weko_theme/main.bundle.js" defer></script>
   {{ webpack['theme-js-top-page.js']}}
   {{ webpack['theme-search-detail.js']}}
   {{ webpack['records_ui_js_dependecies.js']}}
   {{ webpack['records_ui_js.js']}}
-  <script src="{{ url_for('static', filename='js/weko_records_ui/record_view_stats.js')}}"></script>
+  <script src="/assets/js/weko_records_ui/record_view_stats.js"></script>
   {{ webpack['records_ui_preview_carousel.js']}}
   {%- set site_info = site_info|get_site_info %}
   {%- set addthis_user_id = site_info.get("addthis_user_id",config.ADDTHIS_USER_ID) %}  

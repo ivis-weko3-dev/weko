@@ -36,9 +36,9 @@
   {{ webpack['theme-js.js']}}
 
   {%- if 'item_link' == cur_step %}
-    <script src="{{ url_for('static', filename='js/weko_theme/inline.bundle.js') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/weko_theme/polyfills.bundle.js') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/weko_theme/main.bundle.js') }}" defer></script>
+    <script src="/assets/js/weko_theme/inline.bundle.js" defer></script>
+    <script src="/assets/js/weko_theme/polyfills.bundle.js" defer></script>
+    <script src="/assets/js/weko_theme/main.bundle.js" defer></script>
     {{ webpack['search_ui_app.js']}}
     {{ webpack['workflow-js-item-link.js']}}
   {%- elif 'identifier_grant' == cur_step %}
