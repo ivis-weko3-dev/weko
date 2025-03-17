@@ -201,7 +201,7 @@ def init_queue():
             click.secho(f"Error initializing queue: {e}", fg="red")
             click.echo(f"Queue details: {queue}")
             click.echo(f"Exception details: {type(e).__name__}: {str(e)}")
-            raise  # 重新抛出异常，以便在测试中捕获
+            raise
         return queue
     return action
 

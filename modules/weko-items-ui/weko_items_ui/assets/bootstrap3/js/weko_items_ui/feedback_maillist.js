@@ -98,7 +98,6 @@ class ComponentExclusionTarget extends React.Component {
                 {
                     listEmail.map((item, id) => {
                         return (
-                            // FIXME: apply CSS to the button-tag same as the a-tag
                             <button
                                 className={`list-group-item list-group-item-action ${this.state.selectedId.indexOf(id) > -1 ? 'active' : ''}`}
                                 onClick={() => { this.handleClick(id) }}
@@ -411,7 +410,6 @@ class Pagination extends React.Component {
         let listPage = [];
         for (let i = this.state.startPage; i <= this.state.endPage; i++) {
             listPage.push(
-                // FIXME: apply CSS to the button-tag same as the a-tag
                 <li key={i.toString()} className={this.state.currentPage == i ? 'active' : ''}>
                     <button
                         onClick={() => this.locatePageResult(i)}
@@ -423,7 +421,6 @@ class Pagination extends React.Component {
         return (
             <ul className="pagination">
                 {this.state.numOfPage > LIMIT_PAGINATION_NUMBER ?
-                    // FIXME: apply CSS to the button-tag same as the a-tag
                     <li>
                         <button
                             onClick={() => this.locatePageResult(1)}
@@ -433,7 +430,6 @@ class Pagination extends React.Component {
                         </button>
                     </li> : null}
                 <li >
-                    {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                     <button
                         onClick={() => this.locatePageResult(this.state.currentPage - 1)}
                         onKeyDown={() => { }}
@@ -443,7 +439,6 @@ class Pagination extends React.Component {
                 </li>
                 {listPage}
                 <li >
-                    {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                     <button
                         onClick={() => this.locatePageResult(this.state.currentPage + 1)}
                         onKeyDown={() => { }}
@@ -452,7 +447,6 @@ class Pagination extends React.Component {
                     </button>
                 </li>
                 {this.state.numOfPage > LIMIT_PAGINATION_NUMBER ?
-                    // FIXME: apply CSS to the button-tag same as the a-tag
                     <li >
                         <button
                             onClick={() => this.locatePageResult(this.state.numOfPage)}

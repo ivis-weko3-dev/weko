@@ -1,5 +1,4 @@
 import $ from "jquery";
-import confirm from "jquery-confirm";
 import React from "react";
 import ReactDOM from "react-dom";
 
@@ -80,7 +79,6 @@ class MainLayout extends React.Component {
                                     className={`${item.tab_key === current_tab ? "active" : ""}`}
                                     onClick={() => this.handleChangeTab(item.tab_key)}
                                 >
-                                    {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                                     <button>{item.tab_name}</button>
                                 </li>
                             );
@@ -164,7 +162,7 @@ class ListResourceComponent extends React.Component {
     }
 
     handleDelete(item) {
-        const a = confirm("Are you sure to delete it ?");
+        const a = window.confirm("Are you sure to delete it ?");
         if (a) {
             fetch(urlDelete + "/" + item.id, {
                 method: "POST",
@@ -218,7 +216,6 @@ class ListResourceComponent extends React.Component {
                                                 justifyContent: "space-around"
                                             }}
                                         >
-                                            {/* FIXME: apply CSS to the button-tags same as a-tag */}
                                             <button className="icon" title="Edit Resource">
                                                 <span
                                                     role="button"
@@ -228,7 +225,6 @@ class ListResourceComponent extends React.Component {
                                                     onKeyDown={() => { }}
                                                 ></span>
                                             </button>
-                                            {/* FIXME: apply CSS to the button-tags same as a-tag */}
                                             <button className="icon" title="Delete Resource">
                                                 <span
                                                     role="button"

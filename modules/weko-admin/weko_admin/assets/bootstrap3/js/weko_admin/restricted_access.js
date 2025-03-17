@@ -301,7 +301,6 @@ function TermsList({ termList, setTermList, currentTerm, setCurrentTerm }) {
                     <div className="col col-md-12 both scrollbar margin-top padding-top"
                         id="sltBoxListEmail">
                         {
-                            // FIXME: apply CSS to the button-tags same as the a-tag
                             termList.map((term) => (
                                 <li className="tree-list" key={term.key}>
                                     <button
@@ -725,58 +724,58 @@ function ModalBodyConfirm({ selectedActivityIds }) {
             <div className="row">
                 <div className="text-center">
                     <ul className="pagination">
-                        {/* FIXME: apply CSS because added span-tag in list-tag */}
-                        <li>
-                            <span
-                                role="button"
-                                tabIndex={0}
-                                className={currentPage === 1 ? 'disabled' : ''}
-                                cursor={currentPage === 1 ? 'not-allowed' : ''}
+                        <li
+                            className={currentPage === 1 ? 'disabled' : ''}
+                            cursor={currentPage === 1 ? 'not-allowed' : ''}
+                        >
+                            <button 
                                 onClick={() => {
                                     if (currentPage > 1) setCurrentPage(currentPage - 1)
                                 }}
-                                onKeyDown={() => { }}
-                            >
-                                {/* FIXME: apply CSS to the button-tag same as the a-tag */}
-                                <button>&lt;</button>
-                            </span>
+                                onKeyDown={() => { }}>
+                                <span
+                                    role="button"
+                                    tabIndex={0}
+                                >
+                                    &lt;
+                                </span>
+                            </button>
                         </li>
                         {Array.from(Array(totalPage), (e, i) => {
-                            {/* FIXME: apply CSS because added span-tag in list-tag */ }
                             return (
-                                <li>
-                                    <span
-                                        role="button"
-                                        tabIndex={0}
-                                        className={(i + 1 === currentPage) ? `active` : ''}
+                                <li className={(i + 1 === currentPage) ? `active` : ''}>
+                                    <button
                                         onClick={onPageChanged}
                                         onKeyDown={() => { }}
                                     >
-                                        {/* FIXME: apply CSS to the button-tag same as the a-tag */}
-                                        <button>
+                                        <span
+                                            role="button"
+                                            tabIndex={0}
+                                        >
                                             {i + 1}
-                                        </button>
-                                    </span>
+                                        </span>
+                                    </button>
                                 </li>
                             )
                         })}
-                        {/* FIXME: apply CSS because added span-tag in list-tag */}
-                        <li>
-                            <span
-                                role="button"
-                                tabIndex={0}
-                                className={currentPage >= totalPage ? `disabled` : ''}
-                                cursor={currentPage >= totalPage ?
-                                    'not-allowed' : ''}
+                        <li
+                            className={currentPage >= totalPage ? `disabled` : ''}
+                            cursor={currentPage >= totalPage ?
+                                'not-allowed' : ''}
+                        >
+                            <button
                                 onClick={() => {
                                     if (currentPage < totalPage)
                                         setCurrentPage(currentPage + 1)
                                 }}
-                                onKeyDown={() => { }}
-                            >
-                                {/* FIXME: apply CSS to the button-tag same as the a-tag */}
-                                <button>&gt;</button>
-                            </span>
+                                onKeyDown={() => { }}>
+                                <span
+                                    role="button"
+                                    tabIndex={0}
+                                >
+                                    &gt;
+                                </span>
+                            </button>
                         </li>
                     </ul>
                 </div>
@@ -966,56 +965,42 @@ function UsageReportList() {
                         <div className="row">
                             <div className="text-center">
                                 <ul className="pagination">
-                                    {/* FIXME: apply CSS because added span-tag in list-tag */}
-                                    <li>
-                                        <span
-                                            role="button"
-                                            tabIndex={0}
-                                            className={currentPage === 1 ? 'disabled' : ''}
+                                    <li className={currentPage === 1 ? 'disabled' : ''}>
+                                        <button
                                             onClick={() => {
                                                 if (currentPage > 1) setCurrentPage(currentPage - 1)
                                             }}
                                             onKeyDown={() => { }}
                                         >
-                                            {/* FIXME: apply CSS to the button-tag same as the a-tag */}
-                                            <button>&lt;</button>
-                                        </span>
+                                            &lt;
+                                        </button>
                                     </li>
                                     {
                                         Array.from(Array(totalPage), (e, i) => {
-                                            {/* FIXME: apply CSS because added span-tag in list-tag */ }
                                             return (
-                                                <li>
-                                                    <span
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        className={(i + 1 === currentPage) ? `active` : ''}
+                                                <li className={(i + 1 === currentPage) ? `active` : ''}>
+                                                    <button
                                                         onClick={onChangePage}
                                                         onKeyDown={() => { }}
                                                     >
-                                                        {/* FIXME: apply CSS to the button-tag same as the a-tag */}
-                                                        <button>{i + 1}</button>
-                                                    </span>
+                                                        {i + 1}
+                                                    </button>
                                                 </li>)
                                         })
                                     }
-                                    {/* FIXME: apply CSS because added span-tag in list-tag */}
-                                    <li>
-                                        <span
-                                            role="button"
-                                            tabIndex={0}
-                                            className={currentPage >= totalPage ? `disabled` : ''}
-                                            cursor={currentPage >= totalPage ? 'not-allowed' : ''}
+                                    <li
+                                        className={currentPage >= totalPage ? `disabled` : ''}
+                                        cursor={currentPage >= totalPage ? 'not-allowed' : ''}
+                                    >
+                                        <button
                                             onClick={() => {
-                                                if (currentPage < totalPage)
-                                                    setCurrentPage(currentPage + 1)
+                                            if (currentPage < totalPage)
+                                                setCurrentPage(currentPage + 1)
                                             }}
                                             onKeyDown={() => { }}
                                         >
-                                            {/* FIXME: apply CSS to the button-tag same as the a-tag */}
-
-                                            <button>&gt;</button>
-                                        </span>
+                                            &gt;
+                                        </button>
                                     </li>
                                 </ul>
                             </div>

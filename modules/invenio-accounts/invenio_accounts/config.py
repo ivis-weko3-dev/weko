@@ -119,7 +119,7 @@ Password hashes in a deprecated scheme are automatically migrated to the
 new default algorithm the next time the user login.
 """
 
-SECURITY_PASSWORD_SINGLE_HASH = ["invenio_aes_encrypted_email"]
+SECURITY_PASSWORD_SINGLE_HASH = ["invenio_aes_encrypted_email", "pbkdf2_sha512"]
 """Password hashing algorithms requiring single hasing only."""
 
 SECURITY_DEFAULT_REMEMBER_ME = False

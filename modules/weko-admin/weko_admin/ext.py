@@ -103,6 +103,7 @@ class WekoAdmin(object):
                 setattr(view, 'is_visible', is_visible_fn)
                 new_views.append(view)
             app.extensions['admin'][0]._views = new_views  # Overwrite views
+            initialize_empty_theme_css()
 
         @app.before_request
         def set_default_language():
@@ -202,3 +203,17 @@ def finalize_app(app):
         visible_when=_has_admin_access,
         order=14
     )
+    
+def initialize_empty_theme_css():
+    import os
+    css_file = os.path.join(
+        current_app.static_folder,
+        'dist', 'css', 'theme-css-color.css'
+    )
+
+    os.makedirs(os.path.dirname(css_file), exist_ok=True)
+
+    if not os.path.exists(css_file):
+        with open(css_file, 'w', encoding='utf-8') as fp:
+            fp.write("")
+        current_app.logger.info("Created an empty theme-css-color.css file.")

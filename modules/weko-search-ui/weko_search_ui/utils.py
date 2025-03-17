@@ -66,6 +66,7 @@ from invenio_records.api import Record
 from invenio_records.models import RecordMetadata
 from invenio_records_rest.errors import InvalidQueryRESTError
 from invenio_search import RecordsSearch
+from invenio_search.utils import build_alias_name
 from jsonschema import Draft4Validator
 from sqlalchemy import func as _func
 from sqlalchemy.exc import SQLAlchemyError
@@ -202,7 +203,7 @@ def get_tree_items(index_tree_id):
     """Get tree items."""
     records_search = RecordsSearch()
     records_search = records_search.with_preference_param().params(version=False)
-    records_search._index[0] = current_app.config["SEARCH_UI_SEARCH_INDEX"]
+    records_search._index[0] = build_alias_name(current_app.config["SEARCH_UI_SEARCH_INDEX"])
     search_instance, _ = item_path_search_factory(
         None, records_search, index_id=index_tree_id
     )
@@ -306,7 +307,7 @@ def get_feedback_mail_list():
     """Get feedback items."""
     records_search = RecordsSearch()
     records_search = records_search.with_preference_param().params(version=False)
-    records_search._index[0] = current_app.config["SEARCH_UI_SEARCH_INDEX"]
+    records_search._index[0] = build_alias_name(current_app.config["SEARCH_UI_SEARCH_INDEX"])
     ret = {}
 
     try:

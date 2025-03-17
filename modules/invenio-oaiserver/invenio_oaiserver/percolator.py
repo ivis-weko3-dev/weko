@@ -181,6 +181,8 @@ def sets_search_all(records):
             for record_index in s.get("fields", {}).get(
                 "_percolator_document_slot", []
             ):
+                if ":" in set_spec:
+                    set_spec = set_spec.split(":")[-1]
                 record_sets[record_index].append(set_spec)
     return record_sets
 

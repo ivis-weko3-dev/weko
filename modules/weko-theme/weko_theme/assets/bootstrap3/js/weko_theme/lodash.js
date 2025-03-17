@@ -17077,6 +17077,7 @@ var runInContext = (function runInContext(context) {
 
 // Export lodash.
 var _ = runInContext();
+export { runInContext };
 export default { _ };
 
 // // Some AMD build optimizers, like r.js, check for condition patterns like:

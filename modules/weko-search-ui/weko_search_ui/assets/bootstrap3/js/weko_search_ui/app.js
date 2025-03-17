@@ -2,7 +2,6 @@ import angular from 'angular';
 import "bootstrap";
 import "bootstrap-datepicker"
 import $ from "jquery";
-import "invenio-search-js/dist/invenio-search-js"
 
 const MESSAGE = {
     bibtex_err: {
@@ -139,7 +138,7 @@ function searchResCtrl($scope, $rootScope, $http, $location) {
             method: 'GET',
             url: '/get_search_setting',
             headers: { 'Content-Type': 'application/json' },
-        }).then(function successCallback(response) {
+        }).done(function successCallback(response) {
             if (response.status === 1) {
                 data = response.data;
                 if (data.dlt_index_sort_selected !== null && data.dlt_index_sort_selected !== undefined) {
@@ -165,17 +164,16 @@ function searchResCtrl($scope, $rootScope, $http, $location) {
                         param['search_type'] = "0";
                         param['q'] = "0";
                     }
-                    $rootScope.vm.invenioSearchCurrentArgs = angular.merge(
-                        { method: "GET" }, 
-                        $rootScope.vm.invenioSearchCurrentArgs || {}, 
-                        param
-                    );
+                    $rootScope.vm.invenioSearchCurrentArgs = {
+                        method: "GET",
+                        params: param
+                    };
                 }
             }
-        }, function errorCallback(error) {
+        }).fail(function (error){
             console.log(error);
         });
-    }
+    };
     $rootScope.getSettingDefault();
 
     $rootScope.disable_flg = true;

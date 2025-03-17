@@ -6,7 +6,9 @@
  * @preserve
 */
 import $ from 'jquery';
-import _ from './lodash';
+import { runInContext } from './lodash';
+
+const _ = runInContext();
 
 if (typeof exports !== 'undefined') {
     try { $ = require('jquery'); } catch (e) { }

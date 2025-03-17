@@ -31,7 +31,7 @@ import traceback
 
 import redis
 from redis import sentinel
-from celery.app.control import Inspect
+from celery import current_app as current_celery_app
 from flask import current_app, request, session
 from flask_babel import gettext as _
 from flask_security import current_user
@@ -40,6 +40,7 @@ from invenio_cache import current_cache
 from invenio_db import db
 from invenio_files_rest.models import Bucket, ObjectVersion
 from invenio_i18n.ext import current_i18n
+from invenio_indexer.api import RecordIndexer
 from invenio_mail.admin import MailSettingView
 from invenio_mail.models import MailConfig
 from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
@@ -81,7 +82,7 @@ from .api import GetCommunity, UpdateItem, WorkActivity, WorkActivityHistory, \
 from .config import DOI_VALIDATION_INFO, DOI_VALIDATION_INFO_CROSSREF, DOI_VALIDATION_INFO_DATACITE, IDENTIFIER_GRANT_SELECT_DICT, \
     WEKO_SERVER_CNRI_HOST_LINK, WEKO_STR_TRUE
 from .models import Action as _Action, Activity
-from .models import ActionStatusPolicy, ActivityStatusPolicy, GuestActivity,FlowAction 
+from .models import ActionStatusPolicy, ActivityStatusPolicy, GuestActivity, FlowAction
 from .models import WorkFlow as _WorkFlow
 
 def get_current_language():
@@ -1757,6 +1758,11 @@ def prepare_edit_workflow(post_activity, recid, deposit):
             _deposit['path'] = _parent.get('path')
             _deposit.merge_data_to_record_without_version(recid, True)
             _deposit.publish()
+            if not RecordsBuckets.query.filter_by(record_id=_deposit.id).first():
+                bucket = Bucket.create(storage_class=current_app.config[
+                    'DEPOSIT_DEFAULT_STORAGE_CLASS'
+                ])
+                RecordsBuckets.create(record=_deposit.model, bucket=bucket)
             _bucket = Bucket.get(_deposit.files.bucket.id)
 
             if not _bucket:
@@ -1867,8 +1873,6 @@ def handle_finish_workflow(deposit, current_pid, recid):
         if recid:
             # new record attached version ID
             new_deposit = deposit.newversion(current_pid)
-            new_deposit.pid.register()
-            PersistentIdentifier.query.filter_by(pid_type="recid", pid_value=new_deposit.pid.pid_value).one().register()
             item_id = new_deposit.model.id
             ver_attaching_deposit = WekoDeposit(
                 new_deposit,
@@ -1957,8 +1961,19 @@ def handle_finish_workflow(deposit, current_pid, recid):
                     item_id = current_pid.object_uuid
                 db.session.commit()
 
-        from invenio_oaiserver.tasks import update_records_sets
-        update_records_sets.delay([str(pid_without_ver.object_uuid)])
+        # update record to OS
+        query = (x[0] for x in PersistentIdentifier.query.filter_by(
+            object_type='rec', status=PIDStatus.REGISTERED
+        ).filter(
+            PersistentIdentifier.pid_type.in_(['oai'])
+        ).filter(
+            PersistentIdentifier.object_uuid.in_([str(pid_without_ver.object_uuid)])
+        ).values(
+            PersistentIdentifier.object_uuid
+        ))
+        RecordIndexer().bulk_index(query)
+        RecordIndexer().process_bulk_queue(
+            search_bulk_kwargs={'raise_on_error': True})
     except Exception as ex:
         db.session.rollback()
         current_app.logger.exception(str(ex))
@@ -2006,6 +2021,7 @@ def check_an_item_is_locked(item_id=None):
 
     :return
     """
+    inspect = current_celery_app.control.inspect()
     def check(workers):
         for worker in workers:
             for task in workers[worker]:
@@ -2014,10 +2030,10 @@ def check_an_item_is_locked(item_id=None):
                     return True
         return False
 
-    if not item_id or not Inspect().ping():
+    if not item_id or not inspect.ping():
         return False
 
-    return check(Inspect().active()) or check(Inspect().reserved())
+    return check(inspect.active()) or check(inspect.reserved())
 
 
 def get_account_info(user_id):

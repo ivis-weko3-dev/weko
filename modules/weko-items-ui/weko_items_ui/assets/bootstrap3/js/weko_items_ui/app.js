@@ -257,6 +257,8 @@ var CustomBSDatePicker = {
     }
 }
 
+window.CustomBSDatePicker = CustomBSDatePicker;
+
 // script for Contributor
 var username_arr = [];
 var email_arr = [];
@@ -3609,20 +3611,20 @@ function toObject(arr) {
                 $scope.feedback_emails = []
                 let invalid_emails = [];
                 let emails = []
-                emails = $('#sltBoxListEmail').children('a');
+                emails = $('#sltBoxListEmail').children('button');
                 if (emails.length === 0) {
                     return invalid_emails;
                 }
                 emails.each(function (idx) {
                     let email = emails[idx]
-                    let result = re.test(String(email.text).toLowerCase());
+                    let result = re.test(String(email.textContent).toLowerCase());
                     if (result) {
                         $scope.feedback_emails.push({
                             "author_id": email.attributes[1]['value'],
-                            "email": email.text
+                            "email": email.textContent
                         })
                     } else {
-                        invalid_emails.push(email.text);
+                        invalid_emails.push(email.textContent);
                     }
                 });
                 return invalid_emails;
@@ -4938,7 +4940,12 @@ function toObject(arr) {
                         if (!angular.isUndefined(files) && files.length > 0) {
                             if ($scope.model.allowMultiple != 'True') {
                                 files = Array.prototype.slice.call(files, 0, 1);
-                                let overwriteFiles = $.extend(true, {}, $scope.model.thumbnailsInfor);
+                                let overwriteFiles = {};
+                                Object.keys($scope.model.thumbnailsInfor).forEach(key => {
+                                    if ($scope.model.thumbnailsInfor[key] instanceof File) {
+                                        overwriteFiles[key] = $scope.model.thumbnailsInfor[key];
+                                    }
+                                });
 
                                 if (Object.keys(overwriteFiles).length > 0) {
                                     $scope.uploadingThumbnails = files;

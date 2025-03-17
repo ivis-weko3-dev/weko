@@ -63,7 +63,7 @@ def get_records(**kwargs):
         )
         indexes = []
         indexes = query.yield_per(1000)
-        index_ids = [index.id for index in indexes]
+        index_ids = [str(index.id) for index in indexes]
         return index_ids
 
     def get_records_has_doi():

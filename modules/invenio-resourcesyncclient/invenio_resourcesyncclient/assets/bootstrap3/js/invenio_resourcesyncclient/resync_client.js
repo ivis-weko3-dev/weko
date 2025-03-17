@@ -116,7 +116,6 @@ class MainLayout extends React.Component {
                                         onClick={() => this.handleChangeTab(item.tab_key)}
                                         onKeyDown={() => { }}
                                     >
-                                        {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                                         <button>{item.tab_name}</button>
                                     </span>
                                 </li>
@@ -275,7 +274,6 @@ class ListResyncComponent extends React.Component {
                                                 justifyContent: "space-around"
                                             }}
                                         >
-                                            {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                                             <button className="icon" title="View Detail Resync">
                                                 <span
                                                     role="button"
@@ -285,7 +283,6 @@ class ListResyncComponent extends React.Component {
                                                     onKeyDown={() => { }}
                                                 ></span>
                                             </button>
-                                            {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                                             <button className="icon" title="Edit Resync">
                                                 <span
                                                     role="button"
@@ -295,7 +292,6 @@ class ListResyncComponent extends React.Component {
                                                     onKeyDown={() => { }}
                                                 ></span>
                                             </button>
-                                            {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                                             <button className="icon" title="Delete Resync">
                                                 <span
                                                     role="button"

@@ -81,7 +81,6 @@ class ComponentTableResult extends React.Component {
             let innerHTML = [];
             let frontInnerHTML =
                 <li>
-                    {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                     <button
                         data-num-page={frontPage}
                         onClick={this.handleClickEvent}>
@@ -90,7 +89,6 @@ class ComponentTableResult extends React.Component {
                 </li>;
             let nextInnerHTML =
                 <li>
-                    {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                     <button
                         data-num-page={nextPage}
                         onClick={this.handleClickEvent}>
@@ -99,7 +97,6 @@ class ComponentTableResult extends React.Component {
                 </li>;
             let selectedInnerHTML =
                 <li className="active">
-                    {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                     <button
                         data-num-page={selectedPage}
                         onClick={this.handleClickEvent}>
@@ -243,7 +240,6 @@ class ComponentTableResult extends React.Component {
                     </table>
                     <ul className="pagination page" id="pagination">
                         <li className={this.state.pagingClassLeft}>
-                            {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                             <button
                                 data-num-page="first"
                                 onClick={this.handleClickEvent}>
@@ -251,7 +247,6 @@ class ComponentTableResult extends React.Component {
                             </button>
                         </li>
                         <li className={this.state.pagingClassLeft}>
-                            {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                             <button
                                 data-num-page="previous"
                                 onClick={this.handleClickEvent}>
@@ -260,7 +255,6 @@ class ComponentTableResult extends React.Component {
                         </li>
                         {this.state.paging}
                         <li className={this.state.pagingClassRight}>
-                            {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                             <button
                                 data-num-page="next"
                                 onClick={this.handleClickEvent}>
@@ -268,7 +262,6 @@ class ComponentTableResult extends React.Component {
                             </button>
                         </li>
                         <li className={this.state.pagingClassRight}>
-                            {/* FIXME: apply CSS to the button-tag same as the a-tag */}
                             <button
                                 data-num-page="last"
                                 onClick={this.handleClickEvent}>

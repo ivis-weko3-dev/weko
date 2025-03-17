@@ -160,12 +160,12 @@ def is_import_running():
 
     for tasks in active.values():
         for task in tasks:
-            if task["name"] == "weko_admin.tasks.import_task":
+            if task["name"] == "weko_search_ui.tasks.import_item":
                 return "is_import_running"
     reserved = inspect.reserved()
     for tasks in reserved.values():
         for task in tasks:
-            if task["name"] == "weko_admin.tasks.import_task":
+            if task["name"] == "weko_search_ui.tasks.import_item":
                 return "is_import_running"
 
     return False

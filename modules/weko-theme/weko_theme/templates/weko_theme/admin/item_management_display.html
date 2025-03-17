@@ -35,6 +35,7 @@
 {%- endblock css %}
 
 {%- block javascript %}
+  {{ super() }}
   {{ webpack['angular_js.js']}}
   {{ webpack['admin_js_admin_lte_js_dependecies.js']}}
   {{ webpack['search-ui-js-js-dependencies-datepicker.js']}}
@@ -48,7 +49,7 @@
   {{ webpack['search_ui_app.js']}}
   {{ webpack['search-ui-js-weko-search-ui.js']}}
   {{ webpack['theme-search-detail.js']}}
-  {{ webpack['admin_js_admin_lte_js_dependecies.js']}}
+  {{ webpack['admin_js_admin_lte_js_dependecies.js']}}  
 {%- endblock javascript %}
 
 {%- block body %}

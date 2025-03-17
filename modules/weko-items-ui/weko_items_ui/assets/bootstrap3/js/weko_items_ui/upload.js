@@ -326,7 +326,12 @@ angular.element(document).ready(function () {
                     if (!angular.isUndefined(files) && files.length > 0) {
                         if ($scope.$parent.model.allowMultiple != 'True') {
                             files = Array.prototype.slice.call(files, 0, 1);
-                            let overwriteFiles = $.extend(true, {}, $scope.$parent.model.thumbnailsInfor);
+                            let overwriteFiles = {};
+                            Object.keys($scope.$parent.model.thumbnailsInfor).forEach(key => {
+                                if ($scope.$parent.model.thumbnailsInfor[key] instanceof File) {
+                                    overwriteFiles[key] = $scope.$parent.model.thumbnailsInfor[key];
+                                }
+                            });
 
                             if (Object.keys(overwriteFiles).length > 0) {
                                 $rootScope.$$childHead.uploadingThumbnails = files;

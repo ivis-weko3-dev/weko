@@ -156,7 +156,7 @@ def default_sorter_factory(search, index):
         return (search, {})
 
     # Get fields to sort query by
-    sort_field = [eval_field(f, asc, sort_options.get("nested_sorting"))
+    sort_field = [eval_field(f, asc, sort_options.get("nested"))
                   for f in sort_options["fields"]]
     if key != "controlnumber":
         control_number_option = current_app.config['RECORDS_REST_SORT_OPTIONS'].get(index,{}).get('controlnumber')

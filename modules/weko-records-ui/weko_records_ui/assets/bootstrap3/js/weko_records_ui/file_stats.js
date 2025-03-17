@@ -20,8 +20,8 @@ $(document).ready(function () {
                 // period
                 let ddl = document.getElementById("file_period");
                 let ddlHtml = ddl.innerHTML;
-                for (let i in data.period) {
-                    ddlHtml += '<option value=' + data.period[i] + '>' + data.period[i] + '</option>';
+                for (period of data.period) {
+                    ddlHtml += '<option value=' + period + '>' + period + '</option>';
                 }
                 ddl.innerHTML = ddlHtml;
                 // country

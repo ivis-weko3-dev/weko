@@ -367,7 +367,7 @@ class Record(RecordBase):
         return record
 
     @classmethod
-    def get_record(cls, id_, with_deleted=False):
+    def get_record(cls, id_, with_deleted=False,replace_fqdn=True):
         """Retrieve the record by id.
 
         Raise a database exception if the record does not exist.
@@ -381,7 +381,8 @@ class Record(RecordBase):
             if not with_deleted:
                 query = query.filter(cls.model_cls.is_deleted != True)  # noqa
             obj = query.one()
-            cls.__custom_record_metadata(obj.json)
+            if replace_fqdn:
+                cls.__custom_record_metadata(obj.json)
             return cls(obj.data, model=obj)
         
     @classmethod
@@ -635,25 +636,14 @@ class RevisionsIterator(object):
 
     def __getitem__(self, revision_id):
         """Get a specific revision.
-
-        Revision id is always smaller by 1 from version_id. This was initially
-        to ensure that record revisions was zero-indexed similar to arrays
-        (e.g. you could do ``record.revisions[0]``). Due to SQLAlchemy
-        increasing the version counter via Python instead of the SQL
-        insert/update query it's possible to have an "array with holes" and
-        thus having it zero-indexed does not make much sense (thus it's like
-        this for historical reasons and has not been changed because it's
-        diffcult to change - e.g. implies all indexed records in existing
-        instances having to be updated.)
         """
-        if revision_id < 0:
-            return RecordRevision(self.model.versions[revision_id])
-        try:
-            return RecordRevision(
-                self.model.versions.filter_by(version_id=revision_id + 1).one()
-            )
-        except NoResultFound:
-            raise IndexError
+        # [Temporary Fix] An error occurred in the DB retrieval process after upgrading invenio-records.  
+        # Cause: The retrieval method has become more strict, and the way WEKO was using it was incorrect.  
+        # Fix: To minimize impact, we are reverting only the DB retrieval logic to the previous version.  
+        # Note: This is a temporary solution, and a proper fix is required.  
+        # TODO: Implement the correct usage of package A according to the new specifications.
+
+        return RecordRevision(self.model.versions[revision_id])
 
     def __contains__(self, revision_id):
         """Test if revision exists."""

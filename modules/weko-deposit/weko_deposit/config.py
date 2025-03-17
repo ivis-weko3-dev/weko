@@ -223,6 +223,6 @@ PIDRELATIONS_RELATION_TYPES = [
                  'invenio_pidrelations.contrib.versioning:PIDNodeVersioning',
                  'invenio_pidrelations.serializers.schemas.RelationSchema'),
     RelationType(3, 'record_draft', 'Record Draft',
-                 'invenio_pidrelations.contrib.draft:PIDNodeDraft',
+                 'weko_deposit.draft:WekoPIDNodeDraft',
                  'invenio_pidrelations.serializers.schemas.RelationSchema'),
 ]

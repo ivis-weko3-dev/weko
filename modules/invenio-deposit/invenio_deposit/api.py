@@ -164,7 +164,8 @@ class Deposit(Record):
         resolver = Resolver(
             pid_type=pid_type, object_type='rec',
             getter=partial(self.published_record_class.get_record,
-                           with_deleted=True)
+                           with_deleted=True,
+                           replace_fqdn=False)
         )
         return resolver.resolve(pid_value)
 

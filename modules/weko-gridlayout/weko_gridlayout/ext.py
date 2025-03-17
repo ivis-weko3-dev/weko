@@ -51,3 +51,14 @@ class WekoGridLayout(object):
         for k in dir(config):
             if k.startswith('WEKO_GRIDLAYOUT_'):
                 app.config.setdefault(k, getattr(config, k))
+
+def register_error_handle(app):
+    """Register error handler."""
+    try:  # Check if handler already exists
+        current_handler = app.error_handler_spec[None][404][NotFound]
+    except (KeyError, TypeError):
+        current_handler = None
+    
+    app.register_error_handler(404, lambda error:
+                               handle_not_found(
+                                    error, current_handler=current_handler))
