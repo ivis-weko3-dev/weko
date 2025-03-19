@@ -317,7 +317,7 @@ services:
       - PGPOOL_SR_CHECK_USER=invenio
       - PGPOOL_SR_CHECK_PASSWORD=dbpass123
       - PGPOOL_ENABLE_LDAP=no
-      - PGPOOL_POSTGRES_USERNAME=postgres
+      - PGPOOL_POSTGRES_USERNAME=invenio
       - PGPOOL_POSTGRES_PASSWORD=dbpass123
       - PGPOOL_ADMIN_USERNAME=admin
       - PGPOOL_ADMIN_PASSWORD=dbpass123
