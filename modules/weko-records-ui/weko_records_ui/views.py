@@ -668,7 +668,14 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
     ctx.update({
         "display_community": display_community
     })
-
+    
+    if display_community:
+        from weko_admin.utils import get_community_pages_settings
+        lists = get_community_pages_settings()
+        ctx.update({
+            'lists': lists
+        })
+        
     current_app.logger.debug("template :{}".format(template))
 
     file_url = ''

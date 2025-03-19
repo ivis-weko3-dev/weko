@@ -2604,3 +2604,36 @@ def _elasticsearch_remake_item_index(index_name):
     current_app.logger.info(' END search engine import from records_metadata')
     
     return returnlist
+
+
+def get_community_pages_settings():
+    """get community page setting
+    """
+    current_lang = current_i18n.language \
+        if hasattr(current_i18n, 'language') else None
+    
+    settings = AdminSettings.get("community_settings")
+    
+    default_properties = current_app.config['WEKO_COMMUNITIES_DEFAULT_PROPERTIES']
+    title = default_properties['title2'] if current_lang == 'ja' else default_properties.get('title1')
+    title_en = default_properties.get('title1')
+    
+    lists = {
+        'title': title,
+        'title_en':title_en,
+        'icon_code': default_properties.get('icon_code'),
+        'supplement': default_properties.get('supplement')
+    }
+    
+    if settings:
+        if current_lang == 'ja':
+            lists['title'] = settings.title2 if settings.title2 != '' else settings.title1
+        else:
+            lists['title'] = settings.title1
+        lists['title_en'] = settings.title1
+        
+        lists['icon_code'] = settings.icon_code if settings.icon_code and settings.icon_code != '' else default_properties.get('icon_code')
+        
+        lists['supplement'] = settings.supplement if settings.supplement and settings.supplement != '' else default_properties.get('supplement')
+        
+    return lists

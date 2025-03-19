@@ -89,7 +89,12 @@ def get_weko_contents(getargs):
     ctx.update({
         "display_community": display_community
     })
-
+    if display_community:
+        from weko_admin.utils import get_community_pages_settings
+        lists = get_community_pages_settings()
+        ctx.update({
+            'lists': lists
+        })
     return dict(
         community_id=community_id,
         detail_condition=detail_condition,
