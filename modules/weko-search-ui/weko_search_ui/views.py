@@ -277,6 +277,12 @@ def search():
             .get("status", False)
         )
         ctx.update({"display_community": display_community})
+        if display_community:
+            from weko_admin.utils import get_community_pages_settings
+            lists = get_community_pages_settings()
+            ctx.update({
+                'lists': lists
+            })
 
         return render_template(
             current_app.config["SEARCH_UI_SEARCH_TEMPLATE"],
