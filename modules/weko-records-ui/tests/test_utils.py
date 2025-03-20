@@ -225,10 +225,8 @@ def test_soft_delete(app, records, users):
     indexer, results = records
     record = results[0]["record"]
     recid = results[0]["recid"]
-    with patch("weko_records_ui.utils.RequestMailList.delete") as delete_request_mail:
-        assert soft_delete(record.pid.pid_value)==None
-        assert recid.status == PIDStatus.DELETED
-        delete_request_mail.assert_called()
+    assert soft_delete(record.pid.pid_value)==None
+    assert recid.status == PIDStatus.DELETED
 
     with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
         assert soft_delete(record.pid.pid_value) == None
@@ -238,11 +236,6 @@ def test_soft_delete(app, records, users):
 
         with patch("weko_records_ui.utils.PIDVersioning", return_value=data1):
             assert soft_delete(record.pid.pid_value) == None
-
-    recid = results[0]["recid"]
-    with patch("weko_records_ui.utils.RequestMailList.delete") as delete_request_mail:
-        assert soft_delete(record.pid.pid_value)==None
-        delete_request_mail.assert_not_called()
 
 
 # def restore(recid):

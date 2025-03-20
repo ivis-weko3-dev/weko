@@ -169,8 +169,7 @@ def make_combined_pdf(pid, fileobj, obj, lang_user):
     from weko_items_ui.utils import get_options_and_order_list, get_hide_list_by_schema_form
     from weko_records.utils import selected_value_by_language
 
-    from .views import blueprint
-    file_path = blueprint.root_path + current_app.config['PDF_COVERPAGE_LANG_FILEPATH']
+    file_path = current_app.config['PDF_COVERPAGE_LANG_FILEPATH']
     file_name = current_app.config['PDF_COVERPAGE_LANG_FILENAME']
     cur_lang = current_i18n.language
     lang_file_path = file_path + cur_lang + file_name
@@ -209,12 +208,12 @@ def make_combined_pdf(pid, fileobj, obj, lang_user):
     pdf.add_font(
         'IPAexg',
         '',
-        blueprint.root_path + current_app.config["JPAEXG_TTF_FILEPATH"],
+        current_app.config["JPAEXG_TTF_FILEPATH"],
         uni=True)
     pdf.add_font(
         'IPAexm',
         '',
-        blueprint.root_path + current_app.config["JPAEXM_TTF_FILEPATH"],
+        current_app.config["JPAEXM_TTF_FILEPATH"],
         uni=True)
 
     # Parameters such as width and height of rows/columns

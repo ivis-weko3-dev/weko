@@ -20,7 +20,11 @@
 
 """Flask extension for weko-workflow."""
 
+from weko_deposit.signals import item_created
+
 from . import config
+from .sessions import upt_activity_item
+from .views import depositactivity_blueprint, workflow_blueprint
 
 
 class WekoWorkflow(object):
@@ -39,9 +43,6 @@ class WekoWorkflow(object):
 
         :param app: The Flask application.
         """
-        from weko_deposit.signals import item_created
-        from .sessions import upt_activity_item
-        from .views import depositactivity_blueprint, workflow_blueprint
         self.init_config(app)
         item_created.connect(upt_activity_item, app)
         app.register_blueprint(workflow_blueprint)

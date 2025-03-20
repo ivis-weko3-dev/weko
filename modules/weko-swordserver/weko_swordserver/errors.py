@@ -37,7 +37,6 @@ class ErrorType(Enum):
     # Addlitional ErrorType
     NotFound                        = ("NotFound",                      404, "NotFound")
     ServerError                     = ("ServerError",                   500, "InternalServerError")
-    TooManyRequests                 = ("TooManyRequests",               429, "TooManyRequests")
 
     def __init__(self, type, code, httpName):
         self.type = type
@@ -48,7 +47,6 @@ class ErrorType(Enum):
 class WekoSwordserverException(Exception):
     errorType = ErrorType.ServerError
     message = ""
-    # TODO: message for user
 
     def __init__(self, message, errorType=None, **kwargs):
         """Initialize WekoSwordserverException."""

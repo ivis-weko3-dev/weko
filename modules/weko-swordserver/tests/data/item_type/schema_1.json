@@ -1069,7 +1069,6 @@
                 "lat",
                 "msa",
                 "epo",
-                "ger",
                 "ara",
                 "ell",
                 "kor"
@@ -1088,7 +1087,6 @@
                 "lat",
                 "msa",
                 "epo",
-                "ger",
                 "ara",
                 "ell",
                 "kor"
@@ -3616,7 +3614,6 @@
                   "enum": [
                     null,
                     "abstract",
-                    "dataset",
                     "summary",
                     "fulltext",
                     "thumbnail",
@@ -3627,7 +3624,6 @@
                   "format": "select",
                   "currentEnum": [
                     "abstract",
-                    "dataset",
                     "summary",
                     "fulltext",
                     "thumbnail",
@@ -3695,7 +3691,6 @@
                     "enum": [
                       null,
                       "Accepted",
-                      "Available",
                       "Collected",
                       "Copyrighted",
                       "Created",
@@ -3709,7 +3704,6 @@
                     "format": "select",
                     "currentEnum": [
                       "Accepted",
-                      "Available",
                       "Collected",
                       "Copyrighted",
                       "Created",

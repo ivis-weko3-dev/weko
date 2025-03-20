@@ -498,7 +498,7 @@ function CustomAggregations({aggregations, setAggregations, mappingList}) {
                     onChange={e => setAggMapping(e.target.value)}>
               {
                 mappingList.map((item) =>
-                  <option key={item} value={item} >{item}</option>)
+                  <option key={item[1]} value={item[1]} >{item[1]}</option>)
               }
             </select>
           </div>

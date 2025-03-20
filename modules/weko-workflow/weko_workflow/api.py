@@ -37,14 +37,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
 from weko_deposit.api import WekoDeposit
 from weko_records.serializers.utils import get_item_type_name
-from weko_records.api import RequestMailList
 from weko_schema_ui.models import PublishStatus
 from weko_index_tree.api import Indexes
 
 from .config import IDENTIFIER_GRANT_LIST, IDENTIFIER_GRANT_SUFFIX_METHOD, \
     WEKO_WORKFLOW_ALL_TAB, WEKO_WORKFLOW_TODO_TAB, WEKO_WORKFLOW_WAIT_TAB
 from .models import Action as _Action
-from .models import ActionCommentPolicy, ActionFeedbackMail, ActivityRequestMail,\
+from .models import ActionCommentPolicy, ActionFeedbackMail, \
     ActionIdentifier, ActionJournal, ActionStatusPolicy
 from .models import Activity as _Activity
 from .models import ActivityAction, ActivityHistory, ActivityStatusPolicy
@@ -357,11 +356,11 @@ class Flow(object):
                 flow_id=flow_id,
                 action_id=action_id).all()
             return flow_action
-
+    
     def get_flow_action_list(self, flow_define_id :int) -> List[_FlowAction]:
-        """ get workflow_flow_action from workflow_workflow.flow_id
+        """ get workflow_flow_action from workflow_workflow.flow_id 
             Args:
-                flow_define_id : int  workflow_workflow.flow_id
+                flow_define_id : int  workflow_workflow.flow_id 
             Eeturns:
                 record list of workflow_flow_action
         """
@@ -428,16 +427,6 @@ class WorkFlow(object):
         with db.session.no_autoflush:
             query = _WorkFlow.query.filter_by(
                 is_deleted=False).order_by(asc(_WorkFlow.flows_id))
-            return query.all()
-        
-    def get_deleted_workflow_list(self):
-        """Get workflow list info.
-
-        :return:
-        """
-        with db.session.no_autoflush:
-            query = _WorkFlow.query.filter_by(
-                is_deleted=True).order_by(asc(_WorkFlow.flows_id))
             return query.all()
 
     def get_workflow_detail(self, workflow_id):
@@ -714,20 +703,20 @@ class WorkActivity(object):
                                 get_item_type_name(activity.get('itemtype_id'))
                             if item_type_name in application_item_types:
                                 action_has_term_of_use = True
-            extra_info = {}
+            extra_info = dict()
             # Get extra info
-            if 'extra_info' in activity:
+            if activity.get('extra_info'):
                 extra_info = activity["extra_info"]
             # Get related title.
-            if 'related_title' in activity:
+            if activity.get('related_title'):
                 extra_info["related_title"] = urllib.parse.unquote(
                     activity["related_title"])
             # Get confirm term of use.
             if activity.get('activity_confirm_term_of_use') is True:
                 activity_confirm_term_of_use = True
             else:
-                activity_confirm_term_of_use = (
-                    False if action_has_term_of_use else True)
+                activity_confirm_term_of_use = False if\
+                    action_has_term_of_use else True
 
             # Get created user
             if activity.get("activity_login_user") is not None:
@@ -759,7 +748,7 @@ class WorkActivity(object):
             db.session.add(db_activity)
             db.session.commit()
         except BaseException as ex:
-            raise
+            raise ex
         else:
             try:
                 # Update the activity with calculated activity_id
@@ -804,7 +793,7 @@ class WorkActivity(object):
                         db.session.add(db_activity_action)
 
             except BaseException as ex:
-                raise
+                raise ex
             else:
                 return db_activity
 
@@ -822,9 +811,9 @@ class WorkActivity(object):
 
             # Calculate activity_id based on id
             utc_now = datetime.utcnow()
-            current_date = utc_now.strftime("%Y-%m-%d")
+            current_date = utc_now.strftime("%Y-%m-%d")       
             today_count = ActivityCount.query.filter_by(date=current_date).one_or_none()
-            # Cannot use '.with_for_update()'. FOR UPDATE is not allowed
+            # Cannot use '.with_for_update()'. FOR UPDATE is not allowed 
             # with aggregate functions
 
             if today_count:
@@ -833,7 +822,7 @@ class WorkActivity(object):
                 if number > current_app.config['WEKO_WORKFLOW_MAX_ACTIVITY_ID']:
                     raise IndexError('The number is out of range \
                         (maximum is {}, current is {}'.format(current_app.config['WEKO_WORKFLOW_MAX_ACTIVITY_ID'],number))
-                today_count.activity_count = number
+                today_count.activity_count = number          
             else:
                 # The default activity Id of the current day
                 _activty_count = ActivityCount(date=current_date, activity_count=number)
@@ -845,7 +834,7 @@ class WorkActivity(object):
         except SQLAlchemyError as ex:
             raise ex
         except IndexError as ex:
-            raise ex
+            raise ex          
 
         # Activity Id's format
         activity_id_format = current_app.\
@@ -1111,39 +1100,6 @@ class WorkActivity(object):
             db.session.rollback()
             current_app.logger.exception(str(ex))
 
-
-    def create_or_update_activity_request_mail(self,
-                                             activity_id,
-                                             request_maillist,
-                                             is_display_request_button):
-        """Create or update action ActivityRequestMail's model.
-
-        :param activity_id: activity identifier
-        :param request_maillist: list of request mail in json format
-        :param is_display_request_button: whether display request button on the item detail page.
-        :return:
-        """
-        try:
-            with db.session.begin_nested():
-                activity_request_mail = ActivityRequestMail.query.filter_by(
-                    activity_id=activity_id).one_or_none()
-                if activity_request_mail:
-                    activity_request_mail.request_maillist = request_maillist
-                    activity_request_mail.display_request_button = is_display_request_button
-                    db.session.merge(activity_request_mail)
-                else:
-                    activity_request_mail = ActivityRequestMail(
-                        activity_id=activity_id,
-                        display_request_button=is_display_request_button,
-                        request_maillist=request_maillist
-                    )
-                    db.session.add(activity_request_mail)
-            db.session.commit()
-        except SQLAlchemyError as ex:
-            db.session.rollback()
-            current_app.logger.exception(str(ex))
-
-
     def get_action_journal(self, activity_id, action_id):
         """Get action journal info.
 
@@ -1200,17 +1156,6 @@ class WorkActivity(object):
             action_feedbackmail = ActionFeedbackMail.query.filter_by(
                 activity_id=activity_id).one_or_none()
             return action_feedbackmail
-
-    def get_activity_request_mail(self, activity_id):
-        """Get ActivityRequestMail object from model base on activity's id.
-
-        :param activity_id: acitivity identifier
-        :return:    object's model or none
-        """
-        with db.session.no_autoflush:
-            activity_request_mail = ActivityRequestMail.query.filter_by(
-                activity_id=activity_id).one_or_none()
-            return activity_request_mail
 
     def get_activity_action_status(self, activity_id, action_id, action_order):
         """Get activity action status."""
@@ -1566,13 +1511,13 @@ class WorkActivity(object):
                         ),
                         and_(
                             _Activity.shared_user_id == self_user_id,
-                            _FlowActionRole.action_user
+                            _FlowActionRole.action_user 
                             != _Activity.activity_login_user,
                             _FlowActionRole.action_user_exclude == '0'
                         ),
                         and_(
                             _Activity.shared_user_id == self_user_id,
-                            ActivityAction.action_handler
+                            ActivityAction.action_handler 
                             != _Activity.activity_login_user
                         ),
                     )
@@ -1638,7 +1583,7 @@ class WorkActivity(object):
 
         Returns:
             _type_: _description_
-        """
+        """        
         is_admin = False
         is_community_admin = False
         # Super admin roles
@@ -1771,7 +1716,7 @@ class WorkActivity(object):
                     )
                 )
         return common_query
-
+    
     @staticmethod
     def _check_community_permission(activity_data, index_ids):
         flag = False

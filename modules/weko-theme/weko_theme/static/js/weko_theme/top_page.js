@@ -175,7 +175,7 @@ require([
                 key_sort = "-" + key_sort;
             }
 
-            if (!search.includes("sort")) {
+            if (!window.location.search.includes(key_sort)) {
                 search = insertParam(search, "sort", key_sort);
             }
 

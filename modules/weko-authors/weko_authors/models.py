@@ -121,12 +121,11 @@ class Authors(db.Model, Timestamp):
 
         """
         try:
-            with db.session.begin_nested():
-                author = cls.query.filter_by(id=author_id).one_or_none()
-                if not author:
-                    return None
-                json_data = author.json
-                return json_data
+            author = cls.query.filter_by(id=author_id).one_or_none()
+            if not author:
+                return None
+            json_data = author.json
+            return json_data
         except Exception:
             return None
 
