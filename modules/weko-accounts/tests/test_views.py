@@ -84,7 +84,7 @@ def test_shib_auto_login(client,redis_connect,mocker):
     mocker.patch("weko_accounts.views.RedisConnection.connection",return_value=redis_connect)
     # not exist cache
     mock_redirect_ = mocker.patch("weko_accounts.views._redirect_method",return_value=make_response())
-    client.get(url+"?SHIB_ATTR_SESSION_ID=2222")
+    client.get(url+"?Shib-Session-ID=2222")
     mock_redirect_.assert_called_once()
     
     
@@ -92,7 +92,7 @@ def test_shib_auto_login(client,redis_connect,mocker):
     redis_connect.put("Shib-Session-1111",bytes("","utf-8"))
     # not cache_val
     mock_redirect_ = mocker.patch("weko_accounts.views._redirect_method",return_value=make_response())
-    client.get(url+"?SHIB_ATTR_SESSION_ID=1111")
+    client.get(url+"?Shib-Session-ID=1111")
     mock_redirect_.assert_called_once()
     assert redis_connect.redis.exists("Shib-Session-1111") == False
     
@@ -104,7 +104,7 @@ def test_shib_auto_login(client,redis_connect,mocker):
     # is_auto_bind is false, check_in is error
     mock_redirect_ = mocker.patch("weko_accounts.views._redirect_method",return_value=make_response())
     with patch("weko_accounts.views.ShibUser.check_in",return_value="test_error"):
-        client.get(url+"?SHIB_ATTR_SESSION_ID=1111")
+        client.get(url+"?Shib-Session-ID=1111")
         mock_get_relation.assert_called_once()
         mock_redirect_.assert_called_once()
         assert redis_connect.redis.exists("Shib-Session-1111") == False
@@ -135,7 +135,7 @@ def test_shib_auto_login(client,redis_connect,mocker):
             assert redis_connect.redis.exists("Shib-Session-1111") == False
     # raise BaseException
     with patch("weko_accounts.views.RedisConnection",side_effect=BaseException("test_error")):
-        res = client.get(url+"?SHIB_ATTR_SESSION_ID=1111")
+        res = client.get(url+"?Shib-Session-ID=1111")
         assert res.status_code == 400
 #def confirm_user():
 # .tox/c1/bin/pytest --cov=weko_accounts tests/test_views.py::test_confirm_user -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
@@ -230,16 +230,16 @@ def test_shib_login(client,redis_connect,users,mocker):
     # not shib_session_id
     mock_flash = mocker.patch("weko_accounts.views.flash")
     client.get(url_base)
-    mock_flash.assert_called_with("Missing SHIB_ATTR_SESSION_ID!",category="error")
+    mock_flash.assert_called_with("Missing Shib-Session-ID!",category="error")
     
-    url = url_base+"?SHIB_ATTR_SESSION_ID=2222"
+    url = url_base+"?Shib-Session-ID=2222"
     
     # not exist cache_key
     mock_flash = mocker.patch("weko_accounts.views.flash")
     client.get(url)
     mock_flash.assert_called_with("Missing SHIB_CACHE_PREFIX!",category="error")
     
-    url = url_base+"?SHIB_ATTR_SESSION_ID=1111"
+    url = url_base+"?Shib-Session-ID=1111"
     # not cache_val
     redis_connect.put("Shib-Session-1111",bytes('',"utf-8"))
     mock_flash = mocker.patch("weko_accounts.views.flash")
@@ -275,14 +275,14 @@ def test_shib_sp_login(client, redis_connect,mocker, db, users):
     with patch("weko_accounts.views.redirect",return_value=make_response()) as mock_redirect:
         mock_flash = mocker.patch("weko_accounts.views.flash")
         client.post(url,data={})
-        mock_flash.assert_called_with("Missing SHIB_ATTR_SESSION_ID!",category="error")
+        mock_flash.assert_called_with("Missing Shib-Session-ID!",category="error")
         mock_redirect.assert_called_with(url_for("security.login"))
     
     current_app.config.update(
         WEKO_ACCOUNTS_SHIB_LOGIN_ENABLED=True
     )
     form = {
-        "SHIB_ATTR_SESSION_ID":"1111"
+        "SShib-Session-ID":"1111"
     }
     
     # parse_attribute is error
@@ -292,7 +292,7 @@ def test_shib_sp_login(client, redis_connect,mocker, db, users):
         mock_flash.assert_called_with("Missing SHIB_ATTRs!",category="error")
         
     form = {
-        "SHIB_ATTR_SESSION_ID":"1111",
+        "Shib-Session-ID":"1111",
         "SHIB_ATTR_EPPN":"test_eppn"
     }
 
@@ -324,13 +324,13 @@ def test_shib_sp_login(client, redis_connect,mocker, db, users):
         and patch("weko_accounts.views.redirect",return_value=make_response()):
         res = client.post(url,data=form)
         assert res.status_code == 200
-        #assert res.url == "/weko/shib/login?SHIB_ATTR_SESSION_ID=1111&_method=GET"
+        #assert res.url == "/weko/shib/login?Shib-Session-ID=1111&_method=GET"
     # shib_user.get_relation_info is not None
     with patch("weko_accounts.views.ShibUser.get_relation_info",return_value="chib_user")\
         and patch("weko_accounts.views.redirect",return_value=make_response()):
         res = client.post(url,data=form)
         assert res.status_code == 200
-        #assert res == "/weko/auto/login?SHIB_ATTR_SESSION_ID=1111&_method=GET"
+        #assert res == "/weko/auto/login?Shib-Session-ID=1111&_method=GET"
     
     # raise BaseException
     with patch("weko_accounts.views.flash",side_effect=BaseException("test_error"))\
@@ -350,14 +350,13 @@ def test_shib_sp_login(client, redis_connect,mocker, db, users):
     form = {
         'eppn': 'test_eppn',
         'mail': 'testuser@example.org',
-        # 'Shib-Session-ID': 'session',
-        'SHIB_ATTR_SESSION_ID': 'session',
+        'Shib-Session-ID': 'session',
         'HTTP_WEKOID': headers['HTTP_WEKOID'],
         'HTTP_WEKOSOCIETYAFFILIATION': headers['HTTP_WEKOSOCIETYAFFILIATION']
     }
     res = client.post(url, data=form, headers=headers)
     assert res.status_code == 200
-    assert res.data.decode('utf-8') == '/weko/shib/login?SHIB_ATTR_SESSION_ID=session&next=%2F'
+    assert res.data.decode('utf-8') == '/weko/shib/login?Shib-Session-ID=session&next=%2F'
     with db.session.begin_nested():
         shib_users = ShibbolethUser.query.all()
         assert len(shib_users) == 0
@@ -369,7 +368,7 @@ def test_shib_sp_login(client, redis_connect,mocker, db, users):
         db.session.add(insert_shib_user)
     res = client.post(url, data=form, headers=headers)
     assert res.status_code == 200
-    assert res.data.decode('utf-8') == '/weko/auto/login?SHIB_ATTR_SESSION_ID=session&next=%2F'
+    assert res.data.decode('utf-8') == '/weko/auto/login?Shib-Session-ID=session&next=%2F'
     result_shib_user = ShibbolethUser.query.filter_by(shib_eppn='test_eppn').first()
     assert result_shib_user.shib_mail == form['mail']
     assert result_shib_user.shib_user_name == headers['HTTP_WEKOID']
@@ -385,14 +384,13 @@ def test_shib_sp_login(client, redis_connect,mocker, db, users):
     form = {
         'eppn': 'test_eppn',
         'mail': 'testuser@example.org',
-        # 'Shib-Session-ID': 'session',
-        'SHIB_ATTR_SESSION_ID': 'session',
+        'Shib-Session-ID': 'session',
         'HTTP_WEKOID': headers['HTTP_WEKOID'],
         'HTTP_WEKOSOCIETYAFFILIATION': headers['HTTP_WEKOSOCIETYAFFILIATION']
     }
     res = client.post(url, data=form, headers=headers)
     assert res.status_code == 200
-    assert res.data.decode('utf-8') == '/weko/shib/login?SHIB_ATTR_SESSION_ID=session&next=%2F'
+    assert res.data.decode('utf-8') == '/weko/shib/login?Shib-Session-ID=session&next=%2F'
 
     # WEKO_ACCOUNTS_SHIB_ALLOW_USERNAME_INST_EPPN is False
     current_app.config.update(
@@ -405,14 +403,13 @@ def test_shib_sp_login(client, redis_connect,mocker, db, users):
     form = {
         'eppn': 'test_eppn',
         'mail': 'testuser@example.org',
-        # 'Shib-Session-ID': 'session',
-        'SHIB_ATTR_SESSION_ID': 'session',
+        'Shib-Session-ID': 'session',
         'HTTP_WEKOID': headers['HTTP_WEKOID'],
         'HTTP_WEKOSOCIETYAFFILIATION': headers['HTTP_WEKOSOCIETYAFFILIATION']
     }
     res = client.post(url, data=form, headers=headers)
     assert res.status_code == 200
-    assert res.data.decode('utf-8') == '/weko/shib/login?SHIB_ATTR_SESSION_ID=session&next=%2F'
+    assert res.data.decode('utf-8') == '/weko/shib/login?Shib-Session-ID=session&next=%2F'
 
     # eppn has no value
     current_app.config.update(
@@ -421,14 +418,13 @@ def test_shib_sp_login(client, redis_connect,mocker, db, users):
     form = {
         'eppn': '',
         'mail': 'testuser@example.org',
-        # 'Shib-Session-ID': 'session'
-        'SHIB_ATTR_SESSION_ID': 'session',
+        'Shib-Session-ID': 'session',
         'HTTP_WEKOID': headers['HTTP_WEKOID'],
         'HTTP_WEKOSOCIETYAFFILIATION': headers['HTTP_WEKOSOCIETYAFFILIATION']
     }
     res = client.post(url, data=form, headers=headers)
     assert res.status_code == 200
-    assert res.data.decode('utf-8') == '/weko/shib/login?SHIB_ATTR_SESSION_ID=session&next=%2F'
+    assert res.data.decode('utf-8') == '/weko/shib/login?Shib-Session-ID=session&next=%2F'
 
     # HTTP_WEKOID and eppn have no value
     headers = {
@@ -438,8 +434,7 @@ def test_shib_sp_login(client, redis_connect,mocker, db, users):
     form = {
         'eppn': '',
         'mail': 'testuser@example.org',
-        # 'Shib-Session-ID': 'session',
-        'SHIB_ATTR_SESSION_ID': 'session',
+        'Shib-Session-ID': 'session',
         'HTTP_WEKOID': headers['HTTP_WEKOID'],
         'HTTP_WEKOSOCIETYAFFILIATION': headers['HTTP_WEKOSOCIETYAFFILIATION']
     }
@@ -458,8 +453,7 @@ def test_shib_sp_login(client, redis_connect,mocker, db, users):
     form = {
         'eppn': '',
         'mail': 'testuser@example.org',
-        # 'Shib-Session-ID': 'session'
-        'SHIB_ATTR_SESSION_ID': 'session',
+        'Shib-Session-ID': 'session',
         'HTTP_WEKOID': headers['HTTP_WEKOID'],
         'HTTP_WEKOSOCIETYAFFILIATION': headers['HTTP_WEKOSOCIETYAFFILIATION']
     }
@@ -482,14 +476,13 @@ def test_shib_sp_login(client, redis_connect,mocker, db, users):
     form = {
         'eppn': 'test_eppn',
         'mail': 'testuser@example.org',
-        # 'Shib-Session-ID': 'session'
-        'SHIB_ATTR_SESSION_ID': 'session',
+        'Shib-Session-ID': 'session',
         'HTTP_WEKOID': headers['HTTP_WEKOID'],
         'HTTP_WEKOSOCIETYAFFILIATION': headers['HTTP_WEKOSOCIETYAFFILIATION']
     }
     res = client.post(url, data=form, headers=headers)
     assert res.status_code == 200
-    assert res.data.decode('utf-8') == '/weko/shib/login?SHIB_ATTR_SESSION_ID=session&next=%2F'
+    assert res.data.decode('utf-8') == '/weko/shib/login?Shib-Session-ID=session&next=%2F'
 
     # Shib-Session-ID has no value
     current_app.config.update(
@@ -498,14 +491,13 @@ def test_shib_sp_login(client, redis_connect,mocker, db, users):
     form = {
         'eppn': 'test_eppn',
         'mail': 'testuser@example.com',
-        # 'Shib-Session-ID': ''
-        'SHIB_ATTR_SESSION_ID': '',
+        'Shib-Session-ID': '',
         'HTTP_WEKOID': headers['HTTP_WEKOID'],
         'HTTP_WEKOSOCIETYAFFILIATION': headers['HTTP_WEKOSOCIETYAFFILIATION']
     }
     res = client.post(url, data=form, headers=headers)
     assert res.status_code == 200
-    assert res.data.decode('utf-8') == '/weko/shib/login?SHIB_ATTR_SESSION_ID=&next=%2F'
+    assert res.data.decode('utf-8') == '/weko/shib/login?Shib-Session-ID=&next=%2F'
 
     # WEKO_ACCOUNTS_SHIB_LOGIN_ENABLED is False and Shib-Session-ID has no value
     current_app.config.update(
