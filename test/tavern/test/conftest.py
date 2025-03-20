@@ -1,9 +1,11 @@
 from box import Box
 from bs4 import BeautifulSoup
+import json
 import os
 import psycopg2
 import pytest
 from requests import session
+import subprocess
 import yaml
 
 from helper.config import DATABASE, USERS
@@ -163,7 +165,7 @@ def prepare_records():
         conn.close()
 
 def delete_item_documents():
-    """ Delete all documents from item index in Elasticsearch
+    """ Delete all documents from item index in OpenSearch
     
     Args:
         None
@@ -175,11 +177,25 @@ def delete_item_documents():
     prefix = os.environ.get('SEARCH_INDEX_PREFIX', 'tenant1')
     index = prefix + '-weko-item-v1.0.0'
     query = {'query': {'match_all': {}}}
-    with session() as s:
-        url = conf['variables']['host']
-        # Delete all documents from item index in Elasticsearch
-        s.post(url.replace('https', 'http') + ':29201/' + index + '/_delete_by_query', json=query)
     
+    url = conf['variables']['host']
+    user = 'admin:{}'.format(os.environ.get('OPENSEARCH_INITIAL_ADMIN_PASSWORD'))
+    # Delete all documents from item index in OpenSearch
+    result = subprocess.run([
+        'curl',
+        '-XPOST',
+        url + ':29201/' + index + '/_delete_by_query',
+        '-H',
+        '{Content-Type: application/json}',
+        '-d',
+        json.dumps(query),
+        '-ku',
+        user
+    ])
+    if result.returncode != 0:
+        print('Failed to delete all documents from item index in OpenSearch')
+        print('stderr: ', result.stderr)
+        raise Exception('Failed to delete all documents from item index in OpenSearch')    
 
 def pytest_tavern_beta_before_every_test_run(test_dict, variables):
     """ Run before every test
@@ -194,7 +210,7 @@ def pytest_tavern_beta_before_every_test_run(test_dict, variables):
     # Prepare records
     prepare_records()
 
-    # Delete all documents from item index in Elasticsearch
+    # Delete all documents from item index in OpenSearch
     delete_item_documents()
 
     # Set cookie and csrf_token

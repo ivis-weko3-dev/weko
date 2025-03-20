@@ -110,7 +110,7 @@ def response_verify_records_with_file(response, folder_path, activity_id, file_m
             version_id = cur.fetchone()[0]
             new_url = new_url.replace('2000001', '2000001.1')
             file_metadata_list[0]['version_id'] = version_id
-            file_metadata_list[0]['mimetype'] = file_metadata_list[0]['format']
+        file_metadata_list[0]['mimetype'] = file_metadata_list[0]['format']
         file_metadata_list[0]['url']['url'] = new_url
         return json.dumps(file_metadata_list)
 

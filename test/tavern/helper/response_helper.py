@@ -177,7 +177,7 @@ def response_save_file_upload_info(response, file_key, item_id):
             file_metadata[key] = {'url': url} 
         elif key == 'date':
             created_str = file_upload_info['created']
-            created = datetime.strptime(created_str, '%Y-%m-%dT%H:%M:%S.%f%z').date()
+            created = datetime.strptime(created_str, '%Y-%m-%dT%H:%M:%S.%f').date()
             file_metadata[key] = [{'dateType': 'Available', 'dateValue': created.strftime('%Y-%m-%d')}]
         elif key == 'format':
             file_metadata[key] = file_upload_info['mimetype']

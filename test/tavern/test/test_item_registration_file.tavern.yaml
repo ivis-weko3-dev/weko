@@ -75,7 +75,7 @@ stages:
         $ext:
           function: helper.request_helper:request_create_deposits_items_param
     response:
-      status_code: 200
+      status_code: 201
       save:
         $ext:
           function: helper.response_helper:response_save_url

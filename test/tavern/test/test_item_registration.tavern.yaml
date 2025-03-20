@@ -125,7 +125,7 @@ stages:
           extra_kwargs:
             data: "{register_data}"
     response:
-      status_code: 200
+      status_code: 201
       # TODO: レスポンスのチェックを行う
       # verify_response_with:
       #   function: helper.verify_helper:example_method
@@ -285,7 +285,7 @@ stages:
       status_code: 302
       headers:
         Content-Type: "text/html; charset=utf-8"
-        Location: "{host}/login/?next=%2Fworkflow%2Factivity%2Finit"
+        Location: "/login/?next=%2Fworkflow%2Factivity%2Finit"
 
 ---
 test_name: アイテム登録_必須項目未入力
