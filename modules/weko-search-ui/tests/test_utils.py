@@ -1,24 +1,38 @@
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 
 import copy
+from io import StringIO
 import json
 import os
+import re
+import time
 import unittest
 from datetime import datetime
 import uuid
+import zipfile
+from elasticsearch import NotFoundError
 
 import pytest
 from flask import current_app, make_response, request
 from flask_babelex import Babel
 from flask_login import current_user
+from sqlalchemy import func as _func
+from sqlalchemy.exc import SQLAlchemyError
+from invenio_files_rest.models import FileInstance
 from invenio_i18n.babel import set_locale
 from invenio_records.api import Record
-from mock import MagicMock, Mock, patch
-from invenio_pidstore.models import PersistentIdentifier, PIDStatus
+from invenio_records.models import RecordMetadata
+from mock import MagicMock, Mock, patch, mock_open
+from invenio_pidstore.models import PersistentIdentifier, PIDStatus, Redirect
+from invenio_db import db as iv_db
 from invenio_pidrelations.models import PIDRelation
+from tests.test_rest import DummySearchResult
 from weko_admin.config import WEKO_ADMIN_MANAGEMENT_OPTIONS
-from weko_deposit.api import WekoDeposit, WekoIndexer
+from weko_deposit.api import WekoDeposit, WekoIndexer, WekoRecord as d_wekorecord
+from weko_authors.models import AuthorsPrefixSettings, AuthorsAffiliationSettings
 from weko_records.api import ItemsMetadata, WekoRecord
+from weko_records.models import ItemMetadata
+from weko_records.models import ItemType
 
 from weko_search_ui import WekoSearchUI
 from weko_search_ui.config import (
@@ -32,7 +46,8 @@ from weko_search_ui.config import (
 from weko_search_ui.utils import (
     DefaultOrderedDict,
     cancel_export_all,
-    check_import_items,
+    check_tsv_import_items,
+    check_xml_import_items,
     check_index_access_permissions,
     check_permission,
     check_sub_item_is_system,
@@ -46,6 +61,8 @@ from weko_search_ui.utils import (
     delete_exported,
     delete_records,
     export_all,
+    get_retry_info,
+    generate_metadata_from_jpcoar,
     get_change_identifier_mode_content,
     get_content_workflow,
     get_current_language,
@@ -68,6 +85,7 @@ from weko_search_ui.utils import (
     get_tree_items,
     getEncode,
     handle_check_and_prepare_feedback_mail,
+    handle_check_and_prepare_request_mail,
     handle_check_and_prepare_index_tree,
     handle_check_and_prepare_publish_status,
     handle_check_cnri,
@@ -87,6 +105,8 @@ from weko_search_ui.utils import (
     handle_check_metadata_not_existed,
     handle_check_thumbnail,
     handle_check_thumbnail_file_type,
+    handle_check_authors_prefix,
+    handle_check_authors_affiliation,
     handle_convert_validate_msg_to_jp,
     handle_doi_required_check,
     handle_fill_system_item,
@@ -104,6 +124,7 @@ from weko_search_ui.utils import (
     parse_to_json_form,
     prepare_doi_link,
     prepare_doi_setting,
+    read_jpcoar_xml_file,
     read_stats_file,
     register_item_doi,
     register_item_handle,
@@ -117,8 +138,13 @@ from weko_search_ui.utils import (
     update_publish_status,
     validation_date_property,
     validation_file_open_date,
+    write_files,
     combine_aggs
+    result_download_ui,
+    search_results_to_tsv,
+    create_tsv_row,
 )
+from werkzeug.exceptions import NotFound
 
 FIXTURE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data")
 
@@ -174,6 +200,14 @@ class MockSearchPerm:
     
     def can(self):
         return True
+    
+def clear_test_data():
+    Redirect.query.delete()
+    iv_db.session.commit()
+    
+    PersistentIdentifier.query.delete()
+    iv_db.session.commit()
+
 # def get_tree_items(index_tree_id): ERROR ~ AttributeError: '_AppCtxGlobals' object has no attribute 'identity'
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_get_tree_items -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_get_tree_items(i18n_app, indices, users, mocker):
@@ -312,13 +346,216 @@ def test_parse_to_json_form(i18n_app, record_with_metadata):
     assert parse_to_json_form(data)
 
 
-# def check_import_items(file, is_change_identifier: bool, is_gakuninrdm=False,
-def test_check_import_items(i18n_app):
+# def check_tsv_import_items(file, is_change_identifier: bool, is_gakuninrdm=False,
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_check_tsv_import_items -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_check_tsv_import_items(i18n_app):
     current_path = os.path.dirname(os.path.abspath(__file__))
     file_name = "sample_file.zip"
     file_path = os.path.join(current_path, "data", "sample_file", file_name)
 
-    assert check_import_items(file_path, True)
+    ret = check_tsv_import_items(file_path, True)
+    prefix = current_app.config["WEKO_SEARCH_UI_IMPORT_TMP_PREFIX"]
+    assert ret
+    assert ret["data_path"].startswith(f'/tmp/{prefix}')
+
+    # test case is_gakuninrdm = True
+    ret = check_tsv_import_items(file_path, True, True)
+    assert ret["data_path"].startswith('/tmp/deposit_activity_')
+
+    # current_pathがdict
+    class TestFile(object):
+        @property
+        def filename(self):
+            return 'test_file.txt'
+        
+    file = TestFile()
+    assert check_tsv_import_items(file, True, True)
+
+    time.sleep(1)
+    file_name = "sample_file.zip"
+    file_path = os.path.join(current_path, "data", "sample_file", file_name)
+    prefix = current_app.config["WEKO_SEARCH_UI_IMPORT_TMP_PREFIX"]
+
+    with patch("weko_search_ui.utils.chardet.detect", return_value = {'encoding': 'cp932'}):
+        ret = check_tsv_import_items(file_path, True)
+        assert ret
+
+    time.sleep(1)
+    with patch("weko_search_ui.utils.chardet.detect", return_value = {'encoding': 'cp437'}):
+        ret = check_tsv_import_items(file_path, True)
+        assert ret
+
+        time.sleep(1)
+        with patch("weko_search_ui.utils.os") as o:
+            type(o).sep = "_"
+            ret = check_tsv_import_items(file_path, True)
+            assert ret
+
+
+@pytest.mark.parametrize('order_if', [1,2,3,4,5,6,7,8,9])
+#def check_tsv_import_items(file, is_change_identifier: bool, is_gakuninrdm=False):
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_check_tsv_import_items2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_check_tsv_import_items2(app,test_importdata,mocker,db, order_if):
+    app.config['WEKO_SEARCH_UI_IMPORT_TMP_PREFIX'] = 'importtest'
+    filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "item_map.json")
+    print(filepath)
+    with open(filepath,encoding="utf-8") as f:
+        item_map = json.load(f)
+
+    mocker.patch("weko_records.serializers.utils.get_mapping",return_value=item_map)
+    with app.test_request_context():
+        with set_locale('en'):
+            mocker.patch("weko_search_ui.utils.unpackage_import_file", return_value={"item_type_id":1})
+            mocker.patch("weko_search_ui.utils.handle_check_exist_record", return_value={"item_type_id":1})
+            mocker.patch("weko_search_ui.utils.handle_item_title")
+            mocker.patch("weko_search_ui.utils.handle_check_date", return_value={"item_type_id":1})
+            mocker.patch("weko_search_ui.utils.handle_check_id")
+            mocker.patch("weko_search_ui.utils.handle_check_and_prepare_index_tree")
+            mocker.patch("weko_search_ui.utils.handle_check_and_prepare_publish_status")
+            mocker.patch("weko_search_ui.utils.handle_check_and_prepare_feedback_mail")
+            check_request_mail = mocker.patch("weko_search_ui.utils.handle_check_and_prepare_request_mail")
+            mocker.patch("weko_search_ui.utils.handle_check_file_metadata")
+            mocker.patch("weko_search_ui.utils.handle_check_cnri")
+            mocker.patch("weko_search_ui.utils.handle_check_doi_indexes")
+            mocker.patch("weko_search_ui.utils.handle_check_doi_ra")
+            mocker.patch("weko_search_ui.utils.handle_check_doi")
+
+            for file in test_importdata:
+
+                # for exception
+                if order_if == 1:
+                    with patch("weko_search_ui.utils.zipfile.ZipFile.infolist",return_value=[1,2]):
+                        ret = check_tsv_import_items(file, False, False)
+
+                # for badzipfile exception
+                if order_if == 2:
+                    with patch("weko_search_ui.utils.zipfile.ZipFile",side_effect=zipfile.BadZipFile):
+                        ret = check_tsv_import_items(file, False, False)
+                        assert ret["error"] == 'The format of the specified file import00.zip does not support import. Please specify one of the following formats: zip, tar, gztar, bztar, xztar.'
+                
+                # for FileNotFoundError
+                if order_if == 3:
+                    with patch("weko_search_ui.utils.list",return_value=None):
+                        ret = check_tsv_import_items(file, False, False)
+                        assert ret["error"]=='The csv/tsv file was not found in the specified file import00.zip. Check if the directory structure is correct.'
+                
+                # for UnicodeDecodeError
+                if order_if == 4:
+                    with patch("weko_search_ui.utils.zipfile.ZipFile",side_effect=UnicodeDecodeError("uni", b'\xe3\x81\xad\xe3\x81\x93',2,4,"cp932 cant decode")):
+                        ret = check_tsv_import_items(file, False, False)
+
+                # for error is ex.args
+                if order_if == 5:
+                    with patch("weko_search_ui.utils.zipfile.ZipFile",side_effect=Exception({"error_msg":"エラーメッセージ"})):
+                        ret = check_tsv_import_items(file, False, False)
+
+                # for tsv
+                if order_if == 6:
+                    with patch("weko_search_ui.utils.list",return_value=['items.tsv']):
+                        check_tsv_import_items(file,False,False)==''
+                        check_request_mail.assert_called()
+                
+                # for gakuninrdm is False
+                if order_if == 7:
+                    check_tsv_import_items(file,False,False)==''
+                    check_request_mail.assert_called()
+                    
+                # for gakuninrdm is True
+                if order_if == 8:
+                    check_tsv_import_items(file,False,True)==''
+                    check_request_mail.assert_called()
+
+                # for os.sep is not "/"
+                if order_if == 9:
+                    with patch("weko_search_ui.utils.os") as o:
+                        with patch("weko_search_ui.utils.zipfile.ZipFile.infolist", return_value = [zipfile.ZipInfo(filename = filepath.replace("/","\\"))]):
+                            type(o).sep = "\\"
+                            check_tsv_import_items(file,False,False)
+
+
+# def check_xml_import_items(file, item_type_id, is_gakuninrdm=False)
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_check_xml_import_items -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_check_xml_import_items(i18n_app, db_itemtype_jpcoar):
+    file_name = "sample_file_jpcoar_xml.zip"
+    file_path = os.path.join('tests', "data", "jpcoar", "v2", file_name)
+
+    item_type = db_itemtype_jpcoar["item_type_multiple"]
+
+    # Case01: Call with file path as argument
+    with i18n_app.test_request_context():
+        result = check_xml_import_items(file_path, item_type.id)
+        assert re.fullmatch(r'^/tmp/weko_import_\d{14}', result['data_path']) is not None
+        assert 'error' not in result
+        assert 'list_record' in result
+
+    # Case02: Call with if is_gakuninrdm = True
+    with i18n_app.test_request_context():
+        result = check_xml_import_items(file_path, item_type.id, is_gakuninrdm=True)
+        assert re.fullmatch(r'^/tmp/deposit_activity_\d{14}', result['data_path']) is not None
+        assert 'error' not in result
+        assert 'list_record' in result
+
+    # Case03: zip files is broken
+    with i18n_app.test_request_context():
+        broken_file_name = "sample_zip_broken.zip"
+        broken_file_path = os.path.join('tests', "data", "jpcoar", "v2", broken_file_name)
+        time.sleep(2)
+        result = check_xml_import_items(broken_file_path, item_type.id)
+        assert result["error"] == "The format of the specified file sample_zip_broken.zip does not support import." \
+            " Please specify one of the following formats: zip, tar, gztar, bztar, xztar."
+
+    # Case04: Xml files not included
+    with i18n_app.test_request_context():
+        zip_file_path = os.path.join('tests', "data", "helloworld.zip")
+        time.sleep(2)
+        result = check_xml_import_items(zip_file_path, item_type.id)
+        assert result["error"] ==  "The xml file was not found in the specified file helloworld.zip." \
+            " Check if the directory structure is correct."
+
+    with i18n_app.test_request_context():
+        failed_file_name = "no_jpcoar_xml_file.zip"
+        failed_file_path = os.path.join('tests', "data", "jpcoar", "v2", failed_file_name)
+        time.sleep(2)
+        print("Case04")
+        result = check_xml_import_items(failed_file_path, item_type.id)
+        assert result["error"] ==  "The xml file was not found in the specified file no_jpcoar_xml_file.zip." \
+            " Check if the directory structure is correct."
+
+
+    # Case05: UnicodeDecodeError occured
+    with i18n_app.test_request_context():
+        with patch("weko_search_ui.utils.handle_check_file_metadata", side_effect=lambda x,y: "foo".encode('utf-16').decode('utf-8')):
+            time.sleep(2)
+            result = check_xml_import_items(file_path, item_type.id)
+            assert result["error"] == "invalid start byte"
+
+    # Case06: Other exception occured (without args)
+    with i18n_app.test_request_context():
+        with patch("weko_search_ui.utils.handle_check_file_metadata", side_effect=Exception()):
+            time.sleep(2)
+            result = check_xml_import_items(file_path, item_type.id)
+            assert result["error"] == "Internal server error"
+
+    # Case07: Other exception occured (with args)
+    with i18n_app.test_request_context():
+        with patch("weko_search_ui.utils.handle_check_file_metadata", side_effect=Exception({"error_msg": "error_msg_sample"})):
+            time.sleep(2)
+            result = check_xml_import_items(file_path, item_type.id)
+            assert result["error"] == "error_msg_sample"
+
+    # Case08: item_type is not found
+    with i18n_app.test_request_context():
+        result = check_xml_import_items(file_path, 9999)
+        assert result["error"] == "The item type of the item to be imported is missing or has already been deleted."
+
+    # Case09: item_type has been already deleted
+    with i18n_app.test_request_context():
+        item_type = MagicMock(spec=ItemType)
+        item_type.is_deleted = True
+
+        with patch("weko_search_ui.utils.ItemTypes.get_by_id", return_value=item_type):
+            result = check_xml_import_items(file_path, 9999)
+            assert result["error"] == "The item type of the item to be imported is missing or has already been deleted."
 
 
 # def unpackage_import_file(data_path: str, file_name: str, file_format: str, force_new=False):
@@ -363,6 +600,35 @@ def test_unpackage_import_file(app, db,mocker, mocker_itemtype):
                 unpackage_import_file(path, "items.csv", "csv", True)
                 == result_force_new
             )
+
+
+# def generate_metadata_from_jpcoar(data_path: str, filenames: list, item_type_id: int, is_change_identifier=False)
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_generate_metadata_from_jpcoar -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_generate_metadata_from_jpcoar(app, db_itemtype_jpcoar):
+    item_type = db_itemtype_jpcoar['item_type_multiple']
+
+    with app.test_request_context():
+        # Case01: parse and mapping metadata success
+        result = generate_metadata_from_jpcoar('tests/data/jpcoar/v2', ['test_base.xml'], item_type.id)
+        for record in result:
+            assert '$schema' in record
+            assert 'metadata' in record
+            assert record['item_type_name'] == item_type.item_type_name.name
+            assert record['item_type_id'] == item_type.id
+            assert record['errors'] is None
+            assert record['is_change_identifier'] == False
+
+        # Case02: schema validation error happend
+        result = generate_metadata_from_jpcoar('tests/data/jpcoar/v2', ['test_base_failed.xml'], item_type.id)
+        for record in result:
+            assert len(record['errors']) > 0
+
+        # Case03: item type not found
+        with pytest.raises(Exception) as ex:
+            result = generate_metadata_from_jpcoar('tests/data/jpcoar/v2', ['test_base.xml'], item_type.id+1)
+        assert ex.value.args[0] == {
+            "error_msg": "The item type ID specified in the XML file does not exist."
+        }
 
 
 # def getEncode(filepath):
@@ -413,6 +679,52 @@ def test_read_stats_file(i18n_app, db_itemtype, users):
             assert read_stats_file(file_path_tsv, file_name_tsv, "tsv")
             assert read_stats_file(file_path_csv, file_name_csv, "csv")
             assert read_stats_file(file_path_tsv_2, file_name_tsv_2, "tsv")
+
+
+# def read_jpcoar_xml_file(file_path, item_type_info) -> dict:
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_read_jpcoar_xml_file -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_read_jpcoar_xml_file(i18n_app, db_itemtype, users):
+    xml_file_name = "test_base.xml"
+    xml_file_path = os.path.join('tests', "data", "jpcoar", "v2", xml_file_name)
+
+    item_type_info = {
+        "schema": "test",
+        "is_lastest": "test",
+        "name": "テストアイテムタイプ",
+        "item_type_id": "test",
+    }
+
+    # Case01: read JPCOAR xml correctly
+    with patch("flask_login.utils._get_user", return_value=users[3]["obj"]):
+        result = read_jpcoar_xml_file(xml_file_path, item_type_info)
+        assert 'metadata' in result['data_list'][0]
+        metadata = result['data_list'][0].pop('metadata')
+        assert result == {
+            'error': False,
+            'error_code': 0,
+            'data_list': [
+                {
+                    "$schema": item_type_info['schema'],
+                    "item_type_name": item_type_info['name'],
+                    "item_type_id": item_type_info['item_type_id'],
+                }
+            ],
+            'item_type_schema': item_type_info['schema']
+        }
+
+    # Case02: UnicodeDecodeError occured
+    with patch("flask_login.utils._get_user", return_value=users[3]["obj"]):
+        with patch("weko_search_ui.mapper.JPCOARV2Mapper.map", side_effect=lambda x: "foo".encode('utf-16').decode('utf-8')):
+            try:
+                result = read_jpcoar_xml_file(xml_file_path, item_type_info)
+                pytest.fail()
+            except UnicodeDecodeError as ex:
+                assert ex.reason == "The XML file could not be read. Make sure the file format is XML and that the file is UTF-8 encoded."
+
+    with patch("flask_login.utils._get_user", return_value=users[3]["obj"]):
+        with patch("weko_search_ui.mapper.JPCOARV2Mapper.map", side_effect=Exception()):
+            with pytest.raises(Exception) as ex:
+                result = read_jpcoar_xml_file(xml_file_path, item_type_info)
 
 
 # def handle_convert_validate_msg_to_jp(message: str):
@@ -667,6 +979,29 @@ def test_register_item_metadata(i18n_app, es_item_file_pipeline, deposit, es_rec
         assert register_item_metadata(item, root_path, is_gakuninrdm=False)
 
 
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_register_item_metadata2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_register_item_metadata2(i18n_app, es_item_file_pipeline, deposit, es_records, db_index, es, db, mocker):
+    item = es_records["results"][0]["item"]
+    item["item_type_id"] = 1000
+    item["$schema"] = "/items/jsonschema/1000"
+    item["metadata"]["item_1617605131499"] = item["metadata"]["item_1617605131499"]["attribute_value_mlt"]
+    root_path = os.path.dirname(os.path.abspath(__file__))
+
+    with patch("weko_search_ui.utils.find_and_update_location_size"):
+        with patch("weko_search_ui.utils.WekoDeposit.commit", return_value=None):
+            with patch("weko_search_ui.utils.WekoDeposit.publish_without_commit", return_value=None):
+                with patch("weko_search_ui.utils.RequestMailList.delete_without_commit") as delete_request_mail:
+                        register_item_metadata(item, root_path, -1, is_gakuninrdm=False)
+                        delete_request_mail.assert_called()
+
+                item["metadata"]["request_mail_list"]=[{"email": "contributor@test.org", "author_id": ""}]
+                item["metadata"]["feedback_mail_list"]=[{"email": "contributor@test.org", "author_id": ""}]
+                with patch("weko_search_ui.utils.WekoDeposit.merge_data_to_record_without_version"):
+                    with patch("weko_search_ui.utils.RequestMailList.update") as update_request_mail:
+                        register_item_metadata(item, root_path, -1, is_gakuninrdm=False)
+                        update_request_mail.assert_called()
+
+
 # def update_publish_status(item_id, status):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_update_publish_status -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_update_publish_status(i18n_app, es_item_file_pipeline, es_records):
@@ -842,7 +1177,8 @@ def test_handle_check_and_prepare_index_tree2(i18n_app, record_with_metadata, in
 
 # def handle_check_and_prepare_feedback_mail(list_record):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_handle_check_and_prepare_feedback_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_handle_check_and_prepare_feedback_mail(i18n_app, record_with_metadata):
+def test_handle_check_and_prepare_feedback_mail(i18n_app, record_with_metadata, es_authors_index):
+    i18n_app.config["WEKO_AUTHORS_ES_INDEX_NAME"] = "test-authors"
     list_record = [record_with_metadata[0]]
 
     # Doesn't return any value
@@ -860,6 +1196,31 @@ def test_handle_check_and_prepare_feedback_mail(i18n_app, record_with_metadata):
 
     # Doesn't return any value
     assert not handle_check_and_prepare_feedback_mail([record])
+
+
+# def handle_check_and_prepare_request_mail(list_record):
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_handle_check_and_prepare_request_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_handle_check_and_prepare_request_mail(i18n_app, record_with_metadata, es_authors_index):
+    i18n_app.config["WEKO_AUTHORS_ES_INDEX_NAME"] = "test-authors"
+    list_record = [record_with_metadata[0]]
+
+    # Doesn't return any value
+    assert not handle_check_and_prepare_request_mail(list_record)
+
+    record = {
+        "request_mail": ["wekosoftware@test.com"],
+        "metadata": {"request_mail_list": ""},
+    }
+
+    # Doesn't return any value
+    assert not handle_check_and_prepare_request_mail([record])
+    assert record["metadata"]["request_mail_list"] == [{'email': 'wekosoftware@test.com', 'author_id': ''}]
+
+    record["request_mail"] = ["test"]
+
+    # Doesn't return any value
+    assert not handle_check_and_prepare_request_mail([record])
+    assert record["errors"] == ['指定されたtestは不正です。']
 
 
 # def handle_set_change_identifier_flag(list_record, is_change_identifier):
@@ -2278,30 +2639,202 @@ def test_handle_check_duplication_item_id(i18n_app):
 
 
 # def export_all(root_url, user_id, data): *** not yet done
-def test_export_all(db_activity, i18n_app, users, item_type, db_records2):
-    root_url = "/"
-    user_id = users[3]["obj"].id
-    data = {"item_type_id": "1", "item_id_range": "1"}
-    data2 = {"item_type_id": "-1", "item_id_range": "1-9"}
-    data3 = {"item_type_id": -1, "item_id_range": "1"}
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_export_all -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_export_all(db_activity, i18n_app, users, item_type, db_records2, redis_connect, db, create_export_all_data, mocker):
+    clear_test_data()
 
-    assert not export_all(root_url, user_id, data)
-    assert not export_all(root_url, user_id, data2)
-    assert not export_all(root_url, user_id, data3)
+    # Delete existing data to avoid IntegrityError
+    db.session.query(PersistentIdentifier).delete()
+    db.session.commit()
+
+    with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
+        with patch("weko_search_ui.utils.os.getenv", return_value="/tmp/bulk_export"):
+            with patch("weko_search_ui.utils.os.makedirs") as mock_makedirs:
+                mock_makedirs.return_value = None  # モックの戻り値を設定
+                root_url = "/"
+                user_id = users[3]["obj"].id
+                data = {"item_type_id": "1", "item_id_range": "1"}
+                data2 = {"item_type_id": "-1", "item_id_range": "1-9"}
+                start_time_str = '2024/05/21 23:44:12'
+                msg_key = i18n_app.config["WEKO_ADMIN_CACHE_PREFIX"].format(
+                    name="MSG_EXPORT_ALL", user_id=current_user.get_id()
+                )
+                uri_key = i18n_app.config["WEKO_ADMIN_CACHE_PREFIX"].format(
+                    name="URI_EXPORT_ALL", user_id=current_user.get_id()
+                )
+                datastore = redis_connect
+
+                task = MagicMock()
+                task.task_id = 1
+                mocker.patch("weko_search_ui.tasks.write_files_task", return_value=task)
+                mocker.patch('builtins.open', side_effect=unittest.mock.mock_open())
+                mocker.patch("weko_search_ui.utils.pickle.dump")
+
+                # datastore.put(uri_key, "testuri".encode('utf-8'))
+                datastore.delete(uri_key)
+                export_all(root_url, user_id, data, start_time_str)
+                msg = datastore.get(msg_key)
+                assert msg.decode() == ""
+
+                with patch("weko_search_ui.utils.delete_exported", return_value=None):
+                    datastore.put(uri_key, 'test_uri'.encode('utf-8'))
+                    export_all(root_url, user_id, data2, start_time_str)
+                    msg = datastore.get(msg_key)
+                    assert msg.decode() == ""
+
+                datastore.delete(uri_key)
+
+                data_no_range = {"item_type_id": "1", "item_id_range": ""}
+                export_all(root_url, user_id, data_no_range, start_time_str)
+
+                recid_data_1 = [
+                    {
+                        "pid_value": "1",
+                        "object_uuid": "uuid1",
+                        "json": {"publish_status": "public"}
+                    },
+                    {
+                        "pid_value": "2",
+                        "object_uuid": "uuid2",
+                        "json": {"publish_status": "private"}
+                    }
+                ]
+
+                recid_data_2 = [
+                    {
+                        "pid_value": "1",
+                        "object_uuid": "uuid1",
+                        "json": {"publish_status": "public"}
+                    },
+                    {
+                        "pid_value": "2",
+                        "object_uuid": "uuid2",
+                        "json": {"publish_status": "private"}
+                    }
+                ]
+                
+                with patch("weko_search_ui.utils.get_all_record_id", return_value=recid_data_1):
+                    export_all(root_url, user_id, data, start_time_str)
+
+                    data_err = {"item_type_id": "1", "item_id_range": "10-1"}
+                    export_all(root_url, user_id, data_err, start_time_str)
+                    msg = datastore.get(msg_key)
+                    assert msg.decode() == "Export failed. Please check item id range."
+
+                    with patch("weko_search_ui.utils.get_record_ids", return_value={}):
+                        export_all(root_url, user_id, data, start_time_str)
+
+                    with patch("builtins.open", side_effect=SQLAlchemyError("Test SQLAlchemyError")):
+                        export_all(root_url, user_id, data, start_time_str)
+
+                    with patch("weko_search_ui.tasks.write_files_task.apply_async", return_value=None):
+                        with patch("weko_search_ui.utils.WekoRecord.get_record_by_uuid", side_effect=SQLAlchemyError("test_error")):
+                            export_all(root_url, user_id, data, start_time_str)
+
+                    # recidsをモックして、record_idsが空になるように設定
+                    recids = [
+                        MagicMock(pid_value=str(uuid.uuid4()), object_uuid="uuid1", json=None),  # json属性が存在しない
+                        MagicMock(pid_value=str(uuid.uuid4()), object_uuid="uuid2", json={"publish_status": "draft"}),  # publish_statusがPUBLICまたはPRIVATEでない
+                        MagicMock(pid_value=str(uuid.uuid4()), object_uuid="uuid3", json={})  # json属性にpublish_statusが含まれていない
+                    ]
+
+                    with patch("weko_search_ui.utils.db.session.query", return_value=recids):
+                        export_all(root_url, user_id, data, start_time_str)
+
+                    with patch("weko_search_ui.utils.math.ceil", side_effect=Exception("test_error")):
+                        export_all(root_url, user_id, data, start_time_str)
+
+                    # raise Exception in _get_item_type_list
+                    with patch("weko_search_ui.utils.ItemTypes.get_by_id", side_effect=Exception("test_error")):
+                        export_all(root_url, user_id, data, start_time_str)
+
+                    # # raise Exception in _get_export_data
+                    with patch("weko_search_ui.tasks.write_files_task", side_effect=Exception("test_error")):
+                        export_all(root_url, user_id, data_no_range, start_time_str)
+
+
+def test_get_retry_info():
+    # Test case 1: When item_type_id is included in retry_info
+    item_type_id = "1"
+    retry_info = {
+        "1": {
+            "counter": 5,
+            "part": 2,
+            "max": "10"
+        }
+    }
+    fromid = "1"
+
+    counter, file_part, from_pid = get_retry_info(item_type_id, retry_info, fromid)
+
+    assert counter == 5
+    assert file_part == 2
+    assert from_pid == "10"
+
+    # Test case 2: When item_type_id is not included in retry_info
+    item_type_id = "2"
+    retry_info = {}
+    fromid = "1"
+
+    counter, file_part, from_pid = get_retry_info(item_type_id, retry_info, fromid)
+
+    assert counter == 0
+    assert file_part == 1
+    assert from_pid == "1"
+
+    # Test case 3: When fromid is empty
+    item_type_id = "2"
+    retry_info = {}
+    fromid = ""
+
+    counter, file_part, from_pid = get_retry_info(item_type_id, retry_info, fromid)
+
+    assert counter == 0
+    assert file_part == 1
+    assert from_pid == "1"
 
 
 # def delete_exported(uri, cache_key):
 def test_delete_exported(i18n_app, file_instance_mock):
-    file_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "data",
-        "sample_file",
-        "sample_file.txt",
-    )
+    file_path = '/code/modules/weko-search-ui/tests/data/sample_file/sample_file.txt'
+    
+    mock_file_instance = FileInstance(uri=file_path)
+    
+    with patch("invenio_files_rest.models.FileInstance.get_by_uri", return_value=mock_file_instance):
+        with patch("invenio_files_rest.models.FileInstance.delete", return_value=None):
+            # Doesn't return any value
+            assert not delete_exported(file_path, "key")
 
-    with patch("invenio_files_rest.models.FileInstance.delete", return_value=None):
-        # Doesn't return any value
-        assert not delete_exported(file_path, "key")
+
+# def write_files(item_datas, export_path, user_id, retrys):
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_write_files -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_write_files(db_activity, i18n_app, users, redis_connect, mocker, item_type, db_records2):
+    import pytz
+    with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
+        # result is True
+        record = d_wekorecord.get_record_by_pid(1)
+        item_datas = {
+            "item_type_id": "1",
+            "name": "test_item_type",
+            "recids": ["1"],
+            "root_url":"https://localhost/",
+            "jsonschema":'items/jsonschema/1',
+            "data": {
+                "1": record
+            }
+        }
+
+        mocker.patch("weko_search_ui.utils.os.makedirs")
+        mocker.patch('builtins.open', side_effect=unittest.mock.mock_open())
+        now = datetime.now()
+        mocker_datetime = mocker.patch('weko_search_ui.utils.datetime')
+        mocker_datetime.now.return_value = now
+        with patch('weko_search_ui.utils.pytz.timezone', return_value=pytz.UTC):
+            assert write_files(item_datas, "tests/data/write_files", current_user.get_id(), 0)
+
+        # result is False
+        with patch("weko_items_ui.utils.make_stats_file_with_permission", side_effect=SQLAlchemyError("test_error")):
+            assert not write_files(item_datas, "tests/data/write_files", current_user.get_id(), 0)
 
 
 # def cancel_export_all():
@@ -2311,24 +2844,51 @@ def test_cancel_export_all(i18n_app, users, redis_connect, mocker):
         cache_key = i18n_app.config["WEKO_ADMIN_CACHE_PREFIX"].format(
             name="KEY_EXPORT_ALL", user_id=current_user.get_id()
         )
+        file_cache_key = i18n_app.config["WEKO_ADMIN_CACHE_PREFIX"].format(
+            name="RUN_MSG_EXPORT_ALL_FILE_CREATE", user_id=current_user.get_id()
+        )
+        file_json = {
+            'start_time': '2024/05/21 14:23:46',
+            'finish_time': '',
+            'export_path': '',
+            'cancel_flg': False,
+            'write_file_status': {
+                '1': 'started'
+            }
+        }
+        file_result_json = {
+            'start_time': '2024/05/21 14:23:46',
+            'finish_time': '',
+            'export_path': '',
+            'cancel_flg': True,
+            'write_file_status': {
+                '1': 'started'
+            }
+        }
         datastore = redis_connect
         datastore.put(cache_key, "test_task_key".encode("utf-8"), ttl_secs=30)
 
         # export_status is True
-        with patch("weko_search_ui.utils.get_export_status", return_value=(True,None,None,None,None)):
+        with patch("weko_search_ui.utils.get_export_status", return_value=(True,None,None,None,None,None,None)):
+            datastore.put(file_cache_key, json.dumps(file_json).encode('utf-8'), ttl_secs=30)
             mock_revoke = mocker.patch("weko_search_ui.utils.revoke")
             mock_delete_id = mocker.patch("weko_search_ui.utils.delete_task_id_cache.apply_async")
             result = cancel_export_all()
             assert result == True
+            ds_file_json = datastore.get(file_cache_key).decode('utf-8')
+            assert json.loads(ds_file_json) == file_result_json
             mock_revoke.assert_called_with("test_task_key",terminate=True)
             mock_delete_id.assert_called_with(args=("test_task_key","admin_cache_KEY_EXPORT_ALL_5"),countdown=60)
         
         # export_status is False
-        with patch("weko_search_ui.utils.get_export_status", return_value=(False,None,None,None,None)):
+        with patch("weko_search_ui.utils.get_export_status", return_value=(False,None,None,None,None,None,None)):
+            datastore.put(file_cache_key, json.dumps(file_json).encode('utf-8'), ttl_secs=30)
             mock_revoke = mocker.patch("weko_search_ui.utils.revoke")
             mock_delete_id = mocker.patch("weko_search_ui.utils.delete_task_id_cache.apply_async")
             result = cancel_export_all()
             assert result == True
+            ds_file_json = datastore.get(file_cache_key).decode('utf-8')
+            assert json.loads(ds_file_json) == file_json
             mock_revoke.assert_not_called()
             mock_delete_id.assert_not_called()
         
@@ -2340,7 +2900,8 @@ def test_cancel_export_all(i18n_app, users, redis_connect, mocker):
 
 # def get_export_status():
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_get_export_status -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_get_export_status(i18n_app, users, redis_connect,mocker):
+def test_get_export_status(i18n_app, users, redis_connect,mocker, location):
+    import pytz
     class MockAsyncResult:
         def __init__(self,task_id):
             self.task_id=task_id
@@ -2351,6 +2912,47 @@ def test_get_export_status(i18n_app, users, redis_connect,mocker):
             return self.state == "SUCCESS"
         def failed(self):
             return self.state == "FAILED"
+        
+    start_time_str = '2024/05/21 14:23:46'
+    def create_file_json(status):
+        return {
+            'start_time': start_time_str,
+            'finish_time': '',
+            'export_path': '',
+            'cancel_flg': False,
+            'write_file_status': {
+                '1': status
+            }
+        }
+    
+    def create_file_cancel_json(status):
+        return {
+            'start_time': start_time_str,
+            'finish_time': '',
+            'export_path': '',
+            'cancel_flg': True,
+            'write_file_status': {
+                '1': status
+            }
+        }
+
+    def create_not_status_file_json():
+        return {
+            'start_time': start_time_str,
+            'finish_time': '',
+            'export_path': '',
+            'cancel_flg': False,
+            'write_file_status': {}
+        }
+    
+    def create_not_param_file_json():
+        return {
+            'start_time': start_time_str,
+            'finish_time': '',
+            'export_path': '',
+            'cancel_flg': False
+        }
+
     mocker.patch("weko_search_ui.utils.AsyncResult",side_effect=MockAsyncResult)
     with patch("flask_login.utils._get_user", return_value=users[3]["obj"]):
         cache_key = i18n_app.config["WEKO_ADMIN_CACHE_PREFIX"].format(
@@ -2365,31 +2967,125 @@ def test_get_export_status(i18n_app, users, redis_connect,mocker):
         run_msg = current_app.config["WEKO_ADMIN_CACHE_PREFIX"].format(
             name="RUN_MSG_EXPORT_ALL", user_id=current_user.get_id()
         )
+        file_msg = current_app.config["WEKO_ADMIN_CACHE_PREFIX"].format(
+            name='RUN_MSG_EXPORT_ALL_FILE_CREATE', user_id=current_user.get_id()
+        )
         datastore = redis_connect
         
         datastore.put(cache_uri, "test_uri".encode("utf-8"), ttl_secs=30)
         datastore.put(cache_msg, "test_msg".encode("utf-8"), ttl_secs=30)
         datastore.put(run_msg, "test_run_msg".encode("utf-8"), ttl_secs=30)
-        # task is success, failed, revoked
-        datastore.put(cache_key, "SUCCESS_task".encode("utf-8"), ttl_secs=30)
-        result=get_export_status()
-        assert result == (False, "test_uri", "test_msg", "test_run_msg", "SUCCESS")
-        
-        # task is not success, failed, revoked
-        datastore.delete(cache_key)
-        datastore.put(cache_key, "PENDING_task".encode("utf-8"), ttl_secs=30)
-        result=get_export_status()
-        assert result == (True, "test_uri", "test_msg", "test_run_msg", "PENDING")
-        
         # not exist task_id
         datastore.delete(cache_key)
         result=get_export_status()
-        assert result == (False, "test_uri", "test_msg", "test_run_msg", "")
+        assert result == (False, "test_uri", "test_msg", "test_run_msg", "", "", "")
+
+        # task is not success, failed, revoked (write_file_data is not exist)
+        datastore.put(cache_key, "PENDING_task".encode("utf-8"), ttl_secs=30)
+        datastore.delete(file_msg)
+        datastore.put(file_msg, json.dumps({}).encode('utf-8'), ttl_secs=30)
+        result=get_export_status()
+        assert result == (False, "test_uri", "test_msg", "test_run_msg", "", "", "")
+
+        # task is not success, failed, revoked (write_file_status is not exist)
+        datastore.put(cache_key, "PENDING_task".encode("utf-8"), ttl_secs=30)
+        datastore.put(file_msg, json.dumps(create_not_param_file_json()).encode('utf-8'), ttl_secs=30)
+        result=get_export_status()
+        assert result == (True, "test_uri", "test_msg", "test_run_msg", "", start_time_str, "")
+
+        # task is not success, failed, revoked (write_file_status is started)
+        datastore.put(cache_key, "PENDING_task".encode("utf-8"), ttl_secs=30)
+        datastore.put(file_msg, json.dumps(create_file_json('started')).encode('utf-8'), ttl_secs=30)
+        result=get_export_status()
+        assert result == (True, "test_uri", "test_msg", "test_run_msg", "STARTED", start_time_str, "")
+
+        # task is not success, failed, revoked (cancel_flg is True)
+        datastore.put(cache_key, "PENDING_task".encode("utf-8"), ttl_secs=30)
+        datastore.put(file_msg, json.dumps(create_file_cancel_json('started')).encode('utf-8'), ttl_secs=30)
+        result=get_export_status()
+        assert result == (True, "test_uri", "test_msg", "test_run_msg", "REVOKED", start_time_str, "")
+
+        # task is success, failed, revoked (write_file_status is finished)
+        mocker.patch("os.path.isdir", return_value=False)
+        datastore.delete(cache_key)
+        datastore.put(cache_key, "SUCCESS_task".encode("utf-8"), ttl_secs=30)
+        datastore.delete(file_msg)
+        file_json = create_file_json('finished')
+        file_json['export_path'] = 'tests/data/import'
+        datastore.put(file_msg, json.dumps(file_json).encode('utf-8'), ttl_secs=30)
+        now = datetime.now()
+        mocker_datetime = mocker.patch('weko_search_ui.utils.datetime')
+        mocker_datetime.now.return_value = now
+        mocker.patch('weko_search_ui.utils.bagit.make_bag')
+        mocker.patch('weko_search_ui.utils.shutil.make_archive')
+        mocker.patch("builtins.open", mock_open(read_data=b"data"))
+        mocker.patch("weko_search_ui.utils.FileInstance.create", return_value=MagicMock(uri="test_uri"))
+        mocker.patch("weko_search_ui.utils.Location.get_default", return_value=MagicMock(uri="test_location"))
+        task = MagicMock()
+        task.task_id = 1
+        mocker.patch("weko_search_ui.tasks.delete_exported_task", return_value=task)
+        with patch('weko_search_ui.utils.pytz.timezone', return_value=pytz.UTC):
+            result = get_export_status()
+            uri = datastore.get(cache_uri)
+            assert result == (False, uri.decode(), "test_msg", "test_run_msg", "SUCCESS", start_time_str, now.strftime('%Y/%m/%d %H:%M:%S'))
+
+        # os.path.isdir is True
+        with patch("weko_search_ui.utils.os.path.isdir", return_value=True):
+            datastore.delete(file_msg)
+            file_json = create_file_json('finished')
+            file_json['export_path'] = 'tests/data/import'
+            mocker.patch('weko_search_ui.utils.bagit.make_bag')
+            mocker.patch('weko_search_ui.utils.shutil.make_archive')
+            mocker.patch("builtins.open", mock_open(read_data=b"data"))
+            mocker.patch("weko_search_ui.utils.FileInstance.create", return_value=MagicMock(uri="test_uri"))
+            mocker.patch("weko_search_ui.utils.Location.get_default", return_value=MagicMock(uri="test_location"))
+            datastore.put(file_msg, json.dumps(file_json).encode('utf-8'), ttl_secs=30)
+            datastore.delete(run_msg)
+            datastore.put(run_msg, "test_run_msg".encode("utf-8"), ttl_secs=30)
+            result=get_export_status()
+            assert result == (False, uri.decode(), "test_msg", "test_run_msg", "SUCCESS", start_time_str, "")
+
+        # task is success, failed, revoked (write_file_status is not value)
+        datastore.put(cache_key, "PENDING_task".encode("utf-8"), ttl_secs=30)
+        file_json = create_not_status_file_json()
+        file_json['export_path'] = 'tests/data/import'
+        datastore.put(file_msg, json.dumps(file_json).encode('utf-8'), ttl_secs=30)
+        now = datetime.now()
+        mocker_datetime = mocker.patch('weko_search_ui.utils.datetime')
+        mocker_datetime.now.return_value = now
+        mocker.patch('weko_search_ui.utils.bagit.make_bag')
+        mocker.patch('weko_search_ui.utils.shutil.make_archive')
+        task = MagicMock()
+        task.task_id = 1
+        mocker.patch("weko_search_ui.tasks.delete_exported_task", return_value=task)
+        result=get_export_status()
+        uri = datastore.get(cache_uri)
+        assert result == (True, uri.decode(), "test_msg", "test_run_msg", "SUCCESS", start_time_str, "")
         
         # raise Exception
         with patch("weko_search_ui.utils.AsyncResult",side_effect=Exception("test_error")):
+            datastore.delete(cache_uri)
+            datastore.put(cache_uri, "test_uri".encode("utf-8"), ttl_secs=30)
+            datastore.delete(cache_msg)
+            datastore.put(cache_msg, "test_msg".encode("utf-8"), ttl_secs=30)
+            datastore.delete(run_msg)
+            datastore.put(run_msg, "test_run_msg".encode("utf-8"), ttl_secs=30)
             result=get_export_status()
-            assert result == (False, "test_uri", "test_msg", "test_run_msg", "")
+            assert result == (False, "test_uri", "test_msg", "test_run_msg", "", "", "")
+
+        # write_file_status is canceled
+        with patch("weko_search_ui.utils.AsyncResult",return_value=MockAsyncResult("REVOKED_task")):
+            datastore.delete(file_msg)
+            datastore.put(file_msg, json.dumps(create_file_json('canceled')).encode('utf-8'), ttl_secs=30)
+            result = get_export_status()
+            assert result == (False, "test_uri", "test_msg", "test_run_msg", "REVOKED", start_time_str, "")
+
+        # write_file_status is errorwith patch("weko_search_ui.utils.AsyncResult",return_value=MockAsyncResult("FAILED_task")):
+        with patch("weko_search_ui.utils.AsyncResult",return_value=MockAsyncResult("FAILED_task")):
+            datastore.delete(file_msg)
+            datastore.put(file_msg, json.dumps(create_file_json('error')).encode('utf-8'), ttl_secs=30)
+            result = get_export_status()
+            assert result == (False, "test_uri", "test_msg", "test_run_msg", "", start_time_str, "")
 
 
 # def handle_check_item_is_locked(item):
@@ -2946,3 +3642,733 @@ def test_conbine_aggs():
     test = {"took": "215","time_out": False,"_shards": {"total": "1","successful": "1","skipped": "0","failed": "0"},"hits": {"total": "0","max_score": None,"hits": []},"aggregations": {"other": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": [{"key": "1234567891012","doc_count": "2","date_range": {"doc_count": "2","available": {"buckets": [{"key": "*-2023-07-25","to": "1690243200000.0","to_as_string": "2023-07-25","doc_count": "2"},{"key": "2023-07-25-*","from": "1690243200000.0","from_as_string": "2023-07-25","doc_count": "0"}]}}}]},"path": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": [{"key": "1234567891011","doc_count": "1","date_range": {"doc_count": "1","available": {"buckets": [{"key": "*-2023-07-25","to": "1690243200000.0","to_as_string": "2023-07-25","doc_count": "1"},{"key": "2023-07-25-*","from": "1690243200000.0","from_as_string": "2023-07-25","doc_count": "0"}]}},"Data Type": {"doc_count": "0","Data Type": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Distributor": {"doc_count": "0","Distributor": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Data Language": {"doc_count": "1","Data Language": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Temporal": {"doc_count": "1","Temporal": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Access": {"doc_count": "1","Access": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"no_available": {"doc_count": "0"},"Topic": {"doc_count": "1","Topic": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Location": {"doc_count": "1","Location": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}}},{"key": "1234567891012","doc_count": "2","date_range": {"doc_count": "2","available": {"buckets": [{"key": "*-2023-07-25","to": "1690243200000.0","to_as_string": "2023-07-25","doc_count": "2"},{"key": "2023-07-25-*","from": "1690243200000.0","from_as_string": "2023-07-25","doc_count": "0"}]}},"Data Type": {"doc_count": "0","Data Type": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Distributor": {"doc_count": "0","Distributor": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Data Language": {"doc_count": "1","Data Language": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Temporal": {"doc_count": "1","Temporal": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Access": {"doc_count": "1","Access": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"no_available": {"doc_count": "0"},"Topic": {"doc_count": "1","Topic": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Location": {"doc_count": "1","Location": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}}},{"key": "1234567891013","doc_count": "3","date_range": {"doc_count": "1","available": {"buckets": [{"key": "*-2023-07-25","to": "1690243200000.0","to_as_string": "2023-07-25","doc_count": "3"},{"key": "2023-07-25-*","from": "1690243200000.0","from_as_string": "2023-07-25","doc_count": "0"}]}},"Data Type": {"doc_count": "0","Data Type": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Distributor": {"doc_count": "0","Distributor": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Data Language": {"doc_count": "1","Data Language": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Temporal": {"doc_count": "1","Temporal": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Access": {"doc_count": "1","Access": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"no_available": {"doc_count": "0"},"Topic": {"doc_count": "1","Topic": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}},"Location": {"doc_count": "1","Location": {"doc_count_error_upper_bound": "0","sum_order_doc_count": "0","buckets": []}}}]}}}
     result = combine_aggs(other_agg)
     assert test == result
+
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_result_download_ui -v -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_result_download_ui(app):
+    valid_json = [{
+        "id": 0,
+        "name": {
+            "i18n": "title",
+            "en": "Title",
+            "ja": "タイトル"
+        },
+        "roCrateKey": "title"
+    }]
+    with open('tests/data/rocrate/rocrate_list.json', 'r') as f:
+        search_result = json.load(f)
+
+    with app.test_request_context():
+        with patch('weko_search_ui.utils.search_results_to_tsv', return_value=StringIO('test')):
+            # 9 execute
+            res = result_download_ui(search_result, valid_json)
+            assert res.status_code == 200
+
+            # 10 Empty search_result
+            with pytest.raises(NotFound):
+                res = result_download_ui(None, valid_json)
+
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_search_results_to_tsv -v -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_search_results_to_tsv(app):
+    valid_json = [
+        {
+            "id": 0,
+            "name": {
+                "i18n": "title",
+                "en": "Title",
+                "ja": "タイトル"
+            },
+            "roCrateKey": "title"
+        },
+        {
+            "id": 1,
+            "name": {
+                "i18n": "field",
+                "en": "Field",
+                "ja": "分野"
+            },
+            "roCrateKey": "genre"
+        },
+    ]
+    with open('tests/data/rocrate/rocrate_list.json', 'r') as f:
+        search_result = json.load(f)
+
+    with app.test_request_context():
+        # 11 Execute
+        with patch('weko_search_ui.utils.create_tsv_row', return_value={"Title": "Sample Title","Field": "Sample Field"}):
+            res = search_results_to_tsv(search_result, valid_json)
+            assert res.getvalue() == "Title\tField\nSample Title\tSample Field\n"
+
+        # 12 Empty json
+        input_json = [{}]
+        with patch('weko_search_ui.utils.create_tsv_row', return_value={}):
+            try:
+                search_results_to_tsv(search_result, input_json)
+                assert True
+            except:
+                assert False
+
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_create_tsv_row -v -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_create_tsv_row(app):
+    field_rocrate_dict = {'Title': 'title', 'Field': 'genre'}
+    with open('tests/data/rocrate/rocrate_list.json', 'r') as f:
+        search_result = json.load(f)
+
+    data_response = [
+        graph for graph in search_result[0]['metadata']['@graph']
+        if graph.get('@id') == './'
+    ][0]
+
+    with app.test_request_context():
+        # 13 Execute
+        res = create_tsv_row(field_rocrate_dict, data_response)
+        assert res == {
+            'Title': 'メタボリックシンドロームモデルマウスの多臓器遺伝子発現量データ',
+            'Field': '生物学'
+        }
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::TestHandleCheckAuthorsPrefix -v -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+class TestHandleCheckAuthorsPrefix:
+    
+    @pytest.fixture()
+    def authors_prefix_settings(self, db):
+        apss = list()
+        apss.append(AuthorsPrefixSettings(name="WEKO",scheme="WEKO"))
+        apss.append(AuthorsPrefixSettings(name="ORCID",scheme="ORCID",url="https://orcid.org/##"))
+        apss.append(AuthorsPrefixSettings(name="CiNii",scheme="CiNii",url="https://ci.nii.ac.jp/author/##"))
+        apss.append(AuthorsPrefixSettings(name="KAKEN2",scheme="KAKEN2",url="https://nrid.nii.ac.jp/nrid/##"))
+        apss.append(AuthorsPrefixSettings(name="ROR",scheme="ROR",url="https://ror.org/##"))
+        db.session.add_all(apss)
+        db.session.commit()
+        return apss
+    
+    def test_handle_check_authors_prefix_no_nameidentifiers(self, db, authors_prefix_settings):
+        """
+        正常系
+        条件：nameIdentifiersを含まないレコードの場合
+        入力：nameIdentifiersがないレコードのリスト
+        期待結果：errorsが追加されない
+        """
+        # モックデータ
+        list_record = [
+            {
+                "metadata": {
+                    "authors": [{"name": "Author 1"}, {"name": "Author 2"}]
+                }
+            }
+        ]
+        
+        # AuthorsPrefixSettingsのモック
+        with patch('weko_authors.models.AuthorsPrefixSettings') as MockSettings:
+            mock_setting = MagicMock()
+            mock_setting.scheme = "ORCID"
+            MockSettings.query.all.return_value = [mock_setting]
+            
+            # テスト対象関数を実行
+            handle_check_authors_prefix(list_record)
+            
+            # 検証
+            assert "errors" not in list_record[0]
+
+
+    def test_handle_check_authors_prefix_valid_scheme(self, db, authors_prefix_settings):
+        """
+        正常系
+        条件：すべてのnameIdentifierSchemeが許可されたスキームである場合
+        入力：有効なスキームを持つレコードのリスト
+        期待結果：errorsが追加されない
+        """
+        # モックデータ
+        list_record = [
+            {
+                "metadata": {
+                    "authors": [
+                        {
+                            "name": "Author 1",
+                            "nameIdentifiers": [
+                                {"nameIdentifierScheme": "ORCID", "nameIdentifier": "0000-0001-2345-6789"}
+                            ]
+                        }
+                    ]
+                }
+            }
+        ]
+        
+        # AuthorsPrefixSettingsのモック
+        with patch('weko_authors.models.AuthorsPrefixSettings') as MockSettings:
+            mock_setting = MagicMock()
+            mock_setting.scheme = "ORCID"
+            MockSettings.query.all.return_value = [mock_setting]
+            
+            # テスト対象関数を実行
+            handle_check_authors_prefix(list_record)
+            
+            # 検証
+            assert "errors" not in list_record[0]
+
+
+    def test_handle_check_authors_prefix_invalid_scheme(self, db, authors_prefix_settings):
+        """
+        異常系
+        条件：nameIdentifierSchemeが許可されていないスキームである場合
+        入力：無効なスキームを持つレコードのリスト
+        期待結果：errorsに該当するエラーメッセージが追加される
+        """
+        # モックデータ
+        list_record = [
+            {
+                "metadata": {
+                    "authors": [
+                        {
+                            "name": "Author 1",
+                            "nameIdentifiers": [
+                                {"nameIdentifierScheme": "INVALID", "nameIdentifier": "0000-0001-2345-6789"}
+                            ]
+                        }
+                    ]
+                }
+            }
+        ]
+        
+        # AuthorsPrefixSettingsのモック
+        with patch('weko_authors.models.AuthorsPrefixSettings') as MockSettings:
+            mock_setting = MagicMock()
+            mock_setting.scheme = "ORCID"
+            MockSettings.query.all.return_value = [mock_setting]
+            
+            # テスト対象関数を実行
+            handle_check_authors_prefix(list_record)
+            
+            # 検証
+            assert "errors" in list_record[0]
+            assert '"INVALID" is not one of [\'WEKO\', \'ORCID\', \'CiNii\', \'KAKEN2\', \'ROR\'] in authors' in list_record[0]["errors"]
+
+
+    def test_handle_check_authors_prefix_dict_instead_of_list(self, db, authors_prefix_settings):
+        """
+        正常系
+        条件：authorsが配列ではなくオブジェクト（辞書）である場合
+        入力：authorsがオブジェクトのレコードのリスト
+        期待結果：正しく処理され、無効なスキームがあればエラーが追加される
+        """
+        # モックデータ
+        list_record = [
+            {
+                "metadata": {
+                    "authors": {
+                        "name": "Author 1",
+                        "nameIdentifiers": [
+                            {"nameIdentifierScheme": "INVALID", "nameIdentifier": "0000-0001-2345-6789"}
+                        ]
+                    }
+                }
+            }
+        ]
+        
+        # AuthorsPrefixSettingsのモック
+        with patch('weko_authors.models.AuthorsPrefixSettings') as MockSettings:
+            mock_setting = MagicMock()
+            mock_setting.scheme = "ORCID"
+            MockSettings.query.all.return_value = [mock_setting]
+            
+            # テスト対象関数を実行
+            handle_check_authors_prefix(list_record)
+            
+            # 検証
+            assert "errors" in list_record[0]
+            assert '"INVALID" is not one of [\'WEKO\', \'ORCID\', \'CiNii\', \'KAKEN2\', \'ROR\'] in authors' in list_record[0]["errors"]
+
+
+    def test_handle_check_authors_prefix_nested_structure(self, db, authors_prefix_settings):
+        """
+        正常系
+        条件：複雑なネスト構造を持つメタデータの場合
+        入力：複雑なネスト構造を持つレコードのリスト
+        期待結果：すべてのエラーが正しく検出される
+        """
+        # モックデータ
+        list_record = [
+            {
+                "metadata": {
+                    "contributors": [
+                        {
+                            "name": "Contributor 1",
+                            "nameIdentifiers": [
+                                {"nameIdentifierScheme": "INVALID1", "nameIdentifier": "0000-0001-2345-6789"}
+                            ]
+                        }
+                    ],
+                    "creator": {
+                        "name": "Creator 1",
+                        "nameIdentifiers": [
+                            {"nameIdentifierScheme": "INVALID2", "nameIdentifier": "0000-0001-2345-6789"}
+                        ]
+                    }
+                }
+            }
+        ]
+        
+        # AuthorsPrefixSettingsのモック
+        with patch('weko_authors.models.AuthorsPrefixSettings') as MockSettings:
+            mock_setting = MagicMock()
+            mock_setting.scheme = "ORCID"
+            MockSettings.query.all.return_value = [mock_setting]
+            
+            # テスト対象関数を実行
+            handle_check_authors_prefix(list_record)
+            
+            # 検証
+            assert "errors" in list_record[0]
+            assert len(list_record[0]["errors"]) == 2
+            assert '"INVALID1" is not one of [\'WEKO\', \'ORCID\', \'CiNii\', \'KAKEN2\', \'ROR\'] in contributors' in list_record[0]["errors"]
+            assert '"INVALID2" is not one of [\'WEKO\', \'ORCID\', \'CiNii\', \'KAKEN2\', \'ROR\'] in creator' in list_record[0]["errors"]
+
+
+    def test_handle_check_authors_prefix_existing_errors(self, db, authors_prefix_settings):
+        """
+        正常系
+        条件：既にエラーがあるレコードの場合
+        入力：既存のエラーを持つレコードのリスト
+        期待結果：既存のエラーに新しいエラーが追加される
+        """
+        # モックデータ
+        list_record = [
+            {
+                "metadata": {
+                    "authors": [
+                        {
+                            "name": "Author 1",
+                            "nameIdentifiers": [
+                                {"nameIdentifierScheme": "INVALID", "nameIdentifier": "0000-0001-2345-6789"}
+                            ]
+                        }
+                    ],
+                    "test1":{"test":"test"},
+                    "test2":"test2"
+                },
+                "errors": ["Existing error"]
+            }
+        ]
+        
+        # AuthorsPrefixSettingsのモック
+        with patch('weko_authors.models.AuthorsPrefixSettings') as MockSettings:
+            mock_setting = MagicMock()
+            mock_setting.scheme = "ORCID"
+            MockSettings.query.all.return_value = [mock_setting]
+            
+            # テスト対象関数を実行
+            handle_check_authors_prefix(list_record)
+            
+            # 検証
+            assert "errors" in list_record[0]
+            assert len(list_record[0]["errors"]) == 2
+            assert "Existing error" in list_record[0]["errors"]
+            assert '"INVALID" is not one of [\'WEKO\', \'ORCID\', \'CiNii\', \'KAKEN2\', \'ROR\'] in authors' in list_record[0]["errors"]
+
+
+    def test_handle_check_authors_prefix_none_scheme(self, db, authors_prefix_settings):
+        """
+        正常系
+        条件：nameIdentifierSchemeがNoneの場合
+        入力：nameIdentifierSchemeがNoneのレコードのリスト
+        期待結果：エラーが追加されない
+        """
+        # モックデータ
+        list_record = [
+            {
+                "metadata": {
+                    "authors": [
+                        {
+                            "name": "Author 1",
+                            "nameIdentifiers": [
+                                {"nameIdentifierScheme": None, "nameIdentifier": "0000-0001-2345-6789"}
+                            ]
+                        }
+                    ]
+                }
+            }
+        ]
+        
+        # AuthorsPrefixSettingsのモック
+        with patch('weko_authors.models.AuthorsPrefixSettings') as MockSettings:
+            mock_setting = MagicMock()
+            mock_setting.scheme = "ORCID"
+            MockSettings.query.all.return_value = [mock_setting]
+            
+            # テスト対象関数を実行
+            handle_check_authors_prefix(list_record)
+            
+            # 検証
+            assert "errors" not in list_record[0]
+            
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::TestHandleCheckAuthorsAffiliation -v -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+class TestHandleCheckAuthorsAffiliation:
+    
+    @pytest.fixture()
+    def authors_affiliation_settings(self, db):
+        aass = list()
+        aass.append(AuthorsAffiliationSettings(name="ISNI",scheme="ISNI",url="http://www.isni.org/isni/##"))
+        aass.append(AuthorsAffiliationSettings(name="ROR",scheme="ROR",url="https://ror.org/##"))
+        db.session.add_all(aass)
+        db.session.commit()
+    
+        return aass
+
+    @pytest.fixture
+    def mock_settings(self, app, db):
+        """AuthorsAffiliationSettingsをモックする"""
+        setting1 = MagicMock()
+        setting1.scheme = "ROR"
+        setting2 = MagicMock()
+        setting2.scheme = "ISNI"
+        
+        with patch('weko_authors.models.AuthorsAffiliationSettings') as mock_settings:
+            mock_settings.query.all.return_value = [setting1, setting2]
+            yield mock_settings
+    
+    def test_no_affiliations(self, mock_settings, app, db):
+        """
+        正常系
+        条件：所属機関情報がない場合
+        入力：所属機関情報を含まないレコード
+        期待結果：errorsフィールドが追加されない
+        """
+        list_record = [
+            {
+                "metadata": {
+                    "title": "Test Title",
+                    "authors": []
+                }
+            }
+        ]
+        
+        handle_check_authors_affiliation(list_record)
+        
+        assert "errors" not in list_record[0]
+    
+    def test_creator_valid_scheme(self, mock_settings, app, db, authors_affiliation_settings):
+        """
+        正常系
+        条件：creatorAffiliationsに有効なスキームがある場合
+        入力：RORスキームを持つcreatorAffiliations
+        期待結果：errorsフィールドが追加されない
+        """
+        list_record = [
+            {
+                "metadata": {
+                    "creator": {
+                        "creatorName": "Test Author",
+                        "creatorAffiliations": [
+                            {
+                                "affiliationName": "Test University",
+                                "affiliationNameIdentifiers": [
+                                    {
+                                        "affiliationNameIdentifier": "https://ror.org/12345",
+                                        "affiliationNameIdentifierScheme": "ROR"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+        ]
+        
+        handle_check_authors_affiliation(list_record)
+        
+        assert "errors" not in list_record[0]
+    
+    def test_creator_invalid_scheme(self, mock_settings, app, db):
+        """
+        異常系
+        条件：creatorAffiliationsに無効なスキームがある場合
+        入力：無効なDOIスキームを持つcreatorAffiliations
+        期待結果：errorsフィールドにエラーメッセージが追加される
+        """
+        list_record = [
+            {
+                "metadata": {
+                    "creator": {
+                        "creatorName": "Test Author",
+                        "creatorAffiliations": [
+                            {
+                                "affiliationName": "Test University",
+                                "affiliationNameIdentifiers": [
+                                    {
+                                        "affiliationNameIdentifier": "10.12345/67890",
+                                        "affiliationNameIdentifierScheme": "DOI"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+        ]
+        
+        handle_check_authors_affiliation(list_record)
+        
+        assert "errors" in list_record[0]
+        assert len(list_record[0]["errors"]) == 1
+        assert '"DOI" is not one of' in list_record[0]["errors"][0]
+        assert "creator" in list_record[0]["errors"][0]
+    
+    def test_creator_list_invalid_scheme(self, mock_settings, app, db):
+        """
+        異常系
+        条件：リスト形式のcreatorに無効なスキームがある場合
+        入力：無効なスキームを持つcreatorのリスト
+        期待結果：errorsフィールドにエラーメッセージが追加される
+        """
+        list_record = [
+            {
+                "metadata": {
+                    "creators": [
+                        {
+                            "creatorName": "Test Author 1",
+                            "creatorAffiliations": [
+                                {
+                                    "affiliationName": "Test University",
+                                    "affiliationNameIdentifiers": [
+                                        {
+                                            "affiliationNameIdentifier": "12345",
+                                            "affiliationNameIdentifierScheme": "GRID"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        ]
+        
+        handle_check_authors_affiliation(list_record)
+        
+        assert "errors" in list_record[0]
+        assert len(list_record[0]["errors"]) == 1
+        assert '"GRID" is not one of' in list_record[0]["errors"][0]
+        assert "creators" in list_record[0]["errors"][0]
+    
+    def test_contributor_valid_scheme(self, mock_settings, app, db, authors_affiliation_settings):
+        """
+        正常系
+        条件：contributorAffiliationsに有効なスキームがある場合
+        入力：ISNIスキームを持つcontributorAffiliations
+        期待結果：errorsフィールドが追加されない
+        """
+        list_record = [
+            {
+                "metadata": {
+                    "contributor": {
+                        "contributorName": "Test Contributor",
+                        "contributorAffiliations": [
+                            {
+                                "affiliationName": "Test Organization",
+                                "affiliationNameIdentifiers": [
+                                    {
+                                        "affiliationNameIdentifier": "0000-0001-2345-6789",
+                                        "affiliationNameIdentifierScheme": "ISNI"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+        ]
+        
+        handle_check_authors_affiliation(list_record)
+        
+        assert "errors" not in list_record[0]
+    
+    def test_contributor_invalid_scheme(self, mock_settings, app, db):
+        """
+        異常系
+        条件：contributorAffiliationsに無効なスキームがある場合
+        入力：無効なスキームを持つcontributorAffiliations
+        期待結果：errorsフィールドにエラーメッセージが追加される
+        """
+        list_record = [
+            {
+                "metadata": {
+                    "contributor": {
+                        "contributorName": "Test Contributor",
+                        "contributorAffiliations": [
+                            {
+                                "affiliationName": "Test Organization",
+                                "affiliationNameIdentifiers": [
+                                    {
+                                        "affiliationNameIdentifier": "12345",
+                                        "affiliationNameIdentifierScheme": "ORCID"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+        ]
+        
+        handle_check_authors_affiliation(list_record)
+        
+        assert "errors" in list_record[0]
+        assert len(list_record[0]["errors"]) == 1
+        assert '"ORCID" is not one of' in list_record[0]["errors"][0]
+        assert "contributor" in list_record[0]["errors"][0]
+    
+    def test_contributor_list_invalid_scheme(self, mock_settings, app, db):
+        """
+        異常系
+        条件：リスト形式のcontributorに無効なスキームがある場合
+        入力：無効なスキームを持つcontributorのリスト
+        期待結果：errorsフィールドにエラーメッセージが追加される
+        """
+        list_record = [
+            {
+                "metadata": {
+                    "contributors": [
+                        {
+                            "contributorName": "Test Contributor 1",
+                            "contributorAffiliations": [
+                                {
+                                    "affiliationName": "Test Organization",
+                                    "affiliationNameIdentifiers": [
+                                        {
+                                            "affiliationNameIdentifier": "12345",
+                                            "affiliationNameIdentifierScheme": "Scopus"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        ]
+        
+        handle_check_authors_affiliation(list_record)
+        
+        assert "errors" in list_record[0]
+        assert len(list_record[0]["errors"]) == 1
+        assert '"Scopus" is not one of' in list_record[0]["errors"][0]
+        assert "contributors" in list_record[0]["errors"][0]
+    
+    def test_existing_errors(self, mock_settings, app, db):
+        """
+        正常系
+        条件：既存のerrorsフィールドがある場合に新しいエラーを追加する
+        入力：既存のerrorsフィールドと無効なスキーム
+        期待結果：既存のerrorsに新しいエラーが追加される
+        """
+        list_record = [
+            {
+                "metadata": {
+                    "creator": {
+                        "creatorName": "Test Author",
+                        "creatorAffiliations": [
+                            {
+                                "affiliationName": "Test University",
+                                "affiliationNameIdentifiers": [
+                                    {
+                                        "affiliationNameIdentifier": "12345",
+                                        "affiliationNameIdentifierScheme": "Wikidata"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                "errors": ["Existing error"]
+            }
+        ]
+        
+        handle_check_authors_affiliation(list_record)
+        
+        assert "errors" in list_record[0]
+        assert len(list_record[0]["errors"]) == 2
+        assert "Existing error" == list_record[0]["errors"][0]
+        assert '"Wikidata" is not one of' in list_record[0]["errors"][1]
+    
+    def test_multiple_invalid_schemes(self, mock_settings, app, db):
+        """
+        異常系
+        条件：複数の無効なスキームがある場合
+        入力：複数の無効なスキームを持つクリエイターとコントリビューター
+        期待結果：すべてのエラーがerrorsフィールドに追加される
+        """
+        list_record = [
+            {
+                "metadata": {
+                    "creator": {
+                        "creatorName": "Test Author",
+                        "creatorAffiliations": [
+                            {
+                                "affiliationName": "Test University",
+                                "affiliationNameIdentifiers": [
+                                    {
+                                        "affiliationNameIdentifier": "12345",
+                                        "affiliationNameIdentifierScheme": "Wikidata"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "contributor": {
+                        "contributorName": "Test Contributor",
+                        "contributorAffiliations": [
+                            {
+                                "affiliationName": "Test Organization",
+                                "affiliationNameIdentifiers": [
+                                    {
+                                        "affiliationNameIdentifier": "12345",
+                                        "affiliationNameIdentifierScheme": "ORCID"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+        ]
+        
+        handle_check_authors_affiliation(list_record)
+        
+        assert "errors" in list_record[0]
+        assert len(list_record[0]["errors"]) == 2
+        assert any('"Wikidata" is not one of' in error for error in list_record[0]["errors"])
+        assert any('"ORCID" is not one of' in error for error in list_record[0]["errors"])
+    
+    def test_none_scheme(self, mock_settings, app, db):
+        """
+        正常系
+        条件：スキームがNoneの場合
+        入力：affiliationNameIdentifierSchemeがNoneのレコード
+        期待結果：エラーは追加されない（条件にscheme is not Noneがあるため）
+        """
+        list_record = [
+            {
+                "metadata": {
+                    "creator": {
+                        "creatorName": "Test Author",
+                        "creatorAffiliations": [
+                            {
+                                "affiliationName": "Test University",
+                                "affiliationNameIdentifiers": [
+                                    {
+                                        "affiliationNameIdentifier": "12345",
+                                        "affiliationNameIdentifierScheme": None
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+        ]
+        
+        handle_check_authors_affiliation(list_record)
+        
+        assert "errors" not in list_record[0]
