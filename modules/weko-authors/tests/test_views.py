@@ -1543,12 +1543,11 @@ def test_get_max_weko_id(client, users, mocker ):
     res = client.get(url)
     assert get_json(res) == test
 
-
     data_3 = {
     "test-authors": {
         "hits": {
             "hits": [
-                {"_source": {"authorIdInfo": [{"authorId": "2",'idType': '1'}]}, 'pk_id': 'xxx'}
+                {"_source": {"authorIdInfo": [{"authorId": "-1",'idType': '1'}]}, 'pk_id': 'xxx'}
             ]
         },
         "_scroll_id": "AAA"
@@ -1562,6 +1561,29 @@ def test_get_max_weko_id(client, users, mocker ):
 
     record_indexer = RecordIndexer()
     record_indexer.client=MockClient(data_3)
+    mocker.patch("weko_authors.views.RecordIndexer",return_value=record_indexer)
+    test = {'max_author_id': 0}
+    res = client.get(url)
+    assert get_json(res) == test
+    
+    data_4 = {
+    "test-authors": {
+        "hits": {
+            "hits": [
+                {"_source": {"authorIdInfo": [{"authorId": "2",'idType': '2'}]}, 'pk_id': 'xxx'}
+            ]
+        },
+        "_scroll_id": "AAA"
+    },
+    "test-weko": {
+        "hits": {
+            "total": 1
+        }
+    }
+    }
+
+    record_indexer = RecordIndexer()
+    record_indexer.client=MockClient(data_4)
     mocker.patch("weko_authors.views.RecordIndexer",return_value=record_indexer)
     test = {'max_author_id': 0}
     res = client.get(url)
