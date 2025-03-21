@@ -350,12 +350,12 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
             author_data = data.get("author")
             if not author_data:
                 raise BadRequest("author can not be null.")
+
+            self.validate_author_data(author_data,author_data.get("pk_id"))
             
             prefix_schemes,affiliation_schemes = self.get_all_schemes()
             if not self.validate_request_data(self.extract_data(author_data), lang_options_list, prefix_schemes, affiliation_schemes):
                 raise BadRequest("Invalid Author Data, 'idtype' or 'language' Not Allowed.")
-
-            self.validate_author_data(author_data,author_data.get("pk_id"))
             
             author_data = self.process_authors_data_before(author_data)
 
