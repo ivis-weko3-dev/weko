@@ -122,6 +122,9 @@ class TestAuthorDBManagementAPI:
         # システムエラーの確認
         with patch("invenio_search.current_search_client.search", side_effect=Exception):
             self.run_get_authors(app, client_api, auth_headers_sysadmin, {"firstname": "Test_2"}, 500, [])  # 検索時にエラーが発生した場合、500（Internal Server Error）となることを確認
+        url = f"v2/authors"
+        response = client_api.get(url, headers=auth_headers_sysadmin)
+        assert response.status_code == 400
         
     def run_get_authors(self, app, client_api, user_role, query_params, expected_status, expected_ids):
         """
@@ -202,6 +205,10 @@ class TestAuthorDBManagementAPI:
         self.run_post_author(app, client_api, auth_headers_sysadmin, {"author": {"affiliationInfo": [{"affiliationPeriodInfo": [{"periodStart": "2025-03-21", "periodEnd": "2025-01-27"}]}]}}, 400, "affiliationPeriodInfo error: start is after end")  # 開始日が終了日より後
         self.run_post_author(app, client_api, auth_headers_sysadmin, {"author": {"affiliationInfo": [{"identifierInfo": [{"affiliationId": "https://ror.org/##", "identifierShowFlg": "true"}]}]}}, 400, "Both 'affiliationIdType' and 'affiliationId' must be provided together.")  # affiliationIdType未指定
         self.run_post_author(app, client_api, auth_headers_sysadmin, {"author": {"affiliationInfo": [{"affiliationNameInfo": [{"affiliationName": "NII", "identifierShowFlg": "true"}]}]}}, 400, "Both 'affiliationName' and 'affiliationNameLang' must be provided together.")  # affiliationNameLang未指定
+        self.run_post_author(app, client_api, auth_headers_sysadmin, {"author": {"affiliationInfo": [{"affiliationNameInfo": [{"affiliationName": "NII", "identifierShowFlg": "true", "affiliationNameLang": "jp"}]}]}}, 400, "Invalid Author Data, 'idtype' or 'language' Not Allowed.")
+        url = "v2/authors"
+        response = client_api.post(url, headers=auth_headers_sysadmin)
+        assert response.status_code == 400
 
         # システムエラーの確認
         # DBエラーや例外発生時の動作を確認
@@ -349,6 +356,10 @@ class TestAuthorDBManagementAPI:
 
             # システムエラーの確認
             self.run_put_author_db_error(app, client_api, auth_headers_sysadmin, self.valid_update_data())
+            
+            url = f"v2/authors"
+            response = client_api.put(url, headers=auth_headers_sysadmin)
+            assert response.status_code == 400
 
     def run_put_author(self, app, client_api, user_headers, request_data, expected_status, expected_message=None):
         """
@@ -433,14 +444,15 @@ class TestAuthorDBManagementAPI:
         self.run_delete_author(app, client_api, auth_headers_sysadmin, {"pk_id": "999"}, 404, "Specified author does not exist.")
         self.run_delete_author(app, client_api, auth_headers_sysadmin, {"id": "es_not_found"}, 404, "Specified author does not exist.")
 
-        # 認証エラー
-        # self.run_delete_author_unauthorized(app, client_api)
-
         # 権限なし
         self.run_delete_author(app, client_api, auth_headers_noroleuser, {"pk_id": "1"}, 403)
 
         # エラー
         self.run_delete_author_error(app, client_api, auth_headers_sysadmin, {"pk_id": "4"})
+        
+        url = f"v2/authors"
+        response = client_api.delete(url, headers=auth_headers_sysadmin)
+        assert response.status_code == 400
 
     def run_delete_author(self, app, client_api, user_headers, request_data, expected_status, expected_message=None):
         """
@@ -453,17 +465,6 @@ class TestAuthorDBManagementAPI:
         assert response.status_code == expected_status, f"Expected {expected_status}, got {response.status_code}"
         if expected_message:
             assert expected_message in response.get_data(as_text=True)
-
-    def run_delete_author_unauthorized(self, app, client_api):
-        """
-        認証なしで著者情報を削除しようとした場合のテスト
-        - 認証が必要なAPIにアクセスし、Unauthorized(401)が返ることを確認
-        """
-        url = "v1/authors"
-        response = client_api.delete(url, json={"pk_id": "1"}, headers={})
-
-        assert response.status_code == 401
-        assert "OAuth2 authentication failed" in response.get_data(as_text=True)
 
     def run_delete_author_error(self, app, client_api, user_headers, request_data):
         """
