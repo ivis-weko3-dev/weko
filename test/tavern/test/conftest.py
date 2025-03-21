@@ -186,7 +186,7 @@ def delete_item_documents():
         '-XPOST',
         url + ':29201/' + index + '/_delete_by_query',
         '-H',
-        '{Content-Type: application/json}',
+        'Content-Type: application/json',
         '-d',
         json.dumps(query),
         '-ku',
