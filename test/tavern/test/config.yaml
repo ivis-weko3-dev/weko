@@ -1,0 +1,19 @@
+name: server information
+description: environment variables for the test
+
+variables:
+  host: https://192.168.56.117
+  title_keys:
+    15: item_1617186331708.0.subitem_1551255647225
+    16: item_1617186331708.0.subitem_1551255647225
+    10001: item_1617186331708.0.subitem_1551255647225
+  file_keys:
+    15: item_1617605131499
+    16: item_1617604990215
+    10001: item_1617604990215
+  action_version:
+    3: 1.0.1
+    4: 2.0.0
+    5: 1.0.1
+    6: 1.0.0
+    7: 1.0.0
