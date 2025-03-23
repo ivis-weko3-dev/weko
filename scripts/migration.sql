@@ -6,6 +6,16 @@ ALTER TABLE oaiserver_set ADD COLUMN system_created BOOLEAN;
 UPDATE oaiserver_set SET system_created = TRUE;
 ALTER TABLE oaiserver_set ALTER COLUMN system_created SET NOT NULL;
 
+-- stats_eventsのtypeカラムのnot null制約解除
+ALTER TABLE stats_events ALTER COLUMN type DROP NOT NULL;
+
+-- stats_aggregationsのtypeカラムのnot null制約解除
+ALTER TABLE stats_aggregation ALTER COLUMN type DROP NOT NULL;
+
+-- stats_bookmarkのtypeカラムのnot null制約解除
+ALTER TABLE stats_bookmark ALTER COLUMN type DROP NOT NULL;
+
+
 -- pidrelations_pidrelation
 -- 既存のプライマリキー削除
 ALTER TABLE pidrelations_pidrelation DROP CONSTRAINT pk_pidrelations_pidrelation;
