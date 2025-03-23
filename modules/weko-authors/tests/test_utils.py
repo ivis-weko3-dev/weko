@@ -15,7 +15,9 @@ from weko_authors.models import Authors
 from weko_authors.config import WEKO_AUTHORS_FILE_MAPPING
 from weko_authors.utils import (
     get_author_prefix_obj,
+    get_author_prefix_obj_by_id,
     get_author_affiliation_obj,
+    get_author_affiliation_obj_by_id,
     check_email_existed,
     get_export_status,
     set_export_status,
@@ -73,8 +75,21 @@ def test_get_author_prefix_obj(authors_prefix_settings):
         result = get_author_prefix_obj("ORCID")
         assert result == None
 
+# def get_author_prefix_obj_by_id(scheme):
+# .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_get_author_prefix_obj_by_id -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
+def test_get_author_prefix_obj_by_id(authors_prefix_settings):
+    result = get_author_prefix_obj_by_id("1")
+    assert result == authors_prefix_settings[0]
+    
+    # raise Exception
+    with patch("weko_authors.utils.db.session.query") as mock_query:
+        mock_query.return_value.filter.return_value.one_or_none.side_effect=Exception("test_error")
+        result = get_author_prefix_obj("1")
+        assert result == None
+
+
 # def get_author_affiliation_obj(scheme):
-# .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_get_author_affiliation_obj -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_get_author_affiliation_obj -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 def test_get_author_affiliation_obj(authors_affiliation_settings):
     result = get_author_affiliation_obj("ISNI")
     assert result == authors_affiliation_settings[0]
@@ -83,6 +98,18 @@ def test_get_author_affiliation_obj(authors_affiliation_settings):
     with patch("weko_authors.utils.db.session.query") as mock_query:
         mock_query.return_value.filter.return_value.one_or_none.side_effect=Exception("test_error")
         result = get_author_affiliation_obj("ISNI")
+        assert result == None
+        
+# def get_author_affiliation_obj(scheme):
+# .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_get_author_affiliation_obj_by_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
+def test_get_author_affiliation_obj_by_id(authors_affiliation_settings):
+    result = get_author_affiliation_obj_by_id("1")
+    assert result == authors_affiliation_settings[0]
+    
+    # raise Exception
+    with patch("weko_authors.utils.db.session.query") as mock_query:
+        mock_query.return_value.filter.return_value.one_or_none.side_effect=Exception("test_error")
+        result = get_author_affiliation_obj_by_id("1")
         assert result == None
 
 # def check_email_existed(email: str):
@@ -3316,4 +3343,4 @@ def test_create_result_file_for_user(app, mocker):
     current_cache.delete(result_path_key)
     res = create_result_file_for_user(json)
     assert res == None
-   
+
