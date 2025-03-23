@@ -223,7 +223,7 @@ class ShibUser(object):
         :return:
 
         """
-        session['user_id'] = self.user.id
+        session['_user_id'] = self.user.id
         session['user_src'] = 'Shib'
         user_logged_in.send(current_app._get_current_object(), user=self.user)
 
