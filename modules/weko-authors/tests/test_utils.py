@@ -1516,7 +1516,7 @@ class TestCheckWekoIdIsExists:
                 
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::TestCheckPeriodDate -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 class TestCheckPeriodDate:
-# 正常系: affiliationInfoが存在し、期間が正しい場合
+    # 正常系: affiliationInfoが存在し、期間が正しい場合
     def test_check_period_date_valid(self, app):
         data = {
             "affiliationInfo": [
@@ -1568,6 +1568,39 @@ class TestCheckPeriodDate:
         }
         assert check_period_date(data) == (False, "start is after end")
         
+    def test_check_period_date_for_coverage(self, app):
+        data = {"invalid":"invalid"}
+        assert check_period_date(data) == (True, None)
+        
+        data = {
+            "affiliationInfo": [
+                {}
+            ]
+        }
+        assert check_period_date(data) == (True, None)
+        
+        data = {
+            "affiliationInfo": [
+                {
+                    "affiliationPeriodInfo": [
+                        {}
+                    ]
+                }
+            ]
+        }
+        assert check_period_date(data) == (True, None)
+        
+        data = {
+            "affiliationInfo": [
+                {
+                    "affiliationPeriodInfo": [
+                        {"periodStart": "2021-01-01"}
+                    ]
+                }
+            ]
+        }
+        assert check_period_date(data) == (True, None)
+    
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::TestDeleteExportUrl -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 class TestDeleteExportUrl:
     # 正常系: キャッシュキーが存在する場合
