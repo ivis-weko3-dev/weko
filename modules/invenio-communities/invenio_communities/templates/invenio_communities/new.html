@@ -95,13 +95,14 @@
   init_ckeditor("community_footer", 'advanced');
   </script>
   {% if is_new -%}
-    <script src="/assets/js/invenio_communities/inline.community.bundle.js" defer></script>
-    <script src="/assets/js/invenio_communities/polyfills.community.bundle.js" defer></script>
-    <script src="/assets/js/invenio_communities/main.community.bundle.js" defer></script>
+    <script src="{{ url_for('static', filename='js/invenio_communities/inline.community.bundle.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/invenio_communities/polyfills.community.bundle.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/invenio_communities/main.community.bundle.js') }}" defer></script>
   {%- else -%}
-  <script src="/assets/js/invenio_communities/inline.bundle.js" defer></script>
-  <script src="/assets/js/invenio_communities/polyfills.bundle.js" defer></script>
-  <script src="/assets/js/invenio_communities/main.bundle.js" defer></script>  {%- endif %}
+    <script src="{{ url_for('static', filename='js/invenio_communities/inline.bundle.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/invenio_communities/polyfills.bundle.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/invenio_communities/main.bundle.js') }}" defer></script>
+  {%- endif %}
 {%- endblock javascript -%}
 
 {% block page_body %}
