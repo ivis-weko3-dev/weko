@@ -242,11 +242,11 @@
                 method: 'GET',
                 url: '/get_search_setting',
                 headers: { 'Content-Type': 'application/json' },
-            }).then(function successCallback(response) {
+            }).done(function successCallback(response) {
                 if (response.status === 1) {
                     data = response.data;
                 }
-            }, function errorCallback(error) {
+            }).fail(function errorCallback(error) {
                 console.log(error);
             });
     
