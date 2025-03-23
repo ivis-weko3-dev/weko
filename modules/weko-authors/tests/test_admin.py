@@ -292,6 +292,7 @@ class TestExportView():
             def failed(self):
                 return self.state == "FAILURE"
 
+        current_cache.delete(current_app.config['WEKO_AUTHORS_EXPORT_TARGET_CACHE_KEY'])
         login_user_via_session(client=client, email=users[0]['email'])
         url = url_for('authors/export.check_status')
         current_cache.set("weko_authors_export_status",{"key":"authors_export_status","task_id":"test_task"})
@@ -718,7 +719,7 @@ class TestImportView():
             ],
         }
         mocker.patch("weko_authors.admin.check_is_import_available",return_value={"is_available":True})
-        current_cache.set("cache_result_over_max_file_path_key",{"key":"cache_result_over_max_file_path_key"})
+        current_cache.set("authors_import_result_file_of_over_path",{"key":"authors_import_result_file_of_over_path"})
         mocker.patch("os.remove")
         current_cache.set("authors_import_result_file_path",{"key":"authors_import_result_file_path"})
         current_cache.set("result_summary_key",{"key":"result_summary_key"})
@@ -781,7 +782,7 @@ class TestImportView():
             ],
         }
         mocker.patch("weko_authors.admin.check_is_import_available",return_value={"is_available":True})
-        current_cache.set("cache_result_over_max_file_path_key",None)
+        current_cache.set("authors_import_result_file_of_over_path",None)
         current_cache.set("authors_import_result_file_path",None)
         current_cache.set("result_summary_key",None)
         mocker.patch("weko_authors.admin.prepare_import_data",return_value=([
@@ -835,10 +836,10 @@ class TestImportView():
         mock_logger = MagicMock()
         current_app.logger = mock_logger
         mocker.patch("weko_authors.admin.check_is_import_available",return_value={"is_available":True})
-        current_cache.set("cache_result_over_max_file_path_key",{"key":"cache_result_over_max_file_path_key"})
+        current_cache.set("authors_import_result_file_of_over_path",{"key":"authors_import_result_file_of_over_path"})
         mocker.patch("os.remove", side_effect=FileNotFoundError)
         client.post(url, data=json.dumps(data), content_type='application/json')
-        mock_logger.error.assert_called_once_with("Error deleting {'key': 'cache_result_over_max_file_path_key'}: ")
+        mock_logger.error.assert_called_once_with("Error deleting {'key': 'authors_import_result_file_of_over_path'}: ")
 
         #  Exception (result_file_path is true)
         data = {

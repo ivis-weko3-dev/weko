@@ -394,8 +394,9 @@ def test_check_import_data(app,mocker):
     result = check_import_data(file_name)
     assert result == test
     
-    current_cache.delete("authors_import_user_file_key")
+    current_cache.set("authors_import_user_file_key","var/tmp/authors_import")
     mocker.patch("weko_authors.utils.flatten_authors_mapping",return_value=(mapping_all,mapping_ids))
+    mocker.patch("weko_authors.utils.unpackage_and_check_import_file",return_value=1)
     mock_json_data = '{"test_id": "1000"}'
     mocker.patch("builtins.open", mock_open(read_data=mock_json_data))
     mocker.patch("os.remove", side_effect=Exception)
@@ -2694,7 +2695,19 @@ def test_import_id_prefix_to_system(authors_prefix_settings):
         with pytest.raises(Exception):
             import_id_prefix_to_system({'scheme': 'test_scheme', 'status': 'new'})
             mock_create.assert_called_once()
-
+            
+    import_id_prefix_to_system(None)
+    
+    with patch.dict('flask.current_app.config', {"WEKO_AUTHORS_BULK_IMPORT_MAX_RETRY": 0}):
+        import_id_prefix_to_system({'scheme': 'test_scheme', 'status': 'new'})
+    
+    mock_check = MagicMock()
+    mock_check.id = 10
+    with patch("weko_authors.utils.get_author_prefix_obj", return_value=mock_check) as mock_get_author_prefix_obj:
+        import_id_prefix_to_system({'scheme': 'test_scheme', 'status': 'new', 'url': 'test'})
+        import_id_prefix_to_system({'scheme': 'test_scheme', 'status': 'update', 'id': 1})
+        import_id_prefix_to_system({'scheme': 'test_scheme', 'status': 'deleted', 'id': 1})
+        assert mock_get_author_prefix_obj.call_count == 3
 
 # def import_affiliation_id_to_system(affiliation_id):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_import_affiliation_id_to_system -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
@@ -2735,7 +2748,19 @@ def test_import_affiliation_id_to_system(authors_affiliation_settings):
         with pytest.raises(Exception):
             import_affiliation_id_to_system({'scheme': 'test_scheme', 'status': 'new'})
             mock_create.assert_called_once()
-
+            
+    import_affiliation_id_to_system(None)
+    
+    with patch.dict('flask.current_app.config', {"WEKO_AUTHORS_BULK_IMPORT_MAX_RETRY": 0}):
+        import_affiliation_id_to_system({'scheme': 'test_scheme', 'status': 'new'})
+    
+    mock_check = MagicMock()
+    mock_check.id = 10
+    with patch("weko_authors.utils.get_author_affiliation_obj", return_value=mock_check) as mock_get_author_prefix_obj:
+        import_affiliation_id_to_system({'scheme': 'test_scheme', 'status': 'new', 'url': 'test'})
+        import_affiliation_id_to_system({'scheme': 'test_scheme', 'status': 'update', 'id': 1})
+        import_affiliation_id_to_system({'scheme': 'test_scheme', 'status': 'deleted', 'id': 1})
+        assert mock_get_author_prefix_obj.call_count == 3
 
 # def band_check_file_for_user(max_page):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_band_check_file_for_user -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
