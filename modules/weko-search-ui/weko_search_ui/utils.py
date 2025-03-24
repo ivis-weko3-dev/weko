@@ -91,6 +91,7 @@ from weko_redis.redis import RedisConnection
 from weko_schema_ui.models import PublishStatus
 from weko_search_ui.mapper import BaseMapper, JPCOARV2Mapper, JsonLdMapper
 from weko_workflow.api import Flow, WorkActivity
+from weko_workflow.errors import WekoWorkflowException
 from weko_workflow.config import (
     IDENTIFIER_GRANT_LIST,
     IDENTIFIER_GRANT_SELECT_DICT,
@@ -2156,7 +2157,7 @@ def import_items_to_activity(item, request_info):
             index=index, metadata=metadata, files=files, comment=comment,
             link_data=link_data, grant_data=grant_data
         )
-    except Exception as ex:
+    except WekoWorkflowException as ex:
         traceback.print_exc()
         url = headless.detail
         recid = headless.recid
@@ -4805,7 +4806,7 @@ def handle_metadata_amend_by_doi(list_record):
     """Amend metadata by using DOI.
 
     Amend metadata, by using Web APIs, if DOI exists in the metadata.
-    The APIs used for this mehtod are set in weko_items_autofill/config.py > 
+    The APIs used for this mehtod are set in weko_items_autofill/config.py >
     WEKO_ITEMS_AUTOFILL_TO_BE_USED, priority order.
 
     Args:
