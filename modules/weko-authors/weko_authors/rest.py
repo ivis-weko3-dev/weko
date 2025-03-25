@@ -242,8 +242,8 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
 
             if fullname:
                 parts = fullname.split(" ", 1)
-                firstname_ = parts[0]
-                familyname_ = parts[1] if len(parts) > 1 else None
+                familyname_ = parts[0]
+                firstname_ = parts[1] if len(parts) > 1 else None
 
                 if firstname_ and familyname_:
                     search_query["query"]["bool"]["must"].append({"match": {"authorNameInfo.firstName": firstname_}})
@@ -296,13 +296,32 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
         for auth_id in author_data.get("authorIdInfo", []):
             prefix_obj = get_author_prefix_obj(auth_id.get("idType"))
             if prefix_obj:
-                auth_id["idType"] = prefix_obj.id
-        # `affiliationIdType` (scheme -> id)
+                auth_id["idType"] = str(prefix_obj.id)
+            # default authorIdShowFlg
+            if "authorIdShowFlg" not in auth_id:
+                auth_id["authorIdShowFlg"] = "true"
+
+        # default nameShowFlg
+        for name_info in author_data.get("authorNameInfo", []):
+            if "nameShowFlg" not in name_info:
+                name_info["nameShowFlg"] = "true"
+
+        # `affiliationInfo` (scheme -> id)
         for affiliation in author_data.get("affiliationInfo", []):
             for identifier in affiliation.get("identifierInfo", []):
                 aff_obj = get_author_affiliation_obj(identifier.get("affiliationIdType"))
                 if aff_obj:
-                    identifier["affiliationIdType"] = aff_obj.id
+                    identifier["affiliationIdType"] = str(aff_obj.id)
+                    
+                # default identifierShowFlg
+                if "identifierShowFlg" not in identifier:
+                    identifier["identifierShowFlg"] = "true"
+            
+            # default affiliationNameShowFlg
+            for aff_name_info in affiliation.get("affiliationNameInfo", []):
+                if "affiliationNameShowFlg" not in name_info:
+                    aff_name_info["affiliationNameShowFlg"] = "true"
+
         return author_data
 
     def process_authors_data_after(self, author_data):
