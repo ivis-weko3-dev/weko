@@ -102,8 +102,8 @@ class TestAuthorDBManagementAPI:
         oauth2.after_request(login_oauth2_user)
         
         # 正常系テスト（検索条件ごとの動作確認）
-        self.run_get_authors(app, client_api, auth_headers_sysadmin, {"fullname": "Test_1 User_1"}, 200, ['1'])  # フルネーム検索で特定の著者ID 1 が返ることを確認
-        self.run_get_authors(app, client_api, auth_headers_sysadmin, {"fullname": "Test_1 "}, 200, ['1','2','3','4'])  # 部分一致検索で該当する複数の著者IDが返ることを確認
+        self.run_get_authors(app, client_api, auth_headers_sysadmin, {"fullname": "User_1 Test_1"}, 200, ['1'])  # フルネーム検索で特定の著者ID 1 が返ることを確認
+        self.run_get_authors(app, client_api, auth_headers_sysadmin, {"fullname": "User_1 "}, 200, ['1','2','3','4'])  # 部分一致検索で該当する複数の著者IDが返ることを確認
         self.run_get_authors(app, client_api, auth_headers_sysadmin, {"firstname": "Test_2"}, 200, ['2'])  # 名（ファーストネーム）で検索し、著者ID 2 のみが返ることを確認
         self.run_get_authors(app, client_api, auth_headers_sysadmin, {"familyname": "User_3"}, 200, ['3','4'])  # 姓（ファミリーネーム）で検索し、著者ID 3 のみが返ることを確認
         self.run_get_authors(app, client_api, auth_headers_sysadmin, {"idtype": "WEKO", "authorid": "1"}, 200, ['1'])  # ID タイプが WEKO で ID が 1 の著者が正しく取得できるか確認
@@ -118,7 +118,7 @@ class TestAuthorDBManagementAPI:
         self.run_get_authors(app, client_api, auth_headers_sysadmin, {"authorid": "https://orcid.org/##"}, 400, [])  # 無効な著者IDで検索した場合、400（Bad Request）となることを確認
         
         with patch("weko_authors.utils.get_author_prefix_obj",side_effect={}):
-            self.run_get_authors(app, client_api, auth_headers_sysadmin, {"fullname": "Test_1 User_1"}, 200, ['1'])  # フルネーム検索で特定の著者ID 1 が返ることを確認
+            self.run_get_authors(app, client_api, auth_headers_sysadmin, {"fullname": "User_1 Test_1"}, 200, ['1'])  # フルネーム検索で特定の著者ID 1 が返ることを確認
         # システムエラーの確認
         with patch("invenio_search.current_search_client.search", side_effect=Exception):
             self.run_get_authors(app, client_api, auth_headers_sysadmin, {"firstname": "Test_2"}, 500, [])  # 検索時にエラーが発生した場合、500（Internal Server Error）となることを確認
@@ -185,7 +185,8 @@ class TestAuthorDBManagementAPI:
         self.run_post_author(app, client_api, auth_headers_sysadmin, self.valid_author_data(), 200, "Author successfully registered.")  # 正常なデータ
         self.run_post_author(app, client_api, auth_headers_sysadmin, self.valid_author_data("ORCID", ""), 200, "Author successfully registered.")  # カーバレジのためのテストケース
         self.run_post_author(app, client_api, auth_headers_sysadmin, self.valid_author_data("ORCID", ""), 200, "Author successfully registered.")  # カーバレジのためのテストケース
-
+        self.run_post_author(app, client_api, auth_headers_sysadmin, self.valid_author_data_without_showFlg("ORCID", ""), 200, "Author successfully registered.")  # カーバレジのためのテストケース
+        
         # 認証なしのリクエストが拒否されることを確認
         self.run_post_author_unauthorized(app, client_api)  # 認証なしでリクエストするとエラー
 
@@ -277,7 +278,24 @@ class TestAuthorDBManagementAPI:
             }
         }
         
-        
+    def valid_author_data_without_showFlg(self, idType = "WEKO",nameFormat = "familyNmAndNm"):
+        """
+        正常な著者データ
+        - 正しく登録できるデータを返す
+        """
+        return {
+            "author": {
+                "emailInfo": [{"email": "sample@xxx.co.jp"}],
+                "authorIdInfo": [{"idType": idType, "authorId": "5"}],
+                "authorNameInfo": [{"language": "en", "firstName": "John", "familyName": "Doe", "nameFormat": nameFormat}],
+                "affiliationInfo": [{
+                    "identifierInfo": [{"affiliationId": "https://ror.org/5678", "affiliationIdType": "ISNI"}],
+                    "affiliationNameInfo": [{"affiliationName": "NII", "affiliationNameLang": "en"}],
+                    "affiliationPeriodInfo": [{"periodStart": "2025-01-27", "periodEnd": "2025-03-21"}]
+                }]
+            }
+        }
+    
     @pytest.mark.parametrize('base_app',[dict(
         is_es=True
     )],indirect=['base_app'])
