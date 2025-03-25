@@ -15,7 +15,9 @@ from weko_authors.models import Authors
 from weko_authors.config import WEKO_AUTHORS_FILE_MAPPING
 from weko_authors.utils import (
     get_author_prefix_obj,
+    get_author_prefix_obj_by_id,
     get_author_affiliation_obj,
+    get_author_affiliation_obj_by_id,
     check_email_existed,
     get_export_status,
     set_export_status,
@@ -73,8 +75,21 @@ def test_get_author_prefix_obj(authors_prefix_settings):
         result = get_author_prefix_obj("ORCID")
         assert result == None
 
+# def get_author_prefix_obj_by_id(scheme):
+# .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_get_author_prefix_obj_by_id -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
+def test_get_author_prefix_obj_by_id(authors_prefix_settings):
+    result = get_author_prefix_obj_by_id("1")
+    assert result == authors_prefix_settings[0]
+    
+    # raise Exception
+    with patch("weko_authors.utils.db.session.query") as mock_query:
+        mock_query.return_value.filter.return_value.one_or_none.side_effect=Exception("test_error")
+        result = get_author_prefix_obj("1")
+        assert result == None
+
+
 # def get_author_affiliation_obj(scheme):
-# .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_get_author_affiliation_obj -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_get_author_affiliation_obj -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 def test_get_author_affiliation_obj(authors_affiliation_settings):
     result = get_author_affiliation_obj("ISNI")
     assert result == authors_affiliation_settings[0]
@@ -83,6 +98,18 @@ def test_get_author_affiliation_obj(authors_affiliation_settings):
     with patch("weko_authors.utils.db.session.query") as mock_query:
         mock_query.return_value.filter.return_value.one_or_none.side_effect=Exception("test_error")
         result = get_author_affiliation_obj("ISNI")
+        assert result == None
+        
+# def get_author_affiliation_obj(scheme):
+# .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_get_author_affiliation_obj_by_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
+def test_get_author_affiliation_obj_by_id(authors_affiliation_settings):
+    result = get_author_affiliation_obj_by_id("1")
+    assert result == authors_affiliation_settings[0]
+    
+    # raise Exception
+    with patch("weko_authors.utils.db.session.query") as mock_query:
+        mock_query.return_value.filter.return_value.one_or_none.side_effect=Exception("test_error")
+        result = get_author_affiliation_obj_by_id("1")
         assert result == None
 
 # def check_email_existed(email: str):
@@ -394,8 +421,9 @@ def test_check_import_data(app,mocker):
     result = check_import_data(file_name)
     assert result == test
     
-    current_cache.delete("authors_import_user_file_key")
+    current_cache.set("authors_import_user_file_key","var/tmp/authors_import")
     mocker.patch("weko_authors.utils.flatten_authors_mapping",return_value=(mapping_all,mapping_ids))
+    mocker.patch("weko_authors.utils.unpackage_and_check_import_file",return_value=1)
     mock_json_data = '{"test_id": "1000"}'
     mocker.patch("builtins.open", mock_open(read_data=mock_json_data))
     mocker.patch("os.remove", side_effect=Exception)
@@ -1516,7 +1544,7 @@ class TestCheckWekoIdIsExists:
                 
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::TestCheckPeriodDate -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 class TestCheckPeriodDate:
-# 正常系: affiliationInfoが存在し、期間が正しい場合
+    # 正常系: affiliationInfoが存在し、期間が正しい場合
     def test_check_period_date_valid(self, app):
         data = {
             "affiliationInfo": [
@@ -1568,6 +1596,39 @@ class TestCheckPeriodDate:
         }
         assert check_period_date(data) == (False, "start is after end")
         
+    def test_check_period_date_for_coverage(self, app):
+        data = {"invalid":"invalid"}
+        assert check_period_date(data) == (True, None)
+        
+        data = {
+            "affiliationInfo": [
+                {}
+            ]
+        }
+        assert check_period_date(data) == (True, None)
+        
+        data = {
+            "affiliationInfo": [
+                {
+                    "affiliationPeriodInfo": [
+                        {}
+                    ]
+                }
+            ]
+        }
+        assert check_period_date(data) == (True, None)
+        
+        data = {
+            "affiliationInfo": [
+                {
+                    "affiliationPeriodInfo": [
+                        {"periodStart": "2021-01-01"}
+                    ]
+                }
+            ]
+        }
+        assert check_period_date(data) == (True, None)
+    
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::TestDeleteExportUrl -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 class TestDeleteExportUrl:
     # 正常系: キャッシュキーが存在する場合
@@ -2661,7 +2722,19 @@ def test_import_id_prefix_to_system(authors_prefix_settings):
         with pytest.raises(Exception):
             import_id_prefix_to_system({'scheme': 'test_scheme', 'status': 'new'})
             mock_create.assert_called_once()
-
+            
+    import_id_prefix_to_system(None)
+    
+    with patch.dict('flask.current_app.config', {"WEKO_AUTHORS_BULK_IMPORT_MAX_RETRY": 0}):
+        import_id_prefix_to_system({'scheme': 'test_scheme', 'status': 'new'})
+    
+    mock_check = MagicMock()
+    mock_check.id = 10
+    with patch("weko_authors.utils.get_author_prefix_obj", return_value=mock_check) as mock_get_author_prefix_obj:
+        import_id_prefix_to_system({'scheme': 'test_scheme', 'status': 'new', 'url': 'test'})
+        import_id_prefix_to_system({'scheme': 'test_scheme', 'status': 'update', 'id': 1})
+        import_id_prefix_to_system({'scheme': 'test_scheme', 'status': 'deleted', 'id': 1})
+        assert mock_get_author_prefix_obj.call_count == 3
 
 # def import_affiliation_id_to_system(affiliation_id):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_import_affiliation_id_to_system -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
@@ -2702,7 +2775,19 @@ def test_import_affiliation_id_to_system(authors_affiliation_settings):
         with pytest.raises(Exception):
             import_affiliation_id_to_system({'scheme': 'test_scheme', 'status': 'new'})
             mock_create.assert_called_once()
-
+            
+    import_affiliation_id_to_system(None)
+    
+    with patch.dict('flask.current_app.config', {"WEKO_AUTHORS_BULK_IMPORT_MAX_RETRY": 0}):
+        import_affiliation_id_to_system({'scheme': 'test_scheme', 'status': 'new'})
+    
+    mock_check = MagicMock()
+    mock_check.id = 10
+    with patch("weko_authors.utils.get_author_affiliation_obj", return_value=mock_check) as mock_get_author_prefix_obj:
+        import_affiliation_id_to_system({'scheme': 'test_scheme', 'status': 'new', 'url': 'test'})
+        import_affiliation_id_to_system({'scheme': 'test_scheme', 'status': 'update', 'id': 1})
+        import_affiliation_id_to_system({'scheme': 'test_scheme', 'status': 'deleted', 'id': 1})
+        assert mock_get_author_prefix_obj.call_count == 3
 
 # def band_check_file_for_user(max_page):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_band_check_file_for_user -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
@@ -3258,4 +3343,4 @@ def test_create_result_file_for_user(app, mocker):
     current_cache.delete(result_path_key)
     res = create_result_file_for_user(json)
     assert res == None
-   
+

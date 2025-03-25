@@ -92,7 +92,15 @@ def test_05_import_author(app, caplog: LogCaptureFixture):
     expected = [('testapp', logging.ERROR, "{'error_id': 123, 'message': 'An error occurred'}")] * 6
     assert info_logs == expected
     assert result["status"] == "FAILURE"
-
+    
+# def import_author(author):
+# .tox/c1/bin/pytest --cov=weko_authors tests/test_tasks.py::test_06_import_author -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
+def test_06_import_author(app, mocker):
+    with patch.dict('flask.current_app.config', {"WEKO_AUTHORS_BULK_EXPORT_MAX_RETRY": 0}):
+        result = import_author({"status":"", "weko_id":"", "current_weko_id":""}, True)
+        assert "start_date" in result
+        assert "end_date" in result
+        
 
 # def check_is_import_available(group_task_id=None):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_tasks.py::test_check_is_import_available -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
@@ -758,6 +766,13 @@ def test_import_id_prefix(app, caplog: LogCaptureFixture):
         info_logs = [record for record in caplog.record_tuples if record[1] == logging.ERROR]
         assert [('testapp', logging.ERROR, "{'error_id': 123, 'message': 'DB upload failed'}")] == info_logs
         assert result['status'] == 'FAILURE'
+        
+    with patch('weko_authors.tasks.import_id_prefix_to_system', side_effect=ValueError()):
+        result = import_id_prefix(None)
+        assert result['status'] == 'FAILURE'
+        assert "error_id" not in result
+        assert "start_date" in result
+        assert "end_date" in result
     
 
 # def import_affiliation_id(affiliation_id):
@@ -774,6 +789,12 @@ def test_import_affiliation_id(app, caplog: LogCaptureFixture):
         assert [('testapp', logging.ERROR, "{'error_id': 123, 'message': 'DB upload failed'}")] == info_logs
         assert result['status'] == 'FAILURE'
     
+    with patch('weko_authors.tasks.import_affiliation_id_to_system', side_effect=ValueError()):
+        result = import_affiliation_id(None)
+        assert result['status'] == 'FAILURE'
+        assert "error_id" not in result
+        assert "start_date" in result
+        assert "end_date" in result
 
 # def import_author_over_max(reached_point, task_ids ,max_part):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_tasks.py::test_import_author_over_max -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
@@ -793,6 +814,14 @@ def test_import_author_over_max(app, caplog: LogCaptureFixture):
             result = import_author_over_max(reached_points, task_ids, 5)
             [('testapp', logging.ERROR, "{'error_id': 123, 'message': 'file not found'}")] == info_logs
             assert result['status'] == 'FAILURE'
+            
+    with patch('weko_authors.tasks.check_task_end', return_value=0):
+        with patch("weko_authors.tasks.import_authors_from_temp_files", side_effect=ValueError()) as mock_temp:
+            result = import_author_over_max(reached_points, task_ids, 5)
+            assert result['status'] == 'FAILURE'
+            assert "error_id" not in result
+            assert "start_date" in result
+            assert "end_date" in result
 
 
 # def write_result_temp_file(result):

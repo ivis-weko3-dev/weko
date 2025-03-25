@@ -331,8 +331,6 @@ def test_validate_digits_for_wekoid():
     # def validate_affiliation_identifier_scheme(item, values=[])
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_validation.py::test_validate_affiliation_identifier_scheme -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 def test_validate_affiliation_identifier_scheme(authors_affiliation_settings):
-    
-    
     item = 'item'
     values = [{"key":"authorIdInfo[0].idType","reduce_keys":["authorIdInfo",0,"idType"],"value":"ISNI"}]
     result = validate_affiliation_identifier_scheme(item, values)
@@ -345,6 +343,10 @@ def test_validate_affiliation_identifier_scheme(authors_affiliation_settings):
     result = validate_affiliation_identifier_scheme(item, values_2)
     assert result == ["Specified Affiliation Identifier Scheme '123' does not exist."]
 
+    item = 'item'
+    values_3 = []
+    result = validate_affiliation_identifier_scheme(item, values_3)
+    assert result == []
 
 #    def validate_affiliation_period_start(item, values=[])
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_validation.py::test_validate_affiliation_period_start -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
@@ -361,6 +363,12 @@ def test_validate_affiliation_period_start(authors):
     ]
     result = validate_affiliation_period_start(item, values_2)
     assert result == ["External Affiliation Period must be in the format: yyyy-MM-dd, blank. 2025317"]
+
+    values_3 = [
+        {'value': ''},
+    ]
+    result = validate_affiliation_period_start(item, values_3)
+    assert result == []
 
 
 #    def check_weko_id_is_exits_for_import(pk_id, weko_id, existed_external_authors_id={})
