@@ -306,7 +306,7 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
             if "nameShowFlg" not in name_info:
                 name_info["nameShowFlg"] = "true"
 
-        # `affiliationInfo` (scheme -> id)
+        # `affiliationIdType` (scheme -> id)
         for affiliation in author_data.get("affiliationInfo", []):
             for identifier in affiliation.get("identifierInfo", []):
                 aff_obj = get_author_affiliation_obj(identifier.get("affiliationIdType"))
