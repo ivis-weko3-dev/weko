@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const groupYearButton = document.getElementById('groupYearicon');
   const itemListContainer = document.getElementById('itemListContainer');
   const pagination = document.querySelector('.pagination');
+  const checkAll = document.getElementById('check_all'); //  すべてチェック
+
 
   // 必要な要素のチェック
   if (!filterContainer || !toggleButton || !filterContent || !detailSearchBtn || !clearSearchBtn || !saveSearchBtn || !resetSearchBtn || !saveSuccess || !saveFail || !sortItemSelect || !sortOrderSelect || !itemsPerPageSelect || !groupYearButton || !itemListContainer || !pagination) {
@@ -66,6 +68,55 @@ document.addEventListener('DOMContentLoaded', function () {
   let isGroupedByYear = false;
   let items = [...workspaceItemList]; // 一覧データのコピー
 
+  // すべてチェックの処理
+  function handleCheckAll() {
+    const itemCheckboxes = document.querySelectorAll('tbody input[type="checkbox"]');
+    itemCheckboxes.forEach(checkbox => {
+      checkbox.checked = checkAll.checked;
+      const recid = checkbox.closest('tr')?.querySelector('td:nth-child(2) strong a')?.href.split('/').pop();
+      if (recid) {
+        if (checkAll.checked) {
+          checkedItems.add(recid);
+        } else {
+          checkedItems.delete(recid);
+        }
+      }
+    });
+  }
+
+  checkAll.addEventListener('change', handleCheckAll);
+
+  // 個別チェックボックスの処理
+  function handleItemCheckboxChange() {
+    const recid = this.closest('tr')?.querySelector('td:nth-child(2) strong a')?.href.split('/').pop();
+    if (recid) {
+      if (this.checked) {
+        checkedItems.add(recid);
+      } else {
+        checkedItems.delete(recid);
+      }
+    }
+    updateCheckAllStatus();
+  }
+
+  // すべてチェックボックスの状態を更新
+  function updateCheckAllStatus() {
+    const itemCheckboxes = document.querySelectorAll('tbody input[type="checkbox"]');
+    checkAll.checked = itemCheckboxes.length > 0 && [...itemCheckboxes].every(cb => cb.checked);
+  }
+
+  // ページ変更時にチェックボックスの状態を復元
+  function restoreCheckedItems() {
+    const itemCheckboxes = document.querySelectorAll('tbody input[type="checkbox"]');
+    itemCheckboxes.forEach(checkbox => {
+      const recid = checkbox.closest('tr')?.querySelector('td:nth-child(2) strong a')?.href.split('/').pop();
+      if (recid && checkedItems.has(recid)) {
+        checkbox.checked = true;
+      }
+      checkbox.addEventListener('change', handleItemCheckboxChange);
+    });
+    updateCheckAllStatus();
+  }
   // SearchBar コンポーネント
   const SearchBar = ({ items, onFilter }) => {
     const [query, setQuery] = React.useState('');
@@ -440,9 +491,9 @@ document.addEventListener('DOMContentLoaded', function () {
     return React.createElement(
       'a',
       { href: '#', onClick: (e) => { e.preventDefault(); handleFavoriteToggle(); } },
-      React.createElement('i', { 
-        className: isFavorite ? 'bi bi-star-fill' : 'bi bi-star', 
-        style: { fontSize: '20px' } 
+      React.createElement('i', {
+        className: isFavorite ? 'bi bi-star-fill' : 'bi bi-star',
+        style: { fontSize: '20px' }
       })
     );
   };
@@ -471,9 +522,9 @@ document.addEventListener('DOMContentLoaded', function () {
     return React.createElement(
       'a',
       { href: '#', onClick: (e) => { e.preventDefault(); handleReadToggle(); } },
-      React.createElement('i', { 
-        className: isRead ? 'bi bi-book-fill' : 'bi bi-book', 
-        style: { fontSize: '20px' } 
+      React.createElement('i', {
+        className: isRead ? 'bi bi-book-fill' : 'bi bi-book',
+        style: { fontSize: '20px' }
       })
     );
   };
@@ -595,8 +646,8 @@ document.addEventListener('DOMContentLoaded', function () {
           <span>${item.funderName || ''} | ${item.awardTitle || ''}</span><span> </span><br><br>
           <span>${item.publicationDate}</span><span> </span>
           ${item.relation && item.relation.length > 0 ? '<span><a href="javascript:void(0)" class="relatedButton"><strong>関連</strong></a></span><span> </span>' : ''}
-          ${item.fileSts 
-            ? `<span>本文ファイル (${item.fileCnt || 0})： 公開（${item.publicCnt || 0}）、エンバーゴ（${item.embargoedCnt || 0}）、 制限公開（${item.restrictedPublicationCnt || 0}）</span>` 
+          ${item.fileSts
+            ? `<span>本文ファイル (${item.fileCnt || 0})： 公開（${item.publicCnt || 0}）、エンバーゴ（${item.embargoedCnt || 0}）、 制限公開（${item.restrictedPublicationCnt || 0}）</span>`
             : '<span>本文ファイル (0)</span>'}<span> </span><br>
           ${relatedInfoHtml}
         </td>
@@ -613,8 +664,8 @@ document.addEventListener('DOMContentLoaded', function () {
           <span style="border: 1px solid #000; padding: 5px; border-radius: '4px'">${item.resourceType}</span><br><br>
           <span>${item.itemStatus}</span><br><br>
           <span>
-            ${item.fbEmailSts 
-              ? `<i class="bi bi-envelope" style="font-size: 20px;"></i>` 
+            ${item.fbEmailSts
+              ? `<i class="bi bi-envelope" style="font-size: 20px;"></i>`
               : `<i class="bi bi-envelope-dash" style="font-size: 20px;"></i>`}
           </span><br><br>
         </td>

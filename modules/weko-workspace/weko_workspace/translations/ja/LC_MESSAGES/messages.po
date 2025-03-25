@@ -54,3 +54,22 @@ msgstr "保存"
 #: modules/weko-workspace/weko_workspace/templates/weko_workspace/workspace_body_contents.html:xxx
 msgid "Reset"
 msgstr "リセット"
+
+#: weko-workspace/weko_workspace/templates/weko_workspace/workspace_body_contents.html:25
+ msgid "btn_export"
+ msgstr "アイテム出力"
+
+ msgid "Please select the following option:"
+ msgstr "以下のオプションを選択してください:"
+
+ msgid "Selected Items"
+ msgstr "選択アイテム出力"
+
+ msgid "All Items"
+ msgstr "全て出力"
+
+ msgid "Cancel"
+ msgstr "キャンセル"
+
+ msgid "Error: There is no Selected items. Please check the item you want to export"
+ msgstr "エラー: 選択されたアイテムがありません。チェックボックスを選択してください。

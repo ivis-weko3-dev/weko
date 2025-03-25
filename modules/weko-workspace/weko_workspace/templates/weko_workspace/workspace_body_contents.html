@@ -22,7 +22,13 @@
   <div id="search_res">
     <div class="panel panel-default">
       <div role="navigation" style="display: flex; flex-direction: column; width: 300px;">
-        <input type="button" id="btn_todo1" value="{{_('アイテム出力')}}" style="margin-bottom: 10px; width: 50%; text-align: left;" />
+        <input type="button" id="btn_export" value="{{_('Export Items')}}" style="margin-bottom: 10px; width: 50%; text-align: left;" />
+        <input id="Option_Label" type="hidden" value="{{_('Please select the following option:')}}" />
+        <input id="Item_Selected" type="hidden" value="{{_('Selected Items')}}" />
+        <input id="Item_All" type="hidden" value="{{_('All Items')}}" />
+        <input id="Item_Cancel" type="hidden" value="{{_('Cancel')}}" />
+        <input id="No_Items" type="hidden"
+          value="{{_('Error: There is no Selected items. Please check the item you want to export')}}" />
         <div id="search-container"></div>
         <span><strong>{{username}}</strong></span>
       </div>
@@ -112,3 +118,16 @@
       </div>
     </div>
   </div>
+  <script>
+    // すべてチェックの処理
+    document.addEventListener('DOMContentLoaded', function () {
+      const checkAll = document.getElementById('check_all');
+      const itemCheckboxes = document.querySelectorAll('tbody input[type="checkbox"]');
+
+      checkAll.addEventListener('change', function () {
+        itemCheckboxes.forEach(checkbox => {
+          checkbox.checked = checkAll.checked;
+        });
+      });
+    });
+  </script>

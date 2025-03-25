@@ -54,3 +54,22 @@ msgstr ""
 #: modules/weko-workspace/weko_workspace/templates/weko_workspace/workspace_body_contents.html:xxx
 msgid "Reset"
 msgstr ""
+
+#: weko-workspace/weko_workspace/templates/weko_workspace/workspace_body_contents.html:25
+ msgid "btn_export"
+ msgstr "Export Items"
+
+ msgid "Please select the following option:"
+ msgstr ""
+
+ msgid "Selected Items"
+ msgstr ""
+
+ msgid "All Items"
+ msgstr ""
+
+ msgid "Cancel"
+ msgstr ""
+
+ msgid "Error: There is no Selected items. Please check the item you want to export"
+ msgstr ""
