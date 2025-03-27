@@ -689,7 +689,6 @@ class RecordsListResource(ContentNegotiatedMethodView):
         search = search.extra(track_total_hits=True)
 
         search, qs_kwargs = self.search_factory(search, self.search_query_parser)
-        urlkwargs.update(qs_kwargs)
 
         from invenio_accounts.models import User
 
