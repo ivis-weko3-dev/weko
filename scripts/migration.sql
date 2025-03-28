@@ -61,7 +61,7 @@ ALTER TABLE workflow_userrole
 ALTER COLUMN role_id TYPE VARCHAR(80);
 
 ALTER TABLE accounts_role
-ALTER id TYPE VARCHAR(80);
+ALTER COLUMN id TYPE VARCHAR(80);
 
 
 ALTER TABLE access_actionsroles

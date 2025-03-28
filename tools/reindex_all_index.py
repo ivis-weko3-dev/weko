@@ -32,12 +32,26 @@ def parse_arguments():
         choices=["http", "https"],
         help="Elasticsearch に接続するプロトコル（http または https）"
     )
+    
+    parser.add_argument(
+        "--es6_port",
+        type=int,
+        default=9200,
+        help="Elasticsearch 6 のポート番号（デフォルト: 9200）"
+    )
 
     parser.add_argument(
         "--es7_host",
         type=str,
         default="elasticsearch7",
         help="Elasticsearch 7 のコンテナ名"
+    )
+    
+    parser.add_argument(
+        "--es7_port",
+        type=int,
+        default=9200,
+        help="Elasticsearch 7 のポート番号（デフォルト: 9200）"
     )
 
     parser.add_argument(
@@ -70,27 +84,25 @@ http_method = args.http_method
 user = args.user
 password = args.password
 es7_host = args.es7_host
+es7_port = args.es7_port
 gte_date = args.date
 auth = HTTPBasicAuth(user, password) if user and password else None
 
 es6_host = os.environ.get('INVENIO_ELASTICSEARCH_HOST','localhost')
+es6_port = args.es6_port
 version="v7"
 
-es6_url = http_method + "://" + es6_host +":9200/"
-es7_url = http_method + "://"+ es7_host +":9200/"
+es6_url = http_method + "://" + es6_host +":"+es6_port+"/"
+es7_url = http_method + "://"+ es7_host +":"+es7_port+"/"
 reindex_url = es7_url + "_reindex?pretty&refresh=true&wait_for_completion=true"
-bulk_url = es7_url + "_bulk"
 template_url = es7_url + "_template/{}"
 verify=False
 headers = {"Content-Type":"application/json"}
-bulk_headers = {"Content-Type":"application/x-ndjson"}
 percolator_prefix = "oaiset-"
 
 req_args = {"headers":headers,"verify":verify}
-bulk_req_args = {"headers":bulk_headers,"verify":verify}
 if auth:
     req_args["auth"] = auth
-    bulk_req_args["auth"] = auth
 
 mapping_files = {
     "authors-author-v1.0.0": f"weko-authors/weko_authors/mappings/{version}/authors/author-v1.0.0.json",
@@ -115,19 +127,10 @@ print("# get indexes and aliases")
 organization_aliases = prefix+"-*"
 indexes = requests.get(f"{es6_url}{organization_aliases}",**req_args).json()
 indexes_alias = {} # indexとaliasのリスト
-write_indexes = [] # is_write_indexがtrueのindexとaliasのリスト
 for index in indexes:
     aliases = indexes[index].get("aliases",{})
     indexes_alias[index] = aliases
 
-    index_tmp = replace_prefix_index(index)
-    if index_tmp not in stats_indexes:
-        continue
-    for alias, alias_info in aliases.items():
-        if alias_info.get("is_write_index", False) is True:
-            write_indexes.append(
-                {"index":index,"alias":alias}
-            )
 modules_dir = "/code/modules/"
 mappings = {}
 templates = {}
@@ -169,9 +172,6 @@ percolator_body = {"properties": {"query": {"type": "percolator"}}}
 for index, mapping in mappings.items():
     print("# start reindex: {}".format(index))
 
-    # target index is weko-item-v1.0.0
-    is_weko_item = re.sub(f"^{prefix}-", "", index) == "weko-item-v1.0.0"
-
     # target index mapping
     base_index_definition = mappings[index]
 
@@ -180,12 +180,16 @@ for index, mapping in mappings.items():
     default_refresh_interval = base_index_definition.get("settings",{}).get("index",{}).get("refresh_interval","1s")
     performance_setting_body = {"index": {"number_of_replicas": 0, "refresh_interval": "-1"}}
     restore_setting_body = {"index": {"number_of_replicas": defalut_number_of_replicas, "refresh_interval": default_refresh_interval}}
-
+    remote = {
+        "host": es6_url
+    }
+    if user and password:
+        remote["username"] = user
+        remote["password"] = password
+        
     json_data_to_es7 = {
         "source": {
-            "remote": {
-                "host": es6_url,
-            },
+            "remote": remote,
             "index": index,
             "query": {
                 "bool": {
@@ -255,6 +259,7 @@ for index, mapping in mappings.items():
             print(f"## Creating index: {index}")
             res = requests.put(es7_url + index + "?pretty", json=base_index_definition, **req_args)
             if res.status_code != 200:
+                print(f"raise error create index: {index}")
                 raise Exception(res.text)
             print(f"Created index: {index}")
 
@@ -262,6 +267,7 @@ for index, mapping in mappings.items():
             if json_data_set_aliases["actions"]:
                 res = requests.post(es7_url + "_aliases", json=json_data_set_aliases, **req_args)
                 if res.status_code != 200:
+                    print(f"## raise error: set aliases: {index}")
                     raise Exception(res.text)
             print("## setting alias for new index")
 
@@ -330,7 +336,7 @@ for index, mapping in mappings.items():
         print(traceback.format_exc())
 
 
-def create_stats_index(index_name, stats_prefix, stats_types):
+def create_stats_index(index_name):
     alias_actions = []
     print("## start create stats index: {}".format(index_name))
     index_with_prefix = f"{prefix}-{index_name}"
@@ -496,8 +502,8 @@ stats_types = [
 ]
 
 alias_actions = []
-alias_actions += create_stats_index("events-stats-index", "events-stats", event_stats_types)
-alias_actions += create_stats_index("stats-index", "stats", stats_types)
+alias_actions += create_stats_index("events-stats-index")
+alias_actions += create_stats_index("stats-index")
 
 if alias_actions:
     res = requests.post(es7_url+"_aliases",json={"actions":alias_actions},**req_args)

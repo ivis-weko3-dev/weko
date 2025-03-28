@@ -27,9 +27,8 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--http_method",
+        "http_method",
         choices=["http", "https"],
-        default="http",
         help="Elasticsearch に接続するプロトコル（http または https）"
     )
 
@@ -39,12 +38,28 @@ def parse_arguments():
         default="elasticsearch7",
         help="Elasticsearch 7 のコンテナ名"
     )
+    
+    parser.add_argument(
+        "--es7_port",
+        type=int,
+        default=9200,
+        help="Elasticsearch 7 のポート番号（デフォルト: 9200）"
+    )
+    
     parser.add_argument(
         "--os_host",
         type=str,
         default="opensearch",
         help="Opensearch のコンテナ名"
     )
+    
+    parser.add_argument(
+        "--os_port",
+        type=int,
+        default=9200,
+        help="opensearch のポート番号（デフォルト: 9200）"
+    )
+    
     parser.add_argument(
         "--user",
         type=str,
@@ -59,14 +74,14 @@ def parse_arguments():
     parser.add_argument(
         "--user_os",
         type=str,
-        default="invenio",
+        default="admin",
         help="Opensearch のユーザー名"
     )
 
     parser.add_argument(
         "--password_os",
         type=str,
-        default="openpass123!",
+        default="WekoOpensearch123!",
         help="Opensearch のパスワード"
     )
 
@@ -90,13 +105,16 @@ password = args.password
 user_os = args.user_os
 password_os = args.password_os
 es7_host = args.es7_host
+es7_port = args.es7_port
 os_host = args.os_host
+os_port = args.os_port
 gte_date = args.date
-auth = HTTPBasicAuth(user_os, password_os) if user_os and password_os else None
+es_auth = HTTPBasicAuth(user, password) if user and password else None
+os_auth = HTTPBasicAuth(user_os, password_os) if user_os and password_os else None
 version="os-v2"
 
-es7_url = http_method + "://"+ es7_host +":9200/"
-os_url = "https://"+os_host+":9200/"
+es7_url = http_method + "://"+ es7_host +":"+es7_port+"/"
+os_url = "https://"+os_host+":"+os_port+"/"
 reindex_url = os_url + "_reindex?pretty&refresh=true&wait_for_completion=true"
 template_url = os_url + "_template/{}"
 verify=False
@@ -105,8 +123,11 @@ headers = {"Content-Type":"application/json"}
 req_args = {"headers":headers,"verify":verify}
 os_req_args = {"headers":headers,"verify":verify}
 
-if auth:
-    os_req_args["auth"] = auth
+
+if es_auth:
+    req_args["auth"] = es_auth
+if os_auth:
+    os_req_args["auth"] = os_auth
 
 
 mapping_files = {
@@ -132,19 +153,10 @@ print("# get indexes and aliases")
 organization_aliases = prefix+"-*"
 indexes = requests.get(f"{es7_url}{organization_aliases}",**req_args).json()
 indexes_alias = {} # indexとaliasのリスト
-write_indexes = [] # is_write_indexがtrueのindexとaliasのリスト
 for index in indexes:
     aliases = indexes[index].get("aliases",{})
     indexes_alias[index] = aliases
 
-    index_tmp = replace_prefix_index(index)
-    if index_tmp not in stats_indexes:
-        continue
-    for alias, alias_info in aliases.items():
-        if alias_info.get("is_write_index", False) is True:
-            write_indexes.append(
-                {"index":index,"alias":alias}
-            )
 modules_dir = "/code/modules/"
 mappings = {}
 templates = {}
@@ -280,6 +292,9 @@ for index, mapping in mappings.items():
             if gte_date:
                 json_data_to_os["source"]["query"]["bool"]["must"] = [query_after_specific_date]
                 res = requests.post(url=reindex_url, json=json_data_to_os, **os_req_args)
+                if res.status_code != 200:
+                    raise Exception(res.text)
+                json_data_to_os["source"]["query"]["bool"]["must"] = []
                 json_data_to_os["dest"]["index"] = index_percolator
                 json_data_to_os["source"]["index"] = index_percolator
                 res = requests.post(url=reindex_url, json=json_data_to_os, **os_req_args)
@@ -288,6 +303,8 @@ for index, mapping in mappings.items():
                 print("## Second reindex from ES6 to ES7 (>= today 00:00:00)")
             else:
                 res = requests.post(url=reindex_url, json=json_data_to_os, **os_req_args)
+                if res.status_code != 200:
+                    raise Exception(res.text)
                 json_data_to_os["dest"]["index"] = index_percolator
                 json_data_to_os["source"]["index"] = index_percolator
                 res = requests.post(url=reindex_url, json=json_data_to_os, **os_req_args)
@@ -297,6 +314,8 @@ for index, mapping in mappings.items():
         else:
             if gte_date:
                 res = requests.post(url=reindex_url, json=json_data_to_os, **os_req_args)
+                if res.status_code != 200:
+                    raise Exception(res.text)
                 json_data_to_os["dest"]["index"] = index_percolator
                 json_data_to_os["source"]["index"] = index_percolator
                 res = requests.post(url=reindex_url, json=json_data_to_os, **os_req_args)

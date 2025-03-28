@@ -38,8 +38,8 @@ if auth:
     req_args["auth"] = auth
 
 templates_files = {
-    "tenant1-events-v1": "invenio-stats/invenio_stats/contrib/events/os-v2/events-v1.json",
-    "tenant1-aggregation-v1": "invenio-stats/invenio_stats/contrib/aggregations/os-v2/aggregation-v1.json",
+    f"{prefix}-events-v1": "invenio-stats/invenio_stats/contrib/events/os-v2/events-v1.json",
+    f"{prefix}-aggregation-v1": "invenio-stats/invenio_stats/contrib/aggregations/os-v2/aggregation-v1.json",
 }
 
 templates = {}
