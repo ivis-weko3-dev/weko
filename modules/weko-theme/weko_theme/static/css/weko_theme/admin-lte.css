@@ -118,7 +118,6 @@ body {
 
 .content-wrapper,.right-side {
     min-height: 100%;
-    background-color: #ecf0f5;
     z-index: 800
 }
 
@@ -453,7 +452,6 @@ a:active,a:focus,a:hover {
     position: absolute;
     top: 0;
     left: 0;
-    padding-top: 50px;
     min-height: 100%;
     width: 230px;
     z-index: 810;
@@ -5380,4 +5378,12 @@ a:active,a:focus,a:hover {
 .skin-green .sidebar-form .btn {
     color: #999;
     border-radius: 0 2px 2px 0
+}
+
+.main-header .logo img {
+    max-width: 100%;
+    max-height: 50px;
+    padding: 10px 0px 3px 0px;
+    object-fit: fill;
+    margin: 0px 0px 0px 0px;
 }
