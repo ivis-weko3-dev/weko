@@ -54,9 +54,9 @@
             <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
           <![endif]-->
           {{ webpack['theme-css-button-pagination.css'] }}
+          {{ webpack['theme-admin.css'] }}
           {{ webpack['theme.css'] }}
           <link href="{{url_for('static',filename='css/weko_theme/admin-lte.css')}}" rel="stylesheet">
-          {{ webpack['theme-admin.css'] }}
           <link href="{{ admin_static.url(filename='admin/css/bootstrap3/admin.css', v='1.1.1') }}" rel="stylesheet">
         {%- endblock css %}
         {%- block trackingcode %}
