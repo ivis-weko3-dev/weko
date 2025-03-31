@@ -20,6 +20,7 @@
 
 """WEKO3 module docstring."""
 
+import json
 import math
 from typing import List
 import urllib.parse
@@ -415,6 +416,7 @@ class WorkFlow(object):
                     _workflow.flows_name = workflow.get('flows_name')
                     _workflow.itemtype_id = workflow.get('itemtype_id')
                     _workflow.flow_id = workflow.get('flow_id')
+                    _workflow.delete_flow_id = workflow.get('delete_flow_id')
                     _workflow.index_tree_id = workflow.get('index_tree_id')
                     _workflow.open_restricted = workflow.get('open_restricted')
                     _workflow.location_id = workflow.get('location_id')
@@ -1480,6 +1482,36 @@ class WorkActivity(object):
             query = query.filter(
                 _Activity.activity_status.in_(list_status))
         return query
+    
+    @staticmethod
+    def __filter_by_action(query, action):
+        """Filter by activity action.
+
+        @param query:
+        @param action:
+        @return:
+        """
+        if action:
+            list_action = []
+            for i in action:
+                if i == 'start':
+                    list_action.append(1)
+                elif i == 'end':
+                    list_action.append(2)
+                elif i == 'itemregistration':
+                    list_action.append(3)
+                elif i == 'approval':
+                    list_action.append(4)
+                elif i == 'itemlink':
+                    list_action.append(5)
+                elif i == 'oapolicyconfirmation':
+                    list_action.append(6)
+                elif i == 'identifiergrant':
+                    list_action.append(7)
+            query = query.filter(
+                _Activity.action_id.in_(list_action))
+        return query
+
 
     def filter_conditions(self, conditions: dict, query):
         """Filter based on conditions.
@@ -1491,6 +1523,7 @@ class WorkActivity(object):
         if conditions:
             title = conditions.get('item')
             status = conditions.get('status')
+            action = conditions.get('action')
             workflow = conditions.get('workflow')
             user = conditions.get('user')
             created_from = conditions.get('createdfrom')
@@ -1501,6 +1534,8 @@ class WorkActivity(object):
             query = self.__filter_by_user(query, user)
             # Filter by status
             query = self.__filter_by_status(query, status)
+            # # Filter by action
+            query = self.__filter_by_action(query, action)
             # Filter by workflow name
             query = self.__filter_by_workflow(query, workflow)
             # Filter by date
@@ -2471,6 +2506,29 @@ class WorkActivity(object):
             current_app.logger.exception(str(ex))
             db.session.rollback()
 
+    def get_non_extract_files(self, activity_id):
+        """Get non-extract files.
+
+        Get extraction info from temp_data in activity.
+
+        Args:
+            activity_id (str): Activity ID.
+
+        Returns:
+            list[str]: list of non_extract filenames
+
+        """
+        metadata = self.get_activity_metadata(activity_id)
+        if metadata is None:
+            return None
+        item_json = json.loads(metadata)
+        # Load files from temp_data.
+        files = item_json.get('files', [])
+        return [
+            file["filename"] for file in files if file.get("non_extract", False)
+        ]
+
+
     def cancel_usage_report_activities(self, activities_id: list):
         """Cancel usage report activities are excepted.
 
@@ -2560,6 +2618,15 @@ class WorkActivity(object):
                 == ActivityStatusPolicy.ACTIVITY_MAKING)
         ).count()
 
+        return activities_number
+
+    def count_waiting_approval_by_workflow_id(self, workflow_id):
+        """Count activity waiting approval workflow.
+        Returns:
+            [int]: The number of activity waiting approval workflow.
+        """
+        activities_number = _Activity.query.filter(
+            _Activity.workflow_id == workflow_id, _Activity.action_id == 4, _Activity.action_status == 'M').count()
         return activities_number
 
 
