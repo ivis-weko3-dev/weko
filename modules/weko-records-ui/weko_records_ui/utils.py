@@ -79,9 +79,9 @@ def is_future(date):
                     else:
                         pdt = dt.strptime(date[:19], '%Y-%m-%d %H:%M:%S')
                 if pdt:
-                    res = to_utc(pdt) > dt.utcnow()
+                    res = to_utc(pdt) > dt.utcnow() if request else pdt.date() >= dt.today().date()
             elif isinstance(date, dt):
-                res = to_utc(date) > dt.utcnow()
+                res = to_utc(date) > dt.utcnow() if request else date.date() >= dt.today().date()
         except Exception as ex:
             current_app.logger.error(ex)
     return res
