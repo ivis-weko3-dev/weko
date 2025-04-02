@@ -3344,25 +3344,25 @@ def test_convert_to_timezone():
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_load_template -vv -s -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_load_template(mocker):
-    mocker.patch("os.path.exists", side_effect=lambda path: path == "test_template_en.txt")
+    mocker.patch("os.path.exists", side_effect=lambda path: "test_template_en.txt" in path)
     mocker.patch("builtins.open", mocker.mock_open(read_data="Test Subject\nThis is a test email."))
     expected_result = {"subject": "Test Subject", "body": "This is a test email."}
     result = load_template("test_template_{language}.txt", "en")
     assert result == expected_result
     
-    mocker.patch("os.path.exists", side_effect=lambda path: path == "test_template_ja.txt")
+    mocker.patch("os.path.exists", side_effect=lambda path: "test_template_ja.txt" in path)
     mocker.patch("builtins.open", mocker.mock_open(read_data="テスト件名\nこれはテストメールです。"))
     expected_result = {"subject": "テスト件名", "body": "これはテストメールです。"}
     result = load_template("test_template_{language}.txt", "ja")
     assert result == expected_result
     
-    mocker.patch("os.path.exists", side_effect=lambda path: path == "test_template_en.txt")
+    mocker.patch("os.path.exists", side_effect=lambda path: "test_template_en.txt" in path)
     mocker.patch("builtins.open", mocker.mock_open(read_data="Default Subject\nDefault body."))
     expected_result = {"subject": "Default Subject", "body": "Default body."}
     result = load_template("test_template_{language}.txt", "fr")
     assert result == expected_result
     
-    mocker.patch("os.path.exists", side_effect=lambda path: path == "test_template_en.txt")
+    mocker.patch("os.path.exists", side_effect=lambda path: "test_template_en.txt" in path)
     mocker.patch("builtins.open", mocker.mock_open(read_data="Default Subject\nDefault body."))
     expected_result = {"subject": "Default Subject", "body": "Default body."}
     result = load_template("test_template_{language}.txt")

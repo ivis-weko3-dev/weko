@@ -246,6 +246,12 @@ def test_workactivity_notify_about_activity(app, db, db_register, mocker):
     mock_notify_item_rejected.assert_called_once_with(activity1)
     mock_send_mail_item_rejected.assert_called_once_with(activity1)
     
+    mock_notify_item_rejected.reset_mock()
+    mock_send_mail_item_rejected.reset_mock()
+    activity.notify_about_activity(activity1.activity_id, 'invalid_case')
+    mock_notify_item_rejected.assert_not_called()
+    mock_send_mail_item_rejected.assert_not_called()
+    
     # with WEKO_NOTIFICATIONS is False
     mock_notify_item_registered.reset_mock()
     mock_send_mail_item_registered.reset_mock()
