@@ -1864,7 +1864,7 @@ class JsonLdMapper(JsonMapper):
         _sequential = (id_template.format(i=i, s="{s}") for i in itertools.count())
         gen_id = lambda key: next(_sequential).format(s=key)
 
-        def get_at_id(key, index):
+        def get_at_id(self, key, index):
             if key == "hasPart" and index is not None:
                 for k, v in properties_mapping.items():
                     if v == key:
