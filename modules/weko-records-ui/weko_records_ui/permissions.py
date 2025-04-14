@@ -686,7 +686,7 @@ def check_charge(user_id, item_id):
     return 'not_billed'
 
 
-def create_charge(user_id, item_id, price, title, file_url):
+def create_charge(user_id, item_id, price, title, file_url, ret_url):
     """課金予約を行う
 
     Args:
@@ -695,6 +695,7 @@ def create_charge(user_id, item_id, price, title, file_url):
         price     : File price
         title     : Item title
         file_url  : File download url
+        ret_url   : Return URL
 
     Returns:
         str:
@@ -730,6 +731,7 @@ def create_charge(user_id, item_id, price, title, file_url):
         'title': title,                             # 課金対象コンテンツのタイトル(明細に表示される)
         'uri': file_url,                            # コンテンツ再表示用URL
         'memo': indexes,                            #  請求書の明細の補足欄に表示されるインデックス階層
+        'ret_url': ret_url,                         # 3Dセキュア認証完了後のリダイレクトURL
     }
 
     # プロキシ設定

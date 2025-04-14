@@ -1026,6 +1026,7 @@ def charge():
     title = request.values.get('title')
     price = request.values.get('price')
     file_url = current_app.config['THEME_SITEURL'] + f'/record/{item_id}/files/{file_name}'
+    ret_url = current_app.config['THEME_SITEURL'] + url_for('weko_records_ui.charge_secure')
 
     # 課金中のアイテムIDをキャッシュから取得
     redis_connection = RedisConnection()
@@ -1048,7 +1049,7 @@ def charge():
 
     # 課金予約
     try:
-        redirect_url = create_charge(current_user.id, int(item_id), price, title, file_url)
+        redirect_url = create_charge(current_user.id, int(item_id), price, title, file_url, ret_url)
         if redirect_url in ['connection_error', 'api_error']:
             # 課金失敗
             return jsonify({'status': 'error'})
