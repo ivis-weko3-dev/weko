@@ -442,6 +442,21 @@ function handleChargeBillingFile() {
             // 画面を更新
             location.reload();
         }
+        else {
+            const email = document.getElementById('current_user_email').value;
+            const data = $('button#charge-button').data();
+            const charge_key = 'charge_' + email;
+            let charge_item = JSON.parse(window.sessionStorage.getItem(charge_key));
+            if (charge_item) {
+                charge_item.pop(data.itemid);
+                if (charge_item.length == 0) {
+                    window.sessionStorage.removeItem(charge_key);
+                }
+                else {
+                    window.sessionStorage.setItem(charge_key, JSON.stringify(charge_item));
+                }
+            }
+        }
     });
 
     $('button#charge_modal_close_icon').on('click', function () {
@@ -449,6 +464,21 @@ function handleChargeBillingFile() {
         if ($('#success_flag').val() == 'true') {
             // 画面を更新
             location.reload();
+        }
+        else {
+            const email = document.getElementById('current_user_email').value;
+            const data = $('button#charge-button').data();
+            const charge_key = 'charge_' + email;
+            let charge_item = JSON.parse(window.sessionStorage.getItem(charge_key));
+            if (charge_item) {
+                charge_item.pop(data.itemid);
+                if (charge_item.length == 0) {
+                    window.sessionStorage.removeItem(charge_key);
+                }
+                else {
+                    window.sessionStorage.setItem(charge_key, JSON.stringify(charge_item));
+                }
+            }
         }
     });
 }
