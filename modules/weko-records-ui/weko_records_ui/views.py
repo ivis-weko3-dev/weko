@@ -58,6 +58,7 @@ from weko_records.serializers import citeproc_v1
 from weko_records.serializers.utils import get_mapping
 from weko_records.utils import custom_record_medata_for_export, \
     remove_weko2_special_character, selected_value_by_language
+from weko_redis.redis import RedisConnection
 from weko_schema_ui.models import PublishStatus
 from weko_workflow.api import WorkFlow
 
@@ -69,7 +70,7 @@ from .models import FilePermission, PDFCoverPageSettings
 from .permissions import check_content_clickable, check_created_id, \
     check_file_download_permission, check_original_pdf_download_permission, \
     check_permission_period, file_permission_factory, get_permission, \
-    check_charge, create_charge, close_charge
+    check_charge, create_charge, close_charge, secure_charge
 from .utils import get_billing_file_download_permission, \
     get_google_detaset_meta, get_google_scholar_meta, get_groups_price, \
     get_min_price_billing_file_download, get_record_permalink, hide_by_email, \
@@ -1011,18 +1012,29 @@ def charge():
         title     : タイトル
         price     : 支払い金額
 
-    Response parameter(json):
-        status :
-            success      : 課金成功
-            already      : 課金済み
-            error        : 課金失敗
-            credit_error : 課金失敗(クレジットカード情報の不備)
+    Response parameter
+        json:
+            status:
+                already      : 課金済み
+                error        : 課金失敗
+                credit_error : 課金失敗(クレジットカード情報の不備)
+        redirect:
+            カード会社の3DS2.0画面へのリダイレクトURL
     '''
     item_id = request.values.get('item_id')
     file_name = request.values.get('file_name')
     title = request.values.get('title')
     price = request.values.get('price')
     file_url = current_app.config['THEME_SITEURL'] + f'/record/{item_id}/files/{file_name}'
+    ret_url = current_app.config['THEME_SITEURL'] + url_for('weko_records_ui.charge_secure')
+
+    # 課金中のアイテムIDをキャッシュから取得
+    redis_connection = RedisConnection()
+    datastore = redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'], kv=True)
+    cache_key = f'charge_{current_user.id}'
+    if datastore.redis.exists(cache_key):
+        # 課金中だったら課金しない
+        return jsonify({'status': 'error'})
 
     # 課金チェック
     try:
@@ -1037,14 +1049,14 @@ def charge():
 
     # 課金予約
     try:
-        trade_id = create_charge(current_user.id, int(item_id), price, title, file_url)
-        if trade_id in ['connection_error', 'api_error']:
+        redirect_url = create_charge(current_user.id, int(item_id), price, title, file_url, ret_url)
+        if redirect_url in ['connection_error', 'api_error']:
             # 課金失敗
             return jsonify({'status': 'error'})
-        if trade_id == 'credit_error':
+        if redirect_url == 'credit_error':
             # 課金失敗(クレジットカード情報の不備)
             return jsonify({'status': 'credit_error'})
-        if trade_id == 'already':
+        if redirect_url == 'already':
             # 課金済みだったら課金しない
             return jsonify({'status': 'already'})
     except Exception as e:
@@ -1052,14 +1064,84 @@ def charge():
         current_app.logger.error(e)
         return abort(500)
 
+    if not redirect_url:
+        # 課金失敗
+        return jsonify({'status': 'error'})
+
+    # 課金中のアイテムIDをキャッシュに保存
+    datastore.put(cache_key, str(item_id).encode('utf-8'), ttl_secs=300)
+    
+    return redirect(redirect_url)
+
+@blueprint.route('/charge/secure', methods=['POST'])
+def charge_secure():
+    """3DS2.0認証後の課金処理を行う。
+    
+    Request parameter:
+        MD : 課金予約時に取得したaccess_id
+    
+    Response parameter
+        json:
+            status:
+                success : 課金成功
+                error   : 課金失敗
+    """
+    access_id = request.values.get('MD')
+
+    # 課金中のアイテムIDをキャッシュから取得
+    redis_connection = RedisConnection()
+    datastore = redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'], kv=True)
+    cache_key = f'charge_{current_user.id}'
+    if not datastore.redis.exists(cache_key):
+        return redirect('/')
+
+    item_id = datastore.redis.get(cache_key).decode('utf-8')
+    redirect_url = '/records/{}'.format(item_id)
+    datastore.delete(cache_key)
+
+    # 3DS2.0認証後決済
+    try:
+        trade_id = secure_charge(current_user.id, access_id)
+        if trade_id in ['connection_error', 'api_error']:
+            # 課金失敗
+            return redirect(redirect_url)
+    except Exception as e:
+        current_app.logger.error(f'Error in secure_charge: user: {current_user.id}, access_id: {access_id}')
+        current_app.logger.error(e)
+        return abort(500)
+    
     # 課金確定
     try: 
-        charge_result = close_charge(current_user.id, trade_id)
-        if charge_result:
+        close_charge(current_user.id, trade_id)
+        return redirect(redirect_url)
+    except Exception as e:
+        current_app.logger.error(f'Error in close_charge: user: {current_user.id}, trade_id: {trade_id}')
+        current_app.logger.error(e)
+        return abort(500)
+
+@blueprint.route('/charge/show', methods=['GET'])
+def charge_show():
+    """課金済みかどうかを確認する。
+
+    Request parameter:
+        item_id : アイテムID
+
+    Response parameter
+        json:
+            status:
+                success : 課金済み
+                error   : 課金失敗
+    """
+    item_id = request.values.get('item_id')
+    # 課金チェック
+    try:
+        charge_result = check_charge(current_user.id, int(item_id))
+        if charge_result == 'already':
+            # 課金済みの場合、課金成功
             return jsonify({'status': 'success'})
         else:
             return jsonify({'status': 'error'})
     except Exception as e:
-        current_app.logger.error(f'Error in close_charge: user: {current_user.id}, trade_id: {trade_id}')
+        current_app.logger.error(f'Error in check_charge: user: {current_user.id}, item_id: {item_id}')
         current_app.logger.error(e)
         return abort(500)
