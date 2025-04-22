@@ -1069,7 +1069,7 @@ def charge():
         return jsonify({'status': 'error'})
 
     # 課金中のアイテムIDをキャッシュに保存
-    datastore.put(cache_key, item_id, ttl_secs=300)
+    datastore.put(cache_key, str(item_id).encode('utf-8'), ttl_secs=300)
     
     return redirect(redirect_url)
 
@@ -1095,7 +1095,7 @@ def charge_secure():
     if not datastore.redis.exists(cache_key):
         return redirect('/')
 
-    item_id = datastore.redis.get(cache_key)
+    item_id = datastore.redis.get(cache_key).decode('utf-8')
     redirect_url = '/records/{}'.format(item_id)
     datastore.delete(cache_key)
 

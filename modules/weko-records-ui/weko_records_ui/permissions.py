@@ -778,7 +778,7 @@ def create_charge(user_id, item_id, price, title, file_url, ret_url):
             return 'already'
 
         # 課金予約成功
-        return str(res_json.get('redirect_url'))
+        return str(res_json.get('redirect_url')) if res_json.get('redirect_url') else None
 
     current_app.logger.error(f'invalid response by charge API in create_charge: url: {url}, params: {params}, proxies: {proxies if proxy_mode else ""}, res_json: {res_json}')
     return 'api_error'
