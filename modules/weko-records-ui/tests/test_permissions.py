@@ -966,24 +966,24 @@ def test_create_charge(db,db_admin_settings, users, id, result,records):
 # def secure_charge(user_id, access_id):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_secure_charge -vv -s --cov-branch --cov-report=term --basetemp=.tox/c1/tmp
 @pytest.mark.parametrize(
-    "id, result",
+    "user_id, result",
     [
-        (0, True),
-        (1, True),
-        (2, True),
-        (3, True),
-        (4, True),
-        (5, True),
-        (6, True),
-        (7, True),
-        (8, True),
+        (0, True), # Contributor
+        (1, True), # Repository Administrator
+        (2, True), # System Administrator
+        (3, True), # Community Administrator
+        (4, True), # General User
+        (5, True), # Original Role
+        (6, True), # Original Role
+        (7, True), # No Role
+        (8, True), # Original Role
     ],
 )
-def test_secure_charge(db_admin_settings, users, id, result):
+def test_secure_charge(db_admin_settings, users, user_id, result):
     res = mock.Mock(spec=Response)
     settings = {"host": "host", "port": "port", "user": "user", "password": "pass", "use_proxy": True}
 
-    with patch("flask_login.utils._get_user", return_value=users[id]["obj"]):
+    with patch("flask_login.utils._get_user", return_value=users[user_id]["obj"]):
         # secure charge is success
         res.headers = {'WEKO_CHARGE_STATUS':0} 
         res.json.return_value = {'trade_id': 1, 'charge_status': '4'}
