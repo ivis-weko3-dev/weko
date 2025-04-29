@@ -8,11 +8,12 @@
 
 """Get record tests."""
 
+from unittest.mock import patch
 from flask import url_for
 from helpers import get_json, record_url, to_relative_url
 
-
-def test_item_get(app, test_records):
+@patch("invenio_records_rest.views.db.session.remove")
+def test_item_get(mock_remove, app, test_records):
     """Test record retrieval."""
     with app.test_client() as client:
         pid, record = test_records[0]
@@ -44,7 +45,9 @@ def test_item_get_etag(app, test_records):
         res = client.get(record_url(pid))
         assert res.status_code == 200
         assert res.cache_control.no_cache
-def test_item_get_etag2(app, db, test_records):
+
+@patch("invenio_records_rest.views.db.session.remove")
+def test_item_get_etag2(mock_remove, app, db, test_records):
     """Test VALID record get request (GET .../records/<record_id>)."""
     with app.test_client() as client:
         pid, record = test_records[0]
@@ -58,7 +61,9 @@ def test_item_get_etag2(app, db, test_records):
         res = client.get(record_url(pid), headers={"If-None-Match": etag})
         assert res.status_code == 304
         assert res.cache_control.no_cache
-def test_item_get_etag3(app, db, test_records):
+
+@patch("invenio_records_rest.views.db.session.remove")
+def test_item_get_etag3(mock_remove, app, db, test_records):
     """Test VALID record get request (GET .../records/<record_id>)."""
     with app.test_client() as client:
         pid, record = test_records[0]

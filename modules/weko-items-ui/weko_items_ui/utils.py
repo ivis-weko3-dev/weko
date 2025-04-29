@@ -3302,6 +3302,18 @@ def get_item_from_option(_item_type_id):
     return ignore_list
 
 
+# def get_options_list(item_type_id, json_item=None):
+#     """Get Options by item type id.
+
+#     :param item_type_id:
+#     :param json_item:
+#     :return: options dict
+#     """
+#     if json_item is None:
+#         json_item = ItemTypes.get_record(item_type_id)
+#     meta_options = json_item.model.render.get('meta_fix')
+#     meta_options.update(json_item.model.render.get('meta_list'))
+#     return meta_options
 def get_options_list(item_type_id, json_item=None):
     """Get Options by item type id.
 
@@ -3311,10 +3323,17 @@ def get_options_list(item_type_id, json_item=None):
     """
     if json_item is None:
         json_item = ItemTypes.get_record(item_type_id)
+
+    if json_item is None:
+        raise ValueError(f"Item type with id {item_type_id} not found.")
+
+    if not hasattr(json_item, 'model') or json_item.model is None:
+        raise ValueError(f"Item type with id {item_type_id} has no model attribute.")
+
     meta_options = json_item.model.render.get('meta_fix')
     meta_options.update(json_item.model.render.get('meta_list'))
-    return meta_options
 
+    return meta_options
 
 def get_options_and_order_list(item_type_id, item_type_mapping=None,
                                item_type_data=None):

@@ -2,21 +2,33 @@
   {
     "year": 2015,
     "stars": 4,
-    "title": "Back to the Future"
+    "title": "Back to the Future",
+    "_item_metadata": {
+      "item_type_id": 1
+    }
   },
   {
     "year": 2042,
     "stars": 3,
-    "title": "Back to the Past"
+    "title": "Back to the Past",
+    "_item_metadata": {
+      "item_type_id": 2
+    }
   },
   {
     "year": 1985,
     "stars": 4,
-    "title": "The Hitchhiker's Guide to the Galaxy"
+    "title": "The Hitchhiker's Guide to the Galaxy",
+    "_item_metadata": {
+      "item_type_id": 3
+    }
   },
   {
     "year": 4242,
     "stars": 5,
-    "title": "Unknown film"
+    "title": "Unknown film",
+    "_item_metadata": {
+      "item_type_id": 4
+    }
   }
 ]

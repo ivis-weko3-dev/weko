@@ -19,11 +19,11 @@ import pytz
 import uuid
 
 import pytest
-from mock import patch
+from unittest.mock import patch, MagicMock
 
 from flask import Flask, g, url_for
 from flask_login import LoginManager, UserMixin
-from helpers import create_record
+from .helpers import create_record
 from invenio_config import InvenioConfigDefault
 from invenio_access.models import ActionRoles
 from invenio_accounts import InvenioAccounts
@@ -49,12 +49,14 @@ from invenio_search.errors import IndexAlreadyExistsError
 from invenio_search.engine import dsl
 from sqlalchemy_utils.functions import create_database, database_exists
 from weko_admin.models import AdminSettings,FacetSearchSetting
+from weko_records.api import ItemTypes
 from weko_records.models import ItemTypeName, ItemType, ItemTypeMapping
 from weko_redis.redis import RedisConnection
 from weko_records_ui.config import (
     WEKO_PERMISSION_ROLE_COMMUNITY,
     WEKO_PERMISSION_SUPER_ROLE_USER,
-    WEKO_RECORDS_UI_LICENSE_DICT
+    WEKO_RECORDS_UI_LICENSE_DICT,
+    WEKO_RECORDS_UI_EMAIL_ITEM_KEYS
 )
 from weko_index_tree.models import Index
 
@@ -72,7 +74,8 @@ class TestSearch(RecordsSearch):
     class Meta:
         """Test configuration."""
 
-        index = "invenio-records-rest"
+        # index = "invenio-records-rest"
+        index = "test-weko-item-v1.0.0"
 
     def __init__(self, **kwargs):
         """Add extra options."""
@@ -90,6 +93,32 @@ class IndexFlusher(object):
     def flush_and_wait(self):
         """Flush index and wait until operation is fully done."""
         current_search.flush_and_refresh(self.search_class.Meta.index)
+
+@pytest.fixture()
+def mock_itemtypes(mocker):
+    """Mock the ItemTypes.get_record method to return a mock object."""
+    mock_record = MagicMock()
+    mock_record.model.render = {
+        "meta_fix": {
+            "meta_fix_9999": "meta_fix_9999",
+            "item_type_id": {
+                "option": {
+                    "showlist": True,
+                    "hidden": False,
+                },
+            },
+        },
+        "meta_list": {
+            "meta_list_9999": "meta_list_9999",
+        }
+    }
+    mock_item_type = MagicMock()
+    mock_item_type.render = mock_record.model.render
+
+    mocker.patch('weko_items_ui.utils.ItemTypes.get_record', return_value=mock_record)
+    mocker.patch('weko_items_ui.utils.ItemTypes.get_by_id', return_value=mock_item_type)
+
+    return mock_record
 
 
 @pytest.fixture(scope="session")
@@ -154,7 +183,7 @@ def app(request, search_class):
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'
         ),
-        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ.get('INVENIO_OPENSEARCH_USER', 'invenio'),os.environ.get('INVENIO_OPENSEARCH_PASS', 'openpass123!')),"use_ssl":True, "verify_certs":False},
         RECORDS_REST_ENDPOINTS=copy.deepcopy(config.RECORDS_REST_ENDPOINTS),
         RECORDS_REST_DEFAULT_CREATE_PERMISSION_FACTORY=None,
         RECORDS_REST_DEFAULT_DELETE_PERMISSION_FACTORY=None,
@@ -162,7 +191,7 @@ def app(request, search_class):
         RECORDS_REST_DEFAULT_UPDATE_PERMISSION_FACTORY=None,
         RECORDS_REST_DEFAULT_RESULTS_SIZE=10,
         #RECORDS_REST_DEFAULT_SEARCH_INDEX=search_class.Meta.index,
-        RECORDS_REST_DEFAULT_SEARCH_INDEX="test-weko",
+        RECORDS_REST_DEFAULT_SEARCH_INDEX="",
         RECORDS_REST_FACETS={
             #search_class.Meta.index: {
             "test-weko": {
@@ -173,6 +202,14 @@ def app(request, search_class):
                 "post_filters": {
                     #"stars": terms_filter("stars"),
                     "control_number":terms_filter("control_number")
+                },
+            },
+            "invenio-records-rest": {  # 追加
+                "aggs": {
+                    "stars": {"terms": {"field": "stars"}}
+                },
+                "post_filters": {
+                    "control_number": terms_filter("control_number")
                 },
             }
         },
@@ -187,8 +224,9 @@ def app(request, search_class):
             )
         },
         SERVER_NAME="localhost:5000",
-        SEARCH_INDEX_PREFIX="test-",
-        SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
+        # SEARCH_INDEX_PREFIX="test-",
+        # SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
+        SEARCH_UI_SEARCH_INDEX="",
         CACHE_TYPE="redis",
         CACHE_REDIS_DB=0,
         CACHE_REDIS_HOST="redis",
@@ -202,6 +240,7 @@ def app(request, search_class):
         WEKO_PERMISSION_ROLE_COMMUNITY=WEKO_PERMISSION_ROLE_COMMUNITY,
         EMAIL_DISPLAY_FLG = True,
         WEKO_RECORDS_UI_LICENSE_DICT=WEKO_RECORDS_UI_LICENSE_DICT,
+        WEKO_RECORDS_UI_EMAIL_ITEM_KEYS=WEKO_RECORDS_UI_EMAIL_ITEM_KEYS,
     )
 
     #app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_class"] = \
@@ -364,7 +403,7 @@ def indexed_records(app, search_index, test_records):
     indexer=RecordIndexer()
     for pid, record in test_records:
         indexer.index_by_id(record.id)
-    current_search.flush_and_refresh(index='test-weko')
+    current_search.flush_and_refresh(index="*")
     yield test_records
 
 
@@ -381,6 +420,7 @@ def record_data_with_itemtype(id, index_path):
         "item_title":"test_item{}".format(id),
         "author_link":[],
         "item_type_id":"15",
+        # "item_type_id":"123",
         "publish_date":"2023-10-25",
         "publish_status":"0",
         "weko_shared_id":-1,
@@ -401,7 +441,7 @@ def record_data10(indexes):
 def register_record(id, indexer, index_path):
     record_data = record_data_with_itemtype(id, index_path)
     pid, record = create_record(record_data)
-    index, doc_type = indexer.record_to_index(record)
+    index = indexer.record_to_index(record)
     es_data = {
         "title":record_data["title"],
         "control_number": str(id),
@@ -416,7 +456,6 @@ def register_record(id, indexer, index_path):
         version=record.revision_id,
         version_type=indexer._version_type,
         index=index,
-        doc_type=doc_type,
         body=es_data
     )
     return pid, record
@@ -431,7 +470,7 @@ def indexed_10records(app, db, search_index, item_type, indexes):
         pid, record = register_record(i, indexer, index_path)
         result.append((pid, record))
     db.session.commit()
-    current_search.flush_and_refresh(index="test-weko")
+    current_search.flush_and_refresh(index="*")
     return result
 
 @pytest.fixture()
@@ -444,12 +483,12 @@ def indexed_100records(app, db, search_index, item_type,indexes):
         pid, record = register_record(i, indexer, index_path)
         result.append((pid,record))
     db.session.commit()
-    current_search.flush_and_refresh(index="test-weko")
+    current_search.flush_and_refresh(index="*")
 
     return result
 
 
-@pytest.yield_fixture(scope="session")
+@pytest.fixture(scope="session")
 def test_patch():
     """A JSON patch."""
     yield [{"op": "replace", "path": "/year", "value": 1985}]
@@ -576,7 +615,7 @@ def facet_search(db):
     db.session.add(control_number)
     db.session.commit()
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def aggs_and_facet(redis_connect, facet_search):
     test_redis_key = "test_facet_search_query_has_permission"
     redis_connect.delete(test_redis_key)

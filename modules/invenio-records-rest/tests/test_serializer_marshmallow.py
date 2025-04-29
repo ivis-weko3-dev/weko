@@ -26,7 +26,7 @@ class _TestSchema(Schema):
     author = fields.Function(lambda metadata, context: context["author"])
 
 
-def test_transform_record():
+def test_transform_record(app, db):
     """Test marshmallow serializer."""
     serializer = SimpleMarshmallowSerializer(_TestSchema)
     data = serializer.transform_record(
@@ -37,7 +37,7 @@ def test_transform_record():
     assert data == dict(title="test", author="test2")
 
 
-def test_transform_search_hit():
+def test_transform_search_hit(app, db):
     """Test marshmallow serializer."""
     serializer = SimpleMarshmallowSerializer(_TestSchema)
     data = serializer.transform_record(
@@ -48,7 +48,7 @@ def test_transform_search_hit():
     assert data == dict(title="test", author="test2")
 
 
-def test_transform_record_default_schema():
+def test_transform_record_default_schema(app, db):
     """Test marshmallow serializer without providing a schema."""
     serializer = SimpleMarshmallowSerializer()
     data = serializer.transform_record(

@@ -15,7 +15,7 @@ from helpers import record_url
 
 
 def test_default_permissions(
-    app, default_permissions, indexed_10records, record_data10, search_url, test_records, indexed_records, aggs_and_facets
+    app, default_permissions, indexed_10records, record_data10, search_url, test_records, indexed_records
 ):
     """Test default create permissions."""
     pid, record = indexed_10records[0]

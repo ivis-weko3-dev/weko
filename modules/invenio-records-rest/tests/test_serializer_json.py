@@ -139,7 +139,6 @@ def test_serialize_search2(app, db, item_type):
         assert obj_uuid in ["a", "b"]
         return PersistentIdentifier(pid_type="recid", pid_value=data["pid"])
 
-    total = dict(value=2)
     data = json.loads(JSONSerializer(TestSchema).serialize_search(
         fetcher,
         dict(
@@ -168,7 +167,7 @@ def test_serialize_search2(app, db, item_type):
                         "_version": 1
                     },
                 ],
-                total=total,
+                total=dict(value=2),
             ),
             aggregations={},
         )
@@ -192,7 +191,7 @@ def test_serialize_search2(app, db, item_type):
                 }
             }
         ],
-        "total": total
+        "total": 2
     }
 
 
