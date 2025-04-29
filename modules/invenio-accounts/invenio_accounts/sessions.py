@@ -198,7 +198,7 @@ def session_update(app):
             if request.path == '/ping':
                 _sessionstore.redis.expire(session.sid_s, 1)
             else:
-                _sessionstore.redis.expire(session.sid_s,900)
+                pass
         elif request.path.startswith('/admin/items/import/') and hasattr(session, 'sid_s'):
             _sessionstore.redis.expire(
                 session.sid_s,
