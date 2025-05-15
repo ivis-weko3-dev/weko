@@ -26,7 +26,7 @@ import json
 import time
 import traceback
 from functools import wraps
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 
 from flask import (
     Blueprint, abort, current_app, jsonify, make_response,
@@ -931,6 +931,21 @@ class IndexManagementAPI(ContentNegotiatedMethodView):
 
     def get_v1(self, **kwargs):
         """Get index tree."""
+        
+        def json_serialize(obj):
+            """Serialize object to JSON.
+            
+            Args:
+                obj: The object to serialize.
+            
+            Returns:
+                str: The serialized JSON string.
+            """
+            if isinstance(obj, (datetime, date)):
+                return obj.strftime("%Y%m%d")
+            else:
+                return str(obj)
+        
         try:
             pid = kwargs.get('index_id')
 
@@ -1005,7 +1020,7 @@ class IndexManagementAPI(ContentNegotiatedMethodView):
             indent = 4 if request.args.get('pretty') == 'true' else None
 
             res = Response(
-                response=json.dumps(merged_tree, indent=indent),
+                response=json.dumps(merged_tree, indent=indent, default=json_serialize),
                 status=200,
                 content_type='application/json'
             )
@@ -1213,6 +1228,30 @@ class IndexManagementAPI(ContentNegotiatedMethodView):
                 }} if "contribute_group" in index_info else {})
             }
 
+            source_index = self.record_class.get_index(index_id)
+            parent = index_data.get("parent") \
+                if index_data.get("parent") is not None else source_index.parent
+            position = index_data.get("position") \
+                if index_data.get("position") is not None else source_index.position
+
+            if parent != source_index.parent or position != source_index.position:
+                # Move index if parent or position changed
+                # Change int to string if parent is root node
+                arg_parent = parent if parent > 0 else "0"
+                arg_pre_parent = source_index.parent if source_index.parent > 0 else "0"
+                moved = self.record_class.move(
+                    index_id, pre_parent=arg_pre_parent,
+                    parent=arg_parent, position=position
+                )
+                index_data.pop("parent", None)
+                if not moved or not moved.get("is_ok"):
+                    current_app.logger.error(
+                        f"Failed to move index: {index_id}. {moved.get('msg')}"
+                    )
+                    raise IndexUpdatedRESTError(
+                        description=f"Failed to move index {index_id}: {moved.get('msg')}"
+                    )
+
             updated_index = self.record_class.update(index_id, **index_data)
 
             if not updated_index:
@@ -1231,7 +1270,12 @@ class IndexManagementAPI(ContentNegotiatedMethodView):
             raise InternalServerError(
                 description=f"Database Error: Failed to update index {index_id}."
             ) from ex
-
+        except IndexUpdatedRESTError as ex:
+            db.session.rollback()
+            current_app.logger.error(
+                f"Failed to update index: {index_id}. Index updated error.")
+            traceback.print_exc()
+            raise
         except Exception as ex:
             db.session.rollback()
             current_app.logger.error(

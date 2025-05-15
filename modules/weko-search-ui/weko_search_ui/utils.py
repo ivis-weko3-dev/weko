@@ -21,6 +21,7 @@
 """Weko Search-UI admin."""
 
 import csv
+import mimetypes
 import chardet
 import json
 import math
@@ -38,7 +39,7 @@ import zipfile
 import chardet
 import urllib
 import gc
-from collections import Callable, OrderedDict
+from collections import Callable, OrderedDict, defaultdict
 from datetime import datetime, timezone
 from functools import partial, reduce, wraps
 import io
@@ -1055,7 +1056,26 @@ def handle_save_bagit(list_record, file, data_path, filename):
     files_info = metadata.get("files_info")  # for Workflow registration
     key = files_info[0].get("key")
 
-    size = os.path.getsize(os.path.join(data_path, filename))
+    dataset_info = make_file_info(
+        data_path, filename, label=filename, object_type="dataset"
+    )
+
+    metadata[key] = [dataset_info]
+    files_info[0]["items"] = [dataset_info]
+
+def make_file_info(dir_path, filename, label=None, object_type=None):
+    """Make file info for the given directory and filename.
+
+    Args:
+        dir_path (str): Directory path.
+        filename (str): Filename.
+        label (str, optional): Label for the file. Defaults to None.
+        object_type (str, optional): Object type for the file. Defaults to None.
+
+    Returns:
+        dict: File information.
+    """
+    size = os.path.getsize(os.path.join(dir_path, filename))
     if size >= pow(1024, 4):
         size_str = "{} TB".format(round(size/(pow(1024, 4)), 1))
     elif size >= pow(1024, 3):
@@ -1066,17 +1086,24 @@ def handle_save_bagit(list_record, file, data_path, filename):
         size_str = "{} KB".format(round(size/1024, 1))
     else:
         size_str = "{} B".format(size)
-    dataset_info = {                         # replace metadata
-        "filesize": [{ "value": size_str }],
-        "filename":  filename,
-        "format": "application/zip",
-        "url": {
-            "objectType": "dataset",
-            "label": filename
-        },
+
+    format = mimetypes.guess_type(filename)[0]
+    
+    file_info = {
+        "filename": filename,
+        "filesize": size_str,
+        "format": format,
     }
-    metadata[key] = [dataset_info]
-    files_info[0]["items"] = [dataset_info]
+    if label:
+        if file_info.get("url") is None:
+            file_info["url"] = {}
+        file_info["url"]["label"] = label
+    if object_type:
+        if file_info.get("url") is None:
+            file_info["url"] = {}
+        file_info["url"]["objectType"] = object_type
+    
+    return file_info
 
 
 def get_priority(link_data):
@@ -1585,18 +1612,20 @@ def make_stats_file(raw_stats, list_name):
     return file_output
 
 
-def create_deposit(item_id):
+def create_deposit(item_id, default_owner_id=None):
     """Create deposit.
 
-    :argument
-        item           -- {dict} item import.
-        item_exist     -- {dict} item in system.
+    Args:
+        item_id (str): Item ID.
+        default_owner_id (str): Owner user id. (Default: ``None``)
+    Returns:
+        WekoDeposit: Deposit object.
 
     """
     if item_id is not None:
-        dep = WekoDeposit.create({}, recid=int(item_id))
+        dep = WekoDeposit.create({}, recid=int(item_id), default_owner_id=default_owner_id)
     else:
-        dep = WekoDeposit.create({})
+        dep = WekoDeposit.create({}, default_owner_id=default_owner_id)
     return dep
 
 
@@ -1888,51 +1917,50 @@ def register_item_metadata(item, root_path, owner, is_gakuninrdm=False, request_
 
     if not is_gakuninrdm:
         deposit.publish_without_commit()
-        with current_app.test_request_context(get_url_root()):
-            if item["status"] in ["upgrade", "new"]:    # Create first version
-                _deposit = deposit.newversion(pid)
+        if item["status"] in ["upgrade", "new"]:    # Create first version
+            _deposit = deposit.newversion(pid)
+            _deposit.publish_without_commit()
+        else:    # Update last version
+            _pid = PIDVersioning(child=pid).last_child
+            _record = WekoDeposit.get_record(_pid.object_uuid)
+            _deposit = WekoDeposit(_record, _record.model)
+            _deposit["path"] = new_data.get("path")
+            _deposit.merge_data_to_record_without_version(
+                pid, keep_version=True, is_import=True
+            )
+            if not is_gakuninrdm:
                 _deposit.publish_without_commit()
-            else:    # Update last version
-                _pid = PIDVersioning(child=pid).last_child
-                _record = WekoDeposit.get_record(_pid.object_uuid)
-                _deposit = WekoDeposit(_record, _record.model)
-                _deposit["path"] = new_data.get("path")
-                _deposit.merge_data_to_record_without_version(
-                    pid, keep_version=True, is_import=True
-                )
-                if not is_gakuninrdm:
-                    _deposit.publish_without_commit()
 
-            if feedback_mail_list:
-                FeedbackMailList.update(
-                    item_id=_deposit.id, feedback_maillist=feedback_mail_list
-                )
+        if feedback_mail_list:
+            FeedbackMailList.update(
+                item_id=_deposit.id, feedback_maillist=feedback_mail_list
+            )
 
-            if request_mail_list:
-                RequestMailList.update(
-                    item_id=_deposit.id, request_maillist=request_mail_list
-                )
+        if request_mail_list:
+            RequestMailList.update(
+                item_id=_deposit.id, request_maillist=request_mail_list
+            )
 
-            link_data = item.get("link_data")
-            # Update draft version
-            _draft_pid = PersistentIdentifier.query.filter_by(
-                pid_type='recid',
-                pid_value="{}.0".format(item_id)
-            ).one_or_none()
-            if _draft_pid:
-                _draft_record = WekoDeposit.get_record(_draft_pid.object_uuid)
-                _draft_record["path"] = new_data.get("path")
-                _draft_deposit = WekoDeposit(_draft_record, _draft_record.model)
-                _draft_deposit.non_extract = item.get("non_extract")
-                _draft_deposit.merge_data_to_record_without_version(
-                    pid, keep_version=True, is_import=True
-                )
-                item_link_draft_pid = ItemLink(_draft_pid.pid_value)
-                item_link_draft_pid.update(link_data)
-            item_link_latest_pid = ItemLink(_deposit.pid.pid_value)
-            item_link_latest_pid.update(link_data)
-            item_link_pid_without_ver = ItemLink(item_id)
-            item_link_pid_without_ver.update(link_data)
+        link_data = item.get("link_data", [])
+        # Update draft version
+        _draft_pid = PersistentIdentifier.query.filter_by(
+            pid_type='recid',
+            pid_value="{}.0".format(item_id)
+        ).one_or_none()
+        if _draft_pid:
+            _draft_record = WekoDeposit.get_record(_draft_pid.object_uuid)
+            _draft_record["path"] = new_data.get("path")
+            _draft_deposit = WekoDeposit(_draft_record, _draft_record.model)
+            _draft_deposit.non_extract = item.get("non_extract")
+            _draft_deposit.merge_data_to_record_without_version(
+                pid, keep_version=True, is_import=True
+            )
+            item_link_draft_pid = ItemLink(_draft_pid.pid_value)
+            item_link_draft_pid.update(link_data)
+        item_link_latest_pid = ItemLink(_deposit.pid.pid_value)
+        item_link_latest_pid.update(link_data)
+        item_link_pid_without_ver = ItemLink(item_id)
+        item_link_pid_without_ver.update(link_data)
 
 def update_publish_status(item_id, status):
     """Handle get title.
@@ -2072,7 +2100,7 @@ def import_items_to_system(
             old_record = None
             record_pid = None
             if status == "new":
-                item_id = create_deposit(item.get("id"))
+                item_id = create_deposit(item.get("id"), default_owner_id=owner)
                 item["id"] = item_id["recid"]
                 item["pid"] = item_id.pid
                 record_pid = item_id.pid
@@ -2289,11 +2317,11 @@ def import_items_to_activity(item, request_info):
     metadata = item.get("metadata")
     metadata["$schema"] = item.get("$schema")
     index = metadata.get("path")
-    files_info = metadata.pop("files_info", [{}])
+    files_key = metadata.pop("files_info", [{}])[0].get("key")
     files = [
         os.path.join(item.get("root_path"), file_info.get("filename"))
             for file_info
-            in files_info[0].get("items", {})
+            in metadata.get(files_key, [])
     ]
     comment = metadata.get("comment")
     link_data = item.get("link_data")
@@ -2959,26 +2987,67 @@ def handle_check_item_link(list_record):
 def handle_check_duplicate_item_link(list_record):
     """Check for duplicate item links in list_record.
 
-    Check if item link is valid.
+    First, iterate over the items in ascending order of priority,
+    adding reverse links to the following items.
+    Then, iterate in descending order to check for duplicates.
 
     Args:
         list_record (list): List of records.
             It is assumed to be sorted by priority.
     """
-    item_link = {}
+    # append inverse links
+    inv_links = defaultdict(list)
     supplement = current_app.config["WEKO_RECORDS_REFERENCE_SUPPLEMENT"]
-    for item in reversed(list_record):
+    for item in list_record:
+        if not isinstance(item, dict):
+            continue
         link_data = item.get("link_data")
-        reduced_index = []
-        errors = []
-        for idx, link_info in enumerate(link_data):
-            item_id = link_info["item_id"]
-            sele_id = link_info["sele_id"]
+        if not isinstance(link_data, list):
+            continue
 
+        errors = []
+        link_data.extend(inv_links[item.get("_id")])
+        for link_info in link_data:
+            item_id = link_info.get("item_id")
+            sele_id = link_info.get("sele_id")
+            if item_id in (item.get("id"), item.get("_id")):
+                errors.append(
+                    _("It is not allowed to create links to the item itself.")
+                )
+                break
             if not str(item_id).isdecimal() and sele_id not in supplement:
-                errors.append(_("It is not allowed to create links " \
-                "other than {} between split items.").format(supplement))
-            link = (item["_id"], item_id)
+                errors.append(
+                    _("It is not allowed to create links " \
+                    "other than {} between split items.").format(supplement))
+                break
+            # inverse link
+            if not str(item_id).isdecimal() and sele_id in supplement:
+                opposite_index = 0 if sele_id == supplement[1] else 1
+                inv_sele = supplement[opposite_index]
+                inv_links[item_id].append({
+                    "item_id": item.get("_id"),
+                    "sele_id": inv_sele
+                })
+        if errors:
+            item["errors"] = (
+                item["errors"] + errors if item.get("errors") else errors
+            )
+
+    # check duplicate links
+    item_link = {}
+    for item in reversed(list_record):
+        if not isinstance(item, dict):
+            continue
+        link_data = item.get("link_data")
+        if not isinstance(link_data, list):
+            continue
+
+        errors = []
+        reduced_index = []
+        for idx, link_info in enumerate(link_data):
+            item_id = link_info.get("item_id")
+            sele_id = link_info.get("sele_id")
+            link = (item.get("_id"), item_id)
             if link not in item_link:
                 item_link[link] = sele_id
                 reduced_index.append(idx)
@@ -2987,24 +3056,15 @@ def handle_check_duplicate_item_link(list_record):
                     _("Duplicate Item Link.") +
                     " (src:{}, dst:{}, type:{}),"
                     " (src:{}, dst:{}, type:{})".format(
-                        item["_id"], item_id, sele_id,
-                        item["_id"], item_id, item_link[link]))
-
+                        item.get("_id"), item_id, sele_id,
+                        item.get("_id"), item_id, item_link[link]))
             # inverse link
             if sele_id in supplement:
-                inv_link = (item_id, item["_id"])
+                inv_link = (item_id, item.get("_id"))
                 opposite_index = 0 if sele_id == supplement[1] else 1
                 inv_sele = supplement[opposite_index]
                 if inv_link not in item_link:
                     item_link[inv_link] = inv_sele
-                elif item_link[inv_link] != inv_sele:
-                    errors.append(
-                        _("Duplicate Item Link.") +
-                        " (src:{}, dst:{}, type:{}),"
-                        " (src:{}, dst:{}, type:{})".format(
-                            item_id, item["_id"], inv_sele,
-                            item_id, item["_id"], item_link[inv_link]))
-
         item["link_data"] = [link_data[i] for i in reduced_index]
         if errors:
             item["errors"] = (

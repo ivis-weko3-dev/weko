@@ -489,8 +489,8 @@ class HeadlessActivity(WorkActivity):
                 for file_key in file_key_list
                 for file_metadata in metadata[file_key]
                 for uploaded_file in self.files_info
-                if file_metadata.get("filename") == uploaded_file["filename"]
-            ):  
+                if file_metadata["filename"] == uploaded_file["filename"]
+            ):
                 url_dict = file_metadata.get("url", {})
                 url_dict["url"] = "{}/record/{}/files/{}".format(
                     current_app.config["THEME_SITEURL"],
@@ -500,7 +500,7 @@ class HeadlessActivity(WorkActivity):
                 file_metadata["url"]= url_dict
                 file_metadata["format"] = uploaded_file.get("mimetype")
                 file_metadata["version_id"] = uploaded_file.get("version_id")
-              
+
             data = {
                 "metainfo": metadata,
                 "files": self.files_info,
