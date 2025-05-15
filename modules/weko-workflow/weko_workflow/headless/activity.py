@@ -469,6 +469,8 @@ class HeadlessActivity(WorkActivity):
             # TODO: update submited files and reuse other files
             if not self._files_inheritance:
                 data["files"] = self.files_info = self._upload_files(files)
+                if self.files_info == []:
+                    _old_files.clear()
             else:
                 _new_files = self._upload_files(files)
                 old_files_dict = {file["key"]: file for file in _old_files}
