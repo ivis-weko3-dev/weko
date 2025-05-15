@@ -443,7 +443,7 @@ def post_service_document():
         if register_type == "Direct":
             response = jsonify(_get_status_document(recid))
         elif register_type == "Workflow":
-            response = jsonify(_get_status_workflow_document(activity_id,recid))
+            response = jsonify(_get_status_workflow_document(activity_id,recid, item))
 
     return response
 
@@ -671,7 +671,7 @@ def put_object(recid):
             raise WekoSwordserverException(
                 f"Unexpected error: {error}.", ErrorType.ServerError
             )
-        response = jsonify(_get_status_workflow_document(activity_id, recid))
+        response = jsonify(_get_status_workflow_document(activity_id, recid, item))
     else:
         if os.path.exists(data_path):
             shutil.rmtree(data_path)
@@ -815,7 +815,7 @@ def _get_status_document(recid):
 
     return statusDocument.data
 
-def _get_status_workflow_document(activity_id, recid):
+def _get_status_workflow_document(activity_id, recid, item={}):
     """
     :param recid: Record Identifier.
     :returns: A :class:`sword3common.StatusDocument` instance.
@@ -845,7 +845,7 @@ def _get_status_workflow_document(activity_id, recid):
             "getFiles" : False,         # Not implimented
             "appendMetadata" : False,   # Not implimented
             "appendFiles" : False,      # Not implimented
-            "replaceMetadata" : False,  # Not implimented
+            "replaceMetadata" : item.get("metadata_replace", False),
             "replaceFiles" : False,     # Not implimented
             "deleteMetadata" : False,   # Not implimented
             "deleteFiles" : False,      # Not implimented
