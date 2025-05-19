@@ -25,7 +25,6 @@ from functools import wraps
 
 from flask import abort, current_app, request, session, Flask
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from flask_login import current_user
 from flask_login.config import EXEMPT_METHODS
 import hashlib
@@ -211,8 +210,3 @@ def roles_required(roles, allow_anonymous=False):
             return func(*args, **kwargs)
         return decorated_view
     return decorator
-
-
-def create_limiter():
-    from .config import WEKO_ACCOUNTS_API_LIMIT_RATE_DEFAULT
-    return Limiter(app=Flask(__name__), key_func=get_remote_address, default_limits=WEKO_ACCOUNTS_API_LIMIT_RATE_DEFAULT)
