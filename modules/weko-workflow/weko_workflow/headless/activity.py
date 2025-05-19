@@ -466,9 +466,11 @@ class HeadlessActivity(WorkActivity):
                 for new_file in _new_files:
                     old_files_dict[new_file["key"]] = new_file
                 self.files_info = list(old_files_dict.values())
+                
+                file_key = next((key for key in _old_metadata.keys() if "item" in key and "file" in key), None)
 
-                file_keys = [file.get("key") for file in _old_metadata.get("files_info", [])]
-                for file_key in file_keys:
+                # NOTE: Preserve attached files in metadata when transitioning from a item with attachments to one without.　
+                if file_key and (file_key not in metadata):
                     metadata[file_key] = _old_metadata[file_key]
 
             # to exclude from file text extraction
@@ -507,7 +509,7 @@ class HeadlessActivity(WorkActivity):
                     "initialization": f"/api/deposits/redirect/{pid.pid_value}",
                 }
             }
-
+            
             deleted_items = metadata.get("deleted_items") or []
             item_type_render = self.item_type.render
             for metadata_id in item_type_render["table_row"]:
@@ -651,7 +653,7 @@ class HeadlessActivity(WorkActivity):
         finally:
             self._activity_unlock(locked_value)
 
-    def _comment(self, comment):
+    def _comment(self, comment=None):
         """Set Comment."""
         locked_value = self._activity_lock()
 
