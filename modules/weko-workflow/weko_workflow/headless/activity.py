@@ -457,22 +457,28 @@ class HeadlessActivity(WorkActivity):
 
             db.session.commit()
 
+            if self._metadata_inheritance:
+                # update old metadata partially
+                metadata = {**_old_metadata, **metadata}
+            # if metadata_replace is True, replace all metadata
+
+            deleted_items = metadata.get("deleted_items") or []
+            item_type_render = self.item_type.render
+            for metadata_id in item_type_render["table_row"]:
+                # ignore Identifier Regstration (Import hasn't withdraw DOI)
+                if metadata_id == identifierRegistration_key:
+                    continue
+                if metadata_id not in metadata:
+                    deleted_items.append(metadata_id)
+            metadata["deleted_items"] = deleted_items
+
             # TODO: update submited files and reuse other files
             if not self._files_inheritance:
                 self.files_info = self._upload_files(files)
             else:
-                _new_files = self._upload_files(files)
                 old_files_dict = {file["key"]: file for file in _old_files}
-                for new_file in _new_files:
-                    old_files_dict[new_file["key"]] = new_file
                 self.files_info = list(old_files_dict.values())
                 
-                file_key = next((key for key in _old_metadata.keys() if "item" in key and "file" in key), None)
-
-                # NOTE: Preserve attached files in metadata when transitioning from a item with attachments to one without.　
-                if file_key and (file_key not in metadata):
-                    metadata[file_key] = _old_metadata[file_key]
-
             # to exclude from file text extraction
             for file in self.files_info:
                 if isinstance(non_extract, list) and file["filename"] in non_extract:
@@ -509,16 +515,6 @@ class HeadlessActivity(WorkActivity):
                     "initialization": f"/api/deposits/redirect/{pid.pid_value}",
                 }
             }
-            
-            deleted_items = metadata.get("deleted_items") or []
-            item_type_render = self.item_type.render
-            for metadata_id in item_type_render["table_row"]:
-                # ignore Identifier Regstration (Import hasn't withdraw DOI)
-                if metadata_id == identifierRegistration_key:
-                    continue
-                if metadata_id not in metadata:
-                    deleted_items.append(metadata_id)
-            metadata["deleted_items"] = deleted_items
 
             data["endpoint"].update(base_factory(pid))
             self.upt_activity_metadata(self.activity_id, json.dumps(data))
@@ -577,40 +573,40 @@ class HeadlessActivity(WorkActivity):
             obj = ObjectVersion.create(bucket, file_name, is_thumbnail=False)
             obj.is_thumbnail = is_thumbnail
             obj.set_contents(stream, size=size, size_limit=size_limit)
-            url = f"{request.url_root}api/files/{obj.bucket_id}/{obj.basename}"
-            return {
-                "created": obj.created.isoformat(),
-                "updated": obj.updated.isoformat(),
-                "key": obj.basename,
-                "filename": obj.basename,
-                "size": obj.file.size,
-                "checksum": obj.file.checksum,
-                "mimetype": obj.mimetype,
-                "is_head": True,
-                "is_show": obj.is_show,
-                "is_thumbnail": obj.is_thumbnail,
-                "created_user_id": obj.created_user_id,
-                "updated_user_id": obj.updated_user_id,
-                "uploaded_owners": file_uploaded_owner(
-                    created_user_id=obj.created_user_id,
-                    updated_user_id=obj.updated_user_id
-                ),
-                "links": {
-                    "sefl": url,
-                    "version": f"{url}?versionId={obj.version_id}",
-                    "uploads": f"{url}?uploads",
-                },
-                "tags": {},
-                "licensetype": None,
-                "displaytype": None,
-                "delete_marker": obj.deleted,
-                "uri": False,
-                "multiple": False,
-                "progress": 100,
-                "complete": True,
-                "version_id": str(obj.version_id),
-            }
-
+            url = f"{request.url_root}api/files/{obj.bucket_id}/{obj.basename}"  
+        return {
+            "created": obj.created.isoformat(),
+            "updated": obj.updated.isoformat(),
+            "key": obj.basename,
+            "filename": obj.basename,
+            "size": obj.file.size,
+            "checksum": obj.file.checksum,
+            "mimetype": obj.mimetype,
+            "is_head": True,
+            "is_show": obj.is_show,
+            "is_thumbnail": obj.is_thumbnail,
+            "created_user_id": obj.created_user_id,
+            "updated_user_id": obj.updated_user_id,
+            "uploaded_owners": file_uploaded_owner(
+                created_user_id=obj.created_user_id,
+                updated_user_id=obj.updated_user_id
+            ),
+            "links": {
+                "sefl": url,
+                "version": f"{url}?versionId={obj.version_id}",
+                "uploads": f"{url}?uploads",
+            },
+            "tags": {},
+            "licensetype": None,
+            "displaytype": None,
+            "delete_marker": obj.deleted,
+            "uri": False,
+            "multiple": False,
+            "progress": 100,
+            "complete": True,
+            "version_id": str(obj.version_id),
+        }
+        
         for file in files:
             if isinstance(file, str):
                 if not os.path.isfile(file):

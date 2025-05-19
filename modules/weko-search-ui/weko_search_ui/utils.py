@@ -504,7 +504,7 @@ def check_tsv_import_items(
             for info in z.infolist():
                 try:
                     info.filename = info.orig_filename
-                    inf = chardet.detect(info.orig_filename.encode('utf-8'))
+                    inf = chardet.detect(info.orig_filename)
                     if inf['encoding'] is not None and inf['encoding'] == 'cp437':
                         info.filename = info.orig_filename.encode("cp437").decode("cp932")
                         if os.sep != "/" and os.sep in info.filename:
@@ -876,7 +876,7 @@ def check_jsonld_import_items(
             for info in zip_ref.infolist():
                 try:
                     info.filename = info.orig_filename
-                    inf = chardet.detect(info.orig_filename.encode('utf-8'))
+                    inf = chardet.detect(info.orig_filename)
                     if inf['encoding'] is not None and inf['encoding'] == 'cp437':
                         info.filename = info.orig_filename.encode("cp437").decode("cp932")
                         if os.sep != "/" and os.sep in info.filename:
