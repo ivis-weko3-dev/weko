@@ -478,7 +478,6 @@ class HeadlessActivity(WorkActivity):
             else:
                 old_files_dict = {file["key"]: file for file in _old_files}
                 self.files_info = list(old_files_dict.values())
-                
             # to exclude from file text extraction
             for file in self.files_info:
                 if isinstance(non_extract, list) and file["filename"] in non_extract:
@@ -574,38 +573,38 @@ class HeadlessActivity(WorkActivity):
             obj.is_thumbnail = is_thumbnail
             obj.set_contents(stream, size=size, size_limit=size_limit)
             url = f"{request.url_root}api/files/{obj.bucket_id}/{obj.basename}"  
-        return {
-            "created": obj.created.isoformat(),
-            "updated": obj.updated.isoformat(),
-            "key": obj.basename,
-            "filename": obj.basename,
-            "size": obj.file.size,
-            "checksum": obj.file.checksum,
-            "mimetype": obj.mimetype,
-            "is_head": True,
-            "is_show": obj.is_show,
-            "is_thumbnail": obj.is_thumbnail,
-            "created_user_id": obj.created_user_id,
-            "updated_user_id": obj.updated_user_id,
-            "uploaded_owners": file_uploaded_owner(
-                created_user_id=obj.created_user_id,
-                updated_user_id=obj.updated_user_id
-            ),
-            "links": {
-                "sefl": url,
-                "version": f"{url}?versionId={obj.version_id}",
-                "uploads": f"{url}?uploads",
-            },
-            "tags": {},
-            "licensetype": None,
-            "displaytype": None,
-            "delete_marker": obj.deleted,
-            "uri": False,
-            "multiple": False,
-            "progress": 100,
-            "complete": True,
-            "version_id": str(obj.version_id),
-        }
+            return {
+                "created": obj.created.isoformat(),
+                "updated": obj.updated.isoformat(),
+                "key": obj.basename,
+                "filename": obj.basename,
+                "size": obj.file.size,
+                "checksum": obj.file.checksum,
+                "mimetype": obj.mimetype,
+                "is_head": True,
+                "is_show": obj.is_show,
+                "is_thumbnail": obj.is_thumbnail,
+                "created_user_id": obj.created_user_id,
+                "updated_user_id": obj.updated_user_id,
+                "uploaded_owners": file_uploaded_owner(
+                    created_user_id=obj.created_user_id,
+                    updated_user_id=obj.updated_user_id
+                ),
+                "links": {
+                    "sefl": url,
+                    "version": f"{url}?versionId={obj.version_id}",
+                    "uploads": f"{url}?uploads",
+                },
+                "tags": {},
+                "licensetype": None,
+                "displaytype": None,
+                "delete_marker": obj.deleted,
+                "uri": False,
+                "multiple": False,
+                "progress": 100,
+                "complete": True,
+                "version_id": str(obj.version_id),
+            }
         
         for file in files:
             if isinstance(file, str):
