@@ -656,18 +656,6 @@ def put_object(recid):
         "action": "UPDATE",
         "workflow_id": check_result.get("workflow_id"),
     }
-
-    if item.get("metadata_replace"):
-        existing_record = _get_item_to_update(recid) or {} 
-        data_keys = list(existing_record.keys())
-        filtered_keys = [key for key in data_keys if key.startswith("item_") and "_file" in key]
-        file_key = filtered_keys[0] if filtered_keys else None
-
-        if file_key:
-            _old_file_data = existing_record[file_key].get("attribute_value_mlt", [])
-            _new_file_data = item.get('file_path', [])
-            needs_update = _compere_files(_old_file_data, _new_file_data)
-
     response = {}
     if register_type == "Direct":
         # Check cache if the item is being edited
@@ -1074,53 +1062,6 @@ def _create_error_document(type, error):
         # "log": "",
     }
     return Error(raw_data).data
-
-def _get_item_to_update(recid):
-    """Get item to update.
-    Args:
-        recid (str): Record Identifier.
-
-    Returns:
-        dict: The existing item to update.
-    """
-    # Get the item to update from the request
-    # Retrieve the existing item for inspection
-    from invenio_pidstore.resolver import Resolver
-    from werkzeug.utils import import_string
-    record_class = import_string("weko_deposit.api:WekoRecord")
-    try:
-        resolver = Resolver(pid_type="recid", object_type="rec",
-                            getter=record_class.get_record)
-        pid, existing_record = resolver.resolve(recid)
-
-        return existing_record
-    except Exception as ex:
-        current_app.logger.error(f"Failed to retrieve existing item: {ex}")
-        raise WekoSwordserverException(
-            f"Failed to retrieve existing item: {ex}",
-            ErrorType.ServerError
-        )
-
-def _compere_files(old_files, new_files):
-    """Compare old and new files.
-
-    Args:
-        old_files (list): Old file information.
-        new_files (list): New file information.
-
-    Returns:
-        bool: True if the files are the same, False otherwise.
-    """
-    old_file_list = [file.get("filename") for file in old_files]
-    check_flg = False
-    for new_file in new_files:
-        if new_file in old_file_list:
-            continue
-        else:
-            # TODO: old_file_listと比べてnew_filesに増えているファイルは足す処理をし、消えているファイルはそのまま消えないようにする。
-            check_flg = True
-
-    return check_flg
 
 
 @blueprint.errorhandler(401)

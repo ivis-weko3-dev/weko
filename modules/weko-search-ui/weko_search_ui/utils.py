@@ -967,6 +967,9 @@ def check_jsonld_import_items(
 
         handle_check_item_link(list_record)
         handle_check_duplicate_item_link(list_record)
+
+        handle_check_operation_flags(list_record)
+
         check_result.update({"list_record": list_record})
 
     except zipfile.BadZipFile as ex:
@@ -5729,3 +5732,72 @@ def check_replace_file_import_items(list_record, data_path=None, is_gakuninrdm=F
         handle_check_doi(list_record)
     result["list_record"] = list_record
     return result
+
+def handle_check_operation_flags(items: list):
+    """
+    Check operation flags in list_record and set the appropriate values.
+    Args:
+        items (list): list_record
+    """
+
+    def _get_item_to_update(recid: str):
+        """Get item to update.
+        Args:
+            recid (str): Record Identifier.
+
+        Returns:
+            dict: The existing item to update.
+        """
+        # Get the item to update from the request
+        # Retrieve the existing item for inspection
+        from invenio_pidstore.resolver import Resolver
+        from werkzeug.utils import import_string
+        record_class = import_string("weko_deposit.api:WekoRecord")
+        try:
+            resolver = Resolver(pid_type="recid", object_type="rec",
+                                getter=record_class.get_record)
+            pid, existing_record = resolver.resolve(recid)
+
+            return existing_record
+        except Exception as ex:
+            current_app.logger.error(f"Failed to retrieve existing item: {ex}")
+            raise WekoSwordserverException(
+                f"Failed to retrieve existing item: {ex}",
+                ErrorType.ServerError
+            )
+
+    def _compere_files(old_files: list, new_files: list):
+        """Compare old and new files.
+
+        Args:
+            old_files (list): Old file information.
+            new_files (list): New file information.
+
+        Returns:
+            bool: True if the files are the same, False otherwise.
+        """
+        old_file_list = [file.get("filename") for file in old_files]
+        check_flg = False
+        for new_file in new_files:
+            if new_file in old_file_list:
+                # TODO: 更新前後のファイル名が同じ場合は、メタデータ情報に変更があればメタデータ情報のみ更新し、添付ファイル情報は更新しない。
+                # メタデータ情報に変更がなければ何もしない。
+                continue
+            else:
+                # TODO: 更新前と比べて更新後にファイルが増えている場合は追加する処理をし、
+                # ファイルが減っている場合は更新後も消えないようにする処理が必要。
+                check_flg = True
+
+        return check_flg
+
+    for item in items:
+        if item.get("metadata_replace"):
+            existing_record = _get_item_to_update(item.get('id')) or {} 
+            data_keys = list(existing_record.keys())
+            filtered_keys = [key for key in data_keys if key.startswith("item_") and "_file" in key]
+            file_key = filtered_keys[0] if filtered_keys else None
+
+            if file_key:
+                _old_file_data = existing_record[file_key].get("attribute_value_mlt", [])
+                _new_file_data = item.get('file_path', [])
+                needs_update = _compere_files(_old_file_data, _new_file_data)
