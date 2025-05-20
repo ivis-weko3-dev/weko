@@ -476,8 +476,12 @@ class HeadlessActivity(WorkActivity):
             if not self._files_inheritance:
                 self.files_info = self._upload_files(files)
             else:
+                _new_files = self._upload_files(files)
                 old_files_dict = {file["key"]: file for file in _old_files}
+                for new_file in _new_files:
+                    old_files_dict[new_file["key"]] = new_file
                 self.files_info = list(old_files_dict.values())
+                
             # to exclude from file text extraction
             for file in self.files_info:
                 if isinstance(non_extract, list) and file["filename"] in non_extract:
