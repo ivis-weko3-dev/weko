@@ -1070,8 +1070,8 @@ def charge():
 
     # 課金中のアイテムIDをキャッシュに保存
     datastore.put(cache_key, str(item_id).encode('utf-8'), ttl_secs=300)
-    
-    return redirect(redirect_url)
+
+    return jsonify({'redirect_url': redirect_url})
 
 @blueprint.route('/charge/secure', methods=['POST'])
 def charge_secure():
