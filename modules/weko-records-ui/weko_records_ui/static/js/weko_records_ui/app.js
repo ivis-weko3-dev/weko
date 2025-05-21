@@ -401,6 +401,10 @@ function handleChargeBillingFile() {
             type: 'GET',
             contentType: 'application/json',
             success: function (data) {
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                    return;
+                }
                 if (data.status == 'success') {
                     $('#success_flag').val('true')
                     // 課金成功メッセージ表示
