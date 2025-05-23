@@ -1086,7 +1086,7 @@ def charge_secure():
                 success : 課金成功
                 error   : 課金失敗
     """
-    access_id = request.values.get('MD')
+    access_id = request.values.get('AccessID')
 
     # 課金中のアイテムIDをキャッシュから取得
     redis_connection = RedisConnection()
