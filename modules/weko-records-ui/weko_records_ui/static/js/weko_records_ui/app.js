@@ -448,11 +448,16 @@ function handleChargeBillingFile() {
         }
         else {
             const email = document.getElementById('current_user_email').value;
-            const data = $('button#charge-button').data();
             const charge_key = 'charge_' + email;
+            const url = window.location.href;
+            const split_url = url.split('/');
+            const itemid = Number(split_url[split_url.length - 1].split('?')[0]);
             let charge_item = JSON.parse(window.sessionStorage.getItem(charge_key));
             if (charge_item) {
-                charge_item.pop(data.itemid);
+                const index = charge_item.indexOf(itemid);
+                if (index != -1) {
+                    charge_item.splice(index, 1);
+                }
                 if (charge_item.length == 0) {
                     window.sessionStorage.removeItem(charge_key);
                 }
@@ -471,11 +476,16 @@ function handleChargeBillingFile() {
         }
         else {
             const email = document.getElementById('current_user_email').value;
-            const data = $('button#charge-button').data();
             const charge_key = 'charge_' + email;
+            const url = window.location.href;
+            const split_url = url.split('/');
+            const itemid = Number(split_url[split_url.length - 1].split('?')[0]);
             let charge_item = JSON.parse(window.sessionStorage.getItem(charge_key));
             if (charge_item) {
-                charge_item.pop(data.itemid);
+                const index = charge_item.indexOf(itemid);
+                if (index != -1) {
+                    charge_item.splice(index, 1);
+                }
                 if (charge_item.length == 0) {
                     window.sessionStorage.removeItem(charge_key);
                 }
@@ -491,9 +501,14 @@ function handleConfirmBillingFile() {
     const email = document.getElementById('current_user_email').value;
     const charge_key = 'charge_' + email;
     let charge_item = JSON.parse(window.sessionStorage.getItem(charge_key));
-    const data = $('button#charge-button').data();
-    if (charge_item && charge_item.indexOf(data.itemid) >= 0) {
-        charge_item.pop(data.itemid);
+    const url = window.location.href;
+    const split_url = url.split('/');
+    const itemid = Number(split_url[split_url.length - 1].split('?')[0]);
+    if (charge_item && charge_item.indexOf(itemid) >= 0) {
+        const index = charge_item.indexOf(itemid);
+        if (index != -1) {
+            charge_item.splice(index, 1);
+        }
         if (charge_item.length == 0) {
             window.sessionStorage.removeItem(charge_key);
         }
@@ -501,7 +516,7 @@ function handleConfirmBillingFile() {
             window.sessionStorage.setItem(charge_key, JSON.stringify(charge_item));
         }
         let params = {
-            'item_id': data.itemid,
+            'item_id': itemid,
         }
         params = Object.keys(params).map(key => key + '=' + params[key]).join('&');
         $.ajax({
@@ -510,7 +525,6 @@ function handleConfirmBillingFile() {
             contentType: 'application/json',
             success: function (data) {
                 if (data.status == 'success') {
-                    $('#success_flag').val('true')
                     // 課金成功メッセージ表示
                     const message = $('#charge_success').val();
                     $('#charge_success_message').html(message);
