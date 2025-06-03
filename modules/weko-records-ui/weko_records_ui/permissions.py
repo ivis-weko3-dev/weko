@@ -762,12 +762,12 @@ def create_charge(user_id, item_id, price, title, file_url, ret_url):
         current_app.logger.error(f'no json error in create_charge: url: {url}, params: {params}, proxies: {proxies if proxy_mode else ""}')
         return 'api_error'
 
-    if res.headers.get('WEKO_CHARGE_STATUS') == -128:
+    if res.headers.get('WEKO_CHARGE_STATUS') == '-128':
         # クレジットカード情報エラー(カード番号が未登録か無効)
         current_app.logger.error(f'credit_error in create_charge: url: {url}, params: {params}, proxies: {proxies if proxy_mode else ""}')
         return 'credit_error'
 
-    if res.headers.get('WEKO_CHARGE_STATUS') == -64:
+    if res.headers.get('WEKO_CHARGE_STATUS') == '-64':
         # GMO通信エラー
         current_app.logger.error(f'connection_error in create_charge: url: {url}, params: {params}, proxies: {proxies if proxy_mode else ""}')
         return 'connection_error'
@@ -839,7 +839,7 @@ def secure_charge(user_id, access_id):
         current_app.logger.error(f'no json error in secure_charge: url: {url}, params: {params}, proxies: {proxies if proxy_mode else ""}')
         return 'api_error'
 
-    if res.headers.get('WEKO_CHARGE_STATUS') == -64:
+    if res.headers.get('WEKO_CHARGE_STATUS') == '-64':
         # GMO通信エラー
         current_app.logger.error(f'connection_error in secure_charge: url: {url}, params: {params}, proxies: {proxies if proxy_mode else ""}')
         return 'connection_error'
