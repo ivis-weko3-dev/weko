@@ -860,9 +860,8 @@ def test_charge(app,db,users,client,mocker):
 
                 with patch('weko_records_ui.views.create_charge', return_value='https://pt01.mul-pay.jp'):
                     # charge is success
-                    redirect = mocker.patch('weko_records_ui.views.redirect', return_value=make_response())
-                    client.get(url, data=_data)
-                    redirect.asert_called_with('https://pt01.mul-pay.jp')
+                    res = client.get(url, data=_data)
+                    assert json.loads(res.data) == {'redirect_url': 'https://pt01.mul-pay.jp'}
                     redis_value = redis.get(redis_key)
                     assert redis_value.decode('utf-8') == _data['item_id']
                     redis.delete(redis_key)
@@ -878,7 +877,7 @@ def test_charge(app,db,users,client,mocker):
 def test_charge_secure(app, db, users, client, mocker):
     _data = {}
     url = url_for('weko_records_ui.charge_secure', _external=True)
-    _data['MD'] = 'access_id'
+    _data['AccessID'] = 'access_id'
 
     redis = RedisConnection().connection(db=app.config['CACHE_REDIS_DB'], kv=True)
     redis_key = 'charge_{}'.format(users[0]['obj'].get_id())

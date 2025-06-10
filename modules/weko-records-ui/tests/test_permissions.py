@@ -931,17 +931,17 @@ def test_create_charge(db,db_admin_settings, users, id, result,records):
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert create_charge(1, 1, 110, 'title', 'fileurl', 'retUrl') == 'api_error'
         # 37
-        res.headers = {'WEKO_CHARGE_STATUS':-128}
+        res.headers = {'WEKO_CHARGE_STATUS':'-128'}
         res.json.return_value = {'trade_id':1, 'redirect_url': 'https://pt01.mul-pay.jp'}
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert create_charge(1, 1, 110, 'title', 'fileurl', 'retUrl') == 'credit_error'
         # 38
-        res.headers = {'WEKO_CHARGE_STATUS':-64}
+        res.headers = {'WEKO_CHARGE_STATUS':'-64'}
         res.json.return_value = {'trade_id':1, 'redirect_url': 'https://pt01.mul-pay.jp'}
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert create_charge(1, 1, 110, 'title', 'fileurl', 'retUrl') == 'connection_error'
         # 39
-        res.headers = {'WEKO_CHARGE_STATUS':0}
+        res.headers = {'WEKO_CHARGE_STATUS':'0'}
         res.json.return_value = {'trade_id':1, 'redirect_url': 'https://pt01.mul-pay.jp', 'charge_status':'1'}
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert create_charge(1, 1, 110, 'title', 'fileurl', 'retUrl') == 'already'
@@ -985,7 +985,7 @@ def test_secure_charge(db_admin_settings, users, user_id, result):
 
     with patch("flask_login.utils._get_user", return_value=users[user_id]["obj"]):
         # secure charge is success
-        res.headers = {'WEKO_CHARGE_STATUS':0} 
+        res.headers = {'WEKO_CHARGE_STATUS':'0'} 
         res.json.return_value = {'trade_id': 1, 'charge_status': '4'}
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == '1'
@@ -1001,7 +1001,7 @@ def test_secure_charge(db_admin_settings, users, user_id, result):
             assert secure_charge(1, 1) == 'api_error'
         
         # WEKO_CHARGE_STATUS is -64
-        res.headers = {'WEKO_CHARGE_STATUS':-64}
+        res.headers = {'WEKO_CHARGE_STATUS':'-64'}
         res.json.return_value = {'trade_id': 1, 'charge_status': '4'}
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == 'connection_error'
@@ -1019,7 +1019,7 @@ def test_secure_charge(db_admin_settings, users, user_id, result):
         # proxy_mode
         AdminSettings.update('proxy_settings', settings)
         # secure charge is success with proxy_mode
-        res.headers = {'WEKO_CHARGE_STATUS':0} 
+        res.headers = {'WEKO_CHARGE_STATUS':'0'} 
         res.json.return_value = {'trade_id': 1, 'charge_status': '4'}
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == '1'
@@ -1035,7 +1035,7 @@ def test_secure_charge(db_admin_settings, users, user_id, result):
             assert secure_charge(1, 1) == 'api_error'
         
         # WEKO_CHARGE_STATUS is -64 with proxy_mode
-        res.headers = {'WEKO_CHARGE_STATUS':-64}
+        res.headers = {'WEKO_CHARGE_STATUS':'-64'}
         res.json.return_value = {'trade_id': 1, 'charge_status': '4'}
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == 'connection_error'
