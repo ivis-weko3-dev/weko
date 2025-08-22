@@ -148,7 +148,7 @@ def main():
                     
                     flag_modified(_mapping, 'mapping')
                     db.session.merge(_mapping)
-                    Mapping.create(item_type_id=itemType.id,
+                    Mapping.create_or_update(item_type_id=itemType.id,
                                mapping=_mapping.mapping)
                     print("session merged.")
 
