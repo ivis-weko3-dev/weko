@@ -1197,51 +1197,44 @@ class Mapping(RecordBase):
     """Define API for Mapping creation and manipulation."""
 
     @classmethod
-    def create(cls, item_type_id=None, mapping=None):
-        r"""Create a new record instance and store it in the database.
+    def create_or_update(cls, item_type_id=None, mapping=None):
+        """Create a new record instance and store it in the database.
 
-        #. Send a signal :data:`weko_records.signals.before_record_insert`
-           with the new record as parameter.
+        Send a signal `before_record_insert` and `after_record_insert`. <br>
+        Add or update the record in the database.
 
-        #. Validate the new record data.
+        Args:
+            item_type_id (int): ID of item type.
+            mapping (dict): Mapping in JSON format.
 
-        #. Add the new record in the database.
-
-        #. Send a signal :data:`weko_records.signals.after_record_insert`
-           with the new created record as parameter.
-
-        :Keyword Arguments:
-          * **format_checker** --
-            An instance of the class :class:`jsonschema.FormatChecker`, which
-            contains validation rules for formats. See
-            :func:`~weko_records.api.RecordBase.validate` for more details.
-
-          * **validator** --
-            # A :class:`jsonschema.IValidator` class that will be used to
-            validate the record. See
-            :func:`~weko_records.api.RecordBase.validate` for more details.
-
-
-        :param item_type_id: ID of item type.
-        :param mapping: Mapping in JSON format.
-        :returns: A new :class:`Record` instance.
+        Returns:
+            Mapping: Created or updated record instance.
         """
         with db.session.begin_nested():
             record = cls(mapping)
 
-            before_record_insert.send(
+            query = ItemTypeMapping.query.filter_by(item_type_id=item_type_id)
+            obj = query.one_or_none()
+            before_record = before_record_update
+            after_record = after_record_update
+            if obj is None:
+                before_record = before_record_insert
+                after_record = after_record_insert
+                obj = ItemTypeMapping(item_type_id=item_type_id)
+
+            before_record.send(
                 current_app._get_current_object(),
                 record=record
             )
+            obj.mapping = mapping
 
             # record.validate(**kwargs)
 
-            record.model = ItemTypeMapping(item_type_id=item_type_id,
-                                           mapping=record)
+            record.model = obj
 
-            db.session.add(record.model)
+            db.session.merge(record.model)
 
-        after_record_insert.send(
+        after_record.send(
             current_app._get_current_object(),
             record=record
         )
