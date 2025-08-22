@@ -20,7 +20,6 @@
 
 """Module tests."""
 
-from re import T
 import uuid
 import pytest
 from unittest import TestCase
@@ -35,8 +34,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from weko_records.api import FeedbackMailList, RequestMailList, FilesMetadata, ItemLink, \
     ItemsMetadata, ItemTypeEditHistory, ItemTypeNames, ItemTypeProps, \
     ItemTypes, Mapping, JsonldMapping, SiteLicense, RecordBase, WekoRecord
-from weko_records.models import ItemType, ItemTypeJsonldMapping, ItemTypeName, \
-    SiteLicenseInfo, SiteLicenseIpAddress
+from weko_records.models import ItemTypeMapping, ItemTypeJsonldMapping, ItemTypeName
 from jsonschema.validators import Draft4Validator
 from datetime import datetime, timedelta
 from weko_records.models import ItemReference
@@ -1040,15 +1038,51 @@ def test_item_type_edit_history(app, db, user):
 #     def create(cls, item_type_id=None, mapping=None):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::test_mapping_create -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
 def test_mapping_create(app, db):
-    mapping = Mapping.create_or_update()
-    assert mapping.id==1
-    assert mapping.model.item_type_id==None
-    assert mapping.model.mapping=={}
+    with patch("weko_records.api.before_record_insert") as mock_before_record_insert, \
+            patch("weko_records.api.after_record_insert") as mock_after_record_insert:
+        mapping = Mapping.create_or_update()
+        db.session.commit()
+        obj = ItemTypeMapping.query.first()
+        assert obj.id == 1
+        assert obj.item_type_id == None
+        assert obj.mapping == {}
+        mock_before_record_insert.send.assert_called_once()
+        mock_after_record_insert.send.assert_called_once()
 
-    mapping = Mapping.create_or_update(1, {'mapping': 'test'})
-    assert mapping.id==2
-    assert mapping.model.item_type_id==1
-    assert mapping.model.mapping=={'mapping': 'test'}
+    with patch("weko_records.api.before_record_insert") as mock_before_record_insert, \
+            patch("weko_records.api.after_record_insert") as mock_after_record_insert:
+        mapping = Mapping.create_or_update(1, {'mapping': 'create'})
+        db.session.commit()
+        obj = ItemTypeMapping.query.filter_by(item_type_id=1).first()
+        assert obj.id == 2
+        assert obj.item_type_id == 1
+        assert obj.mapping == {'mapping': 'create'}
+        assert obj.version_id == 1
+        mock_before_record_insert.send.assert_called_once()
+        mock_after_record_insert.send.assert_called_once()
+
+    with patch("weko_records.api.before_record_update") as mock_before_record_update, \
+            patch("weko_records.api.after_record_update") as mock_after_record_update:
+        Mapping.create_or_update(1, {'mapping': 'update'})
+        db.session.commit()
+        obj = ItemTypeMapping.query.filter_by(item_type_id=1).one()
+        assert obj.id == 2
+        assert obj.item_type_id == 1
+        assert obj.mapping == {'mapping': 'update'}
+        assert obj.version_id == 2
+        mock_before_record_update.send.assert_called_once()
+        mock_after_record_update.send.assert_called_once()
+
+        versions = obj.versions.all()
+        assert len(versions) == 2
+        assert versions[0].id == obj.id
+        assert versions[0].item_type_id == 1
+        assert versions[0].mapping == {'mapping': 'create'}
+        assert versions[0].version_id == 1
+        assert versions[1].id == obj.id
+        assert versions[1].item_type_id == 1
+        assert versions[1].mapping == {'mapping': 'update'}
+        assert versions[1].version_id == 2
 
 # class Mapping(RecordBase):
 #     def get_record(cls, item_type_id, with_deleted=False):
@@ -1123,17 +1157,17 @@ def test_mapping_delete(app, db):
 
     mapping1.model = None
     with pytest.raises(Exception) as e:
-        Mapping.delete(mapping1)
+        mapping1.delete()
     assert e.type==MissingModelError
 
-    mapping2 = Mapping.delete(mapping2, False)
+    mapping2 = mapping2.delete(force=False)
     assert mapping2.id==2
     assert mapping2.model.item_type_id==2
     assert mapping2.model.mapping=={}
 
     # need to fix
-    mapping3 = Mapping.delete(mapping3, True)
-    assert mapping2=={}
+    mapping3 = mapping3.delete(force=True)
+    assert mapping3=={}
 
 # class Mapping(RecordBase):
 #     def revert(self, revision_id):

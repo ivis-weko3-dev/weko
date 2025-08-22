@@ -20,17 +20,14 @@
 
 """Record API."""
 
-import urllib.parse
 import pickle
 from typing import Union
 import json
-import copy
 import re
 import sys
 import traceback
 
 from elasticsearch.exceptions import NotFoundError
-from elasticsearch_dsl.query import QueryString
 from flask import current_app, request
 from flask_babelex import gettext as _
 from invenio_db import db
@@ -1254,6 +1251,8 @@ class Mapping(RecordBase):
             query = ItemTypeMapping.query.filter_by(item_type_id=item_type_id)
             if not with_deleted:
                 query = query.filter(ItemTypeMapping.mapping != None)  # noqa
+            # FIXME: remove order_by
+            # when the database is migrated to a new version.
             obj = query.order_by(desc(ItemTypeMapping.created)).first()
             if obj is None:
                 return None
