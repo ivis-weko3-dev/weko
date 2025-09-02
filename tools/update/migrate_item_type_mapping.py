@@ -13,16 +13,27 @@ This script is used to migrate the `item_type_mapping` table and
 
 """
 
+import traceback
 from contextlib import contextmanager
 
 from flask import current_app
 from flask_sqlalchemy.model import DefaultMeta as Meta
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from invenio_db import db
 from weko_records.models import (
     timestamp_before_update, Timestamp, ItemTypeMapping
 )
+
+
+def info(msg):
+    print(f"[INFO]  {msg}")
+
+def warn(msg):
+    print(f"\033[43m[WARN]\033[0m {msg}")
+
+def error(msg):
+    print(f"\033[41m[ERROR]\033[0m {msg}")
 
 
 def get_versioned_model(master):
@@ -43,7 +54,47 @@ def has_duplicate_item_type_ids():
         .having(func.count(ItemTypeMapping.item_type_id) > 1)
         .count()
     )
+    info(f"{duplicate_count} Item Type Mapping needs to be migrated.")
     return bool(duplicate_count > 0)
+
+
+@contextmanager
+def atomic_migration_stream(*models):
+    """Context manager to create temporary tables for migration."""
+    for model in models:
+        info(f"Creating temporary table for {model.__tablename__}...")
+        db.session.execute(text(f"""
+            CREATE TABLE {model.__tablename__}_tmp AS
+            SELECT * FROM {model.__tablename__};
+        """))
+
+    db.session.commit()
+
+    try:
+        stream = db.engine.execute(
+            text(f"SELECT * FROM {models[0].__tablename__}_tmp ORDER BY id ASC"),
+            execution_options={"stream_results": True})
+        yield stream
+    except Exception as e:
+        error("Failed to process.")
+        traceback.print_exc()
+
+        for model in models:
+            db.session.execute(text(f"""
+                TRUNCATE TABLE {model.__tablename__};
+                INSERT INTO {model.__tablename__}
+                SELECT * FROM {model.__tablename__}_tmp;
+            """))
+        db.session.commit()
+        warn("Rolled back changes.")
+
+    finally:
+        stream.close()
+        for model in models:
+            db.session.execute(text(f"""
+                DROP TABLE IF EXISTS {model.__tablename__}_tmp;
+            """))
+        db.session.commit()
 
 
 @contextmanager
@@ -60,18 +111,26 @@ def without_before_update_timestamp():
 
 def main():
     """Main function to migrate item_type_mapping."""
+
     ItemTypeMappingVersion = get_versioned_model(ItemTypeMapping)
     if not ItemTypeMappingVersion:
-        print("Versioned table for ItemTypeMapping not found.")
+        error("Versioned table for ItemTypeMapping not found.")
         return
 
-    if has_duplicate_item_type_ids():
-        print("Not need to migrate item_type_mapping.")
+    if not has_duplicate_item_type_ids():
+        info("Not need to migrate item_type_mapping.")
         return
-    print("Migrating item_type_mapping to versioning...")
 
-    with without_before_update_timestamp():
-        pass
+
+    with without_before_update_timestamp(), \
+        atomic_migration_stream(ItemTypeMapping, ItemTypeMappingVersion) as tmp_record_stream:
+
+        db.session.execute(text(f"""
+            TRUNCATE TABLE {ItemTypeMapping.__tablename__};
+            TRUNCATE TABLE {ItemTypeMappingVersion.__tablename__};
+        """))
+        db.session.commit()
+        info("Cleared original tables.")
 
 
 if __name__ == "__main__":
