@@ -18,13 +18,13 @@ import traceback
 from contextlib import contextmanager
 
 from click import progressbar
-from flask import current_app
+from flask import current_app, Flask
 from flask_sqlalchemy.model import DefaultMeta as Meta
-from sqlalchemy_continuum.manager import VersioningManager
+from sqlalchemy.inspection import inspect
 from sqlalchemy.sql import func, text
 from sqlalchemy.engine.result import ResultProxy
 
-from invenio_db import db
+from invenio_db import InvenioDB, db
 from weko_records.models import (
     timestamp_before_update, Timestamp, ItemTypeMapping
 )
@@ -40,14 +40,15 @@ def error(msg):
     print(f"\033[41m[ERROR]\033[0m {msg}")
 
 
-def get_versioned_model(master):
+def get_versioned_model(app: Flask, master):
     """Get the versioned table for the given master table."""
-    manager: VersioningManager = current_app.extensions["invenio-db"].versioning_manager
+    invenio_db: InvenioDB = app.extensions.get("invenio-db")
+    manager = invenio_db.versioning_manager
     if not manager.transaction_cls:
         return None
 
-    versioned_table = manager.version_class_map.get(master, None)
-    return versioned_table if isinstance(versioned_table, Meta) else None
+    versioned_table: Meta = manager.version_class_map.get(master, None)
+    return versioned_table
 
 
 def has_duplicate_item_type_ids():
@@ -109,7 +110,8 @@ def atomic_migration_stream(*models: Meta):
 
     stream: ResultProxy = db.engine.execute(
         text(f"SELECT * FROM {models[0].__tablename__}_tmp ORDER BY id ASC"),
-        execution_options={"stream_results": True})
+        execution_options={"stream_results": True}
+    )
 
     try:
         yield stream
@@ -162,7 +164,7 @@ def create_or_update_mapping(created, updated, item_type_id, mapping):
 def main():
     """Main function to migrate item_type_mapping."""
 
-    ItemTypeMappingVersion = get_versioned_model(ItemTypeMapping)
+    ItemTypeMappingVersion = get_versioned_model(current_app, ItemTypeMapping)
     if not ItemTypeMappingVersion:
         warn("Metadata of versioned table for ItemTypeMapping not found.")
 
@@ -198,7 +200,19 @@ def main():
 
 def recovery():
     """Recover from temporary tables."""
-    ItemTypeMappingVersion = get_versioned_model(ItemTypeMapping)
+    ItemTypeMappingVersion = get_versioned_model(current_app, ItemTypeMapping)
+    table_names = inspect(db.engine).get_table_names()
+    if (
+        ItemTypeMapping.__tablename__ + "_tmp" not in table_names
+        or (
+            ItemTypeMappingVersion is not None
+            and ItemTypeMappingVersion.__tablename__ + "_tmp" not in table_names
+        )
+    ):
+        warn("Temporary table for recovery not found.")
+        return
+    info("Temporary table for recovery found.")
+
     recover_from_temp_tables(ItemTypeMapping, ItemTypeMappingVersion)
     drop_temp_tables(ItemTypeMapping, ItemTypeMappingVersion)
 
