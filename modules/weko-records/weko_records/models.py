@@ -281,7 +281,11 @@ class ItemTypeMapping(db.Model, Timestamp):
     )
     """Record identifier."""
 
-    item_type_id = db.Column(db.Integer)
+    item_type_id = db.Column(
+        db.Integer,
+        db.ForeignKey(ItemType.id, ondelete='CASCADE'),
+        unique=True,
+    )
     """ID of item type."""
 
     mapping = db.Column(

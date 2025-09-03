@@ -88,7 +88,6 @@ def main():
                 _render = pickle.loads(pickle.dumps(itemType.render, -1))
                 _mapping = (
                     ItemTypeMapping.query.filter(ItemTypeMapping.item_type_id == itemType.id)
-                    .order_by(desc(ItemTypeMapping.created))
                     .first()
                 )
                 for id in cur_prop_ids:

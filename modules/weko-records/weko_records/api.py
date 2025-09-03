@@ -1013,7 +1013,6 @@ class ItemTypes(RecordBase):
 
         # item_type_mapping = (
         #             ItemTypeMapping.query.filter(ItemTypeMapping.item_type_id == itemtype_id)
-        #             .order_by(desc(ItemTypeMapping.created))
         #             .first()
         #         )
         # data['table_row_map']['mapping'] = item_type_mapping.mapping if item_type_mapping else {}
@@ -1251,9 +1250,8 @@ class Mapping(RecordBase):
             query = ItemTypeMapping.query.filter_by(item_type_id=item_type_id)
             if not with_deleted:
                 query = query.filter(ItemTypeMapping.mapping != None)  # noqa
-            # FIXME: remove order_by
-            # when the database is migrated to a new version.
-            obj = query.order_by(desc(ItemTypeMapping.created)).first()
+
+            obj = query.first()
             if obj is None:
                 return None
             return cls(obj.mapping, model=obj)
