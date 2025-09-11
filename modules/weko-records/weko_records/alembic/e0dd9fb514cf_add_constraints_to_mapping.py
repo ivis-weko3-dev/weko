@@ -29,6 +29,11 @@ def upgrade():
             'item_type', ['item_type_id'], ['id']
         )
 
+    # Drop indexes from DDL.
+    op.execute("DROP INDEX IF EXISTS idx_created_item_type_mapping")
+    op.execute("DROP INDEX IF EXISTS idx_item_type_id_item_type_mapping")
+
+
 
 def downgrade():
     """Downgrade database."""
@@ -39,3 +44,13 @@ def downgrade():
         batch_op.drop_constraint(
             'uq_item_type_mapping_item_type_id', type_='unique'
         )
+
+    # Recreate indexes from DDL.
+    op.execute("""
+        CREATE INDEX IF NOT EXISTS idx_created_item_type_mapping
+        ON item_type_mapping USING BTREE (created)
+    """)
+    op.execute("""
+        CREATE INDEX IF NOT EXISTS idx_item_type_id_item_type_mapping
+        ON item_type_mapping USING BTREE (mapping)
+    """)
