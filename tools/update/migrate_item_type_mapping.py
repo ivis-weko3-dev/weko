@@ -14,6 +14,7 @@ This script is used to migrate the `item_type_mapping` table and
 """
 
 import sys
+import datetime
 import traceback
 from contextlib import contextmanager
 
@@ -117,7 +118,8 @@ def atomic_migration_stream(*models: Meta):
         yield stream
     except BaseException as e:
         stream.close()
-        error("Failed to process.")
+        faild = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        error(f"Migration failed at {faild}.")
         traceback.print_exc()
 
         recover_from_temp_tables(*models)
@@ -168,6 +170,18 @@ def main():
     if not ItemTypeMappingVersion:
         warn("Metadata of versioned table for ItemTypeMapping not found.")
 
+    table_names = inspect(db.engine).get_table_names()
+    if (
+        ItemTypeMapping.__tablename__ + "_tmp" in table_names
+        or (
+            ItemTypeMappingVersion is not None
+            and ItemTypeMappingVersion.__tablename__ + "_tmp" in table_names
+        )
+    ):
+        error("Temporary table for migration already exists.")
+        info("Run the script with 'recovery' argument to recover.")
+        return
+
     if not has_duplicate_item_type_ids():
         info("Not need to migrate item_type_mapping.")
         return
@@ -176,7 +190,10 @@ def main():
 
     with without_before_update_timestamp(), \
         atomic_migration_stream(ItemTypeMapping, ItemTypeMappingVersion) as tmp_record_stream, \
-        progressbar(tmp_record_stream, label="Migrating", length=num_record) as bar:
+        progressbar(tmp_record_stream, label="Migrating", length=num_record, show_eta=False) as bar:
+
+        start = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        info(f"Migration started at {start}.")
 
         db.session.execute(text(f"""
             TRUNCATE TABLE {ItemTypeMapping.__tablename__};
@@ -195,7 +212,8 @@ def main():
                 mapping=row.mapping,
             )
 
-        info("Migration completed.")
+        end = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        info(f"Migration completed at {end}.")
 
 
 def recovery():
