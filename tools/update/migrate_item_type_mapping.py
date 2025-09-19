@@ -107,6 +107,9 @@ def drop_temp_tables(*models: Meta):
 @contextmanager
 def atomic_migration_stream(*models: Meta):
     """Context manager to create temporary tables for migration."""
+    start = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+    info(f"Migration started at {start}.")
+
     create_temp_tables(*models)
 
     stream: ResultProxy = db.engine.execute(
@@ -129,6 +132,9 @@ def atomic_migration_stream(*models: Meta):
     else:
         stream.close()
         drop_temp_tables(*models)
+
+        end = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        info(f"Migration completed at {end}.")
 
 
 @contextmanager
@@ -192,9 +198,6 @@ def main():
         atomic_migration_stream(ItemTypeMapping, ItemTypeMappingVersion) as tmp_record_stream, \
         progressbar(tmp_record_stream, label="Migrating", length=num_record, show_eta=False) as bar:
 
-        start = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-        info(f"Migration started at {start}.")
-
         db.session.execute(text(f"""
             TRUNCATE TABLE {ItemTypeMapping.__tablename__};
         """))
@@ -211,9 +214,6 @@ def main():
                 item_type_id=row.item_type_id,
                 mapping=row.mapping,
             )
-
-        end = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-        info(f"Migration completed at {end}.")
 
 
 def recovery():
