@@ -26,7 +26,8 @@ def upgrade():
         )
         batch_op.create_foreign_key(
             'fk_item_type_mapping_item_type_id_item_type',
-            'item_type', ['item_type_id'], ['id']
+            'item_type', ['item_type_id'], ['id'],
+            ondelete="CASCADE"
         )
 
     # Drop indexes from DDL.
@@ -52,5 +53,5 @@ def downgrade():
     """)
     op.execute("""
         CREATE INDEX IF NOT EXISTS idx_item_type_id_item_type_mapping
-        ON item_type_mapping USING BTREE (mapping)
+        ON item_type_mapping USING BTREE (item_type_id)
     """)
