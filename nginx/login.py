@@ -56,6 +56,8 @@ else:
         print('HTTP/1.1 302 Found')
         print('Content-Type: text/html')
         print('Location: ' + base_url + redirect)
+        for cookie in response.cookies:
+            print(f'Set-Cookie: {cookie.name}={cookie.value}; Path=/; HttpOnly')
         print('')
     else:
         # Display the login page or the page before login processing with flash message
