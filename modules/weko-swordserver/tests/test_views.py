@@ -70,7 +70,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
     zip = make_zip()
     storage=FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -99,7 +99,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
         "Digest": "SHA-256={}".format(calculate_hash(storage)),
     }
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -157,7 +157,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -168,7 +168,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 403
-    assert result.json.get("error") == "Not allowed operation in your token scope."
+    assert result.json.get("error") == "Not allowed operation in your role or token scope."
 
     # error in result
     login_user_via_session(client=client, email=users[0]["email"])
@@ -180,7 +180,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -202,7 +202,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -224,7 +224,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -246,7 +246,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -270,7 +270,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -292,7 +292,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="JSON")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -320,7 +320,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
         "Digest": "SHA-256={}".format(calculate_hash(storage)),
     }
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="JSON")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker.patch("weko_swordserver.views.is_valid_file_hash", return_value=True)
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
@@ -345,7 +345,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
         "Digest": "SHA-256={}".format(calculate_hash(storage)),
     }
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="JSON")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker.patch("weko_swordserver.views.is_valid_file_hash", return_value=False)
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
@@ -389,7 +389,7 @@ def test_put_object(
     zip = make_zip()
     storage=FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -419,7 +419,7 @@ def test_put_object(
         "Digest": "SHA-256={}".format(calculate_hash(storage)),
     }
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -476,7 +476,7 @@ def test_put_object(
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -487,7 +487,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 403
-    assert result.json.get("error") == "Not allowed operation in your token scope."
+    assert result.json.get("error") == "Not allowed operation in your role or token scope."
 
     # error in result
     login_user_via_session(client=client, email=users[0]["email"])
@@ -499,7 +499,7 @@ def test_put_object(
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -521,7 +521,7 @@ def test_put_object(
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -543,7 +543,7 @@ def test_put_object(
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -565,7 +565,7 @@ def test_put_object(
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -587,7 +587,7 @@ def test_put_object(
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -611,7 +611,7 @@ def test_put_object(
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -634,7 +634,7 @@ def test_put_object(
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -657,7 +657,7 @@ def test_put_object(
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -682,7 +682,7 @@ def test_put_object(
     zip = make_zip()
     storage = FileStorage(filename="payload.zip", stream=zip)
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -708,7 +708,7 @@ def test_put_object(
         "Digest": "SHA-256={}".format(calculate_hash(storage)),
     }
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="JSON")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker.patch("weko_swordserver.views.is_valid_file_hash", return_value=True)
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
@@ -733,7 +733,7 @@ def test_put_object(
         "Digest": "SHA-256={}".format(calculate_hash(storage)),
     }
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="JSON")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker.patch("weko_swordserver.views.is_valid_file_hash", return_value=False)
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
@@ -751,7 +751,7 @@ def test_put_object(
         "Packaging": "http://purl.org/net/sword/3.0/package/SimpleZip",
     }
     mocker.patch("weko_swordserver.views.check_import_file_format", return_value="JSON")
-    mocker.patch("weko_swordserver.views.get_shared_id_from_on_behalf_of", return_value=-1)
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
     mocker_check_item = mocker.patch("weko_swordserver.views.check_import_items")
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
@@ -998,7 +998,7 @@ def test_delete_item(app, client, db, tokens, sword_client, users,es_records, mo
         "referrer": request.referrer,
         "hostname": request.host,
         "user_id": users[0]["id"],
-        "shared_id": -1,
+        "shared_ids": [],
         "action": "DELETE"
     }
     mock_delete_item_directly.assert_called_once_with("2000001", request_info=expected)
@@ -1019,7 +1019,7 @@ def test_delete_item(app, client, db, tokens, sword_client, users,es_records, mo
     }
     res = client.delete(url, headers=headers)
     assert res.status_code == 403
-    assert res.json.get("error") == "Not allowed operation in your token scope."
+    assert res.json.get("error") == "Not allowed operation in your role or token scope."
 
     # workflow deletion, have activity scope, approval
     login_user_via_session(client=client,email=users[1]["email"])
@@ -1117,7 +1117,7 @@ def test_handle_forbidden(client,sessionlifetime):
     with patch("weko_swordserver.views._create_error_document",side_effect=lambda x,y:{"type":x,"msg":y}):
         res = client.get(url)
         assert res.status_code == 403
-        assert res.json == {"type":"Forbidden","msg":"Not allowed operation in your token scope."}
+        assert res.json == {"type":"Forbidden","msg":"Not allowed operation in your role or token scope."}
 
 # def handle_ratelimit(ex):
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_ratelimit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp

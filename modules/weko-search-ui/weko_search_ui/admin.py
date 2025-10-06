@@ -42,6 +42,7 @@ from invenio_db import db
 from invenio_files_rest.models import FileInstance
 from invenio_i18n.ext import current_i18n
 from weko_admin.api import TempDirInfo
+from weko_admin.models import AdminSettings
 from weko_admin.utils import get_redis_cache, reset_redis_cache
 from weko_index_tree.api import Indexes
 from weko_index_tree.models import IndexStyle
@@ -393,8 +394,8 @@ class ItemImportView(BaseView):
                     role_ids.append(role.id)
         if role_ids:
             from invenio_communities.models import Community
-            comm_data = Community.query.filter(
-                Community.id_role.in_(role_ids)
+            comm_data = Community.get_by_user(
+                role_ids, with_deleted=True
             ).all()
             for comm in comm_data:
                 can_edit_indexes += [i.cid for i in Indexes.get_self_list(comm.root_node_id)]
@@ -625,8 +626,30 @@ class ItemImportView(BaseView):
                     ]
                     ids_line = pickle.loads(pickle.dumps(WEKO_EXPORT_TEMPLATE_BASIC_ID, -1))
                     names_line = pickle.loads(pickle.dumps(WEKO_EXPORT_TEMPLATE_BASIC_NAME, -1))
-                    systems_line = ["#"] + ["" for _ in range(len(ids_line) - 1)]
                     options_line = pickle.loads(pickle.dumps(WEKO_EXPORT_TEMPLATE_BASIC_OPTION, -1))
+
+                    # check restricted access settings
+                    restricted_access_settings = AdminSettings.get("restricted_access", dict_to_object=False)
+                    if restricted_access_settings:
+                        # no content item application
+                        item_application_settings = restricted_access_settings.get("item_application", {})
+                        if item_application_settings.get("item_application_enable", False) \
+                            and item_type.id in item_application_settings.get("application_item_types", []):
+                            ids_line = ids_line[0:6] + [
+                                ".item_application.workflow", ".item_application.terms",".item_application.termsDescription"
+                            ] + ids_line[6:]
+                            names_line = names_line[0:6] + [
+                                ".ITEM_APPLICATION.WORKFLOW", ".ITEM_APPLICATION.TERMS", ".ITEM_APPLICATION.TERMS_DESCRIPTION",
+                            ] + names_line[6:]
+                            options_line = options_line[0:6] + ["", "", ""] + options_line[6:]
+
+                        # request form
+                        if restricted_access_settings.get("display_request_form", False):
+                            ids_line.insert(6, ".request_mail[0]")
+                            names_line.insert(6, ".REQUEST_MAIL[0]")
+                            options_line.insert(6, "Allow Multiple")
+
+                    systems_line = ["#"] + ["" for _ in range(len(ids_line) - 1)]
 
                     item_type = item_type.render
                     meta_list = {
@@ -819,8 +842,8 @@ class ItemRocrateImportView(BaseView):
                     role_ids.append(role.id)
         if role_ids:
             from invenio_communities.models import Community
-            comm_data = Community.query.filter(
-                Community.id_role.in_(role_ids)
+            comm_data = Community.get_by_user(
+                role_ids, with_deleted=True
             ).all()
             for comm in comm_data:
                 can_edit_indexes += [i.cid for i in Indexes.get_self_list(comm.root_node_id)]
@@ -1151,6 +1174,8 @@ class ItemBulkExport(BaseView):
     @expose("/check_export_status", methods=["GET"])
     def check_export_status(self):
         """Check export status."""
+        if not current_user.is_authenticated:
+            abort(302)
         check_celery = check_celery_is_run()
         check_life_time = check_session_lifetime()
         export_status, download_uri, message, run_message, \

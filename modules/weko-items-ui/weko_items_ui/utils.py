@@ -58,7 +58,7 @@ from invenio_records.api import RecordBase
 from invenio_accounts.models import User
 from invenio_search import RecordsSearch
 from invenio_stats.utils import QueryRankingHelper
-
+from weko_admin.models import AdminSettings
 from weko_authors.api import WekoAuthors
 from weko_deposit.api import WekoDeposit, WekoRecord
 from weko_deposit.pidstore import get_record_without_version
@@ -67,7 +67,8 @@ from weko_index_tree.utils import (
     check_index_permissions, get_index_id, get_user_roles
 )
 from weko_notifications.models import NotificationsUserSettings
-from weko_records.api import FeedbackMailList, JsonldMapping, RequestMailList, ItemTypes, Mapping
+from weko_notifications.utils import _get_params_for_registrant
+from weko_records.api import FeedbackMailList, JsonldMapping, RequestMailList, ItemTypes, Mapping, ItemApplication
 from weko_records.serializers.utils import get_item_type_name
 from weko_records.utils import replace_fqdn_of_file_metadata
 from weko_records_ui.errors import AvailableFilesNotFoundRESTError
@@ -93,22 +94,28 @@ from weko_workflow.models import (
 )
 from weko_workflow.utils import IdentifierHandle
 
+def check_display_shared_user(user_id):
+    for role_id in current_app.config['WEKO_ITEMS_UI_SHARED_USER_ROLE_ID_LIST']:
+        recs = db.session.query(userrole).filter_by(role_id=role_id).all()
+        for rec in recs:
+            if user_id == rec.user_id:
+                return True
+    return False
 
 def get_list_username():
     """Get list username.
 
     Query database to get all available username
     return: list of username
-    TODO:
     """
-    current_user_id = current_user.get_id()
-    current_app.logger.debug("current_user:{}".format(current_user))
     from weko_user_profiles.models import UserProfile
 
-    users = UserProfile.query.filter(UserProfile.user_id != current_user_id).all()
+    users = UserProfile.query.all()
     result = list()
     for user in users:
-        username = user.get_username
+        if not check_display_shared_user(user.user_id):
+            continue
+        username = user.username
         if username:
             result.append(username)
 
@@ -121,28 +128,14 @@ def get_list_email():
     Query database to get all available email
     return: list of email
     """
-    current_user_id = current_user.get_id()
     result = list()
-    users = User.query.filter(User.id != current_user_id).all()
+    users = User.query.all()
     for user in users:
+        if not check_display_shared_user(user.id):
+            continue
         email = user.email
         if email:
             result.append(email)
-    # try:
-    #     metadata = MetaData()
-    #     metadata.reflect(bind=db.engine)
-    #     table_name = 'accounts_user'
-
-    #     user_table = Table(table_name, metadata)
-    #     record = db.session.query(user_table)
-
-    #     data = record.all()
-
-    #     for item in data:
-    #         if not int(current_user_id) == item[0]:
-    #             result.append(item[1])
-    # except Exception as e:
-    #     result = str(e)
 
     return result
 
@@ -150,7 +143,7 @@ def get_list_email():
 def get_user_info_by_username(username):
     """Get user information by username.
 
-    Query database to get user id by using username
+    Query database to get user id by using displayname
     Get email from database using user id
     Pack response data: user id, user name, email
 
@@ -160,7 +153,7 @@ def get_user_info_by_username(username):
     """
     result = dict()
     try:
-        user = UserProfile.get_by_username(username)
+        user = UserProfile.get_by_displayname(username)
         user_id = user.user_id
 
         metadata = MetaData()
@@ -173,7 +166,7 @@ def get_user_info_by_username(username):
         data = record.all()
 
         for item in data:
-            if item[0] == user_id:
+            if item[0] == user_id and check_display_shared_user(user_id):
                 result['username'] = username
                 result['user_id'] = user_id
                 result['email'] = item[1]
@@ -205,7 +198,7 @@ def validate_user(username, email):
         'error': ''
     }
     try:
-        user = UserProfile.get_by_username(username)
+        user = UserProfile.get_by_displayname(username)
         user_id = 0
 
         metadata = MetaData()
@@ -221,8 +214,10 @@ def validate_user(username, email):
             if item[1] == email:
                 user_id = item[0]
                 break
-
-        if user.user_id == user_id:
+        if user is None:
+            result['error'] = 'User is not exist UserProfile'
+            return result
+        if user.user_id == user_id and check_display_shared_user(user_id):
             user_info = dict()
             user_info['username'] = username
             user_info['user_id'] = user_id
@@ -259,12 +254,12 @@ def get_user_info_by_email(email):
 
         data = record.all()
         for item in data:
-            if item[1] == email:
+            if item[1] == email and check_display_shared_user(item[0]):
                 user = UserProfile.get_by_userid(item[0])
                 if user is None:
                     result['username'] = ""
                 else:
-                    result['username'] = user.get_username
+                    result['username'] = user.username
                 result['user_id'] = item[0]
                 result['email'] = email
                 return result
@@ -273,27 +268,19 @@ def get_user_info_by_email(email):
         result['error'] = str(e)
 
 
-def get_user_information(user_id):
+def get_user_information(user_ids):
     """
-    Get user information user_id.
+    Get user information user_id list.
 
     Query database to get email by using user_id
     Get username from database using user id
-    Pack response data: user id, user name, email
+    Pack response data list: [ user id, user name, email ]
 
     parameter:
-        user_id: The user_id
+        user_ids: The user_id list
     return: response
     """
-    result = {
-        'username': '',
-        'email': '',
-        'fullname': '',
-    }
-    user_info = UserProfile.get_by_userid(user_id)
-    if user_info is not None:
-        result['username'] = user_info.get_username
-        result['fullname'] = user_info.fullname
+    result = []
 
     metadata = MetaData()
     metadata.reflect(bind=db.engine)
@@ -304,13 +291,34 @@ def get_user_information(user_id):
 
     data = record.all()
 
-    for item in data:
-        if item[0] == user_id:
-            result['email'] = item[1]
-            return result
+    if type(user_ids) is int:
+        user_ids = [user_ids]
+    for user_id in user_ids:
+        info = {
+            'userid':'',
+            'username': '',
+            'email': '',
+            'fullname': '',
+            'error': ''
+        }
+        user_info = UserProfile.get_by_userid(user_id)
+        if user_info is not None:
+            info['userid'] = user_id
+            info['username'] = user_info.get_username
+            info['fullname'] = user_info.fullname
+        else:
+            info['userid'] = user_id
+        
+        temp = list(map(lambda x : x[0], data))
+        if not user_id in temp:
+            info['error'] = "The specified user ID is incorrect"
+        
+        for item in data:
+            if int(item[0]) == int(user_id):
+                info['email'] = item[1]
+        result.append(info)
 
     return result
-
 
 def get_user_permission(user_id):
     """
@@ -328,7 +336,6 @@ def get_user_permission(user_id):
     if str(user_id) == current_id:
         return True
     return False
-
 
 def get_current_user():
     """
@@ -1055,18 +1062,27 @@ def validate_form_input_data(
 
     for data_key in data_keys:
         data_item_value_list = data[data_key]
+        if type(data_item_value_list) != list:
+            continue
         # Validate TITLE item values from data
         if mapping_title_item_key == data_key:
             for data_item_values in data_item_value_list:
-                keys_that_exist_in_data: list = _get_keys_that_exist_from_data(data_item_values)
-                for mapping_key in list(set(mapping_title_language_key)):
-                    if mapping_key in keys_that_exist_in_data:
-                        # Append TITLE LANGUAGE value to items_to_be_checked_for_duplication list
-                        items_to_be_checked_for_duplication.append(data_item_values.get(mapping_key))
-                        items_to_be_checked_for_ja_kana.append(data_item_values.get(mapping_key))
-                        items_to_be_checked_for_ja_latn.append(data_item_values.get(mapping_key))
-                    else:
-                        pass
+                if type(data_item_values) == str:
+                    # Append TITLE LANGUAGE value to items_to_be_checked_for_duplication list
+                    items_to_be_checked_for_duplication.append(data_item_value_list.get(data_item_values))
+                    items_to_be_checked_for_ja_kana.append(data_item_value_list.get(data_item_values))
+                    items_to_be_checked_for_ja_latn.append(data_item_value_list.get(data_item_values))
+                else:
+                    keys_that_exist_in_data: list = _get_keys_that_exist_from_data(data_item_values)
+                    for mapping_key in list(set(mapping_title_language_key)):
+                        if mapping_key in keys_that_exist_in_data:
+                            # Append TITLE LANGUAGE value to items_to_be_checked_for_duplication list
+                            items_to_be_checked_for_duplication.append(data_item_values.get(mapping_key))
+                            items_to_be_checked_for_ja_kana.append(data_item_values.get(mapping_key))
+                            items_to_be_checked_for_ja_latn.append(data_item_values.get(mapping_key))
+                        else:
+                            pass
+
             # Validation for TITLE
             validation_duplication_error_checker(
                 _("Title"),
@@ -1088,14 +1104,19 @@ def validate_form_input_data(
         # Validate ALTERNATIVE TITLE item values from data
         elif mapping_alternative_title_item_key == data_key:
             for data_item_values in data_item_value_list:
-                keys_that_exist_in_data: list = _get_keys_that_exist_from_data(data_item_values)
-                for mapping_key in list(set(mapping_alternative_title_language_key)):
-                    if mapping_key in keys_that_exist_in_data:
-                        # Append ALTERNATIVE TITLE LANGUAGE value to items_to_be_checked_for_duplication list
-                        items_to_be_checked_for_ja_kana.append(data_item_values.get(mapping_key))
-                        items_to_be_checked_for_ja_latn.append(data_item_values.get(mapping_key))
-                    else:
-                        pass
+                if type(data_item_values) == str:
+                    # Append ALTERNATIVE TITLE LANGUAGE value to items_to_be_checked_for_duplication list
+                    items_to_be_checked_for_ja_kana.append(data_item_value_list.get(data_item_values))
+                    items_to_be_checked_for_ja_latn.append(data_item_value_list.get(data_item_values))
+                else:
+                    keys_that_exist_in_data: list = _get_keys_that_exist_from_data(data_item_values)
+                    for mapping_key in list(set(mapping_alternative_title_language_key)):
+                        if mapping_key in keys_that_exist_in_data:
+                            # Append ALTERNATIVE TITLE LANGUAGE value to items_to_be_checked_for_duplication list
+                            items_to_be_checked_for_ja_kana.append(data_item_values.get(mapping_key))
+                            items_to_be_checked_for_ja_latn.append(data_item_values.get(mapping_key))
+                        else:
+                            pass
 
             # Validation for ALTERNATIVE TITLE
             validation_ja_kana_error_checker(
@@ -2015,6 +2036,17 @@ def make_stats_file(item_type_id, recids, list_item_role, export_path=""):
 
             return self.attr_data['request_mail_list']['max_size']
 
+        # 利用申請を取得する内部メソッド
+        def get_item_application(self):
+            self.attr_data['item_application']={}
+            for record_id, record in self.records.items():
+                if check_created_id(record):
+                    item_application = ItemApplication.get_item_application_by_item_id(record.id)
+                    self.attr_data['item_application'][record_id] = {'workflow':item_application.get('workflow',""),
+                                                                    'terms':item_application.get('terms',""),
+                                                                    'termsDescription':item_application.get('termsDescription',"")}
+            return 0
+
         def get_max_items(self, item_attrs):
             """Get max data each sub property in all exporting records."""
             max_length = 0
@@ -2204,13 +2236,29 @@ def make_stats_file(item_type_id, recids, list_item_role, export_path=""):
         ret.append('.feedback_mail[{}]'.format(i))
         ret_label.append('.FEEDBACK_MAIL[{}]'.format(i))
 
-    max_request_mail = records.get_max_ins_request_mail()
-    for i in range(max_request_mail):
-        ret.append('.request_mail[{}]'.format(i))
-        ret_label.append('.REQUEST_MAIL[{}]'.format(i))
+    # restricted access settings
+    can_export_item_application = False
+    can_export_request_mail = False
+    restricted_access_settings = AdminSettings.get("restricted_access", dict_to_object=False)
+    if restricted_access_settings:
+        can_export_request_mail = restricted_access_settings.get("display_request_form", False)
+        item_application_settings = restricted_access_settings.get("item_application", {})
+        can_export_item_application = item_application_settings.get("item_application_enable", False) \
+            and int(item_type_id) in item_application_settings.get("application_item_types", [])
+
+    if can_export_request_mail:
+        max_request_mail = records.get_max_ins_request_mail()
+        for i in range(max_request_mail):
+            ret.append('.request_mail[{}]'.format(i))
+            ret_label.append('.REQUEST_MAIL[{}]'.format(i))
 
     ret.append('.researchmap_linkage')
     ret_label.append('.RESEAECHMAP_LINKAGE')
+
+    if can_export_item_application:
+        records.get_item_application()
+        ret.extend([".item_application.workflow",".item_application.terms",".item_application.termsDescription"])
+        ret_label.extend([".ITEM_APPLICATION.WORKFLOW",".ITEM_APPLICATION.TERMS",".ITEM_APPLICATION.TERMS_DESCRIPTION"])
 
     ret.extend(['.cnri', '.doi_ra', '.doi', '.edit_mode'])
     ret_label.extend(['.CNRI', '.DOI_RA', '.DOI', 'Keep/Upgrade Version'])
@@ -2243,15 +2291,22 @@ def make_stats_file(item_type_id, recids, list_item_role, export_path=""):
             [''] * (max_feedback_mail - len(feedback_mail_list))
         )
 
+        if can_export_request_mail:
+            request_mail_list = records.attr_data['request_mail_list'] \
+                .get(recid, [])
+            records.attr_output[recid].extend(request_mail_list)
+            records.attr_output[recid].extend(
+                [''] * (max_request_mail - len(request_mail_list))
+            )
+
         # Exporting .researchmap_linkage is ALWAYS blank
         records.attr_output[recid].append('')
 
-        request_mail_list = records.attr_data['request_mail_list'] \
-            .get(recid, [])
-        records.attr_output[recid].extend(request_mail_list)
-        records.attr_output[recid].extend(
-            [''] * (max_request_mail - len(request_mail_list))
-        )
+        if can_export_item_application:
+            item_application = records.attr_data['item_application'].get(recid, {})
+            records.attr_output[recid].append(item_application.get('workflow',''))
+            records.attr_output[recid].append(item_application.get('terms',''))
+            records.attr_output[recid].append(item_application.get('termsDescription',''))
 
         pid_cnri = record.pid_cnri
         cnri = ''
@@ -2800,7 +2855,7 @@ def _export_item(record_id,
         exported_item['name'] = 'recid_{}'.format(record_id)
         exported_item['files'] = []
         exported_item['path'] = 'recid_' + str(record_id)
-        exported_item['item_type_id'] = record.get('item_type_id')
+        exported_item['item_type_id'] = str(record.get('item_type_id')) if record.get('item_type_id') else None
         exported_item['researchmap_linkage'] = ''
         if not records_data:
             records_data = record
@@ -2816,10 +2871,10 @@ def _export_item(record_id,
                                         False, False)
                 record_role_ids = {
                     'weko_creator_id': meta_data.get('weko_creator_id'),
-                    'weko_shared_id': meta_data.get('weko_shared_id')
+                    'weko_shared_ids': meta_data.get('weko_shared_ids')
                 }
                 list_item_role.update(
-                    {exported_item['item_type_id']: record_role_ids})
+                    {str(exported_item['item_type_id']): record_role_ids})
                 if hide_meta_data_for_role(record_role_ids):
                     for hide_key in list_hidden:
                         if isinstance(hide_key, str) \
@@ -3235,6 +3290,29 @@ def validate_user_mail_and_index(request_data):
         result['error'] = str(ex)
     return result
 
+def get_profile_positions():
+    """
+    Get profile positions from admin settings or default settings.
+    Returns:
+        list: List of tuples containing position values and labels.
+    """
+    # check if profile customize is enabled
+    if not current_app.config.get("WEKO_USERPROFILES_CUSTOMIZE_ENABLED", False):
+        # get default position list from config
+        return current_app.config.get("WEKO_USERPROFILES_POSITION_LIST", [])
+
+    # get setting from admin settings
+    profile_setting = AdminSettings.get("profiles_items_settings", dict_to_object=False)
+    if not profile_setting:
+        profile_setting = current_app.config.get("WEKO_USERPROFILES_DEFAULT_FIELDS_SETTINGS", {})
+
+    # get position list from setting
+    position_options = profile_setting.get("position", {}).get("options", [])
+    if not position_options:
+        return current_app.config.get("WEKO_USERPROFILES_POSITION_LIST", [])
+
+    # create list of tuple for option value and label
+    return [(position,_(position)) for position in position_options]
 
 def recursive_form(schema_form):
     """
@@ -3251,8 +3329,7 @@ def recursive_form(schema_form):
         if (form.get('title', '') == 'Position' and form.get('type', '')
                 == 'select'):
             dict_data = []
-            positions = current_app.config.get(
-                'WEKO_USERPROFILES_POSITION_LIST')
+            positions = get_profile_positions()
             for val in positions:
                 if val[0]:
                     current_position = {
@@ -3380,7 +3457,8 @@ def hide_meta_data_for_role(record):
     # Item Register users and Sharing users
     if record and current_user.get_id() in [
         record.get('weko_creator_id'),
-            str(record.get('weko_shared_id'))]:
+            [str(shared_id) for shared_id in record.get('weko_shared_ids', [])]
+    ]:
         is_hidden = False
 
     return is_hidden
@@ -4294,14 +4372,15 @@ def save_title(activity_id, request_data):
     """
     activity = WorkActivity()
     db_activity = activity.get_activity_detail(activity_id)
-    item_type_id = db_activity.workflow.itemtype.id
-    if item_type_id:
-        item_type_mapping = Mapping.get_record(item_type_id)
-        # current_app.logger.debug("item_type_mapping:{}".format(item_type_mapping))
-        key_list, key_child_dict = get_key_title_in_item_type_mapping(item_type_mapping)
-    if key_list and key_child_dict:
-        title = get_title_in_request(request_data, key_list, key_child_dict)
-        activity.update_title(activity_id, title)
+    if db_activity and db_activity.workflow:
+        item_type_id = db_activity.workflow.itemtype.id
+        if item_type_id:
+            item_type_mapping = Mapping.get_record(item_type_id)
+            # current_app.logger.debug("item_type_mapping:{}".format(item_type_mapping))
+            key_list, key_child_dict = get_key_title_in_item_type_mapping(item_type_mapping)
+        if key_list and key_child_dict:
+            title = get_title_in_request(request_data, key_list, key_child_dict)
+            activity.update_title(activity_id, title)
 
 
 def get_key_title_in_item_type_mapping(item_type_mapping):
@@ -4583,6 +4662,17 @@ def make_stats_file_with_permission(item_type_id, recids,
             self.attr_data['request_mail_list']['max_size'] = largest_size
 
             return self.attr_data['request_mail_list']['max_size']
+        
+        # 利用申請を取得する内部メソッド
+        def get_item_application(self):
+            self.attr_data['item_application']={}
+            for record_id, record in self.records.items():
+                if permissions['check_created_id'](record):
+                    item_application = ItemApplication.get_item_application_by_item_id(record.id)
+                    self.attr_data['item_application'][record_id] = {'workflow':item_application.get('workflow',""),
+                                                                    'terms':item_application.get('terms',""),
+                                                                    'termsDescription':item_application.get('termsDescription',"")}
+            return 0
 
         def get_max_items(self, item_attrs):
             """Get max data each sub property in all exporting records."""
@@ -4773,14 +4863,29 @@ def make_stats_file_with_permission(item_type_id, recids,
         ret.append('.feedback_mail[{}]'.format(i))
         ret_label.append('.FEEDBACK_MAIL[{}]'.format(i))
 
-    max_request_mail = records.get_max_ins_request_mail()
-    for i in range(max_request_mail):
-        ret.append('.request_mail[{}]'.format(i))
-        ret_label.append('.REQUEST_MAIL[{}]'.format(i))
+    # restricted access settings
+    can_export_item_application = False
+    can_export_request_mail = False
+    restricted_access_settings = AdminSettings.get("restricted_access", dict_to_object=False)
+    if restricted_access_settings:
+        can_export_request_mail = restricted_access_settings.get("display_request_form", False)
+        item_application_settings = restricted_access_settings.get("item_application", {})
+        can_export_item_application = item_application_settings.get("item_application_enable", False) \
+            and int(item_type_id) in item_application_settings.get("application_item_types", [])
+
+    if can_export_request_mail:
+        max_request_mail = records.get_max_ins_request_mail()
+        for i in range(max_request_mail):
+            ret.append('.request_mail[{}]'.format(i))
+            ret_label.append('.REQUEST_MAIL[{}]'.format(i))
 
     ret.append('.researchmap_linkage')
     ret_label.append('.RESEAECHMAP_LINKAGE')
 
+    if can_export_item_application:
+        records.get_item_application()
+        ret.extend([".item_application.workflow",".item_application.terms",".item_application.termsDescription"])
+        ret_label.extend([".ITEM_APPLICATION.WORKFLOW",".ITEM_APPLICATION.TERMS",".ITEM_APPLICATION.TERMS_DESCRIPTION"])
 
     ret.extend(['.cnri', '.doi_ra', '.doi', '.edit_mode'])
     ret_label.extend(['.CNRI', '.DOI_RA', '.DOI', 'Keep/Upgrade Version'])
@@ -4809,15 +4914,22 @@ def make_stats_file_with_permission(item_type_id, recids,
             [''] * (max_feedback_mail - len(feedback_mail_list))
         )
 
-        request_mail_list = records.attr_data['request_mail_list'] \
-            .get(recid, [])
-        records.attr_output[recid].extend(request_mail_list)
-        records.attr_output[recid].extend(
-            [''] * (max_request_mail - len(request_mail_list))
-        )
+        if can_export_request_mail:
+            request_mail_list = records.attr_data['request_mail_list'] \
+                .get(recid, [])
+            records.attr_output[recid].extend(request_mail_list)
+            records.attr_output[recid].extend(
+                [''] * (max_request_mail - len(request_mail_list))
+            )
 
         # Exporting .researchmap_linkage is ALWAYS blank
         records.attr_output[recid].append('')
+
+        if can_export_item_application:
+            item_application = records.attr_data['item_application'].get(recid, {})
+            records.attr_output[recid].append(item_application.get('workflow',''))
+            records.attr_output[recid].append(item_application.get('terms',''))
+            records.attr_output[recid].append(item_application.get('termsDescription',''))
 
         pid_cnri = record.pid_cnri
         cnri = ''
@@ -5209,7 +5321,7 @@ def get_file_download_data(item_id, record, filenames, query_date=None, size=Non
 
 # --- 通知対象取得関数 ---
 
-def get_notification_targets(deposit, user_id, shared_id):
+def get_notification_targets(deposit, user_id, shared_ids):
     """
     Retrieve notification targets for a given deposit and user.
 
@@ -5217,6 +5329,7 @@ def get_notification_targets(deposit, user_id, shared_id):
         deposit (dict): The deposit data containing information about owners
                         and shared users.
         user_id (int): The ID of the current user.
+        shared_ids (list): The list of shared user IDs.
 
     Returns:
         dict: A dictionary containing the following keys:
@@ -5224,14 +5337,8 @@ def get_notification_targets(deposit, user_id, shared_id):
             - "settings" (dict): A dictionary mapping user IDs to their notification settings.
             - "profiles" (dict): A dictionary mapping user IDs to their user profiles.
     """
-    owners = deposit.get("_deposit", {}).get("owners", [])
-    set_target_id = set(owners)
-    is_shared = shared_id != -1
-    if is_shared:
-        set_target_id.add(shared_id)
-    set_target_id.discard(int(user_id))
-
-    target_ids = list(set_target_id)
+    owner = deposit["owner"]
+    target_ids, _ = _get_params_for_registrant(int(owner), int(owner), shared_ids)
     current_app.logger.debug(f"[get_notification_targets] target_ids: {target_ids}")
 
     try:
@@ -5331,7 +5438,7 @@ def get_notification_targets_approver(activity):
             }
             set_target_id.update(set_community_admin_id)
 
-        is_shared = activity.shared_user_id is not None and activity.shared_user_id != -1
+        is_shared = bool(activity.shared_user_ids)
         if not is_shared:
             set_target_id.discard(actor_id)
 
@@ -5374,14 +5481,14 @@ def get_notification_targets_approved(deposit, user_id, activity):
     """
     owners = deposit.get("_deposit", {}).get("owners", [])
     set_target_id = set(owners)
-    is_shared = deposit.get("weko_shared_id") != -1
+    is_shared = bool(deposit.get("weko_shared_ids"))
 
     actor_id = activity.activity_login_user
     if actor_id:
         set_target_id.add(actor_id)
 
     if is_shared:
-        set_target_id.add(deposit.get("weko_shared_id"))
+        set_target_id.update(deposit.get("weko_shared_ids", []))
     else:
         set_target_id.discard(int(user_id))
 
@@ -5532,7 +5639,18 @@ def send_mail_from_notification_info(get_info_func, context_obj, content_creator
 
             recipient = target.email
             current_app.logger.debug(f"[send_mail] Sending to: {target.id}")
-            res = send_mail(mail_data.get("subject"), recipient, mail_data.get("body"))
+
+            # get mail info
+            mail_info = {
+                "mail_subject": mail_data.get("subject"),
+                "mail_body": mail_data.get("body"),
+                "mail_recipients": [target.email],
+                "mail_cc": [],
+                "mail_bcc": []
+            }
+
+            # send mail
+            res = send_mail(mail_info)
 
             if res:
                 send_count += 1
@@ -5548,7 +5666,7 @@ def send_mail_from_notification_info(get_info_func, context_obj, content_creator
 
 # --- 各イベントから呼び出すエントリーポイント ---
 
-def send_mail_item_deleted(pid_value, deposit, user_id, shared_id=-1):
+def send_mail_item_deleted(pid_value, deposit, user_id, shared_ids=[]):
     """
     Send a notification email when an item is deleted.
 
@@ -5556,6 +5674,7 @@ def send_mail_item_deleted(pid_value, deposit, user_id, shared_id=-1):
         pid_value (str): The persistent identifier (PID) of the deleted item.
         deposit (dict): The deposit data of the deleted item.
         user_id (int): The ID of the user who initiated the deletion.
+        shared_ids (list): The list of shared user IDs.
 
     Returns:
         int: The total number of successfully sent emails.
@@ -5564,7 +5683,7 @@ def send_mail_item_deleted(pid_value, deposit, user_id, shared_id=-1):
         record_url = request.host_url + f"records/{pid_value}"
         current_app.logger.debug(f"[send_mail_item_deleted] pid_value: {pid_value}, user_id: {user_id}")
         return send_mail_from_notification_info(
-            get_info_func=lambda obj: get_notification_targets(obj, user_id, shared_id),
+            get_info_func=lambda obj: get_notification_targets(obj, user_id, shared_ids),
             context_obj=deposit,
             content_creator=create_item_deleted_data,
             record_url=record_url
@@ -5576,24 +5695,23 @@ def send_mail_item_deleted(pid_value, deposit, user_id, shared_id=-1):
         return
 
 
-def send_mail_direct_registered(pid_value, user_id, share_id=-1):
+def send_mail_direct_registered(pid_value, deposit, user_id, share_ids=[]):
     """
     Send a notification email for a directly registered item.
 
     Args:
         pid_value (str): The persistent identifier (PID) of the registered item.
         user_id (int): The ID of the user who registered the item.
-        share_id (int): The shared ID of the user.
+        share_ids (list): The list of shared IDs of the users.
 
     Returns:
         int: The total number of successfully sent emails.
     """
     try:
-        deposit = WekoRecord.get_record_by_pid(pid_value)
         record_url = request.host_url + f"records/{pid_value}"
         current_app.logger.debug(f"[send_mail_direct_registered] pid_value: {pid_value}, user_id: {user_id}")
         return send_mail_from_notification_info(
-            get_info_func=lambda obj: get_notification_targets(obj, user_id, share_id),
+            get_info_func=lambda obj: get_notification_targets(obj, user_id, share_ids),
             context_obj=deposit,
             content_creator=create_direct_registered_data,
             record_url=record_url

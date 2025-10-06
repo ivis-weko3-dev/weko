@@ -73,7 +73,9 @@ def check_import_items_task(
     else:
         list_record = check_result.get("list_record", [])
         num_record_err = len([i for i in list_record if i.get("errors")])
-        if len(list_record) == num_record_err:
+        # 1件でもエラーが発生するとimport不可に変更 2023/08/26 ayumi.jin
+        #if len(list_record) == num_record_err:
+        if num_record_err > 0:
             remove_temp_dir_task.apply_async((data_path,))
         else:
             expire = datetime.now() + timedelta(seconds=get_lifetime())
@@ -334,7 +336,7 @@ def check_flag_metadata_replace(list_record):
     Args:
         list_record (list): List of record.
     """
-    error = _("`wk:metadata_replace` flag cannot be used in RO-Crate Import.")
+    error = _("'wk:metadataReplace' flag cannot be used in RO-Crate Import.")
     for item in list_record:
         if item.get("metadata_replace"):
             item["errors"] = (

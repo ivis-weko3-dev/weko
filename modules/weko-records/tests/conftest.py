@@ -37,13 +37,15 @@ from elasticsearch_dsl import response, Search
 from sqlalchemy_utils.functions import create_database, database_exists
 from flask import Flask
 from flask_babelex import Babel
+from flask_menu import Menu
 
 from invenio_i18n import InvenioI18N
 from invenio_access import InvenioAccess
-from invenio_access.models import ActionUsers,ActionRoles
+from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts import InvenioAccounts
+from invenio_accounts.models import Role, User
 from invenio_accounts.testutils import create_test_user
-from invenio_accounts.models import User, Role
+from invenio_admin import InvenioAdmin
 from invenio_communities.models import Community
 from invenio_db import InvenioDB
 from invenio_db import db as db_
@@ -55,6 +57,7 @@ from invenio_pidstore import InvenioPIDStore
 from invenio_records import InvenioRecords
 from invenio_search import InvenioSearch, current_search_client
 
+from weko_accounts import WekoAccounts
 from weko_admin.models import AdminSettings
 from weko_deposit import WekoDeposit
 from weko_itemtypes_ui import WekoItemtypesUI
@@ -68,7 +71,12 @@ from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER, WEKO_PERMISS
 from weko_records import WekoRecords
 from weko_records.api import ItemTypes, Mapping
 from weko_records.config import WEKO_ITEMTYPE_EXCLUDED_KEYS
-from weko_records.models import ItemTypeName, OaStatus, SiteLicenseInfo, FeedbackMailList, ItemReference, ItemTypeProperty
+
+from weko_records.models import (
+    SiteLicenseInfo, ItemReference, ItemType, ItemTypeName,
+    ItemTypeMapping, ItemTypeProperty, OaStatus, FeedbackMailList,
+    ItemTypeJsonldMapping
+)
 
 from tests.helpers import json_data, create_record
 
@@ -86,6 +94,7 @@ def instance_path():
 def base_app(instance_path):
     """Flask application fixture."""
     app_ = Flask('testapp', instance_path=instance_path)
+    app_.logger.setLevel('DEBUG')
     app_.config.update(
         CELERY_ALWAYS_EAGER=True,
         CELERY_CACHE_BACKEND="memory",
@@ -126,9 +135,12 @@ def base_app(instance_path):
 
     WekoRecords(app_)
     Babel(app_)
+    Menu(app_)
     InvenioI18N(app_)
     InvenioAccess(app_)
     InvenioAccounts(app_)
+    InvenioAccess(app_)
+    InvenioAdmin(app_)
     InvenioDB(app_)
     InvenioJSONSchemas(app_)
     InvenioSearch(app_)
@@ -143,6 +155,7 @@ def base_app(instance_path):
     WekoLoggingUserActivity(app_)
     WekoSearchUI(app_)
     WekoRecordsUI(app_)
+    WekoAccounts(app_)
 
     return app_
 
@@ -162,7 +175,7 @@ def i18n_app(app):
 @pytest.yield_fixture()
 def client(app):
     with app.test_client() as client:
-        yield
+        yield client
 
 @pytest.fixture()
 def db(app):
@@ -638,6 +651,11 @@ def item_type2(app, db):
                         'type': 'string',
                         'title': 'item_1',
                         'format': 'text'
+                    },
+                    'control_number': {
+                        'type': 'int',
+                        'title': 'control_number',
+                        'format': 'text'
                     }
                 }
             }
@@ -650,6 +668,11 @@ def item_type2(app, db):
             'item_1': {
                 'type': 'string',
                 'title': 'item_1',
+                'format': 'text'
+            },
+            'control_number': {
+                'type': 'int',
+                'title': 'control_number',
                 'format': 'text'
             }
         }
@@ -672,9 +695,74 @@ def item_type_mapping2(app, db):
                     '@value': 'interim'
                 }
             }
+        },
+        'control_number': {
+            'jpcoar_mapping': {
+                '@value': 'interim'
+            }
         }
     }
     return Mapping.create_or_update(2, _mapping)
+
+@pytest.fixture()
+def item_type3(app, db):
+    _item_type_name = ItemTypeName(name='test3')
+
+    _render = {
+        'meta_fix': {},
+        'meta_list': {},
+        'table_row_map': {
+            'schema': {
+                'properties': {
+                    'pubdate': {
+                        'type': 'string',
+                        'title': 'PubDate',
+                        'format': 'datetime'
+                    }
+                }
+            }
+        },
+        'table_row': ['1']
+    }
+
+    _schema = {
+        'properties': {
+            'pubdate': {
+                'type': 'string',
+                'title': 'PubDate',
+                'format': 'datetime'
+            }
+        }
+    }
+
+    return ItemTypes.create(
+        name='test3',
+        item_type_name=_item_type_name,
+        schema=_schema,
+        render=_render,
+        tag=1
+    )
+
+@pytest.fixture()
+def item_type_mapping3(app, db):
+    _mapping = {
+        "pubdate": {
+            "lom_mapping": "",
+            "lido_mapping": "",
+            "spase_mapping": "",
+            "jpcoar_mapping": {
+                "date": {
+                    "@attributes": {
+                        "dateType": "pubdate"
+                    }
+                }
+            },
+            "junii2_mapping": "",
+            "oai_dc_mapping": "",
+            "display_lang_type": ""
+        }
+    }
+    return Mapping.create(3, _mapping)
 
 @pytest.fixture()
 def item_type_property(app, db):
@@ -1028,17 +1116,6 @@ def meta():
             input_data = json.load(f)
     return input_data
 
-@pytest.fixture
-def db_ItemReference(db):
-    ir = ItemReference(
-        src_item_pid="1",
-        dst_item_pid="2",
-        reference_type="reference_type"
-    )
-    with db.session.begin_nested():
-        db.session.add(ir)
-
-    return ir
 
 @pytest.fixture
 def k_v_with_c():
@@ -1288,3 +1365,100 @@ def tokens(app,users,db):
     db.session.commit()
 
     return tokens
+
+
+@pytest.fixture
+def sword_mapping(db, item_type):
+    sword_mapping = []
+    for i in range(1, 4):
+        obj = ItemTypeJsonldMapping(
+            name=f"test{i}",
+            mapping=json_data("data/jsonld_mapping.json"),
+            item_type_id=item_type.model.id,
+            is_deleted=False
+        )
+        with db.session.begin_nested():
+            db.session.add(obj)
+
+        sword_mapping.append({
+            "id": obj.id,
+            "sword_mapping": obj,
+            "name": obj.name,
+            "mapping": obj.mapping,
+            "item_type_id": obj.item_type_id,
+            "version_id": obj.version_id,
+            "is_deleted": obj.is_deleted
+        })
+
+    db.session.commit()
+
+    return sword_mapping
+
+@pytest.fixture
+def db_ItemReference(db):
+    ir = ItemReference(
+        src_item_pid="1",
+        dst_item_pid="2",
+        reference_type="reference_type"
+    )
+    with db.session.begin_nested():
+        db.session.add(ir)
+
+    return ir
+
+
+@pytest.fixture()
+def simple_item_type(db):
+    item_type_name = ItemTypeName(
+        created = datetime(2024, 9, 6, 0, 0),
+        updated = datetime(2024, 9, 6, 0, 0),
+        id=1,
+        name='test item type',
+        has_site_license=True,
+        is_active=True
+    )
+    item_type = ItemType(
+        created = datetime(2024, 9, 6, 0, 0),
+        updated = datetime(2024, 9, 6, 0, 0),
+        id=1,
+        name_id=1,
+        harvesting_type=False,
+        schema = {},
+        form = {},
+        render = {},
+        tag = 1,
+        version_id = 1,
+        is_deleted = False
+    )
+    item_type_mapping = ItemTypeMapping(
+        created = datetime(2024, 9, 6, 0, 0),
+        updated = datetime(2024, 9, 6, 0, 0),
+        id=1,
+        item_type_id=1,
+        mapping={'test': 'test'},
+        version_id=1
+    )
+    item_type_property = ItemTypeProperty(
+        created = datetime(2024, 9, 6, 0, 0),
+        updated = datetime(2024, 9, 6, 0, 0),
+        id=1,
+        name='test property',
+        schema={'type': 'string'},
+        form={'title_i18n': {'en': 'test property'}},
+        forms=['test form'],
+        delflg=False,
+        sort=1
+    )
+    with db.session.begin_nested():
+        db.session.add(item_type_name)
+        db.session.add(item_type)
+        db.session.add(item_type_mapping)
+        db.session.add(item_type_property)
+    db.session.commit()
+    item_type_list = {
+        'item_type_name': item_type_name,
+        'item_type': item_type,
+        'item_type_mapping': item_type_mapping,
+        'item_type_property': item_type_property
+    }
+    return item_type_list

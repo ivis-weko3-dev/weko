@@ -22,22 +22,25 @@
 
 import uuid
 import pytest
+from datetime import datetime, timedelta
 from unittest import TestCase
+from unittest.mock import patch, MagicMock
+
 from elasticsearch import helpers
 from flask_login.utils import login_user
-from invenio_records.errors import MissingModelError
-from invenio_pidstore.models import PersistentIdentifier
-from unittest.mock import patch, MagicMock
-from sqlalchemy.exc import IntegrityError,SQLAlchemyError
+from jsonschema.validators import Draft4Validator
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
 
-from weko_records.api import FeedbackMailList, RequestMailList, FilesMetadata, ItemLink, \
+from invenio_records.errors import MissingModelError
+from invenio_pidstore.models import PersistentIdentifier
+from weko_records.api import FeedbackMailList, RequestMailList, ItemApplication, FilesMetadata, ItemLink, \
     ItemsMetadata, ItemTypeEditHistory, ItemTypeNames, ItemTypeProps, \
     ItemTypes, Mapping, JsonldMapping, SiteLicense, RecordBase, WekoRecord
-from weko_records.models import ItemTypeMapping, ItemTypeJsonldMapping, ItemTypeName
+from weko_records.models import ItemReference, ItemTypeMapping, ItemTypeJsonldMapping, ItemTypeName, ItemTypeProperty
 from jsonschema.validators import Draft4Validator
 from datetime import datetime, timedelta
-from weko_records.models import ItemReference
 
 # class RecordBase(dict):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::test_recordbase -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
@@ -918,7 +921,7 @@ class TestItemTypes:
                 assert result["code"] == 0
 
     # .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::TestItemTypes::test_update_property_enum -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records/.tox/c1/tmp
-    def test_update_property_enum(app):
+    def test_update_property_enum(self, app):
         old_value = {'type': 'array', 'items': {'type': 'object', 'title': 'dcterms_date', 'format': 'object', 'properties': {'subitem_dcterms_date': {'type': 'string', 'title': '日付（リテラル）', 'format': 'text', 'title_i18n': {'en': 'Date Literal', 'ja': '日付（リテラル）'}}, 'subitem_dcterms_date_language': {'enum': [None, 'ja', 'ja-Kana', 'ja-Latn', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'editAble': True}}, 'system_prop': False}, 'title': 'dcterms_date', 'maxItems': 9999, 'minItems': 1, 'system_prop': False}
         new_value = {'type': 'array', 'items': {'type': 'object', 'title': 'dcterms_date', 'format': 'object', 'properties': {'subitem_dcterms_date': {'type': 'string', 'title': '日付（リテラル）', 'format': 'text', 'title_i18n': {'en': 'Date Literal', 'ja': '日付（リテラル）'}}, 'subitem_dcterms_date_language': {'enum': [None, 'ja', 'ja-Kana', 'ja-Latn', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'editAble': True}}, 'system_prop': False}, 'title': 'dcterms_date', 'maxItems': 9999, 'minItems': 1, 'system_prop': False}
         expected_dict = {'type': 'array', 'items': {'type': 'object', 'title': 'dcterms_date', 'format': 'object', 'properties': {'subitem_dcterms_date': {'type': 'string', 'title': '日付（リテラル）', 'format': 'text', 'title_i18n': {'en': 'Date Literal', 'ja': '日付（リテラル）'}}, 'subitem_dcterms_date_language': {'enum': [None, 'ja', 'ja-Kana', 'ja-Latn', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'editAble': True}}, 'system_prop': False}, 'title': 'dcterms_date', 'maxItems': 9999, 'minItems': 1, 'system_prop': False}
@@ -930,6 +933,7 @@ class TestItemTypes:
         expected_dict = {'type': 'array', 'items': {'type': 'object', 'title': 'dcterms_date', 'format': 'object', 'properties': {'subitem_dcterms_date': {'type': 'string', 'title': '日付（リテラル）', 'format': 'text', 'title_i18n': {'en': 'Date Literal', 'ja': '日付（リテラル）'}}, 'subitem_dcterms_date_language': {'enum': [None, 'ja', 'ja-Kana', 'ja-Latn', 'en', 'fr', 'it', 'de', 'es', 'zh-cn', 'zh-tw', 'ru', 'la', 'ms', 'eo', 'ar', 'el', 'ko'], 'type': ['null', 'string'], 'title': '言語', 'format': 'select', 'editAble': True}}, 'system_prop': False}, 'title': 'dcterms_date', 'maxItems': 9999, 'minItems': 1, 'system_prop': False}
         ItemTypes.update_property_enum(old_value,new_value)
         TestCase().assertDictEqual(new_value, expected_dict)
+
     # .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::TestItemTypes::test_update_attribute_options -vv -s -v  --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-records/.tox/c1/tmp
     def test_update_attribute_options(self, app):
 
@@ -1303,6 +1307,102 @@ def test_item_type_props(app, db):
     #assert records[0].sort==None
 
 #     def revisions(self):
+
+# .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::test_create -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records/.tox/c1/tmp
+def test_create(db, simple_item_type):
+    # Note: A property with ID 1 already exists in the test database
+    # Set ID sequence to start from 2
+    db.session.execute(
+        text("SELECT setval('item_type_property_id_seq', 2, false);"))
+    db.session.commit
+
+    # Create new property with new ID
+    new_prop = ItemTypeProps.create(
+        property_id=2,
+        name='test property 2',
+        schema={'type': 'string'},
+        form_single={'title_i18n': {'en': 'test_propety'}},
+        form_array=['test form']
+    )
+    assert ItemTypeProperty.query.count() == 2
+    assert ItemTypeProperty.query.get(new_prop.id).name == 'test property 2'
+
+    # Create new property with existing ID (≒ update)
+    new_prop = ItemTypeProps.create(
+        property_id=2,
+        name='test property 3',
+        schema={'type': 'string'},
+        form_single={'title_i18n': {'en': 'test property'}},
+        form_array=['test form']
+    )
+    assert ItemTypeProperty.query.count() == 2
+    assert ItemTypeProperty.query.get(new_prop.id).name == 'test property 3'
+
+    # Error if name is empty
+    with pytest.raises(Exception) as e:
+        ItemTypeProps.create(
+            property_id=3,
+            name='',
+            schema={'type': 'string'},
+            form_single={'title_i18n': {'en': 'test property'}},
+            form_array=['test form']
+        )
+    assert e.type == ValueError
+    assert str(e.value) == 'The property name is required and cannot be empty.'
+
+    # Error if the property has a new ID, but the name is duplicated
+    with pytest.raises(Exception) as e:
+        ItemTypeProps.create(
+            property_id=4,
+            name='test property 3',
+            schema={'type': 'string'},
+            form_single={'title_i18n': {'en': 'test property'}},
+            form_array=['test form']
+        )
+    assert e.type == ValueError
+    assert 'The property name "test property 3" already exists.' in str(e.value)
+
+# .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::test_create_with_property_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records/.tox/c1/tmp
+def test_create_with_property_id(simple_item_type):
+    # Note: A property with ID 1 already exists in the test database
+    # Create new property with new id
+    new_prop = ItemTypeProps.create_with_property_id(
+        property_id=2,
+        name='test property 2',
+        schema={'type': 'string'},
+        form_single={'title_i18n': {'en': 'test property'}},
+        form_array=['test form']
+    )
+    assert ItemTypeProperty.query.count() == 2
+    assert ItemTypeProperty.query.get(new_prop.id).name == 'test property 2'
+
+    # Error if name is empty
+    with pytest.raises(Exception) as e:
+        ItemTypeProps.create_with_property_id(
+            property_id=3,
+            name='',
+            schema={'type': 'string'},
+            form_single={'title_i18n': {'en': 'test property'}},
+            form_array=['test form']
+        )
+    assert e.type == ValueError
+    assert str(e.value) == 'The property name is required and cannot be empty.'
+
+    # Error if the property has a new ID, but the name is duplicated
+    with pytest.raises(Exception) as e:
+        ItemTypeProps.create_with_property_id(
+            property_id=4,
+            name='test property 2',
+            schema={'type': 'string'},
+            form_single={'title_i18n': {'en': 'test property'}},
+            form_array=['test form']
+        )
+    assert e.type == ValueError
+    assert str(e.value) == (
+        'The property name "test property 2" already exists.'
+    )
+
+
 def test_revisions_ItemTypeProps(app):
     test = ItemTypeProps(data={})
     test.model = "Not None"
@@ -1785,37 +1885,39 @@ def test_site_license_update(app, db, site_license_info, users):
             }
         ]
     }
-    user = users[0]["obj"]
-    login_user(user)
-    SiteLicense.update(_none_obj)
-    db.session.commit()
-    records = SiteLicense.get_records()
-    assert len(records)==1
 
-    SiteLicense.update(_no_data_obj)
-    db.session.commit()
-    records = SiteLicense.get_records()
-    assert len(records)==0
+    with app.test_request_context():
+        user = users[0]["obj"]
+        login_user(user)
+        SiteLicense.update(_none_obj)
+        db.session.commit()
+        records = SiteLicense.get_records()
+        assert len(records)==1
 
-    SiteLicense.update(_test_obj)
-    db.session.commit()
-    records = SiteLicense.get_records()
-    assert len(records)==1
-    assert records[0]['organization_name']=='test1'
-    assert records[0]['domain_name']=='domain1'
-    assert records[0]['mail_address']=='nii@nii.co.jp'
-    assert records[0]['addresses']==[{'finish_ip_address': '255.255.255.255', 'start_ip_address': '0.0.0.0'}]
+        SiteLicense.update(_no_data_obj)
+        db.session.commit()
+        records = SiteLicense.get_records()
+        assert len(records)==0
 
-    user = users[2]["obj"]
-    login_user(user)
-    SiteLicense.update(_test_obj)
-    db.session.commit()
-    records = SiteLicense.get_records(user)
-    assert len(records)==1
-    assert records[0]['organization_name']=='test1'
-    assert records[0]['domain_name']=='domain1'
-    assert records[0]['mail_address']=='nii@nii.co.jp'
-    assert records[0]['addresses']==[{'finish_ip_address': '255.255.255.255', 'start_ip_address': '0.0.0.0'}]
+        SiteLicense.update(_test_obj)
+        db.session.commit()
+        records = SiteLicense.get_records()
+        assert len(records)==1
+        assert records[0]['organization_name']=='test1'
+        assert records[0]['domain_name']=='domain1'
+        assert records[0]['mail_address']=='nii@nii.co.jp'
+        assert records[0]['addresses']==[{'finish_ip_address': '255.255.255.255', 'start_ip_address': '0.0.0.0'}]
+
+        user = users[2]["obj"]
+        login_user(user)
+        SiteLicense.update(_test_obj)
+        db.session.commit()
+        records = SiteLicense.get_records(user)
+        assert len(records)==1
+        assert records[0]['organization_name']=='test1'
+        assert records[0]['domain_name']=='domain1'
+        assert records[0]['mail_address']=='nii@nii.co.jp'
+        assert records[0]['addresses']==[{'finish_ip_address': '255.255.255.255', 'start_ip_address': '0.0.0.0'}]
 
 # class RevisionsIterator(object):
 #     def __init__(self, model):
@@ -2046,6 +2148,77 @@ def test_request_mail_list_delete(app, db):
     assert record3==[]
     assert record4==[]
 
+# class ItemApplication(object):
+#     def update(cls, item_id, item_application):
+#     def update_by_list_item_id(cls, item_ids, item_application):
+#     def get_item_application_by_item_id(cls, item_id):
+# .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::test_item_application_create_and_update -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
+def test_item_application_create_and_update(mocker, app, db):
+    _item_id1 = uuid.uuid4()
+    _item_id2 = uuid.uuid4()
+    _item_application1 = {}
+    _item_application2 = {"workflow":"1", "terms":"term_free", "termsDescription":"test_update"}
+    _item_application3 = {"workflow":"2", "terms":"1111111111", "termsDescription":""}
+
+    # update　item_idがuuidではない
+    flag = ItemApplication.update(1, _item_application1)
+    assert flag==False
+
+    # get_item_application_by_item_id　item_idがuuidではない
+    record0 = ItemApplication.get_item_application_by_item_id(1)
+    assert record0=={}
+
+    # get_item_application_by_item_id　検索に引っかからない
+    record1 = ItemApplication.get_item_application_by_item_id(_item_id1)
+    assert record1=={}
+
+    # update　正常にupdate(item_applicationなし)
+    flag = ItemApplication.update(_item_id1, _item_application1)
+    record1 = ItemApplication.get_item_application_by_item_id(_item_id1)
+    assert flag==True
+    assert record1=={}
+
+    # update　正常にupdate(item_applicationあり)
+    flag = ItemApplication.update(_item_id1, _item_application2)
+    record1 = ItemApplication.get_item_application_by_item_id(_item_id1)
+    item_ids=[]
+    assert flag==True
+    assert record1=={"workflow":"1", "terms":"term_free", "termsDescription":"test_update"}
+
+    # update_by_list_item_id 正常
+    ItemApplication.update_by_list_item_id([_item_id1, _item_id2], _item_application3)
+    record1 = ItemApplication.get_item_application_by_item_id(_item_id1)
+    record2 = ItemApplication.get_item_application_by_item_id(_item_id2)
+    assert record1=={"workflow":"2", "terms":"1111111111", "termsDescription":""}
+    assert record2=={"workflow":"2", "terms":"1111111111", "termsDescription":""}
+
+# class ItemApplication(object):
+#     def delete(cls, item_id):
+#     def delete_without_commit(cls, item_id):
+#     def delete_by_list_item_id(cls, item_ids):
+# .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::test_item_application_list_delete -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
+def test_item_application_list_delete(app, db):
+    _item_id1 = uuid.uuid4()
+    _item_id2 = uuid.uuid4()
+    _item_id3 = uuid.uuid4()
+    _item_id4 = uuid.uuid4()
+    _item_application = {"workflow":"1", "terms":"term_free", "termsDescription":"test_update"}
+    ItemApplication.update_by_list_item_id([_item_id1, _item_id2, _item_id3, _item_id4], _item_application)
+
+    flag = ItemApplication.delete(1)
+    assert flag==False
+    flag = ItemApplication.delete(_item_id1)
+    record1 = ItemApplication.get_item_application_by_item_id(_item_id1)
+    assert flag==True
+    assert record1=={}
+    ItemApplication.delete_without_commit(_item_id2)
+    record2 = ItemApplication.get_item_application_by_item_id(_item_id2)
+    assert record2=={}
+    ItemApplication.delete_by_list_item_id([_item_id3, _item_id4])
+    record3 = ItemApplication.get_item_application_by_item_id(_item_id3)
+    record4 = ItemApplication.get_item_application_by_item_id(_item_id4)
+    assert record3=={}
+    assert record4=={}
 
 # class ItemLink(object):
 #     def __init__(self, recid: str):
@@ -2483,11 +2656,11 @@ def test_item_link_bulk_delete(app, db, records):
 
 
 # class JsonldMapping:
-# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_api.py::TestJsonldMapping -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+# .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::TestJsonldMapping -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
 class TestJsonldMapping:
     # def get_mapping_by_id(cls, id, ignore_deleted=True):
-    # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_api.py::TestJsonldMapping::test_get_mapping_by_id -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
-    def test_get_mapping_by_id(app, db, item_type):
+    # .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::TestJsonldMapping::test_get_mapping_by_id -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+    def test_get_mapping_by_id(self, app, db, item_type):
         obj = JsonldMapping.create(
             name="test1",
             mapping={"test": "test"},
@@ -2513,13 +2686,13 @@ class TestJsonldMapping:
         assert mapping.is_deleted is True
 
     # def create(cls, name, mapping, item_type_id):
-    # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_api.py::TestJsonldMapping::test_create -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
-    def test_create(app, db, item_type):
+    # .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::TestJsonldMapping::test_create -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+    def test_create(self, app, db, item_type):
         # one
         obj = JsonldMapping.create(
             name="test1",
             mapping={"test": "test"},
-            item_type_id=item_type[0]["item_type"].id,
+            item_type_id=item_type.model.id,
         )
         assert obj.id == 1
         assert (ItemTypeJsonldMapping.query.filter_by(id=obj.id).first()) == obj
@@ -2528,7 +2701,7 @@ class TestJsonldMapping:
         obj = JsonldMapping.create(
             name="test2",
             mapping={"test": "test"},
-            item_type_id=item_type[0]["item_type"].id,
+            item_type_id=item_type.model.id,
         )
         assert obj.id == 2
         assert (ItemTypeJsonldMapping.query.filter_by(id=obj.id).first()) == obj
@@ -2542,8 +2715,8 @@ class TestJsonldMapping:
         assert ItemTypeJsonldMapping.query.filter_by(id=3).first() == None
 
     # def update(cls, id, name=None, mapping=None, item_type_id=None):
-    # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_api.py::TestJsonldMapping::test_update -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
-    def test_update(app, db, item_type, sword_mapping):
+    # .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::TestJsonldMapping::test_update -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+    def test_update(self, app, db, item_type, sword_mapping):
         obj = JsonldMapping.create(
             name="test1",
             mapping={"test": "test"},
@@ -2576,8 +2749,8 @@ class TestJsonldMapping:
         assert isinstance(e.value, SQLAlchemyError)
 
     # def versions()
-    # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_api.py::TestJsonldMapping::test_versions -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
-    def test_versions(app, db, item_type):
+    # .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::TestJsonldMapping::test_versions -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+    def test_versions(self, app, db, item_type):
 
         obj = JsonldMapping.create(
             name="test1",
@@ -2597,8 +2770,8 @@ class TestJsonldMapping:
         assert versions[1].version_id == 2
 
     # delete(cls, id):
-    # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_api.py::TestJsonldMapping::test_delete -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
-    def test_delete(app, db, item_type):
+    # .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::TestJsonldMapping::test_delete -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+    def test_delete(self, app, db, item_type):
         obj = JsonldMapping.create(
             name="test1",
             mapping={"test": "test"},

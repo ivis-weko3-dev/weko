@@ -163,7 +163,7 @@ def get_workspace_itemlist():
         source = record.get("_source", {})
         if not source or (
             str(source.get("weko_creator_id", None)) != str(current_user.get_id()) and
-            str(source.get("weko_shared_id", None)) != str(current_user.get_id())
+            str(current_user.get_id()) not in [str(shared_id) for shared_id in source.get("weko_shared_ids", [])]
         ):
             # If user ID does not match, skip this record
             current_app.logger.debug(f"[workspace] skip item \"_id\": {record.get('_id')}")
@@ -977,16 +977,29 @@ def item_register_save():
             handle_check_and_prepare_index_tree(list_record, True, [])
         handle_check_and_prepare_publish_status(list_record)
         if file_path_list:
-            handle_check_file_metadata(list_record, data_path)
+            try:
+                handle_check_file_metadata(list_record, data_path)
+            except IndexError as e:
+                # IndexError: list index out of range
+                # If uploaded files counts does not match file metadata counts.
+                error = _("The number of uploaded files does not match the number of files in the metadata.")
+                if list_record[0].get("errors") and isinstance(list_record[0]["errors"], list):
+                    list_record[0]["errors"].append(error)
+                else:
+                    list_record[0]["errors"] = [error]
 
         if list_record[0].get("errors"):
             result['error'] = ', '.join(list_record[0].get("errors", ["error!!"]))
             return result
 
+        # clear session activity_info for WekoDeposit.create
+        if session and 'activity_info' in session:
+            del session['activity_info']
+
         if settings.workFlow_select_flg == "0":
             # registration by workflow
             request_info["workflow_id"] = settings.work_flow_id
-            result["result"], _, _, result['error'] = import_items_to_activity(list_record[0], request_info)
+            result["result"], recid, action, result['error'] = import_items_to_activity(list_record[0], request_info)
         else:
             # directly registration
             register_result = import_items_to_system(list_record[0], request_info=request_info)

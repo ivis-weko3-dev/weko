@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: invenio-files-rest 1.0.1\n"
 "Report-Msgid-Bugs-To: info@inveniosoftware.org\n"
-"POT-Creation-Date: 2025-08-08 14:27+0900\n"
+"POT-Creation-Date: 2025-10-03 10:19+0900\n"
 "PO-Revision-Date: 2025-08-08 14:28+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja\n"
@@ -19,153 +19,157 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.5.1\n"
 
-#: invenio_files_rest/admin.py:41
+#: invenio_files_rest/admin.py:43
 msgid "Invalid location name."
 msgstr ""
 
-#: invenio_files_rest/admin.py:69 invenio_files_rest/admin.py:419
-#: invenio_files_rest/admin.py:475
+#: invenio_files_rest/admin.py:65
+msgid "Invalid URL. It should start with https://"
+msgstr ""
+
+#: invenio_files_rest/admin.py:92 invenio_files_rest/admin.py:413
+#: invenio_files_rest/admin.py:469
 msgid "ID"
 msgstr ""
 
-#: invenio_files_rest/admin.py:70 invenio_files_rest/admin.py:377
-#: invenio_files_rest/admin.py:420
+#: invenio_files_rest/admin.py:93 invenio_files_rest/admin.py:371
+#: invenio_files_rest/admin.py:414
 msgid "URI"
 msgstr ""
 
-#: invenio_files_rest/admin.py:71 invenio_files_rest/admin.py:378
+#: invenio_files_rest/admin.py:94 invenio_files_rest/admin.py:372
 msgid "Size"
 msgstr ""
 
-#: invenio_files_rest/admin.py:72
+#: invenio_files_rest/admin.py:95
 msgid "Quota Size"
 msgstr ""
 
-#: invenio_files_rest/admin.py:73
+#: invenio_files_rest/admin.py:96
 msgid "Access Key"
 msgstr ""
 
-#: invenio_files_rest/admin.py:74
+#: invenio_files_rest/admin.py:97
 msgid "Secret Key"
 msgstr ""
 
-#: invenio_files_rest/admin.py:75
+#: invenio_files_rest/admin.py:98
 msgid "S3_ENDPOINT_URL"
 msgstr ""
 
-#: invenio_files_rest/admin.py:76
+#: invenio_files_rest/admin.py:99
 msgid "S3_SEND_FILE_DIRECTLY"
 msgstr ""
 
-#: invenio_files_rest/admin.py:77
+#: invenio_files_rest/admin.py:100
 msgid "S3_DEFAULT_BLOCK_SIZE"
 msgstr ""
 
-#: invenio_files_rest/admin.py:78
+#: invenio_files_rest/admin.py:101
 msgid "S3_MAXIMUM_NUMBER_OF_PARTS"
 msgstr ""
 
-#: invenio_files_rest/admin.py:79
+#: invenio_files_rest/admin.py:102
 msgid "S3_REGION_NAME"
 msgstr ""
 
-#: invenio_files_rest/admin.py:80
+#: invenio_files_rest/admin.py:103
 msgid "S3_SIGNATURE_VERSION"
 msgstr ""
 
-#: invenio_files_rest/admin.py:81
+#: invenio_files_rest/admin.py:104
 msgid "S3_URL_EXPIRATION"
 msgstr ""
 
-#: invenio_files_rest/admin.py:135
+#: invenio_files_rest/admin.py:159
 msgid "No default location is set. Please configure one location as default."
 msgstr "デフォルトに設定されたロケーションが存在しません。いずれか1つのロケーションをデフォルトに設定してください"
 
-#: invenio_files_rest/admin.py:139
+#: invenio_files_rest/admin.py:163
 msgid ""
 "Multiple locations are set as default. Only one default location can be "
 "configured. Please correct the settings."
 msgstr "複数のロケーションがデフォルトに設定されています。デフォルトのロケーションは1つのみ設定可能です。設定を修正してください。"
 
-#: invenio_files_rest/admin.py:166
+#: invenio_files_rest/admin.py:198
 msgid "Cannot save because another location is already set as default."
 msgstr "他のロケーションがすでにデフォルトに設定されているため、保存できません。"
 
-#: invenio_files_rest/admin.py:335
+#: invenio_files_rest/admin.py:329
 msgid "UUID"
 msgstr ""
 
-#: invenio_files_rest/admin.py:336
+#: invenio_files_rest/admin.py:330
 msgid "Location"
 msgstr ""
 
-#: invenio_files_rest/admin.py:337
+#: invenio_files_rest/admin.py:331
 msgid "Storage Class"
 msgstr ""
 
-#: invenio_files_rest/admin.py:375
+#: invenio_files_rest/admin.py:369
 msgid "Version"
 msgstr ""
 
-#: invenio_files_rest/admin.py:376
+#: invenio_files_rest/admin.py:370
 msgid "File UUID"
 msgstr ""
 
-#: invenio_files_rest/admin.py:379
+#: invenio_files_rest/admin.py:373
 msgid "Deleted"
 msgstr ""
 
-#: invenio_files_rest/admin.py:380
+#: invenio_files_rest/admin.py:374
 msgid "Checksum"
 msgstr ""
 
-#: invenio_files_rest/admin.py:381
+#: invenio_files_rest/admin.py:375
 msgid "Readable"
 msgstr ""
 
-#: invenio_files_rest/admin.py:382
+#: invenio_files_rest/admin.py:376
 msgid "Storage class"
 msgstr ""
 
-#: invenio_files_rest/admin.py:383
+#: invenio_files_rest/admin.py:377
 msgid "Objects"
 msgstr ""
 
-#: invenio_files_rest/admin.py:384 invenio_files_rest/admin.py:477
+#: invenio_files_rest/admin.py:378 invenio_files_rest/admin.py:471
 msgid "File"
 msgstr ""
 
-#: invenio_files_rest/admin.py:421
+#: invenio_files_rest/admin.py:415
 msgid "Fixity"
 msgstr ""
 
-#: invenio_files_rest/admin.py:422
+#: invenio_files_rest/admin.py:416
 msgid "Checked"
 msgstr ""
 
-#: invenio_files_rest/admin.py:440
+#: invenio_files_rest/admin.py:434
 msgid "Run fixity check"
 msgstr ""
 
-#: invenio_files_rest/admin.py:449
+#: invenio_files_rest/admin.py:443
 msgid "Cannot find file instance."
 msgstr ""
 
-#: invenio_files_rest/admin.py:453
+#: invenio_files_rest/admin.py:447
 msgid "Fixity check(s) sent to queue."
 msgstr ""
 
-#: invenio_files_rest/admin.py:458
+#: invenio_files_rest/admin.py:452
 msgid "Failed to run fixity checks."
 msgstr ""
 
-#: invenio_files_rest/admin.py:476
+#: invenio_files_rest/admin.py:470
 msgid "Complete"
 msgstr ""
 
-#: invenio_files_rest/admin.py:492 invenio_files_rest/admin.py:496
-#: invenio_files_rest/admin.py:500 invenio_files_rest/admin.py:504
-#: invenio_files_rest/admin.py:508
+#: invenio_files_rest/admin.py:486 invenio_files_rest/admin.py:490
+#: invenio_files_rest/admin.py:494 invenio_files_rest/admin.py:498
+#: invenio_files_rest/admin.py:502
 msgid "Files"
 msgstr ""
 
