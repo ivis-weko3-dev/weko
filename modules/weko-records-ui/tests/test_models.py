@@ -4,15 +4,7 @@ from datetime import datetime, timedelta, timezone
 from unittest import mock  # python3
 #from unittest.mock import MagicMock
 
-import mock  # python2, after pip install mock
 import pytest
-from flask import Flask, json, jsonify, session, url_for
-from flask_babelex import get_locale, to_user_timezone, to_utc
-from flask_login import current_user
-from flask_security import login_user
-from flask_security.utils import login_user
-from invenio_accounts.models import Role, User
-from invenio_accounts.testutils import create_test_user, login_user_via_session
 from mock import patch
 from sqlalchemy.exc import IntegrityError
 

@@ -101,9 +101,27 @@
   border: 1px solid #ebebeb;
 }
 
+.communities-area {
+  margin-top: 10px;
+  display: flex;
+}
+
+.communities-area-thumbnail {
+  display: flex;
+  float: left;
+  width: fit-content;
+  margin-right: 5px;
+}
+
+.communities-area-title h4 {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
 .icon-space {
   padding-right: 8px;
 }
+
 #secret_url_form {
   display: flex; /* フォーム全体を横一列に配置 */
   flex-direction: row;

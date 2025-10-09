@@ -206,7 +206,7 @@
 		},
 		export: function _export() {
 			var arr = [];
-			if (this.state.enum.length > 0) {
+			if (this.state.enum.length > 0 && !Array.isArray(this.state.enum)) {
 				arr = this.state.enum.split('|');
 			}
 			return {
@@ -217,7 +217,7 @@
 					type: "string",
 					enum: arr
 				}
-		};
+			};
 		},
 		render: function render() {
 			var self = this;
@@ -276,7 +276,7 @@
 		},
 		export: function _export() {
 			var arr = [];
-			if (this.state.enum.length > 0) {
+			if (this.state.enum.length > 0 && !Array.isArray(this.state.enum)) {
 				arr = this.state.enum.split('|');
 			}
 			return {
@@ -314,7 +314,6 @@
 		propsToState: function propsToState(props) {
 			var data = props.data;
 			if (data.hasOwnProperty('enum') && data.enum.length > 0) {
-				data.enum_original = typeof(data.enum) == 'object' ? data.enum : data.enum.split('|');
 				data.enum = typeof(data.enum) == 'object' ? data.enum.filter(function(value){return value !== null}).join('|') : data.enum;
 			} else {
 				data.enum = '';
@@ -344,14 +343,16 @@
 		},
 		export: function _export() {
 			var arr = [];
-			if (this.state.enum.length > 0) {
+			if (this.state.enum.length > 0 && !Array.isArray(this.state.enum)) {
 				arr = this.state.enum.split('|');
+				if (!arr.includes(null)) {
+					arr.unshift(null);
+				}
 			}
 			return {
 				type: this.state.type,
 				format: "select",
-				enum: this.state.enum_original ? this.state.enum_original : arr,
-				currentEnum: arr
+				enum: arr
 			};
 		},
 		render: function render() {

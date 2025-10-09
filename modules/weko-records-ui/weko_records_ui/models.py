@@ -23,6 +23,7 @@
 
 from datetime import datetime, timezone
 import enum
+import traceback
 from typing import List
 
 from flask import current_app
@@ -33,6 +34,8 @@ from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.sql.functions import concat ,now
 from sqlalchemy_utils.models import Timestamp
 from sqlalchemy_utils.types import JSONType
+
+from weko_records.models import ItemType
 
 """ PDF cover page model"""
 
@@ -768,8 +771,58 @@ class FileUrlDownloadLog(db.Model, Timestamp):
             raise ex
 
 
+class RocrateMapping(db.Model, Timestamp):
+    """Represent a mapping from metadata to ro-crate.
+    The RocrateMapping object contains a ``created`` and  a ``updated`` properties that are automatically updated.
+    """
+
+    __tablename__ = 'rocrate_mapping'
+
+    id = db.Column(
+        db.Integer(),
+        primary_key=True,
+        autoincrement=True
+    )
+    """Record identifier."""
+
+    item_type_id = db.Column(
+        db.Integer,
+        db.ForeignKey(ItemType.id),
+        unique=True,
+        nullable=False,
+    )
+    """ID of item type."""
+
+    mapping = db.Column(
+        db.JSON().with_variant(
+            postgresql.JSONB(none_as_null=True),
+            'postgresql',
+        ).with_variant(
+            JSONType(),
+            'sqlite',
+        ).with_variant(
+            JSONType(),
+            'mysql',
+        ),
+        default=lambda: dict(),
+        nullable=True
+    )
+    """Store mapping in JSON format."""
+
+    def __init__(self, item_type_id, mapping):
+        """Init.
+
+        :param item_type_id: item type id
+        :param mapping: mapping from metadata to RO-Crate
+        """
+        self.item_type_id = item_type_id
+        self.mapping = mapping
+
+
 __all__ = ('PDFCoverPageSettings',
            'FilePermission',
            'FileOnetimeDownload',
            'FileSecretDownload',
-           'FileUrlDownloadLog',)
+           'FileUrlDownloadLog',
+           'RocrateMapping'
+           )
