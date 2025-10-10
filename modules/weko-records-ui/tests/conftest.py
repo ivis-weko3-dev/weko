@@ -5170,7 +5170,7 @@ def workflows(app, db, workflow_actions, itemtypes, users, records):
     )
     data_usage_activity = Activity(
         item_id=records[1][0]['record'].id,
-        activity_id="usage_application_activity_id_dummy1",
+        activity_id="usage_application_1",
         workflow_id=1,
         flow_id=flow_define.id,
         action_id=1,
@@ -5185,7 +5185,7 @@ def workflows(app, db, workflow_actions, itemtypes, users, records):
         shared_user_ids=[],
         extra_info={
             "related_title": "Data Usage Report",
-            "record_id": 1,
+            "record_id": '1',
             "file_name": records[1][0]["filename"],
             "guest_mail": "guest@nii.co.jp",
             "user_mail": "user@nii.co.jp"
@@ -5198,7 +5198,7 @@ def workflows(app, db, workflow_actions, itemtypes, users, records):
         file_name=records[1][0]["filename"],
         activity_id='',
         token='',
-        expiration_date=datetime.now()
+        expiration_date=10
     )
 
     with db.session.begin_nested():
@@ -5511,7 +5511,7 @@ def site_license_info(app, db):
         organization_name='test',
         domain_name='domain',
         mail_address='nii@nii.co.jp',
-        receive_mail_flag=False)
+        receive_mail_flag='F')
     with db.session.begin_nested():
         db.session.add(record)
     return record
@@ -5555,7 +5555,7 @@ def db_file_permission(app, db,users,records_restricted):
                                         ,file_name=filename0
                                         ,download_count=1
                                         ,expiration_date=1
-                                        ,extra_info=str({}))
+                                        ,extra_info={})
     recid1 = results[1]["recid"]
     filename1 = results[1]["filename"]
     record1 = FilePermission(
@@ -5569,7 +5569,7 @@ def db_file_permission(app, db,users,records_restricted):
                                         ,file_name=filename1
                                         ,download_count=1
                                         ,expiration_date=1
-                                        ,extra_info=str({}))
+                                        ,extra_info={})
     recid2 = results[2]["recid"]
     filename2 = results[2]["filename"]
     record2 = FilePermission(
@@ -5583,7 +5583,7 @@ def db_file_permission(app, db,users,records_restricted):
                                         ,file_name=filename2
                                         ,download_count=1
                                         ,expiration_date=1
-                                        ,extra_info=str({}))
+                                        ,extra_info={})
     
     # not approved yet
     recid3 = results[len(results)-1]["recid"]
@@ -5607,7 +5607,7 @@ def db_file_permission(app, db,users,records_restricted):
                                         ,file_name=filename4
                                         ,download_count =1
                                         ,expiration_date=1
-                                        ,extra_info=str({}))
+                                        ,extra_info={})
     
     recid5 = results[len(results)-1]["recid"]
     filename5 = results[len(results)-1]["filename"]
@@ -5622,7 +5622,7 @@ def db_file_permission(app, db,users,records_restricted):
                                         ,file_name=filename5
                                         ,download_count=1
                                         ,expiration_date=1
-                                        ,extra_info=str({}))
+                                        ,extra_info={})
     with db.session.begin_nested():
         db.session.add(record0)
         db.session.add(record1)
@@ -5921,7 +5921,7 @@ def make_record_need_restricted_access(app, db, workflows, users):
         file_name="dummy.txt",
         activity_id="A-00000000-1234",
         token='',
-        expiration_date=datetime.now()
+        expiration_date=10
     )
 
     with db.session.begin_nested():
