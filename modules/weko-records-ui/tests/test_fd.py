@@ -274,14 +274,13 @@ def test_error_response(mock_render):
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py::test_file_download_onetime -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-@patch('weko_records_ui.fd.request.args.get')
 @patch('weko_records_ui.fd.validate_url_download')
 @patch('weko_records_ui.fd.error_response')
 @patch('weko_records_ui.fd.check_and_send_usage_report')
 @patch('weko_records_ui.fd.save_download_log')
 @patch('weko_records_ui.fd._download_file')
 def test_file_download_onetime(dl_file, save_log, chk_and_send, err_res,
-                               val_url, token, onetime_url):
+                               val_url, onetime_url, mocker):
     # Setup arguments of sut
     pid = None
     record = {}
@@ -292,7 +291,8 @@ def test_file_download_onetime(dl_file, save_log, chk_and_send, err_res,
     file_obj.get.return_value = 'open_restricted'
 
     # Setup default return values of mock objects
-    token.return_value = onetime_url['onetime_token']
+    mocker = mocker.patch('weko_records_ui.fd.request')
+    mocker.args.get.return_value = onetime_url['onetime_token']
     val_url.return_value = (True, '')
     chk_and_send.return_value = None
     dl_file.return_value = 'SUCCESS'
@@ -302,7 +302,7 @@ def test_file_download_onetime(dl_file, save_log, chk_and_send, err_res,
     assert file_download_onetime(
         pid, record, filename, _record_file_factory) == 'SUCCESS'
     save_log.assert_called_once_with(
-        record, filename, token.return_value, is_secret_url=False)
+        record, filename, onetime_url['onetime_token'], is_secret_url=False)
 
     # Invalid token
     with patch('weko_records_ui.fd.validate_url_download',
@@ -362,14 +362,14 @@ def test_file_download_onetime_old(app, records, itemtypes, users, db_fileonetim
 
                         with patch("weko_records_ui.fd.validate_onetime_download_token", return_value=(False, [1])):
                             assert file_download_onetime(recid,record,record_file_factory)==([1],401)
-                        
+
                         _rv = (True, "")
                         with patch("weko_records_ui.fd.validate_onetime_download_token", return_value=_rv):
                             assert file_download_onetime(recid,record,record_file_factory)==('Unexpected error occurred.',401)
 
                             with patch("weko_records_ui.fd.record_file_factory", return_value=False):
                                 assert file_download_onetime(recid,record,None)==('None does not exist.', 401)
-                            
+
                             file_object = MagicMock()
                             file_object.obj = {"foo" : "hoge"}
                             file_object.get = lambda x : 'open_restricted'

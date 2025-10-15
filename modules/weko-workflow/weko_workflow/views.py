@@ -1152,7 +1152,7 @@ def display_activity(activity_id="0", community_id=None):
     )
     _id = None
     if recid:
-        _id = re.sub("\.[0-9]+", "", recid.pid_value)
+        _id = re.sub(r"\.[0-9]+", "", recid.pid_value)
 
     form = FlaskForm(request.form)
 

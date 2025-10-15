@@ -3750,7 +3750,7 @@ def create_onetime_download_url_to_guest(activity_id: str,
     file_name = extra_info.get("file_name")
     record_id = extra_info.get("record_id")
     user_mail = extra_info.get("user_mail")
-    encoded_password = extra_info.get("password_for_download")
+    encrypted_password = extra_info.get("password_for_download")
     is_guest_user = False
     if not user_mail:
         user_mail = extra_info.get("guest_mail")
@@ -3761,9 +3761,11 @@ def create_onetime_download_url_to_guest(activity_id: str,
     try:
         url_obj = create_onetime_url_record(
             activity_id, record_id, file_name, user_mail,
-            is_guest=is_guest_user, encoded_password=encoded_password
+            is_guest=is_guest_user, encrypted_password=encrypted_password
         )
     except:
+        current_app.logger.error("Failed to create onetime URL.")
+        traceback.print_exc()
         return {}
     if not url_obj:
         return {}

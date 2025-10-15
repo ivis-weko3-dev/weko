@@ -1388,10 +1388,9 @@ def has_permission_to_manage_secret_url(record, user_id):
     """
     super_roles = current_app.config['WEKO_PERMISSION_SUPER_ROLE_USER']
     user = User.query.filter_by(id=user_id).first()
-    # Need to change the 'weko_shared_id' to 'weko_shared_ids' in the future.
     has_permission = (
         user_id == int(record['owner']) or
-        user_id in [record['weko_shared_id']] or
+        user_id in record.get('weko_shared_ids', []) or
         any(role.name in super_roles for role in user.roles or [])
     )
     return has_permission
@@ -2311,7 +2310,7 @@ def convert_token_into_obj(token, is_secret_url):
     return url_obj
 
 
-def validate_url_download(record, filename, token, is_secret_url):
+def validate_url_download(record, filename, token, is_secret_url=None):
     """Validate the request for URL download.
 
     Args:
@@ -2324,6 +2323,10 @@ def validate_url_download(record, filename, token, is_secret_url):
     Returns:
         Tuple[bool, str]: A tuple of the validation result and error message.
     """
+    # check is_secret_url
+    if is_secret_url is None:
+        return False, _('The type of URL is not specified.')
+
     # Check if the token is valid
     if not validate_token(token, is_secret_url):
         return False, _('The provided token is invalid.')

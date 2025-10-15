@@ -69,7 +69,7 @@ from weko_schema_ui.models import PublishStatus
 from weko_workflow.api import WorkFlow
 from weko_workflow.utils import (
     extract_term_description, get_item_info, set_mail_info,
-is_terms_of_use_only, process_send_mail
+    is_terms_of_use_only
 )
 
 from weko_records_ui.api import (
@@ -90,13 +90,12 @@ from weko_records_ui.permissions import (
 )
 from weko_records_ui.utils import (
     check_items_settings, can_manage_onetime_url, can_manage_secret_url,
-    create_download_url, create_secret_url, create_secret_url_record,
-    delete_version, export_preprocess, get_billing_file_download_permission,
-    get_file_info_list, get_google_detaset_meta, get_google_scholar_meta,
-    get_groups_price, get_min_price_billing_file_download, get_record_permalink,
-    hide_by_email, hide_by_itemtype, is_show_email_of_creator,
-    is_workflow_activity_work, send_secret_url_mail,
-    validate_secret_url_generation_request,
+    create_download_url, create_secret_url_record, delete_version,
+    export_preprocess, get_billing_file_download_permission, get_file_info_list,
+    get_google_detaset_meta, get_google_scholar_meta, get_groups_price,
+    get_min_price_billing_file_download, get_record_permalink, hide_by_email,
+    hide_by_itemtype, is_show_email_of_creator, is_workflow_activity_work,
+    send_secret_url_mail, validate_secret_url_generation_request,
     restore as restore_imp, soft_delete as soft_delete_imp
 )
 

@@ -913,9 +913,9 @@ def test_publish(mock_db_commit, mock_WekoIndexer, mock_FileSecretDownload):
         record.commit = MagicMock()
         return record
 
-    def assert_publish(record, reset_mock=True):
-        update_item.publish(record)
-        assert record['publish_status'] == PublishStatus.PUBLIC.value
+    def assert_publish(record, status, reset_mock=True):
+        update_item.publish(record, status)
+        assert record['publish_status'] == status
         record.commit.assert_called_once()
         mock_db_commit.assert_called()
         mock_WekoIndexer.return_value.update_es_data.assert_called_with(record, update_revision=False, field='publish_status')
@@ -939,16 +939,16 @@ def test_publish(mock_db_commit, mock_WekoIndexer, mock_FileSecretDownload):
     update_item = UpdateItem()
 
     # record1のテスト
-    assert_publish(record1)
+    assert_publish(record1, PublishStatus.PUBLIC.value)
 
     # record2のテスト
-    assert_publish(record2)
+    assert_publish(record2, PublishStatus.PUBLIC.value)
 
     # record3のテスト
-    assert_publish(record3)
+    assert_publish(record3, PublishStatus.PUBLIC.value)
 
     # record4のテスト
-    assert_publish(record4, reset_mock=False)
+    assert_publish(record4, PublishStatus.PUBLIC.value, reset_mock=False)
     # record4のシークレットURL削除確認
     mock_FileSecretDownload.query.filter_by.assert_called_with(record_id='12345', is_deleted=False, file_name='testfile.txt')
     assert mock_secret_url.delete_logically.call_count == 1
@@ -958,14 +958,13 @@ def test_publish(mock_db_commit, mock_WekoIndexer, mock_FileSecretDownload):
     mock_secret_url.delete_logically.reset_mock()
 
     # record5のテスト (recidがNoneの場合)
-    assert_publish(record5, reset_mock=False)
+    assert_publish(record5, PublishStatus.PUBLIC.value, reset_mock=False)
     mock_FileSecretDownload.query.filter_by.assert_not_called()
     mock_secret_url.delete_logically.assert_not_called()
 
-    
     # 複数のファイルが含まれている場合のテスト
     record_multiple_files = create_mock_record(PublishStatus.DELETE.value, ['other_date', 'other_date'], ['testfile1.txt', 'testfile2.txt'])
-    assert_publish(record_multiple_files, reset_mock=False)
+    assert_publish(record_multiple_files, PublishStatus.PUBLIC.value, reset_mock=False)
     mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile1.txt')
     mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile2.txt')
     assert mock_secret_url.delete_logically.call_count == 2
@@ -975,7 +974,7 @@ def test_publish(mock_db_commit, mock_WekoIndexer, mock_FileSecretDownload):
 
     # 片方のファイルが更新され、片方が更新されない場合のテスト
     record_partial_update = create_mock_record(PublishStatus.DELETE.value, ['other_date', 'open_no'], ['testfile1.txt', 'testfile2.txt'])
-    assert_publish(record_partial_update, reset_mock=False)
+    assert_publish(record_partial_update, PublishStatus.PUBLIC.value, reset_mock=False)
     mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile1.txt')
     mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile2.txt')
     assert mock_secret_url.delete_logically.call_count == 1
@@ -985,7 +984,7 @@ def test_publish(mock_db_commit, mock_WekoIndexer, mock_FileSecretDownload):
 
     # どちらのファイルも論理削除が行われない場合のテスト
     record_partial_update = create_mock_record(PublishStatus.DELETE.value, ['open_no', 'open_no'], ['testfile1.txt', 'testfile2.txt'])
-    assert_publish(record_partial_update, reset_mock=False)
+    assert_publish(record_partial_update, PublishStatus.PUBLIC.value, reset_mock=False)
     mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile1.txt')
     mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile2.txt')
     mock_secret_url.delete_logically.assert_not_called()
@@ -995,7 +994,7 @@ def test_publish(mock_db_commit, mock_WekoIndexer, mock_FileSecretDownload):
 
     # 2つ以上のファイルすべてが更新され、論理削除が行われる場合のテスト
     record_partial_update = create_mock_record(PublishStatus.DELETE.value, ['other_date', 'other_date','other_date'], ['testfile1.txt', 'testfile2.txt', 'testfile3.txt'])
-    assert_publish(record_partial_update, reset_mock=False)
+    assert_publish(record_partial_update, PublishStatus.PUBLIC.value, reset_mock=False)
     mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile1.txt')
     mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile2.txt')
     mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile3.txt')
@@ -1012,7 +1011,7 @@ def test_publish(mock_db_commit, mock_WekoIndexer, mock_FileSecretDownload):
             'attribute_value_mlt': []
         }
     })
-    update_item.publish(record_empty_role)
+    update_item.publish(record_empty_role, PublishStatus.PUBLIC.value)
     mock_secret_url.delete_logically.assert_not_called()
     assert record_empty_role['publish_status'] == PublishStatus.PUBLIC.value
 
@@ -1024,7 +1023,7 @@ def test_publish(mock_db_commit, mock_WekoIndexer, mock_FileSecretDownload):
             'attribute_value_mlt': [{'filename': 'testfile.txt'}]
         }
     })
-    update_item.publish(record_no_role)
+    update_item.publish(record_no_role, PublishStatus.PUBLIC.value)
     mock_secret_url.delete_logically.assert_not_called()
     assert record_no_role['publish_status'] == PublishStatus.PUBLIC.value
 
@@ -1036,9 +1035,10 @@ def test_publish(mock_db_commit, mock_WekoIndexer, mock_FileSecretDownload):
             'attribute_value_mlt': ['not_dict']
         }
     })
-    update_item.publish(record_non_dict_attribute_value_mlt)
+    update_item.publish(record_non_dict_attribute_value_mlt, PublishStatus.PUBLIC.value)
     mock_secret_url.delete_logically.assert_not_called()
     assert record_non_dict_attribute_value_mlt['publish_status'] == PublishStatus.PUBLIC.value
+
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_WorkActivity_init_activity -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_WorkActivity_init_activity(app, users, item_type, workflow):
     """

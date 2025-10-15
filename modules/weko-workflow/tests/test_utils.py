@@ -1115,38 +1115,38 @@ def test_prepare_edit_workflow2(app, workflow, db_records,users,mocker, order_if
 
 # def prepare_delete_workflow(deposit, current_pid, recid):
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_delete_workflow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_prepare_delete_workflow(app, db_records,users,db_register,mocker):
+def test_prepare_delete_workflow(app, db_records,users,db_register_fullaction,mocker):
     # delete flow item
     del_recid, _, _, _, _, _, del_deposit = db_records[7]
-    del_workflow_id = db_register["activities"][7].workflow_id
-    del_flow_id = db_register["activities"][7].flow_id
-    del_title = db_register["activities"][7].title
+    del_workflow_id = db_register_fullaction["activities"][7].workflow_id
+    del_flow_id = db_register_fullaction["activities"][7].flow_id
+    del_title = db_register_fullaction["activities"][7].title
     del_post_activity = {
         'pid_value': del_recid, 'itemtype_id': '1',
         'community': None, 'workflow_id': del_workflow_id,
-        'title': del_title, 'flow_id': del_flow_id, 'shared_user_id': '-1'
+        'title': del_title, 'flow_id': del_flow_id, 'shared_user_ids': []
     }
 
     # not delete flow item
     recid_1,  _, _, _, _, _, deposit_1 = db_records[2]
-    workflow_id_1 = db_register["activities"][0].workflow_id
-    flow_id_1 = db_register["activities"][0].flow_id
-    title_1 = db_register["activities"][0].title
+    workflow_id_1 = db_register_fullaction["activities"][0].workflow_id
+    flow_id_1 = db_register_fullaction["activities"][0].flow_id
+    title_1 = db_register_fullaction["activities"][0].title
     post_activity_1 = {
         'pid_value': recid_1, 'itemtype_id': '1',
         'community': None, 'workflow_id': workflow_id_1,
-        'title': title_1, 'flow_id': flow_id_1, 'shared_user_id': '-1'
+        'title': title_1, 'flow_id': flow_id_1, 'shared_user_ids': []
     }
 
     # approval delete flow item
     app_recid, _, _, _, _, _, app_deposit = db_records[7]
-    app_workflow_id = db_register["activities"][8].workflow_id
-    app_flow_id = db_register["activities"][8].flow_id
-    app_title = db_register["activities"][8].title
+    app_workflow_id = db_register_fullaction["activities"][8].workflow_id
+    app_flow_id = db_register_fullaction["activities"][8].flow_id
+    app_title = db_register_fullaction["activities"][8].title
     app_post_activity = {
         'pid_value': app_recid, 'itemtype_id': '1',
         'community': None, 'workflow_id': app_workflow_id,
-        'title': app_title, 'flow_id': app_flow_id, 'shared_user_id': '-1'
+        'title': app_title, 'flow_id': app_flow_id, 'shared_user_ids': []
     }
 
     current_app.config.update(
@@ -3250,31 +3250,48 @@ def test_validate_guest_activity_expired(app,workflow,mocker):
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_create_onetime_download_url_to_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp -p no:warnings
 @patch('weko_workflow.utils.delete_guest_activity')
 @patch('weko_records_ui.utils.current_user')
-def test_create_onetime_download_url_to_guest(login_user, delete_activity, db,
-                                              users):
+def test_create_onetime_download_url_to_guest(
+    login_user, delete_activity, app, db, users
+):
     login_user.id = 1
     valid_dicts = [
-        {'file_name': 'test_file.txt',
-         'record_id': '1',
-         'user_mail': 'test@example.org'},
-        {'file_name':
-         'test_file.txt',
-         'record_id': '1',
-         'guest_mail': 'test@example.org'},
+        {
+            "file_name": "test_file.txt",
+            "record_id": "1",
+            "user_mail": "test@example.org"
+        },
+        {
+            "file_name": "test_file.txt",
+            "record_id": "1",
+            "guest_mail": "test@example.org"
+        },
     ]
     invalid_dicts = [
-        {'record_id': '1', 'user_mail': 'test@example.org'},
-        {'file_name': 'test_file.txt', 'user_mail': 'test@example.org'},
-        {'file_name': 'test_file.txt', 'record_id': '1'},
+        { # missing file_name
+            "record_id": "1",
+            "user_mail": "test@example.org"
+        },
+        { # missing record_id
+            "file_name": "test_file.txt",
+            "user_mail": "test@example.org"
+        },
+        { # missing user_mail and guest_mail
+            "file_name": "test_file.txt",
+            "record_id": "1"
+        },
     ]
-    for valid_dict in valid_dicts:
-        result = create_onetime_download_url_to_guest(1, valid_dict)
-        assert 'file_url' in result
-        assert 'expiration_date' in result
-        delete_activity.reset_mock()
-    for invalid_dict in invalid_dicts:
-        result = create_onetime_download_url_to_guest(1, invalid_dict)
-        assert result == {}
+
+    with app.test_request_context():
+        for valid_dict in valid_dicts:
+            result = create_onetime_download_url_to_guest(1, valid_dict)
+            assert 'file_url' in result
+            assert 'expiration_date' in result
+            delete_activity.reset_mock()
+
+    with app.test_request_context():
+        for invalid_dict in invalid_dicts:
+            result = create_onetime_download_url_to_guest(1, invalid_dict)
+            assert result == {}
 
 
 # def create_onetime_download_url_to_guest(activity_id: str,

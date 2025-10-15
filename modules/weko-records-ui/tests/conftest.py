@@ -232,7 +232,7 @@ def base_app(instance_path):
         WEKO_INDEX_TREE_UPATED=True,
         WEKO_INDEX_TREE_REST_ENDPOINTS=WEKO_INDEX_TREE_REST_ENDPOINTS,
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English"), ('fr', 'French')],
-        SERVER_NAME="TEST_SERVER",
+        SERVER_NAME="test_server",
         SEARCH_ELASTIC_HOSTS="elasticsearch",
         SEARCH_INDEX_PREFIX="test-",
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME=WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
@@ -6174,7 +6174,7 @@ def db_rocrate_mapping(db):
 
 
 @pytest.fixture
-def secret_url(users, params=None):
+def secret_url(app, users, params=None):
     """Fixture that creates secret URL object and provides the token of it.
 
     Args:
@@ -6182,15 +6182,18 @@ def secret_url(users, params=None):
     """
     params = params or {}
     ex_date = datetime.now(timezone.utc) + timedelta(days=30)
-    secret_obj = FileSecretDownload.create(
-        creator_id      =params.get('creator_id'     , 1         ),
-        record_id       =params.get('record_id'      , '1'       ),
-        file_name       =params.get('file_name'      , 'test.txt'),
-        label_name      =params.get('label_name'     , 'test_url'),
-        expiration_date =params.get('expiration_date', ex_date   ),
-        download_limit  =params.get('download_limit' , 10        )
-    )
-    secret_url = create_download_url(secret_obj)
+    secret_obj = None
+    secret_url = None
+    with app.test_request_context():
+        secret_obj = FileSecretDownload.create(
+            creator_id      =params.get('creator_id'     , 1         ),
+            record_id       =params.get('record_id'      , '1'       ),
+            file_name       =params.get('file_name'      , 'test.txt'),
+            label_name      =params.get('label_name'     , 'test_url'),
+            expiration_date =params.get('expiration_date', ex_date   ),
+            download_limit  =params.get('download_limit' , 10        )
+        )
+        secret_url = create_download_url(secret_obj)
     match = re.search(r'[?&]token=([^&]+)', secret_url)
     secret_token = match.group(1)
     return {
@@ -6201,7 +6204,7 @@ def secret_url(users, params=None):
 
 
 @pytest.fixture
-def onetime_url(users, params=None):
+def onetime_url(app, users, params=None):
     """Fixture that creates onetime URL object and provides the token of it.
 
     Args:
@@ -6209,17 +6212,20 @@ def onetime_url(users, params=None):
     """
     params = params or {}
     ex_date = datetime.now(timezone.utc) + timedelta(days=30)
-    onetime_obj = FileOnetimeDownload.create(
-        approver_id     = params.get('approver_id'    , 1                 ),
-        record_id       = params.get('record_id'      , '1'               ),
-        file_name       = params.get('file_name'      , 'test.txt'        ),
-        expiration_date = params.get('expiration_date', ex_date           ),
-        download_limit  = params.get('download_limit' , 10                ),
-        user_mail       = params.get('user_mail'      , 'test@example.org'),
-        is_guest        = params.get('is_guest'       , False             ),
-        extra_info      = params.get('extra_info'     , {'activity_id': 1})
-    )
-    onetime_url = create_download_url(onetime_obj)
+    onetime_obj = None
+    onetime_url = None
+    with app.test_request_context():
+        onetime_obj = FileOnetimeDownload.create(
+            approver_id     = params.get('approver_id'    , 1                 ),
+            record_id       = params.get('record_id'      , '1'               ),
+            file_name       = params.get('file_name'      , 'test.txt'        ),
+            expiration_date = params.get('expiration_date', ex_date           ),
+            download_limit  = params.get('download_limit' , 10                ),
+            user_mail       = params.get('user_mail'      , 'test@example.org'),
+            is_guest        = params.get('is_guest'       , False             ),
+            extra_info      = params.get('extra_info'     , {'activity_id': 1})
+        )
+        onetime_url = create_download_url(onetime_obj)
     match = re.search(r'[?&]token=([^&]+)', onetime_url)
     onetime_token = match.group(1)
     return {
