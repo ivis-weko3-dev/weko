@@ -886,10 +886,13 @@ class Indexes(object):
                 while role:
                     tmp = role.pop(0)
                     if tmp["name"] not in current_app.config['WEKO_PERMISSION_SUPER_ROLE_USER']:
-                        if str(tmp["id"]) in allow:
-                            alw.append(tmp)
-                        else:
-                            deny.append(tmp)
+                        role_key = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["role_keyword"]
+                        prefix = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["prefix"]
+                        if tmp["name"] not in role_key and not (tmp["name"].startswith(prefix)):
+                            if str(tmp["id"]) in allow:
+                                alw.append(tmp)
+                            else:
+                                deny.append(tmp)
             return alw, deny
 
         def _get_group_allow_deny(allow_group_id=[], groups=[]):
@@ -2185,11 +2188,11 @@ class Indexes(object):
     @classmethod
     def bind_roles_including_permission(cls, roles, permission):
         """Bind roles including permissions.
-        
+
         Args:
             roles (list): List of roles.
             permission (bool): Permission of default browsing or contribute.
-        
+
         Returns:
             list: List of roles what binded.
         """

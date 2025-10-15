@@ -73,3 +73,42 @@ def test_get_email_by_id(app, users):
         with app.test_client() as client:
             lst = User.get_email_by_id(1)
             assert len(lst) > 0
+
+# .tox/c1/bin/pytest --cov=invenio_accounts tests/test_models.py::test_info_display -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/invenio-accounts/.tox/c1/tmp
+def test_info_display(app):
+    """Test Role.info_display property."""
+    from invenio_accounts.models import Role
+    with app.app_context():
+        app.config.update(dict(
+            WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT=
+            {
+                "role_keyword": "roles",
+                "role_mapping": {
+                    "repoadm": "Repository Administrator",
+                    "comadm": "Community Administrator",
+                    "contributor": "Contributor",
+                }
+            }
+        ))
+        role1 = Role(id=1, name="Contributor", description=None)
+        role2 = Role(id=2, name="jc_xxx_roles_contributor", description=None)
+        role3 = Role(id=3, name="jc_xxx_groups_yyy", description=None)
+        db.session.add_all([role1, role2, role3])
+        db.session.commit()
+
+        # role_keywordを含み、role_mappingに含まれないsuffix
+        assert role1.info_display == {
+            "id": 1,
+            "name": "Contributor",
+            "description": None
+        }
+
+        # role_keywordを含み、role_mappingに含まれるsuffix
+        assert role2.info_display is None
+
+        # role_keywordを含まない
+        assert role3.info_display == {
+            "id": 3,
+            "name": "jc_xxx_groups_yyy",
+            "description": None
+        }

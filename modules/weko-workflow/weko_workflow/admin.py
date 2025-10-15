@@ -70,7 +70,7 @@ class FlowSettingView(BaseView):
         :return:
         """
         users = User.query.filter_by(active=True).all()
-        roles = Role.query.all()
+        roles = Role.query.filter(~Role.name.like('%roles%')).all()
         if set(role.name for role in current_user.roles) & \
                 set(current_app.config['WEKO_PERMISSION_SUPER_ROLE_USER']):
             repositories = [{"id": "Root Index"}] + Community.query.all()
@@ -357,7 +357,7 @@ class WorkFlowSettingView(BaseView):
         index_list = Index().get_all()
         location_list = Location.query.order_by(Location.id.asc()).all()
         hide = []
-        role = Role.query.all()
+        role = Role.query.filter(~Role.name.like('%roles%')).all()
         display_label = self.get_language_workflows("display")
         hide_label = self.get_language_workflows("hide")
         display_hide = self.get_language_workflows("display_hide")

@@ -47,6 +47,26 @@ class Role(db.Model, RoleMixin):
         """Return the name and description of the role."""
         return '{0.name} - {0.description}'.format(self)
 
+    @property
+    def info_display(self):
+        """Return organized role info as dict."""
+        roles_key = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["role_keyword"]
+        role_mapping = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["role_mapping"]
+        role_name = self.name
+        # roles_keyやrole_mappingに含まれる場合は渡さない
+        suffix = None
+        if roles_key in role_name:
+            suffix = role_name.split(roles_key + '_')[-1]
+        if (roles_key in role_name and suffix and suffix not in role_mapping.keys()) or (roles_key not in role_name):
+            return {
+                "id": self.id,
+                "name": role_name,
+                "description": self.description
+            }
+
+        # それ以外はNone
+        return None
+
 
 class User(db.Model, UserMixin):
     """User data model."""
