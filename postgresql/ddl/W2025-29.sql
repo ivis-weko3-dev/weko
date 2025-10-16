@@ -6,13 +6,13 @@ BEGIN;
 ALTER TABLE accounts_user_session_activity ADD COLUMN orgniazation_name VARCHAR(255);
 
 -- modules/invenio-communities/invenio_communities/alembic/d2d56dc5e385_add_column.py
-ALTER TABLE communities_community ADD COLUMN thumbnail_path TEXT;
+ALTER TABLE communities_community ADD COLUMN thumbnail_path TEXT DEFAULT '';
 ALTER TABLE communities_community ADD COLUMN login_menu_enabled BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE communities_community ADD COLUMN catalog_json JSONB;
+ALTER TABLE communities_community ADD COLUMN catalog_json JSONB DEFAULT '[]'::JSONB;
 ALTER TABLE communities_community ADD COLUMN cnri TEXT;
 
 -- modules/invenio-communities/invenio_communities/alembic/1b352b00f1ed_add_columns.py
-ALTER TABLE communities_community ADD COLUMN content_policy TEXT;
+ALTER TABLE communities_community ADD COLUMN content_policy TEXT DEFAULT '';
 ALTER TABLE communities_community ADD COLUMN group_id INTEGER;
 ALTER TABLE communities_community ADD CONSTRAINT fk_communities_community_group_id_accounts_role FOREIGN KEY (group_id) REFERENCES accounts_role(id);
 
@@ -65,52 +65,52 @@ ALTER TABLE stats_email_address ADD COLUMN repository_id VARCHAR(100) DEFAULT 'R
 
 -- modules/weko-authors/weko_authors/alembic/1e377b157a5d_add_repository_id_column.py
 -- If updating v1.0.8 to v2.0.0 or later, please make sure to not use this query.
-ALTER TABLE authors ADD COLUMN repository_id JSONB;
-ALTER TABLE authors_affiliation_settings ADD COLUMN repository_id JSONB;
-ALTER TABLE authors_prefix_settings ADD COLUMN repository_id JSONB;
+-- ALTER TABLE authors ADD COLUMN repository_id JSONB;
+-- ALTER TABLE authors_affiliation_settings ADD COLUMN repository_id JSONB;
+-- ALTER TABLE authors_prefix_settings ADD COLUMN repository_id JSONB;
 
 -- modules/weko-authors/weko_authors/alembic/b2ce1889616c_create_author_community_relation_tables.py
--- CREATE TABLE author_affiliation_community_relations (
---     created TIMESTAMP NOT NULL,
---     updated TIMESTAMP NOT NULL,
---     affiliation_id BIGINT NOT NULL,
---     community_id VARCHAR(100) NOT NULL,
---     CONSTRAINT fk_author_affiliation_community_relations_affiliation_id_authors_affiliation_settings
---         FOREIGN KEY (affiliation_id) REFERENCES authors_affiliation_settings(id) ON DELETE CASCADE,
---     CONSTRAINT fk_author_affiliation_community_relations_community_id_communities_community
---         FOREIGN KEY (community_id) REFERENCES communities_community(id) ON DELETE CASCADE,
---     CONSTRAINT pk_author_affiliation_community_relations PRIMARY KEY (affiliation_id, community_id)
--- );
--- CREATE TABLE author_community_relations (
---     created TIMESTAMP NOT NULL,
---     updated TIMESTAMP NOT NULL,
---     author_id BIGINT NOT NULL,
---     community_id VARCHAR(100) NOT NULL,
---     CONSTRAINT fk_author_community_relations_author_id_authors
---         FOREIGN KEY (author_id) REFERENCES authors(id) ON DELETE CASCADE,
---     CONSTRAINT fk_author_community_relations_community_id_communities_community
---         FOREIGN KEY (community_id) REFERENCES communities_community(id) ON DELETE CASCADE,
---     CONSTRAINT pk_author_community_relations PRIMARY KEY (author_id, community_id)
--- );
--- CREATE TABLE author_prefix_community_relations (
---     created TIMESTAMP NOT NULL,
---     updated TIMESTAMP NOT NULL,
---     prefix_id BIGINT NOT NULL,
---     community_id VARCHAR(100) NOT NULL,
---     CONSTRAINT fk_author_prefix_community_relations_community_id_communities_community
---         FOREIGN KEY (community_id) REFERENCES communities_community(id) ON DELETE CASCADE,
---     CONSTRAINT fk_author_prefix_community_relations_prefix_id_authors_prefix_settings
---         FOREIGN KEY (prefix_id) REFERENCES authors_prefix_settings(id) ON DELETE CASCADE,
---     CONSTRAINT pk_author_prefix_community_relations PRIMARY KEY (prefix_id, community_id)
--- );
+CREATE TABLE author_affiliation_community_relations (
+    created TIMESTAMP NOT NULL,
+    updated TIMESTAMP NOT NULL,
+    affiliation_id BIGINT NOT NULL,
+    community_id VARCHAR(100) NOT NULL,
+    CONSTRAINT fk_author_affiliation_community_relations_affiliation_id_authors_affiliation_settings
+        FOREIGN KEY (affiliation_id) REFERENCES authors_affiliation_settings(id) ON DELETE CASCADE,
+    CONSTRAINT fk_author_affiliation_community_relations_community_id_communities_community
+        FOREIGN KEY (community_id) REFERENCES communities_community(id) ON DELETE CASCADE,
+    CONSTRAINT pk_author_affiliation_community_relations PRIMARY KEY (affiliation_id, community_id)
+);
+CREATE TABLE author_community_relations (
+    created TIMESTAMP NOT NULL,
+    updated TIMESTAMP NOT NULL,
+    author_id BIGINT NOT NULL,
+    community_id VARCHAR(100) NOT NULL,
+    CONSTRAINT fk_author_community_relations_author_id_authors
+        FOREIGN KEY (author_id) REFERENCES authors(id) ON DELETE CASCADE,
+    CONSTRAINT fk_author_community_relations_community_id_communities_community
+        FOREIGN KEY (community_id) REFERENCES communities_community(id) ON DELETE CASCADE,
+    CONSTRAINT pk_author_community_relations PRIMARY KEY (author_id, community_id)
+);
+CREATE TABLE author_prefix_community_relations (
+    created TIMESTAMP NOT NULL,
+    updated TIMESTAMP NOT NULL,
+    prefix_id BIGINT NOT NULL,
+    community_id VARCHAR(100) NOT NULL,
+    CONSTRAINT fk_author_prefix_community_relations_community_id_communities_community
+        FOREIGN KEY (community_id) REFERENCES communities_community(id) ON DELETE CASCADE,
+    CONSTRAINT fk_author_prefix_community_relations_prefix_id_authors_prefix_settings
+        FOREIGN KEY (prefix_id) REFERENCES authors_prefix_settings(id) ON DELETE CASCADE,
+    CONSTRAINT pk_author_prefix_community_relations PRIMARY KEY (prefix_id, community_id)
+);
 
 -- modules/weko-index-tree/weko_index_tree/alembic/efd70c593f4b_update_index.py
 ALTER TABLE index ADD COLUMN index_url TEXT;
 ALTER TABLE index ADD COLUMN cnri TEXT;
 
 -- modules/weko-indextree-journal/weko_indextree_journal/alembic/b6cb93e7e896_add_column.py
-ALTER TABLE journal ADD COLUMN abstract TEXT;
-ALTER TABLE journal ADD COLUMN code_issnl TEXT;
+ALTER TABLE journal ADD COLUMN abstract TEXT DEFAULT '';
+ALTER TABLE journal ADD COLUMN code_issnl TEXT DEFAULT '';
 
 -- modules/weko-logging/weko_logging/alembic/9135a3e69760_create_user_activity_log_table.py
 CREATE TABLE user_activity_logs (
@@ -1146,6 +1146,7 @@ INSERT INTO public.jsonld_mappings(created, updated, id, name, mapping, item_typ
 
 -- fix_issue_37736.sql
 
+-- Decided not to delete
 -- ALTER TABLE site_info DROP COLUMN addthis_user_id;
 
 -- fix_issue_39700.sql
@@ -1167,13 +1168,73 @@ ALTER TABLE resync_indexes ALTER COLUMN saving_format TYPE character varying(20)
 
 -- v1.0.8.sql
 
-ALTER TABLE public.feedback_mail_list ADD COLUMN account_author text;
+ALTER TABLE public.feedback_mail_list ADD COLUMN account_author text NOT NULL DEFAULT '';
 ALTER TABLE public.index ADD COLUMN is_deleted boolean DEFAULT false;
 
 -- public.authors_prefix_settings.sql
 
 INSERT INTO public.authors_prefix_settings(name, scheme, url, created, updated) VALUES 
 ('researchmap', 'researchmap', 'https://researchmap.jp/##', TIMESTAMP '2024-01-01 00:00:00.000', TIMESTAMP '2024-01-01 00:00:00.000');
+
+-- update records metadata (restricted access)
+-- weko_shared_id -> weko_shared_ids, owner -> owners
+
+UPDATE records_metadata
+SET json = (
+	json #- '{weko_shared_id}'
+	|| jsonb_build_object(
+		'weko_shared_ids',
+			CASE
+				WHEN (json::jsonb #>> '{weko_shared_id}') IS NULL
+				  OR (json::jsonb #>> '{weko_shared_id}') = ''
+				  OR ((json::jsonb #>> '{weko_shared_id}')::numeric <= 0)
+				THEN '[]'::jsonb
+				ELSE jsonb_build_array((json::jsonb #>> '{weko_shared_id}')::numeric)
+			END,
+		'owner', (json #>> '{owner}')::numeric,
+		'owners', jsonb_build_array((json #>> '{owner}')::numeric),
+		'_deposit', json -> '_deposit'
+			|| jsonb_build_object(
+				'weko_shared_ids',
+					CASE
+						WHEN (json::jsonb #>> '{weko_shared_id}') IS NULL
+						  OR (json::jsonb #>> '{weko_shared_id}') = ''
+						  OR ((json::jsonb #>> '{weko_shared_id}')::numeric <= 0)
+						THEN '[]'::jsonb
+						ELSE jsonb_build_array((json::jsonb #>> '{weko_shared_id}')::numeric)
+					END,
+				'owner', (json #>> '{owner}')::numeric,
+				'owners', jsonb_build_array((json #>> '{owner}')::numeric)
+			)
+	)
+) WHERE json ? 'owner';
+
+-- update item metadata (restricted access)
+-- shared_user_id -> shared_user_ids/weko_shared_ids, owner -> owner
+
+UPDATE item_metadata
+SET json = (
+	json #- '{shared_user_id}'
+	|| jsonb_build_object(
+		'shared_user_ids',
+			CASE
+				WHEN (json::jsonb #>> '{shared_user_id}') IS NULL
+				  OR (json::jsonb #>> '{shared_user_id}') = ''
+				  OR ((json::jsonb #>> '{shared_user_id}')::numeric <= 0)
+				THEN '[]'::jsonb
+				ELSE jsonb_build_array((json::jsonb #>> '{shared_user_id}')::numeric)
+			END,
+		'weko_shared_ids',
+			CASE
+				WHEN (json::jsonb #>> '{shared_user_id}') IS NULL
+				  OR (json::jsonb #>> '{shared_user_id}') = ''
+				  OR ((json::jsonb #>> '{shared_user_id}')::numeric <= 0)
+				THEN '[]'::jsonb
+				ELSE jsonb_build_array((json::jsonb #>> '{shared_user_id}')::numeric)
+			END,
+		'owner', (json #>> '{owner}')::numeric
+	)
+);
 
 -- researchmap
 
