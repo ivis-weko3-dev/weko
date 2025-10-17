@@ -184,12 +184,19 @@ RECORDS_UI_ENDPOINTS = dict(
                                ':edit_permission_factory',
         methods=['POST'],
     ),
+    recid_guest_onetime_validation=dict(
+        pid_type='recid',
+        route='/record/<pid_value>/file/onetime/<string:filename>',
+        view_imp='weko_records_ui.fd.check_onetime_token_and_validate',
+        record_class='weko_deposit.api:WekoRecord',
+        methods=['GET'],
+    ),
     recid_guest_file_download=dict(
         pid_type='recid',
         route='/record/<pid_value>/file/onetime/<string:filename>',
         view_imp='weko_records_ui.fd.file_download_onetime',
         record_class='weko_deposit.api:WekoRecord',
-        methods=['GET','POST'],
+        methods=['POST'],
     ),
     recid_secret_url=dict(
         pid_type='recid',

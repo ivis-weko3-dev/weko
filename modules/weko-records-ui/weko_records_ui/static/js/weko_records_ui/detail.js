@@ -673,48 +673,54 @@ $('#mailcheck_download_modal').on('hidden.bs.modal', function () {
   document.location.href = location.pathname;
 })
 $('#mailaddress_confirm_download').click(function () {
- let mailaddress = document.getElementById('mail_form').value;
- let password_checkflag = document.getElementById("password_checkflag").value;
- var input_password;
- var post_data = {};
- if(password_checkflag == "True"){
-  input_password = document.getElementById('input_password').value;
-  post_data = {'input_password': input_password};
-}
- let input_error = document.getElementById('input_error_messsge').value;
- let url_element = document.getElementById('url_element');
- let onetime_file_url = url_element.dataset.onetime_file_url;
- const get_uri =  onetime_file_url + '&mailaddress='+ mailaddress + '&isajax=true';
- let item_detailes_url = location.pathname;
- if(mailaddress == null || mailaddress == ""){
-   alert(input_error);
-   document.location.href = onetime_file_url;
- }else{
-    $.ajax({
-      url: get_uri,
+  let mailaddress = document.getElementById('mail_form').value;
+  let password_checkflag = document.getElementById("password_checkflag").value;
+  var input_password;
+  var post_data = {
+    'mail_address': mailaddress
+  };
+  if(password_checkflag == "True"){
+    input_password = document.getElementById('input_password').value;
+    post_data.input_password = input_password;
+  }
+  let input_error = document.getElementById('input_error_messsge').value;
+  const onetime_url = $('#onetime_info').data('onetime_url');
+  const onetime_filename = $('#onetime_info').data('onetime_filename');
+  let item_detailes_url = location.pathname;
+  if(mailaddress == null || mailaddress == ""){
+    alert(input_error);
+    document.location.href = onetime_url;
+  }else{
+    fetch(onetime_url, {
       method: 'POST',
-      async: true,
-      data: JSON.stringify(post_data),
-      contentType: 'application/json',
-      success: function (response) {
-          let link = document.createElement("a");
-          link.download = "";
-          if (!!response.guest_token) {
-            link.href = get_uri + "&guest-token=" + response.guest_token;
-          } else {
-            link.href = get_uri;
-          }
-          link.click();
-          $('#mailcheck_download_modal').modal('hide');
-          document.location.href = item_detailes_url;
-        },
-      error: function (error) {
-          response_text = error['responseText'];
-          alert(response_text);
-          $('#mailcheck_download_modal').modal('hide');
-          document.location.href = item_detailes_url;
-        }
-      })
+      body: JSON.stringify(post_data),
+    })
+    .then(async response => {
+      if (!response.ok) {
+        return response.text().then(text => { throw new Error(text) });
+      } else if (!response.body) {
+        throw new Error('No response body');
+      }
+
+      // download file from response body (body data is readable stream)
+      const downloadBlob = await response.blob();
+      const objectUrl = URL.createObjectURL(downloadBlob);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = objectUrl;
+      downloadLink.download = onetime_filename;
+
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(objectUrl);
+      $('#mailcheck_download_modal').modal('hide');
+    })
+    .catch(error => {
+      alert(error.message || 'An error occurred');
+      $('#mailcheck_download_modal').modal('hide');
+      document.location.href = item_detailes_url;
+    });
   }
 });
 

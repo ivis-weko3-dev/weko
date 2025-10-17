@@ -733,10 +733,10 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
     restricted_errorMsg = restricted_access['content'].get(current_lang, None)['content']
 
     onetime_file_name = ''
-    onetime_file_url = request.args.get("onetime_file_url")
-    if onetime_file_url:
-        k = urlparse(onetime_file_url)
-        onetime_file_name = k.path.split("/")[-1]
+    onetime_url = request.args.get("onetime_url")
+    if onetime_url:
+        onetime_url_parsed = urlparse(onetime_url)
+        onetime_file_name = onetime_url_parsed.path.split("/")[-1]
 
     # Get communities info
     belonging_community = []
@@ -818,7 +818,7 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
         show_secret_URL=can_manage_secret_url(record, filename),
         mailcheckflag = mailcheckflag,
         show_onetime_URL=can_manage_onetime_url(record, filename),
-        onetime_file_url = onetime_file_url,
+        onetime_url = onetime_url,
         onetime_file_name = onetime_file_name,
         active_secret_URLs=FileSecretDownload.fetch_active_urls(
         record_id=pid.pid_value, file_name=filename, ascending=True),
