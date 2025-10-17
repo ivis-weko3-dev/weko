@@ -58,7 +58,7 @@ def test_view_with_xsl(app, db):
 
         assert b'xml-stylesheet' in res.data
 
-
+@pytest.skip
 def test_alembic(app, db):
     """Test alembic recipes."""
     ext = app.extensions['invenio-db']

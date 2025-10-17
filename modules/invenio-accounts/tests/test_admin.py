@@ -45,7 +45,7 @@ def test_admin(app, admin_view):
 
         res = client.post(
             request_url,
-            data={'rowid': inserted_id, 'action': 'activate'},
+            data={'rowid': inserted_id, 'action': 'activate','url':'/admin/user'},
             follow_redirects=True
         )
         assert res.status_code == 200
