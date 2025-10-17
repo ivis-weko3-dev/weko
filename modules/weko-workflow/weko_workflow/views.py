@@ -1567,7 +1567,7 @@ def next_action(activity_id='0', action_id=0, json_data=None):
         is_last_step = next_action_endpoint == 'end_action'
         # Only gen url file link at last approval step
         url_and_expired_date = {}
-        if is_last_step:
+        if is_last_step and current_app.config.get('WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG'):
             # Approve to file permission
             # 利用申請のWF時、申請されたファイルと、そのアイテム内の制限公開ファイルすべてにアクセス権を付与する
             permissions :List[FilePermission] = FilePermission.find_by_activity(activity_id)

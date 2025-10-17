@@ -35,6 +35,7 @@ from invenio_oauth2server import require_api_auth, require_oauth_scopes
 from urllib import parse
 from redis import RedisError
 from werkzeug.http import generate_etag
+from werkzeug.exceptions import Forbidden
 
 from invenio_db import db
 from invenio_oauth2server import require_api_auth, require_oauth_scopes
@@ -407,6 +408,8 @@ class GetFileTerms(ContentNegotiatedMethodView):
             raise VersionNotFoundRESTError() # 404 Error
 
     def get_v1(self, **kwargs):
+        if not current_app.config["WEKO_RECORDS_UI_RESTRICTED_API"]:
+            raise Forbidden()
         # Get parameter
         param_pretty = str(request.values.get('pretty', 'false'))
         language = str(request.headers.get('Accept-Language', 'en'))
@@ -483,6 +486,8 @@ class FileApplication(ContentNegotiatedMethodView):
             raise VersionNotFoundRESTError() # 404 Error
 
     def post_v1(self, **kwargs):
+        if not current_app.config["WEKO_RECORDS_UI_RESTRICTED_API"]:
+            raise Forbidden()
         # Get parameter
         language = str(request.headers.get('Accept-Language', 'en'))
         param_pretty = str(request.values.get('pretty', 'false'))

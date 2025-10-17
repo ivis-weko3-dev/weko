@@ -288,7 +288,7 @@ class FlowSettingView(BaseView):
             if r.name in current_app.config['WEKO_SYS_USER']:
                 is_sysadmin =True
                 break
-        if not is_sysadmin :
+        if not is_sysadmin and current_app.config["WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG"]:
             wfs:list = WorkFlow().get_workflow_by_flow_id(flow.id)
             if 0 < len(list(filter(lambda wf : wf.open_restricted ,wfs ))):
                 return False
@@ -407,8 +407,7 @@ class WorkFlowSettingView(BaseView):
         else:
             display = role
             hide = []
-
-        if workflows.open_restricted and not is_sysadmin:
+        if workflows.open_restricted and not is_sysadmin and current_app.config["WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG"]:
             abort(403)
 
         return self.render(

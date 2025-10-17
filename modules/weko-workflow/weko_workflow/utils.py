@@ -3772,7 +3772,7 @@ def create_onetime_download_url_to_guest(activity_id: str,
 
     return {
         "file_url": create_download_url(url_obj),
-        "expiration_date": url_obj.expiration_date
+        "expiration_date": url_obj.expiration_date.strftime("%Y-%m-%d")
     }
 
 

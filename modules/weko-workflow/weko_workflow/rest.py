@@ -33,6 +33,7 @@ from invenio_pidstore.models import PersistentIdentifier
 from invenio_oauth2server import require_api_auth, require_oauth_scopes
 from invenio_rest import ContentNegotiatedMethodView
 from werkzeug.http import generate_etag
+from werkzeug.exceptions import Forbidden
 from weko_deposit.api import WekoDeposit
 from weko_index_tree.api import Indexes
 from weko_index_tree.utils import get_index_id
@@ -382,6 +383,8 @@ class FileApplicationActivity(ContentNegotiatedMethodView):
             raise VersionNotFoundRESTError() # 404 Error
 
     def post_v1(self, **kwargs):
+        if not current_app.config["WEKO_RECORDS_UI_RESTRICTED_API"]:
+            raise Forbidden()
         def _fit_item_data_to_schema(schema, item_data, activity,
                                      current_key="", errors:list=[], _title_fill_data:dict={}):
             ret = None
