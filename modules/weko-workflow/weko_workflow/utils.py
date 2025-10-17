@@ -2002,6 +2002,7 @@ def handle_finish_workflow(deposit, current_pid, recid):
     if not deposit:
         return None
 
+    pid_without_ver = None
     item_id = None
     old_record = None
     new_record = None

@@ -1583,7 +1583,7 @@ def test_publish(app, client, records):
                             publish(record.pid, record_1_b)
                             mock_external.assert_called_with(old_record=record_1_c, new_record=record_0_c)
 
-# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_request_context -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_get_bucket_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_get_bucket_list(app,records,users):
     with app.test_request_context():
         with patch("weko_records_ui.views.get_s3_bucket_list", return_value=[]):
@@ -1591,7 +1591,7 @@ def test_get_bucket_list(app,records,users):
             assert response.status_code == 200
         with patch("weko_records_ui.views.get_s3_bucket_list",side_effect=Exception):
             response = get_bucket_list()
-            assert response.status_code == 400
+            assert response[1] == 400
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_copy_bucket -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_copy_bucket(app,records,users, client):

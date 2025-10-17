@@ -112,7 +112,7 @@ def test_call_external_system(app, records, mocker):
     update_api_response.text = ""
     update_api_response.status_code = 200
 
-    with patch("weko_logging.activity_logger.UserActivityLogger.info") as mock_logger:
+    with patch("weko_records_ui.external.UserActivityLogger.info") as mock_logger:
         result = {}
         result[EXTERNAL_SYSTEM.OA.value] = {"status": "ok"}
         update_api_response.json = lambda: {"status":"ok"}
@@ -149,7 +149,7 @@ def test_call_external_system(app, records, mocker):
                     return_value=update_api_response) as update_api_mock:
             call_external_system(old_record=record1)
             data["status_action"] = ITEM_ACTION.DELETED.value
-            data["item_info"]["publish_status"] = OAPublishStatus.DELETED.value
+            data["item_info"]["publish_status"] = int(PublishStatus.DELETE.value)
             update_api_mock.assert_called_once_with(
                 url, headers=headers, json=data
             )
@@ -162,7 +162,7 @@ def test_call_external_system(app, records, mocker):
             record2["publish_status"] = PublishStatus.PRIVATE.value
             call_external_system(old_record=record1, new_record=record2)
             data["status_action"] = ITEM_ACTION.UPDATED.value
-            data["item_info"]["publish_status"] = OAPublishStatus.DRAFT.value
+            data["item_info"]["publish_status"] = int(record2.get("publish_status"))
             update_api_mock.assert_called_once_with(
                 url, headers=headers, json=data
             )
@@ -170,39 +170,30 @@ def test_call_external_system(app, records, mocker):
         # case 500 error
         update_api_response.status_code = 500
         update_api_response.json = lambda: {"status":"ng", "message": "error"}
-        expected_remarks = {
-            "action": ITEM_ACTION.CREATED.value,
-            EXTERNAL_SYSTEM.OA.value: {"status":"ng", "message": "error"}
+        result[EXTERNAL_SYSTEM.OA.value] = {"status":"ng", "message": "error"}
+        result["action"] = ITEM_ACTION.CREATED.value
+        logger_result = {
+            "operation": "ITEM_EXTERNAL_LINK",
+            "target_key": "1",
+            "request_info": None,
+            "remarks": result,
+            "required_commit": False
         }
         with patch('requests.Session.put', return_value=update_api_response
                     ) as update_api_mock:
             call_external_system(new_record=record1)
             update_api_mock.assert_called_once()
-            mock_logger.assert_called_with(
-                operation="ITEM_EXTERNAL_LINK",
-                target_key="1",
-                request_info=None,
-                remarks=json.dumps(expected_remarks),
-                required_commit=False
-            )
+            mock_logger.assert_called_with(**logger_result)
 
         # case RequestException
-        expected_remarks = {
-            "action": ITEM_ACTION.CREATED.value,
-            EXTERNAL_SYSTEM.OA.value: {"status":"error"}
-        }
+        result[EXTERNAL_SYSTEM.OA.value] = {"status":"error"}
+        logger_result["remarks"] = result
         with patch('requests.Session.put',
                     side_effect=requests.exceptions.RequestException
                     ) as update_api_mock:
             call_external_system(new_record=record1)
             update_api_mock.assert_called_once()
-            mock_logger.assert_called_with(
-                operation="ITEM_EXTERNAL_LINK",
-                target_key="1",
-                request_info=None,
-                remarks=json.dumps(expected_remarks),
-                required_commit=False
-            )
+            mock_logger.assert_called_with(**logger_result)
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_external.py::test_call_external_system_error_config -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -213,12 +204,12 @@ def test_call_external_system_error_config(app, records, mocker):
         "WEKO_RECORDS_UI_OA_GET_TOKEN_URL")
     record1 = WekoRecord.get_record_by_pid(1)
     token_api_response = MagicMock()
-    token_api_response.text = "mocked_token"
+    token_api_response.text = '{"access_token": "mocked_token"}'
     article_id = 1234
     api_cert = {
         "cert_data": {
             "client_id": "aaa",
-            "secret": "bbb"
+            "client_secret": "bbb"
         }
     }
     mocker.patch("weko_records_ui.external.get_article_id",
