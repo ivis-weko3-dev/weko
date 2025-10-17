@@ -2,13 +2,19 @@ const {useState, useEffect ,useCallback} = React;
 const CONTENT_FILE_DOWNLOAD_LABEL = document.getElementById('content_file_download_label').value;
 const DOWNLOAD_LIMIT_LABEL = document.getElementById('download_limit_label').value;
 const EXPIRATION_DATE_LABEL = document.getElementById('expiration_date_label').value;
+const MAX_DOWNLOAD_LIMIT_LABEL= document.getElementById('max_download_limit_label').value
+const MAX_EXPIRATION_DATE_LABEL= document.getElementById('max_expiration_date_label').value
+const EXPIRATION_DATE_INITIAL_LABEL = document.getElementById('expiration_date_initial_label').value;
+const DOWNLOAD_LIMIT_INITIAL_LABEL = document.getElementById('download_limit_initial_label').value;
 const UNLIMITED_LABEL = document.getElementById('unlimited_label').value;
 const SAVE_LABEL = document.getElementById('save_label').value;
 const CHECK_INPUT_DOWNLOAD = document.getElementById('check_input_download').value;
 const CHECK_INPUT_EXPIRATION_DATE = document.getElementById('check_input_expiration_date').value;
 const EMPTY_DOWNLOAD = document.getElementById('empty_download').value;
-const EMPTY_EXPIRATION_DATE = document.getElementById('empty_expiration_date').value;
 const EMPTY_ERROR_MESSAGE = document.getElementById('empty_error_message').value;
+const EMPTY_EXPIRATION_DATE = document.getElementById('empty_expiration_date').value;
+const EMPTY_MAX_EXPIRATION_DATE = document.getElementById('empty_max_expiration_date').value;
+const EMPTY_MAX_DOWNLOAD_LIMIT = document.getElementById('empty_max_download_limit').value;
 const USAGE_REPORT_WORKFLOW_ACCESS_LABEL = document.getElementById('usage_report_workflow_access_label').value
 const MAXINT = Number(document.getElementById('maxint').value)
 const MAX_DOWNLOAD_LIMIT = MAXINT;
@@ -73,45 +79,65 @@ function InputComponent({
                           label,
                           currentValue,
                           checkboxValue,
+                          canSetUnlimited,
                           value,
                           setValue,
                           inputId,
                           checkboxId,
-                          disabledAll=false
+                          disabledAll=false,
+                          maxLength=String(MAXINT).length,
+                          max=MAXINT
                         }) {
-  const style = {marginRight: "5px", marginLeft: "15px"}
+  const style = {marginRight: "5px", marginLeft: "15px"};
+  const containerStyle ={display: 'flex',gap:'15px',marginBottom:'2px'};
 
   function handleChange(event) {
     event.preventDefault();
     let target = event.target;
     let key = target.id;
-    let updateValue = target.type === 'checkbox' ? target.checked : target.value;
+    let updateValue = target.value;
 
-    if (target.type !== 'checkbox') {
-      if (!event.target.validity.valid) {
-        updateValue = value[key];
-      }
-      if (isNaN(updateValue)) {
-        try {
-          updateValue = parseInt(updateValue);
-        } catch (e) {
-          console.log(e);
-        }
+    if (parseInt(updateValue) > max) {
+      updateValue = max;
+    }
+
+    if (!event.target.validity.valid) {
+      updateValue = value[key];
+    }
+    if (isNaN(updateValue)) {
+      try {
+        updateValue = parseInt(updateValue);
+      } catch (e) {
+        console.log(e);
       }
     }
     setValue({...value, ...{[key]: updateValue}});
   }
 
+  function handleUnlimited(event) {
+    let target = event.target;
+    let key = target.id;
+    let updateValue = target.type === 'checkbox' ? target.checked : target.value;
+    if (canSetUnlimited) {
+      if (!event.target.validity.valid) {
+        updateValue = value[key];
+      }
+      setValue({...value, ...{[key]: updateValue}});
+    }
+  }
   return (
-    <div className="form-inline">
-      <label htmlFor={inputId} className="col-sm-2 text-right">{label}</label>
-      <input type="text" id={inputId} className="col-sm-2"
-             value={currentValue}
-             onChange={handleChange}
-             pattern="[0-9]*"
-             maxLength={String(MAXINT).length}
-             disabled={checkboxValue || disabledAll}
+  <div style={containerStyle} className="form-inline">
+    <label htmlFor={inputId} className="col-sm-2 text-right">{label}</label>
+    <input type="text" id={inputId} className="col-sm-2"
+           value={currentValue}
+           onChange={handleChange}
+           pattern="[0-9]*"
+           maxLength={maxLength}
+           disabled={checkboxValue || disabledAll}
+           max={max}
+
       />
+    {canSetUnlimited && (
       <label htmlFor={checkboxId}
              className="text-left">
         <input type="checkbox"
@@ -119,10 +145,11 @@ function InputComponent({
                id={checkboxId}
                key={Math.random()}
                checked={checkboxValue}
-               onChange={handleChange}
+               onChange={handleUnlimited}
                disabled={disabledAll}/>
         {UNLIMITED_LABEL}
       </label>
+    )}
     </div>
   )
 }
@@ -264,9 +291,9 @@ function FunctionEnableOnlyLayout({value, setValue, header_title, checkbox_id}) 
 function SecretURLFileDownloadLayout({value, setValue}) {
   const {
     secret_download_limit,
-    secret_download_limit_unlimited_chk,
     secret_expiration_date,
-    secret_expiration_date_unlimited_chk,
+    max_secret_expiration_date,
+    max_secret_download_limit,
     secret_enable
   } = value;
 
@@ -305,26 +332,50 @@ function SecretURLFileDownloadLayout({value, setValue}) {
                 </label>
               </div>
               {/* end enabled checkbox */}
-              <InputComponent
-                label={EXPIRATION_DATE_LABEL}
-                currentValue={secret_expiration_date}
-                checkboxValue={secret_expiration_date_unlimited_chk}
-                inputId="secret_expiration_date"
-                checkboxId="secret_expiration_date_unlimited_chk"
-                value={value}
-                setValue={setValue}
-                disabledAll={disabledAll}
-              />
-              <InputComponent
-                label={DOWNLOAD_LIMIT_LABEL}
-                currentValue={secret_download_limit}
-                checkboxValue={secret_download_limit_unlimited_chk}
-                inputId="secret_download_limit"
-                checkboxId="secret_download_limit_unlimited_chk"
-                value={value}
-                setValue={setValue}
-                disabledAll={disabledAll}
-              />
+                <InputComponent
+                  label={EXPIRATION_DATE_INITIAL_LABEL}
+                  currentValue={secret_expiration_date}
+                  inputId="secret_expiration_date"
+                  canSetUnlimited = {false}
+                  value={value}
+                  setValue={setValue}
+                  disabledAll={disabledAll}
+                  maxLength={max_secret_expiration_date}
+                  max={max_secret_expiration_date}
+                />
+                <InputComponent
+                  label={DOWNLOAD_LIMIT_INITIAL_LABEL}
+                  currentValue={secret_download_limit}
+                  inputId="secret_download_limit"
+                  canSetUnlimited = {false}
+                  value={value}
+                  setValue={setValue}
+                  disabledAll={disabledAll}
+                  maxLength={max_secret_download_limit}
+                  max={max_secret_download_limit}
+                />
+                <InputComponent
+                  label={MAX_EXPIRATION_DATE_LABEL}
+                  currentValue={max_secret_expiration_date}
+                  inputId="max_secret_expiration_date"
+                  canSetUnlimited = {false}
+                  value={value}
+                  setValue={setValue}
+                  disabledAll={disabledAll}
+                  maxLength={2}
+                  max={30}
+                />
+                <InputComponent
+                  label={MAX_DOWNLOAD_LIMIT_LABEL}
+                  currentValue={max_secret_download_limit}
+                  inputId="max_secret_download_limit"
+                  canSetUnlimited = {false}
+                  value={value}
+                  setValue={setValue}
+                  disabledAll={disabledAll}
+                  maxLength={2}
+                  max={10}
+                />
             </div>
           </div>
         </div>
@@ -336,9 +387,7 @@ function SecretURLFileDownloadLayout({value, setValue}) {
 function ContentFileDownloadLayout({value, setValue}) {
   const {
     download_limit,
-    download_limit_unlimited_chk,
     expiration_date,
-    expiration_date_unlimited_chk
   } = value;
 
   return (
@@ -353,18 +402,16 @@ function ContentFileDownloadLayout({value, setValue}) {
               <InputComponent
                 label={EXPIRATION_DATE_LABEL}
                 currentValue={expiration_date}
-                checkboxValue={expiration_date_unlimited_chk}
                 inputId="expiration_date"
-                checkboxId="expiration_date_unlimited_chk"
+                canSetUnlimited = {false}
                 value={value}
                 setValue={setValue}
               />
               <InputComponent
                 label={DOWNLOAD_LIMIT_LABEL}
                 currentValue={download_limit}
-                checkboxValue={download_limit_unlimited_chk}
                 inputId="download_limit"
-                checkboxId="download_limit_unlimited_chk"
+                canSetUnlimited = {false}
                 value={value}
                 setValue={setValue}
               />
@@ -393,6 +440,7 @@ function UsageReportWorkflowAccessLayout({value, setValue}) {
                 checkboxValue={expiration_date_access_unlimited_chk}
                 inputId="expiration_date_access"
                 checkboxId="expiration_date_access_unlimited_chk"
+                canSetUnlimited={true}
                 value={value}
                 setValue={setValue}
               />
@@ -705,6 +753,16 @@ function RestrictedAccessLayout({
       showErrorMessage(MESSAGE_MISSING_DATA);
       return false;
     }
+
+    // Ensure the values are integers
+    const parsedSecretURLFileDownload = {
+      ...secretURLFileDownload,
+      secret_download_limit: parseInt(secretURLFileDownload.secret_download_limit, 10),
+      max_secret_expiration_date: parseInt(secretURLFileDownload.max_secret_expiration_date, 10),
+      max_secret_download_limit: parseInt(secretURLFileDownload.max_secret_download_limit, 10),
+      secret_expiration_date: parseInt(secretURLFileDownload.secret_expiration_date, 10)
+    };
+
     //Validate ErrorMsgConditions
     errorMessage = validErrorMsgConditions();
     if(errorMessage){
@@ -721,7 +779,7 @@ function RestrictedAccessLayout({
       edit_mail_templates_enable: editMailTemplateEnabled,
       display_request_form: requestFormEnabled,
       password_enable:passwordEnable,
-      secret_URL_file_download:secretURLFileDownload,
+      secret_URL_file_download:parsedSecretURLFileDownload,
       content_file_download: contentFileDownload,
       usage_report_workflow_access: usageReportWorkflowAccess,
       terms_and_conditions: terms_data["data"],
@@ -750,46 +808,51 @@ function RestrictedAccessLayout({
   function validateSecretURLFileDownload() {
     const {
       secret_download_limit,
-      secret_download_limit_unlimited_chk,
       secret_expiration_date,
-      secret_expiration_date_unlimited_chk
+      max_secret_expiration_date,
+      max_secret_download_limit
     } = secretURLFileDownload;
 
     let errorMessage;
 
-    if (secret_expiration_date === "" && !secret_expiration_date_unlimited_chk) {
+    if (secret_expiration_date === "" ) {
       errorMessage = EMPTY_EXPIRATION_DATE;
-    } else if (secret_download_limit === "" && !secret_download_limit_unlimited_chk) {
+    } else if (secret_download_limit === "" ) {
       errorMessage = EMPTY_DOWNLOAD;
-    } else if ((secret_expiration_date < 1 && !secret_expiration_date_unlimited_chk)
-      || secret_expiration_date > MAX_EXPIRATION_DATE) {
+    } else if ((secret_expiration_date < 1 )
+      || secret_expiration_date > max_secret_expiration_date) {
       errorMessage = CHECK_INPUT_EXPIRATION_DATE;
-    } else if ((secret_download_limit < 1 && !secret_download_limit_unlimited_chk)
-      || secret_download_limit > MAX_DOWNLOAD_LIMIT) {
+    } else if ((secret_download_limit < 1 )
+      || secret_download_limit > max_secret_download_limit) {
       errorMessage = CHECK_INPUT_DOWNLOAD;
+    } else if (max_secret_expiration_date === ""){
+      errorMessage = EMPTY_MAX_EXPIRATION_DATE;
+    } else if (max_secret_download_limit === ""){
+      errorMessage = EMPTY_DOWNLOAD;
+    } else if (max_secret_expiration_date < 1 ){
+      errorMessage = EMPTY_MAX_DOWNLOAD_LIMIT;
+    } else if (max_secret_download_limit < 1 ){
+      errorMessage = EMPTY_DOWNLOAD;
     }
-
     return errorMessage;
   }
 
   function validateContentFileDownload() {
     const {
       download_limit,
-      download_limit_unlimited_chk,
       expiration_date,
-      expiration_date_unlimited_chk
     } = contentFileDownload;
 
     let errorMessage;
 
-    if (expiration_date === "" && !expiration_date_unlimited_chk) {
+    if (expiration_date === "" ) {
       errorMessage = EMPTY_EXPIRATION_DATE;
-    } else if (download_limit === "" && !download_limit_unlimited_chk) {
+    } else if (download_limit === "" ) {
       errorMessage = EMPTY_DOWNLOAD;
-    } else if ((expiration_date < 1 && !expiration_date_unlimited_chk)
+    } else if ((expiration_date < 1 )
       || expiration_date > MAX_EXPIRATION_DATE) {
       errorMessage = CHECK_INPUT_EXPIRATION_DATE;
-    } else if ((download_limit < 1 && !download_limit_unlimited_chk)
+    } else if ((download_limit < 1 )
       || download_limit > MAX_DOWNLOAD_LIMIT) {
       errorMessage = CHECK_INPUT_DOWNLOAD;
     }
@@ -828,6 +891,12 @@ function RestrictedAccessLayout({
   if (restricted_access_display_flag) {
     return (
       <div>
+        <SecretURLFileDownloadLayout value={secretURLFileDownload}
+                                   setValue={setSecretURLFileDownload}/>
+        <ContentFileDownloadLayout value={contentFileDownload}
+                                   setValue={setContentFileDownload}/>
+        <UsageReportWorkflowAccessLayout value={usageReportWorkflowAccess}
+                                         setValue={setUsageReportWorkflowAccess}/>
         <ItemApplicationSettingsLayout enableItemApplication={itemApplicationEnable}
                         setEnableItemApplication={setItemApplicationEnable}
                         applicationItemTypeList={applicationItemTypeList}
@@ -848,12 +917,6 @@ function RestrictedAccessLayout({
                         setValue={setPasswordEnableCallback}
                         header_title={LABEL_PASSWORD_FOR_DOWNLOAD}
                         checkbox_id="password_enable"/>
-        <SecretURLFileDownloadLayout value={secretURLFileDownload}
-                                   setValue={setSecretURLFileDownload}/>
-        <ContentFileDownloadLayout value={contentFileDownload}
-                                   setValue={setContentFileDownload}/>
-        <UsageReportWorkflowAccessLayout value={usageReportWorkflowAccess}
-                                         setValue={setUsageReportWorkflowAccess}/>
         <TermsConditions termList={termList} setTermList={setTermList}
                          currentTerm={currentTerm}
                          setCurrentTerm={setCurrentTerm}/>

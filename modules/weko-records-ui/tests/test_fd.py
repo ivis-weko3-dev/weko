@@ -1,23 +1,27 @@
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-
-from weko_deposit.api import WekoFileObject
-from weko_records_ui.errors import AvailableFilesNotFoundRESTError
-from weko_records_ui.fd import _is_terms_of_use_only, file_download_secret, prepare_response,file_download_onetime,_download_file,add_signals_info,weko_view_method,file_ui,file_preview_ui,file_download_ui,file_list_ui
-from weko_records_ui.config import WEKO_RECORDS_UI_DETAIL_TEMPLATE
-from unittest.mock import MagicMock
-from invenio_theme.config import THEME_ERROR_TEMPLATE 
-import pytest
 import io
-from flask import url_for
+import pytest
 from flask import url_for,make_response
 from flask_babelex import get_locale
 from mock import patch
-from invenio_records_files.utils import record_file_factory
+from sqlalchemy.exc import SQLAlchemyError
+from unittest.mock import MagicMock
 from werkzeug.exceptions import NotFound ,Forbidden
 
+from invenio_records_files.utils import record_file_factory
+from invenio_theme.config import THEME_ERROR_TEMPLATE 
 from weko_admin.models import AdminSettings
-from weko_records_ui.models import FileSecretDownload
-from sqlalchemy.exc import SQLAlchemyError
+from weko_deposit.api import WekoFileObject
+from weko_schema_ui.models import PublishStatus
+
+from weko_records_ui.config import WEKO_RECORDS_UI_DETAIL_TEMPLATE
+from weko_records_ui.errors import AvailableFilesNotFoundRESTError
+from weko_records_ui.fd import (
+    _download_file, _is_terms_of_use_only, add_signals_info, error_response,
+    file_download_onetime, file_download_secret, file_download_ui,
+    file_list_ui, file_preview_ui, file_ui, prepare_response, weko_view_method
+)
+from weko_records_ui.models import AccessStatus, FileSecretDownload
 
 
 # def weko_view_method(pid, record, template=None, **kwargs):
@@ -258,9 +262,88 @@ def test_add_signals_info(app,records,itemtypes,users):
                     add_signals_info(record,obj)
 
 
-# def file_download_onetime(pid, record, _record_file_factory=None, **kwargs):
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py::test_error_response -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+@patch('weko_records_ui.fd.render_template')
+def test_error_response(mock_render):
+    mock_render.return_value = '<html>Error Test</html>'
+    error_template = 'weko_theme/error.html'
+    render, status_code = error_response('Error Test', 500)
+    assert render == '<html>Error Test</html>'
+    assert status_code == 500
+    mock_render.assert_called_once_with(error_template, error='Error Test')
+
+
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py::test_file_download_onetime -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_file_download_onetime(app, records, itemtypes, users, db_fileonetimedownload):
+@patch('weko_records_ui.fd.validate_url_download')
+@patch('weko_records_ui.fd.error_response')
+@patch('weko_records_ui.fd.check_and_send_usage_report')
+@patch('weko_records_ui.fd.save_download_log')
+@patch('weko_records_ui.fd._download_file')
+def test_file_download_onetime(dl_file, save_log, chk_and_send, err_res,
+                               val_url, onetime_url, mocker):
+    # Setup arguments of sut
+    pid = None
+    record = {}
+    filename = 'test.txt'
+    _record_file_factory = MagicMock()
+    _record_file_factory.return_value = file_obj = MagicMock()
+    file_obj.obj = {'filename': filename}
+    file_obj.get.return_value = 'open_restricted'
+
+    # Setup default return values of mock objects
+    mocker = mocker.patch('weko_records_ui.fd.request')
+    mocker.args.get.return_value = onetime_url['onetime_token']
+    val_url.return_value = (True, '')
+    chk_and_send.return_value = None
+    dl_file.return_value = 'SUCCESS'
+    err_res.return_value = 'ERROR'
+
+    # Happy path
+    assert file_download_onetime(
+        pid, record, filename, _record_file_factory) == 'SUCCESS'
+    save_log.assert_called_once_with(
+        record, filename, onetime_url['onetime_token'], is_secret_url=False)
+
+    # Invalid token
+    with patch('weko_records_ui.fd.validate_url_download',
+               return_value=(False, 'Invalid token')):
+        assert file_download_onetime(
+            pid, record, filename, _record_file_factory) == 'ERROR'
+
+    # File object is not found
+    with patch('weko_records_ui.fd.record_file_factory',
+               return_value=None):
+        assert file_download_onetime(
+            pid, record, filename) == 'ERROR'
+
+    # check_and_send_usage_report() returns an error
+    with patch('weko_records_ui.fd.check_and_send_usage_report',
+               return_value='ERROR'):
+          assert file_download_onetime(
+                pid, record, filename, _record_file_factory) == 'ERROR'
+
+    # check_and_send_usage_report() raises an exception
+    with patch('weko_records_ui.fd.check_and_send_usage_report',
+               side_effect=BaseException):
+        assert file_download_onetime(
+            pid, record, filename, _record_file_factory) == 'ERROR'
+
+    # update_extra_info() raises an SQLAlchemyError
+    with patch('weko_records_ui.models.FileOnetimeDownload.update_extra_info',
+               side_effect=SQLAlchemyError):
+        assert file_download_onetime(
+            pid, record, filename, _record_file_factory) == 'ERROR'
+
+    # save_download_log() raises an exception
+    with patch('weko_records_ui.fd.save_download_log',
+               side_effect=Exception):
+        assert file_download_onetime(
+            pid, record, filename, _record_file_factory) == 'ERROR'
+
+
+# def file_download_onetime(pid, record, _record_file_factory=None, **kwargs):
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py::test_file_download_onetime_old -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_file_download_onetime_old(app, records, itemtypes, users, db_fileonetimedownload):
     indexer, results = records
     recid = results[0]["recid"]
     record = results[0]["record"]
@@ -279,14 +362,14 @@ def test_file_download_onetime(app, records, itemtypes, users, db_fileonetimedow
 
                         with patch("weko_records_ui.fd.validate_onetime_download_token", return_value=(False, [1])):
                             assert file_download_onetime(recid,record,record_file_factory)==([1],401)
-                        
+
                         _rv = (True, "")
                         with patch("weko_records_ui.fd.validate_onetime_download_token", return_value=_rv):
                             assert file_download_onetime(recid,record,record_file_factory)==('Unexpected error occurred.',401)
 
                             with patch("weko_records_ui.fd.record_file_factory", return_value=False):
                                 assert file_download_onetime(recid,record,None)==('None does not exist.', 401)
-                            
+
                             file_object = MagicMock()
                             file_object.obj = {"foo" : "hoge"}
                             file_object.get = lambda x : 'open_restricted'
@@ -346,6 +429,7 @@ def test_file_download_onetime(app, records, itemtypes, users, db_fileonetimedow
                                             res = file_download_onetime(recid,record)
                                             assert 'guest_token' in res.keys()
 
+
 # def _is_terms_of_use_only(file_obj:dict , req :dict) -> bool:
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py::test__is_terms_of_use_only -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test__is_terms_of_use_only(app, records_restricted, users, db_file_permission):
@@ -403,9 +487,73 @@ def test__is_terms_of_use_only(app, records_restricted, users, db_file_permissio
         with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
             assert not _is_terms_of_use_only(provide_not,{'terms_of_use_only': True})
 
-# def file_download_secret(pid, record, _record_file_factory=None, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py::test_file_download_secret -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_file_download_secret(app,db, itemtypes, users, records):
+@patch('weko_records_ui.fd.request.args.get')
+@patch('weko_records_ui.fd.validate_url_download')
+@patch('weko_records_ui.fd.error_response')
+@patch('weko_records_ui.fd.current_user')
+@patch('weko_records_ui.fd.save_download_log')
+@patch('weko_records_ui.fd._download_file')
+def test_file_download_secret(dl_file, save_log, current_user, err_res,
+                              val_url, token, secret_url):
+    # Setup arguments
+    pid = None
+    record = {}
+    filename = 'test.txt'
+    _record_file_factory = MagicMock()
+    _record_file_factory.return_value = file_obj = MagicMock()
+    file_obj.obj = {'filename': filename}
+    file_obj.get.return_value = 'open_no'
+
+    # Setup default return values of mock objects
+    token.return_value = secret_url['secret_token']
+    val_url.return_value = (True, '')
+    current_user.is_authenticated = False
+    err_res.return_value = 'ERROR'
+    dl_file.return_value = 'SUCCESS'
+
+    # Happy path
+    assert file_download_secret(
+        pid, record, filename, _record_file_factory) == 'SUCCESS'
+    save_log.assert_called_once_with(
+        record, filename, token.return_value, is_secret_url=True)
+    dl_file.assert_called_once_with(
+        file_obj, False, 'en', file_obj.obj, pid, record)
+
+    # Happy path with authenticated user
+    mock_user = MagicMock()
+    mock_user.language = 'ja'
+    with patch('weko_user_profiles.models.UserProfile.get_by_userid',
+               return_value=mock_user):
+        with patch('weko_records_ui.fd.current_user.is_authenticated', True):
+            assert file_download_secret(
+                pid, record, filename, _record_file_factory) == 'SUCCESS'
+            save_log.assert_called_with(
+                record, filename, token.return_value, is_secret_url=True)
+            dl_file.assert_called_with(
+                file_obj, False, 'ja', file_obj.obj, pid, record)
+
+    # Invalid token
+    with patch('weko_records_ui.fd.validate_url_download',
+               return_value=(False, 'Invalid token')):
+        assert file_download_secret(
+            pid, record, filename, _record_file_factory) == 'ERROR'
+
+    # File object is not found
+    with patch('weko_records_ui.fd.record_file_factory',
+               return_value=None):
+        assert file_download_secret(
+            pid, record, filename) == 'ERROR'
+
+    # save_download_log() raises an exception
+    with patch('weko_records_ui.fd.save_download_log',
+               side_effect=Exception):
+        assert file_download_secret(
+            pid, record, filename, _record_file_factory) == 'ERROR'
+
+# def file_download_secret(pid, record, _record_file_factory=None, **kwargs):
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py::test_file_download_secret_old -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_file_download_secret_old(app,db, itemtypes, users, records):
     indexer, results = records
     recid = results[1]["recid"]
     record = results[1]["record"]

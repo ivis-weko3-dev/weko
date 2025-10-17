@@ -24,12 +24,13 @@ import copy
 import json
 from os.path import join
 import os
+import re
 import shutil
 import tempfile
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+from collections import OrderedDict
 from unittest.mock import patch
-from datetime import timedelta
 from kombu import Exchange, Queue
 from sqlalchemy.sql import func
 from invenio_mail import InvenioMail
@@ -98,6 +99,7 @@ from weko_index_tree.config import (
 from weko_index_tree.models import Index, IndexStyle
 from weko_items_ui import WekoItemsUI
 from weko_items_ui.config import WEKO_ITEMS_UI_MS_MIME_TYPE,WEKO_ITEMS_UI_FILE_SISE_PREVIEW_LIMIT
+from weko_items_ui.scopes import item_read_scope
 from weko_logging.audit import WekoLoggingUserActivity
 from weko_records import WekoRecords
 from weko_records.api import ItemsMetadata, FilesMetadata
@@ -105,7 +107,7 @@ from weko_records_ui.ext import WekoRecordsREST
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName, SiteLicenseInfo, SiteLicenseIpAddress, RequestMailList
 from weko_records_ui.config import WEKO_ADMIN_PDFCOVERPAGE_TEMPLATE,RECORDS_UI_ENDPOINTS,WEKO_RECORDS_UI_SECRET_KEY,WEKO_RECORDS_UI_ONETIME_DOWNLOAD_PATTERN
 from weko_records_ui.models import FileSecretDownload, PDFCoverPageSettings,FileOnetimeDownload, FilePermission, RocrateMapping
-from weko_items_ui.scopes import item_read_scope
+from weko_records_ui.utils import create_download_url
 
 from weko_schema_ui.config import (
     WEKO_SCHEMA_DDI_SCHEMA_NAME,
@@ -230,7 +232,7 @@ def base_app(instance_path):
         WEKO_INDEX_TREE_UPATED=True,
         WEKO_INDEX_TREE_REST_ENDPOINTS=WEKO_INDEX_TREE_REST_ENDPOINTS,
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English"), ('fr', 'French')],
-        SERVER_NAME="TEST_SERVER",
+        SERVER_NAME="test_server",
         SEARCH_ELASTIC_HOSTS="elasticsearch",
         SEARCH_INDEX_PREFIX="test-",
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME=WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
@@ -5526,16 +5528,16 @@ def site_license_ipaddr(app, db,site_license_info):
     return record1
 
 @pytest.fixture()
-def db_fileonetimedownload(app, db):
-    record = FileOnetimeDownload(
-        file_name="helloworld.pdf",
-        user_mail="wekosoftware@nii.ac.jp",
+def db_fileonetimedownload(app, users):
+    record = FileOnetimeDownload.create(
+        approver_id=1,
         record_id='1',
-        download_count=10,
-        expiration_date=0,
-        extra_info={"is_guest": True, "send_usage_report": True, "usage_application_activity_id": "","password_for_download":"test_pass"}
-    )
-    db.session.add(record)
+        file_name="helloworld.pdf",
+        expiration_date=datetime.now(timezone.utc) + timedelta(days=30),
+        download_limit=10,
+        user_mail="wekosoftware@nii.ac.jp",
+        is_guest=False,
+        extra_info={})
     return record
 
 
@@ -6170,6 +6172,67 @@ def db_rocrate_mapping(db):
         db.session.add(rocrate_mapping)
     db.session.commit()
 
+
+@pytest.fixture
+def secret_url(app, users, params=None):
+    """Fixture that creates secret URL object and provides the token of it.
+
+    Args:
+        params (dict, optional): Custom parameters for the secret object.
+    """
+    params = params or {}
+    ex_date = datetime.now(timezone.utc) + timedelta(days=30)
+    secret_obj = None
+    secret_url = None
+    with app.test_request_context():
+        secret_obj = FileSecretDownload.create(
+            creator_id      =params.get('creator_id'     , 1         ),
+            record_id       =params.get('record_id'      , '1'       ),
+            file_name       =params.get('file_name'      , 'test.txt'),
+            label_name      =params.get('label_name'     , 'test_url'),
+            expiration_date =params.get('expiration_date', ex_date   ),
+            download_limit  =params.get('download_limit' , 10        )
+        )
+        secret_url = create_download_url(secret_obj)
+    match = re.search(r'[?&]token=([^&]+)', secret_url)
+    secret_token = match.group(1)
+    return {
+        'secret_obj'  : secret_obj,
+        'secret_token': secret_token,
+        'secret_url'  : secret_url
+    }
+
+
+@pytest.fixture
+def onetime_url(app, users, params=None):
+    """Fixture that creates onetime URL object and provides the token of it.
+
+    Args:
+        params (dict, optional): Custom parameters for the onetime object.
+    """
+    params = params or {}
+    ex_date = datetime.now(timezone.utc) + timedelta(days=30)
+    onetime_obj = None
+    onetime_url = None
+    with app.test_request_context():
+        onetime_obj = FileOnetimeDownload.create(
+            approver_id     = params.get('approver_id'    , 1                 ),
+            record_id       = params.get('record_id'      , '1'               ),
+            file_name       = params.get('file_name'      , 'test.txt'        ),
+            expiration_date = params.get('expiration_date', ex_date           ),
+            download_limit  = params.get('download_limit' , 10                ),
+            user_mail       = params.get('user_mail'      , 'test@example.org'),
+            is_guest        = params.get('is_guest'       , False             ),
+            extra_info      = params.get('extra_info'     , {'activity_id': 1})
+        )
+        onetime_url = create_download_url(onetime_obj)
+    match = re.search(r'[?&]token=([^&]+)', onetime_url)
+    onetime_token = match.group(1)
+    return {
+        'onetime_obj'  : onetime_obj,
+        'onetime_token': onetime_token,
+        'onetime_url'  : onetime_url
+    }
 @pytest.fixture()
 def make_request_maillist(db):
     rec_id_1 = 1000

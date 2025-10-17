@@ -888,7 +888,7 @@ def test_check_created_id_comadmin(app, users, db):
         "item_type_id": "15",
         "publish_date": "2022-07-12",
         "publish_status": "0",
-        "weko_shared_id": 2,
+        "weko_shared_ids": [2],
         "item_1617186331708": {
             "attribute_name": "Title",
             "attribute_value_mlt": [
