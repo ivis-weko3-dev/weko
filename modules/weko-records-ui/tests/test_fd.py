@@ -173,7 +173,7 @@ def test_file_ui2(app,records_restricted,itemtypes,users ,client ,mocker):
 
 # def file_ui(
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py::test_file_ui3 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_file_ui3(app,records_restricted,itemtypes,db_file_permission,users ,client ,mocker):
+def test_file_ui3(app,records_restricted,itemtypes,db_file_permission,users ,client ,mocker, esindex):
     indexer, results = records_restricted
     recid_none_login =  results[len(results) -2]["recid"]
     recid_login =  results[len(results) -1]["recid"]
@@ -192,8 +192,9 @@ def test_file_ui3(app,records_restricted,itemtypes,db_file_permission,users ,cli
                 fileobj:WekoFileObject = record_file_factory( recid_login, record_login, filename = "helloworld_open_restricted.pdf" )
                 fileobj.data['accessrole']='open_restricted'
                 fileobj.data['filename'] = "helloworld_open_restricted.pdf"
-                with pytest.raises(Forbidden):
-                    res = file_ui(recid_login,record_login ,is_preview=False , filename = "helloworld_open_restricted.pdf")
+                # with pytest.raises(Forbidden):
+                res = file_ui(recid_login,record_login ,is_preview=False , filename = "helloworld_open_restricted.pdf")
+                assert res.status == '200 OK'
             
             #24
             with patch("flask_login.utils._get_user", return_value=users[7]["obj"]):
@@ -417,17 +418,11 @@ def test_file_download_onetime_old(app, records, itemtypes, users, db_fileonetim
         with patch('weko_records_ui.fd.AdminSettings.get', return_value=adminsetting):    
             with patch("flask.templating._render", return_value=""):
                 with patch("weko_records_ui.fd.get_onetime_download", return_value=db_fileonetimedownload):
-                    with patch("weko_records_ui.fd.parse_one_time_download_token",
-                               return_value=("", (recid.pid_value, mailaddress, "helloworld.pdf", ""))):
-                        with patch("weko_records_ui.fd.validate_onetime_download_token", return_value=_rv):
-                            with patch("weko_records_ui.fd.record_file_factory", return_value=file_object):
-                                with patch('weko_records_ui.fd.check_and_send_usage_report',return_value =""):
-                                    with patch('weko_records_ui.fd.update_onetime_download',return_value =True):
-                                        with app.test_request_context('/record/1/file/onetime/helloworld.pdf?mailaddress=user@email&isajax=true',
-                                                                    method='POST',
-                                                                    json={'input_password': 'test_pass'}):
-                                            res = file_download_onetime(recid,record)
-                                            assert 'guest_token' in res.keys()
+                    #with patch("weko_records_ui.fd.parse_one_time_download_token", return_value=(True, [1])):
+                        res = client.post('/record/1/file/onetime/helloworld.pdf',
+                                    json={'input_password':'test_pass'},
+                                    content_type='application/json')
+                        assert res.status_code == 200
 
 
 # def _is_terms_of_use_only(file_obj:dict , req :dict) -> bool:

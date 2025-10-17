@@ -612,7 +612,7 @@ def test_get_file_info_list(app,records, itemtypes):
 #     def set_message_for_file(p_file):
 #     def get_data_by_key_array_json(key, array_json, get_key):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_get_file_info_list_1 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_get_file_info_list_1(app, make_record_need_restricted_access):
+def test_get_file_info_list_1(app, make_record_need_restricted_access, esindex):
     # roles = [{"role":1},{"role":2}]
     record_1 = WekoRecord.get_record_by_pid(11)
     record_1['item_1689228169922']['attribute_value_mlt'][0]['roles'] = [{"role":1},{"role":2}]
@@ -656,7 +656,7 @@ def test_get_data_by_key_array_json(app):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_create_usage_report_for_user -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_create_usage_report_for_user(app, db, workflows, records, users, db_file_permission):
     _onetime_download_extra_info = {
-        'usage_application_activity_id': 'usage_application_activity_id_dummy1',
+        'usage_application_activity_id': 'usage_application_1',
         'is_guest': False
     }
     app.config['WEKO_WORKFLOW_USAGE_REPORT_WORKFLOW_NAME'] = 'Data Usage Report'
