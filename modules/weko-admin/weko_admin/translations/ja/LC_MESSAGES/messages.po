@@ -79,7 +79,6 @@ msgid "deny access"
 msgstr "アクセス拒否"
 
 #: weko_admin/admin.py:246
-#, fuzzy
 msgid "Successfully update color."
 msgstr "スケジュールを変更しました"
 
@@ -159,7 +158,6 @@ msgid "Failurely Changed Settings."
 msgstr "設定変更に失敗しました"
 
 #: weko_admin/admin.py:1065
-#, fuzzy
 msgid "Successfully Changed Settings"
 msgstr "設定を変更しました"
 
@@ -167,7 +165,6 @@ msgstr "設定を変更しました"
 #: weko_admin/templates/weko_admin/admin/jsonld_mapping_settings.html:38
 #: weko_admin/templates/weko_admin/admin/sword_api_jsonld_settings.html:38
 #: weko_admin/templates/weko_admin/admin/sword_api_settings.html:45
-#, fuzzy
 msgid "Failed To Change Settings"
 msgstr "設定変更に失敗しました"
 
@@ -357,7 +354,7 @@ msgstr "レポート"
 
 #: weko_admin/admin.py:2416
 msgid "Feedback Mail"
-msgstr ""
+msgstr "フィードバックメール"
 
 #: weko_admin/admin.py:2425
 msgid "Stats"
@@ -370,13 +367,12 @@ msgstr "ログ分析"
 
 #: weko_admin/admin.py:2443
 #: weko_admin/templates/weko_admin/admin/site_info.html:50
-#, fuzzy
 msgid "Language"
 msgstr "言語"
 
 #: weko_admin/admin.py:2452
 msgid "WebAPI Account"
-msgstr ""
+msgstr "WebAPIアカウント"
 
 #: weko_admin/admin.py:2461
 msgid "Ranking"
@@ -393,32 +389,28 @@ msgid "Site License"
 msgstr "サイトライセンス"
 
 #: weko_admin/admin.py:2497
-#, fuzzy
 msgid "File Preview"
 msgstr "ファイルプレビュー"
 
 #: weko_admin/admin.py:2506
-#, fuzzy
 msgid "Item Export"
-msgstr "定型レポート"
+msgstr "アイテム一括出力"
 
 #: weko_admin/admin.py:2515
 msgid "Site Info"
-msgstr ""
+msgstr "サイト情報"
 
 #: weko_admin/admin.py:2524
-#, fuzzy
 msgid "Restricted Access"
 msgstr "サイトアクセス"
 
 #: weko_admin/admin.py:2533
 msgid "Identifier"
-msgstr ""
+msgstr "識別子"
 
 #: weko_admin/admin.py:2541
-#, fuzzy
 msgid "Faceted Search"
-msgstr "ファセット検索一覧"
+msgstr "ファセット検索"
 
 #: weko_admin/admin.py:2548
 msgid "Maintenance"
@@ -461,7 +453,6 @@ msgid "CRIS Linkage"
 msgstr "CRIS 連携"
 
 #: weko_admin/api.py:129
-#, fuzzy
 msgid "statistics report"
 msgstr "統計設定"
 
@@ -474,12 +465,10 @@ msgid "No. Of File Previews"
 msgstr "ファイルプレビュー数"
 
 #: weko_admin/config.py:167
-#, fuzzy
 msgid "No. Of Paid File Downloads"
 msgstr "ファイルダウンロード数"
 
 #: weko_admin/config.py:168
-#, fuzzy
 msgid "No. Of Paid File Previews"
 msgstr "ファイルプレビュー数"
 
@@ -533,7 +522,6 @@ msgid "Registered Index Name"
 msgstr "登録インデックス名"
 
 #: weko_admin/config.py:189
-#, fuzzy
 msgid "No. Of Times Downloaded"
 msgstr "ダウンロード/表示回数"
 
@@ -554,7 +542,6 @@ msgid "Registrar"
 msgstr "登録者"
 
 #: weko_admin/config.py:194
-#, fuzzy
 msgid "No. Of Times Viewed"
 msgstr "ファイルプレビュー数"
 
@@ -650,12 +637,10 @@ msgid "FilePreview_"
 msgstr "ファイルプレビュー"
 
 #: weko_admin/config.py:219
-#, fuzzy
 msgid "PayFileDownload_"
 msgstr "ファイルダウンロード"
 
 #: weko_admin/config.py:220
-#, fuzzy
 msgid "PayFilePreview_"
 msgstr "ファイルプレビュー"
 
@@ -700,7 +685,6 @@ msgid "Account information is invalid. Please check again."
 msgstr "アカウント情報が無効です。再度確認してください"
 
 #: weko_admin/utils.py:338
-#, fuzzy
 msgid "Registered Users"
 msgstr "登録ユーザー"
 
@@ -721,7 +705,6 @@ msgid "Other than site license"
 msgstr "サイトライセンス外"
 
 #: weko_admin/utils.py:423
-#, fuzzy
 msgid "Institution Name"
 msgstr "機関名"
 
