@@ -563,7 +563,10 @@ class CommunityModelView(ModelView):
         'owner': {
             'allow_blank': False,
             'query_factory': lambda: db.session.query(Role).filter(
-                ~Role.name.like('jc%roles%')
+                ~(
+                    Role.name.like(f"%{current_app.config['WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT'].get('role_keyword','')}%") &
+                    Role.name.like(f"%{current_app.config['WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT'].get('prefix','')}%")
+                )
             ).all(),
         },
         'group': {

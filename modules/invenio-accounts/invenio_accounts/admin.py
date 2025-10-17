@@ -86,11 +86,20 @@ class UserView(ModelView):
 
     def scaffold_form(self):
         form_class = super(UserView, self).scaffold_form()
+        try:
+            config = current_app.config.get('WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT', {})
+            role_key = config.get('role_keyword', '')
+            prefix = config.get('prefix', '')
+        except RuntimeError:
+            role_key = ''
+            prefix = ''
         form_class.role = QuerySelectMultipleField(
             'Roles',
             query_factory=lambda: Role.query.filter(
                 ~Role.name.like('%_groups_%'),
-                ~Role.name.like('jc%roles%')
+                ~(
+                    Role.name.like(f"%{role_key}%") & Role.name.like(f"%{prefix}%")
+                )
             ).all(),
             get_label='name',
             widget=Select2Widget(multiple=True)
