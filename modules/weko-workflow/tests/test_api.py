@@ -1,13 +1,15 @@
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 import json
 import uuid
 from datetime import datetime
 from unittest.mock import Mock, MagicMock, call, patch
-
+import unittest
+from unittest.mock import MagicMock, patch
 import pytest
 import math
 from flask import current_app, session
 from flask_login.utils import login_user, logout_user
-# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+
 from marshmallow import ValidationError
 from requests import HTTPError
 from sqlalchemy import and_, or_, not_
@@ -24,6 +26,18 @@ from invenio_accounts.models import Role, User
 from invenio_pidstore.errors import PIDAlreadyExists
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records.models import RecordMetadata
+from weko_deposit.api import WekoIndexer
+from weko_notifications.notifications import Notification
+from weko_records.api import ItemsMetadata
+from weko_records.models import RequestMailList as _RequestMailList
+from weko_records.models import ItemApplication as _ItemApplication
+from weko_records_ui.models import FileSecretDownload
+from weko_schema_ui.models import PublishStatus
+
+
+from weko_workflow.api import (
+    Flow, GetCommunity, UpdateItem, WorkActivity, WorkFlow
+)
 from weko_workflow.models import Action as _Action
 from weko_workflow.models import Activity as _Activity
 from weko_workflow.models import ActivityAction
@@ -31,10 +45,8 @@ from weko_workflow.models import FlowAction as _FlowAction
 from weko_workflow.models import FlowActionRole as _FlowActionRole
 from weko_workflow.models import FlowDefine as _Flow
 from weko_workflow.models import WorkFlow as _WorkFlow
+from weko_workflow.models import Activity, ActivityHistory, ActivityAction, FlowAction, FlowActionRole
 from weko_workflow.models import ActionStatusPolicy, Activity, ActivityAction, FlowActionRole, ActivityRequestMail, ActivityItemApplication
-from weko_records.models import RequestMailList as _RequestMailList
-from weko_records.models import ItemApplication as _ItemApplication
-
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_Flow_create_flow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_Flow_create_flow(app, client, users, db, action_data):
@@ -892,6 +904,155 @@ def test_WorkActivity_get_corresponding_usage_activities(app, db_register_full_a
     usage_application_list, output_report_list = activity.get_corresponding_usage_activities(1)
     assert usage_application_list == {'activity_data_type': {}, 'activity_ids': []}
     assert output_report_list == {'activity_data_type': {}, 'activity_ids': []}
+
+from unittest.mock import call, patch, MagicMock
+
+class MockRecord(dict):
+    def commit(self):
+        pass
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_publish -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+@patch('weko_records_ui.models.FileSecretDownload')
+@patch('weko_deposit.api.WekoIndexer')
+@patch('weko_workflow.api.db.session.commit')
+def test_publish(mock_db_commit, mock_WekoIndexer, mock_FileSecretDownload):
+    def create_mock_record(publish_status, accessroles, filenames, recid='12345'):
+        attribute_value_mlt = [{'accessrole': role, 'filename': filename} for role, filename in zip(accessroles, filenames)]
+        record = MockRecord({
+            'publish_status': publish_status,
+            'recid': recid,
+            'some_field': {
+                'attribute_value_mlt': attribute_value_mlt
+            }
+        })
+        record.commit = MagicMock()
+        return record
+
+    def assert_publish(record, status, reset_mock=True):
+        update_item.publish(record, status)
+        assert record['publish_status'] == status
+        record.commit.assert_called_once()
+        mock_db_commit.assert_called()
+        mock_WekoIndexer.return_value.update_es_data.assert_called_with(record, update_revision=False, field='publish_status')
+        if reset_mock:
+            mock_FileSecretDownload.query.filter_by.return_value.all.reset_mock()
+
+    # Mock record objects
+    record1 = create_mock_record(None, [None], ['testfile.txt'])
+    record2 = create_mock_record(PublishStatus.PRIVATE.value, ['open_date'], ['testfile.txt'])
+    record3 = create_mock_record(PublishStatus.NEW.value, ['open_no'], ['testfile.txt'])
+    record4 = create_mock_record(PublishStatus.DELETE.value, ['other_date'], ['testfile.txt'])
+    record5 = create_mock_record(PublishStatus.PUBLIC.value, ['other_date'], ['testfile.txt'], None)
+    record_multiple_files = create_mock_record(PublishStatus.PUBLIC.value, ['open_no', 'open_date', 'other_date'], ['testfile1.txt', 'testfile2.txt', 'testfile3.txt'])
+
+    # Mock secret URLs
+    mock_secret_url = MagicMock()
+    mock_secret_url.delete_logically = MagicMock()
+    mock_FileSecretDownload.query.filter_by.return_value.all.return_value = [mock_secret_url]
+
+    # Create instance of UpdateItem
+    update_item = UpdateItem()
+
+    # record1のテスト
+    assert_publish(record1, PublishStatus.PUBLIC.value)
+
+    # record2のテスト
+    assert_publish(record2, PublishStatus.PUBLIC.value)
+
+    # record3のテスト
+    assert_publish(record3, PublishStatus.PUBLIC.value)
+
+    # record4のテスト
+    assert_publish(record4, PublishStatus.PUBLIC.value, reset_mock=False)
+    # record4のシークレットURL削除確認
+    mock_FileSecretDownload.query.filter_by.assert_called_with(record_id='12345', is_deleted=False, file_name='testfile.txt')
+    assert mock_secret_url.delete_logically.call_count == 1
+
+    # モックの呼び出し履歴をリセット
+    mock_FileSecretDownload.query.filter_by.reset_mock()
+    mock_secret_url.delete_logically.reset_mock()
+
+    # record5のテスト (recidがNoneの場合)
+    assert_publish(record5, PublishStatus.PUBLIC.value, reset_mock=False)
+    mock_FileSecretDownload.query.filter_by.assert_not_called()
+    mock_secret_url.delete_logically.assert_not_called()
+
+    # 複数のファイルが含まれている場合のテスト
+    record_multiple_files = create_mock_record(PublishStatus.DELETE.value, ['other_date', 'other_date'], ['testfile1.txt', 'testfile2.txt'])
+    assert_publish(record_multiple_files, PublishStatus.PUBLIC.value, reset_mock=False)
+    mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile1.txt')
+    mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile2.txt')
+    assert mock_secret_url.delete_logically.call_count == 2
+
+    # モックの呼び出し履歴をリセット
+    mock_secret_url.delete_logically.reset_mock()
+
+    # 片方のファイルが更新され、片方が更新されない場合のテスト
+    record_partial_update = create_mock_record(PublishStatus.DELETE.value, ['other_date', 'open_no'], ['testfile1.txt', 'testfile2.txt'])
+    assert_publish(record_partial_update, PublishStatus.PUBLIC.value, reset_mock=False)
+    mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile1.txt')
+    mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile2.txt')
+    assert mock_secret_url.delete_logically.call_count == 1
+
+    # モックの呼び出し履歴をリセット
+    mock_secret_url.delete_logically.reset_mock()
+
+    # どちらのファイルも論理削除が行われない場合のテスト
+    record_partial_update = create_mock_record(PublishStatus.DELETE.value, ['open_no', 'open_no'], ['testfile1.txt', 'testfile2.txt'])
+    assert_publish(record_partial_update, PublishStatus.PUBLIC.value, reset_mock=False)
+    mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile1.txt')
+    mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile2.txt')
+    mock_secret_url.delete_logically.assert_not_called()
+
+    # モックの呼び出し履歴をリセット
+    mock_secret_url.delete_logically.reset_mock()
+
+    # 2つ以上のファイルすべてが更新され、論理削除が行われる場合のテスト
+    record_partial_update = create_mock_record(PublishStatus.DELETE.value, ['other_date', 'other_date','other_date'], ['testfile1.txt', 'testfile2.txt', 'testfile3.txt'])
+    assert_publish(record_partial_update, PublishStatus.PUBLIC.value, reset_mock=False)
+    mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile1.txt')
+    mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile2.txt')
+    mock_FileSecretDownload.query.filter_by.assert_any_call(record_id='12345', is_deleted=False, file_name='testfile3.txt')
+    assert mock_secret_url.delete_logically.call_count == 3
+
+    # モックの呼び出し履歴をリセット
+    mock_secret_url.delete_logically.reset_mock()
+
+    # attribute_value_mltが空のリストの場合のテスト
+    record_empty_role = MockRecord({
+        'publish_status': PublishStatus.PRIVATE.value,
+        'recid': '12345',
+        'some_field': {
+            'attribute_value_mlt': []
+        }
+    })
+    update_item.publish(record_empty_role, PublishStatus.PUBLIC.value)
+    mock_secret_url.delete_logically.assert_not_called()
+    assert record_empty_role['publish_status'] == PublishStatus.PUBLIC.value
+
+    # "accessrole"が欠落しているケースのテスト
+    record_no_role = MockRecord({
+        'publish_status': PublishStatus.PRIVATE.value,
+        'recid': '12345',
+        'some_field': {
+            'attribute_value_mlt': [{'filename': 'testfile.txt'}]
+        }
+    })
+    update_item.publish(record_no_role, PublishStatus.PUBLIC.value)
+    mock_secret_url.delete_logically.assert_not_called()
+    assert record_no_role['publish_status'] == PublishStatus.PUBLIC.value
+
+    # "attribute_value_mlt"が辞書ではない場合のテスト
+    record_non_dict_attribute_value_mlt = MockRecord({
+        'publish_status': PublishStatus.PRIVATE.value,
+        'recid': '12345',
+        'some_field': {
+            'attribute_value_mlt': ['not_dict']
+        }
+    })
+    update_item.publish(record_non_dict_attribute_value_mlt, PublishStatus.PUBLIC.value)
+    mock_secret_url.delete_logically.assert_not_called()
+    assert record_non_dict_attribute_value_mlt['publish_status'] == PublishStatus.PUBLIC.value
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_WorkActivity_init_activity -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_WorkActivity_init_activity(app, users, item_type, workflow):

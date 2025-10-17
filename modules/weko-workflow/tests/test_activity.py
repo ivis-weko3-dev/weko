@@ -265,7 +265,7 @@ class TestHeadlessActivity:
         mock_activity.workflow = workflow["workflow"]
         # login user matches
         mock_activity.activity_login_user = users[0]["id"]
-        mock_activity.shared_user_ids = [{"user": users[3]["id"]}]
+        mock_activity.shared_user_ids = [users[3]["id"]]
         with patch("weko_workflow.headless.activity.verify_deletion") as mock_verify_deletion, \
                 patch("weko_workflow.headless.activity.HeadlessActivity.get_activity_by_id") as mock_get_activity_by_id, \
                 patch("weko_workflow.headless.activity.PersistentIdentifier.get_by_object") as mock_get_pid, \
@@ -500,11 +500,11 @@ class TestHeadlessActivity:
         activity.workflow = MagicMock(**workflow["workflow"].__dict__, spec=WorkFlow)
         activity.workflow.index_tree_id = "1"
         activity.workflow.location = MagicMock(name="local", spec=Location)
-        activity.item_type = next(i['obj'] for i in item_type if i['id'] == 1)
+        activity.item_type = item_type[0]["obj"]
 
         metadata = {
             "pubdate": "2024-01-01",
-            "shared_user_id": users[1]["id"],
+            "shared_user_ids": [users[1]["id"]],
             "item_title":[{"subitem_title":"Test Title"}],
             "item_files": [{"filename": "test.txt"}, {"filename": "ignore.txt"}]
         }
@@ -552,11 +552,11 @@ class TestHeadlessActivity:
         activity._model = mock_activity
         activity.workflow = workflow["workflow"]
         activity.workflow.index_tree_id = "1"
-        activity.item_type = next(i['obj'] for i in item_type if i['id'] == 1)
+        activity.item_type = item_type[0]["obj"]
 
         metadata = {
             "pubdate": "2024-01-01",
-            "weko_shared_id": users[1]["id"],
+            "weko_shared_ids": [users[1]["id"]],
             "item_title":[{"subitem_title":"Test Title"}],
             "item_files": [{"filename": "test.txt"}, {"filename": "ignore.txt"}],
             "item_1617186783814": []
@@ -633,12 +633,12 @@ class TestHeadlessActivity:
         mock_activity.activity_community_id = None
         activity._model = mock_activity
         activity.workflow = workflow["workflow"]
-        activity.item_type = next(i['obj'] for i in item_type if i['id'] == 1)
-        # no index tree id, shared_user_id and weko_shared_id are specified
+        activity.item_type = item_type
+        # no index tree id, shared_user_ids and weko_shared_ids are specified
         metadata = {
             "pubdate": "2024-01-01",
-            "shared_user_id": users[1]["id"],
-            "weko_shared_id": users[3]["id"],
+            "shared_user_ids": [users[1]["id"]],
+            "weko_shared_ids": [users[3]["id"]],
             "item_title":[{"subitem_title":"Test Title"}],
             "item_files": [{"filename": "test.txt"}, {"filename": "ignore.txt"}]
         }
