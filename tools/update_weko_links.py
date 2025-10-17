@@ -537,7 +537,7 @@ def bulk_update_workflow_activities(batch_size=500):
                     updated_ids = [r['id'] for r in new_activities]
                     current_app.logger.info(f'    Updated workflow_activity ids: {updated_ids}')
 
-                current_app.logger.info(f'  Finished processing activities: {[r["id"] for r in activities]}')
+                current_app.logger.info(f'  Finished processing activities: {[r[0] for r in activities]}')
 
             except Exception as e:
                 # エラーが起きたアイテムはロールバックして次に進む
