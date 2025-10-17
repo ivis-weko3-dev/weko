@@ -1126,6 +1126,10 @@ msgstr ""
 msgid "Could not download file."
 msgstr "ファイルをダウンロードできませんでした"
 
+#: weko_records_ui/fd.py:488
+msgid "Restricted access is disabled."
+msgstr "制限公開機能が無効です"
+
 #~ msgid "Success Secret URL Generate"
 #~ msgstr "成功: シークレットURLを生成し、あなたのメールアドレス宛に送信しました。"
 

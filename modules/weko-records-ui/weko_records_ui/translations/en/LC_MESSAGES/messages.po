@@ -1134,6 +1134,10 @@ msgstr ""
 msgid "Could not download file."
 msgstr ""
 
+#: weko_records_ui/fd.py:488
+msgid "Restricted access is disabled."
+msgstr ""
+
 #~ msgid "Success Secret URL Generate"
 #~ msgstr ""
 #~ "Success: Secret URL Generate is succeed."
