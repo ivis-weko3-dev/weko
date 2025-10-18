@@ -86,21 +86,9 @@ class UserView(ModelView):
 
     def scaffold_form(self):
         form_class = super(UserView, self).scaffold_form()
-        try:
-            config = current_app.config.get('WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT', {})
-            role_key = config.get('role_keyword', '')
-            prefix = config.get('prefix', '')
-        except RuntimeError:
-            role_key = ''
-            prefix = ''
         form_class.role = QuerySelectMultipleField(
             'Roles',
-            query_factory=lambda: Role.query.filter(
-                ~Role.name.like('%_groups_%'),
-                ~(
-                    Role.name.like(f"%{role_key}%") & Role.name.like(f"%{prefix}%")
-                )
-            ).all(),
+            query_factory=lambda: Role.query.filter(~Role.name.like('%_groups_%')).all(),
             get_label='name',
             widget=Select2Widget(multiple=True)
         )
@@ -342,22 +330,6 @@ class RoleView(ModelView):
                 )
                 current_app.logger.error(str(ex))
                 db.session.rollback()
-
-    def get_query(self):
-        """
-        Get the query for filtering roles.
-        """
-        return super().get_query().filter(Role.name.in_(
-            [role.name for role in Role.query.all() if role.info_display]
-        ))
-
-    def get_count_query(self):
-        """
-        Get the count query for filtering roles.
-        """
-        return super().get_count_query().filter(Role.name.in_(
-            [role.name for role in Role.query.all() if role.info_display]
-        ))
 
 class SessionActivityView(ModelView):
     """Admin view for user sessions."""

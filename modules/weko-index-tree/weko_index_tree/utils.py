@@ -342,25 +342,15 @@ def check_roles(user_role, roles, params):
             self_role = user_role[1] or ['-98']
             if set_index_group:
                 index_role_group = [int(r) for r in roles_list if int(r) in params["role_groups"]]
-                if index_role_group:
-                    # Groups(role) are set for the index.
-                    group_perm = any(
-                        str(rg) in [str(r) for r in roles_list] and str(rg) in [str(sr) for sr in self_role]
-                        for rg in index_role_group
-                    )
-                    if set_index_role:
-                        # If the index has both role groups and roles.
-                        role_perm = any(
-                            str(role) in [str(r) for r in roles_list] and str(role) in [str(sr) for sr in self_role]
-                            for role in self_role
-                        )
-                        is_can = group_perm and role_perm
-                    else:
-                        # If the index has role groups but no roles.
-                        is_can = group_perm
+                # Groups(role) are set for the index.
+                group_perm = any(str(rg) in [str(sr) for sr in self_role] for rg in index_role_group)
+                if set_index_role:
+                    # If the index has both role groups and roles.
+                    role_perm = any(str(role) in [str(r) for r in roles_list] for role in self_role)
+                    is_can = group_perm and role_perm
                 else:
-                    # No role groups are set for the index, but the user has role groups.
-                    is_can = False
+                    # If the index has role groups but no roles.
+                    is_can = group_perm
             elif set_index_role:
                 # Roles are set for the index, but no role groups are configured.
                 for role in self_role:
@@ -882,9 +872,6 @@ def check_index_permissions(record=None, index_id=None, index_path_list=None,
         is_content_public = False
         params = set_params(groups, index_data.browsing_group)
         if index_data.public_state:
-            check_user_role = check_roles(roles, index_data.browsing_role, params)
-            can_view = True
-        elif index_data.public_state:
             check_user_role = check_roles(roles, index_data.browsing_role, params)
             check_public_date = \
                 not is_future(index_data.public_date) \
