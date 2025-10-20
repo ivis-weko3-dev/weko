@@ -340,7 +340,6 @@ class WorkFlowSettingView(BaseView):
             'weko_workflow/admin/workflow_list.html',
             workflows=workflows,
             display_label=display_label,
-            restrected_access_flag=current_app.config.get('WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG', False)
         )
 
     @expose('/<string:workflow_id>', methods=['GET'])
@@ -393,7 +392,8 @@ class WorkFlowSettingView(BaseView):
                 display_hide_label=display_hide,
                 is_sysadmin=is_sysadmin,
                 is_display_restricted_access_checkbox=is_display_restricted_access_checkbox,
-                repositories=repositories
+                repositories=repositories,
+                restrected_access_flag=current_app.config.get('WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG', False)
             )
 
         """Update the workflow info"""
@@ -428,7 +428,8 @@ class WorkFlowSettingView(BaseView):
             display_hide_label=display_hide,
             is_sysadmin=is_sysadmin,
             is_display_restricted_access_checkbox=is_display_restricted_access_checkbox,
-            repositories=repositories
+            repositories=repositories,
+            restrected_access_flag=current_app.config.get('WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG', False)
         )
 
     @expose('/<string:workflow_id>', methods=['POST', 'PUT'])

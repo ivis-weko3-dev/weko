@@ -35,7 +35,6 @@ from invenio_oauth2server import require_api_auth, require_oauth_scopes
 from urllib import parse
 from redis import RedisError
 from werkzeug.http import generate_etag
-from werkzeug.exceptions import Forbidden
 
 from invenio_db import db
 from invenio_oauth2server import require_api_auth, require_oauth_scopes

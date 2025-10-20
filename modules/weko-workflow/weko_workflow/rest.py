@@ -33,7 +33,6 @@ from invenio_pidstore.models import PersistentIdentifier
 from invenio_oauth2server import require_api_auth, require_oauth_scopes
 from invenio_rest import ContentNegotiatedMethodView
 from werkzeug.http import generate_etag
-from werkzeug.exceptions import Forbidden
 from weko_deposit.api import WekoDeposit
 from weko_index_tree.api import Indexes
 from weko_index_tree.utils import get_index_id
