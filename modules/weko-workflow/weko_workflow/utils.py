@@ -5290,6 +5290,7 @@ def check_activity_settings(settings=None):
                 current_app.config['WEKO_WORKFLOW_APPROVER_EMAIL_COLUMN_VISIBLE'] = settings.activity_display_flg
 
 def reset_flow_action_roles_restricted_access():
+    """Reset FlowActionRole specify_property and action_item_registrant for restricted access."""
     try:
         with db.session.begin_nested():
             flow_action_roles = FlowActionRole.query.filter(
