@@ -339,7 +339,8 @@ class WorkFlowSettingView(BaseView):
         return self.render(
             'weko_workflow/admin/workflow_list.html',
             workflows=workflows,
-            display_label=display_label
+            display_label=display_label,
+            restrected_access_flag=current_app.config.get('WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG', False)
         )
 
     @expose('/<string:workflow_id>', methods=['GET'])
@@ -407,7 +408,10 @@ class WorkFlowSettingView(BaseView):
         else:
             display = role
             hide = []
-        if workflows.open_restricted and not is_sysadmin and current_app.config["WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG"]:
+        
+        if workflows.open_restricted \
+            and not is_sysadmin \
+            and current_app.config["WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG"]:
             abort(403)
 
         return self.render(

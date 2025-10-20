@@ -409,7 +409,7 @@ class GetFileTerms(ContentNegotiatedMethodView):
 
     def get_v1(self, **kwargs):
         if not current_app.config["WEKO_RECORDS_UI_RESTRICTED_API"]:
-            raise Forbidden()
+            abort(403)
         # Get parameter
         param_pretty = str(request.values.get('pretty', 'false'))
         language = str(request.headers.get('Accept-Language', 'en'))
@@ -487,7 +487,7 @@ class FileApplication(ContentNegotiatedMethodView):
 
     def post_v1(self, **kwargs):
         if not current_app.config["WEKO_RECORDS_UI_RESTRICTED_API"]:
-            raise Forbidden()
+            abort(403)
         # Get parameter
         language = str(request.headers.get('Accept-Language', 'en'))
         param_pretty = str(request.values.get('pretty', 'false'))

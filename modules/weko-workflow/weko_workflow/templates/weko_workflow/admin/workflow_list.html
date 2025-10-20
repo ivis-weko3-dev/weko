@@ -41,7 +41,9 @@
             <th>{{_('Item Type')}}</th>
             <th>{{_('Flow')}}</th>
             <th>{{_('Deletion Flow')}}</th>
+            {%- if restrected_access_flag%}
             <th>{{_('Restricted Access Flag')}}</th>
+            {%- endif %}
             <th>{{_('GakuNinRDM Flag')}}</th>
             <th>{{_('Registration Destination Index')}}</th>
             <th>{{_('Strage Location')}}</th>
