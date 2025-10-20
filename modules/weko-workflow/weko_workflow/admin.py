@@ -339,7 +339,7 @@ class WorkFlowSettingView(BaseView):
         return self.render(
             'weko_workflow/admin/workflow_list.html',
             workflows=workflows,
-            display_label=display_label,
+            display_label=display_label
         )
 
     @expose('/<string:workflow_id>', methods=['GET'])
