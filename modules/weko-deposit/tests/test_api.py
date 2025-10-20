@@ -836,13 +836,13 @@ class TestWekoDeposit:
         with patch("weko_deposit.api.WekoDeposit.get_file_data", return_value=[]):
             result = deposit.get_content_files_reindex_command()
             assert result == {}
-        
+
         ret = deposit.get_content_files_reindex_command()
 
         assert ret["sample_word.docx"].get("is_pdf") == False
         assert ret["test_file_1.2M.pdf"].get("is_pdf") == True
         assert ret["test_file_82K.pdf"].get("is_pdf") == True
-        
+
         for info in ret.values():
             assert "uri" in info and info["uri"]
             assert "size" in info and info["size"]
@@ -853,13 +853,14 @@ class TestWekoDeposit:
         rec_uuid = uuid.uuid4()
         pdf_files, deposit = create_record_with_pdf(rec_uuid, 1)
         test = {}
-        for file_name, file_obj in pdf_files.items():
+        for file_name, file_info in pdf_files.items():
+            file_obj = file_info.get("file")
             test[file_name]={"uri":file_obj.obj.file.uri,"size":file_obj.obj.file.size}
         res = deposit.get_pdf_info()
         assert res == test
 
     # def get_pdf_info(self):
-    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_get_pdf_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_get_pdf_info_reindex_command -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_get_pdf_info_reindex_command(sel, app, db, location):
         rec_uuid = uuid.uuid4()
         pdf_files, deposit = create_record_with_pdf(rec_uuid, 1)
