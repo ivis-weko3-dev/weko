@@ -498,9 +498,14 @@ def validate_onetime_token(
     # Update 'extra_info' of the one-time URL object
     url_obj = convert_token_into_obj(token, is_secret_url=False)
 
-    # Check if user authenticated
-    if not current_user.is_authenticated:
+    # Check if created by guest user
+    if url_obj.is_guest:
         return validate_onetime_guest(url_obj, pid, token, redirect_url)
+
+    # Check if not authenticated or email doesn't match
+    if not current_user.is_authenticated or \
+        current_user.email != url_obj.user_mail:
+        return error_response(_('Invalid token.'), 403)
 
     # process the file download
     return process_onetime_file_download(
