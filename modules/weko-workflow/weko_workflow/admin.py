@@ -109,7 +109,12 @@ class FlowSettingView(BaseView):
 
         if not self._check_auth(flow_id) :
             abort(403)
-
+        
+        if not use_restricted_item:
+            for action in flow.flow_actions:
+                if action.action_role:
+                    action.action_role.specify_property = None
+                    action.action_role.action_item_registrant = False
         return self.render(
             'weko_workflow/admin/flow_detail.html',
             flow_id=flow_id,

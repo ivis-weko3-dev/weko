@@ -483,7 +483,12 @@ def validate_onetime_token(
     Returns:
         Response: The Flask wrapper object for the file download
     """
+    # check restricted access is enabled
+    if not current_app.config.get("WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG", False):
+        return error_response(_('Restricted access is disabled.'), 403)
+
     # Validate the onetime download token
+    token = request.args.get('token', type=str)
     is_validated, error_msg = validate_url_download(
         record, filename, token, is_secret_url=False)
     if not is_validated:
