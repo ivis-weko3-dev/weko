@@ -305,6 +305,9 @@ ON CONFLICT(name) DO NOTHING;
 -- Data for Name: index; Type: TABLE DATA; Schema: public; Owner: invenio
 --
 
+WITH general_role AS (
+    SELECT id FROM accounts_role WHERE name = 'General'
+)
 INSERT INTO index (created, updated, id, parent, "position", index_name, index_name_english, index_link_name, index_link_name_english, harvest_spec, index_link_enabled, comment, more_check, display_no, harvest_public_state, display_format, image_name, public_state, public_date, recursive_public_state, rss_status, coverpage_state, recursive_coverpage_check, browsing_role, recursive_browsing_role, contribute_role, recursive_contribute_role, browsing_group, recursive_browsing_group, contribute_group, recursive_contribute_group, owner_user_id, item_custom_sort, biblio_flag, online_issn, is_deleted) VALUES
 (
     '2023-12-26 00:58:30.451000',
@@ -330,9 +333,9 @@ INSERT INTO index (created, updated, id, parent, "position", index_name, index_n
     false,
     false,
     false,
-    '3,5,-98,-99',
+    (SELECT CONCAT('3,', id, ',-98,-99') FROM general_role),
     false,
-    '1,2,3,4,5,-98,-99',
+    (SELECT CONCAT('1,2,3,4,', id, ',-98,-99') FROM general_role),
     false,
     '',
     false,
@@ -727,16 +730,19 @@ INSERT INTO workflow_workflow (status, created, updated, id, flows_id, flows_nam
 )
 ON CONFLICT (id) DO NOTHING;
 
+WITH general_role AS (
+    SELECT id FROM accounts_role WHERE name = 'General'
+)
 INSERT INTO workflow_userrole (status, created, updated, workflow_id, role_id) VALUES
 ('N', '2023-12-26 10:03:13.864000', '2023-12-26 10:03:13.864000', 31002, 3),
-('N', '2023-12-26 10:03:13.865000', '2023-12-26 10:03:13.865000', 31002, 5),
+('N', '2023-12-26 10:03:13.865000', '2023-12-26 10:03:13.865000', 31002, (SELECT id FROM general_role)),
 ('N', '2023-12-26 10:03:13.866000', '2023-12-26 10:03:13.866000', 31002, 4),
 ('N', '2023-12-26 10:05:16.258000', '2023-12-26 10:05:16.258000', 31003, 3),
 ('N', '2023-12-26 10:05:16.259000', '2023-12-26 10:05:16.259000', 31003, 4),
-('N', '2023-12-26 10:05:16.259000', '2023-12-26 10:05:16.259000', 31003, 5),
+('N', '2023-12-26 10:05:16.259000', '2023-12-26 10:05:16.259000', 31003, (SELECT id FROM general_role)),
 ('N', '2023-12-26 11:11:49.401000', '2023-12-26 11:11:49.401000', 31004, 3),
 ('N', '2023-12-26 11:11:49.404000', '2023-12-26 11:11:49.404000', 31004, 4),
-('N', '2023-12-26 11:11:49.404000', '2023-12-26 11:11:49.404000', 31004, 5)
+('N', '2023-12-26 11:11:49.404000', '2023-12-26 11:11:49.404000', 31004, (SELECT id FROM general_role))
 ON CONFLICT (workflow_id, role_id) DO NOTHING;
 
 --
