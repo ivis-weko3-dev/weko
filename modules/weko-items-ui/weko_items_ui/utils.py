@@ -45,6 +45,7 @@ from flask_login import current_user
 from sqlalchemy import MetaData, Table
 from sqlalchemy.sql import text
 from jsonschema import SchemaError, ValidationError
+from werkzeug.exceptions import HTTPException
 
 from invenio_accounts.models import Role, userrole
 from invenio_db import db
@@ -308,11 +309,11 @@ def get_user_information(user_ids):
             info['fullname'] = user_info.fullname
         else:
             info['userid'] = user_id
-        
+
         temp = list(map(lambda x : x[0], data))
         if not user_id in temp:
             info['error'] = "The specified user ID is incorrect"
-        
+
         for item in data:
             if int(item[0]) == int(user_id):
                 info['email'] = item[1]
@@ -2667,6 +2668,8 @@ def export_items(post_data):
     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         current_app.logger.error(traceback.print_exc())
         return abort(400)
+    except HTTPException:
+        raise
     except Exception:
         current_app.logger.error(traceback.print_exc())
         traceback.print_exc()
@@ -4107,10 +4110,10 @@ def get_duplicate_fields(data):
             author_links.extend(item_author_links)
 
     return resource_types, identifiers, titles, creators, author_links
-    
+
 def check_duplicate(data, is_item=True, exclude_ids=[]):
     """Check if a record or item is duplicate in records_metadata.
-    
+
     Checks whether records or items in records_metadata are unique.
 
     If an identifier exists, returns True if a duplicate item exists.
@@ -4119,7 +4122,7 @@ def check_duplicate(data, is_item=True, exclude_ids=[]):
 
     Does not return True if any unique properties exist.
     If each property has multiple values, all values must match to be considered a duplicate.
-    
+
     Args:
         data (dict or str): Metadata dictionary (or JSON string).
         is_item (bool): True if checking an item, False if checking a record.
@@ -4161,7 +4164,7 @@ def check_duplicate(data, is_item=True, exclude_ids=[]):
         titles.extend(_titles)
         creators.extend(_creators)
         author_links.extend(_author_links)
-    
+
     resource_types = list(set(resource_types))
     identifiers = list(set(identifiers))
     titles = list(set(titles))
@@ -4317,6 +4320,7 @@ def check_duplicate(data, is_item=True, exclude_ids=[]):
             json_str = json.dumps(json_obj, ensure_ascii=False)
             result_creators = re.findall(r'"creatorName"\s*:\s*"([^"]+)"', json_str)
             clean_creator = [re.sub(r'[\s,　]', '', name) for name in result_creators]
+            clean_creator = list(set(clean_creator))
             count_clean_creator = Counter(clean_creator)
             if count_normalized_creators == count_clean_creator:
                 final_matched.add(recid)
@@ -4662,7 +4666,7 @@ def make_stats_file_with_permission(item_type_id, recids,
             self.attr_data['request_mail_list']['max_size'] = largest_size
 
             return self.attr_data['request_mail_list']['max_size']
-        
+
         # 利用申請を取得する内部メソッド
         def get_item_application(self):
             self.attr_data['item_application']={}
