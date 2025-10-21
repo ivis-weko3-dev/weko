@@ -14,7 +14,7 @@ import pytest
 from datetime import timedelta
 from flask import url_for
 from fs.opener import opener
-from mock import patch
+from unittest.mock import patch
 from six import BytesIO
 from tests.testutils import BadBytesIO, login_user
 
