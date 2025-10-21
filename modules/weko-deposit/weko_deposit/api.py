@@ -1249,7 +1249,7 @@ class WekoDeposit(Deposit):
 
 
     def get_content_files_reindex_command(self):
-        """ 
+        """
 
         Get content file metadata.
 
@@ -1338,7 +1338,10 @@ class WekoDeposit(Deposit):
                     filename = lst.get('filename')
                     if file.obj.key != filename:
                         continue
-                    if file.obj.mimetype not in current_app.config['WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES']:
+                    mimetype = file.obj.mimetype
+                    if mimetype not in current_app.config['WEKO_MIMETYPE_WHITELIST_FOR_ES']:
+                        continue
+                    if mimetype not in current_app.config['WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES']:
                         file_instance = file.obj.file
                         file_info = {
                             "uri": file_instance.uri,
@@ -1349,7 +1352,7 @@ class WekoDeposit(Deposit):
 
     def get_pdf_info_reindex_command(self):
         """Get the path and size of the registered PDF file
-        
+
         Returns:
             pdf_files(dict): pdf_files ex: {'test1.pdf': {'uri': '/var/tmp/tmp5beo2byv/e2/5a/e1af-d89b-4ce0-bd01-a78833acbe1e/data', 'size': 1252395}"
         """
@@ -1719,7 +1722,7 @@ class WekoDeposit(Deposit):
         self['_deposit']['owners'] = [int(dc['owner'])]
         self['_deposit']['weko_shared_ids'] = dc['weko_shared_ids']
         self['_deposit']['created_by'] = int(
-            self.data.get('created_by', 
+            self.data.get('created_by',
                           current_user.id if current_user and current_user.is_authenticated else system_admin.id))
 
         if data:
