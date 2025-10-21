@@ -162,7 +162,7 @@ def test_call_external_system(app, records, mocker):
             record2["publish_status"] = PublishStatus.PRIVATE.value
             call_external_system(old_record=record1, new_record=record2)
             data["status_action"] = ITEM_ACTION.UPDATED.value
-            data["item_info"]["publish_status"] = int(record2.get("publish_status"))
+            data["item_info"]["publish_status"] = OAPublishStatus.DRAFT.value
             update_api_mock.assert_called_once_with(
                 url, headers=headers, json=data
             )
@@ -176,7 +176,7 @@ def test_call_external_system(app, records, mocker):
             "operation": "ITEM_EXTERNAL_LINK",
             "target_key": "1",
             "request_info": None,
-            "remarks": result,
+            "remarks": json.dumps(result, default=str, ensure_ascii=False, sort_keys=True),
             "required_commit": False
         }
         with patch('requests.Session.put', return_value=update_api_response
@@ -187,7 +187,7 @@ def test_call_external_system(app, records, mocker):
 
         # case RequestException
         result[EXTERNAL_SYSTEM.OA.value] = {"status":"error"}
-        logger_result["remarks"] = result
+        logger_result["remarks"] = json.dumps(result, default=str, ensure_ascii=False, sort_keys=True)
         with patch('requests.Session.put',
                     side_effect=requests.exceptions.RequestException
                     ) as update_api_mock:
@@ -403,53 +403,54 @@ def test_file_counts(app):
     file_counts_restricted = copy.deepcopy(file_counts_0)
     file_counts_restricted[FILE_OPEN_STATUS.RESTRICTED.value] = 1
 
-    # cases public
-    file = {"accessrole": "open_access"}
-    assert get_file_counts([file]) == file_counts_public
-    file = {"accessrole": "open_date",
-            "date": [{"dateValue": today_date}],
-            "accessdate": today_date}
-    assert get_file_counts([file]) == file_counts_public
-    file = {"accessrole": "open_date",
-            "date": [{"dateValue": tommorow_date}],
-            "accessdate": today_date}
-    assert get_file_counts([file]) == file_counts_public
-    file = {"accessrole": "open_date",
-            "date": [{"dateValue": today_date}]}
-    assert get_file_counts([file]) == file_counts_public
-    file = {"accessrole": "open_date",
-            "accessdate": today_date}
-    assert get_file_counts([file]) == file_counts_public
+    with app.test_request_context():
+        # cases public
+        file = {"accessrole": "open_access"}
+        assert get_file_counts([file]) == file_counts_public
+        file = {"accessrole": "open_date",
+                "date": [{"dateValue": today_date}],
+                "accessdate": today_date}
+        assert get_file_counts([file]) == file_counts_public
+        file = {"accessrole": "open_date",
+                "date": [{"dateValue": tommorow_date}],
+                "accessdate": today_date}
+        assert get_file_counts([file]) == file_counts_public
+        file = {"accessrole": "open_date",
+                "date": [{"dateValue": today_date}]}
+        assert get_file_counts([file]) == file_counts_public
+        file = {"accessrole": "open_date",
+                "accessdate": today_date}
+        assert get_file_counts([file]) == file_counts_public
 
-    # cases embargo
-    file = {"accessrole": "open_date",
-            "date": [{"dateValue": today_date}],
-            "accessdate": tommorow_date}
-    assert get_file_counts([file]) == file_counts_embargo
-    file = {"accessrole": "open_date",
-            "date": [{"dateValue": tommorow_date}],
-            "accessdate": tommorow_date}
-    assert get_file_counts([file]) == file_counts_embargo
-    file = {"accessrole": "open_date",
-            "date": [{"dateValue": tommorow_date}]}
-    assert get_file_counts([file]) == file_counts_embargo
-    file = {"accessrole": "open_date",
-            "accessdate": tommorow_date}
-    assert get_file_counts([file]) == file_counts_embargo
+        # cases embargo
+        file = {"accessrole": "open_date",
+                "date": [{"dateValue": today_date}],
+                "accessdate": tommorow_date}
+        assert get_file_counts([file]) == file_counts_embargo
+        file = {"accessrole": "open_date",
+                "date": [{"dateValue": tommorow_date}],
+                "accessdate": tommorow_date}
+        assert get_file_counts([file]) == file_counts_embargo
+        file = {"accessrole": "open_date",
+                "date": [{"dateValue": tommorow_date}]}
+        assert get_file_counts([file]) == file_counts_embargo
+        file = {"accessrole": "open_date",
+                "accessdate": tommorow_date}
+        assert get_file_counts([file]) == file_counts_embargo
 
-    # cases private
-    file = {"accessrole": "open_no"}
-    assert get_file_counts([file]) == file_counts_private
-    file = {"accessrole": "open_login"}
-    assert get_file_counts([file]) == file_counts_private
+        # cases private
+        file = {"accessrole": "open_no"}
+        assert get_file_counts([file]) == file_counts_private
+        file = {"accessrole": "open_login"}
+        assert get_file_counts([file]) == file_counts_private
 
-    # cases restricted
-    file = {"accessrole": "open_restricted"}
-    assert get_file_counts([file]) == file_counts_restricted
+        # cases restricted
+        file = {"accessrole": "open_restricted"}
+        assert get_file_counts([file]) == file_counts_restricted
 
-    # case None
-    file = {"accessrole": ""}
-    assert get_file_counts([file]) == file_counts_0
+        # case None
+        file = {"accessrole": ""}
+        assert get_file_counts([file]) == file_counts_0
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_external.py::test_validate_records -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -512,63 +513,63 @@ def test_get_record_diff(app, records):
 
     file_counts_embargo = copy.deepcopy(file_counts_0)
     file_counts_embargo[FILE_OPEN_STATUS.EMBARGO.value] = 1
+    with app.test_request_context():
+        file = {"accessrole": "open_date",
+                "date": [{"dateValue": today_date}]}
+        record1 = WekoRecord.get_record_by_pid(1)
+        record1["publish_status"] = PublishStatus.PUBLIC.value
+        record1["pubdate"]["attribute_value"] = today_date
+        for property in record1.values():
+            if isinstance(property, dict):
+                if property.get("attribute_type") == "file":
+                    property["attribute_value_mlt"] = [file]
 
-    file = {"accessrole": "open_date",
-            "date": [{"dateValue": today_date}]}
-    record1 = WekoRecord.get_record_by_pid(1)
-    record1["publish_status"] = PublishStatus.PUBLIC.value
-    record1["pubdate"]["attribute_value"] = today_date
-    for property in record1.values():
-        if isinstance(property, dict):
-            if property.get("attribute_type") == "file":
-                property["attribute_value_mlt"] = [file]
+        record2 = copy.deepcopy(record1)
+        record2["publish_status"] = PublishStatus.PRIVATE.value
+        record2["pubdate"]["attribute_value"] = tommorow_date
+        file = {"accessrole": "open_date",
+                "date": [{"dateValue": tommorow_date}]}
+        for property in record2.values():
+            if isinstance(property, dict):
+                if property.get("attribute_type") == "file":
+                    property["attribute_value_mlt"] = [file]
 
-    record2 = copy.deepcopy(record1)
-    record2["publish_status"] = PublishStatus.PRIVATE.value
-    record2["pubdate"]["attribute_value"] = tommorow_date
-    file = {"accessrole": "open_date",
-            "date": [{"dateValue": tommorow_date}]}
-    for property in record2.values():
-        if isinstance(property, dict):
-            if property.get("attribute_type") == "file":
-                property["attribute_value_mlt"] = [file]
+        # case old_record == new_record
+        diff = get_record_diff(record1, record1)
+        diff_before = diff["before"]
+        diff_after = diff["after"]
+        assert diff_before == {}
+        assert diff_after == {}
 
-    # case old_record == new_record
-    diff = get_record_diff(record1, record1)
-    diff_before = diff["before"]
-    diff_after = diff["after"]
-    assert diff_before == {}
-    assert diff_after == {}
+        # case old_record only
+        diff = get_record_diff(record1, None)
+        diff_before = diff["before"]
+        diff_after = diff["after"]
+        assert diff_before["publish_status"] == record1["publish_status"]
+        assert diff_before["pubdate"] == record1["pubdate"]["attribute_value"]
+        assert diff_before["file_counts"] == file_counts_public
+        assert diff_after["publish_status"] is None
+        assert diff_after["pubdate"] is None
+        assert diff_after["file_counts"] == file_counts_0
 
-    # case old_record only
-    diff = get_record_diff(record1, None)
-    diff_before = diff["before"]
-    diff_after = diff["after"]
-    assert diff_before["publish_status"] == record1["publish_status"]
-    assert diff_before["pubdate"] == record1["pubdate"]["attribute_value"]
-    assert diff_before["file_counts"] == file_counts_public
-    assert diff_after["publish_status"] is None
-    assert diff_after["pubdate"] is None
-    assert diff_after["file_counts"] == file_counts_0
+        # case new_record only
+        diff = get_record_diff(None, record1)
+        diff_before = diff["before"]
+        diff_after = diff["after"]
+        assert diff_before["publish_status"] is None
+        assert diff_before["pubdate"] is None
+        assert diff_before["file_counts"] == file_counts_0
+        assert diff_after["publish_status"] == record1["publish_status"]
+        assert diff_after["pubdate"] == record1["pubdate"]["attribute_value"]
+        assert diff_after["file_counts"] == file_counts_public
 
-    # case new_record only
-    diff = get_record_diff(None, record1)
-    diff_before = diff["before"]
-    diff_after = diff["after"]
-    assert diff_before["publish_status"] is None
-    assert diff_before["pubdate"] is None
-    assert diff_before["file_counts"] == file_counts_0
-    assert diff_after["publish_status"] == record1["publish_status"]
-    assert diff_after["pubdate"] == record1["pubdate"]["attribute_value"]
-    assert diff_after["file_counts"] == file_counts_public
-
-    # case old_record != new_record
-    diff = get_record_diff(record1, record2)
-    diff_before = diff["before"]
-    diff_after = diff["after"]
-    assert diff_before["publish_status"] == PublishStatus.PUBLIC.value
-    assert diff_before["pubdate"] == today_date
-    assert diff_before["file_counts"] == file_counts_public
-    assert diff_after["publish_status"] == PublishStatus.PRIVATE.value
-    assert diff_after["pubdate"] == tommorow_date
-    assert diff_after["file_counts"] == file_counts_embargo
+        # case old_record != new_record
+        diff = get_record_diff(record1, record2)
+        diff_before = diff["before"]
+        diff_after = diff["after"]
+        assert diff_before["publish_status"] == PublishStatus.PUBLIC.value
+        assert diff_before["pubdate"] == today_date
+        assert diff_before["file_counts"] == file_counts_public
+        assert diff_after["publish_status"] == PublishStatus.PRIVATE.value
+        assert diff_after["pubdate"] == tommorow_date
+        assert diff_after["file_counts"] == file_counts_embargo

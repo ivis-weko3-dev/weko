@@ -27,6 +27,7 @@ import csv
 import json
 import re
 import six
+import datetime
 from datetime import datetime as dt, timezone
 from datetime import timedelta
 from decimal import Decimal
@@ -2230,7 +2231,7 @@ def send_secret_url_mail(uuid, secret_url_obj, item_title):
         'restricted_fullname'       : fullname,
         'restricted_data_name'      : item_title,
     }
-    
+
     #     return_dict: dict = {
     #     "secret_url": secret_file_url,
     #     "mail_recipient": secret_obj.user_mail,
