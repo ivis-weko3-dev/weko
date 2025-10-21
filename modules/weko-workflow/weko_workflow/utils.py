@@ -90,7 +90,7 @@ from .config import DOI_VALIDATION_INFO, DOI_VALIDATION_INFO_CROSSREF, DOI_VALID
 from .errors import InvalidParameterValueError
 from .models import Action as _Action
 from .models import ActionStatusPolicy, Activity, ActivityStatusPolicy, \
-    FlowAction, GuestActivity
+    FlowAction, FlowActionRole, GuestActivity
 
 
 def _check_mail_setting(setting):
@@ -5097,7 +5097,7 @@ def get_contributors(pid_value, user_id_list_json=None, owner_id=-1):
         userid_list.append(int(owner_id))
         userid_list.extend(record['weko_shared_ids'])
     # 一時保存ユーザーデータ
-    elif user_id_list_json and owner_id != -1:
+    elif owner_id != -1:
         if type(user_id_list_json) == list:
             for rec in user_id_list_json:
                 if type(rec) == dict:
@@ -5288,3 +5288,19 @@ def check_activity_settings(settings=None):
         else:
             if hasattr(settings,'activity_display_flg'):
                 current_app.config['WEKO_WORKFLOW_APPROVER_EMAIL_COLUMN_VISIBLE'] = settings.activity_display_flg
+
+def reset_flow_action_roles_restricted_access():
+    """Reset FlowActionRole specify_property and action_item_registrant for restricted access."""
+    try:
+        with db.session.begin_nested():
+            flow_action_roles = FlowActionRole.query.filter(
+                (FlowActionRole.specify_property.isnot(None)) |
+                (FlowActionRole.action_item_registrant.is_(True))
+            ).all()
+            for action_role in flow_action_roles:
+                action_role.specify_property = None
+                action_role.action_item_registrant = False
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.exception(str(e))
