@@ -226,7 +226,7 @@ msgstr ""
 #: weko_records_ui/templates/weko_records_ui/box/preview_carousel.html:151
 #: weko_records_ui/utils.py:987
 msgid "Restricted Access"
-msgstr ""
+msgstr "アクセス制限"
 
 #: weko_records_ui/utils.py:996
 msgid "Download is available from {}/{}/{}."
