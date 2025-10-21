@@ -1586,8 +1586,9 @@ SELECT pg_catalog.setval('public.mail_templates_id_seq', 16, true);
 -- Upsert admin_settings to enable restricted access features
 --
 
-INSERT INTO admin_settings(name, settings) 
+INSERT INTO admin_settings(id, name, settings) 
 VALUES ( 
+    (SELECT MAX(id) + 1 FROM admin_settings),
     'restricted_access'
     , '{"error_msg": {"key": "", "content": {"en": {"content": "This data is not available for this user"}, "ja": {"content": "このデータは利用できません（権限がないため）。"}}}, "password_enable": true, "item_application": {"application_item_types": [], "item_application_enable": true}, "display_request_form": true, "terms_and_conditions": [], "content_file_download": {"download_limit": 10, "expiration_date": 30, "download_limit_unlimited_chk": false, "expiration_date_unlimited_chk": false}, "secret_URL_file_download": {"secret_enable": true, "secret_download_limit": 10, "secret_expiration_date": 30, "max_secret_download_limit": 10, "max_secret_expiration_date": 30, "secret_download_limit_unlimited_chk": false, "secret_expiration_date_unlimited_chk": false}, "edit_mail_templates_enable": true, "usage_report_workflow_access": {"expiration_date_access": 500, "expiration_date_access_unlimited_chk": false}, "preview_workflow_approval_enable": true}'
 ) 
@@ -1618,5 +1619,7 @@ SET
         , '{preview_workflow_approval_enable}'
         , 'true'::jsonb
     );
+
+SELECT pg_catalog.setval('public.admin_settings_id_seq', (SELECT MAX(id) FROM admin_settings), true);
 
 COMMIT;
