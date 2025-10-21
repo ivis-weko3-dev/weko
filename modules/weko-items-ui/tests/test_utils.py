@@ -4,12 +4,12 @@ import os
 from datetime import datetime
 from io import StringIO
 from collections import OrderedDict
-from unittest.mock import MagicMock, Mock, mock_open
+from unittest.mock import MagicMock, Mock, mock_open, patch
 import copy
 import tempfile
 import pytz
 import shutil
-from dictdiffer import diff, patch
+from dictdiffer import diff
 from elasticsearch import exceptions as es_exceptions
 from six import BytesIO
 from sqlalchemy.exc import SQLAlchemyError
@@ -24,8 +24,8 @@ from weko_records_ui.errors import AvailableFilesNotFoundRESTError
 from weko_redis.redis import RedisConnection
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from jsonschema import SchemaError, ValidationError
-from mock import patch
 from werkzeug.exceptions import BadRequest
+from invenio_accounts.testutils import login_user_via_session
 from weko_deposit.api import WekoDeposit, WekoRecord, WekoFileObject
 from weko_records.api import ItemTypes
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
@@ -8340,14 +8340,15 @@ def test_get_list_file_by_record_id(db_records,users,esindex):
 
 # def c(item_types_data, export_path):
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_write_bibtex_files -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_write_bibtex_files(app, db_oaischema, db_records, db_itemtype_15):
+def test_write_bibtex_files(app, client, db_oaischema, db_records, db_itemtype_15, users, tmp_path):
+    login_user_via_session(client, users[1]["obj"])
     app.config.update(OAISERVER_XSL_URL=None)
     redis_connection = RedisConnection().connection(db=app.config['CACHE_REDIS_DB'], kv = True)
     redis_connection.delete("cache_jpcoar_mapping")
     item_types_data = {
         "15": {
             "item_type_id": "15",
-            "name": "itemtype",
+            "name": "デフォルトアイテムタイプ（フル）(15)",
             "root_url": "https://localhost:8443/",
             "jsonschema": "items/jsonschema/15",
             "keys": [],
@@ -8366,21 +8367,24 @@ def test_write_bibtex_files(app, db_oaischema, db_records, db_itemtype_15):
             "data": {},
         }
     }
-    export_path = "./tests/"
+    export_path = str(tmp_path / "weko_export_thrb3g8g/20220827140620")
+    os.makedirs(export_path)
     schema = {}
     schema['root_name'] = db_oaischema.form_data.get('root_name')
     schema['schema_location'] = db_oaischema.schema_location
     schema['namespaces'] = db_oaischema.namespaces
-    schema['schema'] = json.loads(
-        db_oaischema.xsd, object_pairs_hook=OrderedDict)
-    with patch('weko_schema_ui.schema.cache_schema', return_value=schema):
-        with patch('invenio_oaiserver.response.url_for', return_value='http://localhost/oai'):
-            with patch('weko_schema_ui.serializers.WekoBibTexSerializer.serialize', return_value='test_data'):
-                write_bibtex_files(item_types_data, export_path)
-                assert os.path.exists("{}/itemtype.bib".format(export_path)) == True
+    schema['schema'] = json.loads(db_oaischema.xsd, object_pairs_hook=OrderedDict)
+    with patch('weko_schema_ui.schema.cache_schema', return_value=schema), \
+            patch('invenio_oaiserver.response.url_for', return_value='http://localhost/oai'), \
+            patch('weko_schema_ui.serializers.WekoBibTexSerializer.serialize', return_value='test_data'), \
+            patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
+        write_bibtex_files(item_types_data, export_path)
+        assert os.path.exists("{}/デフォルトアイテムタイプ（フル）(15).bib".format(export_path)) == True
 
-    with patch("weko_items_ui.utils.make_bibtex_data", return_value="test_value"):
-        export_path = "/tmp/weko_export_agvb5jc9/20220827140620"
+    export_path = str(tmp_path / "weko_export_agvb5jc9/20220827140620")
+    os.makedirs(export_path)
+    with patch("weko_items_ui.utils.make_bibtex_data", return_value="test_value"), \
+            patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
         write_bibtex_files(item_types_data, export_path)
         file_path15 = f"{export_path}/デフォルトアイテムタイプ（フル）(15).bib"
         file_path14 = f"{export_path}/デフォルトアイテムタイプ（シンプル）(14).bib"

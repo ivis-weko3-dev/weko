@@ -328,6 +328,8 @@ def db(app):
     """Database fixture."""
     if not database_exists(str(db_.engine.url)):
         create_database(str(db_.engine.url))
+    else:
+        db_.drop_all()
     db_.create_all()
     yield db_
     db_.session.remove()
