@@ -45,6 +45,7 @@ from flask_login import current_user
 from sqlalchemy import MetaData, Table
 from sqlalchemy.sql import text
 from jsonschema import SchemaError, ValidationError
+from werkzeug.exceptions import HTTPException
 
 from invenio_accounts.models import Role, userrole
 from invenio_db import db
@@ -2596,7 +2597,8 @@ def export_items(post_data):
             if post_data.get('record_metadata') else {}
         )
         if len(record_ids) > _get_max_export_items():
-            return abort(400)
+            current_app.logger.error("Over the maximum export limit.")
+            abort(400)
         elif len(record_ids) == 0:
             return '',204
 
@@ -2665,10 +2667,13 @@ def export_items(post_data):
             attachment_filename='export.zip'
         )
     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-        current_app.logger.error(traceback.print_exc())
-        return abort(400)
+        current_app.logger.error("Invalid export parameters.")
+        traceback.print_exc()
+        abort(400)
+    except HTTPException:
+        traceback.print_exc()
+        raise
     except Exception:
-        current_app.logger.error(traceback.print_exc())
         traceback.print_exc()
         flash(_('Error occurred during item export.'), 'error')
         resp = redirect(url_for('weko_items_ui.export'))
