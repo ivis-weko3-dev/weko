@@ -1662,10 +1662,11 @@ class WekoDeposit(Deposit):
         except RuntimeError:
             raise
         except ValueError as ex:
-            raise ex
+            traceback.print_exc()
+            raise
         except BaseException:
             import traceback
-            traceback.format_exc()
+            traceback.print_exc()
             abort(500, 'MAPPING_ERROR')
 
         # Save Index Path on ES
