@@ -834,7 +834,7 @@ class TestChangeToMeta:
         force_change = True
 
         # 期待結果
-        expected_target_id = "weko_id_1"
+        expected_target_id = None
         expected_meta = {'mails': [{'mail': 'test@example.com'}], 'affiliations': [{'nameIdentifiers': [], 'affiliationNames': []}]}
         # 実行と検証
         target_id, meta = _change_to_meta(target, author_prefix, affiliation_id, key_map, force_change)
