@@ -598,7 +598,10 @@ class Community(db.Model, Timestamp):
         if self.owner and hasattr(self.owner, 'name'):
             roles_key = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["role_keyword"]
             role_mapping = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["role_mapping"]
+            sysadm_key = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["sysadm_group"]
             owner_name = self.owner.name
+            if owner_name == sysadm_key:
+                return "System Administrator"
             if owner_name and roles_key in owner_name:
                 suffix = owner_name.split(roles_key + '_')[-1]
                 if suffix in role_mapping.keys():

@@ -358,9 +358,6 @@ def check_roles(user_role, roles, params):
                     else:
                         # If the index has role groups but no roles.
                         is_can = group_perm
-                else:
-                    # No role groups are set for the index, but the user has role groups.
-                    is_can = False
             elif set_index_role:
                 # Roles are set for the index, but no role groups are configured.
                 for role in self_role:

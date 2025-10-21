@@ -318,7 +318,7 @@ class WorkFlowSettingView(BaseView):
         """
         workflow = WorkFlow()
         workflows = workflow.get_workflow_list(user=current_user)
-        role = Role.query.all()
+        role = Role.query.filter(~Role.name.like('%roles%')).all()
         for wf in workflows:
             index_tree = Index().get_index_by_id(wf.index_tree_id)
             wf.index_tree = index_tree
