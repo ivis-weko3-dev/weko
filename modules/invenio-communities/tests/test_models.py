@@ -30,7 +30,7 @@ import os
 import pytest
 from datetime import datetime, timedelta
 from invenio_records.api import Record
-from mock import patch
+from unittest.mock import patch
 from invenio_oaiserver.models import OAISet
 
 from invenio_communities.models import Community,InclusionRequest
