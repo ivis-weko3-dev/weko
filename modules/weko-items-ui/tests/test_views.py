@@ -21206,8 +21206,7 @@ def test_prepare_edit_item_login(client_api, users, db_itemtype_15, mocker):
     mock_versioning = MagicMock()
     mock_versioning.object_uuid = str(uuid.uuid4())
     mock_versioning.last_child = mock_latest_pid
-    mocker.patch("weko_items_ui.views.PIDVersioning.__new__", return_value=mock_versioning)
-    mocker.patch("weko_items_ui.views.PIDVersioning.__init__")
+    mocker.patch("weko_items_ui.views.PIDVersioning", return_value=mock_versioning)
     mock_user_roles = mocker.patch("weko_items_ui.views.get_user_roles")
     mock_user_roles.return_value = False, None
 
