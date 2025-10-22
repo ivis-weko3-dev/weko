@@ -135,7 +135,6 @@ from weko_items_ui.utils import (
     send_mail_direct_registered,
     send_mail_from_notification_info,
     get_notification_targets,
-    get_notification_targets_approver,
     get_duplicate_fields,
 )
 from weko_items_ui.config import WEKO_ITEMS_UI_DEFAULT_MAX_EXPORT_NUM,WEKO_ITEMS_UI_MAX_EXPORT_NUM_PER_ROLE
@@ -11529,9 +11528,6 @@ def test_check_duplicate(app, users,db_records3):
         res, [], [] =  check_duplicate({"resourcetype":{"resourcetype":"test"}},True)
         assert res == False
 
-# def get_notification_targets(deposit, user_id):
-
-# def get_notification_targets_approver(activity):
 
 # def create_item_deleted_data(deposit, profile, target, url):
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_create_item_deleted_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
@@ -11836,29 +11832,26 @@ def test_send_mail_from_notification_info_missing_keys(app, mocker, users):
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_notification_targets -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
 def test_get_notification_targets(app, users, db_records2, db_userprofile, db_notifsetting):
     deposit = db_records2[0][4]
-    deposit["_deposit"]["owners"] = [users[1]["id"],users[2]["id"]]
-    user_id = users[1]["id"]
+    deposit["owner"] = users[2]["id"]
 
-    # exist shared user
-    result = get_notification_targets(deposit, user_id, users[0]["id"])
+    # exist shared users
+    result = get_notification_targets(deposit, None, [users[0]["id"]])
 
-    assert set(result["targets"]) == {users[2]["obj"] ,users[0]["obj"]}
+    assert set(result["targets"]) == {users[0]["obj"]}
 
     expected_settings = {
-        users[2]["id"]: db_notifsetting[users[2]["id"]],
         users[0]["id"]: db_notifsetting[users[0]["id"]],
     }
     expected_profiles = {
-        users[2]["id"]: db_userprofile[users[2]["email"]],
         users[0]["id"]: db_userprofile[users[0]["email"]],
     }
     assert result["settings"] == expected_settings
     assert result["profiles"] == expected_profiles
 
-    # shared user is none
-    result = get_notification_targets(deposit, user_id, -1)
+    # noone shared users
+    result = get_notification_targets(deposit, None, [])
 
-    assert set(result["targets"]) == {users[2]["obj"]}
+    assert set(result["targets"]) == set()
 
     expected_settings = {
         users[2]["id"]: db_notifsetting[users[2]["id"]],
@@ -11866,18 +11859,6 @@ def test_get_notification_targets(app, users, db_records2, db_userprofile, db_no
     expected_profiles = {
         users[2]["id"]: db_userprofile[users[2]["email"]],
     }
-    assert result["settings"] == expected_settings
-    assert result["profiles"] == expected_profiles
-
-
-    # owner is empty
-    deposit = db_records2[0][4]
-    deposit["_deposit"]["owners"] = []
-    user_id = users[1]["id"]
-
-    result = get_notification_targets(deposit, user_id,-1)
-
-    assert result["targets"] == []
     assert result["settings"] == {}
     assert result["profiles"] == {}
 
@@ -11887,179 +11868,6 @@ def test_get_notification_targets(app, users, db_records2, db_userprofile, db_no
     user_id = users[1]["id"]
     with patch("weko_items_ui.utils.User.query") as mock_user_query:
         mock_user_query.filter.return_value.all.side_effect = SQLAlchemyError("DB Error")
-        result = get_notification_targets(deposit, user_id,-1)
+        result = get_notification_targets(deposit, user_id, [])
     assert result == {}
 
-# def get_notification_targets_approver(activity):
-# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_notification_targets_approver_normal_behavior -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_notification_targets_approver_normal_behavior(app, db, users, db_workflow, db_userprofile, db_notifsetting, db_community, db_approval_action):
-    comm = db_community
-    approval_action_role = db_approval_action["flow_action_role"]
-    approval_action_role.action_role = users[1]["obj"].roles[0].id  # repoadmin_role
-    approval_action_role.action_role_exclude = True
-    approval_action_role.action_user = users[1]["id"]
-    approval_action_role.action_user_exclude = False
-    activity = db_workflow["activity"]
-    activity.shared_user_id = -1
-    activity.activity_login_user = users[0]["id"]
-    activity.activity_community_id = comm.id
-    activity.action_order=3
-    actor = db_userprofile[users[0]["email"]]
-    actor.username = "contirbutor"
-    db.session.commit()
-
-    res = get_notification_targets_approver(activity)
-    assert set(res["targets"]) == {users[i]["obj"] for i in [1, 3]}
-    expected_settings = {
-        users[i]["id"]: db_notifsetting[users[i]["id"]] for i in [1, 3]
-    }
-    expected_profiles = {
-        users[i]["id"]: db_userprofile[users[i]["email"]] for i in [1, 3]
-    }
-    assert res["settings"] == expected_settings
-    assert res["profiles"] == expected_profiles
-    assert res["actor"] == {"name": actor.username, "email": users[0]["email"]}
-
-
-# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_notification_targets_approver_no_approval_action_role -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_notification_targets_approver_no_approval_action_role(app, db, users, db_workflow, db_userprofile, db_notifsetting, db_community):
-    comm = db_community
-    activity = db_workflow["activity"]
-    activity.shared_user_id = -1
-    activity.activity_login_user = users[0]["id"]
-    activity.activity_community_id = comm.id
-    activity.action_order=3
-    actor = db_userprofile[users[0]["email"]]
-    actor.username = "contirbutor"
-    db.session.commit()
-
-    res = get_notification_targets_approver(activity)
-    assert set(res["targets"]) == {users[i]["obj"] for i in [1, 3, 6]}
-    expected_settings = {
-        users[i]["id"]: db_notifsetting[users[i]["id"]] for i in [1, 3, 6]
-    }
-    expected_profiles = {
-        users[i]["id"]: db_userprofile[users[i]["email"]] for i in [1, 3, 6]
-    }
-    assert res["settings"] == expected_settings
-    assert res["profiles"] == expected_profiles
-    assert res["actor"] == {"name": actor.username, "email": users[0]["email"]}
-
-# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_notification_targets_approver_role_inclusion -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_notification_targets_approver_role_inclusion(app, db, users, db_workflow, db_userprofile, db_notifsetting, db_community, db_approval_action):
-    comm = db_community
-    approval_action_role = db_approval_action["flow_action_role"]
-    approval_action_role.action_role = users[2]["obj"].roles[0].id  # sysadmin_role
-    approval_action_role.action_role_exclude = False
-    activity = db_workflow["activity"]
-    activity.shared_user_id = -1
-    activity.activity_login_user = users[0]["id"]
-    activity.activity_community_id = comm.id
-    activity.action_order=3
-
-    actor = db_userprofile[users[0]["email"]]
-    actor.username = "contirbutor"
-    db.session.commit()
-
-    res = get_notification_targets_approver(activity)
-    assert set(res["targets"]) == {users[i]["obj"] for i in [1, 3, 6]}
-    expected_settings = {
-        users[i]["id"]: db_notifsetting[users[i]["id"]] for i in [1, 3, 6]
-    }
-    expected_profiles = {
-        users[i]["id"]: db_userprofile[users[i]["email"]] for i in [1, 3, 6]
-    }
-    assert res["settings"] == expected_settings
-    assert res["profiles"] == expected_profiles
-    assert res["actor"] == {"name": actor.username, "email": users[0]["email"]}
-
-
-# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_notification_targets_approver_user_excluded -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_notification_targets_approver_user_excluded(app, db, users, db_workflow, db_userprofile, db_notifsetting, db_community, db_approval_action):
-    comm = db_community
-    approval_action_role = db_approval_action["flow_action_role"]
-    approval_action_role.action_user = users[1]["id"]  # repoadmin_user
-    approval_action_role.action_user_exclude = True
-    activity = db_workflow["activity"]
-    activity.shared_user_id = -1
-    activity.activity_login_user = users[0]["id"]
-    activity.activity_community_id = comm.id
-    activity.action_order=3
-
-    actor = db_userprofile[users[0]["email"]]
-    actor.username = "contirbutor"
-    db.session.commit()
-
-    res = get_notification_targets_approver(activity)
-    assert set(res["targets"]) == {users[i]["obj"] for i in [3, 6]}
-    expected_settings = {
-        users[i]["id"]: db_notifsetting[users[i]["id"]] for i in [3, 6]
-    }
-    expected_profiles = {
-        users[i]["id"]: db_userprofile[users[i]["email"]] for i in [3, 6]
-    }
-    assert res["settings"] == expected_settings
-    assert res["profiles"] == expected_profiles
-    assert res["actor"] == {"name": actor.username, "email": users[0]["email"]}
-
-# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_notification_targets_approver_shared_user -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_notification_targets_approver_shared_user(app, db, users, db_workflow, db_userprofile, db_notifsetting, db_community):
-    comm = db_community
-    activity = db_workflow["activity"]
-    activity.shared_user_id = users[0]["id"]
-    activity.activity_login_user = users[1]["id"]
-    activity.activity_community_id = comm.id
-    actor = db_userprofile[users[1]["email"]]
-    actor.username = "contirbutor"
-    db.session.commit()
-
-    res = get_notification_targets_approver(activity)
-    assert set(res["targets"]) == {users[i]["obj"] for i in [1, 3, 6]}
-    expected_settings = {
-        users[i]["id"]: db_notifsetting[users[i]["id"]] for i in [1, 3, 6]
-    }
-    expected_profiles = {
-        users[i]["id"]: db_userprofile[users[i]["email"]] for i in [1, 3, 6]
-    }
-    assert res["settings"] == expected_settings
-    assert res["profiles"] == expected_profiles
-    assert res["actor"] == {"name": actor.username, "email": users[1]["email"]}
-
-
-# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_notification_targets_approver_no_community -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_notification_targets_approver_no_community(app, db, users, db_workflow, db_userprofile, db_notifsetting):
-    activity = db_workflow["activity"]
-    activity.shared_user_id = -1
-    activity.activity_login_user = users[1]["id"]
-    activity.activity_community_id = None
-    actor = db_userprofile[users[1]["email"]]
-    actor.username = "repoadmin"
-    db.session.commit()
-
-    res = get_notification_targets_approver(activity)
-    assert set(res["targets"]) == {users[i]["obj"] for i in [6]}
-    expected_settings = {
-        users[i]["id"]: db_notifsetting[users[i]["id"]] for i in [6]
-    }
-    expected_profiles = {
-        users[i]["id"]: db_userprofile[users[i]["email"]] for i in [6]
-    }
-    assert res["settings"] == expected_settings
-    assert res["profiles"] == expected_profiles
-    assert res["actor"] == {"name": actor.username, "email": users[1]["email"]}
-
-
-# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_notification_targets_approver_db_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_notification_targets_approver_db_error(app, db, users, db_workflow, db_userprofile, db_notifsetting, db_community):
-    activity = db_workflow["activity"]
-    activity.shared_user_id = -1
-    activity.activity_login_user = users[1]["id"]
-    activity.activity_community_id = None
-    actor = db_userprofile[users[1]["email"]]
-    actor.username = "repoadmin"
-    db.session.commit()
-
-    with patch("weko_items_ui.utils.User.query") as mock_user_query:
-        mock_user_query.filter.return_value.all.side_effect = SQLAlchemyError("DB Error")
-        res = get_notification_targets_approver(activity)
-    assert res == {}
