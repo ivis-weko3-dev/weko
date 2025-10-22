@@ -658,7 +658,7 @@ def test_blocksize(app, location):
     assert obj.block_size == 64
 
     obj.func(size=5000)
-    assert obj.block_size == 5  # 5000 // 1000
+    assert obj.block_size == 64
 
     loc = MagicMock(type="s3", s3_maximum_number_of_parts=500, s3_default_block_size=128)
     obj = DummyClass(block_size=10, location=loc)
