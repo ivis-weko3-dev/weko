@@ -67,6 +67,7 @@ from weko_workflow.config import WEKO_WORKFLOW_ACTION_START,WEKO_WORKFLOW_ACTION
 from sqlalchemy_utils.functions import create_database, database_exists
 from tests.helpers import json_data
 from invenio_files_rest import InvenioFilesREST
+from invenio_files_rest.models import Location
 from invenio_records import InvenioRecords
 from invenio_oauth2server import InvenioOAuth2Server
 from invenio_pidrelations import InvenioPIDRelations
@@ -989,3 +990,12 @@ def workflow(app, db, item_type, action_data, users):
         "flow_action":flow_actions,
         "workflow":workflow
     }
+
+@pytest.fixture()
+def location(app, db, instance_path):
+    with db.session.begin_nested():
+        Location.query.delete()
+        loc = Location(name='local', uri=instance_path, default=True)
+        db.session.add(loc)
+    db.session.commit()
+    return loc
