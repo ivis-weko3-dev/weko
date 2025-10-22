@@ -346,7 +346,8 @@ def check_roles(user_role, roles, params):
                 group_perm = any(str(rg) in [str(sr) for sr in self_role] for rg in index_role_group)
                 if set_index_role:
                     # If the index has both role groups and roles.
-                    role_perm = any(str(role) in [str(r) for r in roles_list] for role in self_role)
+                    index_role = [int(r) for r in roles_list if int(r) not in params["role_groups"]]
+                    role_perm = any(str(role) in [str(r) for r in index_role] for role in self_role)
                     is_can = group_perm and role_perm
                 else:
                     # If the index has role groups but no roles.

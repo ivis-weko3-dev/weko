@@ -73,7 +73,7 @@ class FlowSettingView(BaseView):
         role_key = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["role_keyword"]
         prefix = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["prefix"]
         roles = Role.query.filter(
-            ~and_(Role.name.like(f"%{role_key}%"), Role.name.like(f"%{prefix}%"))
+            ~and_(Role.name.like(f"%{role_key}%"), Role.name.startswith(prefix))
         ).all()
         if set(role.name for role in current_user.roles) & \
                 set(current_app.config['WEKO_PERMISSION_SUPER_ROLE_USER']):
@@ -322,7 +322,11 @@ class WorkFlowSettingView(BaseView):
         """
         workflow = WorkFlow()
         workflows = workflow.get_workflow_list(user=current_user)
-        role = Role.query.filter(~Role.name.like('%roles%')).all()
+        role_key = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["role_keyword"]
+        prefix = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["prefix"]
+        role = Role.query.filter(
+            ~and_(Role.name.like(f"%{role_key}%"), Role.name.startswith(prefix))
+        ).all()
         for wf in workflows:
             index_tree = Index().get_index_by_id(wf.index_tree_id)
             wf.index_tree = index_tree
@@ -364,7 +368,7 @@ class WorkFlowSettingView(BaseView):
         role_key = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["role_keyword"]
         prefix = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["prefix"]
         role = Role.query.filter(
-            ~and_(Role.name.like(f"%{role_key}%"), Role.name.like(f"%{prefix}%"))
+            ~and_(Role.name.like(f"%{role_key}%"), Role.name.startswith(prefix))
         ).all()
         display_label = self.get_language_workflows("display")
         hide_label = self.get_language_workflows("hide")
