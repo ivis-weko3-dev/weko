@@ -563,7 +563,12 @@ class TestWekoDeposit:
                 assert [2, 3] == deposit['weko_shared_ids']
 
                 # 更新されない
-                with patch ("weko_deposit.api.WekoDeposit.record_data_from_act_temp", return_value=update_param):
+                with patch("weko_deposit.api.WekoDeposit.record_data_from_act_temp", return_value=update_param), \
+                     patch("weko_deposit.api.RedisConnection") as mock_redis:
+                    mock_conn = MagicMock()
+                    mock_conn.connection().redis.exists.return_value = False
+                    mock_redis.return_value = mock_conn
+
                     update_param_json = json.loads(json.dumps(update_param))
                     deposit.update({'index': ['1'], 'actions': '1'})
                     assert [2, 3] == deposit['weko_shared_ids']
