@@ -187,7 +187,8 @@ def test_file_ui3(app,records_restricted,itemtypes,db_file_permission,users ,cli
         with patch('weko_records_ui.fd.file_permission_factory', return_value=data1):
             #23
             # contributer logined
-            with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+            with patch("flask_login.utils._get_user", return_value=users[0]["obj"]), \
+                patch('weko_records_ui.fd.validate_url_download',return_value=(True, '')):
                 mock = mocker.patch('weko_records_ui.fd._redirect_method' ,return_value=make_response())
                 fileobj:WekoFileObject = record_file_factory( recid_login, record_login, filename = "helloworld_open_restricted.pdf" )
                 fileobj.data['accessrole']='open_restricted'
