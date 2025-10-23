@@ -465,9 +465,9 @@ def test_init_activity_acl(app, client, users, users_index, status_code, item_ty
     res = client.post(url, json=input)
     assert res.status_code == 500
     q = Activity.query.all()
-    assert len(q) == 16
+    assert len(q) == 1
     q = ActivityHistory.query.all()
-    assert len(q) == 2
+    assert len(q) == 1
     q = ActivityAction.query.all()
     assert len(q) == 7
 
@@ -476,32 +476,32 @@ def test_init_activity_acl(app, client, users, users_index, status_code, item_ty
     res = client.post(url, json=input)
     assert res.status_code == 400
     q = Activity.query.all()
-    assert len(q) == 16
+    assert len(q) == 1
     q = ActivityHistory.query.all()
-    assert len(q) == 2
+    assert len(q) == 1
     q = ActivityAction.query.all()
-    assert len(q) == 10
+    assert len(q) == 7
 
     url = url_for('weko_workflow.init_activity')
     input = {'flow_id': flow_def_id}
     res = client.post(url, json=input)
     assert res.status_code == 400
     q = Activity.query.all()
-    assert len(q) == 16
+    assert len(q) == 1
     q = ActivityHistory.query.all()
-    assert len(q) == 2
+    assert len(q) == 1
     q = ActivityAction.query.all()
-    assert len(q) == 10
+    assert len(q) == 7
 
     input = {}
     res = client.post(url, json=input)
     assert res.status_code == 400
     q = Activity.query.all()
-    assert len(q) == 16
+    assert len(q) == 1
     q = ActivityHistory.query.all()
-    assert len(q) == 2
+    assert len(q) == 1
     q = ActivityAction.query.all()
-    assert len(q) == 10
+    assert len(q) == 7
 
     url = url_for('weko_workflow.init_activity', c='comm01')
     input = {'workflow_id': str(workflow_id), 'flow_id': str(flow_def_id)}
@@ -509,9 +509,9 @@ def test_init_activity_acl(app, client, users, users_index, status_code, item_ty
     assert res.status_code == status_code
     assert json.loads(res.data.decode('utf-8'))['data']['redirect'].endswith('comm01')
     q = Activity.query.all()
-    assert len(q) == 17
+    assert len(q) == 2
     q = ActivityHistory.query.all()
-    assert len(q) == 3
+    assert len(q) == 2
     q = ActivityAction.query.all()
     assert len(q) == 14
 
@@ -520,9 +520,9 @@ def test_init_activity_acl(app, client, users, users_index, status_code, item_ty
     res = client.post(url, json=input)
     assert res.status_code == 400
     q = Activity.query.all()
-    assert len(q) == 17
+    assert len(q) == 2
     q = ActivityHistory.query.all()
-    assert len(q) == 3
+    assert len(q) == 2
     q = ActivityAction.query.all()
     assert len(q) == 14
 
@@ -531,9 +531,9 @@ def test_init_activity_acl(app, client, users, users_index, status_code, item_ty
     res = client.post(url, json=input)
     assert res.status_code == 400
     q = Activity.query.all()
-    assert len(q) == 17
+    assert len(q) == 2
     q = ActivityHistory.query.all()
-    assert len(q) == 3
+    assert len(q) == 2
     q = ActivityAction.query.all()
     assert len(q) == 14
 
@@ -542,9 +542,9 @@ def test_init_activity_acl(app, client, users, users_index, status_code, item_ty
     res = client.post(url, json=input)
     assert res.status_code == 400
     q = Activity.query.all()
-    assert len(q) == 17
+    assert len(q) == 2
     q = ActivityHistory.query.all()
-    assert len(q) == 3
+    assert len(q) == 2
     q = ActivityAction.query.all()
     assert len(q) == 14
 
@@ -553,9 +553,9 @@ def test_init_activity_acl(app, client, users, users_index, status_code, item_ty
     res = client.post(url, json=input)
     assert res.status_code == 400
     q = Activity.query.all()
-    assert len(q) == 17
+    assert len(q) == 2
     q = ActivityHistory.query.all()
-    assert len(q) == 3
+    assert len(q) == 2
     q = ActivityAction.query.all()
     assert len(q) == 14
 
@@ -565,9 +565,9 @@ def test_init_activity_acl(app, client, users, users_index, status_code, item_ty
     assert res.status_code == status_code
     assert json.loads(res.data.decode('utf-8'))['data']['redirect'].endswith('00003')
     q = Activity.query.all()
-    assert len(q) == 18
+    assert len(q) == 3
     q = ActivityHistory.query.all()
-    assert len(q) == 4
+    assert len(q) == 3
     q = ActivityAction.query.all()
     assert len(q) == 21
 
@@ -588,16 +588,16 @@ def test_init_activity_acl(app, client, users, users_index, status_code, item_ty
     assert res.status_code == status_code
     assert json.loads(res.data.decode('utf-8'))['data']['redirect'].endswith('00004')
     q = Activity.query.all()
-    assert len(q) == 19
+    assert len(q) == 4
     q = Activity.query.filter(Activity.activity_id.like('%-00004')).first()
     assert q.extra_info == {'test': 'test', 'related_title': 'aaa'}
     assert q.activity_login_user == 2
     assert q.activity_update_user == 3
     assert q.activity_confirm_term_of_use == False
     q = ActivityHistory.query.all()
-    assert len(q) == 5
+    assert len(q) == 4
     q = ActivityAction.query.all()
-    assert len(q) == 22
+    assert len(q) == 28
 
     url = url_for('weko_workflow.init_activity')
     input = {'workflow_id': workflow_id, 'flow_id': flow_def_id}
@@ -605,9 +605,9 @@ def test_init_activity_acl(app, client, users, users_index, status_code, item_ty
         res = client.post(url, json=input)
         assert res.status_code == 500
     q = Activity.query.all()
-    assert len(q) == 19
+    assert len(q) == 4
     q = ActivityHistory.query.all()
-    assert len(q) == 5
+    assert len(q) == 4
     q = ActivityAction.query.all()
     assert len(q) == 28
 
