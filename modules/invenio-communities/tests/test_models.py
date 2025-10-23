@@ -232,6 +232,21 @@ class TestCommunity:
         result = Community.get_repositories_by_user(user)
         assert len(result) == 0
 
+# .tox/c1/bin/pytest --cov=invenio_communities tests/test_models.py::TestCommunity::test_get_by_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
+    def test_get_by_ids(self, db, communities, users):
+        comm1 = communities[0]
+        comm2 = communities[1]
+        ids = [comm1.id, comm2.id]
+        result = Community.get_by_ids(ids)
+        assert len(result) == 2
+        assert result[0].id == comm1.id
+        assert result[1].id == comm2.id
+
+        comm1.delete()
+        db.session.commit()
+        result = Community.get_by_ids(ids, with_deleted=True)
+        assert len(result) == 2
+
 #     def add_record(self, record):
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_models.py::TestCommunity::test_add_record -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
     def test_add_record(self, app, db, db_records,communities,mocker):
