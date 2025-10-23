@@ -21356,20 +21356,16 @@ def test_prepare_edit_item_login_2(app, client_api, users, db_records, db_itemty
     data_json = {'pid_value': deposit_id}
     data = json.dumps(data_json)
     content_type = 'application/json'
-    redis_connection = RedisConnection()
-    datastore = redis_connection.connection(db=app.config['ACCOUNTS_SESSION_REDIS_DB_NO'], kv = True)
-    datastore.put(
-        'pid_{}_will_be_edit'.format(deposit_id),
-        'test'.encode('utf-8'))
-    res = client_api.post(url, data=data, content_type=content_type)
-    assert json.loads(res.data) == {'code': -1, 'msg': 'This Item is being edited.'}
-    datastore.delete('pid_{}_will_be_edit'.format(deposit_id))
-    res = client_api.post(url, data=data, content_type=content_type)
-    assert json.loads(res.data) == {'code': -1, 'msg': 'You are not allowed to edit this item.'}
-    with patch('weko_deposit.api.WekoDeposit.get_record', return_value={'owner': str(users[0]['id']), 'weko_shared_ids': [users[0]['id']]}):
-        datastore.delete('pid_{}_will_be_edit'.format(deposit_id))
+    with patch("weko_items_ui.views.lock_item_will_be_edit",return_value=False):
         res = client_api.post(url, data=data, content_type=content_type)
-        assert json.loads(res.data) == {'code': -1, 'msg': 'Dependency ItemType not found.'}
+        assert json.loads(res.data) == {'code': -1, 'msg': 'This Item is being edited.'}
+    with patch("weko_items_ui.views.lock_item_will_be_edit",return_value=True):
+        res = client_api.post(url, data=data, content_type=content_type)
+        assert json.loads(res.data) == {'code': -1, 'msg': 'You are not allowed to edit this item.'}
+    with patch("weko_items_ui.views.lock_item_will_be_edit",return_value=True):
+        with patch('weko_deposit.api.WekoDeposit.get_record', return_value={'owner': str(users[0]['id']), 'weko_shared_ids': [users[0]['id']]}):
+            res = client_api.post(url, data=data, content_type=content_type)
+            assert json.loads(res.data) == {'code': -1, 'msg': 'Dependency ItemType not found.'}
 
 
 # def prepare_delete_item(id=None, community=None, shared_user_id=-1):
