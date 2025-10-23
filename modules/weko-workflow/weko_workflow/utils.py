@@ -5095,7 +5095,13 @@ def get_contributors(pid_value, user_id_list_json=None, owner_id=-1):
         record = WekoRecord.get_record_by_pid(pid_value)
         owner_id = record['_deposit']['owner']
         userid_list.append(int(owner_id))
-        userid_list.extend(record['weko_shared_ids'])
+        weko_shared_ids = record.get('weko_shared_ids', [])
+        if current_app.config.get("WEKO_ITEMS_UI_PROXY_POSTING", False) \
+            or len(weko_shared_ids) > 1:
+            userid_list.extend(record['weko_shared_ids'])
+        elif len(weko_shared_ids) == 1 \
+            and weko_shared_ids[0] != int(record["_deposit"]["created_by"]):
+            userid_list.append(weko_shared_ids[0])
     # 一時保存ユーザーデータ
     elif owner_id != -1:
         if type(user_id_list_json) == list:
