@@ -84,28 +84,24 @@ def test_file_permission_factory(app, records, users, db_file_permission):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_check_file_download_permission -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_check_file_download_permission(app, records, users, db_file_permission, itemtypes):
     current_app.extensions['invenio-search'] = MagicMock()
-    print("invenio-search current_app")
-    print(vars(current_app.extensions['invenio-search']['app']))
-    print("invenio-search app")
-    print(vars(app.extensions['invenio-search']['app']))
-    
+
     indexer, results = records
     record = results[0]["record"]
-    fjson = {'url': {'url': 'https://weko3.example.org/record/11/files/001.jpg'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-27'}], 
-            'format': 'image/jpeg', 'filename': 'helloworld.pdf', 'filesize': [{'value': '2.7 MB'}], 'accessrole': 'open_access', 
-            'version_id': 'd73bd9cb-aa9e-4cd0-bf07-c5976d40bdde', 'displaytype': 'preview', 'is_thumbnail': False, 
+    fjson = {'url': {'url': 'https://weko3.example.org/record/11/files/001.jpg'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-27'}],
+            'format': 'image/jpeg', 'filename': 'helloworld.pdf', 'filesize': [{'value': '2.7 MB'}], 'accessrole': 'open_access',
+            'version_id': 'd73bd9cb-aa9e-4cd0-bf07-c5976d40bdde', 'displaytype': 'preview', 'is_thumbnail': False,
             'future_date_message': '', 'download_preview_message': '', 'size': 2700000.0, 'mimetype': 'image/jpeg', 'file_order': 0}
 
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
         assert check_file_download_permission(record, fjson, True) == True
         assert check_file_download_permission(record, fjson, True, item_type=itemtypes["item_type"]) == True
-    
+
     with patch("flask_login.utils._get_user", return_value=users[7]["obj"]):
         assert check_file_download_permission(record, fjson, True) == True
 
     with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
         assert check_file_download_permission(record, fjson, True) == True
-    
+
     with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
         with patch("weko_records_ui.utils.to_utc", return_value=datetime.utcnow()):
 
@@ -134,7 +130,7 @@ def test_check_file_download_permission(app, records, users, db_file_permission,
             record['publish_date'] = "2022-01-01"
             fjson['roles'] = [{'role':'none_loggin'},{'role':'1'},{'role':'2'},{'role':'3'},{'role':'4'},{'role':'5'}]
             assert check_file_download_permission(record, fjson, False) == True
-                 
+
             fjson['date'][0]['dateValue'] = "2022-01-01"
             record['publish_date'] = "2023-01-01"
             fjson['role'] = [{'role':'none_loggin'},{'role':'1'},{'role':'2'},{'role':'3'},{'role':'4'},{'role':'5'}]
@@ -167,7 +163,7 @@ def test_check_file_download_permission(app, records, users, db_file_permission,
             with patch("weko_records_ui.permissions.check_user_group_permission", return_value=False):
                 fjson.pop('groupsprice')
                 assert check_file_download_permission(record, fjson, False) == False
-    
+
             fjson['accessrole'] = 'open_no'
             fjson['roles'] = [{'role':'none_loggin'},{'role':'1'},{'role':'2'},{'role':'3'},{'role':'4'},{'role':'5'}]
             assert check_file_download_permission(record, fjson, True) == False
@@ -175,52 +171,77 @@ def test_check_file_download_permission(app, records, users, db_file_permission,
 
             fjson['accessrole'] = 'open_restricted'
             assert check_file_download_permission(record, fjson, True) == False
-        
-        fjson['accessrole'] = 'open_date'
-        fjson['accessdate'] = (datetime.now().date() + timedelta(weeks = 1)).strftime('%Y-%m-%d')
-        fjson['roles'] = [{'role':'none_loggin'},{'role':'System Administrator'},{'role':'Repository Administrator'},{'role':'Contributor'},{'role':'Community Administrator'},{'role':'General'}]
-        assert check_file_download_permission(record, fjson, False) == True
 
-        fjson['accessrole'] = 'open_login'
-        assert check_file_download_permission(record, fjson, False) == False
+        with patch("weko_records_ui.utils.is_future",return_value=False):
+            fjson['accessrole'] = 'open_date'
+            fjson['accessdate'] = (datetime.now().date() + timedelta(weeks = 1)).strftime('%Y-%m-%d')
+            fjson['roles'] = [{'role':'none_loggin'},{'role':'System Administrator'},{'role':'Repository Administrator'},{'role':'Contributor'},{'role':'Community Administrator'},{'role':'General'}]
+            assert check_file_download_permission(record, fjson, False) == True
 
-        fjson['roles'] = []
-        fjson['groupsprice'] = ''
-        fjson['groups'] = 'group'
-        assert check_file_download_permission(record, fjson, False) == False
+            fjson['accessrole'] = 'open_login'
+            assert check_file_download_permission(record, fjson, False) == False
+
+            fjson['roles'] = []
+            fjson['groupsprice'] = ''
+            fjson['groups'] = 'group'
+            assert check_file_download_permission(record, fjson, False) == False
 
     record = results[2]["record"]
-    fjson = {'url': {'url': 'https://weko3.example.org/record/11/files/001.jpg'}, 
-             'date': [{'dateType': 'Available', 'dateValue': '2022-09-27'}], 'format': 'image/jpeg', 
-             'filename': 'helloworld.pdf', 'filesize': [{'value': '2.7 MB'}], 'accessrole': 'open_no', 
-             'version_id': 'd73bd9cb-aa9e-4cd0-bf07-c5976d40bdde', 'displaytype': 'preview', 
-             'is_thumbnail': False, 'future_date_message': '', 'download_preview_message': '', 'size': 2700000.0, 
+    fjson = {'url': {'url': 'https://weko3.example.org/record/11/files/001.jpg'},
+             'date': [{'dateType': 'Available', 'dateValue': '2022-09-27'}], 'format': 'image/jpeg',
+             'filename': 'helloworld.pdf', 'filesize': [{'value': '2.7 MB'}], 'accessrole': 'open_no',
+             'version_id': 'd73bd9cb-aa9e-4cd0-bf07-c5976d40bdde', 'displaytype': 'preview',
+             'is_thumbnail': False, 'future_date_message': '', 'download_preview_message': '', 'size': 2700000.0,
              'mimetype': 'image/jpeg', 'file_order': 0}
-
-    # # 'accessrole=open_no',
+    
+    
+    # 'accessrole=open_no',weko_shared_ids に任意のユーザが登録され、WEKO_ITEMS_UI_PROXY_POSTING が False の状態で、created_by に登録したユーザで実行する。
+    record['_deposit']['created_by'] = 2
     with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
         with patch("flask_security.current_user", return_value=users[0]["obj"]):
             with patch("flask_security.current_user.is_authenticated", return_value=True):
                 assert check_file_download_permission(record, fjson, True) == True
+    
+    # 'accessrole=open_no',weko_shared_ids に任意のユーザが登録され、WEKO_ITEMS_UI_PROXY_POSTING が False の状態で、weko_shared_ids に登録したユーザで実行する。
+    record['_deposit']['created_by'] = -1
+    with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+        with patch("flask_security.current_user", return_value=users[0]["obj"]):
+            with patch("flask_security.current_user.is_authenticated", return_value=True):
+                assert check_file_download_permission(record, fjson, True) == False
 
+    current_app.config.update(WEKO_ITEMS_UI_PROXY_POSTING = True)
+    #'accessrole=open_no',weko_shared_ids に任意のユーザが登録され、WEKO_ITEMS_UI_PROXY_POSTING が True の状態で、created_by に登録したユーザで実行する。
+    record['_deposit']['created_by'] = 2
+    with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+        with patch("flask_security.current_user", return_value=users[0]["obj"]):
+            with patch("flask_security.current_user.is_authenticated", return_value=True):
+                assert check_file_download_permission(record, fjson, True) == True
+    
+    # 'accessrole=open_no',weko_shared_ids に任意のユーザが登録され、WEKO_ITEMS_UI_PROXY_POSTING が True の状態で、weko_shared_ids に登録したユーザで実行する。
+    record['_deposit']['created_by'] = -1
+    with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+        with patch("flask_security.current_user", return_value=users[0]["obj"]):
+            with patch("flask_security.current_user.is_authenticated", return_value=True):
+                assert check_file_download_permission(record, fjson, True) == True
+    
     with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
         assert check_file_download_permission(record, fjson, True) == True
-    
+
     # user一覧
     """
-    [{'email': 'contributor@test.org', 'id': 2, 'obj': <User 2>}, 
-    {'email': 'repoadmin@test.org', 'id': 4, 'obj': <User 4>}, 
-    {'email': 'sysadmin@test.org', 'id': 5, 'obj': <User 5>}, 
-    {'email': 'comadmin@test.org', 'id': 3, 'obj': <User 3>}, 
-    {'email': 'generaluser@test.org', 'id': 6, 'obj': <User 6>}, 
-    {'email': 'originalroleuser@test.org', 'id': 7, 'obj': <User 7>}, 
-    {'email': 'originalroleuser2@test.org', 'id': 8, 'obj': <User 8>}, 
+    [{'email': 'contributor@test.org', 'id': 2, 'obj': <User 2>},
+    {'email': 'repoadmin@test.org', 'id': 4, 'obj': <User 4>},
+    {'email': 'sysadmin@test.org', 'id': 5, 'obj': <User 5>},
+    {'email': 'comadmin@test.org', 'id': 3, 'obj': <User 3>},
+    {'email': 'generaluser@test.org', 'id': 6, 'obj': <User 6>},
+    {'email': 'originalroleuser@test.org', 'id': 7, 'obj': <User 7>},
+    {'email': 'originalroleuser2@test.org', 'id': 8, 'obj': <User 8>},
     {'email': 'user@test.org', 'id': 1, 'obj': <User 1>}]
     """
-    
+
     with patch("flask_login.utils._get_user", return_value=users[7]["obj"]):
         assert check_file_download_permission(record, fjson, False) == True
-    
+
     # generaluser
     record = results[0]["record"]
     with patch("flask_login.utils._get_user", return_value=users[4]["obj"]):
@@ -250,7 +271,7 @@ def test_check_file_download_permission(app, records, users, db_file_permission,
 
 # def check_open_restricted_permission(record, fjson):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_check_open_restricted_permission -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_check_open_restricted_permission(app, records, users,db_file_permission):
+def test_check_open_restricted_permission(app, records, users,db_file_permission,mocker):
     indexer, results = records
     record = results[0]["record"]
     fjson = {'url': {'url': 'https://weko3.example.org/record/11/files/001.jpg'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-27'}], 'format': 'image/jpeg', 'filename': 'helloworld.pdf', 'filesize': [{'value': '2.7 MB'}], 'accessrole': 'open_access', 'version_id': 'd73bd9cb-aa9e-4cd0-bf07-c5976d40bdde', 'displaytype': 'preview', 'is_thumbnail': False, 'future_date_message': '', 'download_preview_message': '', 'size': 2700000.0, 'mimetype': 'image/jpeg', 'file_order': 0}
@@ -260,12 +281,23 @@ def test_check_open_restricted_permission(app, records, users,db_file_permission
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
         assert check_open_restricted_permission(record, fjson) == False
         
-        with patch("weko_records_ui.permissions.__get_file_permission", return_value=data1):
-            assert check_open_restricted_permission(record, fjson) == False
-            
+        with patch("weko_records_ui.permissions.__get_file_permission", return_value=data1):  
+            assert check_open_restricted_permission(record, fjson) == False  
 
+            mock_permmissin=mocker.patch("weko_records_ui.permissions.check_permission_period")
+            current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = True)
+            check_open_restricted_permission(record, fjson)
+            mock_permmissin.assert_called_once()
+
+        current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = False)
+
+        with patch("weko_records_ui.permissions.__get_file_permission", return_value=[]):
+            assert check_open_restricted_permission(record, fjson) == False 
+            
+            current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = True)
+            assert check_open_restricted_permission(record, fjson) == False
 # def is_open_restricted(file_data):
-# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_get_permission -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_is_open_restricted -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_is_open_restricted(app, records, users,db_file_permission):
     indexer, results = records
     record = results[0]["record"]
@@ -273,9 +305,16 @@ def test_is_open_restricted(app, records, users,db_file_permission):
 
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
         assert is_open_restricted(fjson) == False
+        current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = True)
+        assert is_open_restricted(fjson) == False
+
+        current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = False)
 
         fjson['accessrole'] = 'open_restricted'
+        assert is_open_restricted(fjson) == False
+        current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = True)
         assert is_open_restricted(fjson) == True
+
 
 
 # def check_content_clickable(record, fjson):
@@ -746,10 +785,10 @@ def test_check_created_id_guest(app, users):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_check_created_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 @pytest.mark.parametrize("index,status",[
-    (0,True),
+    (0,False),
     (1,True),
     (2,True),
-    (3,True),
+    (3,False),
     (4,False),
     (5,False),
     (6,True),
@@ -803,62 +842,18 @@ def test_check_created_id(app, users, index, status):
 
     with patch("flask_login.utils._get_user", return_value=users[index]["obj"]):
         assert check_created_id(record) == status
-
-    record = {
-        "_oai": {"id": "oai:weko3.example.org:00000001", "sets": ["1657555088462"]},
-        "path": ["1657555088462"],
-        "owner": 1,
-        "recid": "1",
-        "title": ["a"],
-        "pubdate": {"attribute_name": "PubDate", "attribute_value": "2022-07-12"},
-        "_buckets": {"deposit": "35004d51-8938-4e77-87d7-0c9e176b8e7b"},
-        "_deposit": {
-            "id": "1",
-            "pid": {"type": "depid", "value": "1", "revision_id": 0},
-            "owner": 1,
-            "owners": [1],
-            "status": "published",
-            "created_by": 1,
-            "owners_ext": {
-                "email": "wekosoftware@nii.ac.jp",
-                "username": "",
-                "displayname": "",
-            },
-        },
-        "item_title": "a",
-        "author_link": [],
-        "item_type_id": "15",
-        "publish_date": "2022-07-12",
-        "publish_status": "0",
-        "weko_shared_ids": [1,2,3],
-        "item_1617186331708": {
-            "attribute_name": "Title",
-            "attribute_value_mlt": [
-                {"subitem_1551255647225": "a", "subitem_1551255648112": "ja"}
-            ],
-        },
-        "item_1617258105262": {
-            "attribute_name": "Resource Type",
-            "attribute_value_mlt": [
-                {
-                    "resourceuri": "http://purl.org/coar/resource_type/c_5794",
-                    "resourcetype": "conference paper",
-                }
-            ],
-        },
-        "relation_version_is_last": True,
-    }
-
-    #login("contributor@test.org")
-    with app.test_request_context(headers=[("Accept-Language", "en")]):
-        with app.test_client() as client:
-            client.get("/foo_login/{}".format("contributor@test.org"), follow_redirects=True)
-            # contributor user
-            assert current_user.is_authenticated == True
-            assert record.get("_deposit", {}).get("created_by") == 1
-            assert record.get("item_type_id") == "15"
-            assert record.get("weko_shared_ids") == [1,2,3]
+        if status in [0, 3, 4, 5]:
+            record['owner']=current_user.get_id()
             assert check_created_id(record) == True
+            record['owner']=-1
+            record['weko_shared_ids']=[int(current_user.get_id())]
+            assert check_created_id(record) == False
+            current_app.config.update(WEKO_ITEMS_UI_PROXY_POSTING = True)
+            assert check_created_id(record) == True
+
+    
+
+
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_check_created_id_comadmin -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_check_created_id_comadmin(app, users, db):
