@@ -888,7 +888,7 @@ class Indexes(object):
                     if tmp["name"] not in current_app.config['WEKO_PERMISSION_SUPER_ROLE_USER']:
                         role_key = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["role_keyword"]
                         prefix = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["prefix"]
-                        if role_key not in tmp["name"] and not (tmp["name"].startswith(prefix)):
+                        if role_key not in tmp["name"] or not (tmp["name"].startswith(prefix)):
                             if str(tmp["id"]) in allow:
                                 alw.append(tmp)
                             else:

@@ -280,6 +280,28 @@ def test_check_roles(i18n_app, users):
     with patch("flask_login.utils._get_user", return_value=MagicMock(is_authenticated=False)):
         assert check_roles(user_role, roles, params) is False
 
+    # User has only the role set for the index
+    params = {"role_groups": [100, 200], "groups": [300], "access_group_ids": [400]}
+    user_role = (False, ["1"])
+    roles = ["1", "100"]
+    with patch("flask_login.utils._get_user", return_value=users[-1]['obj']):
+        assert check_roles(user_role, roles, params) is False
+
+    # User has only the role group set for the index
+    params = {"role_groups": [100, 200], "groups": [300], "access_group_ids": [400]}
+    user_role = (False, ["100"])
+    roles = ["1", "100"]
+    with patch("flask_login.utils._get_user", return_value=users[-1]['obj']):
+        assert check_roles(user_role, roles, params) is False
+
+    # User has neither the role nor the role group set for the index
+    params = {"role_groups": [100, 200], "groups": [300], "access_group_ids": [400]}
+    user_role = (False, ["999"])
+    roles = ["1", "100"]
+    with patch("flask_login.utils._get_user", return_value=users[-1]['obj']):
+        assert check_roles(user_role, roles, params) is False
+
+
 # .tox/c1/bin/pytest --cov=weko_index_tree tests/test_utils.py::test_set_params -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-index-tree/.tox/c1/tmp
 def test_set_params(app):
     with app.app_context():

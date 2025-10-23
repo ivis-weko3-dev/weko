@@ -1246,15 +1246,16 @@ def test_get_allow_deny(app, db, mocker):
     # Patterns for super role, role_keyword, prefix, allow/deny
         roles = [
             {"id": 1, "name": "NormalRole"},              # subject to allow/deny
-            {"id": 2, "name": "roles_test"},              # contains role_keyword → skip
-            {"id": 3, "name": "jcAdmin"},                 # starts with prefix → skip
+            {"id": 2, "name": "roles_test"},              # subject to allow/deny
+            {"id": 3, "name": "jcAdmin"},                 # starts with 'jc' and does not contain 'roles' → excluded by filter_roles
             {"id": 4, "name": "System Administrator"},    # super role → skip
             {"id": 5, "name": "OtherRole"},               # subject to allow/deny
+            {"id": 6, "name": "jc_test_roles"},           # contains prefix and role_keyword → skip
         ]
         index_data = {
             'id': 1,
-            'browsing_role': '1,5',  # allow list
-            'contribute_role': '1',  # allow list
+            'browsing_role': '1,2,3,4,5,6',  # allow list
+            'contribute_role': '1,2,3,4,5,6',  # allow list
             'browsing_group': '',
             'contribute_group': '',
             'public_date': None,
@@ -1265,25 +1266,25 @@ def test_get_allow_deny(app, db, mocker):
 
         result = Indexes.get_index_with_role(1)
 
-    # Only 1 and 5 are allowed for browsing_role, others are deny or skipped
-        assert [r['id'] for r in result['browsing_role']['allow']] == [1, 5]
+    # browsing_role: allow = [1, 2, 5], deny = [] (others are skipped)
+        assert [r['id'] for r in result['browsing_role']['allow']] == [1, 2, 5]
         assert [r['id'] for r in result['browsing_role']['deny']] == []
 
-    # Only 1 is allowed for contribute_role, 5 is deny
+    # contribute_role: allow = [1], deny = [2, 5] (others are skipped)
         index_data['contribute_role'] = '1'
         result = Indexes.get_index_with_role(1)
         assert [r['id'] for r in result['contribute_role']['allow']] == [1]
-        assert [r['id'] for r in result['contribute_role']['deny']] == [5]
+        assert [r['id'] for r in result['contribute_role']['deny']] == [2, 5]
 
     # When allow list is empty
         index_data['browsing_role'] = ''
         result = Indexes.get_index_with_role(1)
         assert [r['id'] for r in result['browsing_role']['allow']] == []
-        assert [r['id'] for r in result['browsing_role']['deny']] == [1, 5]
+        assert [r['id'] for r in result['browsing_role']['deny']] == [1, 2, 5]
 
     # When role list is empty
         mocker.patch.object(Indexes, 'get_account_role', return_value=[])
-        index_data['browsing_role'] = '1,5'
+        index_data['browsing_role'] = '1,2,3,4,5,6'
         result = Indexes.get_index_with_role(1)
         assert result['browsing_role']['allow'] == []
         assert result['browsing_role']['deny'] == []
