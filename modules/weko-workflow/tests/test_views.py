@@ -2308,7 +2308,7 @@ def test_next_action(app, client, db, users, db_register_fullaction, db_records,
                     assert data["msg"] == result_msg
                     if check_role_approval():
                         update_request.assert_called()
-
+    
     # Permission is exist
     update_activity_order("2",4,6,item_id2,{"file_name":"test", "record_id": "1", "guest_mail": "guest@mail.com"})
     adminsetting = {"display_request_form": True,"edit_mail_templates_enable":True}
@@ -2320,7 +2320,7 @@ def test_next_action(app, client, db, users, db_register_fullaction, db_records,
                 with patch("weko_workflow.views.RequestMailList.update_by_list_item_id" )as update_request:
                     with patch('weko_workflow.views.FilePermission.find_by_activity', return_value=[permission]):
                         mock_files = mocker.patch('weko_workflow.views.grant_access_rights_to_all_open_restricted_files', return_value={})
-                        mock_mail = mocker.patch('weko_workflow.utils.process_send_approval_mails', return_value={})
+                        mock_mail = mocker.patch('weko_workflow.views.process_send_approval_mails')
                         res = client.post(url, json=input)
                         data = response_data(res)
                         result_code = 0 if check_role_approval() else 403
@@ -2330,11 +2330,10 @@ def test_next_action(app, client, db, users, db_register_fullaction, db_records,
                         assert data["msg"] == result_msg
                         if check_role_approval():
                             update_request.assert_called()
-                            mock_files.assert_called_once()
-                            mock_files.assert_called_once()
+                            mock_files.assert_not_called()
                             mock_mail.assert_called()
 
-                        current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = False)
+    current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = True)
     
     update_activity_order("2",4,6,item_id2,{"file_name":"test", "record_id": "1", "guest_mail": "guest@mail.com"})
     adminsetting = {"display_request_form": True,"edit_mail_templates_enable":False}
@@ -2346,7 +2345,7 @@ def test_next_action(app, client, db, users, db_register_fullaction, db_records,
                 with patch("weko_workflow.views.RequestMailList.update_by_list_item_id" )as update_request:
                     with patch('weko_workflow.views.FilePermission.find_by_activity', return_value=[permission]):
                         mock_files = mocker.patch('weko_workflow.views.grant_access_rights_to_all_open_restricted_files', return_value={})
-                        mock_mail = mocker.patch('weko_workflow.utils.process_send_approval_mails', return_value={})
+                        mock_mail = mocker.patch('weko_workflow.views.process_send_approval_mails', return_value={})
                         res = client.post(url, json=input)
                         data = response_data(res)
                         result_code = 0 if check_role_approval() else 403
@@ -2356,10 +2355,10 @@ def test_next_action(app, client, db, users, db_register_fullaction, db_records,
                         assert data["msg"] == result_msg
                         if check_role_approval():
                             update_request.assert_called()
-                            mock_files.assert_not_called()
+                            mock_files.assert_called_once()
                             mock_mail.assert_not_called()
 
-    current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = True)
+    current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = False)
 
     # GuestActivity is exist
     update_activity_order("2",4,6,item_id2,{"file_name":"test", "record_id": "1", "guest_mail": "guest@mail.com"})
@@ -2372,7 +2371,7 @@ def test_next_action(app, client, db, users, db_register_fullaction, db_records,
                 with patch("weko_workflow.views.RequestMailList.update_by_list_item_id" )as update_request:
                     with patch('weko_workflow.views.GuestActivity.find_by_activity_id', return_value=[guest_activity]):
                         mock_files = mocker.patch('weko_workflow.views.grant_access_rights_to_all_open_restricted_files', return_value={})
-                        mock_mail = mocker.patch('weko_workflow.utils.process_send_approval_mails', return_value={})
+                        mock_mail = mocker.patch('weko_workflow.views.process_send_approval_mails', return_value={})
                         res = client.post(url, json=input)
                         data = response_data(res)
                         result_code = 0 if check_role_approval() else 403
@@ -2382,10 +2381,10 @@ def test_next_action(app, client, db, users, db_register_fullaction, db_records,
                         assert data["msg"] == result_msg
                         if check_role_approval():
                             update_request.assert_called()
-                            mock_files.assert_called_once()
+                            mock_files.assert_not_called()
                             mock_mail.assert_called()
 
-                        current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = False)
+    current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = True)
             
     update_activity_order("2",4,6,item_id2,{"file_name":"test", "record_id": "1", "guest_mail": "guest@mail.com"})
     adminsetting = {"display_request_form": True,"edit_mail_templates_enable":False}
@@ -2397,7 +2396,7 @@ def test_next_action(app, client, db, users, db_register_fullaction, db_records,
                 with patch("weko_workflow.views.RequestMailList.update_by_list_item_id" )as update_request:
                     with patch('weko_workflow.views.GuestActivity.find_by_activity_id', return_value=[guest_activity]):
                         mock_files = mocker.patch('weko_workflow.views.grant_access_rights_to_all_open_restricted_files', return_value={})
-                        mock_mail = mocker.patch('weko_workflow.utils.process_send_approval_mails', return_value={})
+                        mock_mail = mocker.patch('weko_workflow.views.process_send_approval_mails', return_value={})
                         res = client.post(url, json=input)
                         data = response_data(res)
                         result_code = 0 if check_role_approval() else 403
@@ -2407,7 +2406,7 @@ def test_next_action(app, client, db, users, db_register_fullaction, db_records,
                         assert data["msg"] == result_msg
                         if check_role_approval():
                             update_request.assert_called()
-                            mock_files.assert_not_called()
+                            mock_files.assert_called_once()
                             mock_mail.assert_not_called()
 
 
