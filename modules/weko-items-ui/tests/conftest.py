@@ -375,8 +375,7 @@ def es(app):
 
     yield client
 
-    # with app.test_request_context():
-    #     client.indices.delete(index="test-*")
+    client.indices.delete(index="test-*")
 
 @pytest.fixture()
 def users(app, db):
