@@ -5,7 +5,7 @@ from pytest_mock import mocker
 from flask import current_app
 import copy
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from weko_schema_ui.models import PublishStatus
 from weko_deposit.api import WekoRecord
@@ -379,7 +379,7 @@ def test_get_article_id():
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_external.py::test_file_counts -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_file_counts(app):
-    today = datetime.today()
+    today = datetime.now(timezone.utc)
     today_date = today.strftime('%Y-%m-%d')
     tommorow = today + timedelta(days=1)
     tommorow_date = tommorow.strftime('%Y-%m-%d')
@@ -496,7 +496,7 @@ def test_validate_records(app, records):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_external.py::test_get_record_diff -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_get_record_diff(app, records):
-    today = datetime.today()
+    today = datetime.now(timezone.utc)
     today_date = today.strftime('%Y-%m-%d')
     tommorow = today + timedelta(days=1)
     tommorow_date = tommorow.strftime('%Y-%m-%d')

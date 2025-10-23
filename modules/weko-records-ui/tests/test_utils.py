@@ -1176,21 +1176,20 @@ def test_validate_secret_url_generation_request(mock_date, app):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_validate_expiration_date -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_validate_expiration_date(app):
     assert validate_expiration_date('1999-12-31', 0) is False
-
-    yesterday = (dt.now() - timedelta(1)).strftime("%Y-%m-%d")
+    yesterday = (dt.now(timezone.utc) - timedelta(1)).strftime("%Y-%m-%d")
     assert validate_expiration_date(yesterday, 0) is False
 
-    tomorrow = (dt.now() + timedelta(1)).strftime("%Y-%m-%d")
+    tomorrow = (dt.now(timezone.utc) + timedelta(1)).strftime("%Y-%m-%d")
     with patch('weko_records_ui.utils.get_restricted_access') as mock_settings:
         mock_settings.return_value = None
         assert validate_expiration_date(tomorrow, 0) is False
 
-    in_a_week = (dt.now() + timedelta(7)).strftime("%Y-%m-%d")
+    in_a_week = (dt.now(timezone.utc) + timedelta(7)).strftime("%Y-%m-%d")
     with patch('weko_records_ui.utils.get_restricted_access') as mock_settings:
         mock_settings.return_value = {'secret_expiration_date': 1}
         assert validate_expiration_date(in_a_week, 0) is False
 
-    in_an_year = (dt.now() + timedelta(365)).strftime("%Y-%m-%d")
+    in_an_year = (dt.now(timezone.utc) + timedelta(365)).strftime("%Y-%m-%d")
     with patch('weko_records_ui.utils.get_restricted_access') as mock_settings:
         mock_settings.return_value = {}
         assert validate_expiration_date(in_an_year, 0) is False
