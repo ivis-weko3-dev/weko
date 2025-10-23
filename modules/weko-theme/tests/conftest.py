@@ -1115,7 +1115,7 @@ def count_json_data():
             "item_custom_sort": {"2": 1}
         }
         index = Index(**index_metadata)
-        mapping = Mapping.create(
+        mapping = Mapping.create_or_update(
             item_type_id=item_type.id,
             mapping={}
         )

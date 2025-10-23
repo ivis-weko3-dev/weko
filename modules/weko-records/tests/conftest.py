@@ -635,7 +635,7 @@ def item_type_mapping(app, db):
             }
         }
     }
-    return Mapping.create(1, _mapping)
+    return Mapping.create_or_update(1, _mapping)
 
 @pytest.fixture()
 def item_type2(app, db):
@@ -702,7 +702,7 @@ def item_type_mapping2(app, db):
             }
         }
     }
-    return Mapping.create(2, _mapping)
+    return Mapping.create_or_update(2, _mapping)
 
 @pytest.fixture()
 def item_type3(app, db):
@@ -983,7 +983,7 @@ def item_type_mapping_with_form(app, db, item_type_with_form):
             }
         }
     }
-    return Mapping.create(item_type_with_form.id, _mapping)
+    return Mapping.create_or_update(item_type_with_form.id, _mapping)
 
 
 @pytest.fixture()

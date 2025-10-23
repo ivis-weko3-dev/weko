@@ -1163,7 +1163,7 @@ class TestItemTypeMappingView:
             assert  Mapping.get_record(1) == {"key":"test_mapping"}
 
             # raise Exception
-            with patch("weko_itemtypes_ui.admin.Mapping.create",side_effect=BaseException):
+            with patch("weko_itemtypes_ui.admin.Mapping.create_or_update",side_effect=BaseException):
                 res = client.post(url,json=data)
                 assert json.loads(res.data)["msg"] == "Unexpected error occurred."
 #     def schema_list(self, SchemaName=None):

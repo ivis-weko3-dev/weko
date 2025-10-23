@@ -1670,7 +1670,7 @@ def item_type2(app, db):
 
 @pytest.fixture()
 def item_type_mapping2(app, db, item_type2):
-    return Mapping.create(item_type2.model.id, {})
+    return Mapping.create_or_update(item_type2.model.id, {})
 
 
 @pytest.fixture()
