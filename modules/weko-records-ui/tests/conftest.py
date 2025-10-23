@@ -5814,15 +5814,13 @@ def make_record_need_restricted_access(app, db, workflows, users):
         usage_report_activity_id=None,
         status=1,   # Approved
     )
-    file13_onetime = FileOnetimeDownload(user_mail=users[0]['email']
-                                        ,record_id=rec_id13
-                                        ,file_name='dummy.txt'
-                                        ,download_limit=1
-                                        ,expiration_date = 1
-                                        ,extra_info={}
-                                        ,is_guest=False
-                                        ,approver_id=1)
-
+    file13_onetime = FileOnetimeDownload(
+        user_mail=users[0]['email'],
+        record_id=rec_id13,
+        file_name='dummy.txt',
+        download_count=1,
+        expiration_date=1,
+    )
     # 4. Restricted Access is not approved.
     rec_id14 = 14
     rec_id14_1 = 14.1
