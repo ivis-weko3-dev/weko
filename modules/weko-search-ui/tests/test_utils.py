@@ -278,7 +278,7 @@ def test_execute_search_with_pagination(i18n_app, indices, users, db_records, mo
     expected_data_num = generate_data_num + preset_records_num
     helpers.bulk(esindex, _generate_es_data(generate_data_num), refresh='true')
     i18n_app.config['RECORDS_REST_SORT_OPTIONS'] = {"test-weko":{"controlnumber":{"title":"ID","fields": ["control_number"],"default_order": "asc","order": 2}}}
-    search = Search(using=esindex)
+    search = Search(using=esindex, index=i18n_app.config.get("INDEXER_DEFAULT_INDEX", "test-weko-item-v1.0.0"))
     search._sort.append( {"_created": {"order": "asc", "unmapped_type": "long"}})
 
     with i18n_app.test_request_context(query_string={"sort": "control_number", "q": "66"}):
@@ -541,7 +541,7 @@ def test_check_tsv_import_items2(app,test_importdata,mocker,db, order_if):
 
                 # for FileNotFoundError
                 if order_if == 3:
-                    with patch("weko_search_ui.utils.list",return_value=None):
+                    with patch("weko_search_ui.utils.os.listdir",return_value=[]):
                         ret = check_tsv_import_items(file, False, False)
                         assert ret["error"]=='The csv/tsv file was not found in the specified file import00.zip. Check if the directory structure is correct.'
 
@@ -557,7 +557,7 @@ def test_check_tsv_import_items2(app,test_importdata,mocker,db, order_if):
 
                 # for tsv
                 if order_if == 6:
-                    with patch("weko_search_ui.utils.list",return_value=['items.tsv']):
+                    with patch("weko_search_ui.utils.os.listdir",return_value=['items.tsv']):
                         ret = check_tsv_import_items(file,False,False)
                         assert "error" not in ret
 
@@ -938,7 +938,7 @@ def test_read_stats_file(i18n_app, db_itemtype, users):
         "schema": "test",
         "is_lastest": "test",
         "name": "test",
-        "item_type_id": "test",
+        "item_type_id": "1000",
     }
 
     with patch("flask_login.utils._get_user", return_value=users[3]["obj"]):
@@ -3527,8 +3527,8 @@ def test_handle_fill_system_item(app, test_list_records,identifier, mocker):
         (None,{"cnri":"test_cnri","doi": "xyz.jalc/abc","doi_ra":"JaLC","doi2": None,"doi_ra2":None},{"cnri":"test_cnri","doi": "xyz.jalc/abc","doi_ra":"JaLC","doi2": "xyz.jalc/abc","doi_ra2":"JaLC"},[],[],True,True),
         (None,{"cnri":"test_cnri","doi": "","doi_ra":"","doi2": None,"doi_ra2":None},{"cnri":"test_cnri","doi": "","doi_ra":"","doi2": None,"doi_ra2":None},[],[],True,True),
     ])
-@pytest.mark.skip("Run time is too long and all tests failed.")
-def test_handle_fill_system_item3(app,doi_records,item_id,before_doi,after_doi,warnings,errors,is_change_identifier,is_register_cnri):
+# @pytest.mark.skip("Run time is too long and all tests failed.")
+def test_handle_fill_system_item3(app,doi_records, mocker_itemtype, item_id,before_doi,after_doi,warnings,errors,is_change_identifier,is_register_cnri, mocker):
     app.config.update(
         WEKO_HANDLE_ALLOW_REGISTER_CRNI=is_register_cnri
     )
@@ -3561,7 +3561,17 @@ def test_handle_fill_system_item3(app,doi_records,item_id,before_doi,after_doi,w
             "item_type_id": 1,
             "$schema": "https://localhost:8443/items/jsonschema/1",
         }
-
+    mapping = {
+        "title.@value": "item_1617186331708.subitem_1551255647225",
+        "title.@language": "item_1617186331708.subitem_1551255648112",
+        "type.@value": "item_1617258105262.resourcetype",
+        "type.@attributes.rdf:resource": "item_1617258105262.resourceuri",
+        "file.URI.@value": "item_1617605131499.url.url",
+        "file.extent.@value": "item_1617605131499.filesize.value",
+        "file.mimeType.@value": "item_1617605131499.format",
+        "identifierRegistration.@attributes.identifierType": "item_1617186819068.subitem_identifier_reg_type"
+    }
+    mocker.patch("weko_search_ui.utils.get_mapping", return_value=mapping)
     if item_id:
         before["id"] = "{}".format(item_id)
         before["uri"] = "https://localhost:8443/records/{}".format(item_id)
@@ -4865,7 +4875,7 @@ def test_handle_check_filename_consistence(i18n_app):
         ),
     ]
 )
-def test_function_issue34520(app, doi_records, item_id, before_doi, after_doi, warnings, errors, is_change_identifier):
+def test_function_issue34520(app, doi_records, mocker_itemtype, item_id, before_doi, after_doi, warnings, errors, is_change_identifier, mocker):
     before = {
             "metadata": {
                 "path": ["1667004052852"],
@@ -4895,7 +4905,17 @@ def test_function_issue34520(app, doi_records, item_id, before_doi, after_doi, w
             "item_type_id": 1,
             "$schema": "https://localhost/items/jsonschema/1",
         }
-
+    mapping = {
+        "title.@value": "item_1617186331708.subitem_1551255647225",
+        "title.@language": "item_1617186331708.subitem_1551255648112",
+        "type.@value": "item_1617258105262.resourcetype",
+        "type.@attributes.rdf:resource": "item_1617258105262.resourceuri",
+        "file.URI.@value": "item_1617605131499.url.url",
+        "file.extent.@value": "item_1617605131499.filesize.value",
+        "file.mimeType.@value": "item_1617605131499.format",
+        "identifierRegistration.@attributes.identifierType": "item_1617186819068.subitem_identifier_reg_type"
+    }
+    mocker.patch("weko_search_ui.utils.get_mapping", return_value=mapping)
     if item_id:
         before["id"] = "{}".format(item_id)
         before["uri"] = "https://localhost/records/{}".format(item_id)
@@ -4982,11 +5002,13 @@ def test_function_issue34520(app, doi_records, item_id, before_doi, after_doi, w
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_function_issue34535 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search_ui/.tox/c1/tmp
 def test_function_issue34535(db,db_index,db_itemtype,location,db_oaischema,mocker):
     mocker.patch("weko_search_ui.utils.find_and_update_location_size")
+    mocker.patch("weko_deposit.tasks.extract_pdf_and_update_file_contents.apply_async")
+    mocker.patch("invenio_records.api.before_record_update.send")
     # register item
     indexer = WekoIndexer()
     indexer.get_es_index()
-    record_data = {"_oai":{"id":"oai:weko3.example.org:00000004","sets":[]},"path":["1"],"owner":1,"recid":"4","title":["test item in br"],"pubdate":{"attribute_name":"PubDate","attribute_value":"2022-11-21"},"_buckets":{"deposit":"0796e490-6dcf-4e7d-b241-d7201c3de83a"},"_deposit":{"id":"4","pid":{"type":"depid","value":"4","revision_id":0},"owner":1,"owners":[1],"status":"published","created_by":1},"item_title":"test item in br","author_link":[],"item_type_id":"1","publish_date":"2022-11-21","publish_status":"0","weko_shared_ids":[],"item_1617186331708":{"attribute_name":"Title","attribute_value_mlt":[{"subitem_1551255647225":"test item in br","subitem_1551255648112":"ja"}]},"item_1617186626617":{"attribute_name":"Description","attribute_value_mlt":[{"subitem_description":"this is line1.\nthis is line2.","subitem_description_type":"Abstract","subitem_description_language":"en"}]},"item_1617258105262":{"attribute_name":"Resource Type","attribute_value_mlt":[{"resourceuri":"http://purl.org/coar/resource_type/c_5794","resourcetype":"conference paper"}]},"relation_version_is_last":True}
-    item_data = {"id":"4","pid":{"type":"depid","value":"4","revision_id":0},"lang":"ja","path":[1],"owner":1,"title":"test item in br","owners":[1],"status":"published","$schema":"https://192.168.56.103/items/jsonschema/1","pubdate":"2022-11-21","edit_mode":"keep","created_by":1,"owners_ext":{"email":"wekosoftware@nii.ac.jp","username":"","displayname":""},"deleted_items":["item_1617605131499"],"shared_user_ids":[],"weko_shared_ids":[],"item_1617186331708":[{"subitem_1551255647225":"test item in br","subitem_1551255648112":"ja"}],"item_1617186626617":[{"subitem_description":"this is line1.\nthis is line2.","subitem_description_type":"Abstract","subitem_description_language":"en"}],"item_1617258105262":{"resourceuri":"http://purl.org/coar/resource_type/c_5794","resourcetype":"conference paper"}}
+    record_data = {"_oai":{"id":"oai:weko3.example.org:00000004","sets":[]},"path":["1"],"owner":1,"recid":"4","title":["test item in br"],"pubdate":{"attribute_name":"PubDate","attribute_value":"2022-11-21"},"_buckets":{"deposit":"0796e490-6dcf-4e7d-b241-d7201c3de83a"},"_deposit":{"id":"4","pid":{"type":"depid","value":"4","revision_id":0},"owner":1,"owners":[1],"status":"published","created_by":1},"item_title":"test item in br","author_link":[],"item_type_id":"1000","publish_date":"2022-11-21","publish_status":"0","weko_shared_ids":[],"item_1617186331708":{"attribute_name":"Title","attribute_value_mlt":[{"subitem_1551255647225":"test item in br","subitem_1551255648112":"ja"}]},"item_1617186626617":{"attribute_name":"Description","attribute_value_mlt":[{"subitem_description":"this is line1.\nthis is line2.","subitem_description_type":"Abstract","subitem_description_language":"en"}]},"item_1617258105262":{"attribute_name":"Resource Type","attribute_value_mlt":[{"resourceuri":"http://purl.org/coar/resource_type/c_5794","resourcetype":"conference paper"}]},"relation_version_is_last":True}
+    item_data = {"id":"4","pid":{"type":"depid","value":"4","revision_id":0},"lang":"ja","path":[1],"owner":1,"title":"test item in br","owners":[1],"status":"published","$schema":"https://192.168.56.103/items/jsonschema/1000","pubdate":"2022-11-21","edit_mode":"keep","created_by":1,"owners_ext":{"email":"wekosoftware@nii.ac.jp","username":"","displayname":""},"deleted_items":["item_1617605131499"],"shared_user_ids":[],"weko_shared_ids":[],"item_1617186331708":[{"subitem_1551255647225":"test item in br","subitem_1551255648112":"ja"}],"item_1617186626617":[{"subitem_description":"this is line1.\nthis is line2.","subitem_description_type":"Abstract","subitem_description_language":"en"}],"item_1617258105262":{"resourceuri":"http://purl.org/coar/resource_type/c_5794","resourcetype":"conference paper"}}
     rec_uuid = uuid.uuid4()
     recid = PersistentIdentifier.create(
         "recid",
@@ -5012,11 +5034,11 @@ def test_function_issue34535(db,db_index,db_itemtype,location,db_oaischema,mocke
 
     # new item
     root_path = os.path.dirname(os.path.abspath(__file__))
-    new_item = {'$schema': 'https://192.168.56.103/items/jsonschema/1', 'edit_mode': 'Keep', 'errors': None, 'file_path': [''], 'filenames': [{'filename': '', 'id': '.metadata.item_1617605131499[0].filename'}], 'id': '4', 'identifier_key': 'item_1617186819068', 'is_change_identifier': False, 'item_title': 'test item in br', 'item_type_id': 1, 'item_type_name': 'デフォルトアイテムタイプ（フル）', 'metadata': {'item_1617186331708': [{'subitem_1551255647225': 'test item in br', 'subitem_1551255648112': 'ja'}], 'item_1617186626617': [{'subitem_description': 'this is line1.<br/>this is line2.', 'subitem_description_language': 'en', 'subitem_description_type': 'Abstract'}], 'item_1617258105262': {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}, 'path': [1], 'pubdate': '2022-11-21'}, 'pos_index': ['Faculty of Humanities and Social Sciences'], 'publish_status': 'public', 'status': 'keep', 'uri': 'https://192.168.56.103/records/4', 'warnings': [], 'root_path': root_path}
+    new_item = {'$schema': 'https://192.168.56.103/items/jsonschema/1000', 'edit_mode': 'Keep', 'errors': None, 'file_path': [''], 'filenames': [{'filename': '', 'id': '.metadata.item_1617605131499[0].filename'}], 'id': '4', 'identifier_key': 'item_1617186819068', 'is_change_identifier': False, 'item_title': 'test item in br', 'item_type_id': 1000, 'item_type_name': 'デフォルトアイテムタイプ（フル）', 'metadata': {'item_1617186331708': [{'subitem_1551255647225': 'test item in br', 'subitem_1551255648112': 'ja'}], 'item_1617186626617': [{'subitem_description': 'this is line1.<br/>this is line2.', 'subitem_description_language': 'en', 'subitem_description_type': 'Abstract'}], 'item_1617258105262': {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}, 'path': [1], 'pubdate': '2022-11-21'}, 'pos_index': ['Faculty of Humanities and Social Sciences'], 'publish_status': 'public', 'status': 'keep', 'uri': 'https://192.168.56.103/records/4', 'warnings': [], 'root_path': root_path}
 
     register_item_metadata(new_item,root_path,True)
     record = WekoDeposit.get_record(recid.object_uuid)
-    assert record == {'_oai': {'id': 'oai:weko3.example.org:00000004', 'sets': ['1']}, 'path': ['1'], 'owner': 1, 'recid': '4', 'title': ['test item in br'], 'pubdate': {'attribute_name': 'PubDate', 'attribute_value': '2022-11-21'}, '_buckets': {'deposit': '0796e490-6dcf-4e7d-b241-d7201c3de83a'}, '_deposit': {'id': '4', 'pid': {'type': 'depid', 'value': '4', 'revision_id': 0}, 'owner': 1, 'owners': [1], 'status': 'draft', 'created_by': 1}, 'item_title': 'test item in br', 'author_link': [], 'item_type_id': '1', 'publish_date': '2022-11-21', 'publish_status': '0', 'weko_shared_ids': [], 'item_1617186331708': {'attribute_name': 'Title', 'attribute_value_mlt': [{'subitem_1551255647225': 'test item in br', 'subitem_1551255648112': 'ja'}]}, 'item_1617186626617': {'attribute_name': 'Description', 'attribute_value_mlt': [{'subitem_description': 'this is line1.\nthis is line2.', 'subitem_description_language': 'en', 'subitem_description_type': 'Abstract'}]}, 'item_1617258105262': {'attribute_name': 'Resource Type', 'attribute_value_mlt': [{'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}]}, 'relation_version_is_last': True, 'control_number': '4'}
+    assert record == {'_oai': {'id': 'oai:weko3.example.org:00000004', 'sets': ['1']}, 'path': ['1'], 'owner': 1, 'recid': '4', 'title': ['test item in br'], 'pubdate': {'attribute_name': 'PubDate', 'attribute_value': '2022-11-21'}, '_buckets': {'deposit': '0796e490-6dcf-4e7d-b241-d7201c3de83a'}, '_deposit': {'id': '4', 'pid': {'type': 'depid', 'value': '4', 'revision_id': 0}, 'owner': 1, 'owners': [1], 'status': 'draft', 'created_by': 1}, 'item_title': 'test item in br', 'author_link': [], 'item_type_id': '1000', 'publish_date': '2022-11-21', 'publish_status': '0', 'weko_shared_ids': [], 'item_1617186331708': {'attribute_name': 'Title', 'attribute_value_mlt': [{'subitem_1551255647225': 'test item in br', 'subitem_1551255648112': 'ja'}]}, 'item_1617186626617': {'attribute_name': 'Description', 'attribute_value_mlt': [{'subitem_description': 'this is line1.\nthis is line2.', 'subitem_description_language': 'en', 'subitem_description_type': 'Abstract'}]}, 'item_1617258105262': {'attribute_name': 'Resource Type', 'attribute_value_mlt': [{'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}]}, 'relation_version_is_last': True, 'control_number': '4'}
 
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_function_issue34958 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_function_issue34958(app, make_itemtype):
@@ -5036,7 +5058,7 @@ def test_function_issue34958(app, make_itemtype):
         csv_path = "issue34958_import.csv"
 
 
-        test = [{"publish_status": "public", "pos_index": ["Index A"], "metadata": {"pubdate": "2022-11-11", "item_1671508244520": {"subitem_1551255647225": "Extra items test", "subitem_1551255648112": "en"}, "item_1671508260839": {"resourcetype": "conference paper", "resourceuri": "http://purl.org/coar/resource_type/c_5794"}, "item_1671508308460": [{"interim": "test_text_value0"}, {"interim": "test_text_value1"}], "item_1671606815997": "test_text", "item_1617186626617": {"subitem_description": "test_description"}}, "edit_mode": "keep", "item_type_name": "test_import", "item_type_id": 34958, "$schema": "http://TEST_SERVER/items/jsonschema/34958", "warnings": ["The following items are not registered because they do not exist in the specified item type. item_1617186626617.subitem_description"], "is_change_identifier": False, "errors": None}]
+        test = [{"publish_status": "public", "pos_index": ["Index A"], "metadata": {"pubdate": "2022-11-11", 'edit_mode': 'keep', "item_1671508244520": {"subitem_1551255647225": "Extra items test", "subitem_1551255648112": "en"}, "item_1671508260839": {"resourcetype": "conference paper", "resourceuri": "http://purl.org/coar/resource_type/c_5794"}, "item_1671508308460": [{"interim": "test_text_value0"}, {"interim": "test_text_value1"}], "item_1671606815997": "test_text", "item_1617186626617": {"subitem_description": "test_description"}}, "edit_mode": "keep", "item_type_name": "test_import", "item_type_id": 34958, "$schema": "http://TEST_SERVER/items/jsonschema/34958", "warnings": ["The following items are not registered because they do not exist in the specified item type. item_1617186626617.subitem_description"], "is_change_identifier": False, "errors": None}]
         result = unpackage_import_file(data_path,csv_path,"csv",False,False)
 
         assert result == test
@@ -5064,7 +5086,18 @@ def test_function_issue34958(app, make_itemtype):
         )
     ]
 )
-def test_handle_fill_system_item_issue34520(app, doi_records, item_id, before_doi, after_doi, warnings, errors, is_change_identifier):
+def test_handle_fill_system_item_issue34520(app, doi_records, mocker_itemtype, item_id, before_doi, after_doi, warnings, errors, is_change_identifier, mocker):
+    mapping = {
+        "title.@value": "item_1617186331708.subitem_1551255647225",
+        "title.@language": "item_1617186331708.subitem_1551255648112",
+        "type.@value": "item_1617258105262.resourcetype",
+        "type.@attributes.rdf:resource": "item_1617258105262.resourceuri",
+        "file.URI.@value": "item_1617605131499.url.url",
+        "file.extent.@value": "item_1617605131499.filesize.value",
+        "file.mimeType.@value": "item_1617605131499.format",
+        "identifierRegistration.@attributes.identifierType": "item_1617186819068.subitem_identifier_reg_type"
+    }
+    mocker.patch("weko_search_ui.utils.get_mapping", return_value=mapping)
     before = {
             "metadata": {
                 "path": ["1667004052852"],
@@ -5184,7 +5217,7 @@ def test_handle_fill_system_item_issue34520(app, doi_records, item_id, before_do
     [
         (1, "http://TEST_SERVER/records/1",[],[],"keep"),
         (1000, "http://TEST_SERVER/records/1",[],["Specified URI and system URI do not match."],None),
-        (1000, "http://TEST_SERVER/records/1000",[],["Item does not exits in the system"],None),
+        (1000, "http://TEST_SERVER/records/1000",[],["Item does not exist in the system."],None),
         (None,None,[],[],"new")
     ])
 def test_handle_check_exist_record_issue35315(app, doi_records, id, uri, warnings, errors, status):
