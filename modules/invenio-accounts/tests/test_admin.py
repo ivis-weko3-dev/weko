@@ -305,5 +305,13 @@ def test_scaffold_form(app):
 
         role_names = [r.name for r in roles]
         group_names = [g.name for g in groups]
+        # Check included roles
         assert 'Contributor' in role_names
+        # Check included groups
         assert 'jc_xxx_groups_yyy' in group_names
+        # Check excluded roles
+        assert 'jc_xxx_roles_contributor' not in role_names
+        assert 'jc_xxx_groups_yyy' not in role_names
+        # Check excluded groups
+        assert 'Contributor' not in group_names
+        assert 'jc_xxx_roles_contributor' not in group_names

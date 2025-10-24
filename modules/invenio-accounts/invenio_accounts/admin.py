@@ -94,7 +94,7 @@ class UserView(ModelView):
                         Role.name.like(f"%{current_app.config['WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT']['role_keyword']}%") &
                         Role.name.startswith(current_app.config['WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT']['prefix'])
                     )
-                ).all()
+                ).filter(~Role.name.like('%_groups_%')).all()
             ),
             get_label='name',
             widget=Select2Widget(multiple=True)
