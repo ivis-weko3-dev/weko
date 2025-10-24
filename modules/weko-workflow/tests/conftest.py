@@ -86,7 +86,7 @@ from weko_workflow.scopes import activity_scope
 from weko_theme.config import THEME_INSTITUTION_NAME
 from sqlalchemy_utils.functions import create_database, database_exists, \
     drop_database
-from tests.helpers import json_data, create_record, fill_oauth2_headers, create_activity, create_flow
+from .helpers import json_data, create_record, fill_oauth2_headers, create_activity, create_flow
 from invenio_files_rest.models import Location, Bucket,ObjectVersion
 from invenio_files_rest import InvenioFilesREST
 from invenio_records import InvenioRecords
@@ -162,6 +162,8 @@ class MockEs():
         return Response(response=json.dumps({}),status=500)
     def exists(self,**arguments):
         pass
+    def update(self, *args, **kwargs):
+        return {"result": "updated"}
     @property
     def transport(self):
         return self.es.transport
@@ -584,7 +586,8 @@ def base_app(instance_path, search_class, cache_config):
         WEKO_WORKFLOW_USAGE_REPORT_WORKFLOW_NAME = '利用報告/Data Usage Report',
         WEKO_WORKFLOW_TODO_TAB = 'todo',
         WEKO_HANDLE_CREDS_JSON_PATH='/code/modules/resources/handle_creds.json',
-        WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG=True,
+        WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = False,
+        WEKO_ADMIN_DISPLAY_RESTRICTED_SETTINGS = True,
         WEKO_RECORDS_UI_RESTRICTED_API= False,
         WEKO_ITEMS_UI_PROXY_POSTING = False
     )
@@ -859,7 +862,7 @@ def users_1(app, db):
         user_1 = User.query.filter_by(email='user1@sample.com').first()
         user_2 = User.query.filter_by(email='user2@sample.com').first()
         sysadmin = User.query.filter_by(email='sysadmin@test.org').first()
-        
+
     role_count = Role.query.filter_by(name='System Administrator').count()
     if role_count != 1:
         sysadmin_role = ds.create_role(name='System Administrator')
@@ -1058,7 +1061,7 @@ def item_type_usage_report(db):
         item_type_schema = dict()
         with open("tests/data/item_type/itemtype_schema_31003.json", "r") as f:
             item_type_schema = json.load(f)
-        
+
         item_type_form = dict()
         with open("tests/data/item_type/itemtype_form_31003.json", "r") as f:
             item_type_form = json.load(f)
@@ -1369,9 +1372,9 @@ def db_register_full_action(app, db, db_records, users, action_data, item_type):
                      send_mail_setting={})
     flow_action4 = FlowAction(status='N',
                      flow_id=flow_define.flow_id,
-                     action_id=3,
+                     action_id=4,
                      action_version='1.0.0',
-                     action_order=1,
+                     action_order=4,
                      action_condition='',
                      action_status='A',
                      action_date=datetime.strptime('2018/07/28 0:00:00','%Y/%m/%d %H:%M:%S'),
@@ -1491,6 +1494,7 @@ def db_register_full_action(app, db, db_records, users, action_data, item_type):
         db.session.add(action_role_4_2)
         db.session.add(action_role_4_3)
         db.session.add(action_role_4_4)
+        db.session.add(action_role_5)
     db.session.commit()
 
     workflow = WorkFlow(flows_id=uuid.uuid4(),
@@ -1950,7 +1954,7 @@ def db_register_1(app, db, db_records, users_1, action_data, item_type):
     db.session.commit()
     return {'flow_define':flow_define,
             'item_type':item_type,
-            'workflow':workflow, 
+            'workflow':workflow,
             "activities":[activity]}
 
 
@@ -2042,7 +2046,7 @@ def workflow(app, db, item_type, action_data, users):
                         flows_name='test workflow01',
                         itemtype_id=1,
                         index_tree_id=None,
-                        flow_id=1,
+                        flow_id=flow_define.id,
                         is_deleted=False,
                         open_restricted=False,
                         location_id=None,
@@ -2051,7 +2055,7 @@ def workflow(app, db, item_type, action_data, users):
                         flows_name='test workflow02',
                         itemtype_id=1,
                         index_tree_id=None,
-                        flow_id=1,
+                        flow_id=flow_define.id,
                         is_deleted=True,
                         open_restricted=False,
                         location_id=None,
@@ -2121,10 +2125,10 @@ def no_begin_action(app, db):
 
 @pytest.fixture()
 def workflow_open_restricted(app, db, item_type, action_data, users):
-    flow_define1 = FlowDefine(id=2,flow_id=uuid.uuid4(),
+    flow_define1 = FlowDefine(flow_id=uuid.uuid4(),
                                 flow_name='terms_of_use_only',
                                 flow_user=1)
-    flow_define2 = FlowDefine(id=3,flow_id=uuid.uuid4(),
+    flow_define2 = FlowDefine(flow_id=uuid.uuid4(),
                                 flow_name='usage application',
                                 flow_user=1)
     with db.session.begin_nested():
@@ -2205,7 +2209,7 @@ def workflow_open_restricted(app, db, item_type, action_data, users):
                         flows_name='terms_of_use_only',
                         itemtype_id=1,
                         index_tree_id=None,
-                        flow_id=2,
+                        flow_id=flow_define1.id,
                         is_deleted=False,
                         open_restricted=True,
                         location_id=None,
@@ -2214,7 +2218,7 @@ def workflow_open_restricted(app, db, item_type, action_data, users):
                         flows_name='usage application',
                         itemtype_id=1,
                         index_tree_id=None,
-                        flow_id=3,
+                        flow_id=flow_define2.id,
                         is_deleted=False,
                         open_restricted=True,
                         location_id=None,
@@ -2223,7 +2227,7 @@ def workflow_open_restricted(app, db, item_type, action_data, users):
                         flows_name='nomal workflow',
                         itemtype_id=1,
                         index_tree_id=None,
-                        flow_id=3,
+                        flow_id=flow_define2.id,
                         is_deleted=False,
                         open_restricted=False,
                         location_id=None,
@@ -3033,24 +3037,24 @@ def db_register_usage_application_workflows(app, db, action_data, item_type ):
     db.session.commit()
 
     workflows.update({
-		"flow_define1"        : flow_define1      
-		# ,"flow_define2"       : flow_define2      
-		,"flow_define3"       : flow_define3      
-		,"flow_define4"       : flow_define4      
-		,"flow_action1_1"     : flow_action1_1    
-		,"flow_action1_2"     : flow_action1_2    
-		,"flow_action1_3"     : flow_action1_3    
-		# ,"flow_action2_1"     : flow_action2_1    
-		# ,"flow_action2_2"     : flow_action2_2    
-		,"flow_action3_1"     : flow_action3_1    
-		,"flow_action3_2"     : flow_action3_2    
-		,"flow_action3_3"     : flow_action3_3    
-		,"flow_action3_4"     : flow_action3_4    
-		,"flow_action4_1"     : flow_action4_1    
-		,"flow_action4_2"     : flow_action4_2    
-		,"flow_action4_3"     : flow_action4_3    
-		,"flow_action4_4"     : flow_action4_4    
-		,"flow_action4_5"     : flow_action4_5    
+		"flow_define1"        : flow_define1
+		# ,"flow_define2"       : flow_define2
+		,"flow_define3"       : flow_define3
+		,"flow_define4"       : flow_define4
+		,"flow_action1_1"     : flow_action1_1
+		,"flow_action1_2"     : flow_action1_2
+		,"flow_action1_3"     : flow_action1_3
+		# ,"flow_action2_1"     : flow_action2_1
+		# ,"flow_action2_2"     : flow_action2_2
+		,"flow_action3_1"     : flow_action3_1
+		,"flow_action3_2"     : flow_action3_2
+		,"flow_action3_3"     : flow_action3_3
+		,"flow_action3_4"     : flow_action3_4
+		,"flow_action4_1"     : flow_action4_1
+		,"flow_action4_2"     : flow_action4_2
+		,"flow_action4_3"     : flow_action4_3
+		,"flow_action4_4"     : flow_action4_4
+		,"flow_action4_5"     : flow_action4_5
 		,"workflow_workflow1" : workflow_workflow1
 		# ,"workflow_workflow2" : workflow_workflow2
 		,"workflow_workflow3" : workflow_workflow3
@@ -3062,12 +3066,12 @@ def db_register_usage_application_workflows(app, db, action_data, item_type ):
 @pytest.fixture()
 def db_register_usage_application(app, db, db_records, users, action_data, item_type, db_register_usage_application_workflows ):
     workflows = db_register_usage_application_workflows
-    
+
     # 利用登録(now -> item_registration, next ->end)
     activity1 = Activity(activity_id='A-00000001-20001'
                         ,workflow_id=workflows["workflow_workflow1"].id
                         , flow_id=workflows["flow_define1"].id,
-                    action_id=3, 
+                    action_id=3,
                     item_id=db_records[2][2].id,
                     activity_login_user=1,
                     action_status = 'M',
@@ -4279,7 +4283,7 @@ def activity_with_roles_for_request_mail(app, workflow, db, item_type, users):
                     flow_action_id = flow_actions[1].id,
                     action_user = 2,
                     action_user_exclude = False,
-                    )            
+                    )
     ]
     with db.session.begin_nested():
         db.session.add_all(flow_action_roles)
@@ -4337,7 +4341,7 @@ def activity_with_roles_for_request_mail(app, workflow, db, item_type, users):
         action_order=6, item_id=item_metdata.model.id,
         action_status=ActionStatusPolicy.ACTION_BEGIN
     )
-    
+
     with db.session.begin_nested():
         db.session.add(activity)
     db.session.commit()
@@ -4353,7 +4357,7 @@ def activity_with_roles_for_request_mail(app, workflow, db, item_type, users):
     request_mail = ActivityRequestMail(activity_id = activity.activity_id,
                                     display_request_button = True,
                                     request_maillist = [{"email": "contributor@test.org", "author_id": "1"}])
-    
+
     with db.session.begin_nested():
         db.session.add(request_mail)
     db.session.commit()
@@ -4533,7 +4537,7 @@ def db_register_for_application_api(app, db, users, db_register_for_application_
     flow_action2_4 = workflows["flow_action2_4"]
     workflow_workflow1 = workflows["workflow_workflow1"]
     workflow_workflow2 = workflows["workflow_workflow2"]
-    
+
     # 1.利用申請(now -> item_registration)
     activity1 = Activity(activity_id='A-00000001-20001'
                         ,workflow_id=workflow_workflow1.id
@@ -4612,7 +4616,7 @@ def db_register_for_application_api(app, db, users, db_register_for_application_
         ,expiration_date=10
         ,is_usage_report=False
     )
-    
+
     # 3.利用申請(end)
     activity3 = Activity(activity_id='A-00000001-20003'
                         ,workflow_id=workflow_workflow1.id
@@ -4751,7 +4755,7 @@ def db_register_for_application_api(app, db, users, db_register_for_application_
         ,expiration_date=10
         ,is_usage_report=False
     )
-    
+
     # 6.利用申請 edit item (now -> item_registration)
     activity6 = Activity(activity_id='A-00000001-20006'
                         ,workflow_id=workflow_workflow1.id
@@ -4973,7 +4977,7 @@ def db_register_for_application_api(app, db, users, db_register_for_application_
     })
     return workflows
 
-    
+
 
 @pytest.fixture()
 def application_api_request_body(app, item_type):
@@ -5027,33 +5031,36 @@ def application_api_request_body(app, item_type):
     return bodies
 
 @pytest.fixture()
-def indextree(client, users):
+def indextree(client, users, app):
     indicies = []
     index_metadata1 = {
         "id": 1001,
         "parent": 0,
         "value": "test index1",
     }
+    with app.test_request_context():
+        with patch("b2handle.handleclient.EUDATHandleClient.register_handle") as mock_register_handle:
+            mock_register_handle.return_value = "20.500.12345/FK2-1234567890"
+            # create index
+            with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
+                assert Indexes.create(index_metadata1["parent"], index_metadata1)
+                index = Index.get_index_by_id(index_metadata1["id"])
+                index.public_state = True
+                index.harvest_public_state = True
+            indicies.append(index_metadata1)
 
-    with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
-        assert Indexes.create(index_metadata1["parent"], index_metadata1)
-        index = Index.get_index_by_id(index_metadata1["id"])
-        index.public_state = True
-        index.harvest_public_state = True
-    indicies.append(index_metadata1)
+            index_metadata2 = {
+                "id": 1002,
+                "parent": 0,
+                "value": "test index2",
+            }
 
-    index_metadata2 = {
-        "id": 1002,
-        "parent": 0,
-        "value": "test index2",
-    }
-
-    with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
-        assert Indexes.create(index_metadata2["parent"], index_metadata2)
-        index = Index.get_index_by_id(index_metadata2["id"])
-        index.public_state = True
-        index.harvest_public_state = True
-    indicies.append(index_metadata2)
+            with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
+                assert Indexes.create(index_metadata2["parent"], index_metadata2)
+                index = Index.get_index_by_id(index_metadata2["id"])
+                index.public_state = True
+                index.harvest_public_state = True
+            indicies.append(index_metadata2)
 
     return indicies
 

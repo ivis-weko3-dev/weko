@@ -24,9 +24,11 @@ import copy
 from datetime import datetime
 
 from flask import json, current_app
-from mock import patch
+from mock import patch, MagicMock
 import pytest
 
+from invenio_accounts.models import Role
+from invenio_communities.models import Community
 from weko_workflow.rest import FileApplicationActivity
 
 def url(root, kwargs = {}):
@@ -147,8 +149,11 @@ def test_ApproveActivity_post(app, client, db, db_register_approval, auth_header
 
     current_app.config['WEKO_WORKFLOW_ENABLE_CONTRIBUTOR'] = False
 
-    activity_id = db_register_approval['activity'][0].activity_id
+    activity = db_register_approval['activity'][0]
+    activity_id = activity.activity_id
     activity_id_not_approval = db_register_approval['activity'][1].activity_id
+    activity.activity_community_id = 'comm01'
+    db.session.commit()
     version = 'v1'
     invalid_version = 'v0'
     headers_sysadmin = auth_headers[0]  # OAuth token : sysadmin
@@ -391,8 +396,8 @@ def test_FileApplicationActivity_post(app, client, db, db_register_for_applicati
     except:
         assert False
     assert "aaa is not one of enum in item_1616221960771.subitem_restricted_access_research_plan_type" in res_json["message"]
-    
-    
+
+
     # Guest: Invalid enum : 400 error
     params = {"token": "aaa"}
     body = application_api_request_body[1]
@@ -527,15 +532,15 @@ def test_FileApplicationActivity_post(app, client, db, db_register_for_applicati
     body = application_api_request_body[0]
     res_check = 1   # NG
     with patch('weko_workflow.rest.check_authority_action', return_value=res_check):
-        
+
         class DummyRedis():
             def exists(self, v):
                 return True
-        
+
         class DummySessionstore():
             def __init__(self):
                 self.redis = DummyRedis()
-            
+
             def get(self, v):
                 return True
 
@@ -569,7 +574,7 @@ def test_FileApplicationActivity_post(app, client, db, db_register_for_applicati
         res_json = json.loads(res.get_data())
     except:
         assert False
-    
+
     # activity not found : 404 error
     params = {"index_ids": f'{index1["id"]}'}
     body = application_api_request_body[0]
@@ -586,7 +591,7 @@ def test_FileApplicationActivity_post(app, client, db, db_register_for_applicati
         res_json = json.loads(res.get_data())
     except:
         assert False
-    
+
     # Guest: activity not found : 404 error
     params = {"token": "aaa"}
     body = {"aaa":"123"}
@@ -637,7 +642,7 @@ def test_FileApplicationActivity_post(app, client, db, db_register_for_applicati
         res_json = json.loads(res.get_data())
     except:
         assert False
-    
+
     # Exception : 404
     params = {"index_ids": index1["id"]}
     body = application_api_request_body[0]
@@ -657,6 +662,7 @@ def test_FileApplicationActivity_post(app, client, db, db_register_for_applicati
     except:
         assert False
 
+    mocker.patch('weko_workflow.rest.handle_check_item_is_locked', return_value=None)
     # Server error : 500
     params = {"index_ids": index1["id"]}
     body = application_api_request_body[0]
@@ -712,7 +718,7 @@ def test_FileApplicationActivity_post(app, client, db, db_register_for_applicati
     }
     check["path"] = [f"{index1['id']}"]
     assert res_json["registerd_data"] == check
-    
+
     # Guest: Success : 200
     params = {"token": "aaa"}
     body = application_api_request_body[0]
@@ -788,7 +794,7 @@ def test_FileApplicationActivity_post(app, client, db, db_register_for_applicati
     check["path"] = [f"{index1['id']}"]
     assert res_json["registerd_data"] == check
 
-    
+
     # test for _clean_file_metadata()
     data = {
         "item_1616221831877": {

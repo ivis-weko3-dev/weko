@@ -105,6 +105,7 @@ def test_create_blueprint(app):
 
 
 # WekoRecordsCitesResource
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoRecordsCitesResource -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_WekoRecordsCitesResource(app, records):
     data1 = MagicMock()
     data2 = {"1": 1}
@@ -116,7 +117,7 @@ def test_WekoRecordsCitesResource(app, records):
     test = WekoRecordsCitesResource(data1, data2)
     with app.test_request_context():
         with patch("flask.request", return_value=values):
-            with patch("weko_records_ui.rest.citeproc_v1.serialize", return_value=data2):
+            with patch("weko_records.serializers.citeproc_v1.serialize", return_value=data2):
                 assert WekoRecordsCitesResource.get(pid_value, pid_value)
 
 
@@ -124,31 +125,6 @@ def url(root, kwargs = {}):
     args = ["{key}={value}".format(key = key, value = value) for key, value in kwargs.items()]
     url = "{root}?{param}".format(root = root, param = "&".join(args)) if kwargs else root
     return url
-
-# def create_error_handlers(blueprint):
-def test_create_error_handlers(app):
-    assert create_error_handlers(blueprint) == None
-
-# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_create_blueprint -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-# def create_blueprint(endpoints):
-def test_create_blueprint(app):
-    assert create_blueprint(endpoints) != None
-
-
-# WekoRecordsCitesResource
-def test_WekoRecordsCitesResource(app, records):
-    data1 = MagicMock()
-    data2 = {"1": 1}
-    values = {}
-    indexer, results = records
-    record = results[0]['record']
-    pid_value = record.pid.pid_value
-
-    test = WekoRecordsCitesResource(data1, data2)
-    with app.test_request_context():
-        with patch("flask.request", return_value=values):
-            with patch("weko_records_ui.rest.citeproc_v1.serialize", return_value=data2):
-                assert WekoRecordsCitesResource.get(pid_value, pid_value)
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_NeedRestrictedAccess_get_v1 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -297,13 +273,10 @@ def test_GetFileTerms_get_v1(app, client, db, make_record_need_restricted_access
     # WEKO_RECORDS_UI_RESTRICTED_API = False : 403 error
     pid_value = 12
     file_name = "dummy.txt"
-    terms_content = "利用規約本文"
-    etag = generate_etag(f"{file_name}_{terms_content}".encode("utf-8"))
     res = client.get(
         f'/{version}/records/{pid_value}/files/{file_name}/terms',
         headers=headers_sysadmin,
     )
-    res_data = json.loads(res.get_data())
     assert res.status_code == 403
 
     current_app.config.update(WEKO_RECORDS_UI_RESTRICTED_API = True)
@@ -725,8 +698,6 @@ def test_FileApplication_post_v1(app, client, db, workflows_restricted, make_rec
 def test_RequestMail_post_v1(app, client, db, make_request_maillist, users):
     """Test GetFileTerms.post_v1 method."""
 
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_REST_ENDPOINTS']))
-
     version = 'v1'
     invalid_version = 'v0'
 
@@ -895,8 +866,6 @@ def test_RequestMail_post_v1(app, client, db, make_request_maillist, users):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_CaptchaAnswerValidation_post_v1 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_CaptchaAnswerValidation_post_v1(app, client, db):
 
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_REST_ENDPOINTS']))
-
     version = 'v1'
     invalid_version = 'v0'
     res = None
@@ -976,8 +945,6 @@ def test_CaptchaAnswerValidation_post_v1(app, client, db):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_CreateCaptchaImage_get_v1 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_CreateCaptchaImage_get_v1(app, client, db):
 
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_REST_ENDPOINTS']))
-
     version = 'v1'
     invalid_version = 'v0'
     res = None
@@ -1023,7 +990,6 @@ def test_CreateCaptchaImage_get_v1(app, client, db):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoRecordsResource -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoRecordsResource(app, records_rest, db_rocrate_mapping):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         res = client.get('/v1/records/1')
         assert res.status_code == 200
@@ -1070,7 +1036,6 @@ def test_WekoRecordsResource(app, records_rest, db_rocrate_mapping):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoRecordsResource_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoRecordsResource_error(app, records_rest, db_rocrate_mapping):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         url = '/v1/records/1'
         res = client.get(url)
@@ -1122,7 +1087,6 @@ def test_WekoRecordsResource_error(app, records_rest, db_rocrate_mapping):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoRecordsStats -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoRecordsStats(app, records_rest, db_rocrate_mapping):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         res = client.get('/v1/records/1/stats')
         assert res.status_code == 200
@@ -1133,7 +1097,6 @@ def test_WekoRecordsStats(app, records_rest, db_rocrate_mapping):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoRecordsStats_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoRecordsStats_error(app, records_rest, db_rocrate_mapping):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         url = '/v1/records/1/stats'
         res = client.get(url)
@@ -1175,7 +1138,6 @@ def test_WekoRecordsStats_error(app, records_rest, db_rocrate_mapping):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoFilesStats -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoFilesStats(app, records):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         res = client.get('/v1/records/1/files/helloworld.pdf/stats')
         assert res.status_code == 200
@@ -1186,7 +1148,6 @@ def test_WekoFilesStats(app, records):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoFilesStats_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoFilesStats_error(app, records):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         url = '/v1/records/1/files/helloworld.pdf/stats'
         res = client.get(url)
@@ -1237,7 +1198,6 @@ def test_WekoFilesStats_error(app, records):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoFilesGet -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoFilesGet(app, records):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         res = client.get('/v1/records/1/files/helloworld.pdf')
         assert res.status_code == 200
@@ -1248,7 +1208,6 @@ def test_WekoFilesGet(app, records):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoFilesGet_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoFilesGet_error(app, records):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         url = '/v1/records/1/files/helloworld.pdf'
         res = client.get(url)
@@ -1301,7 +1260,6 @@ def test_WekoFilesGet_error(app, records):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoFileListGetAll -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoFileListGetAll(app, mocker, records):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         with patch('weko_records_ui.fd.file_list_ui', return_value=Response(status=200)):
             # 1 GET request
@@ -1317,7 +1275,6 @@ def test_WekoFileListGetAll(app, mocker, records):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoFileListGetAll_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoFileListGetAll_error(app, records):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         with patch('weko_records_ui.permissions.check_publish_status', MagicMock(return_value=False)):
             # 3 Access denied
@@ -1372,7 +1329,6 @@ def test_WekoFileListGetAll_error(app, records):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoFileListGetSelected -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoFileListGetSelected(app, mocker, records):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         with patch('weko_records_ui.fd.file_list_ui', return_value=Response(status=200)):
             # 1 POST request
@@ -1383,7 +1339,6 @@ def test_WekoFileListGetSelected(app, mocker, records):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoFileListGetSelected_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoFileListGetSelected_error(app, records):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     json={"filenames":["helloworld.pdf"]}
     with app.test_client() as client:
         with patch('weko_records_ui.permissions.check_publish_status', MagicMock(return_value=False)):

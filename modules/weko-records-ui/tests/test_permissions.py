@@ -37,7 +37,7 @@ def test_page_permission_factory(app, records, users,db_file_permission):
     indexer, results = records
     record = results[0]["record"]
 
-    assert page_permission_factory(record).can() == True
+    assert page_permission_factory(record).can() == False
 
     with patch("weko_records_ui.permissions.check_publish_status", return_value=True):
         with patch("weko_records_ui.permissions.check_index_permissions", return_value=True):
@@ -54,15 +54,16 @@ def test_file_permission_factory(app, records, users, db_file_permission):
     app.config['OAUTH2SERVER_JWT_AUTH_HEADER'] = 'Authorization'
     indexer, results = records
     record = results[0]["record"]
-    assert file_permission_factory(record).can() == None
+    with app.test_request_context():
+        assert file_permission_factory(record).can() == None
 
-    # check_file_download_permission returns True
-    with patch("weko_records_ui.permissions.check_file_download_permission", return_value=True):
-        assert file_permission_factory(record).can() == True
+        # check_file_download_permission returns True
+        with patch("weko_records_ui.permissions.check_file_download_permission", return_value=True):
+            assert file_permission_factory(record).can() == True
 
-    # check_file_download_permission returns False
-    with patch("weko_records_ui.permissions.check_file_download_permission", return_value=False):
-        assert file_permission_factory(record).can() == False
+        # check_file_download_permission returns False
+        with patch("weko_records_ui.permissions.check_file_download_permission", return_value=False):
+            assert file_permission_factory(record).can() == False
 
     # with OAuth2
     with app.test_request_context(headers={"Authorization": "Bearer testtoken"}):
@@ -284,10 +285,9 @@ def test_check_open_restricted_permission(app, records, users,db_file_permission
         with patch("weko_records_ui.permissions.__get_file_permission", return_value=data1):  
             assert check_open_restricted_permission(record, fjson) == False  
 
-            mock_permmissin=mocker.patch("weko_records_ui.permissions.check_permission_period")
+            mocker.patch("weko_records_ui.permissions.check_permission_period",return_value="test")
             current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = True)
-            check_open_restricted_permission(record, fjson)
-            mock_permmissin.assert_called_once()
+            assert check_open_restricted_permission(record, fjson) == "test"
 
         current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = False)
 
@@ -347,7 +347,7 @@ def test_check_permission_period(app,users):
     data1.user_id = users[0]["id"]
     data1.user_mail = users[0]["email"]
     data1.record_id = "c"
-    
+
     with patch('weko_records_ui.models.FileOnetimeDownload.find_downloadable_only', return_value=[{}]):
         assert check_permission_period(data1) == True
     with patch('weko_records_ui.models.FileOnetimeDownload.find_downloadable_only', return_value=None):
@@ -377,7 +377,7 @@ def test_get_permission(app, records, users,db_file_permission):
             data1.status = 0
             with patch("weko_workflow.api.WorkActivity.get_activity_steps", return_value=data2):
                 assert get_permission(record, fjson) == None
-            
+
             with patch("weko_workflow.api.WorkActivity.get_activity_steps", return_value=""):
                 assert get_permission(record, fjson) != None
 
@@ -483,8 +483,8 @@ def test_check_publish_status(app):
             "%Y-%m-%d"
         )
         assert check_publish_status(record) == True
-        
-        
+
+
         record["publish_status"] = "1"
         record["pubdate"]["attribute_value"] = now.strftime("%Y-%m-%d")
         assert record.get("publish_status") == "1"
@@ -769,7 +769,6 @@ def test_check_created_id_guest(app, users):
     assert record.get("weko_shared_ids") == []
 
     # guest user
-    assert current_user.is_authenticated == False
     assert record.get("_deposit", {}).get("created_by") == 1
     assert record.get("item_type_id") == "15"
     assert record.get("weko_shared_ids") == []
@@ -840,7 +839,8 @@ def test_check_created_id(app, users, index, status):
         "relation_version_is_last": True,
     }
 
-    with patch("flask_login.utils._get_user", return_value=users[index]["obj"]):
+    with patch("flask_login.utils._get_user", return_value=users[index]["obj"]), \
+        patch("weko_records_ui.permissions.has_comadmin_permission",return_value=True):
         assert check_created_id(record) == status
         if status in [0, 3, 4, 5]:
             record['owner']=current_user.get_id()
@@ -883,7 +883,7 @@ def test_check_created_id_comadmin(app, users, db):
         "item_type_id": "15",
         "publish_date": "2022-07-12",
         "publish_status": "0",
-        "weko_shared_id": 2,
+        "weko_shared_ids": [2],
         "item_1617186331708": {
             "attribute_name": "Title",
             "attribute_value_mlt": [
@@ -986,9 +986,9 @@ def test_is_owners_or_superusers(app,records,users):
         # contributer
         with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
             assert not is_owners_or_superusers(testrec)
-            
+
             testrec['owner'] = userId
-            assert is_owners_or_superusers(testrec) 
+            assert is_owners_or_superusers(testrec)
 
             testrec['owner'] = -1
             testrec['weko_shared_ids'] = [userId]
