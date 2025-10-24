@@ -488,7 +488,6 @@ def validate_onetime_token(
         return error_response(_('Restricted access is disabled.'), 403)
 
     # Validate the onetime download token
-
     is_validated, error_msg = validate_url_download(
         record, filename, token, is_secret_url=False)
     if not is_validated:
