@@ -5127,8 +5127,9 @@ def get_contributors(pid_value, user_id_list_json=None, owner_id=-1):
             info['owner'] = True
 
         if current_app.config.get("WEKO_ITEMS_UI_PROXY_POSTING", False) \
-            or info["owner"] \
-            or info["userid"] != current_user.id:
+                or info["owner"] \
+                or (current_user.is_authenticated and info["userid"] != current_user.id) \
+                or not current_user.is_authenticated:
             result.append(info)
 
     return result
