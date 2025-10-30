@@ -318,7 +318,7 @@
         {
             "condition": "model.parentkey[arrayIndex].accessrole == 'open_date'",
             "format": "yyyy-MM-dd",
-            "key": "parentkey.accessdate",
+            "key": "parentkey.date[0].dateValue",
             "templateUrl": "/static/templates/weko_deposit/datepicker.html",
             "title": "公開日",
             "type": "template"

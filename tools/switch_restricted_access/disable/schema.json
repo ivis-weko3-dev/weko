@@ -1,14 +1,33 @@
 {
     "format": "object",
     "properties": {
-        "accessdate": {
-            "format": "datetime",
-            "title": "公開日",
-            "title_i18n": {
-                "en": "",
-                "ja": ""
+        "date": {
+            "format": "array",
+            "items": {
+                "format": "object",
+                "properties": {
+                    "dateType": {
+                        "enum": [
+                            null,
+                            "Available"
+                        ],
+                        "format": "select",
+                        "title": "タイプ",
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "dateValue": {
+                        "format": "datetime",
+                        "title": "公開日",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
             },
-            "type": "string"
+            "title": "公開日",
+            "type": "array"
         },
         "accessrole": {
             "default": "open_no",
