@@ -22,6 +22,7 @@
 
 import base64
 import orjson
+import pickle
 from datetime import datetime as dt
 from datetime import timedelta
 from decimal import Decimal
@@ -29,11 +30,12 @@ from typing import NoReturn, Tuple, Dict
 from urllib.parse import quote
 
 from elasticsearch_dsl import Q
-from flask import abort, current_app, request
+from flask import abort, current_app, request, session
 from flask_babelex import gettext as _
 from flask_babelex import to_utc
+from flask_login import login_user
 from flask_security import current_user
-from invenio_accounts.models import Role
+from invenio_accounts.models import Role, User
 from invenio_cache import current_cache
 from invenio_db import db
 from invenio_i18n.ext import current_i18n
@@ -52,6 +54,7 @@ from weko_records.models import ItemBilling
 from weko_records.serializers.utils import get_mapping
 from weko_records.utils import replace_fqdn
 from weko_records_ui.models import InstitutionName
+from weko_redis.redis import RedisConnection
 from weko_schema_ui.models import PublishStatus
 from weko_workflow.api import WorkActivity, WorkFlow
 
@@ -1746,3 +1749,21 @@ def get_billing_role(record: Dict) -> Tuple[str, str]:
 
     min_role = Role.query.get(int(min_price_info.get(billing_role_key)))
     return min_role.name, min_price_info.get(billing_price_key, '')
+
+def restore_session_info(session_id: str, redis_connection: RedisConnection) -> None:
+    """Restore session info.
+
+    Args:
+        session_id (str): Session ID
+        redis_connection (RedisConnection): Redis connection
+    """
+    # Get session data
+    session_store = redis_connection.connection(
+        db=current_app.config['ACCOUNTS_SESSION_REDIS_DB_NO'], kv=True)
+    session_data = pickle.loads(session_store.redis.get(session_id))
+    for k, v in session_data.items():
+        session[k] = v
+
+    # Login user
+    user = User.query.filter_by(id=session['user_id']).first()
+    login_user(user)

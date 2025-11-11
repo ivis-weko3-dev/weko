@@ -814,6 +814,7 @@ def test_charge(app,db,users,client,mocker):
     _data['file_name'] = 'file_name'
     _data['title'] = 'title'
     _data['price'] = '110'
+    client.set_cookie('TEST_SERVER', 'session', 'test_redis_key.signature')
 
     redis = RedisConnection().connection(db=app.config['CACHE_REDIS_DB'], kv=True)
     redis_key = 'charge_{}'.format(users[0]['obj'].get_id())
@@ -876,7 +877,7 @@ def test_charge(app,db,users,client,mocker):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_charge_secure -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_charge_secure(app, db, users, client, mocker):
     _data = {}
-    url = url_for('weko_records_ui.charge_secure', _external=True)
+    url = url_for('weko_records_ui.charge_secure', session_id='test_session', _external=True)
     _data['AccessID'] = 'access_id'
 
     redis = RedisConnection().connection(db=app.config['CACHE_REDIS_DB'], kv=True)
@@ -928,6 +929,23 @@ def test_charge_secure(app, db, users, client, mocker):
                     client.post(url, data=_data)
                     mocker_redirect.assert_called_with('/records/1')
                     assert redis.redis.exists(redis_key) == 0
+        
+        def mock_restore_session_info(session_id, redis_connection):
+            mocker.patch('flask_login.utils._get_user', return_value=users[0]['obj'])
+        
+        # No session information
+        with patch('weko_records_ui.views.restore_session_info',
+                   side_effect=mock_restore_session_info) as mock_restore_session:
+            with patch('weko_records_ui.views.secure_charge', return_value=1):
+                with patch('weko_records_ui.views.close_charge'):
+                    redis.put(redis_key, '1'.encode('utf-8'))
+                    client.post(url, data=_data)
+                    mocker_redirect.assert_called_with('/records/1')
+                    assert redis.redis.exists(redis_key) == 0
+                    mock_restore_session.assert_called_once()
+                    args, _ = mock_restore_session.call_args
+                    assert args[0] == 'test_session'
+                    assert isinstance(args[1], RedisConnection)
 
 # def charge_show():
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_charge_show -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
