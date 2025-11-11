@@ -14,11 +14,13 @@ from weko_records_ui.utils import (
     is_open_access, is_private_index, is_show_email_of_creator,
     parse_one_time_download_token, replace_license_free, restore,
     send_usage_report_mail_for_user, soft_delete, update_onetime_download,
-    validate_download_record, validate_onetime_download_token, replace_license_free_for_opensearch
+    validate_download_record, validate_onetime_download_token, replace_license_free_for_opensearch,
+    restore_session_info
 )
 import base64
 from unittest.mock import MagicMock
 import copy
+import pickle
 import pytest
 import io
 from datetime import datetime as dt
@@ -38,6 +40,7 @@ from werkzeug.exceptions import NotFound
 from weko_admin.models import AdminSettings
 from weko_records.serializers.utils import get_mapping
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
+from weko_redis import RedisConnection
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 
@@ -1656,3 +1659,29 @@ def test_get_billing_role(records, users):
         user_role, min_price = get_billing_role(billing_record)
         assert user_role == 'guest'
         assert min_price == ''
+
+
+# def restore_session_info(session_id, redis_connection):
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_restore_session_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_restore_session_info(app, client, users):
+    redis_connection = RedisConnection()
+    session_id = 'test_session_id'
+
+    # prepare data in redis
+    session_store = redis_connection.connection(
+        db=app.config['ACCOUNTS_SESSION_REDIS_DB_NO'], kv=True
+    )
+    session_info = {
+        'user_id': str(users[0]['id']),
+        'language': 'ja',
+        'csrf_token': 'test_token'
+    }
+    session_store.redis.set(session_id, pickle.dumps(session_info))
+
+    with patch('weko_records_ui.utils.login_user') as mock_login_user:
+        restore_session_info(session_id, redis_connection)
+        mock_login_user.assert_called_once_with(users[0]['obj'])
+        assert dict(session) == session_info
+
+    # clean up
+    session_store.redis.delete(session_id)

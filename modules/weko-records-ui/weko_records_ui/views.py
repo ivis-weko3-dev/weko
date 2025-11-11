@@ -45,6 +45,7 @@ from invenio_records_ui.signals import record_viewed
 from invenio_files_rest.signals import file_downloaded
 from invenio_records_ui.utils import obj_or_import_string
 from lxml import etree
+from urllib.parse import urljoin
 from weko_accounts.views import _redirect_method
 from weko_admin.models import AdminSettings
 from weko_admin.utils import get_search_setting
@@ -74,7 +75,7 @@ from .permissions import check_content_clickable, check_created_id, \
 from .utils import get_billing_file_download_permission, \
     get_google_detaset_meta, get_google_scholar_meta, get_groups_price, \
     get_min_price_billing_file_download, get_record_permalink, hide_by_email, \
-    is_show_email_of_creator,hide_by_itemtype
+    is_show_email_of_creator,hide_by_itemtype, restore_session_info
 from .utils import restore as restore_imp
 from .utils import soft_delete as soft_delete_imp
 
@@ -1021,12 +1022,18 @@ def charge():
         redirect:
             カード会社の3DS2.0画面へのリダイレクトURL
     '''
+    # Get session_id
+    session_id = request.cookies.get('session')
+
     item_id = request.values.get('item_id')
     file_name = request.values.get('file_name')
     title = request.values.get('title')
     price = request.values.get('price')
     file_url = current_app.config['THEME_SITEURL'] + f'/record/{item_id}/files/{file_name}'
-    ret_url = current_app.config['THEME_SITEURL'] + url_for('weko_records_ui.charge_secure')
+    ret_url = urljoin(
+        current_app.config['THEME_SITEURL'],
+        url_for('weko_records_ui.charge_secure', session_id=session_id.split('.')[0]),
+    )
 
     # 課金中のアイテムIDをキャッシュから取得
     redis_connection = RedisConnection()
@@ -1073,12 +1080,13 @@ def charge():
 
     return jsonify({'redirect_url': redirect_url})
 
-@blueprint.route('/charge/secure', methods=['POST'])
-def charge_secure():
+@blueprint.route('/charge/secure/<string:session_id>', methods=['POST'])
+def charge_secure(session_id):
     """3DS2.0認証後の課金処理を行う。
-    
+
     Request parameter:
-        MD : 課金予約時に取得したaccess_id
+        session_id : セッションID(URLパラメータ)
+        AccessID : 課金予約時に取得したaccess_id(POSTパラメータ)
     
     Response parameter
         json:
@@ -1087,9 +1095,12 @@ def charge_secure():
                 error   : 課金失敗
     """
     access_id = request.values.get('AccessID')
+    redis_connection = RedisConnection()
+
+    if not current_user.is_authenticated:
+        restore_session_info(session_id, redis_connection)
 
     # 課金中のアイテムIDをキャッシュから取得
-    redis_connection = RedisConnection()
     datastore = redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'], kv=True)
     cache_key = f'charge_{current_user.id}'
     if not datastore.redis.exists(cache_key):
