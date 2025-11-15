@@ -870,7 +870,13 @@ $(document).ready(function () {
   });
 
   function new_meta_row(row_id, option_list, isDisableChangeInputType = false) {
-    let isDisable = isDisableChangeInputType ? 'disabled' : '';
+    let isDisable = ''
+    if(isDisableChangeInputType){
+      isDisable = '<input type="text" class="form-control " id="select_input_type_' + row_id + '" metaid="' + row_id + '" ' + 'disabled' + '>'
+    }else{
+      isDisable = '<input type="text" class="form-control change_input_type" id="select_input_type_' + row_id + '" metaid="' + row_id + '" ' + '>'
+    }
+
     var row_template = '<tr id="tr_' + row_id + '">'
       + '<td><input type="text" class="form-control" id="txt_title_' + row_id + '" value="">'
       + '  <div class="hide" id="text_title_JaEn_' + row_id + '">'
@@ -881,11 +887,13 @@ $(document).ready(function () {
       + '  </div>'
       + '   <button type="button" class="btn btn-link" id="btn_link_' + row_id + '">' + "Localization Settings" + '</button>'
       + '</td>'
-      + '<td><div class="form-inline"><div class="form-group">'
+      + '<td "><div class="form-inline"><div class="form-group" style="position:relative;">'
       + '  <label class="sr-only" for="select_input_type_' + row_id + '">select_input_type</label>'
-      + '  <select class="form-control change_input_type" id="select_input_type_' + row_id + '" metaid="' + row_id + '" ' + isDisable + '>'
+      + isDisable
+      + '<ul class="pulldown">'
+      + '<li class="failed" data-id="" style="display : none;">"not"</li>'
       + option_list
-      + '  </select>'
+      + '</ul>'
       + '  </div></div>'
       + '  <div class="hide" id="arr_size_' + row_id + '">'
       + '    <div class="panel panel-default"><div class="panel-body">'
@@ -1065,47 +1073,19 @@ $(document).ready(function () {
     });
   }
 
-
+  
   // itemtype select input change
-  $('#tbody_itemtype').on('change', '.change_input_type', function () {
-    var meta_id = $(this).attr('metaid');
-    let isFile = false;
-    let checkboxMetaId = $('#chk_' + meta_id + '_1');
-    let checkboxNLId = $('#chk_' + meta_id + '_3');
-    if ($(this).val().indexOf('cus_') != -1) {
-      let product = properties_obj[$(this).val().substr(4)].schema;
-      let product_forms = properties_obj[$(this).val().substr(4)].forms;
-      isFile = properties_obj[$(this).val().substr(4)].is_file;
-      for (key in product.properties) {
-        if (isFile || product.properties[key]["isHide"] == true) {
-          product.properties[key]["showListDisable"] = true
-          product.properties[key]["specifyNLDisable"] = true
-          product.properties[key]["nonDisplayDisable"] = true
-        }
-        if (isFile) {
-          product.properties[key]["hideDisable"] = true
-        }
-      }
-      $('#chk_prev_' + meta_id + '_1').removeClass('disabled');
-      checkboxMetaId.attr('disabled', isFile);
-      checkboxMetaId.prop("checked", isFile);
-      checkboxNLId.attr('disabled', isFile);
-      checkboxNLId.attr('isFile', isFile);
-      if (isFile) {
-        checkboxNLId.prop('checked', false);
-      }
-      setDefaultI18n(product.properties, product_forms);
-      render_object('schema_' + meta_id, product);
-    } else if ('checkboxes' == $(this).val() || 'radios' == $(this).val()
-      || 'select' == $(this).val()) {
-      checkboxMetaId.prop("checked", isFile);
-      render_select('schema_' + meta_id, '');
-    } else {
-      $('#chk_prev_' + meta_id + '_1').removeClass('disabled');
-      checkboxMetaId.attr('disabled', false);
-      checkboxMetaId.prop("checked", isFile);
-      render_empty('schema_' + meta_id);
-    }
+  $('#tbody_itemtype').on('click', '.change_input_type', function (e) {
+    $(this).siblings('.pulldown').show();
+    $(this).siblings('.failed').hide();
+
+    $('.option-i').each(function() {
+        $(this).siblings('.option-i').show();
+    });
+    
+    $(this).val("").attr("placeholder", "search by keyword");
+
+
   });
 
   function render_empty(elementId) {
@@ -1240,19 +1220,13 @@ $(document).ready(function () {
       Object.keys(defProps).forEach(function (row_id) {
         property_default[defProps[row_id].value] = defProps[row_id].name
       })
-      isSelected = true;
       Object.keys(defProps).forEach(function (key) {
-        if (isSelected) {
-          propertyOptions = propertyOptions + '<option value="' + defProps[key].value + '" selected>Default | ' + defProps[key].name + '</option>';
-          isSelected = false;
-        } else {
-          propertyOptions = propertyOptions + '<option value="' + defProps[key].value + '">Default | ' + defProps[key].name + '</option>';
-        }
+          propertyOptions = propertyOptions + '<li class="option-i" data-id="' + defProps[key].value + '" style="display : none";>Default | ' + defProps[key].name + '</li>';
 
         if (generalTextProps.includes(defProps[key].value)) {
-          textPropertyOptions = textPropertyOptions + '<option value="' + defProps[key].value + '">Default | ' + defProps[key].name + '</option>';
+          textPropertyOptions = textPropertyOptions + '<li class="option-i" data-id="' + defProps[key].value + '" style="display : none";>Default | ' + defProps[key].name + '</li>';
         } else {
-          textPropertyOptions = textPropertyOptions + '<option value="' + defProps[key].value + '" disabled>Default | ' + defProps[key].name + '</option>';
+          textPropertyOptions = textPropertyOptions + '<li class="option-i" data-id="' + defProps[key].value + '" id="disabled" style="display : none";>Default | ' + defProps[key].name + '</option>';
         }
       });
 
@@ -1281,11 +1255,11 @@ $(document).ready(function () {
             }
           }
         } else {
-          option = '<option value="cus_' + key + '">ID:' + key.toString() + ' | ' + data[key].name + '</option>';
+          option = '<li class="option-i" data-id="cus_' + key + '" style="display : none";>ID:' + key.toString() + ' | ' + data[key].name + '</li>';
           if (generalTextProps.includes('cus_' + key)) {
-            _option = '<option value="cus_' + key + '">ID:' + key.toString() + ' | ' + data[key].name + '</option>';
+            _option = '<li class="option-i" data-id="cus_' + key + '" style="display : none";>ID:' + key.toString() + ' | ' + data[key].name + '</li>';
           } else {
-            _option = '<option value="cus_' + key + '" disabled>ID:' + key.toString() + ' | ' + data[key].name + '</option>';
+            _option = '<li class="option-i" data-id="cus_' + key + '" id="disabled" style="display : none";>ID:' + key.toString() + ' | ' + data[key].name + '</li>';
           }
           if (data[key].sort != null) {
             odered[data[key].sort] = option;
@@ -2082,3 +2056,4 @@ $(document).ready(function () {
   }
 
 });
+

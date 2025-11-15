@@ -36,6 +36,8 @@
 {%- endblock javascript %}
 
 {%- block body %}
+  <pre class="hide" id="search-keyword">{{_('Search by keyword')}}</pre>
+  <pre class="hide" id="please-select">{{_('Please select')}}</pre>
   <input id="lang-code" type="hidden" value="{{lang_code}}" />
   <div class="row">
     <div class="col-sm-12 col-md-12 col-lg-11">
@@ -44,12 +46,14 @@
           <div class="form-inline">
             <div class="input-group">
               <label class="sr-only" for="item-type-lists"></label>
-              <select class="form-control" id="item-type-lists">
-                <option  value=""></option>
-                {% for list in lists %}
-                <option  value="{{ list.id }}" {% if list.id == id %}selected{% endif %}>{{ list.name }}</option>
-                {% endfor %}
-              </select>
+              <input type="text" class="form-control" id="item-type-lists" placeholder="{{ _('Please select') }}" style="width: 270px">
+              <ul class="pulldown">
+              <li class="option" data-id="" data-name="" style="display : none; padding:2%">{{ _('Not selected') }}</li>
+              <li class="failed" data-id="" data-name="" style="display : none; padding:2%">{{ _('No matches found') }}</li>
+              {% for list in lists %}
+              <li class="option" data-id="{{ list.id }}" data-name="{{ list.name }}" style="display : none; padding:2%">{{ list.name }}</li>
+              {% endfor %}
+              </ul>
             </div>
           </div>
         </div>

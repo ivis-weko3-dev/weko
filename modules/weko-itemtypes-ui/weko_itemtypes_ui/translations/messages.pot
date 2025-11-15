@@ -9,14 +9,14 @@ msgid ""
 msgstr ""
 "Project-Id-Version: weko-itemtypes-ui 0.1.0.dev20170000\n"
 "Report-Msgid-Bugs-To: wekosoftware@nii.ac.jp\n"
-"POT-Creation-Date: 2025-10-03 00:49+0900\n"
+"POT-Creation-Date: 2025-11-15 08:32+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.5.1\n"
+"Generated-By: Babel 2.17.0\n"
 
 #: weko_itemtypes_ui/admin.py:135
 msgid "Cannot delete item type. Import is in progress."
@@ -39,7 +39,7 @@ msgstr ""
 msgid "Cannot delete item type. It is used in some workflows."
 msgstr ""
 
-#: weko_itemtypes_ui/admin.py:191
+#: weko_itemtypes_ui/admin.py:192
 msgid "Cannot delete item type. It is used in SWORD API JSON-LD import settings."
 msgstr ""
 
@@ -112,7 +112,7 @@ msgstr ""
 msgid "The item type imported successfully."
 msgstr ""
 
-#: weko_itemtypes_ui/admin.py:691
+#: weko_itemtypes_ui/admin.py:692
 msgid ""
 "The item type imported successfully, but these property IDs were "
 "duplicated and were not imported:"
@@ -195,7 +195,7 @@ msgstr ""
 
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_itemtype.html:283
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_mapping.html:621
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:151
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:155
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_rocrate_mapping.html:523
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/mapping.html:85
 msgid "Result"
@@ -203,7 +203,7 @@ msgstr ""
 
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_itemtype.html:292
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_mapping.html:638
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:159
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:163
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_rocrate_mapping.html:536
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/mapping.html:93
 msgid "Close"
@@ -342,7 +342,7 @@ msgstr ""
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_itemtype.html:231
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_mapping.html:607
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_mapping.html:633
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:136
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:140
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_rocrate_mapping.html:508
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_rocrate_mapping.html:533
 msgid "Save"
@@ -445,33 +445,50 @@ msgstr ""
 msgid "OK"
 msgstr ""
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:65
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:39
+msgid "Search by keyword"
+msgstr ""
+
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:40
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:49
+msgid "Please select"
+msgstr ""
+
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:51
+msgid "Not selected"
+msgstr ""
+
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:52
+msgid "No matches found"
+msgstr ""
+
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:69
 msgid "Property Name"
 msgstr ""
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:67
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:71
 msgid "Enter property name"
 msgstr ""
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:88
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:92
 msgid "Json Schema"
 msgstr ""
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:92
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:96
 msgid "Reset"
 msgstr ""
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:99
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:113
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:126
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:103
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:117
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:130
 msgid "Enter the value ..."
 msgstr ""
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:108
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:112
 msgid "Form(Singular)"
 msgstr ""
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:120
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:124
 msgid "Form(Multiple)"
 msgstr ""
 

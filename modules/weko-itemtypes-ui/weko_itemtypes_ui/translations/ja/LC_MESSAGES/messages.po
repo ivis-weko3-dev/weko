@@ -8,16 +8,16 @@ msgid ""
 msgstr ""
 "Project-Id-Version: weko-itemtypes-ui 0.1.0.dev20170000\n"
 "Report-Msgid-Bugs-To: wekosoftware@nii.ac.jp\n"
-"POT-Creation-Date: 2025-10-03 00:49+0900\n"
+"POT-Creation-Date: 2025-11-15 08:32+0900\n"
 "PO-Revision-Date: 2018-01-18 18:48+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja\n"
 "Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.5.1\n"
+"Generated-By: Babel 2.17.0\n"
 
 #: weko_itemtypes_ui/admin.py:135
 msgid "Cannot delete item type. Import is in progress."
@@ -40,7 +40,7 @@ msgstr "このアイテムタイプのアイテムが既に存在するため、
 msgid "Cannot delete item type. It is used in some workflows."
 msgstr "ワークフローで使用されているため、アイテムタイプを削除できません。"
 
-#: weko_itemtypes_ui/admin.py:191
+#: weko_itemtypes_ui/admin.py:192
 msgid "Cannot delete item type. It is used in SWORD API JSON-LD import settings."
 msgstr "SWORD API設定のJSON-LDインポート機能で使用されているため、アイテムタイプを削除できません。"
 
@@ -114,7 +114,7 @@ msgstr "アイテムタイプのインポートに失敗しました"
 msgid "The item type imported successfully."
 msgstr "アイテムタイプのインポートに成功しました"
 
-#: weko_itemtypes_ui/admin.py:691
+#: weko_itemtypes_ui/admin.py:692
 msgid ""
 "The item type imported successfully, but these property IDs were "
 "duplicated and were not imported:"
@@ -197,7 +197,7 @@ msgstr "送信"
 
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_itemtype.html:283
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_mapping.html:621
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:151
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:155
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_rocrate_mapping.html:523
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/mapping.html:85
 msgid "Result"
@@ -205,7 +205,7 @@ msgstr "結果"
 
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_itemtype.html:292
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_mapping.html:638
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:159
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:163
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_rocrate_mapping.html:536
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/mapping.html:93
 msgid "Close"
@@ -344,7 +344,7 @@ msgstr "復元"
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_itemtype.html:231
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_mapping.html:607
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_mapping.html:633
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:136
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:140
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_rocrate_mapping.html:508
 #: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_rocrate_mapping.html:533
 msgid "Save"
@@ -447,33 +447,50 @@ msgstr "作成"
 msgid "OK"
 msgstr "OK"
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:65
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:39
+msgid "Search by keyword"
+msgstr "キーワードで検索"
+
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:40
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:49
+msgid "Please select"
+msgstr "選択してください"
+
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:51
+msgid "Not selected"
+msgstr "未選択"
+
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:52
+msgid "No matches found"
+msgstr "一致する候補が見つかりませんでした"
+
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:69
 msgid "Property Name"
 msgstr "プロパティ名"
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:67
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:71
 msgid "Enter property name"
 msgstr "プロパティ名を入力"
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:88
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:92
 msgid "Json Schema"
 msgstr "JSONスキーマ"
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:92
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:96
 msgid "Reset"
 msgstr "リセット"
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:99
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:113
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:126
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:103
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:117
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:130
 msgid "Enter the value ..."
 msgstr "値を入力 ..."
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:108
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:112
 msgid "Form(Singular)"
 msgstr "フォーム(単数)"
 
-#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:120
+#: weko_itemtypes_ui/templates/weko_itemtypes_ui/admin/create_property.html:124
 msgid "Form(Multiple)"
 msgstr "フォーム(複数)"
 
