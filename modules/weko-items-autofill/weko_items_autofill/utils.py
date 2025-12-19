@@ -840,6 +840,7 @@ def get_crossref_relation_data(isbn, doi):
         new_data = dict()
         new_data['@value'] = doi
         new_data['@type'] = "DOI"
+        new_data['@relation_type'] = 'isVersionOf'
         result.append(new_data)
     if isbn and len(result) == 0:
         for element in isbn:
