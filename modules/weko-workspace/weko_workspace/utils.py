@@ -2568,6 +2568,7 @@ def get_arXiv_subject_data(data_category,data_primary_category):
         category_result=list()
         category=data.get('@term')
         new_data_category['@value'] = category
+        new_data_category['@scheme'] = 'Other'
         category_result.append(new_data_category)
         if(category == primary_category):
             result.insert(0,category_result)

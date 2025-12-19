@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: weko-workspace 0.1.0.dev20250201\n"
 "Report-Msgid-Bugs-To: wekosoftware@nii.ac.jp\n"
-"POT-Creation-Date: 2025-12-19 16:12+0900\n"
+"POT-Creation-Date: 2025-12-19 21:16+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -140,25 +140,25 @@ msgstr ""
 msgid "%(icon)s Workspace"
 msgstr ""
 
-#: weko_workspace/views.py:670
+#: weko_workspace/views.py:668
 msgid "The item type or workflow used for item registration has not been set."
 msgstr ""
 
-#: weko_workspace/views.py:789 weko_workspace/views.py:822
-#: weko_workspace/views.py:854 weko_workspace/views.py:885
-#: weko_workspace/views.py:916
+#: weko_workspace/views.py:787 weko_workspace/views.py:820
+#: weko_workspace/views.py:852 weko_workspace/views.py:883
+#: weko_workspace/views.py:914
 msgid "Header Error"
 msgstr ""
 
-#: weko_workspace/views.py:976
+#: weko_workspace/views.py:974
 msgid "Workflow ID is not set."
 msgstr ""
 
-#: weko_workspace/views.py:981
+#: weko_workspace/views.py:979
 msgid "Item type ID is not set."
 msgstr ""
 
-#: weko_workspace/views.py:1025
+#: weko_workspace/views.py:1023
 msgid ""
 "The number of uploaded files does not match the number of files in the "
 "metadata."

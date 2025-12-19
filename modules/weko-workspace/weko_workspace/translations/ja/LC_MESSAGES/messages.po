@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: weko-workspace 0.1.0.dev20250201\n"
 "Report-Msgid-Bugs-To: wekosoftware@nii.ac.jp\n"
-"POT-Creation-Date: 2025-12-19 16:12+0900\n"
+"POT-Creation-Date: 2025-12-19 21:16+0900\n"
 "PO-Revision-Date: 2018-08-06 13:44+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja\n"
@@ -141,25 +141,25 @@ msgstr "OA済み（外部サイト）"
 msgid "%(icon)s Workspace"
 msgstr "%(icon)s ワークスペース"
 
-#: weko_workspace/views.py:670
+#: weko_workspace/views.py:668
 msgid "The item type or workflow used for item registration has not been set."
 msgstr "アイテム登録に使用するアイテムタイプまたはワークフローが設定されていません。"
 
-#: weko_workspace/views.py:789 weko_workspace/views.py:822
-#: weko_workspace/views.py:854 weko_workspace/views.py:885
-#: weko_workspace/views.py:916
+#: weko_workspace/views.py:787 weko_workspace/views.py:820
+#: weko_workspace/views.py:852 weko_workspace/views.py:883
+#: weko_workspace/views.py:914
 msgid "Header Error"
 msgstr ""
 
-#: weko_workspace/views.py:976
+#: weko_workspace/views.py:974
 msgid "Workflow ID is not set."
 msgstr ""
 
-#: weko_workspace/views.py:981
+#: weko_workspace/views.py:979
 msgid "Item type ID is not set."
 msgstr ""
 
-#: weko_workspace/views.py:1025
+#: weko_workspace/views.py:1023
 msgid ""
 "The number of uploaded files does not match the number of files in the "
 "metadata."
@@ -256,7 +256,6 @@ msgid "unread"
 msgstr "未読"
 
 #: weko_workspace/templates/weko_workspace/workspace_body_contents.html:22
-#, fuzzy
 msgid "Action"
 msgstr "操作"
 
@@ -266,7 +265,6 @@ msgid "Item"
 msgstr "アイテム"
 
 #: weko_workspace/templates/weko_workspace/workspace_body_contents.html:24
-#, fuzzy
 msgid "Stats"
 msgstr "統計"
 
@@ -383,6 +381,5 @@ msgstr "エンバーゴ"
 msgid "Restricted"
 msgstr "制限公開"
 
-#~ msgid "Information"
-#~ msgstr "情報"
+
 
