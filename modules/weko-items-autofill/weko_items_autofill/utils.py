@@ -994,7 +994,7 @@ def get_autofill_key_tree(schema_form, item, result=None):
                 related_identifier = val.get("relatedIdentifier")
                 if related_identifier:
                     key_data = get_key_value(schema_form,
-                                             related_identifier, parent_key)
+                                             related_identifier, parent_key, val)
             else:
                 key_data = get_key_value(schema_form, val, parent_key)
             if key_data:
@@ -1055,7 +1055,7 @@ def sort_by_item_type_order(item_forms, autofill_key_tree):
     return autofill_key_tree
 
 
-def get_key_value(schema_form, val, parent_key):
+def get_key_value(schema_form, val, parent_key,val2={}):
     """Get key value.
 
     :param schema_form: Schema form
@@ -1110,7 +1110,14 @@ def get_key_value(schema_form, val, parent_key):
                 parent_key,
                 value_key.get("dateType")
             ).get('key')
-
+    if val2.get("@attributes") is not None:
+        value_key = val2.get('@attributes')
+        if value_key.get("relationType") is not None:
+            key_data['@relation_type'] = get_autofill_key_path(
+                schema_form,
+                parent_key,
+                value_key.get("relationType")
+            ).get('key')
     return key_data
 
 
