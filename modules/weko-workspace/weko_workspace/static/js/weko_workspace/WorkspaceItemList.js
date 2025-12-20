@@ -345,7 +345,7 @@ document.addEventListener('DOMContentLoaded', function () {
         option.length >= 15 &&(filterKey === 'funder_name' || filterKey === 'award_title') ? long_text : option
       ),React.createElement(
         'span',
-        { className: `checkbox-tooltip`,id: `tooltip-${option}`,style: hover? {display: 'block',backgroundColor: 'white', border: '1px solid #0f0e0eff',padding: '0px',position: 'fixed'} : {display: 'none'} },
+        { id: `tooltip-${option}`,style: hover? {display: 'block',backgroundColor: 'white', border: '1px solid #0f0e0eff',padding: '0px',position: 'fixed'} : {display: 'none'} },
         text
       ),
       );
