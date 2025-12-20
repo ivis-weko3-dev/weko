@@ -2585,7 +2585,10 @@ def get_arXiv_autofill_item(item_id):
             arXiv_req_item[key] = jpcoar_item.get(key)
         
         if key == 'identifier':
-            arXiv_req_item[key]=arXiv_req_item[key][3].get(key)
-
+            for i in range(len(arXiv_req_item[key])):
+                if not ( "system_identifier_" in  str(arXiv_req_item[key][i].get(key).get("model_id"))):
+                   arXiv_req_item[key]=arXiv_req_item[key][i].get(key)
+                   break
+        
     return arXiv_req_item
 

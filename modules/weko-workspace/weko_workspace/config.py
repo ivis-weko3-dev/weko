@@ -315,7 +315,7 @@ WEKO_WORKSPACE_JALC_API_URL = 'https://api.japanlinkcenter.org/dois/'
 WEKO_WORKSPACE_DATACITE_API_URL = 'https://api.datacite.org/dois/'
 """DataCite API URL"""
 
-WEKO_WORKSPACE_ARXIV_API_URL = 'http://export.arxiv.org/api/query?search_query=doi:'
+WEKO_WORKSPACE_ARXIV_API_URL = 'https://export.arxiv.org/api/query?search_query=doi:'
 """arXiv API URL"""
 
 WEKO_WORKSPACE_CINII_REQUIRED_ITEM = [

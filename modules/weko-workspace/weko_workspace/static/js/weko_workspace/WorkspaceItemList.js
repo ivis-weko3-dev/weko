@@ -309,25 +309,44 @@ document.addEventListener('DOMContentLoaded', function () {
         ? (hover ? option : option.slice(0, 15) + '...')
         : option 
       
+      window.addEventListener('scroll', () => {
+        setHoveredOption();
+     });
+     
+      if(document.querySelectorAll('.checkbox-group-exclude')!=null){ 
+          document.querySelectorAll('.checkbox-group-exclude').forEach(el => {
+            el.addEventListener('scroll', () => {
+              setHoveredOption();
+          });
+        });
+      }
       
       return React.createElement(
         'label',
-        { key: option,
-          style: { position: 'relative'},
-          onMouseEnter: function() { option.length >= 15 &&(filterKey === 'funder_name' || filterKey === 'award_title')
-        ?setHoveredOption(option):setHoveredOption(); }, 
-          onMouseLeave: function() { setHoveredOption(); }, },
+        { key: option},
         React.createElement('input', {
           type: 'checkbox',
           checked: selectedOptions.includes(option),
           onChange: function() { handleCheckboxChange(option); },
         }),
         React.createElement(
-        'span',null,
+        'span',{id: `e-${option}`,onMouseEnter: function(e) { if(option.length >= 15 &&(filterKey === 'funder_name' || filterKey === 'award_title'))
+            { 
+              let place = e.target.getBoundingClientRect();
+              console.log(e.target.tagName)
+              el=document.getElementById('tooltip-'+e.target.id.replace("e-",""))
+              el.style.top = (place.top -20) + 'px'; 
+              el.style.left = place.left + 'px';
+              setHoveredOption(option);
+            }
+            else
+            {setHoveredOption();}
+          }, 
+          onMouseLeave: function() { setHoveredOption(); }},
         option.length >= 15 &&(filterKey === 'funder_name' || filterKey === 'award_title') ? long_text : option
       ),React.createElement(
         'span',
-        { style: hover? {display: 'block',backgroundColor: 'white', border: '1px solid #0f0e0eff',padding: '0px',position: 'absolute',bottom: '100%',left: '11%'} : {display: 'none'} },
+        { className: `checkbox-tooltip`,id: `tooltip-${option}`,style: hover? {display: 'block',backgroundColor: 'white', border: '1px solid #0f0e0eff',padding: '0px',position: 'fixed'} : {display: 'none'} },
         text
       ),
       );
@@ -429,7 +448,7 @@ document.addEventListener('DOMContentLoaded', function () {
           document.close();
         })
         .catch(function(error) {
-          console.error('ページ更新エラー:', error);
+          console.error('Update page error:', error);
           throw error;
         });
     }
@@ -452,7 +471,7 @@ document.addEventListener('DOMContentLoaded', function () {
           return data;
         })
         .catch(function(error) {
-          console.error('JSON取得エラー:', error);
+          console.error('Get json error:', error);
           throw error;
         });
     }
@@ -481,8 +500,8 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (error) {
           alert(error.message);
           closeFilter();
-          await refreshPage('/workspace/', 'GET');
-          console.error('保存エラー:', error);
+          await refreshPage('/workspace', 'GET');
+          console.error('Save error:', error);
         }
       };
 
@@ -497,8 +516,8 @@ document.addEventListener('DOMContentLoaded', function () {
           } catch (error) {
             alert(error.message);
             closeFilter();
-            await refreshPage('/workspace/', 'GET');
-            console.error('リセットエラー:', error);
+            await refreshPage('/workspace', 'GET');
+            console.error('Reset error:', error);
           }
         }
       };
@@ -532,9 +551,9 @@ document.addEventListener('DOMContentLoaded', function () {
       if(document.querySelectorAll('.checkbox-group-exclude')!=null){
           document.querySelectorAll('.checkbox-group-exclude').forEach((el) => {
              const height = window.getComputedStyle(el).getPropertyValue('height');
-             if(parseFloat(height) >212){
+             if(parseFloat(height) >135){
                 el.style.overflowY = 'scroll';
-                el.style.height = '212px';
+                el.style.height = '135px';
              }
           });
       }
@@ -555,7 +574,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const [isFavorite, setIsFavorite] = React.useState(initialFavoriteSts);
     const handleFavoriteToggle = async () => {
       try {
-        const response = await fetch('/workspace/updateStatus', {
+          const response = await fetch('/workspace/updateStatus', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ itemRecid, favoriteSts: !isFavorite, type }),
@@ -566,8 +585,8 @@ document.addEventListener('DOMContentLoaded', function () {
           if (item) item.favoriteSts = !isFavorite;
           updateDisplay();
         }
-      } catch (error) {
-        console.error('お気に入りステータスの更新に失敗しました:', error);
+        } catch (error) {
+        console.error('Failed to update favorite status:', error);
       }
     };
 
@@ -596,7 +615,7 @@ const handleReadToggle = async (itemRecid, isRead, type, setIsRead) => {
       updateDisplay();
     }
   } catch (error) {
-    console.error('閲覧ステータスの更新に失敗しました:', error);
+    console.error('Failed to update viewing status:', error);
   }
 };
 
@@ -783,7 +802,7 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
           <input type="checkbox" value="item-checkbox" class="item_checkbox" />
         </td>
         <td style="text-align: center; vertical-align: middle; width: 50px;">
-          <div class="favorite-mount-point" data-type="1" data-item-recid="${item.recid}" data-favorite-sts='${JSON.stringify(item.favoriteSts)}'></div><br>
+          <div class="favorite-mount-point" style="margin-bottom:6px;" data-type="1" data-item-recid="${item.recid}" data-favorite-sts='${JSON.stringify(item.favoriteSts)}'></div>
           <div class="read-mount-point" data-type="2" data-item-recid="${item.recid}" data-read-sts='${JSON.stringify(item.readSts)}'></div>
         </td>
         <td style="width: auto;">
@@ -802,16 +821,16 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
         </td>
         <td style="text-align: center; vertical-align: middle; width: 60px;">
           <span>
-            <i class="bi bi-eye-fill" style="font-size: 20px;"></i>${item.accessCnt}
-          </span><br><br>
+            <i class="bi bi-eye-fill" style="font-size: 20px; display: inline-block; margin-bottom:6px;"></i>${item.accessCnt}
+          </span>
           <span>
             <i class="bi bi-file-earmark" style="font-size: 20px;"></i>${item.downloadCnt}
           </span>
         </td>
-        <td style="text-align: center; vertical-align: top; width: 30px; padding-top:12px;">
-          <span style="border: 1px solid #000; padding: 5px; border-radius: '4px'; white-space:nowrap;">${item.resourceType}</span><br><br>
-          <div style="margin-bottom:9px; white-space:nowrap;">${item.itemStatus}</div>
-          <div style="margin-bottom:9px;">
+        <td style="text-align: center; vertical-align: top; width: 30px; padding-top:12px; padding-bottom:0px">
+          <span style="border: 1px solid #000; padding: 5px; border-radius: '4px'; white-space:nowrap;">${item.resourceType}</span>
+          <div style="margin-bottom:3px; margin-top:9px;white-space:nowrap;">${item.itemStatus}</div>
+          <div style="margin-bottom:3px;">
             ${item.fbEmailSts
               ? `<i class="bi bi-envelope" style="font-size: 20px; margin-right: 20px;"></i>`
               : `<i class="bi bi-envelope-dash" style="font-size: 20px;"></i>`}
@@ -864,16 +883,13 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
           const itemRecid = target.dataset.itemRecid;
           const type = target.dataset.type;
           try {
-          const response = await fetch('/workspace/updateStatus', {
+            const response = await fetch('/workspace/updateStatus', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ itemRecid, readSts: true, type }),
           });
-          if (response.ok) {
-            console.error('閲覧ステータスの更新に成功しました');
-          }
-        } catch (error) {
-          console.error('閲覧ステータスの更新に失敗しました:', error);
+          } catch (error) {
+            console.error('Failed to update viewing status:', error);
         }
       })
     });
