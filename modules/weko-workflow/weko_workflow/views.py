@@ -62,6 +62,7 @@ from weko_records.api import FeedbackMailList, RequestMailList, ItemLink, ItemTy
 from weko_records.models import ItemMetadata
 from weko_records.serializers.utils import get_item_type_name
 from weko_records_ui.models import FilePermission
+from weko_records_ui.permissions import has_comadmin_permission
 from weko_search_ui.utils import check_tsv_import_items, import_items_to_system
 from weko_user_profiles.config import \
     WEKO_USERPROFILES_INSTITUTE_POSITION_LIST, \
@@ -1023,7 +1024,7 @@ def display_activity(activity_id="0", community_id=None):
             if len(shared_user_ids) == 0:
                 contributors = get_contributors(recid.pid_value)
             else:
-                contributors = get_contributors(None, user_id_list_json=shared_user_ids, owner_id=owner_id)
+                contributors = get_contributors(None, user_id_list_json=shared_user_ids)
         except PIDDeletedError:
             current_app.logger.error("PIDDeletedError: {}".format(sys.exc_info()))
             abort(404)
@@ -1035,7 +1036,7 @@ def display_activity(activity_id="0", community_id=None):
     else:
             # get contributors data
             # 登録済みアイテムが無い場合は、一時保存データから取得する
-            contributors = get_contributors(None, user_id_list_json=shared_user_ids, owner_id=owner_id)
+            contributors = get_contributors(None, user_id_list_json=shared_user_ids)
 
     res_check = check_authority_action(str(activity_id), int(action_id),
                                        is_auto_set_index_action,
@@ -1325,23 +1326,25 @@ def check_authority_action(activity_id='0', action_id=0,
         action_id != _Action.query.filter_by(action_endpoint='approval').one().id:
         # item_registrationが完了していないactivityを再編集する場合、item_metadataテーブルにデータはない
         # その為、workflow_activityテーブルのtemp_dataを参照し、保存されている代理投稿者をチェックする
+        proxy_posting = current_app.config.get('WEKO_ITEMS_UI_PROXY_POSTING', False)
         im = ItemMetadata.query.filter_by(id=activity.item_id).one_or_none()
         if not im and activity.temp_data:
             # Get shared_user_ids from shared_user_ids columns
             activity_shared_user_ids = activity.shared_user_ids \
                 if activity.shared_user_ids else []
-            shared_user_unique_ids = set(
-                _get_shared_user_ids_from_list(activity_shared_user_ids)
+            activity_user_ids = _get_shared_user_ids_from_list(
+                activity_shared_user_ids
             )
 
             temp_data = json.loads(activity.temp_data)
+            temp_user_ids = []
             if temp_data is not None:
                 # Get shared_user_ids from temp_data's metainfo
                 temp_shared_user_ids = temp_data.get('metainfo', {}).get(
                     "shared_user_ids", []
                 )
-                shared_user_unique_ids.update(
-                    _get_shared_user_ids_from_list(temp_shared_user_ids)
+                temp_user_ids = _get_shared_user_ids_from_list(
+                    temp_shared_user_ids
                 )
                 activity_owner = temp_data.get('metainfo', {}).get(
                     "owner", '-1'
@@ -1350,17 +1353,38 @@ def check_authority_action(activity_id='0', action_id=0,
                 # if exist shared_user_ids or owner allow to access
                 if int(cur_user) == int(activity_owner):
                     return 0
+            
+            if proxy_posting:
+                # If current user is in activity_user_ids or temp_user_ids
+                if int(cur_user) in activity_user_ids + temp_user_ids:
+                    return 0
+            else:
+                last_user_id = None
+                # Check only last added user
+                if activity_user_ids:
+                    last_user_id = activity_user_ids[-1]
+                elif temp_user_ids:
+                    last_user_id = temp_user_ids[-1]
+                if last_user_id and int(cur_user) == int(last_user_id):
+                    return 0
 
-            # Check if current user is in shared_user_ids
-            if int(cur_user) in shared_user_unique_ids:
-                return 0
         elif im:
             # Check if this activity has contributor equaling to current user
             metadata_shared_user_ids = im.json.get('shared_user_ids', [])
             metadata_weko_shared_ids = im.json.get('weko_shared_ids', [])
             metadata_owner = int(im.json.get('owner', '-1'))
-            if int(cur_user) in metadata_shared_user_ids + metadata_weko_shared_ids:
-                return 0
+            if proxy_posting:
+                if int(cur_user) in metadata_shared_user_ids + metadata_weko_shared_ids:
+                    return 0
+            else:
+                last_user_id = None
+                # Check only last added user
+                if metadata_shared_user_ids:
+                    last_user_id = metadata_shared_user_ids[-1]
+                elif metadata_weko_shared_ids:
+                    last_user_id = metadata_weko_shared_ids[-1]
+                if last_user_id and int(cur_user) == int(last_user_id):
+                    return 0
             if int(cur_user) == int(metadata_owner):
                 return 0
 
@@ -3992,9 +4016,10 @@ def edit_item_direct_after_login(pid_value):
     latest_pid = PIDVersioning(child=recid).last_child
 
     # ! Check User's Permissions
-    if user_id not in authenticators and not get_user_roles(is_super_role=True)[0]:
-        return render_template("weko_theme/error.html",
-                error="You are not allowed to edit this item."), 400
+    if user_id not in authenticators and not get_user_roles(is_super_role=False)[0]:
+        if not has_comadmin_permission(deposit):
+            return render_template("weko_theme/error.html",
+                    error="You are not allowed to edit this item."), 400
 
     # ! Check dependency ItemType
     if not ItemTypes.get_latest():
@@ -4033,7 +4058,8 @@ def edit_item_direct_after_login(pid_value):
             recid.object_uuid
         )
         workflow = get_workflow_by_item_type_id(item_type.name_id,
-                                                item_type_id)
+                                                item_type_id,
+                                                with_deleted=False)
         if not workflow:
             return render_template("weko_theme/error.html",
                     error="Workflow setting does not exist."), 400
