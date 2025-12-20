@@ -333,7 +333,6 @@ document.addEventListener('DOMContentLoaded', function () {
         'span',{id: `e-${option}`,onMouseEnter: function(e) { if(option.length >= 15 &&(filterKey === 'funder_name' || filterKey === 'award_title'))
             { 
               let place = e.target.getBoundingClientRect();
-              console.log(e.target.tagName)
               el=document.getElementById('tooltip-'+e.target.id.replace("e-",""))
               el.style.top = (place.top -20) + 'px'; 
               el.style.left = place.left + 'px';
