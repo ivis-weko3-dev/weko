@@ -504,7 +504,7 @@ def test__set_source_identifier(app):
 
         assert sample_copy._set_source_identifier(fe=fe, item_map=item_map, item_metadata=item_metadata) == None
     
-
+# .tox/c1/bin/pytest --cov=weko_records tests/test_serializers_utils.py::test__set_author_info -v -s -vv --cov-branch --cov-report=term --cov-report=html --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
 #     def _set_author_info(self, fe, item_map, item_metadata, request_lang):
 def test__set_author_info(app):
     sample_copy = copy.deepcopy(sample)
@@ -539,6 +539,154 @@ def test__set_author_info(app):
         request_lang = "en"
 
         assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata=item_metadata, request_lang=request_lang) == None
+    
+    # output_typeがRSSでget_pair_valueが複数値を返し、request_langが一致する場合
+    sample_copy = copy.deepcopy(sample)
+    sample_copy.output_type = sample_copy.OUTPUT_RSS
+    fe = MagicMock()
+    fe.dc = MagicMock()
+    item_map = {"creator.creatorName.@value": "creator.creatorName"}
+    item_metadata = {"creator": {"attribute_value_mlt": []}}
+    # get_pair_valueが2件返し、request_langが'en'の場合
+    with patch("weko_records_ui.utils.get_pair_value", return_value=[("Taro", "en"), ("Jiro", "ja")]):
+        sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata=item_metadata, request_lang="en")
+        fe.dc.dc_creator.assert_called_once_with("Taro", "en")
+        # 'ja'は呼ばれない
+        calls = [call[0] for call in fe.dc.dc_creator.call_args_list]
+        assert ("Jiro", "ja") not in calls
+    
+    # 異常系テスト
+
+    # 1. item_mapに'creator.creatorName.@value'がない場合
+    fe = MagicMock()
+    fe.dc = MagicMock()
+    fe.author = MagicMock()
+    item_map = {}
+    item_metadata = {}
+    assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata=item_metadata, request_lang="en") is None
+    fe.dc.dc_creator.assert_not_called()
+    fe.author.assert_not_called()
+
+    # 2. item_idがitem_metadataにない場合
+    fe = MagicMock()
+    fe.dc = MagicMock()
+    fe.author = MagicMock()
+    item_map = {"creator.creatorName.@value": "notfound.creatorName"}
+    item_metadata = {}
+    assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata=item_metadata, request_lang="en") is None
+    fe.dc.dc_creator.assert_not_called()
+    fe.author.assert_not_called()
+
+    # 3. RSS分岐: get_pair_valueが空リスト
+    fe = MagicMock()
+    fe.dc = MagicMock()
+    sample_copy.output_type = sample_copy.OUTPUT_RSS
+    item_map = {"creator.creatorName.@value": "creator.creatorName"}
+    item_metadata = {"creator": {"attribute_value_mlt": []}}
+    with patch("weko_records_ui.utils.get_pair_value", return_value=[]):
+        assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata=item_metadata, request_lang="en") is None
+        fe.dc.dc_creator.assert_not_called()
+
+    # 4. RSS形式でdc_creator_dataに言語情報が無い場合
+    fe = MagicMock()
+    fe.dc = MagicMock()
+    sample_copy.output_type = sample_copy.OUTPUT_RSS
+    item_map = {"creator.creatorName.@value": "creator.creatorName"}
+    item_metadata = {"creator": {"attribute_value_mlt": []}}
+    # get_pair_valueが言語情報なし(None, 空文字)を返す場合
+    with patch("weko_records_ui.utils.get_pair_value", return_value=[("Taro", None), ("Jiro", "")]):
+        sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata=item_metadata, request_lang="en")
+        fe.dc.dc_creator.assert_not_called()
+
+    # 5. RSS分岐: get_pair_valueが値あり、request_langなし
+    fe = MagicMock()
+    fe.dc = MagicMock()
+    with patch("weko_records_ui.utils.get_pair_value", return_value=[("Taro", "ja")]):
+        assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata=item_metadata, request_lang=None) is None
+        fe.dc.dc_creator.assert_called_with("Taro", "ja")
+
+    # 6. ATOM分岐: get_metadata_from_mapがNone
+    fe = MagicMock()
+    fe.dc = MagicMock()
+    fe.author = MagicMock()
+    sample_copy.output_type = sample_copy.OUTPUT_ATOM
+    item_map = {"creator.creatorName.@value": "creator.creatorName"}
+    item_metadata = {"creator": {}}
+    with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=None):
+        assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata=item_metadata, request_lang="en") is None
+        fe.author.assert_not_called()
+
+    # 7. ATOM分岐: creator_metadata.get(create_name_key)がNone
+    fe = MagicMock()
+    fe.dc = MagicMock()
+    fe.author = MagicMock()
+    with patch("weko_records.serializers.utils.get_metadata_from_map", return_value={}):
+        assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata=item_metadata, request_lang="en") is None
+        fe.author.assert_not_called()
+
+    # 8. ATOM分岐: creator_name_langsがリストでrequest_lang一致
+    fe = MagicMock()
+    fe.dc = MagicMock()
+    fe.author = MagicMock()
+    creator_metadata = {
+        "creator.creatorName": ["Taro", "Jiro"],
+        "creator.creatorNames.creatorNameLang": ["en", "ja"]
+    }
+    with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=creator_metadata):
+        assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata={"creator": {}}, request_lang="en") is None
+        fe.author.assert_any_call({'name': "Taro", 'lang': "en"})
+
+    # 9. ATOM分岐: creator_name_langsが単一値
+    fe = MagicMock()
+    fe.dc = MagicMock()
+    fe.author = MagicMock()
+    creator_metadata = {
+        "creator.creatorName": "Taro",
+        "creator.creatorNames.creatorNameLang": "en"
+    }
+    with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=creator_metadata):
+        assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata={"creator": {}}, request_lang="en") is None
+        fe.author.assert_any_call({'name': "Taro", 'lang': "en"})
+
+    # 10. ATOM分岐: creator_name_langsが単一値でrequest_lang一致しない場合
+    fe = MagicMock()
+    fe.dc = MagicMock()
+    fe.author = MagicMock()
+    creator_metadata = {
+        "creator.creatorName": "Taro",
+        "creator.creatorNames.creatorNameLang": "en"
+    }
+    with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=creator_metadata):
+        assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata={"creator": {}}, request_lang="ja") is None
+        fe.author.assert_not_called()
+
+    # 11. ATOM分岐: creator_name_langsがリストでrequest_langが無い場合
+    fe = MagicMock()
+    fe.dc = MagicMock()
+    fe.author = MagicMock()
+    creator_metadata = {
+        "creator.creatorName": ["Taro", "Jiro"],
+        "creator.creatorNames.creatorNameLang": ["en", "ja"]
+    }
+    with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=creator_metadata):
+        assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata={"creator": {}}, request_lang=None) is None
+        fe.author.assert_any_call({'name': "Taro", 'lang': "en"})
+        fe.author.assert_any_call({'name': "Jiro", 'lang': "ja"})
+        assert fe.author.call_count == 2
+
+    # 12. ATOM分岐: creator_name_langsが単一値でrequest_langが無い場合
+    fe = MagicMock()
+    fe.dc = MagicMock()
+    fe.author = MagicMock()
+    creator_metadata = {
+        "creator.creatorName": "Taro",
+        "creator.creatorNames.creatorNameLang": "en"
+    }
+    with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=creator_metadata):
+        assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata={"creator": {}}, request_lang=None) is None
+        fe.author.assert_any_call({'name': "Taro", 'lang': "en"})
+        assert fe.author.call_count == 1
+
 
 
 # def _set_publisher(self, fe, item_map, item_metadata, request_lang): 
