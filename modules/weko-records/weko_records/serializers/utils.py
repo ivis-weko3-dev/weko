@@ -94,6 +94,7 @@ def get_full_mapping(item_type_mapping, mapping_type):
         return schema_json
 
     schema = {}
+    #37815 --IGNORED--
     for item_id, maps in item_type_mapping.items():
         if mapping_type in maps.keys() \
                 and isinstance(maps[mapping_type], dict):
@@ -846,43 +847,61 @@ class OpenSearchDetailData:
                             fe.prism.issn(source_identifiers)
 
     def _set_author_info(self, fe, item_map, item_metadata, request_lang):
+        from weko_records_ui.utils import get_pair_value
         _creator_name_value = 'creator.creatorName.@value'
         if _creator_name_value in item_map:
-            item_id = item_map[_creator_name_value].split('.')[0]
+            create_name_keys = item_map[_creator_name_value].split(',')
+            for create_name_key in create_name_keys:
+                item_id = create_name_key.split('.')[0]
+                if item_id not in item_metadata:
+                    continue
 
-            # Get item data
-            if item_id in item_metadata:
-                creator_metadata = get_metadata_from_map(
-                    item_metadata[item_id], item_id)
+                _creator_name_attr_lang = item_id + '.creatorNames.creatorNameLang'
 
-                create_name_key = item_map[_creator_name_value]
-                if not isinstance(creator_metadata, dict) \
-                        or creator_metadata.get(create_name_key) is None:
-                    return
+                # RSS dc:creator
+                if self.output_type == self.OUTPUT_RSS:
+                    dc_creator_data = get_pair_value(
+                        create_name_key.split('.')[1:],
+                        _creator_name_attr_lang.split('.')[1:],
+                        item_metadata[item_id]['attribute_value_mlt']
+                    )
 
-                creator_names = creator_metadata[create_name_key]
-
-                _creator_name_attr_lang = item_id + '.' + 'creatorNameLang'
-                creator_name_langs = creator_metadata[
-                    _creator_name_attr_lang] \
-                    if _creator_name_attr_lang in creator_metadata else None
-
-                if creator_name_langs:
-                    if isinstance(creator_name_langs, list):
-                        for i in range(len(creator_name_langs)):
-                            creator_name_lang = creator_name_langs[i]
+                    for dc_creator_name, dc_creator_name_lang in dc_creator_data:
+                        if dc_creator_name and dc_creator_name_lang:
                             if request_lang:
-                                if creator_name_lang == request_lang:
-                                    fe.author({'name': creator_names[i],
-                                               'lang': creator_name_lang})
+                                if dc_creator_name_lang == request_lang:
+                                    fe.dc.dc_creator(dc_creator_name, dc_creator_name_lang)
                             else:
-                                fe.author({'name': creator_names[i],
-                                           'lang': creator_name_lang})
-                    else:
-                        if request_lang:
-                            if creator_name_langs == request_lang:
-                                fe.author({'name': creator_names,
-                                           'lang': creator_name_langs})
+                                fe.dc.dc_creator(dc_creator_name, dc_creator_name_lang)
+                else:
+                    # Atom author
+                    creator_metadata = get_metadata_from_map(
+                        item_metadata[item_id], item_id)
+                    if not isinstance(creator_metadata, dict) \
+                            or creator_metadata.get(create_name_key) is None:
+                        continue
+
+                    creator_names = creator_metadata[create_name_key]
+                    creator_name_langs = creator_metadata[
+                        _creator_name_attr_lang] \
+                        if _creator_name_attr_lang in creator_metadata else None
+
+                    if creator_name_langs:
+                        if isinstance(creator_name_langs, list):
+                            for i in range(len(creator_name_langs)):
+                                creator_name_lang = creator_name_langs[i]
+                                if request_lang:
+                                    if creator_name_lang == request_lang:
+                                        fe.author({'name': creator_names[i],
+                                                'lang': creator_name_lang})
+                                else:
+                                    fe.author({'name': creator_names[i],
+                                            'lang': creator_name_lang})
                         else:
-                            fe.author({'name': creator_names,
-                                       'lang': creator_name_langs})
+                            if request_lang:
+                                if creator_name_langs == request_lang:
+                                    fe.author({'name': creator_names,
+                                            'lang': creator_name_langs})
+                            else:
+                                fe.author({'name': creator_names,
+                                        'lang': creator_name_langs})
