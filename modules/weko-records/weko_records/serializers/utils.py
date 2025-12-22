@@ -94,7 +94,7 @@ def get_full_mapping(item_type_mapping, mapping_type):
         return schema_json
 
     schema = {}
-    #37815 --IGNORED--
+
     for item_id, maps in item_type_mapping.items():
         if mapping_type in maps.keys() \
                 and isinstance(maps[mapping_type], dict):
