@@ -909,7 +909,6 @@ def get_auto_fill_record_data_arXivapi():
         'items': '',
         'error': ''
     }
-    print("called arXiv api")
     if request.headers['Content-Type'] != 'application/json':
         result['error'] = _('Header Error')
         return jsonify(result)
