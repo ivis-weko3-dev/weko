@@ -301,12 +301,22 @@ document.addEventListener('DOMContentLoaded', function () {
     
     const [hoveredOption, setHoveredOption] = React.useState(null);
     var checkboxes = filter.options.map(function(option) {
-      long_text = option.slice(0,15) + '...';
+      const ctx = document.createElement('canvas').getContext('2d');
+      ctx.font = window.getComputedStyle(document.body).font;
+      let text_length = '';
+      for (let i = 0; i < option.length; i++) {
+        const next = text_length + option[i];
+        if (ctx.measureText(next).width >= 80) {
+          break;
+        }
+        text_length = next;
+      }
+
+      const long_text = text_length + '...'
       hover= hoveredOption === option;
-      
       const text =
-      option.length >= 15 &&(filterKey === 'funder_name' || filterKey === 'award_title')
-        ? (hover ? option : option.slice(0, 15) + '...')
+      ctx.measureText(option).width >= 80 &&(filterKey === 'funder_name' || filterKey === 'award_title')
+        ? (hover ? option : long_text)
         : option 
       
       window.addEventListener('scroll', () => {
@@ -330,7 +340,7 @@ document.addEventListener('DOMContentLoaded', function () {
           onChange: function() { handleCheckboxChange(option); },
         }),
         React.createElement(
-        'span',{id: `e-${option}`,onMouseEnter: function(e) { if(option.length >= 15 &&(filterKey === 'funder_name' || filterKey === 'award_title'))
+        'span',{id: `e-${option}`,onMouseEnter: function(e) { if(ctx.measureText(option).width >= 80 &&(filterKey === 'funder_name' || filterKey === 'award_title'))
             { 
               let place = e.target.getBoundingClientRect();
               el=document.getElementById('tooltip-'+e.target.id.replace("e-",""))
@@ -342,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function () {
             {setHoveredOption();}
           }, 
           onMouseLeave: function() { setHoveredOption(); }},
-        option.length >= 15 &&(filterKey === 'funder_name' || filterKey === 'award_title') ? long_text : option
+        ctx.measureText(option).width >= 80 &&(filterKey === 'funder_name' || filterKey === 'award_title') ? long_text : option
       ),React.createElement(
         'span',
         { id: `tooltip-${option}`,style: hover? {display: 'block',backgroundColor: 'white', border: '1px solid #0f0e0eff',padding: '0px',position: 'fixed'} : {display: 'none'} },
