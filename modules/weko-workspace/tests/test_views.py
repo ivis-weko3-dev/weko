@@ -1317,3 +1317,90 @@ def test_dbsession_clean(app, db):
     db.session.add(itemtype_name3)
     dbsession_clean(Exception)
     assert ItemTypeName.query.filter_by(id=3).first() is None
+
+# .tox/c1/bin/pytest --cov=weko_workspace tests/test_views.py::test_get_auto_fill_record_data_arXivapi -v -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-weko_workspace/.tox/c1/tmp
+def test_get_auto_fill_record_data_arXivapi(db,users, workflow,client_api, client,mocker,without_remove_session):
+    # data あり
+    login(client=client, email=users[0]['email'])
+    session = {
+        "itemlogin_id":"1",
+        "itemlogin_action_id":3,
+        "itemlogin_cur_step":"item_login",
+        "itemlogin_community_id":"comm01"
+    }
+    from unittest.mock import patch, Mock
+    import os
+    item_type = Mock()
+    filepath = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "data/item_type/15_render.json"
+    )
+    with open(filepath, encoding="utf-8") as f:
+        render = json.load(f)
+    item_type.render = render
+
+    filepath = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "data/item_type/15_schema.json"
+    )
+    with open(filepath, encoding="utf-8") as f:
+        schema = json.load(f)
+    item_type.schema = schema
+
+    filepath = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "data/item_type/15_form.json"
+    )
+    with open(filepath, encoding="utf-8") as f:
+        form = json.load(f)
+    item_type.form = form
+
+    item_type.item_type_name.name="デフォルトアイテムタイプ（フル）"
+    item_type.item_type_name.item_type.first().id=15
+    data = {
+        "search_data":"10.14454/FXWS-0523",
+        "item_type_id":"1"
+    }
+
+    mocker.patch("weko_workspace.views.session",session)
+    with patch("weko_records.api.ItemTypes.get_by_id", return_value=item_type):
+        with patch("weko_workspace.utils.get_arXiv_record_data", return_value={"result":"","items":"test","error":""}):
+            url = url_for("weko_workspace_api.get_auto_fill_record_data_arXivapi")
+            res = client.post(url,
+                        data=json.dumps(data),
+                        content_type='application/json')
+            assert res.status_code == 200
+            assert res is not None
+
+    # header error
+    login(client=client, email=users[0]['email'])
+    session = {
+        "itemlogin_id":"1",
+        "itemlogin_action_id":3,
+        "itemlogin_cur_step":"item_login",
+        "itemlogin_community_id":"comm01"
+    }
+
+    data = {
+        "search_data":"10.5109/16119",
+        "item_type_id":"15"
+    }
+
+    mocker.patch("weko_workspace.views.session",session)
+    url = url_for("weko_workspace_api.get_auto_fill_record_data_arXivapi")
+    res = client.post(url,
+                data=json.dumps(data),
+                content_type='test/json')
+    assert res.status_code == 200
+
+
+    # not exist
+    data = {
+        "search_data":"test",
+        "item_type_id":"15"
+    }
+
+    mocker.patch("weko_workspace.views.session",session)
+    url = url_for("weko_workspace_api.get_auto_fill_record_data_arXivapi")
+    res = client.post(url,
+                data=json.dumps(data),
+                content_type='application/json')
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"result":"","items":"","error":"'entry'"}
