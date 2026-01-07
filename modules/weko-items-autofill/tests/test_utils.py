@@ -1457,6 +1457,13 @@ def test_get_key_value():
         attributes_keys={"@type":"test16_subitem1.test16_subitem2","@relation_type":"subitem_relation_type","@type":"test16_subitem1.test16_subitem3"}
     )
 
+    assert_test2(
+        item_name="test_item17",
+        parent_key="relatedIdentifier",
+        value_key="test17_subitem1.test17_subitem2",
+        attributes_keys={"@type":"test17_subitem1.test16_subitem2","@type":"test17_subitem1.test16_subitem3"}
+    )
+
 
 # def get_autofill_key_path(schema_form, parent_key, child_key):
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_utils.py::test_get_autofill_key_path -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp

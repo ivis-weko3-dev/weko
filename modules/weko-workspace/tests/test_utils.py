@@ -1762,7 +1762,7 @@ def test_get_autofill_key_tree(item_keys, mock_result, expected_result):
             for key in item_keys:
                 if key == 'creator':
                     expected_calls.append(
-                        call(form, item[key]['creatorName'], item[key]['model_id'])
+                        call(form, item[key]['creatorName'], item[key]['model_id'],item[key])
                     )
                 elif key == 'contributor':
                     expected_calls.append(
@@ -1770,7 +1770,7 @@ def test_get_autofill_key_tree(item_keys, mock_result, expected_result):
                     )
                 elif key == 'relation':
                     expected_calls.append(
-                        call(form, item[key]['relatedIdentifier'], item[key]['model_id'])
+                        call(form, item[key]['relatedIdentifier'], item[key]['model_id'],item[key])
                     )
             mock_get_key_value.assert_has_calls(expected_calls)
         
@@ -1972,6 +1972,20 @@ def test_get_autofill_key_tree(item_keys, mock_result, expected_result):
         }
         
     ),
+    (   
+        {
+        },
+        'item_29471819427',
+        [
+            {'key': 'item_29471819427.subitem_29471819427'}
+        ],
+        {},
+        [],
+        {
+            "@attributes": {"": ""},"model_id": "item_29471819427"
+        }
+        
+    ),
     (
         {},
         'item_123456789012',
@@ -1984,6 +1998,31 @@ def test_get_autofill_key_tree(item_keys, mock_result, expected_result):
         "affiliationName": {
             "@value": "subitem_133434234","model_id": "item_120821139"
         }
+    }
+   }
+),
+    (
+        {},
+        'item_1234567890',
+        [{'key': 'item_1208211.subitem_1334342'},],
+        {},
+        [],
+        
+  {
+    "affiliation": {
+    }
+   }
+),
+    (
+        {},
+        'item_123456789',
+        [{'key': 'item_120821.subitem_133434'},],
+        {},
+        [],
+        
+  {
+    "affiliation": {
+        "affiliationName": {}
     }
    }
 )
@@ -2408,6 +2447,12 @@ def test_fill_data(app):
     autofill_data = ""
     result = fill_data(form_model, autofill_data)
     assert result is None
+    
+    # autofill_data is list, not key
+    form_model = ""
+    autofill_data = []
+    result = fill_data(form_model, autofill_data)
+    assert result == []
     
     # not multiple_data, form.get(key) is not list
     autofill_data = [{"@value": "A.Test1", "@language": "en"}]
@@ -3609,7 +3654,7 @@ def test_get_arXiv_record_data(app, mocker_itemtype):
                 assert result == []
 
             with patch('weko_workspace.utils.ItemTypes.get_by_id', return_value=None):
-                current_cache.delete('datacite_data10.1234/test-doi1')
+                current_cache.delete('arXiv_data10.1234/test-doi1')
                 result = get_arXiv_record_data('10.1234/test-doi', 1)
                 assert result == []
 
@@ -3651,7 +3696,8 @@ def test_get_arXiv_record_data(app, mocker_itemtype):
         'relation': [{'@value': 'test link', '@type': 'URI','@relation_type': 'isFormatOf'},{'@value': 'test doi', '@type': 'DOI','@relation_type': 'isVersionOf'}],
         'subject': [{'@value': 'test category', '@schema': 'Other'}]
     }),
-    ('none', {})
+    ('none', {}),
+    ('test',{})
 ])
 def test_get_arXiv_data_by_key(app, mocker, keyword, expected_result):
     mocker.patch(
@@ -3685,7 +3731,7 @@ def test_get_arXiv_data_by_key(app, mocker, keyword, expected_result):
     
 
    
-    if keyword == 'none':
+    if keyword == 'none' :
         api = {
             'response': None
         }
@@ -3867,14 +3913,14 @@ def test_get_arXiv_autofill_item(app):
             '@attributes': { 'xml:lang': 'subitem_1551255648112' },
             'model_id': 'item_1617186331708'
         },
-        'date': [{'date': {'@value': 'subitem_date_issued_datetime', '@attributes': {'dateType': 'subitem_date_issued_type'}, 'model_id': 'item_30002_date11'}}, 
-                 {'date': {'@value': 'bibliographicIssueDates.bibliographicIssueDate', '@attributes': {'dateType': 'bibliographicIssueDates.bibliographicIssueDateType'}, 
-                  'model_id': 'item_30002_bibliographic_information29'}}],
         'identifier': 
             [{'identifier': {'@value': 'subitem_systemidt_identifier', '@attributes': {'identifierType': 'subitem_systemidt_identifier_type'}, 'model_id': 'system_identifier_doi'}}, 
              {'identifier': {'@value': 'subitem_systemidt_identifier', '@attributes': {'identifierType': 'subitem_systemidt_identifier_type'}, 'model_id': 'system_identifier_hdl'}}, 
-             {'identifier': {'@value': 'subitem_systemidt_identifier', '@attributes': {'identifierType': 'subitem_systemidt_identifier_type'}, 'model_id': 'system_identifier_uri'}}, 
-             {'identifier': {'@value': 'subitem_3204890234', '@attributes': {'identifierType': 'subitem_identifier_type'}, 'model_id': 'item_30002_identifier16'}}]
+             {'identifier': {'@value': 'subitem_3204890234', '@attributes': {'identifierType': 'subitem_identifier_type'}, 'model_id': 'item_30002_identifier16'}},
+             {'identifier': {'@value': 'subitem_systemidt_identifier', '@attributes': {'identifierType': 'subitem_systemidt_identifier_type'}, 'model_id': 'system_identifier_uri'}}],
+        'date': [{'date': {'@value': 'subitem_date_issued_datetime', '@attributes': {'dateType': 'subitem_date_issued_type'}, 'model_id': 'item_30002_date11'}}, 
+                 {'date': {'@value': 'bibliographicIssueDates.bibliographicIssueDate', '@attributes': {'dateType': 'bibliographicIssueDates.bibliographicIssueDateType'}, 
+                  'model_id': 'item_30002_bibliographic_information29'}}],
     }
 
     expected={
@@ -3883,14 +3929,49 @@ def test_get_arXiv_autofill_item(app):
             '@attributes': { 'xml:lang': 'subitem_1551255648112' },
             'model_id': 'item_1617186331708'
         },
+        'identifier': {'@value': 'subitem_3204890234', 
+                       '@attributes': {'identifierType': 'subitem_identifier_type'}, 
+                       'model_id': 'item_30002_identifier16'},
+         'date': [{'date': {'@value': 'subitem_date_issued_datetime', '@attributes': {'dateType': 'subitem_date_issued_type'}, 'model_id': 'item_30002_date11'}}, 
+                 {'date': {'@value': 'bibliographicIssueDates.bibliographicIssueDate', '@attributes': {'dateType': 'bibliographicIssueDates.bibliographicIssueDateType'}, 
+                  'model_id': 'item_30002_bibliographic_information29'}}],
+    }
+    mock_item2={
+        'title': {
+            '@value': 'subitem_1551255647225',
+            '@attributes': { 'xml:lang': 'subitem_1551255648112' },
+            'model_id': 'item_1617186331708'
+        },
+        'identifier': 
+            [{'identifier': {'@value': 'subitem_systemidt_identifier', '@attributes': {'identifierType': 'subitem_systemidt_identifier_type'}, 'model_id': 'system_identifier_doi'}}, 
+             {'identifier': {'@value': 'subitem_systemidt_identifier', '@attributes': {'identifierType': 'subitem_systemidt_identifier_type'}, 'model_id': 'system_identifier_hdl'}}, 
+             {'identifier': {'@value': 'subitem_systemidt_identifier', '@attributes': {'identifierType': 'subitem_systemidt_identifier_type'}, 'model_id': 'system_identifier_uri'}}],
         'date': [{'date': {'@value': 'subitem_date_issued_datetime', '@attributes': {'dateType': 'subitem_date_issued_type'}, 'model_id': 'item_30002_date11'}}, 
                  {'date': {'@value': 'bibliographicIssueDates.bibliographicIssueDate', '@attributes': {'dateType': 'bibliographicIssueDates.bibliographicIssueDateType'}, 
                   'model_id': 'item_30002_bibliographic_information29'}}],
-        'identifier': {'@value': 'subitem_3204890234', 
-                       '@attributes': {'identifierType': 'subitem_identifier_type'}, 
-                       'model_id': 'item_30002_identifier16'}
     }
-    
+    expected2={
+        'title': {
+            '@value': 'subitem_1551255647225',
+            '@attributes': { 'xml:lang': 'subitem_1551255648112' },
+            'model_id': 'item_1617186331708'
+        },
+        'identifier': [{'identifier': {'@attributes': {'identifierType': 'subitem_systemidt_identifier_type'},
+                                '@value': 'subitem_systemidt_identifier',
+                                 'model_id': 'system_identifier_doi'}},
+                       {'identifier': {'@attributes': {'identifierType': 'subitem_systemidt_identifier_type'},
+                                '@value': 'subitem_systemidt_identifier',
+                                'model_id': 'system_identifier_hdl'}},
+                       {'identifier': {'@attributes': {'identifierType': 'subitem_systemidt_identifier_type'},
+                                '@value': 'subitem_systemidt_identifier',
+                                'model_id': 'system_identifier_uri'}}],
+        'date': [{'date': {'@value': 'subitem_date_issued_datetime', '@attributes': {'dateType': 'subitem_date_issued_type'}, 'model_id': 'item_30002_date11'}}, 
+                 {'date': {'@value': 'bibliographicIssueDates.bibliographicIssueDate', '@attributes': {'dateType': 'bibliographicIssueDates.bibliographicIssueDateType'}, 
+                  'model_id': 'item_30002_bibliographic_information29'}}],
+    }
     with patch('weko_workspace.utils.get_item_id', return_value=mock_item):
         result = get_arXiv_autofill_item(15)
         assert result == expected
+    with patch('weko_workspace.utils.get_item_id', return_value=mock_item2):
+        result = get_arXiv_autofill_item(15)
+        assert result == expected2

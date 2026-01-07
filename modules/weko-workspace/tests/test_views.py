@@ -412,23 +412,155 @@ def test_update_workspace_status_management(
                             "relation": {
                                 "@attributes": {
                                     "relationType": [
-                                        ["isVersionOf"],
+                                        ["isFormatOf"],
                                         ["isPartOf"],
+                                        ["isVersionOf"],
                                         ["isFormatOf"],
                                     ]
                                 },
                                 "relatedIdentifier": [
+                                    {"identifierType": "DOI", "value": "なし"},
                                     {"identifierType": "ARK", "value": "AEK"},
                                     {"identifierType": "DOI", "value": "なし"},
                                     {
                                         "identifierType": "URI",
                                         "value": "https://testtest.com",
-                                    },
+                                    }
                                 ],
                                 "relatedTitle": [
                                     "test4関連名称１",
                                     "test4関連名称２",
                                     "test4関連名称３",
+                                    "test4関連名称４"
+                                ],
+                            },
+                            "type": ["Article"],
+                            "creator": {
+                                "creatorName": [
+                                    "Author Name",
+                                    "contributor@test.org",
+                                ]
+                            },
+                            "publish_date": "2025-02-14",
+                            "_item_metadata": {
+                                "item_type_id": "1",
+                                "item_30002_file35": {
+                                    "attribute_name": "File",
+                                    "attribute_type": "file",
+                                    "attribute_value_mlt": [
+                                        {
+                                            "accessrole": "open_access",
+                                            "date": [
+                                                {
+                                                    "dateType": "Available",
+                                                    "dateValue": "2025-02-13",
+                                                }
+                                            ],
+                                            "displaytype": "detail",
+                                            "filename": "test4 ファイル名",
+                                            "licensetype": "license_2",
+                                            "version": "test4ファイルのバージョン情報",
+                                        },
+                                        {
+                                            "accessrole": "open_access",
+                                            "date": [
+                                                {
+                                                    "dateType": "Available",
+                                                    "dateValue": "2026-02-14",
+                                                }
+                                            ],
+                                            "filename": "NO1.error.txt",
+                                            "filesize": [{"value": "11 KB"}],
+                                            "format": "text/plain",
+                                            "url": {
+                                                "url": "https://weko3.example.org/record/2000004/files/NO1.error.txt"
+                                            },
+                                        },
+                                        {
+                                            "accessrole": "open_access_no_download",
+                                            "date": [
+                                                {
+                                                    "dateType": "Available",
+                                                    "dateValue": "2025-02-14",
+                                                }
+                                            ],
+                                            "filename": "test4-file1.txt",
+                                            "filesize": [{"value": "0 B"}],
+                                            "url": {
+                                                "url": "https://weko3.example.org/record/2000004/files/test4-file1.txt"
+                                            },
+                                        },
+                                        {
+                                            "accessrole": "open_access",
+                                            "date": [
+                                                {
+                                                    "dateType": "Available",
+                                                    "dateValue": "2025-02-14",
+                                                }
+                                            ],
+                                            "filename": "test4-file1.txt",
+                                            "filesize": [{"value": "15 B"}],
+                                            "format": "text/plain",
+                                            "url": {
+                                                "url": "https://weko3.example.org/record/2000004/files/test4-file1.txt"
+                                            },
+                                        },
+                                    ],
+                                },
+                                "peer_review": True,
+                            },
+                        }
+                    }
+                ],
+                "filter_con": None,
+                "status_data": (True, False),  # favoriteSts, readSts
+                "access_data": (10, 5),  # accessCnt, downloadCnt
+                "item_status": "active",
+            },
+            None,
+            1,
+        ),
+        (
+            0,
+            "GET",
+            {
+                "es_data": [
+                    {
+                        "_id": "7b6fbcb1-affc-4740-8a18-e8b34a7a0409",
+                        "_source": {
+                            "weko_creator_id": "1",
+                            "weko_shared_ids": [2],
+                            "title": ["Test Title"],
+                            #  "identifier": [{"value": "10.1000/test.doi"}],
+                            "conference": {
+                                "conferenceDate": [],
+                                "conferenceName": ["test4会議名"],
+                                "conferenceVenue": [],
+                                "conferenceCountry": [],
+                                "conferenceSponsor": [],
+                                "conferenceSequence": [],
+                            },
+                            "fundingReference": {
+                                "awardNumber": [],
+                                "awardTitle": [
+                                    "test4研究課題名01",
+                                    "test4研究課題名02",
+                                    "test4研究課題名03",
+                                ],
+                                "funderIdentifier": [],
+                                "funderName": [
+                                    "test4助成期間名01",
+                                    "test4助成期間名02",
+                                    "test4助成期間名03",
+                                ],
+                            },
+                            "relation": {
+                                "@attributes": {
+                
+                                },
+                                "relatedIdentifier": [
+                                    {"identifierType": "", "value": ""},
+                                    {"identifierType": "DOI", "value": ""},
                                 ],
                             },
                             "type": ["Article"],
@@ -1361,7 +1493,7 @@ def test_get_auto_fill_record_data_arXivapi(db,users, workflow,client_api, clien
 
     mocker.patch("weko_workspace.views.session",session)
     with patch("weko_records.api.ItemTypes.get_by_id", return_value=item_type):
-        with patch("weko_workspace.utils.get_arXiv_record_data", return_value={"result":"","items":"test","error":""}):
+        with patch("weko_workspace.views.get_arXiv_record_data", return_value={"result":"","items":"test","error":""}):
             url = url_for("weko_workspace_api.get_auto_fill_record_data_arXivapi")
             res = client.post(url,
                         data=json.dumps(data),

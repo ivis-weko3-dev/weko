@@ -146,5 +146,19 @@
             }
         }
     },
+    "test_item17":{
+        "jpcoar_mapping":{
+            "relation":{
+                "@attributes": {"": ""},
+                "relatedIdentifier": {
+                    "@value": "test16_subitem1.test16_subitem2",
+                    "@attributes": {
+                      "identifierType": "test16_subitem1.test16_subitem3"
+                    }
+                }
+            }
+        }
+    },
+    
     "test_itemxx":""
 }
