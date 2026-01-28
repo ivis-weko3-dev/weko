@@ -5127,7 +5127,6 @@ def make_stats_file_with_permission(item_type_id, recids,
         else:
             ret_system.append('')
             ret_option.append('')
-    print(records.attr_output)
     return [ret, ret_label, ret_system, ret_option], records.attr_output
 
 
