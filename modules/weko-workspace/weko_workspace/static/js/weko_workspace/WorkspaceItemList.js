@@ -750,6 +750,7 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
 
   // 通常のテーブル表示
   function renderTable(items) {
+    var scrollOffsetY = window.pageYOffset;
     itemListContainer.innerHTML = '';
     const table = document.createElement('table');
     table.className = 'table table-striped table-bordered';
@@ -767,6 +768,7 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
 
     table.appendChild(tbody);
     itemListContainer.appendChild(table);
+    window.scrollTo(0,scrollOffsetY);
     mountButtons();
     bindRelatedButtons();
     updateReadStatus();
