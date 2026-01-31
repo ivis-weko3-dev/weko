@@ -4469,24 +4469,18 @@ def make_stats_file_with_permission(item_type_id, recids,
     """Prepare TSV/CSV data for each Item Types.
 
     Args:
-        item_type_id (_type_): ItemType ID
-        recids (_type_): List records ID
-        records_metadata (_type_): _description_
-        permissions (_type_): _description_
+        item_type_id (str): ItemType ID
+        recids (str): List records ID
+        records_metadata (dict): _description_
+        permissions (dict): _description_
         export_path (str): path of temp_dir
 
     Returns:
-        _type_: _description_
-    """
-    """
-
-    Arguments:
-        item_type_id    --
-        recids          --
-    Returns:
-        ret             -- Key properties
-        ret_label       -- Label properties
-        records.attr_output -- Record data
+        ret(list): Key properties
+        ret_label(list): Label properties
+        ret_system(list): system list
+        ret_option(list): option list
+        records.attr_output(RecordsPermissionManager): Record data
 
     """
     # current_app.logger.error("item_type_id:{}".format(item_type_id))
@@ -4521,9 +4515,7 @@ def make_stats_file_with_permission(item_type_id, recids,
     stack = [(table_row_properties[key], [key]) for key in item_type["table_row"]]
     answer_list = []
     array_properties = []
-    count = 0
     while stack:
-        count += 1
         property, prefix = stack.pop()
         if not "type" in property:
             continue
@@ -4671,11 +4663,11 @@ def make_stats_file_with_permission(item_type_id, recids,
         def get_property_metadata(self, record, item_key, json_schema):
             """Get property metadata from record.
             Args:
-                record      -- WekoRecord object
-                item_key    -- Key properties
-                json_schema -- JSON schema
+                record(dict): WekoRecord object
+                item_key(str): Key properties
+                json_schema(dict): JSON schema
             Returns:
-                property_metadata -- Property metadata
+                property_metadata(any): Property metadata
             """
             property_metadata = record.get(item_key)
 
@@ -4692,12 +4684,17 @@ def make_stats_file_with_permission(item_type_id, recids,
         
         def iter_list_lengths_with_canon_paths(self, root, array_properties):
             """
-            root を 1 回走査し、(正規化パス, リスト長) を逐次返す。
-            正規化パスはタプルで保持（後で文字列に変換可）。
-            規則:
-            - 辞書のキーを '.' で繋ぐパスを形成
-            - 配列内の位置は '[]' でワイルドカード化
-            - 「辞書キーが指す値が配列」のケースだけ (path, len) を yield
+            Scan the root once, sequentially returning (normalized path, list length).
+            Normalized paths are stored as tuples (can be converted to strings later).
+            Rules:
+            - Form paths by concatenating dictionary keys with '.'
+            - Wildcard positions in arrays with '[]'
+            - Only yield (path, len) when the dictionary key points to an array value
+
+            Args:
+                root(str): root
+                array_properties(str): properties
+
             """
             
             stack = [(root, [], [])]
@@ -4739,8 +4736,12 @@ def make_stats_file_with_permission(item_type_id, recids,
 
         def aggregate_max_lengths(self, objs, array_properties):
             """
-            多数のオブジェクトを線形時間で集計し、正規化フルパスごとの最大配列長を返す。
-            出力のキー形式は 'a.b[].c' のような文字列。
+            Aggregates multiple objects in linear time and returns the maximum array length per normalized full path.
+            The output key format is a string like ‘a.b[].c’.
+
+            Args:
+                objs(dict): objs
+                array_properties(str): properties
             """
             max_map = {}
             for _, obj in objs.items():
@@ -4770,6 +4771,7 @@ def make_stats_file_with_permission(item_type_id, recids,
                      for key in reversed(table_row)]
             column_keys = []
             column_labels = []
+            escape_list =[]
             # Depth-first traversal
             while stack:
                 schema_node, column_key, column_label = stack.pop()
@@ -4829,8 +4831,8 @@ def make_stats_file_with_permission(item_type_id, recids,
                 else: # Primitive type
                     column_keys.append(column_key)
                     column_labels.append(column_label)
-            
-            return column_keys, column_labels
+                    escape_list.append(column_key)
+            return column_keys, column_labels, escape_list
         
 
         def flatten_metadata(self, record, table_row, json_schema):
@@ -4861,7 +4863,6 @@ def make_stats_file_with_permission(item_type_id, recids,
                             stack.append((v, path + [i]))
                     else:
                         res[tuple(path)] = curr
-            # print("flattened metadata:", res)
             return res
         
 
@@ -4875,7 +4876,6 @@ def make_stats_file_with_permission(item_type_id, recids,
             if not path_info:
                 return ""
 
-            # print("path_info:", path_info)
             result = str(path_info[0]) if not isinstance(path_info[0], int) else f"[{path_info[0]}]"
 
             for item in path_info[1:]:
@@ -4887,7 +4887,7 @@ def make_stats_file_with_permission(item_type_id, recids,
             return result
         
 
-        def extract_all_metadata(self, headers, table_row, json_schema):
+        def extract_all_metadata(self, headers, table_row, json_schema,escape_list):
             """Extract all metadata for exporting records.
             Args:
                 headers (list): Header data
@@ -4931,7 +4931,8 @@ def make_stats_file_with_permission(item_type_id, recids,
                                 data[".thumbnail_path{}".format(index_find_result[0])][idx] = file_path_value
                             else:
                                 data[".thumbnail_path"][idx] = file_path_value
-
+                        elif formatted_key in escape_list:
+                                data[formatted_key][idx]=escape_newline(data[formatted_key][idx])
             # traverse headers to maintain order
             data = list(zip(*[data[h] for h in headers]))
 
@@ -5033,7 +5034,7 @@ def make_stats_file_with_permission(item_type_id, recids,
             cnri = pid_cnri.pid_value.replace(WEKO_SERVER_CNRI_HOST_LINK, '')
         records.attr_output[recid].append(cnri)
 
-        identifier = IdentifierHandle(record.pid_recid.object_uuid, item_type_id=item_type_id)
+        identifier = IdentifierHandle(record.pid_recid.object_uuid, record=record, item_type_id=item_type_id)
         doi_value, doi_type = identifier.get_idt_registration_data()
         doi_type_str = doi_type[0] if doi_type and doi_type[0] else ''
         doi_str = doi_value[0] if doi_value and doi_value[0] else ''
@@ -5067,7 +5068,7 @@ def make_stats_file_with_permission(item_type_id, recids,
     current_app.logger.debug("max_map:{}".format(max_map))
     current_app.logger.debug("max_map keys count:{}".format(len(max_map.keys())))
 
-    column_header_keys, column_header_labels = records.get_headers(
+    column_header_keys, column_header_labels,escape_list = records.get_headers(
         table_row_properties, item_type['table_row'], max_map)
     current_app.logger.debug("headers keys count:{}".format(len(column_header_keys)))
 
@@ -5075,7 +5076,8 @@ def make_stats_file_with_permission(item_type_id, recids,
     records.extract_all_metadata(
         column_header_keys,
         item_type['table_row'],
-        table_row_properties
+        table_row_properties,
+        escape_list
     )
 
     new_keys = []
@@ -5127,6 +5129,7 @@ def make_stats_file_with_permission(item_type_id, recids,
         else:
             ret_system.append('')
             ret_option.append('')
+
     return [ret, ret_label, ret_system, ret_option], records.attr_output
 
 
