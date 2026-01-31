@@ -1196,9 +1196,11 @@ class MappingData(object):
 
     def __init__(self, item_id=None, record=None, item_type_id=None):
         """Initilize pagination."""
-        self.record = WekoRecord.get_record(item_id) if item_id else record
+        self.record = record
         if not item_type_id:
             item_type = self.get_data_item_type()
+            if item_type is None:
+                raise ValueError("item_type is None")
             item_type_id = item_type.id
         item_type_mapping = Mapping.get_record(item_type_id)
         self.item_map = get_full_mapping(item_type_mapping, "jpcoar_mapping")
@@ -1320,11 +1322,11 @@ class IdentifierHandle(object):
     item_metadata = None
     metadata_mapping = None
 
-    def __init__(self, item_id=None, item_type_id=None):
+    def __init__(self, item_id=None, record=None, item_type_id=None):
         """Initialize IdentifierHandle."""
         self.item_uuid = item_id
         if item_id:
-            self.metadata_mapping = MappingData(item_id, item_type_id=item_type_id)
+            self.metadata_mapping = MappingData(record=record, item_type_id=item_type_id)
             if item_type_id:
                 self.item_type_id = item_type_id
             else:
