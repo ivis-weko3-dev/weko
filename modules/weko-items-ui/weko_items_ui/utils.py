@@ -5068,7 +5068,7 @@ def make_stats_file_with_permission(item_type_id, recids,
     current_app.logger.debug("max_map:{}".format(max_map))
     current_app.logger.debug("max_map keys count:{}".format(len(max_map.keys())))
 
-    column_header_keys, column_header_labels,escape_list = records.get_headers(
+    column_header_keys, column_header_labels, escape_list = records.get_headers(
         table_row_properties, item_type['table_row'], max_map)
     current_app.logger.debug("headers keys count:{}".format(len(column_header_keys)))
 
