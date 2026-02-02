@@ -843,7 +843,7 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
           <div style="margin-bottom:3px; margin-top:9px;white-space:nowrap;">${item.itemStatus}</div>
           <div style="margin-bottom:3px;">
             ${item.fbEmailSts
-              ? `<i class="bi bi-envelope" style="font-size: 20px; margin-right: 20px;"></i>`
+              ? `<i class="bi bi-envelope" style="font-size: 20px;"></i>`
               : `<i class="bi bi-envelope-dash" style="font-size: 20px;"></i>`}
           </div>
           <span>
