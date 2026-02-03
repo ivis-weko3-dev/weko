@@ -10885,7 +10885,7 @@ def test_make_stats_file_with_permission(app, users,db,db_itemtype,db_itemtype2,
             record8 = WekoRecord.get_record_by_pid(8)
             with patch("weko_items_ui.utils.get_item_from_option", return_value = meta_list.keys()):
                 make_stats_file_with_permission(2, [7,8], {7: record7,8: record8}, permissions)
-      
+
             p = PersistentIdentifier.query.filter_by(id=1).first()
             with patch("weko_deposit.api.WekoRecord._get_pid", return_value = p):
                 make_stats_file_with_permission(2, [7], {7: record7}, permissions)
