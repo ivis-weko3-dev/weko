@@ -1196,7 +1196,7 @@ class MappingData(object):
 
     def __init__(self, item_id=None, record=None, item_type_id=None):
         """Initilize pagination."""
-        self.record = record
+        self.record = WekoRecord.get_record(item_id) if item_id else record
         if not item_type_id:
             item_type = self.get_data_item_type()
             if item_type is None:
