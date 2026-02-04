@@ -4795,7 +4795,10 @@ def make_stats_file_with_permission(item_type_id, recids,
                             and len(column_key.split('.')) == 2: # Handle thumbnail_label field
                             # find index
                             index_find_result = re.findall(r"\[\d+\]", column_key)
-                            if index_find_result:
+                            if len(index_find_result) > 1:
+                                column_keys.append(".thumbnail_path{}".format(index_find_result[1]))
+                                column_labels.append(".サムネイルパス{}".format(index_find_result[1]))
+                            elif len(index_find_result) == 1:
                                 column_keys.append(".thumbnail_path{}".format(index_find_result[0]))
                                 column_labels.append(".サムネイルパス{}".format(index_find_result[0]))
                             else:
@@ -4922,15 +4925,16 @@ def make_stats_file_with_permission(item_type_id, recids,
                                 data[".file_path"][idx] = file_path_value
 
                         elif "thumbnail_label" in splitted_key \
-                            and len(splitted_key) == 2:
+                            and len(splitted_key) == 3:
                             # find index
                             index_find_result = re.findall(r"\[\d+\]", formatted_key)
                             temp_file_path = "recid_{}/{}".format(str(recid), value)
-                            file_path_value = temp_file_path if os.path.exists(os.path.join(export_path,temp_file_path)) else ""
-                            if index_find_result:
-                                data[".thumbnail_path{}".format(index_find_result[0])][idx] = file_path_value
+                            if len(index_find_result) > 1:
+                                data[".thumbnail_path{}".format(index_find_result[1])][idx] = temp_file_path
+                            elif len(index_find_result) == 1:
+                                data[".thumbnail_path{}".format(index_find_result[0])][idx] = temp_file_path
                             else:
-                                data[".thumbnail_path"][idx] = file_path_value
+                                data[".thumbnail_path"][idx] = temp_file_path
                         elif formatted_key in escape_list:
                                 data[formatted_key][idx]=escape_newline(data[formatted_key][idx])
             # traverse headers to maintain order
