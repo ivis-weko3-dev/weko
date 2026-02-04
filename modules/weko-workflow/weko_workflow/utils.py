@@ -1326,7 +1326,10 @@ class IdentifierHandle(object):
         """Initialize IdentifierHandle."""
         self.item_uuid = item_id
         if item_id:
-            self.metadata_mapping = MappingData(record=record, item_type_id=item_type_id)
+            if record:
+                self.metadata_mapping = MappingData(record=record, item_type_id=item_type_id)
+            else:
+                self.metadata_mapping = MappingData(item_id=item_id, item_type_id=item_type_id)
             if item_type_id:
                 self.item_type_id = item_type_id
             else:
