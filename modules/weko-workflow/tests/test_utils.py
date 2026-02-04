@@ -866,7 +866,7 @@ class TestIdentifierHandle:
                 patch("weko_workflow.utils.Mapping.get_record", return_value=MagicMock(spec=Mapping)) as mock_get_mapping, \
                 patch("weko_workflow.utils.ItemsMetadata.get_record", return_value=MagicMock(spec=ItemsMetadata)) as mock_get_metadata, \
                 patch("weko_workflow.utils.get_full_mapping", return_value={"mapping": "mapping"}) as mock_mapping_data:
-            obj2 = IdentifierHandle(item_uuid,record={"id" : 1, "name" : "yamada"},item_type_id=1)
+            obj2 = IdentifierHandle(item_uuid,record={"id" : 1},item_type_id=1)
         assert obj2.item_uuid == item_uuid
         assert obj2.item_record is not None
         mock_get_record.assert_not_called()

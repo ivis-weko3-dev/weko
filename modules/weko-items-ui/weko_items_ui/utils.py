@@ -4887,7 +4887,7 @@ def make_stats_file_with_permission(item_type_id, recids,
             return result
         
 
-        def extract_all_metadata(self, headers, table_row, json_schema,escape_list):
+        def extract_all_metadata(self, headers, table_row, json_schema, escape_list):
             """Extract all metadata for exporting records.
             Args:
                 headers (list): Header data
