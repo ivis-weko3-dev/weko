@@ -819,12 +819,12 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
         <td style="width: auto;">
           <strong><a href="/records/${item.recid}" data-item-title="${item.title}" data-item-recid="${item.recid}">${item.title}</a><span class="unread" data-type="3" data-item-recid="${item.recid}" data-read-sts='${JSON.stringify(item.readSts)}'></span><br>
           ${item.authorlist && item.authorlist.length > 0 ? `<span>${item.authorlist.join(', ')}</span><br>` : ''}
-          <span>${item.magazineName || ''} ${(item.magazineName && item.conferenceName) ? '/' : ''} ${item.conferenceName || ''}&nbsp;&nbsp;</span>
-          <span>${item.volume || ''} ${item.issue ? '('+item.issue+')' : ''}&nbsp;&nbsp;</span>
+          <span>${item.magazineName || ''} ${(item.magazineName && item.conferenceName) ? '/' : ''} ${item.conferenceName || ''} ${(item.magazineName || item.conferenceName) ? '&nbsp;&nbsp;' : ''}</span>
+          <span>${item.volume || ''} ${item.issue ? '('+item.issue+')' : ''} ${(item.volume || item.issue) ? '&nbsp;&nbsp;' : ''}</span>
           <span>${item.funderName || ''} ${(item.funderName && item.awardTitle) ? '|' : ''} ${item.awardTitle || ''}</span>
           ${(item.magazineName || item.conferenceName || item.volume || item.issue || item.funderName || item.awardTitle) ? '<br>' : ''}
-          <span>${item.publicationDate}&nbsp;&nbsp;</span>
-          ${item.relation && item.relation.length > 0 ? `<span><a href="javascript:void(0)" class="relatedButton"><strong>${relation}</strong></a></span><span> </span>&nbsp;&nbsp;` : ''}
+          <span>${item.publicationDate} ${item.publicationDate ? '&nbsp;&nbsp;' : ''}</span>
+          ${item.relation && item.relation.length > 0 ? `<span><a href="javascript:void(0)" class="relatedButton"><strong>${relation}</strong></a></span><span> </span> ${item.relation && item.relation.length > 0 ? '&nbsp;&nbsp;' : ''}` : ''}
           ${item.fileSts
             ? `<span>${documentfile} (${item.fileCnt || 0})： ${published}（${item.publicCnt || 0}）、${embargo}（${item.embargoedCnt || 0}）、 ${restricted}（${item.restrictedPublicationCnt || 0}）</span>`
             : `<span>${documentfile} (0)</span>`}<span> </span><br>
