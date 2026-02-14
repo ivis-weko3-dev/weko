@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function () {
       let text_length = '';
       for (let i = 0; i < option.length; i++) {
         const next = text_length + option[i];
-        if (ctx.measureText(next).width >= 100) {
+        if (ctx.measureText(next).width >= 140) {
           break;
         }
         text_length = next;
@@ -315,7 +315,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const long_text = text_length + '...'
       hover= hoveredOption === option;
       const text =
-      ctx.measureText(option).width >= 100 &&(filterKey === 'funder_name' || filterKey === 'award_title')
+      ctx.measureText(option).width >= 140 &&(filterKey === 'funder_name' || filterKey === 'award_title')
         ? (hover ? option : long_text)
         : option 
       
@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', function () {
           onChange: function() { handleCheckboxChange(option); },
         }),
         React.createElement(
-        'span',{id: `e-${option}`,onMouseEnter: function(e) { if(ctx.measureText(option).width >= 100 &&(filterKey === 'funder_name' || filterKey === 'award_title'))
+        'span',{id: `e-${option}`,onMouseEnter: function(e) { if(ctx.measureText(option).width >= 140 &&(filterKey === 'funder_name' || filterKey === 'award_title'))
             { 
               let place = e.target.getBoundingClientRect();
               el=document.getElementById('tooltip-'+e.target.id.replace("e-",""))
@@ -352,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function () {
             {setHoveredOption();}
           }, 
           onMouseLeave: function() { setHoveredOption(); }},
-        ctx.measureText(option).width >= 100 &&(filterKey === 'funder_name' || filterKey === 'award_title') ? long_text : option
+        ctx.measureText(option).width >= 140 &&(filterKey === 'funder_name' || filterKey === 'award_title') ? long_text : option
       ),React.createElement(
         'span',
         { id: `tooltip-${option}`,style: hover? {display: 'block',backgroundColor: 'white', border: '1px solid #0f0e0eff',padding: '0px',position: 'fixed'} : {display: 'none'} },
