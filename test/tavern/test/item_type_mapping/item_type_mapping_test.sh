@@ -23,8 +23,8 @@ pytest_opts=""
 use_marker=0
 
 pytest_opts="$pytest_opts -v"
-TARGET_TEST_PATH="test/tavern/test/index/target_test.txt"
-ROLE_TEST_PATH="test/tavern/test/index/role_test.txt"
+TARGET_TEST_PATH="test/tavern/test/item_type_mapping/target_test.txt"
+ROLE_TEST_PATH="test/tavern/test/item_type_mapping/role_test.txt"
 if [ "$option_cmd" = "select" ]; then
   if [ ! -f "$TARGET_TEST_PATH" ] || [ ! -s "$TARGET_TEST_PATH" ]; then
     echo "エラー: $TARGET_TEST_PATH が存在しないか空です。"
