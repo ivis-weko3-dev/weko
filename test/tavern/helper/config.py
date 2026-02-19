@@ -6,6 +6,12 @@ DATABASE = {
   'password': 'dbpass123'
 }
 
+REDIS = {
+  'host': 'localhost',
+  'port': 26301,
+  'db': 0
+}
+
 USERS = {
   'sysadmin': {
     'email': 'wekosoftware@nii.ac.jp',
@@ -298,3 +304,5 @@ WEKO_RECORDS_UI_LICENSE_DICT = [
                '-NonCommercial-ShareAlike 4.0 International License.'
     },
 ]
+
+SKIP_HOOK_MARK = 'skip_before_hook'

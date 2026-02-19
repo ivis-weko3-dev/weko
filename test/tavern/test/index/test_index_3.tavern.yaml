@@ -1,0 +1,289 @@
+# Start System Administrator's Test
+test_name: システム管理者 ツリー編集画面表示 mAP有効 サーバ内部エラー
+
+includes:
+  - !include ../config.yaml
+
+marks:
+  - usefixtures:
+    - login_sysadmin
+  - tree_editing_display_map_enabled_internal_server_error
+  - system_admin
+
+stages:
+  - name: admin/indexedit
+    request:
+      url: "{host}/admin/indexedit/"
+      method: GET
+      verify: false
+    response:
+      status_code: 500
+      verify_response_with:
+        function: helper.index.verify_helper:verify_internal_server_error_html
+
+---
+test_name: システム管理者 ツリー編集画面表示 mAP有効 id指定 サーバ内部エラー
+
+includes:
+  - !include ../config.yaml
+
+marks:
+  - usefixtures:
+    - login_sysadmin
+  - tree_editing_display_map_enabled_select_id_internal_server_error
+  - system_admin
+
+stages:
+  - name: admin/indexedit
+    request:
+      url: "{host}/admin/indexedit/1623632832836"
+      method: GET
+      verify: false
+    response:
+      status_code: 500
+      verify_response_with:
+        function: helper.index.verify_helper:verify_internal_server_error_html
+
+# End System Administrator's Test
+---
+# Start Repository Administrator's Test
+test_name: リポジトリ管理者 ツリー編集画面表示 mAP有効 サーバ内部エラー
+
+includes:
+  - !include ../config.yaml
+
+marks:
+  - usefixtures:
+    - login_repoadmin
+  - tree_editing_display_map_enabled_internal_server_error
+  - repository_admin
+
+stages:
+  - name: admin/indexedit
+    request:
+      url: "{host}/admin/indexedit/"
+      method: GET
+      verify: false
+    response:
+      status_code: 500
+      verify_response_with:
+        function: helper.index.verify_helper:verify_internal_server_error_html
+
+---
+test_name: リポジトリ管理者 ツリー編集画面表示 mAP有効 id指定 サーバ内部エラー
+
+includes:
+  - !include ../config.yaml
+
+marks:
+  - usefixtures:
+    - login_repoadmin
+  - tree_editing_display_map_enabled_select_id_internal_server_error
+  - repository_admin
+
+stages:
+  - name: admin/indexedit
+    request:
+      url: "{host}/admin/indexedit/1623632832836"
+      method: GET
+      verify: false
+    response:
+      status_code: 500
+      verify_response_with:
+        function: helper.index.verify_helper:verify_internal_server_error_html
+
+# End Repository Administrator's Test
+---
+# Start Community Administrator's Test
+test_name: コミュニティ管理者 ツリー編集画面表示 mAP有効 サーバ内部エラー
+
+includes:
+  - !include ../config.yaml
+
+marks:
+  - usefixtures:
+    - login_comadmin
+  - tree_editing_display_map_enabled_internal_server_error
+  - community_admin
+
+stages:
+  - name: admin/indexedit
+    request:
+      url: "{host}/admin/indexedit/"
+      method: GET
+      verify: false
+    response:
+      status_code: 500
+      verify_response_with:
+        function: helper.index.verify_helper:verify_internal_server_error_html
+
+---
+test_name: コミュニティ管理者 ツリー編集画面表示 mAP有効 id指定 サーバ内部エラー
+
+includes:
+  - !include ../config.yaml
+
+marks:
+  - usefixtures:
+    - login_comadmin
+  - tree_editing_display_map_enabled_select_id_internal_server_error
+  - community_admin
+
+stages:
+  - name: admin/indexedit
+    request:
+      url: "{host}/admin/indexedit/1623632832836"
+      method: GET
+      verify: false
+    response:
+      status_code: 500
+      verify_response_with:
+        function: helper.index.verify_helper:verify_internal_server_error_html
+
+# End Community Administrator's Test
+---
+# Start Contributor's Test
+test_name: コントリビュータ ツリー編集画面表示 mAP有効 サーバ内部エラー
+
+includes:
+  - !include ../config.yaml
+
+marks:
+  - usefixtures:
+    - login_contributor
+  - tree_editing_display_map_enabled_internal_server_error
+  - contributor
+
+stages:
+  - name: admin/indexedit
+    request:
+      url: "{host}/admin/indexedit/"
+      method: GET
+      verify: false
+    response:
+      status_code: 403
+      verify_response_with:
+        function: helper.index.verify_helper:verify_forbidden_html
+
+---
+test_name: コントリビュータ ツリー編集画面表示 mAP有効 id指定 サーバ内部エラー
+
+includes:
+  - !include ../config.yaml
+
+marks:
+  - usefixtures:
+    - login_contributor
+  - tree_editing_display_map_enabled_select_id_internal_server_error
+  - contributor
+
+stages:
+  - name: admin/indexedit
+    request:
+      url: "{host}/admin/indexedit/1623632832836"
+      method: GET
+      verify: false
+    response:
+      status_code: 403
+      verify_response_with:
+        function: helper.index.verify_helper:verify_forbidden_html
+
+# End Contributor's Test
+---
+# Start User's Test
+test_name: 一般ユーザー ツリー編集画面表示 mAP有効 サーバ内部エラー
+
+includes:
+  - !include ../config.yaml
+
+marks:
+  - usefixtures:
+    - login_user
+  - tree_editing_display_map_enabled_internal_server_error
+  - user
+
+stages:
+  - name: admin/indexedit
+    request:
+      url: "{host}/admin/indexedit/"
+      method: GET
+      verify: false
+    response:
+      status_code: 403
+      verify_response_with:
+        function: helper.index.verify_helper:verify_forbidden_html
+
+---
+test_name: 一般ユーザー ツリー編集画面表示 mAP有効 id指定 サーバ内部エラー
+
+includes:
+  - !include ../config.yaml
+
+marks:
+  - usefixtures:
+    - login_user
+  - tree_editing_display_map_enabled_select_id_internal_server_error
+  - user
+
+stages:
+  - name: admin/indexedit
+    request:
+      url: "{host}/admin/indexedit/1623632832836"
+      method: GET
+      verify: false
+    response:
+      status_code: 403
+      verify_response_with:
+        function: helper.index.verify_helper:verify_forbidden_html
+
+# End User's Test
+---
+# Start Guest's Test
+test_name: ゲスト ツリー編集画面表示 mAP有効 サーバ内部エラー
+
+includes:
+  - !include ../config.yaml
+
+marks:
+  - tree_editing_display_map_enabled_internal_server_error
+  - guest
+
+stages:
+  - name: admin/indexedit
+    request:
+      url: "{host}/admin/indexedit/"
+      method: GET
+      verify: false
+    response:
+      status_code: 302
+      verify_response_with:
+        function: helper.index.verify_helper:verify_location_header
+        extra_kwargs:
+          expected_location: "{host}/admin/indexedit/"
+          host: "{host}"
+
+---
+test_name: ゲスト ツリー編集画面表示 mAP有効 id指定 サーバ内部エラー
+
+includes:
+  - !include ../config.yaml
+
+marks:
+  - tree_editing_display_map_enabled_select_id_internal_server_error
+  - guest
+
+stages:
+  - name: admin/indexedit
+    request:
+      url: "{host}/admin/indexedit/1623632832836"
+      method: GET
+      verify: false
+    response:
+      status_code: 302
+      verify_response_with:
+        function: helper.index.verify_helper:verify_location_header
+        extra_kwargs:
+          expected_location: "{host}/admin/indexedit/1623632832836"
+          host: "{host}"
+
+# End Guest's Test
