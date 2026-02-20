@@ -37,7 +37,6 @@ entity_id=$(grep '^    entity_id:' "$CONFIG_PATH" | awk '{print $2}')
 test_file1=$(grep '^    index_test_file1:' "$CONFIG_PATH" | awk '{print $2}')
 test_file2=$(grep '^    index_test_file2:' "$CONFIG_PATH" | awk '{print $2}')
 test_file3=$(grep '^    index_test_file3:' "$CONFIG_PATH" | awk '{print $2}')
-test_file4=$(grep '^    index_test_file4:' "$CONFIG_PATH" | awk '{print $2}')
 depth=$(grep '^    depth:' "$CONFIG_PATH" | awk '{print $2}')
 num_per_level=$(grep '^    num_per_level:' "$CONFIG_PATH" | awk '{print $2}')
 
