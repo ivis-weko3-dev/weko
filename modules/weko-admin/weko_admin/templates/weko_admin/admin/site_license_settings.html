@@ -130,6 +130,10 @@
                       ng-model="ipAddressRangeDetail.finish_ip_address[3]"
                       ng-keyup="chcckStr(ipAddressRangeDetail.finish_ip_address[3],$parent.$index)"
                       size="1" maxlength="3" placeholder="0">
+                      <a type="button" class="btn btn-danger" style="margin-left: 8px;" ng-click="removeipaddress($index,ipDetail)" ng-if="ipDetail.addresses.length>1"> 
+                            <span class="glyphicon glyphicon-trash"></span>&nbsp
+                               {{_('Delete')}}
+                      </a>
                       <p></p>
                     </div>
                     <span id="span_[[$index]]" style="color:red" ng-show="ipCheckFlgArry[ipIndex].ipCheckFlg" class="ng-hide">{{_('Please input a correct number')}}</span>

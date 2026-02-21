@@ -55,6 +55,11 @@
          var ipAddressRange = {start_ip_address:[],finish_ip_address:[]};
          $scope.dbJson.site_license[ipIndex].addresses.push(ipAddressRange);
       }
+
+      $scope.removeipaddress = function(ipIndex,index) {
+        index.addresses.splice(ipIndex,1)
+      }
+      
       //add a new site License
       $scope.addNewRowSiteLicense = function() {
          var siteLicenseJson = {
