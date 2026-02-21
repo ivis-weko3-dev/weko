@@ -38,7 +38,7 @@
       <table class="table table-striped table-bordered">
         <thead>
           <tr>
-            <th style="text-align: center; margin-top: 3px; margin-bottom: 3px;">送信<br><input type="checkbox" id="all-check"> </th>
+            <th style="text-align: center; padding-top: 1px; padding-bottom: 1px;">{{_('Send')}}<br><input type="checkbox" id="all-check"> </th>
             <th style="vertical-align: middle;">{{_('Organization')}}</th>
             <th style="vertical-align: middle;">{{_('Email Address')}}</th>
           </tr>
@@ -83,7 +83,7 @@
           <td align="center"  style="width:150px">
             <label class="radio-inline" for="enable_auto_send">
               <input type="radio" name="dis_enable_auto_send" id="enable_auto_send" value="True" {{ 'checked' if auto_send else '' }}>
-              {{_('Send')}}
+              {{_('Enable')}}
             </label>
           </td>
           <td align="center" style="width:150px">
