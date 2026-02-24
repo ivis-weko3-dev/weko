@@ -169,7 +169,7 @@ def main():
         forbidden_content = f.read().splitlines()
     result = find_files_in_matching_folders(target_dir)
     print(f"Found {len(result)} files in folders matching '{target_dir}'")
-    create_test_cases(result, success_content, forbidden_content, output_file, exe_type)
+    create_test_cases(result, success_content, redirect_content, forbidden_content, output_file, exe_type)
 
 if __name__ == "__main__":
     main()
