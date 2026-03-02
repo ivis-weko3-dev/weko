@@ -41,10 +41,7 @@ $('input:checkbox[id^="send_mail_flag_"]').change(function() {
 
 $('#save_settings').on('click', function() {
     let auto_send_flag = $('input:radio[id="enable_auto_send"]')[0].checked ? true : false;
-    let check_list = Array.from(document.querySelectorAll("[id^=send_mail_flag_]")).filter(el => el.disabled === false);
-    const allChecked = Array.from(check_list).every(el => el.checked);
     let data = {};
-    sessionStorage.setItem("allcheck",allChecked)
     data['auto_send_flag'] = auto_send_flag;
     data['checked_list'] = checked_list
     $.ajax({
@@ -86,11 +83,13 @@ $('#all-check').on('change', function () {
 })
 
 $(document).ready(function(){
-  if(sessionStorage.getItem("allcheck") == "true"){
+   let check_list = Array.from(document.querySelectorAll("[id^=send_mail_flag_]")).filter(el => el.disabled === false);
+   const allChecked = check_list.length>0 && Array.from(check_list).every(el => el.checked);
+
+   if(allChecked){
           $('#all-check').prop('checked',true)
         }
-  else if(sessionStorage.getItem("allcheck") == "false"){
+        else{
           $('#all-check').prop('checked',false)
         }
-  sessionStorage.clear()
 });
