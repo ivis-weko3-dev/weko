@@ -170,8 +170,8 @@
 
 function rangeCheck($scope){
    const dbjosn = $scope.dbJson;
-   for(let chk1=0; chk1<dbjosn.site_license.length;chk1++){
-        for(let chk2=0; chk2<dbjosn.site_license[chk1].addresses.length;chk2++){
+   for(let chk1=0;chk1<dbjosn.site_license.length;chk1++){
+        for(let chk2=0;chk2<dbjosn.site_license[chk1].addresses.length;chk2++){
              let saddr = "";
              let faddr = "";
              for(let i=0; i<4; i++){
