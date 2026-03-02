@@ -28,10 +28,10 @@
       $scope.fetch=function(result){
         $scope.dbJson = angular.fromJson(result.slice(2,-2).replace(/\n/g,'\\n'));
         console.log($scope.dbJson);
-        for(var i=0;i < $scope.dbJson.site_license.length;i++){
+        for(let i=0;i < $scope.dbJson.site_license.length;i++){
           $scope.ipCheckFlgArry[i] =[];
-          for(var j=0;j < $scope.dbJson.site_license[i].addresses.length; j++){
-            var b = {ipCheckFlg:false,ipRangeCheck:false};
+          for(let j=0;j < $scope.dbJson.site_license[i].addresses.length; j++){
+            const b = {ipCheckFlg:false,ipRangeCheck:false};
             $scope.ipCheckFlgArry[i][j]=b;
           }
         }
@@ -57,13 +57,13 @@
       $scope.addNewRowRange = function(ipIndex) {
          var ipAddressRange = {start_ip_address:[],finish_ip_address:[]};
          $scope.dbJson.site_license[ipIndex].addresses.push(ipAddressRange);
-         var subCheckFlg = {ipCheckFlg:false,ipRangeCheck:false};
+         const subCheckFlg = {ipCheckFlg:false,ipRangeCheck:false};
          $scope.ipCheckFlgArry[ipIndex].push(subCheckFlg);
       }
 
-      $scope.removeipaddress = function(ipIndex,index,index2) {
-        index.addresses.splice(ipIndex,1)
-        $scope.ipCheckFlgArry[index2].splice(ipIndex,1)
+      $scope.removeIpAddress = function(ipIndex,index,index2) {
+        index.addresses.splice(ipIndex,1);
+        $scope.ipCheckFlgArry[index2].splice(ipIndex,1);
       }
       
       //add a new site License
@@ -109,15 +109,19 @@
       }
       //commit
       $scope.commitData=function(){
-        rangecheck($scope);
-        isError = false
-        for(var i=0;i < $scope.dbJson.site_license.length;i++){
-          for(var j=0;j < $scope.dbJson.site_license[i].addresses.length; j++){
+        rangeCheck($scope);
+        let isError = false;
+
+        outerLoop:
+        for(let i=0;i < $scope.dbJson.site_license.length;i++){
+          for(let j=0;j < $scope.dbJson.site_license[i].addresses.length; j++){
             if($scope.ipCheckFlgArry[i][j].ipCheckFlg === true || $scope.ipCheckFlgArry[i][j].ipRangeCheck === true ){
-                isError = true
+                isError = true;
+                break outerLoop;
             }
           }
         }
+
         if (!isError) {
           var url = $location.path();
           dbJson = $scope.dbJson;
@@ -131,7 +135,7 @@
       }
 
       //入力チェック
-      $scope.chcckStr=function(str,p_index,index){
+      $scope.checkStr=function(str,p_index,index){
         var checkStr1 = /^(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])$/; //正整数
         var flg = checkStr1.test(str);
         if(!flg){
@@ -140,7 +144,6 @@
         }else{
           $scope.ipCheckFlgArry[p_index][index].ipCheckFlg = false;
         }
-        rangecheck($scope)
       }
     }
     // Inject depedencies
@@ -165,18 +168,18 @@
   });
 })(angular);
 
-function rangecheck($scope){
-   var dbjosn = $scope.dbJson;
-   for(var chk1 in dbjosn.site_license){
-        for(var chk2 in dbjosn.site_license[chk1].addresses){
-             var saddr = "";
-             var faddr = "";
-             for(var i=0; i<4; i++){
-                tmp_s=dbjosn.site_license[chk1].addresses[chk2].start_ip_address[i];
+function rangeCheck($scope){
+   const dbjosn = $scope.dbJson;
+   for(let chk1=0; chk1<dbjosn.site_license.length;chk1++){
+        for(let chk2=0; chk2<dbjosn.site_license[chk1].addresses.length;chk2++){
+             let saddr = "";
+             let faddr = "";
+             for(let i=0; i<4; i++){
+                let tmp_s=dbjosn.site_license[chk1].addresses[chk2].start_ip_address[i];
                 if (typeof tmp_s!=='undefined' && tmp_s.length > 0) {
                   saddr += ("00" + tmp_s).slice(-3);
                 }
-                tmp_f=dbjosn.site_license[chk1].addresses[chk2].finish_ip_address[i]
+                let tmp_f=dbjosn.site_license[chk1].addresses[chk2].finish_ip_address[i]
                 if (typeof tmp_f!=='undefined' && tmp_f.length > 0) {
                   faddr += ("00" + tmp_f).slice(-3);
                 }

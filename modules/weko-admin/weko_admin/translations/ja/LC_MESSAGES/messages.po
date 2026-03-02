@@ -1528,12 +1528,12 @@ msgid "(from - to)"
 msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/site_license_settings.html:135
-msgid "Please input a correct number"
-msgstr "正しい番号を入力してください"
+msgid "Please input a correct number."
+msgstr "正しい番号を入力してください。"
 
 #: weko_admin/templates/weko_admin/admin/site_license_settings.html:136
-msgid "The range of ipAddress is not correct"
-msgstr "IPアドレスの範囲が正しくありません"
+msgid "The range of ipAddress is not correct."
+msgstr "IPアドレスの範囲が正しくありません。"
 
 #: weko_admin/templates/weko_admin/admin/site_license_settings.html:142
 #: weko_admin/templates/weko_admin/admin/site_license_settings.html:153
