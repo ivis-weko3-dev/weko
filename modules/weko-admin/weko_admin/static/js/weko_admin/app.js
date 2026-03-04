@@ -178,8 +178,8 @@ function rangeCheck($scope){
           if (typeof tmp_s!=='undefined' && tmp_s.length > 0) {
               saddr += ("00" + tmp_s).slice(-3);
             }
-            let tmp_f=dbjosn.site_license[chk1].addresses[chk2].finish_ip_address[i]
-            if (typeof tmp_f!=='undefined' && tmp_f.length > 0) {
+          let tmp_f=dbjosn.site_license[chk1].addresses[chk2].finish_ip_address[i]
+          if (typeof tmp_f!=='undefined' && tmp_f.length > 0) {
               faddr += ("00" + tmp_f).slice(-3);
             }
           }
