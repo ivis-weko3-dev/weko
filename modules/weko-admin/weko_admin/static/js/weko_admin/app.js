@@ -140,7 +140,6 @@
         var flg = checkStr1.test(str);
         if(!flg){
           $scope.ipCheckFlgArry[p_index][index].ipCheckFlg = true;
-          return
         }else{
           $scope.ipCheckFlgArry[p_index][index].ipCheckFlg = false;
         }
@@ -169,31 +168,31 @@
 })(angular);
 
 function rangeCheck($scope){
-   const dbjosn = $scope.dbJson;
-   for(let chk1=0;chk1<dbjosn.site_license.length;chk1++){
-        for(let chk2=0;chk2<dbjosn.site_license[chk1].addresses.length;chk2++){
-             let saddr = "";
-             let faddr = "";
-             for(let i=0; i<4; i++){
-                let tmp_s=dbjosn.site_license[chk1].addresses[chk2].start_ip_address[i];
-                if (typeof tmp_s!=='undefined' && tmp_s.length > 0) {
-                  saddr += ("00" + tmp_s).slice(-3);
-                }
-                let tmp_f=dbjosn.site_license[chk1].addresses[chk2].finish_ip_address[i]
-                if (typeof tmp_f!=='undefined' && tmp_f.length > 0) {
-                  faddr += ("00" + tmp_f).slice(-3);
-                }
-             }
+  const dbjosn = $scope.dbJson;
+    for(let chk1=0;chk1<dbjosn.site_license.length;chk1++){
+      for(let chk2=0;chk2<dbjosn.site_license[chk1].addresses.length;chk2++){
+        let saddr = "";
+        let faddr = "";
+        for(let i=0; i<4; i++){
+          let tmp_s=dbjosn.site_license[chk1].addresses[chk2].start_ip_address[i];
+          if (typeof tmp_s!=='undefined' && tmp_s.length > 0) {
+              saddr += ("00" + tmp_s).slice(-3);
+            }
+            let tmp_f=dbjosn.site_license[chk1].addresses[chk2].finish_ip_address[i]
+            if (typeof tmp_f!=='undefined' && tmp_f.length > 0) {
+              faddr += ("00" + tmp_f).slice(-3);
+            }
+          }
              
-             if (!saddr || !faddr){
-                $scope.ipCheckFlgArry[chk1][chk2].ipCheckFlg = true;
-             }
-             else if (parseInt(saddr) > parseInt(faddr)){
-                $scope.ipCheckFlgArry[chk1][chk2].ipRangeCheck = true;
-             }
-             else{
-                $scope.ipCheckFlgArry[chk1][chk2].ipRangeCheck = false;
-             }
-           }
+          if (!saddr || !faddr){
+            $scope.ipCheckFlgArry[chk1][chk2].ipCheckFlg = true;
+          }
+          else if (parseInt(saddr) > parseInt(faddr)){
+            $scope.ipCheckFlgArry[chk1][chk2].ipRangeCheck = true;
+          }
+          else{
+            $scope.ipCheckFlgArry[chk1][chk2].ipRangeCheck = false;
+          }
         }
+    }
 }
