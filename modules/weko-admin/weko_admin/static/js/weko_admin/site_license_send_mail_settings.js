@@ -70,26 +70,25 @@ function paddingLeft(str,lenght){
 
 $('#all-check').on('change', function () {
   document.querySelectorAll('[id^="send_mail_flag_"]').forEach(el => {
-  if (el.disabled == false)
-    if($('#all-check').prop('checked') == true){
+  if (!(el.disabled))
+    if($('#all-check').prop('checked')){
       el.checked = true;
-      checked_list[el.name] = 'T'
+      checked_list[el.name] = 'T';
     }
     else{
       el.checked = false;
       checked_list[el.name] = 'F';
     }
   })
-})
+});
 
 $(document).ready(function(){
-   let check_list = Array.from(document.querySelectorAll("[id^=send_mail_flag_]")).filter(el => el.disabled === false);
-   const allChecked = check_list.length>0 && Array.from(check_list).every(el => el.checked);
-
-   if(allChecked){
-          $('#all-check').prop('checked',true)
-        }
-        else{
-          $('#all-check').prop('checked',false)
-        }
+  let checkList = Array.from(document.querySelectorAll("[id^=send_mail_flag_]")).filter(el => el.disabled === false);
+  const allChecked = checkList.length>0 && Array.from(checkList).every(el => el.checked);
+  if(allChecked){
+      $('#all-check').prop('checked',true);
+    }
+    else{
+      $('#all-check').prop('checked',false);
+    }
 });
