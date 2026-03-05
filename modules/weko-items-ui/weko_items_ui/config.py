@@ -284,7 +284,7 @@ WEKO_ITEMS_UI_CRIS_LINKAGE_RESEARCHMAP_MAPPINGS = [
         ,{ 'type' : 'lang' , "rm_name" : 'presentation_title', "jpcoar_name" : 'dc:title' , "weko_name" :"title"}
         ,{ 'type' : 'lang' , "rm_name" : 'work_title', "jpcoar_name" : 'dc:title' , "weko_name" :"title"}
         ,{ 'type' : 'lang' , "rm_name" : 'other_title', "jpcoar_name" : 'dc:title' , "weko_name" :"title"}
-        
+
         ,{'type' : 'lang' , "rm_name" : 'description', "jpcoar_name" : 'datacite:description' , "weko_name" :"description"}
         ,{'type' : 'lang' , "rm_name" : 'publisher',   "jpcoar_name" : 'dc:publisher' , "weko_name" :"publisher"}
         ,{'type' : 'lang' , "rm_name" : 'publication_name',   "jpcoar_name" : 'jpcoar:sourceTitle' , "weko_name" :"sourceTitle"}
@@ -385,3 +385,13 @@ LINKAGE_MQ_QUEUE = Queue("cris_researchmap_linkage", exchange=LINKAGE_MQ_EXCHANG
 
 WEKO_ITEMS_UI_PROXY_POSTING = False
 """Setting for multiple proxy posters."""
+
+WEKO_ITEMS_UI_BULK_IMPORT_TIMEOUT = 60
+""" Timeout(seconds) for bulk import task status checking. """
+
+WEKO_ITEMS_UI_EXPIRE_TIME = 24
+""" Expire time(hours) for bulk import task data stored in Redis. """
+
+WEKO_ITEMS_UI_BULK_IMPORT_ENABLE_ROLE = [
+    "System Administrator", "Repository Administrator"]
+""" Roles that are allowed to use bulk import feature. """
