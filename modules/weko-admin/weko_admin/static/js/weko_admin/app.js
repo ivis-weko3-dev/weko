@@ -182,17 +182,17 @@ function rangeCheck($scope){
           if (typeof tmp_f!=='undefined' && tmp_f.length > 0) {
               faddr += ("00" + tmp_f).slice(-3);
             }
-          }
-             
-          if (!saddr || !faddr){
-            $scope.ipCheckFlgArry[chk1][chk2].ipCheckFlg = true;
-          }
-          else if (parseInt(saddr) > parseInt(faddr)){
-            $scope.ipCheckFlgArry[chk1][chk2].ipRangeCheck = true;
-          }
-          else{
-            $scope.ipCheckFlgArry[chk1][chk2].ipRangeCheck = false;
-          }
         }
+             
+        if (!saddr || !faddr){
+          $scope.ipCheckFlgArry[chk1][chk2].ipCheckFlg = true;
+        }
+        else if (parseInt(saddr) > parseInt(faddr)){
+          $scope.ipCheckFlgArry[chk1][chk2].ipRangeCheck = true;
+        }
+        else{
+          $scope.ipCheckFlgArry[chk1][chk2].ipRangeCheck = false;
+        }
+      }
     }
 }
