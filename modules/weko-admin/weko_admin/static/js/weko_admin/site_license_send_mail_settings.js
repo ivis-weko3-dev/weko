@@ -70,7 +70,7 @@ function paddingLeft(str,lenght){
 
 $('#all-check').on('change', function () {
   document.querySelectorAll('[id^="send_mail_flag_"]').forEach(el => {
-  if (!(el.disabled))
+  if (!(el.disabled)){
     if($('#all-check').prop('checked')){
       el.checked = true;
       checked_list[el.name] = 'T';
@@ -79,6 +79,7 @@ $('#all-check').on('change', function () {
       el.checked = false;
       checked_list[el.name] = 'F';
     }
+   }
   })
 });
 
