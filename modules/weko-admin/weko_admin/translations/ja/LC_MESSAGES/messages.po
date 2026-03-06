@@ -1472,13 +1472,12 @@ msgid ""
 msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:42
-#, fuzzy
 msgid "Organization"
-msgstr "組織名"
+msgstr "機関名"
 
 #: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:76
 msgid "Automatic Send"
-msgstr ""
+msgstr "メール自動送信"
 
 #: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:79
 msgid ""
