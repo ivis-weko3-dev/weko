@@ -1064,7 +1064,13 @@ class CheckComponent extends React.Component {
                               className="form-control"
                               type="text"
                               name="list_doi"
-                              value={this.state.temp_inputs?.[key]?.bulk_doi ?? item.bulk_doi ?? undefined}
+                              value={
+                                (this.state.temp_inputs &&
+                                  this.state.temp_inputs[key] &&
+                                  this.state.temp_inputs[key].bulk_doi) ||
+                                item.bulk_doi ||
+                                undefined
+                              }
                               data-key={key}
                               onChange={this.handleOnInputChanged}
                               onBlur={this.handleOnInputBlur}
