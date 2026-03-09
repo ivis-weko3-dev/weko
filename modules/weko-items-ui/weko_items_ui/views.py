@@ -1836,7 +1836,7 @@ def register_bulk_import_task():
             return Response(json.dumps({
                     "result": "NG",
                     "error": [ f"Not found {filename} in request body." ]
-                }), content_type="application/json; charset=utf-8", status=404)
+                }), content_type="application/json; charset=utf-8", status=400)
 
         mode = request.args.get("mode", "import").lower()
         if mode not in ["import", "check"]:
@@ -2087,7 +2087,7 @@ def get_bulk_import_task_status(task_id):
         except Exception:
             return Response(json.dumps({
                 "result": "NG",
-                "error": ["Task data decode error"]
+                "error": ["Task data decode error."]
             }, ensure_ascii=False, indent=2),
             content_type="application/json; charset=utf-8", status=400)
 
@@ -2099,7 +2099,7 @@ def get_bulk_import_task_status(task_id):
         if str(user_id) != task_user_id:
             return Response(json.dumps({
                 "result": "NG",
-                "error": ["Permission denied"]
+                "error": ["Permission denied."]
             }, ensure_ascii=False, indent=2),
             content_type="application/json; charset=utf-8", status=403)
 
@@ -2146,6 +2146,6 @@ def get_bulk_import_task_status(task_id):
     except Exception as error:
         return Response(json.dumps({
             "result": "NG",
-            "error": [f"Task check failed: {error}"]
+            "error": [f"Task check failed.: {error}"]
         }, ensure_ascii=False, indent=2),
         content_type="application/json; charset=utf-8", status=400)

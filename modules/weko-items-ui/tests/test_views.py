@@ -21984,7 +21984,7 @@ def test_register_bulk_import_task(app, client_api, users, tokens, make_zip,
     file_storage = FileStorage(filename=None, stream=zip_file)
     res = client_api.post(url, data={"file": file_storage},
                           headers=headers, content_type="multipart/form-data")
-    assert res.status_code == 404
+    assert res.status_code == 400
     assert res.json == {"result": "NG", "error": [
         "Not found invalid.zip in request body."]}
 
@@ -22384,7 +22384,7 @@ def test_register_bulk_import_is_change_identifier(
 
                 "result": "NG",
                 "error": [
-                    "Task check failed: 'DisabledBackend' object has no "
+                    "Task check failed.: 'DisabledBackend' object has no "
                     "attribute '_get_task_meta_for'"],
             },
         ),
@@ -22402,7 +22402,7 @@ def test_register_bulk_import_is_change_identifier(
             "invalid_json",
             "1",
             400,
-            {"result": "NG", "error": ["Task data decode error"]},
+            {"result": "NG", "error": ["Task data decode error."]},
         ),
         # 異常系: ユーザーIDが一致しない場合
         (
@@ -22416,7 +22416,7 @@ def test_register_bulk_import_is_change_identifier(
             },
             "1",
             403,
-            {"result": "NG", "error": ["Permission denied"]},
+            {"result": "NG", "error": ["Permission denied."]},
         ),
         # 異常系: タスクのステータスがエラーの場合
         (
