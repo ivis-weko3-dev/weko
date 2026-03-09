@@ -612,16 +612,20 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
                 dict: accessrights search query
             """
             weko_search_fix_accessrights = current_app.config.get(
-                'WEKO_SEARCH_FIX_ACCESSRIGHTS', False)
+                'WEKO_SEARCH_FIX_ACCESSRIGHTS', False
+            )
             if not weko_search_fix_accessrights:
                 return None
+
             accessrights_value = params.get('accessrights')
             if not accessrights_value:
                 return None
+
             if ',' in accessrights_value:
                 accessrights_value = ' OR '.join([
                     v.strip() for v in accessrights_value.split(',') if v.strip()
                 ])
+
             accessrights_list = _split_text_by_or(accessrights_value)
             weko_access_rights_choices = current_app.config.get(
                 'WEKO_ACCESS_RIGHTS_CHOICES', [
@@ -629,12 +633,14 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
                     'metadata only access',
                     'open access',
                     'restricted access',
-                ])
+                ]
+            )
             accessrights_list = [
                 v for v in accessrights_list if v in weko_access_rights_choices
             ]
             if not accessrights_list:
                 return None
+
             now = datetime.now(timezone.utc).isoformat()
 
             def open_access_query(now):
@@ -672,7 +678,10 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
                         ]))
                     ],
                     must_not=[
-                        Q('nested', path='content', query=Q('term', **{'content.accessrole.raw': 'open_restricted'}))
+                        Q(
+                            'nested', path='content',
+                            query=Q('term', **{'content.accessrole.raw': 'open_restricted'})
+                        )
                     ]
                 )
 
@@ -684,7 +693,10 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
                         Q('term', accessRights='restricted access'),
                         Q('bool', must=[
                             Q('term', accessRights='embargoed access'),
-                            Q('nested', path='content', query=Q('term', **{'content.accessrole.raw': 'open_login'})),
+                            Q(
+                                'nested', path='content',
+                                query=Q('term', **{'content.accessrole.raw': 'open_login'})
+                            ),
                             Q('bool', must_not=[
                                 Q('nested', path='content', query=Q('bool', must=[
                                     Q('term', **{'content.accessrole.raw': 'open_date'}),

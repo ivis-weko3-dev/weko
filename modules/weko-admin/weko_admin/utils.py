@@ -2198,15 +2198,23 @@ def create_facet_search_query():
             val = facet.mapping
             # Update agg query for has permission.
             agg_has_permission_query.update(
-                create_agg_by_aggregations(facet.aggregations, key, val))
+                create_agg_by_aggregations(facet.aggregations, key, val)
+            )
             # Update agg query for no permission.
             facet.aggregations.append(
-                {'agg_mapping': 'publish_status', 'agg_value': PublishStatus.PUBLIC.value})
+                {
+                    'agg_mapping': 'publish_status',
+                    'agg_value': PublishStatus.PUBLIC.value
+                }
+            )
             agg_no_permission_query.update(
-                create_agg_by_aggregations(facet.aggregations, key, val))
+                create_agg_by_aggregations(facet.aggregations, key, val)
+            )
         import copy
         # Add aggregation conditions for accessRights
-        ACCESSRIGHTS_FIX_ENABLED = current_app.config.get("WEKO_SEARCH_FIX_ACCESSRIGHTS", False)
+        ACCESSRIGHTS_FIX_ENABLED = current_app.config.get(
+            "WEKO_SEARCH_FIX_ACCESSRIGHTS", False
+        )
         ACCESS_RIGHTS_CHOICES = current_app.config.get(
             "WEKO_ACCESS_RIGHTS_CHOICES",
             [
@@ -2227,12 +2235,24 @@ def create_facet_search_query():
                             "query": {
                                 "bool": {
                                     "should": [
-                                        {"term": {"content.accessrole.raw": "open_access"}},
+                                        {"term": {
+                                            "content.accessrole.raw": "open_access"
+                                        }},
                                         {
                                             "bool": {
                                                 "must": [
-                                                    {"term": {"content.accessrole.raw": "open_date"}},
-                                                    {"range": {"content.date.dateValue.raw": {"lte": "@date"}}}
+                                                    {
+                                                        "term": {
+                                                            "content.accessrole.raw": "open_date"
+                                                        }
+                                                    },
+                                                    {
+                                                        "range": {
+                                                            "content.date.dateValue.raw": {
+                                                                "lte": "@date"
+                                                            }
+                                                        }
+                                                    }
                                                 ]
                                             }
                                         }
@@ -2255,8 +2275,18 @@ def create_facet_search_query():
                                         {
                                             "bool": {
                                                 "must": [
-                                                    {"term": {"content.accessrole.raw": "open_date"}},
-                                                    {"range": {"content.date.dateValue.raw": {"gt": "@date"}}}
+                                                    {
+                                                        "term": {
+                                                            "content.accessrole.raw": "open_date"
+                                                        }
+                                                    },
+                                                    {
+                                                        "range": {
+                                                            "content.date.dateValue.raw": {
+                                                                "gt": "@date"
+                                                            }
+                                                        }
+                                                    }
                                                 ]
                                             }
                                         }
@@ -2270,7 +2300,11 @@ def create_facet_search_query():
                     {
                         "nested": {
                             "path": "content",
-                            "query": {"term": {"content.accessrole.raw": "open_restricted"}}
+                            "query": {
+                                "term": {
+                                    "content.accessrole.raw": "open_restricted"
+                                }
+                            }
                         }
                     }
                 ]
@@ -2282,7 +2316,11 @@ def create_facet_search_query():
                     {
                         "nested": {
                             "path": "content",
-                            "query": {"term": {"content.accessrole.raw": "open_restricted"}}
+                            "query": {
+                                "term": {
+                                    "content.accessrole.raw": "open_restricted"
+                                }
+                            }
                         }
                     },
                     {
@@ -2291,7 +2329,11 @@ def create_facet_search_query():
                                 {
                                     "nested": {
                                         "path": "content",
-                                        "query": {"term": {"content.accessrole.raw": "open_login"}}
+                                        "query": {
+                                            "term": {
+                                                "content.accessrole.raw": "open_login"
+                                            }
+                                        }
                                     }
                                 },
                                 {
@@ -2303,8 +2345,18 @@ def create_facet_search_query():
                                                     "query": {
                                                         "bool": {
                                                             "must": [
-                                                                {"term": {"content.accessrole.raw": "open_date"}},
-                                                                {"range": {"content.date.dateValue.raw": {"gt": "@date"}}}
+                                                                {
+                                                                    "term": {
+                                                                        "content.accessrole.raw": "open_date"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "range": {
+                                                                        "content.date.dateValue.raw": {
+                                                                            "gt": "@date"
+                                                                        }
+                                                                    }
+                                                                }
                                                             ]
                                                         }
                                                     }
@@ -2319,7 +2371,9 @@ def create_facet_search_query():
                 ]
             },
             "metadata only access": {
-                "term": {"accessRights": "metadata only access"}
+                "term": {
+                    "accessRights": "metadata only access"
+                }
             }
         }
         def _replace_date(obj, now):
@@ -2334,18 +2388,34 @@ def create_facet_search_query():
                 for v in obj:
                     _replace_date(v, now)
         if ACCESSRIGHTS_FIX_ENABLED:
-            access_rights = next((facet for facet in facets if facet.mapping == "accessRights"), None)
+            access_rights = next(
+                (facet for facet in facets if facet.mapping == "accessRights"),
+                None
+            )
             if access_rights:
                 now = datetime.now().strftime("%Y-%m-%d")
-                must = [dict(term={d["agg_mapping"]: d["agg_value"]}) for d in access_rights.aggregations]
-                new_access_rights = {"new_accessRights": {"filters": {"filters": {}}}}
+                must = [
+                    dict(term={d["agg_mapping"]: d["agg_value"]})
+                    for d in access_rights.aggregations
+                ]
+                new_access_rights = {
+                    "new_accessRights": {
+                        "filters": {
+                            "filters": {}
+                        }
+                    }
+                }
                 for access_type in ACCESS_RIGHTS_CHOICES:
-                    query_template = copy.deepcopy(ACCESS_RIGHTS_QUERY_TEMPLATE.get(access_type, {}))
+                    query_template = copy.deepcopy(
+                        ACCESS_RIGHTS_QUERY_TEMPLATE.get(access_type, {})
+                    )
                     _replace_date(query_template, now)
                     must_copy = copy.deepcopy(must)
                     if query_template:
                         must_copy.append(query_template)
-                    new_access_rights["new_accessRights"]["filters"]["filters"][access_type] = {"bool": {"must": must_copy}}
+                    new_access_rights["new_accessRights"]["filters"]["filters"][
+                        access_type
+                    ] = {"bool": {"must": must_copy}}
                 agg_has_permission_query.update(new_access_rights)
                 agg_no_permission_query.update(new_access_rights)
         return agg_has_permission_query, agg_no_permission_query

@@ -6160,7 +6160,9 @@ def fix_aggregations_accessrights(data):
     """
     from flask import current_app
     from weko_admin.models import FacetSearchSetting
-    ACCESSRIGHTS_FIX_ENABLED = current_app.config.get("WEKO_SEARCH_FIX_ACCESSRIGHTS", False)
+    ACCESSRIGHTS_FIX_ENABLED = current_app.config.get(
+        "WEKO_SEARCH_FIX_ACCESSRIGHTS", False
+    )
     ACCESS_RIGHTS_CHOICES = current_app.config.get(
         "WEKO_ACCESS_RIGHTS_CHOICES",
         [
@@ -6173,15 +6175,22 @@ def fix_aggregations_accessrights(data):
     aggs = data['aggregations']
     if not ACCESSRIGHTS_FIX_ENABLED:
         return data
+
     # Get mapping for accessRights facets
     mapping = FacetSearchSetting.get_activated_facets_mapping()
-    accessrights_keys = [k for k, v in mapping.items() if v == "accessRights"]
+    accessrights_keys = [
+        k for k, v in mapping.items() if v == "accessRights"
+    ]
     if "new_accessRights" not in aggs or not accessrights_keys:
         return data
+
     new_accessrights = aggs["new_accessRights"]
     buckets_dict = new_accessrights.get("buckets", {})
-    if not any(right in buckets_dict for right in ACCESS_RIGHTS_CHOICES):
+    if not any(
+        right in buckets_dict for right in ACCESS_RIGHTS_CHOICES
+    ):
         return data
+
     buckets = []
     for right in ACCESS_RIGHTS_CHOICES:
         value = buckets_dict.get(right)
