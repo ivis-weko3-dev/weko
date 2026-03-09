@@ -214,10 +214,11 @@ class Record(RecordBase):
         Args:
             record_metadata (dict): Record metadata.
         """
-        from weko_records.utils import replace_fqdn_of_file_metadata
+        from weko_records.utils import replace_fqdn_of_file_metadata, update_embargo_rights
         for k, v in record_metadata.items():
             if isinstance(v, dict) and v.get('attribute_type') == 'file':
                 replace_fqdn_of_file_metadata(v.get("attribute_value_mlt", []))
+        update_embargo_rights(record_metadata)
 
     @classmethod
     def get_records(cls, ids, with_deleted=False):

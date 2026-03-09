@@ -6149,3 +6149,53 @@ def check_provide_in_system(key, item):
                 is_provide_exist[idx] = False
                 break
     return all(is_provide_exist)
+
+def fix_aggregations_accessrights(data):
+    """
+    Refactor accessrights aggregation in search result for compliance.
+    Args:
+        data (dict): Aggregation result from search response.
+    Returns:
+        dict: Modified aggregation result.
+    """
+    from flask import current_app
+    from weko_admin.models import FacetSearchSetting
+    ACCESSRIGHTS_FIX_ENABLED = current_app.config.get("WEKO_SEARCH_FIX_ACCESSRIGHTS", False)
+    ACCESS_RIGHTS_CHOICES = current_app.config.get(
+        "WEKO_ACCESS_RIGHTS_CHOICES",
+        [
+            "embargoed access",
+            "metadata only access",
+            "open access",
+            "restricted access",
+        ]
+    )
+    aggs = data['aggregations']
+    if not ACCESSRIGHTS_FIX_ENABLED:
+        return data
+    # Get mapping for accessRights facets
+    mapping = FacetSearchSetting.get_activated_facets_mapping()
+    accessrights_keys = [k for k, v in mapping.items() if v == "accessRights"]
+    if "new_accessRights" not in aggs or not accessrights_keys:
+        return data
+    new_accessrights = aggs["new_accessRights"]
+    buckets_dict = new_accessrights.get("buckets", {})
+    if not any(right in buckets_dict for right in ACCESS_RIGHTS_CHOICES):
+        return data
+    buckets = []
+    for right in ACCESS_RIGHTS_CHOICES:
+        value = buckets_dict.get(right)
+        if not value:
+            continue
+        doc_count = value.get("doc_count", 0)
+        if doc_count == 0:
+            continue
+        buckets.append({"key": right, "doc_count": doc_count})
+    # Update buckets for each accessRights facet
+    for key in accessrights_keys:
+        if key in aggs:
+            aggs[key]["buckets"] = buckets
+    # Remove temporary aggregation
+    aggs.pop("new_accessRights", None)
+    data['aggregations'] = aggs
+    return data

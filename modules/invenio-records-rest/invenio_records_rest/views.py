@@ -855,6 +855,8 @@ class RecordsListResource(ContentNegotiatedMethodView):
             links['next'] = url_for(endpoint, page=page + 1, **urlkwargs)
         from weko_search_ui.utils import combine_aggs
         search_result = combine_aggs(search_result.to_dict())
+        from weko_search_ui.utils import fix_aggregations_accessrights
+        search_result = fix_aggregations_accessrights(search_result)
         return self.make_response(
             pid_fetcher=self.pid_fetcher,
             search_result=search_result,
