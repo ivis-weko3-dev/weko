@@ -22044,7 +22044,31 @@ def test_register_bulk_import_task(app, client_api, users, tokens, make_zip,
     assert res.status_code == 200
     assert res.json["check_status"] == "SUCCESS"
 
-    # チェックモード 異常系
+    # チェックモード 正常系 ワーニングあり
+    headers = {
+        "Authorization": "Bearer {}".format(token),
+        "Content-Disposition": 'attachment; filename="payload.zip"'
+    }
+    zip_file = make_zip()
+    file_storage = FileStorage(filename="payload.zip", stream=zip_file)
+    mock_async_result.status = "SUCCESS"
+    mock_async_result.result =  {
+        "list_record": [
+            {"id": None, "errors": None, "warnings": ["warning_message"],
+                "status": "new"},
+        ],
+        "data_path": "/var/tmp/weko_import",
+    }
+    res = client_api.post(url, data={"file": file_storage}, headers=headers,
+                          content_type="multipart/form-data")
+    response_data = res.json
+    if response_data is not None:
+        response_data.pop("expire", None)
+    mock_import_apply.assert_not_called()
+    assert res.status_code == 200
+    assert res.json["warning_details"] == ["warning_message"]
+
+    # チェックモード 異常系 エラーあり
     headers = {
         "Authorization": "Bearer {}".format(token),
         "Content-Disposition": 'attachment; filename="payload.zip"'
@@ -22127,7 +22151,8 @@ def test_register_bulk_import_task(app, client_api, users, tokens, make_zip,
         "list_record": [
             {"id": None, "metadata": {}, "errors": None, "warnings": [],
              "bulk_doi": ["10.1234/mock.doi"], "status": "new"},
-            {"id": "2000002", "errors": None, "warnings": [], "status": "keep"}
+            {"id": "2000002", "errors": None, "warnings": [], "status": "keep"},
+            {"id": "2000003", "errors": None, "warnings": [], "status": "upgrade"}
         ],
         "data_path": "/var/tmp/weko_import"
     }
@@ -22144,6 +22169,24 @@ def test_register_bulk_import_task(app, client_api, users, tokens, make_zip,
     mock_import_apply.assert_called()
     assert res.status_code == 200
     assert res.json["check_status"] == "SUCCESS"
+
+    # インポートモード 異常系,result不備
+    url = url_for("weko_items_ui_api.register_bulk_import_task",
+                  mode="import", is_change_identifier=False, _external=True)
+    headers = {
+        "Authorization": "Bearer {}".format(token),
+        "Content-Disposition": 'attachment; filename="payload.zip"'
+    }
+    zip_file = make_zip()
+    file_storage = FileStorage(filename="payload.zip", stream=zip_file)
+    mock_async_result.status = "SUCCESS"
+    mock_async_result.result = {
+        "error": "not list_record"
+    }
+    res = client_api.post(url, data={"file": file_storage}, headers=headers,
+                          content_type="multipart/form-data")
+    assert res.status_code == 400
+    assert res.json["error"] == ["not list_record"]
 
     # インポートモード 異常系
     headers = {
@@ -22300,7 +22343,11 @@ def test_register_bulk_import_is_change_identifier(
                 "user_id": "1",
                 "status": "SUCCESS",
                 "result": {"error": []},
-                "tasks": [],
+                "tasks": [{
+                    "item_task_id": "item_task_id",
+                    "task_status": "STARTED",
+                    "task_result": {}
+                }],
                 "expire": "2026-03-06 12:00:00",
             },
             "1",
@@ -22309,8 +22356,36 @@ def test_register_bulk_import_is_change_identifier(
                 "can_import": True,
                 "check_status": "SUCCESS",
                 "expire": "2026-03-06 12:00:00",
-                "tasks": [],
+                "tasks": [{
+                    "item_task_id": "item_task_id",
+                    "task_status": "SUCCESS",
+                    "task_result": {}
+                }],
                 "task_id": "valid_task_id",
+            },
+        ),
+        # 異常系: 例外エラー
+        (
+            "valid_task_id",
+            {
+                "user_id": "1",
+                "status": "PENDING",
+                "result": {"error": []},
+                "tasks": [{
+                    "item_task_id": "item_task_id",
+                    "task_status": "PENDING",
+                    "task_result": {}
+                }],
+                "expire": "2026-03-06 12:00:00",
+            },
+            "1",
+            400,
+            {
+
+                "result": "NG",
+                "error": [
+                    "Task check failed: 'DisabledBackend' object has no "
+                    "attribute '_get_task_meta_for'"],
             },
         ),
         # 異常系: タスクが存在しない場合
@@ -22364,27 +22439,10 @@ def test_register_bulk_import_is_change_identifier(
                 "task_id": "valid_task_id",
             },
         ),
-        # 異常系: 例外エラー
-        (
-            "failed_task_id",
-            {
-                "user_id": "1",
-                "status": "FAILED",
-                "result": {"error": ["Task check failed."]},
-                "tasks": [],
-                "expire": "2026-03-06 12:00:00",
-            },
-            "1",
-            400,
-            {
-                "result": "NG",
-                "error": ["Task check failed"],
-            },
-        ),
     ],
 )
 def test_get_bulk_import_task_status(
-    client_api, tokens, users, task_id, task_data, user_id,
+    client_api, tokens, users, mocker, task_id, task_data, user_id,
     expected_status, expected_response):
     login_user_via_session(client=client_api, email=users[0]["email"])
     token = None
@@ -22405,6 +22463,19 @@ def test_get_bulk_import_task_status(
         mock_redis.get.return_value = json.dumps(task_data).encode("utf-8")
 
     if task_id != "failed_task_id":
+        if expected_status == 200:
+            mock_async_result = MagicMock()
+            mock_async_result.status = "SUCCESS"
+            mock_async_result.result = {}
+            mocker.patch("weko_items_ui.views.import_item.AsyncResult",
+                         return_value=mock_async_result)
+        else:
+            mocker.patch(
+                "weko_items_ui.views.import_item.AsyncResult",
+                side_effect=AttributeError(
+                    "'DisabledBackend' object has no attribute '_get_task_meta_for'")
+            )
+
         with patch("weko_items_ui.views.RedisConnection") as mock_redis_conn, patch(
             "flask_login.utils._get_user",
             return_value=MagicMock(get_id=lambda: user_id)

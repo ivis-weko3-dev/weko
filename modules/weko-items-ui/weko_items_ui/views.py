@@ -2029,8 +2029,7 @@ def register_bulk_import_task():
                 })
             task_data["tasks"] = tasks
             datastore.put(task.id, json.dumps(task_data).encode("utf-8"))
-        else:
-            summary_result["can_import"] = False
+
         summary_result["task_id"] = task.id
         summary_result["tasks"] = task_data["tasks"]
         return Response(
@@ -2115,10 +2114,8 @@ def get_bulk_import_task_status(task_id):
                         task_data["status"] = import_result.status
                         task["task_result"] = import_result.result \
                         if isinstance(import_result.result, dict) else {}
-                    except Exception:
-                        task["task_status"] = "FAILED"
-                        task_data["status"] = "ERROR"
-                        task["task_result"] = {}
+                    except Exception as e:
+                        raise Exception(e)
 
         # save updated task information to Redis
         datastore.put(task_id, json.dumps(task_data).encode("utf-8"))
@@ -2146,9 +2143,9 @@ def get_bulk_import_task_status(task_id):
             }, ensure_ascii=False, indent=2),
             content_type="application/json; charset=utf-8", status=400)
 
-    except Exception:
+    except Exception as error:
         return Response(json.dumps({
             "result": "NG",
-            "error": ["Task check failed"]
+            "error": [f"Task check failed: {error}"]
         }, ensure_ascii=False, indent=2),
         content_type="application/json; charset=utf-8", status=400)
