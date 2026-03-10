@@ -2225,45 +2225,42 @@ def create_facet_search_query():
             ]
         )
         ACCESS_RIGHTS_QUERY_TEMPLATE = {
-            "open access": {
+        "open access": {
+            "bool": {
                 "should": [
                     {"term": {"accessRights": "open access"}},
-                    {"term": {"accessRights": "embargoed access"}},
                     {
-                        "nested": {
-                            "path": "content",
-                            "query": {
-                                "bool": {
-                                    "should": [
-                                        {"term": {
-                                            "content.accessrole.raw": "open_access"
-                                        }},
-                                        {
+                        "bool": {
+                            "must": [
+                                {"term": {"accessRights": "embargoed access"}},
+                                {
+                                    "nested": {
+                                        "path": "content",
+                                        "query": {
                                             "bool": {
-                                                "must": [
+                                                "must_not": [
+                                                    {"term": {"content.accessrole.raw": "open_access"}},
                                                     {
-                                                        "term": {
-                                                            "content.accessrole.raw": "open_date"
-                                                        }
-                                                    },
-                                                    {
-                                                        "range": {
-                                                            "content.date.dateValue.raw": {
-                                                                "lte": "@date"
-                                                            }
+                                                        "bool": {
+                                                            "must": [
+                                                                {"term": {"content.accessrole.raw": "open_date"}},
+                                                                {"range": {"content.date.dateValue.raw": {"lte": "@date"}}}
+                                                            ]
                                                         }
                                                     }
                                                 ]
                                             }
                                         }
-                                    ]
+                                    }
                                 }
-                            }
+                            ]
                         }
                     }
                 ]
-            },
-            "embargoed access": {
+            }
+        },
+        "embargoed access": {
+            "bool": {
                 "must": [
                     {"term": {"accessRights": "embargoed access"}},
                     {
@@ -2275,18 +2272,8 @@ def create_facet_search_query():
                                         {
                                             "bool": {
                                                 "must": [
-                                                    {
-                                                        "term": {
-                                                            "content.accessrole.raw": "open_date"
-                                                        }
-                                                    },
-                                                    {
-                                                        "range": {
-                                                            "content.date.dateValue.raw": {
-                                                                "gt": "@date"
-                                                            }
-                                                        }
-                                                    }
+                                                    {"term": {"content.accessrole.raw": "open_date"}},
+                                                    {"range": {"content.date.dateValue.raw": {"gt": "@date"}}}
                                                 ]
                                             }
                                         }
@@ -2301,38 +2288,26 @@ def create_facet_search_query():
                         "nested": {
                             "path": "content",
                             "query": {
-                                "term": {
-                                    "content.accessrole.raw": "open_restricted"
-                                }
+                                "term": {"content.accessrole.raw": "open_restricted"}
                             }
                         }
                     }
                 ]
-            },
-            "restricted access": {
+            }
+        },
+        "restricted access": {
+            "bool": {
                 "should": [
                     {"term": {"accessRights": "restricted access"}},
-                    {"term": {"accessRights": "embargoed access"}},
-                    {
-                        "nested": {
-                            "path": "content",
-                            "query": {
-                                "term": {
-                                    "content.accessrole.raw": "open_restricted"
-                                }
-                            }
-                        }
-                    },
                     {
                         "bool": {
                             "must": [
+                                {"term": {"accessRights": "embargoed access"}},
                                 {
                                     "nested": {
                                         "path": "content",
                                         "query": {
-                                            "term": {
-                                                "content.accessrole.raw": "open_login"
-                                            }
+                                            "term": {"content.accessrole.raw": "open_login"}
                                         }
                                     }
                                 },
@@ -2345,18 +2320,8 @@ def create_facet_search_query():
                                                     "query": {
                                                         "bool": {
                                                             "must": [
-                                                                {
-                                                                    "term": {
-                                                                        "content.accessrole.raw": "open_date"
-                                                                    }
-                                                                },
-                                                                {
-                                                                    "range": {
-                                                                        "content.date.dateValue.raw": {
-                                                                            "gt": "@date"
-                                                                        }
-                                                                    }
-                                                                }
+                                                                {"term": {"content.accessrole.raw": "open_date"}},
+                                                                {"range": {"content.date.dateValue.raw": {"gt": "@date"}}}
                                                             ]
                                                         }
                                                     }
@@ -2369,12 +2334,15 @@ def create_facet_search_query():
                         }
                     }
                 ]
-            },
-            "metadata only access": {
-                "term": {
-                    "accessRights": "metadata only access"
-                }
             }
+        },
+        "metadata only access": {
+            "bool": {
+                "must": [
+                    {"term": {"accessRights": "metadata only access"}}
+                ]
+            }
+        }
         }
         def _replace_date(obj, now):
             """Recursively replace @date with current date."""
