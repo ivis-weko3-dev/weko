@@ -69,6 +69,7 @@ from weko_records.api import ItemTypes
 from weko_records_ui.external import get_oa_token
 from weko_records_ui.ipaddr import check_site_license_permission
 from weko_records_ui.permissions import check_file_download_permission
+from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER
 from weko_redis.redis import RedisConnection
 from weko_schema_ui.models import PublishStatus
 from weko_workflow.api import GetCommunity, WorkActivity, WorkFlow as WorkFlows
@@ -92,7 +93,7 @@ from .utils import (
     validate_user_mail_and_index, is_duplicate_record, lock_item_will_be_edit,
     set_scheme_by_author_table
 )
-from .config import WEKO_ITEMS_UI_FORM_TEMPLATE,WEKO_ITEMS_UI_ERROR_TEMPLATE, WEKO_ITEMS_UI_BULK_IMPORT_ENABLE_ROLE
+from .config import WEKO_ITEMS_UI_FORM_TEMPLATE,WEKO_ITEMS_UI_ERROR_TEMPLATE
 from weko_theme.config import WEKO_THEME_DEFAULT_COMMUNITY
 
 from .scopes import item_bulk_process_scope
@@ -1784,7 +1785,7 @@ def handle_forbidden_error(error):
 @oauth2.require_oauth()
 @limiter.limit("")
 @require_oauth_scopes(item_bulk_process_scope.id)
-@roles_required(WEKO_ITEMS_UI_BULK_IMPORT_ENABLE_ROLE)
+@roles_required(WEKO_PERMISSION_SUPER_ROLE_USER)
 def register_bulk_import_task():
     """
     Register a bulk import task.
@@ -1865,14 +1866,14 @@ def register_bulk_import_task():
 
         # Asynchronously execute the check_import_items_task with Celery
         task = check_import_items_task.apply_async(
-            (
+            args=[
                 temp_file_path,
                 is_change_identifier,
                 request.host_url,
-                "en",  # language
-                False, # is_gakuninrdm
-                [0], # can_edit_indexes
-            )
+                current_i18n.language,
+                {"is_gakuninrdm": False},
+                {"can_edit_indexes": [0]}
+            ]
         )
         summary_result = {}
         timeout = current_app.config["WEKO_ITEMS_UI_BULK_IMPORT_TIMEOUT"]
@@ -1956,7 +1957,7 @@ def register_bulk_import_task():
                     "task_id": ""
                 }
                 raise ValueError(summary_result)
-            time.sleep(0)
+            time.sleep(0) # NOTE: CPU負荷軽減
         else:
             summary_result = {
                 "can_import": False,
