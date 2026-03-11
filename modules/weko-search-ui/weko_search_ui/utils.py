@@ -73,7 +73,7 @@ from invenio_search import RecordsSearch
 
 from sqlalchemy import func as _func
 from sqlalchemy.exc import SQLAlchemyError
-from weko_admin.models import AdminSettings, SessionLifetime
+from weko_admin.models import AdminSettings, SessionLifetime, FacetSearchSetting
 from weko_admin.utils import get_redis_cache, reset_redis_cache, get_restricted_access
 from weko_admin.api import TempDirInfo
 from weko_authors.models import AuthorsAffiliationSettings, AuthorsPrefixSettings
@@ -6158,8 +6158,6 @@ def fix_aggregations_accessrights(data):
     Returns:
         dict: Modified aggregation result.
     """
-    from flask import current_app
-    from weko_admin.models import FacetSearchSetting
     ACCESSRIGHTS_FIX_ENABLED = current_app.config.get(
         "WEKO_SEARCH_FIX_ACCESSRIGHTS", False
     )

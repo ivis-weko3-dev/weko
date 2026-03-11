@@ -25,6 +25,7 @@ import math
 import os
 import traceback
 import zipfile
+import copy
 from datetime import datetime, timedelta
 from io import BytesIO, StringIO
 from typing import Dict, Optional, Tuple, Union
@@ -2210,7 +2211,6 @@ def create_facet_search_query():
             agg_no_permission_query.update(
                 create_agg_by_aggregations(facet.aggregations, key, val)
             )
-        import copy
         # Add aggregation conditions for accessRights
         ACCESSRIGHTS_FIX_ENABLED = current_app.config.get(
             "WEKO_SEARCH_FIX_ACCESSRIGHTS", False
@@ -2238,16 +2238,9 @@ def create_facet_search_query():
                                         "path": "content",
                                         "query": {
                                             "bool": {
-                                                "must_not": [
-                                                    {"term": {"content.accessrole.raw": "open_access"}},
-                                                    {
-                                                        "bool": {
-                                                            "must": [
-                                                                {"term": {"content.accessrole.raw": "open_date"}},
-                                                                {"range": {"content.date.dateValue.raw": {"lte": "@date"}}}
-                                                            ]
-                                                        }
-                                                    }
+                                                "must": [
+                                                    {"term": {"content.accessrole.raw": "open_date"}},
+                                                    {"range": {"content.date.dateValue.raw": {"lte": "@date"}}}
                                                 ]
                                             }
                                         }
@@ -2406,6 +2399,11 @@ def create_facet_search_query():
     agg_has_permission, agg_no_permission = create_aggregations(
         activated_facets)
     post_filters = create_post_filters(activated_facets)
+    ACCESSRIGHTS_FIX_ENABLED = current_app.config.get(
+            "WEKO_SEARCH_FIX_ACCESSRIGHTS", False
+    )
+    if ACCESSRIGHTS_FIX_ENABLED and "new_accessRights" in agg_has_permission:
+        post_filters["new_accessRights"] = agg_has_permission["new_accessRights"]
     # Create facet search query for has permission.
     has_permission_query[search_index] = dict(
         aggs=agg_has_permission,
@@ -2457,6 +2455,8 @@ def get_facet_search_query(has_permission=True):
     from weko_admin.utils import get_title_facets
     titles, order, uiTypes, isOpens, displayNumbers, searchConditions = get_title_facets()
     for k, v in post_filters.items():
+        if k == "new_accessRights":
+            continue
         if v == 'temporal':
             # If the mapping name is [template], it is assumed to be a Filter to date_range1.
             post_filters.update({k: range_filter('date_range1', False, False)})

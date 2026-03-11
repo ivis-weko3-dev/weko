@@ -621,12 +621,7 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
             if not accessrights_value:
                 return None
 
-            if ',' in accessrights_value:
-                accessrights_value = ' OR '.join([
-                    v.strip() for v in accessrights_value.split(',') if v.strip()
-                ])
-
-            accessrights_list = _split_text_by_or(accessrights_value)
+            accessrights_list = [v.strip() for v in accessrights_value.split(',') if v.strip()]
             weko_access_rights_choices = current_app.config.get(
                 'WEKO_ACCESS_RIGHTS_CHOICES', [
                     'embargoed access',
@@ -721,8 +716,6 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
                     queries.append(restricted_access_query(now))
                 elif accessright == 'metadata only access':
                     queries.append(metadata_only_query())
-                else:
-                    queries.append(Q('term', accessRights=accessright))
 
             queries = [q for q in queries if q is not None]
             if not queries:

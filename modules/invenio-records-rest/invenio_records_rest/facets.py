@@ -97,10 +97,19 @@ def _create_filter_dsl(urlkwargs, definitions):
     for name, filter_factory in definitions.items():
         values = request.values.getlist(name, type=text_type)
         if values:
-            filters.append(filter_factory(values))
-            for v in values:
-                urlkwargs.add(name, v)
-
+            if name in ("Access", "accessRights") and "new_accessRights" in definitions:
+                new_accessrights_filters = definitions["new_accessRights"]["filters"]["filters"]
+                access_rights_queries = []
+                for v in values:
+                    if v in new_accessrights_filters:
+                        access_rights_queries.append(Q(new_accessrights_filters[v]))
+                        urlkwargs.add(name, v)
+                if access_rights_queries:
+                    filters.append(Q('bool', should=access_rights_queries))
+            else:
+                filters.append(filter_factory(values))
+                for v in values:
+                    urlkwargs.add(name, v)
     return (filters, urlkwargs)
 
 
