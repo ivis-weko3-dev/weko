@@ -57,6 +57,7 @@ from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_records_ui.signals import record_viewed
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
+from urllib.parse import unquote
 from weko_accounts.utils import login_required_customize
 from weko_admin.models import AdminSettings, RankingSettings
 from weko_deposit.api import WekoRecord
@@ -1846,8 +1847,9 @@ def register_bulk_import_task():
         # check only mode flag
         is_check_only = True if mode == "check" else False
         # identifier change mode
-        is_change_identifier = str(request.args.get(
-            "is_change_identifier", "false")).lower() == "true"
+        raw_value = request.args.get("is_change_identifier", "false")
+        decoded_value = unquote(raw_value)
+        is_change_identifier = decoded_value.strip('"').lower() == "true"
 
         # Save the uploaded file to a temporary location
         temp_dir = tempfile.mkdtemp()
