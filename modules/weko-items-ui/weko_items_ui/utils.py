@@ -2261,8 +2261,8 @@ def make_stats_file(item_type_id, recids, list_item_role, export_path=""):
         ret.extend([".item_application.workflow",".item_application.terms",".item_application.termsDescription"])
         ret_label.extend([".ITEM_APPLICATION.WORKFLOW",".ITEM_APPLICATION.TERMS",".ITEM_APPLICATION.TERMS_DESCRIPTION"])
 
-    ret.extend(['.cnri', '.doi_ra', '.doi', '.edit_mode'])
-    ret_label.extend(['.CNRI', '.DOI_RA', '.DOI', 'Keep/Upgrade Version'])
+    ret.extend(['.cnri', '.doi_ra', '.doi', '.bulk_doi', '.edit_mode'])
+    ret_label.extend(['.CNRI', '.DOI_RA', '.DOI', '.BULK_DOI', 'Keep/Upgrade Version'])
     has_pubdate = len([
         record for _, record in records.records.items()
         if record.get('pubdate')
@@ -5566,7 +5566,7 @@ def set_scheme_by_author_table(data_type, meta_list, result):
             key_list["contributor"]["key"] = key
         elif data and "input_type" in data and data["input_type"] == "cus_{}".format(rightsHolder_id):
             key_list["rightsHolder"]["key"] = key
-    
+
     if key_list["creator"]["key"] or key_list["contributor"]["key"] or key_list["rightsHolder"]["key"]:
         prefix_scheme = WekoAuthors.get_scheme_of_id_prefix()
         affiliation_scheme = WekoAuthors.get_scheme_of_affiliaiton_id()
@@ -5651,12 +5651,12 @@ def set_scheme_to_schema(schema_data, prefix_scheme, affiliation_scheme, key_lis
         if key_list["rightsHolder"]["key"]:
             schema = schema_data["properties"][key_list["rightsHolder"]["key"]]
             set_prefix_scheme_to_schema("rightsHolder", schema, prefix_list, affiliation_list, key_list)
-        
+
 
 def set_prefix_scheme_to_schema(prop_type, schema_data, prefix_list, affiliation_list, key_list):
     ids_key = key_list[prop_type]["ids_key"]
     id_key = key_list[prop_type]["id_key"]
-    as_key = key_list[prop_type]["as_key"] 
+    as_key = key_list[prop_type]["as_key"]
     aids_key = key_list[prop_type]["aids_key"]
     aid_key = key_list[prop_type]["aid_key"]
     if "items" in schema_data and \

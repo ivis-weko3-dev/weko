@@ -562,6 +562,7 @@ WEKO_EXPORT_TEMPLATE_BASIC_ID = [
     ".cnri",
     ".doi_ra",
     ".doi",
+    ".bulk_doi",
     ".edit_mode",
 ]
 WEKO_EXPORT_TEMPLATE_BASIC_NAME = [
@@ -575,6 +576,7 @@ WEKO_EXPORT_TEMPLATE_BASIC_NAME = [
     ".CNRI",
     ".DOI_RA",
     ".DOI",
+    ".BULK_DOI",
     "Keep/Upgrade Version",
 ]
 WEKO_EXPORT_TEMPLATE_BASIC_OPTION = [
