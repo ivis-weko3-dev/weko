@@ -2864,3 +2864,204 @@ def replace_fqdn_of_file_metadata(file_metadata_lst: list, file_url: list = None
                 file["url"]["url"] = replace_fqdn(file["url"]["url"])
             elif isinstance(file_url, list):
                 file_url.append(file["url"]["url"])
+
+def check_embargo_rights(access_right: str, today, accessrole_date: list = []):
+    """
+    Determines whether the accessrights value needs to be updated based on
+    the mapped item values and file information, and what value it should be
+    changed to.
+    Args:
+        access_right (str): The value mapped to the item's accessRight.
+        today (date): The current date.
+        accessrole_date (list): List of (accessrole, date) tuples for
+            registered files.
+    Returns:
+        is_update_required (bool): Whether an update is required.
+        change_value (str): The value after the update.
+    """
+    # Do nothing if not 'embargoed access'
+    if access_right != "embargoed access":
+        return False, None
+
+    # 1. If there is at least one 'open_restricted', set to 'restricted access'
+    if any(
+        role == "open_restricted" for role, _ in accessrole_date
+    ):
+        return True, "restricted access"
+
+    # 2. If there is at least one 'open_date' with a future date, no update required
+    if any(
+        role == "open_date" and date and today and date > today
+        for role, date in accessrole_date
+    ):
+        return False, None
+
+    # 3. If there is at least one 'open_login', set to 'restricted access'
+    if any(
+        role == "open_login" for role, _ in accessrole_date
+    ):
+        return True, "restricted access"
+
+    # 4. If all are 'open_access' or 'open_date' with date <= today,
+    #    set to 'open access'
+    if accessrole_date and all(
+        (role == "open_access") or
+        (role == "open_date" and date and today and date <= today)
+        for role, date in accessrole_date
+    ):
+        return True, "open access"
+
+    return False, None
+
+def update_embargo_rights(metadata: dict) -> None:
+    """
+    Update accessrights value in item metadata in-place.
+    Args:
+        metadata (dict): Item metadata to update.
+    Returns:
+        None (modifies metadata in-place)
+    """
+    # Skip if config disables accessrights fix
+    if not current_app.config.get("WEKO_SEARCH_FIX_ACCESSRIGHTS", False):
+        return
+
+    item_type_id = metadata.get("item_type_id")
+    if not item_type_id:
+        return
+
+    from weko_records.serializers.utils import get_mapping
+    mapping = get_mapping(item_type_id, "jpcoar_mapping")
+    access_path = mapping.get("accessRights.@value")
+    if not access_path:
+        return
+
+    def _get_nested_value(data, path):
+        """Recursively get value from nested dict/list by dot-separated path."""
+        keys = path.split('.')
+        for key in keys:
+            if isinstance(data, dict):
+                if key in data:
+                    data = data[key]
+                elif 'attribute_value_mlt' in data:
+                    found = None
+                    for item in data['attribute_value_mlt']:
+                        found = _get_nested_value(
+                            item,
+                            '.'.join(keys[keys.index(key):])
+                        )
+                        if found is not None:
+                            break
+                    data = found
+                    break
+                else:
+                    data = None
+                    break
+            elif isinstance(data, list):
+                found = None
+                for item in data:
+                    found = _get_nested_value(
+                        item,
+                        '.'.join([key] + keys[keys.index(key)+1:])
+                    )
+                    if found is not None:
+                        break
+                data = found
+                break
+            else:
+                return None
+        return data
+
+    access_right_value = _get_nested_value(metadata, access_path)
+    if not access_right_value:
+        return
+
+    from datetime import datetime
+    accessrole_date = []
+    today = datetime.now().date()
+
+    for v in metadata.values():
+        if (
+            isinstance(v, dict) and v.get("attribute_type") == "file"
+        ):
+            mlt = v.get("attribute_value_mlt", [])
+            for data in mlt:
+                date_val = None
+                accessrole_val = data.get("accessrole")
+                if (
+                    "date" in data and
+                    isinstance(data["date"], list) and
+                    data["date"]
+                ):
+                    date_val = data["date"][0].get("dateValue")
+                    if date_val:
+                        if re.match(r"^\d{4}-\d{2}-\d{2}$", date_val):
+                            date_val = datetime.strptime(date_val, "%Y-%m-%d").date()
+                        else:
+                            date_val = None
+                if accessrole_val:
+                    accessrole_date.append((accessrole_val, date_val))
+        elif isinstance(v, list):
+            for data in v:
+                if (
+                    isinstance(data, dict) and
+                    data.get("attribute_type") == "file"
+                ):
+                    mlt = data.get("attribute_value_mlt", [])
+                    if mlt:
+                        for file_data in mlt:
+                            date_val = None
+                            accessrole_val = file_data.get("accessrole")
+                            if (
+                                "date" in file_data and
+                                isinstance(file_data["date"], list) and
+                                file_data["date"]
+                            ):
+                                date_val = file_data["date"][0].get("dateValue")
+                                if date_val:
+                                    if re.match(r"^\d{4}-\d{2}-\d{2}$", date_val):
+                                        date_val = datetime.strptime(date_val, "%Y-%m-%d").date()
+                                    else:
+                                        date_val = None
+                            if accessrole_val:
+                                accessrole_date.append((accessrole_val, date_val))
+                    else:
+                        date_val = None
+                        accessrole_val = data.get("accessrole")
+                        if (
+                            "date" in data and
+                            isinstance(data["date"], list) and
+                            data["date"]
+                        ):
+                            date_val = data["date"][0].get("dateValue")
+                            if date_val:
+                                if re.match(r"^\d{4}-\d{2}-\d{2}$", date_val):
+                                    date_val = datetime.strptime(date_val, "%Y-%m-%d").date()
+                                else:
+                                    date_val = None
+                        if accessrole_val:
+                            accessrole_date.append((accessrole_val, date_val))
+
+    from .utils import check_embargo_rights
+    is_update, change_value = check_embargo_rights(
+        access_right_value, today, accessrole_date
+    )
+
+    def _set_nested_value(data, path, value):
+        keys = path.split('.')
+        if (
+            keys[-1] == 'subitem_access_right' and
+            isinstance(data.get(keys[0]), dict)
+        ):
+            target = data[keys[0]]
+            target[keys[-1]] = value
+            mlt = target.get('attribute_value_mlt', [])
+            for item in mlt:
+                if 'subitem_access_right' in item:
+                    item['subitem_access_right'] = value
+        else:
+            for key in keys[:-1]:
+                data = data.setdefault(key, {})
+            data[keys[-1]] = value
+
+    if is_update and change_value:
+        _set_nested_value(metadata, access_path, change_value)

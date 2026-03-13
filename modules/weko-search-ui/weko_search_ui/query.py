@@ -23,7 +23,7 @@
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 
 from elasticsearch_dsl.query import Bool, Q
@@ -603,6 +603,127 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
 
             return qry
 
+        def __get_accessrights_query(params):
+            """
+            Build accessrights search query from request params.
+            Args:
+                params (dict): request parameters
+            Returns:
+                dict: accessrights search query
+            """
+            weko_search_fix_accessrights = current_app.config.get(
+                'WEKO_SEARCH_FIX_ACCESSRIGHTS', False
+            )
+            if not weko_search_fix_accessrights:
+                return None
+
+            accessrights_value = params.get('accessrights')
+            if not accessrights_value:
+                return None
+
+            accessrights_list = [v.strip() for v in accessrights_value.split(',') if v.strip()]
+            weko_access_rights_choices = current_app.config.get(
+                'WEKO_ACCESS_RIGHTS_CHOICES', [
+                    'embargoed access',
+                    'metadata only access',
+                    'open access',
+                    'restricted access',
+                ]
+            )
+            accessrights_list = [
+                v for v in accessrights_list if v in weko_access_rights_choices
+            ]
+            if not accessrights_list:
+                return None
+
+            now = datetime.now(timezone.utc).isoformat()
+
+            def open_access_query(now):
+                """Query for open access."""
+                return Q(
+                    'bool',
+                    should=[
+                        Q('term', accessRights='open access'),
+                        Q('bool', must=[
+                            Q('term', accessRights='embargoed access'),
+                            Q('bool', must_not=[
+                                Q('nested', path='content', query=Q('bool', must_not=[
+                                    Q('term', **{'content.accessrole.raw': 'open_access'}),
+                                    Q('bool', must=[
+                                        Q('term', **{'content.accessrole.raw': 'open_date'}),
+                                        Q('range', **{'content.date.dateValue.raw': {'lte': now}})
+                                    ])
+                                ]))
+                            ])
+                        ])
+                    ]
+                )
+
+            def embargoed_access_query(now):
+                """Query for embargoed access."""
+                return Q(
+                    'bool',
+                    must=[
+                        Q('term', accessRights='embargoed access'),
+                        Q('nested', path='content', query=Q('bool', should=[
+                            Q('bool', must=[
+                                Q('term', **{'content.accessrole.raw': 'open_date'}),
+                                Q('range', **{'content.date.dateValue.raw': {'gt': now}})
+                            ])
+                        ]))
+                    ],
+                    must_not=[
+                        Q(
+                            'nested', path='content',
+                            query=Q('term', **{'content.accessrole.raw': 'open_restricted'})
+                        )
+                    ]
+                )
+
+            def restricted_access_query(now):
+                """Query for restricted access."""
+                return Q(
+                    'bool',
+                    should=[
+                        Q('term', accessRights='restricted access'),
+                        Q('bool', must=[
+                            Q('term', accessRights='embargoed access'),
+                            Q(
+                                'nested', path='content',
+                                query=Q('term', **{'content.accessrole.raw': 'open_login'})
+                            ),
+                            Q('bool', must_not=[
+                                Q('nested', path='content', query=Q('bool', must=[
+                                    Q('term', **{'content.accessrole.raw': 'open_date'}),
+                                    Q('range', **{'content.date.dateValue.raw': {'gt': now}})
+                                ]))
+                            ])
+                        ])
+                    ]
+                )
+
+            def metadata_only_query():
+                """Query for metadata only access."""
+                return Q('term', accessRights='metadata only access')
+
+            queries = []
+            for accessright in accessrights_list:
+                if accessright == 'open access':
+                    queries.append(open_access_query(now))
+                elif accessright == 'embargoed access':
+                    queries.append(embargoed_access_query(now))
+                elif accessright == 'restricted access':
+                    queries.append(restricted_access_query(now))
+                elif accessright == 'metadata only access':
+                    queries.append(metadata_only_query())
+
+            queries = [q for q in queries if q is not None]
+            if not queries:
+                return None
+            if len(queries) == 1:
+                return queries[0]
+            return Q('bool', should=queries, minimum_should_match=1)
+
         params = request.values.to_dict()
         if additional_params:
             params.update(additional_params)
@@ -664,6 +785,10 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
 
                 if qy:
                     mut.append(qy)
+
+            accessrights_q = __get_accessrights_query(params)
+            if accessrights_q:
+                mut.append(accessrights_q)
 
         except Exception as e:
             current_app.logger.exception(
