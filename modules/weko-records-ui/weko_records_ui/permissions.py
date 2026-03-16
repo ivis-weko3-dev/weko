@@ -111,16 +111,27 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
             emails = [x.email for x in users]
         return emails
 
-    def is_release_date_past():
-        """Check release date."""
+    def _is_open_date_past(acsrole):
+        """ Check the open date has passed.
+    
+        Args:
+            acsrole (str): File permission
+        
+        Returns:
+            bool: 
+                True if the open date passed, or dateValue is None and file permission is open access.
+                False if the open date has not passed, or dateValue is None and file permission is open date.
+        """
         from .utils import is_future
         date = fjson.get('date')
         if date and isinstance(date, list) and date[0]:
             adt = date[0].get('dateValue')
             if adt:
                 return not is_future(adt)
-            else:
+            elif acsrole == "open_access":
                 return True
+            elif acsrole == "open_date":
+                return False
 
     def __check_user_permission(user_id_list):
         """Check user permission.
@@ -165,7 +176,7 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
                 current_user.is_authenticated and \
                 current_user.id in user_id_list:
             if 'open_access' or 'open_date' in acsrole:
-                download_status["is_open_access"] = is_release_date_past()
+                download_status["is_open_access"] = _is_open_date_past(acsrole)
             return is_can
 
         # Super users
@@ -174,7 +185,7 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
         for role in list(current_user.roles or []):
             if role.name in supers:
                 if 'open_access' or 'open_date' in acsrole:
-                    download_status["is_open_access"] = is_release_date_past()
+                    download_status["is_open_access"] = _is_open_date_past(acsrole)
                 return is_can
 
         try:
@@ -184,7 +195,7 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
                     # Always display the file info area in 'Detail' screen.
                     is_can = True
                 else:
-                    is_can = is_release_date_past()
+                    is_can = _is_open_date_past(acsrole)
                     download_status["is_open_access"] = is_can
             # access with open date
             elif 'open_date' in acsrole:
@@ -193,7 +204,7 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
                     is_can = True
                 else:
                     try:
-                        is_can = is_release_date_past()
+                        is_can = _is_open_date_past(acsrole)
                         download_status["is_open_access"] = is_can
                     except BaseException:
                         is_can = False
