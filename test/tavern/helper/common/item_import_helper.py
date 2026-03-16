@@ -7,7 +7,7 @@ import requests
 from box import Box
 
 
-def import_item(response, host, file_path, target_index):
+def import_item(response, host, file_path, target_index, csrf_token):
     """Import item via admin API.
 
     Args:
@@ -15,6 +15,7 @@ def import_item(response, host, file_path, target_index):
         host(str): Host URL.
         file_path(str): Path to the file to be imported.
         target_index(int): Target index ID to replace in the import data.
+        csrf_token(str): CSRF token for authentication.
 
     Returns:
         Box: A Box object containing import task details.
@@ -23,7 +24,7 @@ def import_item(response, host, file_path, target_index):
     header = {
         "Referer": host,
         "Cookie": request_headers.get("Cookie", ""),
-        "X-CSRFToken": request_headers.get("X-CSRFToken", ""),
+        "X-CSRFToken": csrf_token,
     }
 
     session = requests.Session()
@@ -38,12 +39,10 @@ def import_item(response, host, file_path, target_index):
     # Get check status
     while True:
         check_result = get_check_status(host, session, check_import_task_id)
-
-        if check_result["end_date"]:
+        if check_result.get("end_date"):
             break
         sleep(1)
 
-    print("Import Check Result:", check_result)
     # Import
     import_response = start_import(
         host, session, check_result["data_path"], check_result["list_record"]

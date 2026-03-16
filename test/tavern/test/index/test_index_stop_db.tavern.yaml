@@ -9,9 +9,9 @@ marks:
   - skip_before_hook
 
 stages:
-  - name: admin/tree
+  - name: api/tree
     request:
-      url: "{host}/admin/tree"
+      url: "{host}/api/tree?action=browsing"
       method: GET
       verify: false
     response:

@@ -2,6 +2,7 @@
 
 check_connection() {
   cd ../../
+  docker-compose exec web bash -c "jinja2 /code/scripts/instance.cfg > /home/invenio/.virtualenvs/invenio/var/instance/invenio.cfg"
   docker compose restart web
 
   local HOST="$1"
@@ -22,10 +23,10 @@ check_connection() {
   echo "接続成功: $HOST (ステータスコード: $STATUS_CODE)"
 }
 
+start_time=$(date +%s)
+
 docker cp test/tavern/prepare_data/index.sql $(docker compose ps -q postgresql):/tmp/index.sql
 docker compose exec postgresql psql -U invenio -d invenio -f /tmp/index.sql
-
-start_time=$(date +%s)
 
 SETTING_FILE=$(pwd)/scripts/instance.cfg
 CONFIG_PATH=test/tavern/test/config.yaml
@@ -45,7 +46,7 @@ shift
 
 pytest_opts=""
 
-pytest_opts="$pytest_opts -v"
+pytest_opts="$pytest_opts -vv"
 TARGET_TEST_PATH="test/tavern/test/index/target_test.txt"
 ROLE_TEST_PATH="test/tavern/test/index/role_test.txt"
 if [ "$option_cmd" = "select" ]; then
@@ -80,11 +81,11 @@ if [ "$option_cmd" = "select" ]; then
     exit 1
   fi
   if [ -n "$target_result" ] && [ -n "$role_result" ]; then
-    pytest_opts="$pytest_opts -m (\"($target_result) and ($role_result)\")"
+    pytest_opts="$pytest_opts -m '($target_result) and ($role_result)'"
   elif [ -n "$target_result" ]; then
-    pytest_opts="$pytest_opts -m (\"$target_result\")"
+    pytest_opts="$pytest_opts -m ('$target_result')"
   elif [ -n "$role_result" ]; then
-    pytest_opts="$pytest_opts -m (\"$role_result\")"
+    pytest_opts="$pytest_opts -m ('$role_result')"
   fi
 fi
 
@@ -133,10 +134,11 @@ check_connection "$host" "$sleep_wait" "$max_count" "$timeout"
 
 # execute test
 cd test/tavern
-eval docker compose exec -T tavern pytest $pytest_opts $(ls test/index/$test_file1) | tee "$log_file"
+echo "target test: $test_file1" >> "$log_file"
+eval docker compose exec -T tavern pytest $pytest_opts $(ls test/index/$test_file1) | tee -a "$log_file"
+echo "\n\n" >> "$log_file"
 
 # WEKO_ACCOUNTS_SHIB_BIND_GAKUNIN_MAP_GROUPS = True
-# WEKO_PERMISSION_SUPER_ROLE_USER = 1
 # WEKO_INDEXTREE_GAKUNIN_GROUP_DEFAULT_BROWSING_PERMISSION = True
 # WEKO_INDEXTREE_GAKUNIN_GROUP_DEFAULT_CONTRIBUTE_PERMISSION = True
 # WEKO_THEME_INSTANCE_DATA_DIR = ""
@@ -144,13 +146,6 @@ eval docker compose exec -T tavern pytest $pytest_opts $(ls test/index/$test_fil
 
 # WEKO_ACCOUNTS_SHIB_BIND_GAKUNIN_MAP_GROUPS = True
 sed -i 's/WEKO_ACCOUNTS_SHIB_BIND_GAKUNIN_MAP_GROUPS *= *False/WEKO_ACCOUNTS_SHIB_BIND_GAKUNIN_MAP_GROUPS = True/' $SETTING_FILE
-# WEKO_PERMISSION_SUPER_ROLE_USER = 1
-grep -E "^WEKO_PERMISSION_SUPER_ROLE_USER *= *.*$" $SETTING_FILE
-if [ $? -ne 0 ]; then
-  echo 'WEKO_PERMISSION_SUPER_ROLE_USER = 1' >> $SETTING_FILE
-else
-  sed -i.bak 's/WEKO_PERMISSION_SUPER_ROLE_USER *= *0/WEKO_PERMISSION_SUPER_ROLE_USER = 1/' $SETTING_FILE
-fi
 # WEKO_INDEXTREE_GAKUNIN_GROUP_DEFAULT_BROWSING_PERMISSION = True
 sed -i 's/WEKO_INDEXTREE_GAKUNIN_GROUP_DEFAULT_BROWSING_PERMISSION *= *False/WEKO_INDEXTREE_GAKUNIN_GROUP_DEFAULT_BROWSING_PERMISSION = True/' $SETTING_FILE
 # WEKO_INDEXTREE_GAKUNIN_GROUP_DEFAULT_CONTRIBUTE_PERMISSION = True
@@ -167,23 +162,34 @@ grep -E "^CELERY_GET_STATUS_TIMEOUT *= *.*$" $SETTING_FILE
 if [ $? -ne 0 ]; then
   echo 'CELERY_GET_STATUS_TIMEOUT = "a"' >> $SETTING_FILE
 else
-  sed -i.bak 's/CELERY_GET_STATUS_TIMEOUT *= *.*$/CELERY_GET_STATUS_TIMEOUT = "a"/' $SETTING_FILE 
+  sed -i.bak 's/CELERY_GET_STATUS_TIMEOUT *= *.*$/CELERY_GET_STATUS_TIMEOUT = "a"/' $SETTING_FILE
 fi
 
 check_connection "$host" "$sleep_wait" "$max_count" "$timeout"
 
 # execute test
 cd test/tavern
+echo "target test: $test_file2" >> "$log_file"
 eval docker compose exec -T tavern pytest $pytest_opts /tavern/test/index/"$test_file2" | tee -a "$log_file"
+echo "\n\n" >> "$log_file"
 
 # WEKO_ACCOUNTS_IDP_ENTITY_ID = ""
 sed -i "s|WEKO_ACCOUNTS_IDP_ENTITY_ID *= *.*|WEKO_ACCOUNTS_IDP_ENTITY_ID = \"\"|" $SETTING_FILE
+# WEKO_PERMISSION_SUPER_ROLE_USER = 1
+grep -E "^WEKO_PERMISSION_SUPER_ROLE_USER *= *.*$" $SETTING_FILE
+if [ $? -ne 0 ]; then
+  echo 'WEKO_PERMISSION_SUPER_ROLE_USER = 1' >> $SETTING_FILE
+else
+  sed -i.bak 's/WEKO_PERMISSION_SUPER_ROLE_USER *= *\["System Administrator", "Repository Administrator"\]/WEKO_PERMISSION_SUPER_ROLE_USER = 1/' $SETTING_FILE
+fi
 
 check_connection "$host" "$sleep_wait" "$max_count" "$timeout"
 
 # execute test
 cd test/tavern
+echo "target test: $test_file3" >> "$log_file"
 eval docker compose exec -T tavern pytest $pytest_opts /tavern/test/index/"$test_file3" | tee -a "$log_file"
+echo "\n\n" >> "$log_file"
 
 # restore settings
 # WEKO_ACCOUNTS_SHIB_BIND_GAKUNIN_MAP_GROUPS = False
@@ -218,20 +224,27 @@ docker compose exec -T tavern python generator/json/generate_index_data.py -s 10
 
 # execute test
 docker compose exec -T tavern python test/index/replacer.py --output /tavern/test/index/test_index_generated.tavern.yaml
+echo "target test: test_index_generated.tavern.yaml" >> "$log_file"
 eval docker compose exec -T tavern pytest $pytest_opts /tavern/test/index/test_index_generated.tavern.yaml | tee -a "$log_file"
+echo "\n\n" >> "$log_file"
 
 sed -i "/prepare_index.sql/d" prepare_data/execute_order.txt
 mv test/index/test_index_generated.tavern.yaml request_params/index/test_data/
 mv prepare_data/prepare_index.sql request_params/index/test_data/
 
 # execute during importing test
+echo "target test: test_index_import.tavern.yaml" >> "$log_file"
 eval docker compose exec -T tavern pytest $pytest_opts /tavern/test/index/test_index_import.tavern.yaml | tee -a "$log_file"
+echo "\n\n" >> "$log_file"
 
 # execute stopping DB test
 cd ../../
 docker compose stop postgresql pgpool
 cd test/tavern
+echo "target test: test_index_stop_db.tavern.yaml" >> "$log_file"
 eval docker compose exec -T tavern pytest $pytest_opts /tavern/test/index/test_index_stop_db.tavern.yaml | tee -a "$log_file"
+echo "\n\n" >> "$log_file"
+mv "$log_file" request_params/index/test_data/
 cd ../../
 docker compose start postgresql pgpool
 

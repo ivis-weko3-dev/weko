@@ -30,7 +30,7 @@ stages:
         $ext:
           function: helper.item_type_mapping.request_helper:generate_request_body
           extra_kwargs:
-            file_path: "request_params/item_type_mapping/test_data/<role_folder>/all_schema_mappings/<file_name>"
+            file_path: "request_params/item_type_mapping/test_data/<role_folder>/<target_dir>/<file_name>"
     response:
       status_code: 403
       verify_response_with:

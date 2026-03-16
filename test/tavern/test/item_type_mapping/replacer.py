@@ -94,7 +94,7 @@ def replace_placeholders(data, replacements):
     replaced_data.append("")
     return replaced_data
 
-def create_test_cases(file_list, success_content, redirect_content, forbidden_content, output_file, exe_type):
+def create_test_cases(file_list, success_content, redirect_content, forbidden_content, output_file, target_dir, exe_type):
     """Create test cases by replacing placeholders in the template content.
 
     Args:
@@ -103,31 +103,33 @@ def create_test_cases(file_list, success_content, redirect_content, forbidden_co
         redirect_content (list): Template content for redirect cases as a list of strings.
         forbidden_content (list): Template content for forbidden cases as a list of strings.
         output_file (str): Path to the output file.
+        target_dir (str): Target directory name to include in the test case names.
         exe_type (str): Execution type to include in the test case names.
     """
     test_cases = []
     schema_name = ""
-    count = 0
+    counts = {}
     for file_path in file_list:
         role_dir = file_path.split(os.sep)[-3]
         file_name = os.path.basename(file_path)
         match = re.search(r"\w+_mapping", file_name.replace("mapping_all_schemalist_", ""))
         if match:
             extracted = match.group()
-        if schema_name != extracted:
-            schema_name = extracted
-            count = 1
+        if extracted not in counts:
+            counts[extracted] = 1
         else:
-            count += 1
+            counts[extracted] += 1
+        schema_name = extracted
         target_role_info = ROLE_DICT.get(role_dir, {})
         replacements = {
             "<role_ja>": target_role_info.get("name", ""),
             "<mapping_type>": schema_name,
-            "<No>": str(count),
+            "<No>": str(counts.get(extracted, 1)),
             "<login>": target_role_info.get("login", ""),
             "<role_mark>": target_role_info.get("mark", ""),
             "<type>": schema_name.replace("_mapping", ""),
             "<role_folder>": role_dir,
+            "<target_dir>": target_dir,
             "<file_name>": file_name,
             "<exe_type>": exe_type
         }
@@ -169,7 +171,7 @@ def main():
         forbidden_content = f.read().splitlines()
     result = find_files_in_matching_folders(target_dir)
     print(f"Found {len(result)} files in folders matching '{target_dir}'")
-    create_test_cases(result, success_content, redirect_content, forbidden_content, output_file, exe_type)
+    create_test_cases(result, success_content, redirect_content, forbidden_content, output_file, target_dir, exe_type)
 
 if __name__ == "__main__":
     main()

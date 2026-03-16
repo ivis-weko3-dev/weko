@@ -239,13 +239,13 @@ marks:
   - repository_admin
 
 stages:
-  - name: api/tree?action=browsing&c=community
+  - name: api/tree?action=browsing&c=community1
     request:
       url: "{host}/api/tree"
       method: GET
       params:
         action: browsing
-        c: community
+        c: community1
       verify: false
     response:
       status_code: 200
@@ -268,13 +268,13 @@ marks:
   - repository_admin
 
 stages:
-  - name: api/tree?action=browsing&c=community&more_ids=6
+  - name: api/tree?action=browsing&c=community1&more_ids=6
     request:
       url: "{host}/api/tree"
       method: GET
       params:
         action: browsing
-        c: community
+        c: community1
         more_ids: "6"
       verify: false
     response:
@@ -357,7 +357,7 @@ stages:
     response:
       status_code: 200
       json:
-        {}
+        can_edit: true
 
 ---
 test_name: リポジトリ管理者 インデックス新規作成
@@ -951,6 +951,7 @@ stages:
         function: helper.index.verify_helper:verify_index_locked
         extra_kwargs:
           index: "{index}"
+          is_edit: true
 
 ---
 test_name: リポジトリ管理者 インデックス編集 非公開(DOI含む)
@@ -1664,6 +1665,7 @@ stages:
         function: helper.index.verify_helper:verify_no_filename
         extra_kwargs:
           path: "./upload_file/thumbnail.png"
+          code: 400
 
 ---
 test_name: リポジトリ管理者 インデックス削除
@@ -2347,7 +2349,7 @@ stages:
       verify: false
       json:
         id: 1000
-        name: ""
+        value: ""
     response:
       status_code: 400
       verify_response_with:
@@ -2376,9 +2378,9 @@ stages:
       verify: false
       json:
         id: 1000
-        name: "A"
+        value: "A"
     response:
-      status_code: 200
+      status_code: 201
       verify_response_with:
         function: helper.index.verify_helper:verify_created_index
         extra_kwargs:
@@ -2506,7 +2508,7 @@ stages:
           function: helper.index.request_helper:generate_request_body
           extra_kwargs:
             file_path: "request_params/index/test_data/repoadmin/index_data_empty_index_name_english.json"
-  - response:
+    response:
       status_code: 400
       verify_response_with:
         function: helper.index.verify_helper:verify_bad_request

@@ -78,7 +78,7 @@ class Index:
 
 
 def create_index(
-    depth, num, current_level = 1, parent_id = 0, before_id = 0
+    depth, num, current_level = 1, parent_id = 0, before_id = 0, adjust_position = -1
 ):
     """Recursively create a list of Index instances.
 
@@ -88,6 +88,7 @@ def create_index(
         current_level(int, optional): Current level in the hierarchy. Defaults to 1.
         parent_id(int, optional): Parent index ID. Defaults to 0.
         before_id(int, optional): ID of the last created index. Defaults to 0.
+        adjust_position(int, optional): Adjustment for the position value. Defaults to -1.
 
     Returns:
         list[Index]: List of created Index instances.
@@ -101,7 +102,7 @@ def create_index(
         params = {
             "id": id,
             "parent": parent_id,
-            "position": i + 2,
+            "position": i + adjust_position,
             "index_name": f"Index_L{current_level}_N{i}",
             "index_name_english": f"Index_L{current_level}_N{i}_EN",
             "index_link_name": f"Index_L{current_level}_N{i}_Link",
@@ -122,7 +123,7 @@ def main(hierarchy_depth, num_indices_per_level):
         hierarchy_depth(int): Depth of the index hierarchy.
         num_indices_per_level(int): Number of indices per level.
     """
-    indices = create_index(hierarchy_depth, num_indices_per_level, before_id=100)
+    indices = create_index(hierarchy_depth, num_indices_per_level, before_id=100, adjust_position=2)
 
     with open("prepare_data/prepare_index.sql", "w", encoding="utf-8") as f:
         query = [index.create_query() for index in indices]

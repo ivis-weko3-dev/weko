@@ -13,7 +13,7 @@ marks:
 stages:
   - name: prepare_pdfcoverpage
     request:
-      url: "{host}"
+      url: "{host}/ping"
       method: GET
       verify: false
     response:
@@ -54,7 +54,7 @@ marks:
 stages:
   - name: prepare_pdfcoverpage
     request:
-      url: "{host}"
+      url: "{host}/ping"
       method: GET
       verify: false
     response:
@@ -95,7 +95,7 @@ marks:
 stages:
   - name: prepare_pdfcoverpage
     request:
-      url: "{host}"
+      url: "{host}/ping"
       method: GET
       verify: false
     response:
@@ -137,7 +137,7 @@ marks:
 stages:
   - name: prepare_pdfcoverpage
     request:
-      url: "{host}"
+      url: "{host}/ping"
       method: GET
       verify: false
     response:
@@ -163,56 +163,6 @@ stages:
           coverpage: false
           nodeid: "1623632832836"
           map_groups: {"delete": "{role_ids}"}
-
----
-test_name: システム管理者 ツリー情報取得 400エラー
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - usefixtures:
-    - login_sysadmin
-  - tree_editing_get_treeinfo_400_error
-  - system_admin
-
-stages:
-  - name: admin/tree
-    request:
-      url: "{host}/admin/tree"
-      method: GET
-      verify: false
-    response:
-      status_code: 400
-      verify_response_with:
-        function: helper.index.verify_helper:verify_bad_request
-        extra_kwargs:
-          message: "Could not load data."
-
----
-test_name: システム管理者 インデックス情報取得 400エラー
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - usefixtures:
-    - login_sysadmin
-  - tree_editing_get_indexinfo_400_error
-  - system_admin
-
-stages:
-  - name: api/tree/index (search)
-    request:
-      url: "{host}/api/tree/index/1"
-      method: GET
-      verify: false
-    response:
-      status_code: 400
-      verify_response_with:
-        function: helper.index.verify_helper:verify_bad_request
-        extra_kwargs:
-          message: "Could not load data."
 
 ---
 test_name: システム管理者 インデックス新規作成 mAP有効
@@ -365,9 +315,9 @@ stages:
     response:
       status_code: 500
       verify_response_with:
-        function: helper.index.verify_helper.verify_internal_server_error
+        function: helper.index.verify_helper:verify_internal_server_error
         extra_kwargs:
-          index: "{index_list}"
+          indices: "{index_list}"
 
 # End System Administrator's Test
 ---
@@ -538,56 +488,6 @@ stages:
           map_groups: {"delete": "{role_ids}"}
 
 ---
-test_name: リポジトリ管理者 ツリー情報取得 400エラー
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - usefixtures:
-    - login_repoadmin
-  - tree_editing_get_treeinfo_400_error
-  - repository_admin
-
-stages:
-  - name: admin/tree
-    request:
-      url: "{host}/admin/tree"
-      method: GET
-      verify: false
-    response:
-      status_code: 400
-      verify_response_with:
-        function: helper.index.verify_helper:verify_bad_request
-        extra_kwargs:
-          message: "Could not load data."
-
----
-test_name: リポジトリ管理者 インデックス情報取得 400エラー
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - usefixtures:
-    - login_repoadmin
-  - tree_editing_get_indexinfo_400_error
-  - repository_admin
-
-stages:
-  - name: api/tree/index (search)
-    request:
-      url: "{host}/api/tree/index/1"
-      method: GET
-      verify: false
-    response:
-      status_code: 400
-      verify_response_with:
-        function: helper.index.verify_helper:verify_bad_request
-        extra_kwargs:
-          message: "Could not load data."
-
----
 test_name: リポジトリ管理者 インデックス新規作成 mAP有効
 
 includes:
@@ -738,9 +638,9 @@ stages:
     response:
       status_code: 500
       verify_response_with:
-        function: helper.index.verify_helper.verify_internal_server_error
+        function: helper.index.verify_helper:verify_internal_server_error
         extra_kwargs:
-          index: "{index_list}"
+          indices: "{index_list}"
 
 # End Repository Administrator's Test
 ---
@@ -909,56 +809,6 @@ stages:
           coverpage: false
           nodeid: "1623632832836"
           map_groups: {"delete": "{role_ids}"}
-
----
-test_name: コミュニティ管理者 ツリー情報取得 400エラー
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - usefixtures:
-    - login_comadmin
-  - tree_editing_get_treeinfo_400_error
-  - community_admin
-
-stages:
-  - name: admin/tree
-    request:
-      url: "{host}/admin/tree"
-      method: GET
-      verify: false
-    response:
-      status_code: 400
-      verify_response_with:
-        function: helper.index.verify_helper:verify_bad_request
-        extra_kwargs:
-          message: "Could not load data."
-
----
-test_name: コミュニティ管理者 インデックス情報取得 400エラー
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - usefixtures:
-    - login_comadmin
-  - tree_editing_get_indexinfo_400_error
-  - community_admin
-
-stages:
-  - name: api/tree/index (search)
-    request:
-      url: "{host}/api/tree/index/1"
-      method: GET
-      verify: false
-    response:
-      status_code: 400
-      verify_response_with:
-        function: helper.index.verify_helper:verify_bad_request
-        extra_kwargs:
-          message: "Could not load data."
 
 ---
 test_name: コミュニティ管理者 インデックス新規作成 mAP有効
@@ -1169,9 +1019,9 @@ stages:
     response:
       status_code: 500
       verify_response_with:
-        function: helper.index.verify_helper.verify_internal_server_error
+        function: helper.index.verify_helper:verify_internal_server_error
         extra_kwargs:
-          index: "{index_list}"
+          indices: "{index_list}"
 
 ---
 test_name: コミュニティ管理者 インデックス削除 サーバ内部エラー コミュニティ管理外
@@ -1208,7 +1058,7 @@ stages:
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden
         extra_kwargs:
-          index: "{index_list}"
+          indices: "{index_list}"
 
 # End Community Administrator's Test
 ---
@@ -1250,6 +1100,7 @@ stages:
         function: helper.index.verify_helper:verify_forbidden_html
         extra_kwargs:
           map_groups: {"add": ["jc_roles_weko3_example_org_groups_add1,jc_weko3_example_org_groups_add2,jc_weko3_example_org_groups_add3"]}
+          language: en
 
 ---
 test_name: コントリビュータ ツリー編集画面表示 mAP有効 日本語
@@ -1289,6 +1140,7 @@ stages:
         function: helper.index.verify_helper:verify_forbidden_html
         extra_kwargs:
           map_groups: {"delete": "{role_ids}"}
+          language: ja
 
 ---
 test_name: コントリビュータ ツリー編集画面表示 mAP有効 英語 id指定
@@ -1328,6 +1180,7 @@ stages:
         function: helper.index.verify_helper:verify_forbidden_html
         extra_kwargs:
           map_groups: {"add": ["jc_roles_weko3_example_org_groups_add1,jc_weko3_example_org_groups_add2,jc_weko3_example_org_groups_add3"]}
+          language: en
 
 ---
 test_name: コントリビュータ ツリー編集画面表示 mAP有効 日本語 id指定
@@ -1367,91 +1220,7 @@ stages:
         function: helper.index.verify_helper:verify_forbidden_html
         extra_kwargs:
           map_groups: {"delete": "{role_ids}"}
-
----
-test_name: コントリビュータ ツリー情報取得 400エラー
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - usefixtures:
-    - login_contributor
-  - tree_editing_get_treeinfo_400_error
-  - contributor
-
-stages:
-  - name: admin/tree
-    request:
-      url: "{host}/admin/tree"
-      method: GET
-      verify: false
-    response:
-      status_code: 400
-      verify_response_with:
-        function: helper.index.verify_helper:verify_bad_request
-        extra_kwargs:
-          message: "Could not load data."
-
----
-test_name: コントリビュータ インデックス情報取得 400エラー 閲覧権限あり
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - usefixtures:
-    - login_contributor
-  - tree_editing_get_indexinfo_400_error_viewable
-  - contributor
-
-stages:
-  - name: api/tree/index (search)
-    request:
-      url: "{host}/api/tree/index/1"
-      method: GET
-      verify: false
-    response:
-      status_code: 400
-      verify_response_with:
-        function: helper.index.verify_helper:verify_bad_request
-        extra_kwargs:
-          message: "Could not load data."
-
----
-test_name: コントリビュータ インデックス情報取得 400エラー 閲覧権限なし
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - usefixtures:
-    - login_contributor
-  - tree_editing_get_indexinfo_400_error_not_viewable
-  - contributor
-
-stages:
-  - name: prepare_index_view_permission
-    request:
-      url: "{host}"
-      method: GET
-      verify: false
-    response:
-      status_code: 200
-      save:
-        $ext:
-          function: helper.index.response_helper:set_index_view_permission
-          extra_kwargs:
-            index_id: 1
-  - name: api/tree/index (search)
-    request:
-      url: "{host}/api/tree/index/1"
-      method: GET
-      verify: false
-    response:
-      status_code: 403
-      verify_response_with:
-        function: helper.index.verify_helper:verify_forbidden
+          language: ja
 
 ---
 test_name: コントリビュータ インデックス新規作成 mAP有効
@@ -1633,6 +1402,8 @@ stages:
       status_code: 403
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden_html
+        extra_kwargs:
+          language: en
 
 ---
 test_name: コントリビュータ インデックス削除 サーバ内部エラー コミュニティ管理内
@@ -1669,7 +1440,7 @@ stages:
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden
         extra_kwargs:
-          index: "{index_list}"
+          indices: "{index_list}"
 
 ---
 test_name: コントリビュータ インデックス削除 サーバ内部エラー コミュニティ管理外
@@ -1706,7 +1477,7 @@ stages:
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden
         extra_kwargs:
-          index: "{index_list}"
+          indices: "{index_list}"
 
 # End Contributor's Test
 ---
@@ -1748,6 +1519,7 @@ stages:
         function: helper.index.verify_helper:verify_forbidden_html
         extra_kwargs:
           map_groups: {"add": ["jc_roles_weko3_example_org_groups_add1,jc_weko3_example_org_groups_add2,jc_weko3_example_org_groups_add3"]}
+          language: en
 
 ---
 test_name: 一般ユーザー ツリー編集画面表示 mAP有効 日本語
@@ -1787,6 +1559,7 @@ stages:
         function: helper.index.verify_helper:verify_forbidden_html
         extra_kwargs:
           map_groups: {"delete": "{role_ids}"}
+          language: ja
 
 ---
 test_name: 一般ユーザー ツリー編集画面表示 mAP有効 英語 id指定
@@ -1826,6 +1599,7 @@ stages:
         function: helper.index.verify_helper:verify_forbidden_html
         extra_kwargs:
           map_groups: {"add": ["jc_roles_weko3_example_org_groups_add1,jc_weko3_example_org_groups_add2,jc_weko3_example_org_groups_add3"]}
+          language: en
 
 ---
 test_name: 一般ユーザー ツリー編集画面表示 mAP有効 日本語 id指定
@@ -1865,91 +1639,7 @@ stages:
         function: helper.index.verify_helper:verify_forbidden_html
         extra_kwargs:
           map_groups: {"delete": "{role_ids}"}
-
----
-test_name: 一般ユーザー ツリー情報取得 400エラー
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - usefixtures:
-    - login_user
-  - tree_editing_get_treeinfo_400_error
-  - user
-
-stages:
-  - name: admin/tree
-    request:
-      url: "{host}/admin/tree"
-      method: GET
-      verify: false
-    response:
-      status_code: 400
-      verify_response_with:
-        function: helper.index.verify_helper:verify_bad_request
-        extra_kwargs:
-          message: "Could not load data."
-
----
-test_name: 一般ユーザー インデックス情報取得 400エラー 閲覧権限あり
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - usefixtures:
-    - login_user
-  - tree_editing_get_indexinfo_400_error_viewable
-  - user
-
-stages:
-  - name: api/tree/index (search)
-    request:
-      url: "{host}/api/tree/index/1"
-      method: GET
-      verify: false
-    response:
-      status_code: 400
-      verify_response_with:
-        function: helper.index.verify_helper:verify_bad_request
-        extra_kwargs:
-          message: "Could not load data."
-
----
-test_name: 一般ユーザー インデックス情報取得 400エラー 閲覧権限なし
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - usefixtures:
-    - login_user
-  - tree_editing_get_indexinfo_400_error_not_viewable
-  - user
-
-stages:
-  - name: prepare_index_view_permission
-    request:
-      url: "{host}"
-      method: GET
-      verify: false
-    response:
-      status_code: 200
-      save:
-        $ext:
-          function: helper.index.response_helper:set_index_view_permission
-          extra_kwargs:
-            index_id: 1
-  - name: api/tree/index (search)
-    request:
-      url: "{host}/api/tree/index/1"
-      method: GET
-      verify: false
-    response:
-      status_code: 403
-      verify_response_with:
-        function: helper.index.verify_helper:verify_forbidden
+          language: ja
 
 ---
 test_name: 一般ユーザー インデックス新規作成 mAP有効
@@ -2079,6 +1769,8 @@ stages:
       status_code: 403
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden_html
+        extra_kwargs:
+          language: en
 
 ---
 test_name: 一般ユーザー インデックス削除 サーバ内部エラー
@@ -2115,7 +1807,7 @@ stages:
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden
         extra_kwargs:
-          index: "{index_list}"
+          indices: "{index_list}"
 
 # End User's Test
 ---
@@ -2270,62 +1962,6 @@ stages:
         extra_kwargs:
           expected_location: "{host}/admin/indexedit/1623632832836"
           host: "{host}"
-
----
-test_name: ゲスト インデックス情報取得 400エラー 閲覧権限あり
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - tree_editing_get_indexinfo_400_error_viewable
-  - guest
-
-stages:
-  - name: api/tree/index (search)
-    request:
-      url: "{host}/api/tree/index/1"
-      method: GET
-      verify: false
-    response:
-      status_code: 400
-      verify_response_with:
-        function: helper.index.verify_helper:verify_bad_request
-        extra_kwargs:
-          message: "Could not load data."
-
----
-test_name: ゲスト インデックス情報取得 400エラー 閲覧権限なし
-
-includes:
-  - !include ../config.yaml
-
-marks:
-  - tree_editing_get_indexinfo_400_error_not_viewable
-  - guest
-
-stages:
-  - name: prepare_index_view_permission
-    request:
-      url: "{host}"
-      method: GET
-      verify: false
-    response:
-      status_code: 200
-      save:
-        $ext:
-          function: helper.index.response_helper:set_index_view_permission
-          extra_kwargs:
-            index_id: 1
-  - name: api/tree/index (search)
-    request:
-      url: "{host}/api/tree/index/1"
-      method: GET
-      verify: false
-    response:
-      status_code: 403
-      verify_response_with:
-        function: helper.index.verify_helper:verify_forbidden
 
 ---
 test_name: ゲスト インデックス新規作成 mAP有効
@@ -2486,6 +2122,6 @@ stages:
       verify_response_with:
         function: helper.index.verify_helper:verify_unauthorized
         extra_kwargs:
-          index: "{index_list}"
+          indices: "{index_list}"
 
 # End Guest's Test

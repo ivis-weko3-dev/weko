@@ -459,17 +459,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -478,7 +478,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_record
     request:
       url: "{host}"
@@ -571,17 +571,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -590,7 +590,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_record
     request:
       url: "{host}"
@@ -683,17 +683,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -702,7 +702,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_record
     request:
       url: "{host}"
@@ -795,17 +795,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -814,7 +814,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_record
     request:
       url: "{host}"

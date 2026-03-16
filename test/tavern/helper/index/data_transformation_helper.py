@@ -63,7 +63,7 @@ def transform_index_data(index_id):
                 "position": index_data["position"],
                 "public_date": datetime.strftime(
                     index_data["public_date"], "%Y-%m-%dT%H:%M:%S")
-                    if index_data["public_date"] else "",
+                    if index_data["public_date"] else None,
                 "public_state": index_data["public_state"],
                 "recursive_coverpage_check": index_data["recursive_coverpage_check"],
                 "settings": {

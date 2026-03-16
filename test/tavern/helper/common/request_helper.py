@@ -14,6 +14,8 @@ def request_create_validate_param(data, file_metadata=None):
             item_id (str): item id
             data (dict): register data
     """
+    if isinstance(data, str):
+        data = json.loads(data)
     item_id = data['$schema'].split('/')[-1]
     params = {
         'item_id': item_id,
@@ -22,10 +24,8 @@ def request_create_validate_param(data, file_metadata=None):
     if file_metadata is not None:
         metadata = json.loads(file_metadata)
         keys = list(metadata.keys())
-        for key, value in metadata[keys[0]][0].items():
-            if key not in params['data'][keys[0]][0]:
-                params['data'][keys[0]][0][key] = value
-    print(params['data'][keys[0]])
+        if keys[0] not in params['data'].keys():
+            params['data'][keys[0]] = metadata[keys[0]]
     return params
 
 
@@ -98,9 +98,8 @@ def request_create_save_param(data, url=None, file_upload_info=None, file_metada
     if file_metadata is not None:
         metadata = json.loads(file_metadata)
         keys = list(metadata.keys())
-        for key, value in metadata[keys[0]][0].items():
-            if key not in params['metainfo'][keys[0]][0]:
-                params['metainfo'][keys[0]][0][key] = value
+        if keys[0] not in params['metainfo'].keys():
+            params['metainfo'][keys[0]] = metadata[keys[0]]
     return params
 
 def request_create_deposits_items_param(data=None):
@@ -159,7 +158,7 @@ def request_create_deposits_redirect_param(data, title_key, file_metadata=None):
         '$schema': data['$schema'],
         'lang': 'ja',
         'pubdate': data['pubdate'],
-        'shared_user_id': data['shared_user_id'],
+        'shared_user_ids': data['shared_user_ids'],
         'title': title
     }
 

@@ -48,6 +48,14 @@ def set_pdfcoverpage(response, avail, lang, map=None):
                 }
                 redis_4.hset(key, mapping=value)
             elif map == "delete":
+                redis_4 = connect_redis(db=4)
+                key = "weko3_example_org_gakunin_groups"
+                value = {
+                    "updated_at": datetime.now(timezone.utc).isoformat(timespec='seconds'),
+                    "groups": ""
+                }
+                redis_4.hset(key, mapping=value)
+
                 insert_queries = [
                     "INSERT INTO accounts_role(name) VALUES ('jc_weko3_example_org_groups_delete1');",
                     "INSERT INTO accounts_role(name) VALUES ('jc_weko3_example_org_groups_delete2');",

@@ -2,6 +2,7 @@
 |マーカー名                                                           |説明|
 |--------------------------------------------------------------------|---|
 |tree_editing_create_index                                           |インデックスを新規作成するテスト|
+|tree_editing_create_index_generated                                 |自動生成されたインデックスを新規作成するテスト|
 |tree_editing_create_index_invalid_header                            |ヘッダーが不正な状態でインデックスを新規作成するテスト|
 |tree_editing_create_index_invalid_request_body                      |リクエストボディが不正な状態でインデックスを新規作成するテスト|
 |tree_editing_create_index_map_enabled                               |mAPグループの初期設定も行う、インデックスを新規作成するテスト|
@@ -18,13 +19,14 @@
 |tree_editing_create_index_with_parent_no_request_body               |リクエストボディがなく、親インデックスを指定してインデックスを新規作成するテスト|
 |tree_editing_create_index_with_parent_outside_community             |コミュニティ管理外の親インデックスを指定してインデックスを新規作成するテスト<br>（コミュニティ管理者、コントリビュータでのみ実行可）|
 |tree_editing_create_index_with_parent_within_community              |コミュニティ管理内の親インデックスを指定してインデックスを新規作成するテスト<br>（コミュニティ管理者、コントリビュータでのみ実行可）|
-|tree_editing_delete_index                                           |インデックスを削除するテスト<br>（コミュニティ管理者、コントリビュータでは事項不可）|
+|tree_editing_delete_index                                           |インデックスを削除するテスト<br>（コミュニティ管理者、コントリビュータでは実行不可）|
 |tree_editing_delete_index_being_edited                              |編集中のアイテムが属するインデックスを削除するテスト<br>（コミュニティ管理者、コントリビュータでは実行不可）|
 |tree_editing_delete_index_being_edited_outside_community            |編集中のアイテムが属するコミュニティ管理外のインデックスを削除するテスト<br>（コミュニティ管理者、コントリビュータでのみ実行可）|
 |tree_editing_delete_index_being_edited_within_community             |編集中のアイテムが属するコミュニティ管理内のインデックスを削除するテスト<br>（コミュニティ管理者、コントリビュータでのみ実行可）|
 |tree_editing_delete_index_doi                                       |DOIを付与したアイテムが属するインデックスを削除するテスト<br>（コミュニティ管理者、コントリビュータでは実行不可）|
 |tree_editing_delete_index_doi_outside_community                     |DOIを付与したアイテムが属するコミュニティ管理外のインデックスを削除するテスト<br>（コミュニティ管理者、コントリビュータでのみ実行可）|
 |tree_editing_delete_index_doi_within_community                      |DOIを付与したアイテムが属するコミュニティ管理内のインデックスを削除するテスト<br>（コミュニティ管理者、コントリビュータでのみ実行可）|
+|tree_editing_delete_index_generated                                 |自動生成されたインデックスを削除するテスト|
 |tree_editing_delete_index_harvest_setting                           |ハーベスト設定されているインデックスを削除するテスト<br>（コミュニティ管理者、コントリビュータは実行不可）|
 |tree_editing_delete_index_harvest_setting_outside_community         |ハーベスト設定されているコミュニティ管理外のインデックスを削除するテスト<br>（コミュニティ管理者、コントリビュータでのみ実行可）|
 |tree_editing_delete_index_harvest_setting_within_community          |ハーベスト設定されているコミュニティ管理内のインデックスを削除するテスト<br>（コミュニティ管理者、コントリビュータでのみ実行可）|
@@ -58,6 +60,7 @@
 |tree_editing_display_map_enabled_ja_select_id                       |mAP連携有効・日本語表示・id指定でのツリー編集画面表示のテスト|
 |tree_editing_display_map_enabled_select_id_internal_server_error    |mAP連携機能有効・id指定でサーバ内部エラーが発生するツリー編集画面表示のテスト|
 |tree_editing_edit_index                                             |インデックスを編集するテスト<br>（コミュニティ管理者、コントリビュータでは実行不可）|
+|tree_editing_edit_index_generated                                   |自動生成されたインデックスを編集するテスト|
 |tree_editing_edit_index_harvest_private_doi                         |DOIを付与したアイテムを含むインデックスをハーベスト非公開にするテスト<br>（コミュニティ管理者、コントリビュータでは実行不可）|
 |tree_editing_edit_index_harvest_private_doi_outside_community       |DOIを付与したアイテムを含むコミュニティ管理外のインデックスをハーベスト非公開にするテスト<br>（コミュニティ管理者、コントリビュータでのみ実行可）|
 |tree_editing_edit_index_harvest_private_doi_within_community        |DOIを付与したアイテムを含むコミュニティ管理内のインデックスをハーベスト非公開にするテスト<br>（コミュニティ管理者、コントリビュータでのみ実行可）|

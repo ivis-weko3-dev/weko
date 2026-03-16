@@ -18,13 +18,14 @@ stages:
         id: 100
         value: "Index_Test"
     response:
-      status_code: 200
+      status_code: 201
       verify_response_with:
         function: helper.index.verify_helper:verify_created_index
         extra_kwargs:
           id: 100
-          value: "Index_Test"
+          name: "Index_Test"
           user_id: <user_id>
+          parent_id: <No>
 
 ---
 test_name: <role_ja> インデックス編集 <No>
@@ -91,4 +92,4 @@ stages:
       verify_response_with:
         function: helper.index.verify_helper:verify_deleted_index
         extra_kwargs:
-          id: <No>
+          deleted_ids: [<No>]

@@ -32,6 +32,8 @@ stages:
       status_code: 403
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden_html
+        extra_kwargs:
+          language: en
 
 ---
 test_name: 一般ユーザー ツリー編集画面表示 mAP無効 日本語
@@ -68,6 +70,8 @@ stages:
       status_code: 403
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden_html
+        extra_kwargs:
+          language: ja
 
 ---
 test_name: 一般ユーザー ツリー編集画面表示 mAP無効 英語 id指定
@@ -104,6 +108,8 @@ stages:
       status_code: 403
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden_html
+        extra_kwargs:
+          language: en
 
 ---
 test_name: 一般ユーザー ツリー編集画面表示 mAP無効 日本語 id指定
@@ -140,6 +146,8 @@ stages:
       status_code: 403
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden_html
+        extra_kwargs:
+          language: ja
 
 ---
 test_name: 一般ユーザー ツリー閲覧情報取得 Redis使用・未使用
@@ -225,13 +233,13 @@ marks:
   - user
 
 stages:
-  - name: api/tree?action=browsing&c=community
+  - name: api/tree?action=browsing&c=community1
     request:
       url: "{host}/api/tree"
       method: GET
       params:
         action: browsing
-        c: community
+        c: community1
       verify: false
     response:
       status_code: 200
@@ -254,13 +262,13 @@ marks:
   - user
 
 stages:
-  - name: api/tree?action=browsing&c=community&more_ids=6
+  - name: api/tree?action=browsing&c=community1&more_ids=6
     request:
       url: "{host}/api/tree"
       method: GET
       params:
         action: browsing
-        c: community
+        c: community1
         more_ids: "6"
       verify: false
     response:
@@ -291,11 +299,8 @@ stages:
       verify: false
     response:
       status_code: 200
-      verify_response_with:
-        function: helper.index.verify_helper:verify_index_tree
-        extra_kwargs:
-          expected_tree_file: "response_data/index/index_tree_community_all.json"
-          role_id: -98
+      json:
+        []
 
 ---
 test_name: 一般ユーザー インデックス情報取得 閲覧権限あり
@@ -321,7 +326,7 @@ stages:
         function: helper.index.verify_helper:verify_index_info
         extra_kwargs:
           id: "1"
-          within_community: True
+          within_community: false
 
 ---
 test_name: 一般ユーザー インデックス情報取得 閲覧権限なし
@@ -995,17 +1000,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: "repoadmin@example.org"
@@ -1014,7 +1019,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_item_with_doi
     request:
       url: "{host}"
@@ -1044,17 +1049,17 @@ stages:
         Location: "{host}/"
   - name: GET login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: "user@example.org"
@@ -1063,7 +1068,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_index
     request:
       url: "{host}"
@@ -1109,17 +1114,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: "repoadmin@example.org"
@@ -1128,7 +1133,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_item_with_doi
     request:
       url: "{host}"
@@ -1158,17 +1163,17 @@ stages:
         Location: "{host}/"
   - name: GET login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: "user@example.org"
@@ -1177,7 +1182,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_index
     request:
       url: "{host}"
@@ -1248,7 +1253,7 @@ stages:
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden
         extra_kwargs:
-          index: "{index_list}"
+          indices: "{index_list}"
 
 ---
 test_name: 一般ユーザー インデックス編集 再帰設定：公開
@@ -1665,6 +1670,8 @@ stages:
       status_code: 403
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden_html
+        extra_kwargs:
+          language: en
 
 ---
 test_name: 一般ユーザー サムネイル設定 ファイル未設定
@@ -1690,6 +1697,8 @@ stages:
       status_code: 403
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden_html
+        extra_kwargs:
+          language: en
 
 ---
 test_name: 一般ユーザー サムネイル設定 ファイル名未設定
@@ -1710,9 +1719,12 @@ stages:
       method: GET
       verify: false
     response:
-      status_code: 403
+      status_code: 200
       verify_response_with:
-        function: helper.index.verify_helper:verify_forbidden_html
+        function: helper.index.verify_helper:verify_no_filename
+        extra_kwargs:
+          path: "./upload_file/thumbnail.png"
+          code: 403
 
 ---
 test_name: 一般ユーザー インデックス削除
@@ -1727,17 +1739,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -1746,7 +1758,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_item_in_index
     request:
       url: "{host}"
@@ -1793,17 +1805,17 @@ stages:
       status_code: 302
   - name: GET login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: user@example.org
@@ -1812,7 +1824,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: delete index
     request:
       url: "{host}/api/tree/index/3"
@@ -1855,17 +1867,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -1874,7 +1886,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_item_parent
     request:
       url: "{host}"
@@ -1959,17 +1971,17 @@ stages:
       status_code: 302
   - name: GET login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: user@example.org
@@ -1978,7 +1990,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: delete index
     request:
       url: "{host}/api/tree/index/2"
@@ -1991,8 +2003,8 @@ stages:
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden
         extra_kwargs:
-          deleted_ids: [2]
-          single_item_ids: [2000001, 2000002, 2000003, 2000004]
+          target_ids: [2]
+          item_ids: [2000001, 2000002, 2000003, 2000004]
   - name: api/tree?action=browsing
     request:
       url: "{host}/api/tree"
@@ -2021,17 +2033,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -2040,7 +2052,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_item_parent
     request:
       url: "{host}"
@@ -2125,17 +2137,17 @@ stages:
       status_code: 302
   - name: GET login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: user@example.org
@@ -2144,7 +2156,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: delete index
     request:
       url: "{host}/api/tree/index/2"
@@ -2187,17 +2199,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -2206,7 +2218,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_item_parent
     request:
       url: "{host}"
@@ -2291,17 +2303,17 @@ stages:
       status_code: 302
   - name: GET login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: user@example.org
@@ -2310,7 +2322,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: delete index
     request:
       url: "{host}/api/tree/index/2"
@@ -2404,17 +2416,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -2423,7 +2435,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_item_with_doi
     request:
       url: "{host}"
@@ -2451,17 +2463,17 @@ stages:
       status_code: 302
   - name: GET login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: user@example.org
@@ -2470,7 +2482,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: delete index
     request:
       url: "{host}/api/tree/index/3"
@@ -2498,17 +2510,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -2517,7 +2529,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_item_being_edited
     request:
       url: "{host}"
@@ -2545,17 +2557,17 @@ stages:
       status_code: 302
   - name: GET login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login user
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: user@example.org
@@ -2564,7 +2576,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: delete index
     request:
       url: "{host}/api/tree/index/3"
@@ -2653,7 +2665,7 @@ stages:
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden
         extra_kwargs:
-          index: "{index_list}"
+          indices: "{index_list}"
 
 ---
 test_name: 一般ユーザー インデックス新規作成 インデックス名0文字

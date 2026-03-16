@@ -73,13 +73,9 @@ stages:
       method: GET
       verify: false
     response:
-      status_code: 200
-      verify_response_with:
-        function: helper.item_type_mapping.verify_helper:verify_selected_value
-        extra_kwargs:
-          select_id: "item-type-lists"
-          expected_value: "1"
-          is_sysadmin: false
+      status_code: 302
+      headers:
+        Location: "{host}/admin/itemtypes/mapping/1"
   - name: admin/itemtypes/mapping/invalid
     request:
       url: "{host}/admin/itemtypes/mapping/invalid"

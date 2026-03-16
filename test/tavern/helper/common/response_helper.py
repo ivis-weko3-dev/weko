@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import json
+import os
 import random
 import string
 from urllib.parse import urlparse
@@ -247,7 +248,10 @@ def response_save_url_described_in_email(_, target, save_key):
     Raises:
         ValueError: If no URL is found in the email file.
     """
-    with open('mail/' + target) as f:
+    target_folder = f'mail/{target}/new'
+    files = [f for f in os.listdir(target_folder) if os.path.isfile(os.path.join(target_folder, f))]
+    files.sort(reverse=True)
+    with open(os.path.join(target_folder, files[0]), 'r') as f:
         lines = f.readlines()
     url = ''
     for line in lines:
@@ -362,6 +366,13 @@ def response_save_register_data_with_change(_, file_name, key_dict_file, change_
     elif change_type == 6:
         # change creator name
         register_data[creator_key][0]['creatorNames'][0]['creatorName'] = 'たかはし さぶろう'
+        register_data[creator_key][0]['nameIdentifiers'] = [
+            {
+                "nameIdentifier": "1",
+                "nameIdentifierScheme": "WEKO"
+            }
+        ]
+        del register_data[creator_key][1]
 
     return Box({'register_data': json.dumps(register_data)})
 

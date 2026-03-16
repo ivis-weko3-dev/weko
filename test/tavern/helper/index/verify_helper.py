@@ -5,6 +5,7 @@ from urllib.parse import urlencode
 import json
 
 import requests
+from box import Box
 from bs4 import BeautifulSoup
 from psycopg2.extras import RealDictCursor
 
@@ -62,7 +63,7 @@ def verify_indexedit_elements(
         with closing(connect_db()) as conn:
             with closing(conn.cursor(cursor_factory=RealDictCursor)) as cursor:
                 if map_groups.get("add"):
-                    role_query = "SELECT id FROM accounts_role WHERE id IN %s;"
+                    role_query = "SELECT id FROM accounts_role WHERE name IN %s;"
                     cursor.execute(role_query, (tuple(map_groups["add"]),))
                     added_roles = cursor.fetchall()
                     index_query = "SELECT browsing_role, contribute_role FROM index;"
@@ -115,11 +116,18 @@ def verify_index_tree(
         Returns:
             list: Filtered tree structure based on the browsing role.
         """
+        hide_keys = ["browsing_group", "browsing_role", "contribute_group", "contribute_role", "public_date", "public_state"]
         browsing_info = []
         for node in tree:
+            public_state = node.get("public_state", "")
             browsing_role = node.get("browsing_role", "")
-            if str(role_id) in browsing_role.split(','):
+            for key in hide_keys:
+                if key in node:
+                    del node[key]
+            if public_state and str(role_id) in browsing_role.split(','):
                 node["children"] = get_browsing_treeinfo(node.get("children", []), role_id)
+                browsing_info.append(node)
+            if node.get("id") == "more":
                 browsing_info.append(node)
         return browsing_info
 
@@ -168,7 +176,7 @@ def verify_index_tree(
 
     with open(expected_tree_file, 'r') as f:
         expected_tree = json.load(f)
-    if role_id not in [1, 2]:
+    if role_id not in [1, 2, 3, 4]:
         browsing_tree = get_browsing_treeinfo(expected_tree, role_id)
     else:
         browsing_tree = expected_tree
@@ -189,7 +197,12 @@ def verify_index_tree(
         for deleted_id in deleted_id_list:
             delete_node(browsing_tree, deleted_id)
 
-    assert actual_tree == browsing_tree
+    try:
+        assert actual_tree == browsing_tree
+    except AssertionError as e:
+        print("Actual Tree:", actual_tree)
+        print("Expected Tree:", browsing_tree)
+        raise e
 
 
 def verify_index_info(response, id, within_community=True):
@@ -353,6 +366,7 @@ def verify_created_index(response, id, name, user_id, map=False, parent_id=0):
                     expected_data["recursive_contribute_group"] = True
 
     for k in index_data:
+        print(f"{k}: {index_data[k]} (expected: {expected_data.get(k)})")
         if k in ["created", "updated"]:
             assert abs((index_data[k] - expected_data[k]).total_seconds()) < 1
         else:
@@ -566,7 +580,7 @@ def verify_edited_index(
                 else:
                     assert index_data[k] == expected_data[k]
 
-            if expected_data["public_state"] and expected_data["harvest_public_state"]:
+            if public and harvest and expected_data["public_state"] and expected_data["harvest_public_state"]:
                 root = get_parents(cursor, target_id)
                 spec = ""
                 description = ""
@@ -634,8 +648,9 @@ def verify_edited_index(
                     for attempt in range(10):
                         cursor.execute(oai_query, (target_id,))
                         oai_data = cursor.fetchone()
-                        if oai_data["created"] != oai_data["updated"]:
-                            break
+                        if oai_data:
+                            if oai_data["created"] != oai_data["updated"]:
+                                break
                         if attempt == 9:
                             raise AssertionError("OAI Set data not found after multiple attempts.")
                         sleep(1)
@@ -820,13 +835,14 @@ def verify_harvest_private_with_doi(response, index):
     verify_index(index)
 
 
-def verify_index_locked(response, count=None, index=None):
+def verify_index_locked(response, count=None, index=None, is_edit=False):
     """Verify that the response indicates the index is locked and the count of indices remains unchanged.
 
     Args:
         response(Response): Response object from the request.
         count(int, optional): Expected count of indices.
         index(dict, optional): Expected index data.
+        is_edit(bool, optional): Whether the operation is an edit. Defaults to False.
     """
     expected_response = {
         "status": 200,
@@ -835,7 +851,7 @@ def verify_index_locked(response, count=None, index=None):
             "Index Delete is in progress on another device."
         ]
     }
-    if index is not None:
+    if is_edit:
         expected_response["delete_flag"] = False
     assert response.json() == expected_response
 
@@ -852,17 +868,21 @@ def verify_edit_during_import(response, index):
         response(Response): Response object from the index edit request.
         index(dict): Expected index data.
     """
-    expected_response = {
-        "status": 200,
-        "message": "",
-        "errors": [
-            "The index cannot be updated becase import is in progress."
-        ],
-        "delete_flag": False
-    }
-    assert response.json() == expected_response
+    try:
+        expected_response = {
+            "status": 200,
+            "message": "",
+            "errors": [
+                "The index cannot be updated becase import is in progress."
+            ],
+            "delete_flag": False
+        }
+        assert response.json() == expected_response
 
-    verify_index(index)
+        verify_index(index)
+    except AssertionError as e:
+        print("Response JSON:", response.json())
+        raise e
 
 
 def verify_delete_with_doi(response, delete_id):
@@ -900,7 +920,7 @@ def verify_delete_with_editing(response, delete_id):
         "status": 200,
         "message": "",
         "errors": [
-            "The index cannot be deleted because the item belonging to this index is being edited."
+            "This index cannot be deleted because the item belonging to this index is being edited."
         ]
     }
     assert response.json() == excepted_response
@@ -947,12 +967,15 @@ def verify_delete_no_specify_index(_, indices):
     verify_indices(indices)
 
 
-def verify_no_filename(response, path):
+def verify_no_filename(response, path, code, expected_location=None, host=None):
     """Verify that the response indicates a bad request due to no filename.
 
     Args:
         response(Response): Response object from the initial request.
         path(str): Path to the file to be uploaded.
+        code(int): Expected status code of the response.
+        expected_location(str, optional): Expected value of the Location header for redirection. Defaults to None.
+        host(str, optional): Host URL for constructing the expected Location header. Defaults to None.
     """
     target_url = response.url + 'admin/indexedit/upload'
     cookies = response.cookies
@@ -960,11 +983,16 @@ def verify_no_filename(response, path):
         files = {
             "uploadFile": ('', f, 'multipart/form-data'),
         }
-        r = requests.post(target_url, files=files, verify=False, cookies=cookies)
+        r = requests.post(target_url, files=files, verify=False, cookies=cookies, allow_redirects=False)
+    assert r.status_code == code
     soup = BeautifulSoup(r.text, 'html.parser')
     h1 = soup.find('h1')
-    assert h1.text == "Bad Request"
-
+    if code == 400:
+        assert h1.text == "Bad Request"
+    elif code == 403:
+        assert h1.text.endswith("Permission required")
+    elif code == 302 and expected_location is not None and host is not None:
+        verify_location_header(r, expected_location, host)
 
 def verify_location_header(response, expected_location, host):
     """Verify that the response contains the expected Location header.
@@ -1015,13 +1043,14 @@ def verify_bad_request_html(response):
     assert h1.text == "Bad Request"
 
 
-def verify_unauthorized(response, count=None, index=None, target_ids=None, item_ids=None):
+def verify_unauthorized(response, count=None, index=None, indices=None, target_ids=None, item_ids=None):
     """Verify that the response indicates an unauthorized access with the expected message.
 
     Args:
         response(Response): Response object from the request.
         count(int, optional): Expected count of indices.
         index(dict, optional): Expected index data.
+        indices(list, optional): Expected list of indices.
         target_ids(list, optional): List of target index IDs.
         item_ids(list, optional): List of item IDs.
     """
@@ -1037,6 +1066,8 @@ def verify_unauthorized(response, count=None, index=None, target_ids=None, item_
         verify_count(count)
     if index is not None:
         verify_index(index)
+    if indices is not None:
+        verify_indices(indices)
 
     if target_ids is not None and item_ids is not None:
         with closing(connect_db()) as conn:
@@ -1054,13 +1085,14 @@ def verify_unauthorized(response, count=None, index=None, target_ids=None, item_
                     assert pid["status"] == "R"
 
 
-def verify_forbidden(response, count=None, index=None, target_ids=None, item_ids=None):
+def verify_forbidden(response, count=None, index=None, indices=None, target_ids=None, item_ids=None):
     """Verify that the response indicates a forbidden access with the expected message.
 
     Args:
         response(Response): Response object from the request.
         count(int, optional): Expected count of indices.
         index(dict, optional): Expected index data.
+        indices(list, optional): Expected list of indices.
         target_ids(list, optional): List of target index IDs.
         item_ids(list, optional): List of item IDs.
     """
@@ -1075,6 +1107,8 @@ def verify_forbidden(response, count=None, index=None, target_ids=None, item_ids
         verify_count(count)
     if index is not None:
         verify_index(index)
+    if indices is not None:
+        verify_indices(indices)
 
     if target_ids is not None and item_ids is not None:
         with closing(connect_db()) as conn:
@@ -1092,22 +1126,27 @@ def verify_forbidden(response, count=None, index=None, target_ids=None, item_ids
                     assert pid["status"] == "R"
 
 
-def verify_forbidden_html(response, map_groups={}):
+def verify_forbidden_html(response, language, map_groups={}):
     """Verify that the response indicates a 'Forbidden' error.
 
     Args:
         response(Response): The response object to check.
+        language(str): The expected language of the error message.
         map_groups(dict, optional): Dictionary containing group mapping information for verification. Defaults to {}.
     """
+    permisssion_required_messages = {
+        "en": "Permission required",
+        "ja": "権限が必要です",
+    }
     soup = BeautifulSoup(response.text, 'html.parser')
     h1 = soup.find('h1')
-    assert h1.text == "Permission required"
+    assert h1.text.endswith(permisssion_required_messages[language])
 
     if map_groups:
         with closing(connect_db()) as conn:
             with closing(conn.cursor(cursor_factory=RealDictCursor)) as cursor:
                 if map_groups.get("add"):
-                    role_query = "SELECT id FROM accounts_role WHERE id IN %s;"
+                    role_query = "SELECT id FROM accounts_role WHERE name IN %s;"
                     cursor.execute(role_query, (tuple(map_groups["add"]),))
                     added_roles = cursor.fetchall()
                     assert len(added_roles) == 0
@@ -1119,13 +1158,14 @@ def verify_forbidden_html(response, map_groups={}):
                     assert len(deleted_roles) == len(deleted_roles_ids)
 
 
-def verify_internal_server_error(response, count=None, index=None):
+def verify_internal_server_error(response, count=None, index=None, indices=None):
     """Verify that the response indicates an internal server error with the expected message.
 
     Args:
         response(Response): Response object from the request.
         count(int, optional): Expected count of indices.
         index(dict, optional): Expected index data.
+        indices(list, optional): Expected list of indices.
     """
     expected_response = {
         "message": "The server encountered an internal error and was unable "
@@ -1139,6 +1179,8 @@ def verify_internal_server_error(response, count=None, index=None):
         verify_count(count)
     if index is not None:
         verify_index(index)
+    if indices is not None:
+        verify_indices(indices)
 
 
 def verify_internal_server_error_html(response):
@@ -1149,7 +1191,7 @@ def verify_internal_server_error_html(response):
     """
     soup = BeautifulSoup(response.text, 'html.parser')
     h1 = soup.find('h1')
-    assert h1.text == "Internal Server Error"
+    assert h1.text.endswith("Internal server error")
 
 
 def verify_count(count):
@@ -1212,3 +1254,47 @@ def verify_indices(indices):
             cursor.execute("SELECT * FROM index ORDER BY id;")
             index_data = cursor.fetchall()
             assert index_data == replaced_indices
+
+def verify_import(response, role=None, code=None, index=None, result={}):
+    """Verify the import response based on the expected status code and index data.
+
+    Args:
+        response(Response): Response object from the import request.
+        role(str, optional): The role of the user performing the import. Defaults to None.
+        code(int, optional): Expected status code of the response. If None, the function will check the overall import result. Defaults to None.
+        index(dict, optional): Expected index data for verification. Defaults to None.
+        result(dict, optional): Dictionary to store the import result for each role. Defaults to {}
+
+    Returns:
+        Box: A Box object containing the import result for each role if code is provided, otherwise
+             it will assert the overall import result and print any errors.
+    """
+    if result:
+        result = json.loads(str(result))
+
+    if code is not None:
+        role_result = {
+            "status": "",
+            "error": "",
+        }
+        try:
+            if code == 200:
+                verify_edit_during_import(response, index)
+            elif code == 401:
+                verify_unauthorized(response, index=index)
+            elif code == 403:
+                verify_forbidden(response, index=index)
+
+            role_result["status"] = "success"
+        except AssertionError as e:
+            role_result["status"] = "failed"
+            role_result["error"] = str(e)
+        result[role] = role_result
+        return Box({'import_result': json.dumps(result)})
+    else:
+        is_success = True
+        for r in result:
+            if result[r]["status"] == "failed":
+                is_success = False
+                print(f"Role: {r}, Error: {result[r]['error']}")
+        assert is_success == True

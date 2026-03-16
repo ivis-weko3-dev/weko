@@ -2,6 +2,13 @@
 
 start_time=$(date +%s)
 
+docker cp test/tavern/prepare_data/item_type_name.sql $(docker compose ps -q postgresql):/tmp/item_type_name.sql
+docker compose exec postgresql psql -U invenio -d invenio -f /tmp/item_type_name.sql
+docker cp test/tavern/prepare_data/item_type.sql $(docker compose ps -q postgresql):/tmp/item_type.sql
+docker compose exec postgresql psql -U invenio -d invenio -f /tmp/item_type.sql
+docker cp test/tavern/prepare_data/item_type_mapping.sql $(docker compose ps -q postgresql):/tmp/item_type_mapping.sql
+docker compose exec postgresql psql -U invenio -d invenio -f /tmp/item_type_mapping.sql
+
 # get config values from config.yaml
 CONFIG_PATH="test/tavern/test/config.yaml"
 SETTING_FILE=$(pwd)/scripts/instance.cfg
@@ -105,6 +112,7 @@ if [ "$option_cmd" = "all" ] || [ "$(echo '$pytest_opts' | grep -q 'mapping_dupl
   fi
   echo "設定値を変更しました: DISABLE_DUPLICATION_CHECK = True"
   cd ../../
+  docker-compose exec web bash -c "jinja2 /code/scripts/instance.cfg > /home/invenio/.virtualenvs/invenio/var/instance/invenio.cfg"
   docker-compose restart web
 
   # wait for web to restart
@@ -146,6 +154,7 @@ if [ "$option_cmd" = "all" ] || [ "$(echo '$pytest_opts' | grep -q 'mapping_dupl
   fi
   echo "設定値を変更しました: DISABLE_DUPLICATION_CHECK = False"
   cd ../../../../
+  docker-compose exec web bash -c "jinja2 /code/scripts/instance.cfg > /home/invenio/.virtualenvs/invenio/var/instance/invenio.cfg"
   docker-compose restart web
 fi
 

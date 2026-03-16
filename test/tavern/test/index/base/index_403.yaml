@@ -32,7 +32,7 @@ stages:
       verify_response_with:
         function: helper.index.verify_helper:verify_forbidden
         extra_kwargs:
-          count: "{count}"
+          count: "{index_count}"
 
 ---
 test_name: <role_ja> インデックス編集 <No>

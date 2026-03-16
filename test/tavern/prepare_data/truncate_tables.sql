@@ -70,6 +70,8 @@ TRUNCATE TABLE accounts_role RESTART IDENTITY CASCADE;
 
 TRUNCATE TABLE oaiserver_set;
 
+TRUNCATE TABLE oaiserver_identify;
+
 -- reset workflow_activity_id_seq
 SELECT setval('workflow_activity_id_seq', 1, false);
 

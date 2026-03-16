@@ -1,7 +1,7 @@
 {
     "flow_id": 1,
-    "itemtype_id": 30002,
-    "workflow_id": 1,
+    "itemtype_id": 10002,
+    "workflow_id": 102,
     "data_file": "request_params/prepare_item/item_info.json",
     "title_key": "item_30002_title0.0.subitem_title",
     "file_key": "item_30002_file35",

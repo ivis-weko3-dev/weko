@@ -12,3 +12,4 @@ access_actionsroles.sql
 communities_community.sql
 oaiserver_schema.sql
 pdfcoverpage_set.sql
+oaiserver_identify.sql

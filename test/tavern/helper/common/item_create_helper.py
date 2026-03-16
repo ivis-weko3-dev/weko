@@ -31,6 +31,7 @@ def create_item(
     is_doi=False,
     prepare_edit=False,
     id=2000001,
+    replace_title=True,
 ):
     """Create items based on the provided creation information.
 
@@ -44,6 +45,7 @@ def create_item(
         is_doi(bool, optional): Boolean indicating whether to assign a DOI to the item.
         prepare_edit(bool, optional): Boolean indicating whether to prepare the item for editing after creation.
         id(int, optional): Optional ID to assign to the created item.
+        replace_title(bool, optional): Boolean indicating whether to replace the title of the item.
 
     Raises:
         Exception: If any step in the item creation process fails.
@@ -63,18 +65,21 @@ def create_item(
     with open(create_info["data_file"], "r") as f:
         data = json.loads(f.read())
 
-    url = data[create_info["file_key"]][0]["url"]["url"]
-    replaced_url = url.replace("{id}", str(id))
-    data[create_info["file_key"]][0]["url"]["url"] = replaced_url
+    if create_info.get("file_key") and data.get(create_info["file_key"]) is not None:
+        url = data[create_info["file_key"]][0]["url"]["url"]
+        replaced_url = url.replace("{id}", str(id))
+        data[create_info["file_key"]][0]["url"]["url"] = replaced_url
 
-    title_key = create_info["title_key"].split(".")
-    title = data[title_key[0]][int(title_key[1])][title_key[2]]
-    replaced_title = title + f"_{id}"
-    data[title_key[0]][int(title_key[1])][title_key[2]] = replaced_title
+    if replace_title:
+        title_key = create_info["title_key"].split(".")
+        title = data[title_key[0]][int(title_key[1])][title_key[2]]
+        replaced_title = title + f"_{id}"
+        data[title_key[0]][int(title_key[1])][title_key[2]] = replaced_title
 
-    identifier = data[create_info["identifier_key"]][0]["subitem_identifier_uri"]
-    replaced_identifier = identifier + f"_{id}"
-    data[create_info["identifier_key"]][0]["subitem_identifier_uri"] = replaced_identifier
+    if create_info.get("identifier_key") and data.get(create_info["identifier_key"]) is not None:
+        identifier = data[create_info["identifier_key"]][0]["subitem_identifier_uri"]
+        replaced_identifier = identifier + f"_{id}"
+        data[create_info["identifier_key"]][0]["subitem_identifier_uri"] = replaced_identifier
 
     for _ in range(creation_count):
         # create activity

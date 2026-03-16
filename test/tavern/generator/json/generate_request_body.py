@@ -540,10 +540,18 @@ def create_error_files(required_types, item_type_id, output_dir):
         }
         save_body(body_noid, output_dir, f"mapping_noid_{mapping_type}.json")
 
+    duplicate_output_dir = output_dir.replace("error", "duplicate")
+    mapping = {}
+    if os.path.exists(duplicate_output_dir):
+        duplicate_files = [f for f in os.listdir(duplicate_output_dir) if f.endswith(".json")]
+        if duplicate_files:
+            with open(os.path.join(duplicate_output_dir, duplicate_files[0]), "r", encoding="utf-8") as f:
+                duplicate_data = json.load(f)
+            mapping = duplicate_data.get("mapping", {})
     # missing mapping_type key
     body_noid = {
         "item_type_id": item_type_id,
-        "mapping": {}
+        "mapping": mapping
     }
     save_body(body_noid, output_dir, f"mapping_no_mapping_type.json")
 
@@ -632,6 +640,8 @@ def main():
         else:
             return (4, k)
     db_item_keys = sorted(list(mapping_raw.keys()), key=set_db_keys)
+    if meta_ids and len(meta_ids) == 2:
+        db_item_keys = [id for id in meta_ids if id in db_item_keys] + [k for k in db_item_keys if k not in meta_ids]
 
     for role in test_roles:
         print(f"{role}のテストデータの生成を開始します。")

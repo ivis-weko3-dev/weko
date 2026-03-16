@@ -429,17 +429,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -448,7 +448,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_record
     request:
       url: "{host}"
@@ -488,17 +488,17 @@ stages:
       status_code: 302
   - name: GET login community admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login community admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: comadmin@example.org
@@ -507,7 +507,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: jpcoar2.0_oai_pmh_before_edit
     request:
       url: "{host}/oai?verb=GetRecord&metadataPrefix=jpcoar_2.0&identifier=oai:weko3.example.org:02000001"
@@ -562,17 +562,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -581,7 +581,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_record
     request:
       url: "{host}"
@@ -621,17 +621,17 @@ stages:
       status_code: 302
   - name: GET login community admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login community admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: comadmin@example.org
@@ -640,7 +640,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: jpcoar1.0_oai_pmh_before_edit
     request:
       url: "{host}/oai?verb=GetRecord&metadataPrefix=jpcoar_1.0&identifier=oai:weko3.example.org:02000001"
@@ -695,17 +695,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -714,7 +714,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_record
     request:
       url: "{host}"
@@ -754,17 +754,17 @@ stages:
       status_code: 302
   - name: GET login community admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login community admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: comadmin@example.org
@@ -773,7 +773,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: dc_oai_pmh_before_edit
     request:
       url: "{host}/oai?verb=GetRecord&metadataPrefix=oai_dc&identifier=oai:weko3.example.org:02000001"
@@ -828,17 +828,17 @@ marks:
 stages:
   - name: GET login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login repository admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: repoadmin@example.org
@@ -847,7 +847,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: prepare_record
     request:
       url: "{host}"
@@ -887,17 +887,17 @@ stages:
       status_code: 302
   - name: GET login community admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: GET
       verify: false
     response:
       status_code: 200
       save:
         $ext:
-          function: helper.response_helper:response_save_csrf_token
+          function: helper.common.response_helper:response_save_csrf_token
   - name: POST login community admin
     request:
-      url: "{host}/accounts/login/"
+      url: "{host}/login/"
       method: POST
       json:
         email: comadmin@example.org
@@ -906,7 +906,7 @@ stages:
         csrf_token: "{csrf_token}"
       verify: false
     response:
-      status_code: 302
+      status_code: 200
   - name: ddi_oai_pmh_before_edit
     request:
       url: "{host}/oai?verb=GetRecord&metadataPrefix=ddi&identifier=oai:weko3.example.org:02000001"

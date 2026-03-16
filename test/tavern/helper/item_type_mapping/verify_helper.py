@@ -357,6 +357,35 @@ def verify_oai_pmh(response, item_type_id, schema_name):
             return result_dict['#text']
         return result_dict
 
+    def clean_dict(d):
+        """Clean a dictionary by removing keys with None values and empty dictionaries or lists.
+
+        Args:
+            d(dict | list | any): The input data to clean, which can be a dictionary, a list, or other types.
+
+        Returns:
+            dict | list | any: The cleaned data, with keys removed according to the rules defined in the function.
+        """
+        if not isinstance(d, dict):
+            return d
+        cleaned = {}
+        for k, v in d.items():
+            if v is None:
+                continue
+            if isinstance(v, dict):
+                v = clean_dict(v)
+                if not v:
+                    continue
+            elif isinstance(v, list):
+                v = [clean_dict(i) if isinstance(i, dict) else i for i in v if i is not None]
+                if not v:
+                    continue
+            cleaned[k] = v
+
+        if isinstance(cleaned, dict) and cleaned.keys() == {'#text'}:
+            return cleaned['#text']
+        return cleaned
+
     def deep_compare(obj1, obj2, key_path=""):
         """Deeply compare two objects (dictionaries, lists, or other types) and return a list of differences.
 
@@ -440,6 +469,7 @@ def verify_oai_pmh(response, item_type_id, schema_name):
     assert_result = []
     assert_sucess = True
 
+    print('target_metadata:', target_metadata)
     for key, value in target_metadata.items():
         if key.startswith('@'):
             continue
@@ -455,6 +485,7 @@ def verify_oai_pmh(response, item_type_id, schema_name):
             continue
         prepare_dict = prepare_compare_dict(expect_json[target_key], metadata_mapping)
         expect_dict = prepare_data(prepare_dict, result_flg=False)
+        expect_dict = clean_dict(expect_dict)
         result_value = prepare_data(value, result_flg=True)
         assert_result.extend(deep_compare(expect_dict, result_value, key))
     if missing_keys:
