@@ -2078,7 +2078,10 @@ def get_bulk_import_task_status(task_id):
         redis_connection = RedisConnection()
         datastore = redis_connection.connection(
             db=current_app.config['CACHE_REDIS_DB'], kv=True)
-        task_json = datastore.get(task_id)
+        try:
+            task_json = datastore.get(task_id)
+        except Exception:
+            task_json = None
         if not task_json:
             return Response(json.dumps({
                     "result": "NG",
