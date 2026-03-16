@@ -473,6 +473,10 @@ def get_workspace_itemlist():
         username=userNm,
         workspaceItemList=workspaceItemList,
         defaultconditions=changeLang(lang, defaultconditions),
+        export_header=",".join([
+            str(header) 
+            for header in current_app.config["WEKO_WORKSPACE_EXPORT_HEADERS"]
+        ]),
     )
 
 

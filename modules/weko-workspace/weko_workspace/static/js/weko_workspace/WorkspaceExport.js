@@ -169,8 +169,8 @@ function getItemsFromWorkspace() {
 
 
 function getExportHeadersFromDOM() {
-  const ths = document.querySelectorAll('#itemListContainer thead th');
-  return Array.from(ths).map(th => th.innerText.trim());
+  const exportHeaderInput = document.getElementById('export_header').innerText.split(',');
+  return Array.from(exportHeaderInput).map(th => th.trim());
 }
 // TSV を作成してダウンロード
 function exportItemListToTSV(items, selectedOnly, selectedIds) {
