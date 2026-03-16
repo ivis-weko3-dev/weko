@@ -175,7 +175,7 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
         if current_user and \
                 current_user.is_authenticated and \
                 current_user.id in user_id_list:
-            if 'open_access' or 'open_date' in acsrole:
+            if 'open_access' in acsrole or 'open_date' in acsrole:
                 download_status["is_open_access"] = _is_open_date_past(acsrole)
             return is_can
 
@@ -184,7 +184,7 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
             current_app.config['WEKO_PERMISSION_ROLE_COMMUNITY']
         for role in list(current_user.roles or []):
             if role.name in supers:
-                if 'open_access' or 'open_date' in acsrole:
+                if 'open_access' in acsrole or 'open_date' in acsrole:
                     download_status["is_open_access"] = _is_open_date_past(acsrole)
                 return is_can
 

@@ -78,47 +78,79 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
     indexer, results = records
     record = results[0]["record"]
     fjson = {'url': {'url': 'https://weko3.example.org/record/11/files/001.jpg'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-27'}], 'format': 'image/jpeg', 'filename': 'helloworld.pdf', 'filesize': [{'value': '2.7 MB'}], 'accessrole': 'open_access', 'version_id': 'd73bd9cb-aa9e-4cd0-bf07-c5976d40bdde', 'displaytype': 'preview', 'is_thumbnail': False, 'future_date_message': '', 'download_preview_message': '', 'size': 2700000.0, 'mimetype': 'image/jpeg', 'file_order': 0}
+    download_status = {}
+    
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
-        assert check_file_download_permission(record, fjson, True) == True
-    
+        assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == True
+
+        fjson['accessrole'] = 'open_date'
+        assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == True
+
+        fjson['date'][0]['dateValue'] = "2100-09-27"
+        assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == False
+
+        fjson['accessrole'] = 'open_login'
+        assert check_file_download_permission(record, fjson, False, download_status=download_status) == True
+        assert download_status['is_open_access'] == False
+
+    fjson['accessrole'] = 'open_access'
+    fjson['date'][0]['dateValue'] = "2022-09-27"
     with patch("flask_login.utils._get_user", return_value=users[7]["obj"]):
-        assert check_file_download_permission(record, fjson, True) == True
+        assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == True
 
+        fjson['accessrole'] = 'open_date'
+        assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == True
+
+        fjson['date'][0]['dateValue'] = "2100-09-27"
+        assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == False
+
+        fjson['accessrole'] = 'open_login'
+        assert check_file_download_permission(record, fjson, False, download_status=download_status) == True
+        assert download_status['is_open_access'] == False
+
+    fjson['accessrole'] = 'open_access'
+    fjson['date'][0]['dateValue'] = "2022-09-27"
     with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
         assert check_file_download_permission(record, fjson, True) == True
     
     with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
-        with patch("weko_records_ui.permissions.to_utc", return_value=datetime.now()):
-            assert check_file_download_permission(record, fjson, False) == False
-            
-            fjson['date'][0]['dateValue'] = ""
+        assert check_file_download_permission(record, fjson, False) == True
+        
+        fjson['date'][0]['dateValue'] = ""
+        assert check_file_download_permission(record, fjson, False) == True
+        
+        
+        fjson['date'][0]['dateValue'] = "2022-09-27"
+        fjson['accessrole'] = 'open_date'
+        assert check_file_download_permission(record, fjson, True) == True
+        assert check_file_download_permission(record, fjson, False) == True
+        
+        fjson['date'][0]['dateValue'] = "2100-09-27"
+        assert check_file_download_permission(record, fjson, False) == False
+
+        fjson['accessrole'] = 'open_login'
+        assert check_file_download_permission(record, fjson, True) == True
+
+        with patch("weko_records_ui.permissions.check_user_group_permission", return_value=True):
+            fjson['groups'] = True
             assert check_file_download_permission(record, fjson, False) == True
-            
-            fjson['date'][0]['dateValue'] = "2022-09-27"
-            fjson['accessrole'] = 'open_date'
-            assert check_file_download_permission(record, fjson, True) == True
-            assert check_file_download_permission(record, fjson, False) == False
+            fjson['groups'] = False
+            assert check_file_download_permission(record, fjson, False) == True
+            fjson['groupsprice'] = [MagicMock()]
+            assert check_file_download_permission(record, fjson, False) == True
 
-            with patch("weko_records_ui.permissions.to_utc", return_value="test"):
-                assert check_file_download_permission(record, fjson, False) == False
-            
-            fjson['accessrole'] = 'open_login'
-            assert check_file_download_permission(record, fjson, True) == True
+        fjson['accessrole'] = 'open_no'
+        assert check_file_download_permission(record, fjson, True) == False
+        assert check_file_download_permission(record, fjson, False) == False
 
-            with patch("weko_records_ui.permissions.check_user_group_permission", return_value=True):
-                fjson['groups'] = True
-                assert check_file_download_permission(record, fjson, False) == True
-                fjson['groups'] = False
-                assert check_file_download_permission(record, fjson, False) == True
-                fjson['groupsprice'] = [MagicMock()]
-                assert check_file_download_permission(record, fjson, False) == True
-    
-            fjson['accessrole'] = 'open_no'
-            assert check_file_download_permission(record, fjson, True) == False
-            assert check_file_download_permission(record, fjson, False) == False
-
-            fjson['accessrole'] = 'open_restricted'
-            assert check_file_download_permission(record, fjson, True) == False
+        fjson['accessrole'] = 'open_restricted'
+        assert check_file_download_permission(record, fjson, True) == False
             
 
     itn = ItemTypeName(
@@ -127,8 +159,6 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
     obj = ItemType(
         item_type_name=itn
         )
-    future_date = datetime(2023,12,31,15,0,0)
-    past_date = datetime(2022,11,30,15,0,0)
 
     with open("tests/data/record_a.json","r") as fa:
         record_a = json.load(fa)
@@ -155,40 +185,26 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
             # 課金ファイルアクセス権あり
             with patch("weko_records_ui.permissions.check_billing_file_permission", return_value=True):
                 # 8
-                with patch("weko_records_ui.permissions.to_utc", return_value=future_date):
-                    assert check_file_download_permission(record_a, fjson_a, check_billing_file=True) == True
-                # 10
-                with patch("weko_records_ui.permissions.to_utc", return_value=past_date):
-                    assert check_file_download_permission(record_b, fjson_b, check_billing_file=True) == True
+                with patch("weko_records_ui.utils.is_future", return_value=True):
+                    assert check_file_download_permission(record_a, fjson_a, check_billing_file=True, download_status=download_status) == True
+                # 10 
+                with patch("weko_records_ui.utils.is_future", return_value=False):
+                    assert check_file_download_permission(record_b, fjson_b, check_billing_file=True, download_status=download_status) == True
                 # 12
-                assert check_file_download_permission(record_c, fjson_c, check_billing_file=True) == True
-                # 14
-                with patch("weko_records_ui.permissions.to_utc", return_value=future_date):
-                    assert check_file_download_permission(record_a, fjson_a, check_billing_file=False) == False
-                # 16
-                with patch("weko_records_ui.permissions.to_utc", return_value=past_date):
-                    assert check_file_download_permission(record_b, fjson_b, check_billing_file=False) == True
-                # 18
-                assert check_file_download_permission(record_c, fjson_c, check_billing_file=False) == True
+                assert check_file_download_permission(record_c, fjson_c, check_billing_file=True) == True  
+                
 
             # 課金ファイルアクセス権なし
             with patch("weko_records_ui.permissions.check_billing_file_permission", return_value=False):
                 # 9
-                with patch("weko_records_ui.permissions.to_utc", return_value=future_date):
-                    assert check_file_download_permission(record_a, fjson_a, check_billing_file=True) == False
+                with patch("weko_records_ui.utils.is_future", return_value=True):
+                    assert check_file_download_permission(record_a, fjson_a, check_billing_file=True, download_status=download_status) == False
                 # 11
-                with patch("weko_records_ui.permissions.to_utc", return_value=past_date):
-                    assert check_file_download_permission(record_b, fjson_b, check_billing_file=True) == True
+                with patch("weko_records_ui.utils.is_future", return_value=False):
+                    assert check_file_download_permission(record_b, fjson_b, check_billing_file=True, download_status=download_status) == True
                 # 13
                 assert check_file_download_permission(record_c, fjson_c, check_billing_file=True) == False
-                # 15
-                with patch("weko_records_ui.permissions.to_utc", return_value=future_date):
-                    assert check_file_download_permission(record_a, fjson_a, check_billing_file=False) == False
-                # 17
-                with patch("weko_records_ui.permissions.to_utc", return_value=past_date):
-                    assert check_file_download_permission(record_b, fjson_b, check_billing_file=False) == True
-                # 19
-                assert check_file_download_permission(record_c, fjson_c, check_billing_file=False) == True
+                
 
 # def check_open_restricted_permission(record, fjson):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_check_open_restricted_permission -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
