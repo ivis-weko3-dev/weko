@@ -998,7 +998,7 @@ msgstr "定型レポート"
 
 #: weko_admin/templates/weko_admin/admin/report.html:94
 #: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:112
-msgid "Aggregation month"
+msgid "Aggregation period"
 msgstr "集計期間"
 
 #: weko_admin/templates/weko_admin/admin/report.html:105
