@@ -344,13 +344,14 @@ def get_user_report_data(repo_id=None):
     return results
 
 
-def get_reports(type, year, month):
+def get_reports(type, year, month, repository_id=None):
     """Get report data from db and modify.
 
     Args:
         type (str): report's type
         year (str): report's aggregation year
         month (str): report's aggregation month
+        repository_id (str): repository id
 
     Returns:
         dict: report's data for selected types
@@ -373,7 +374,8 @@ def get_reports(type, year, month):
         args = {
             'event': target,
             'year': int(year),
-            'month': int(month)
+            'month': int(month),
+            'repository_id': repository_id
         }
         result = {}
         if target in file_report_types:
@@ -387,7 +389,7 @@ def get_reports(type, year, month):
         elif target == 'search_count':
             result = QuerySearchReportHelper.get(**args)
         elif target == 'user_roles':
-            result = get_user_report_data()
+            result = get_user_report_data(repository_id)
         result_reports[target] = result
     return result_reports
 

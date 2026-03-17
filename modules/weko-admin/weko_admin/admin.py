@@ -489,8 +489,9 @@ class ReportView(BaseView):
         type = request.form.get('type')
         year = request.form.get('year')
         month = request.form.get('month').zfill(2)
+        repo_id = request.args.get('repo_id')
 
-        reports = get_reports(type, year, month)
+        reports = get_reports(type, year, month, repository_id=repo_id)
 
         # File Format: logReport__YYYY-MM.zip
         zip_date = str(year) + '-' + str(month).zfill(2)
