@@ -36,7 +36,6 @@ from weko_admin.utils import (
     make_stats_file,
     write_report_file_rows,
     reset_redis_cache,
-    is_exists_key_in_redis,
     is_exists_key_or_empty_in_redis,
     get_redis_cache,
     StatisticMail,
@@ -343,7 +342,7 @@ def test_get_reports(client, mocker):
         "total": "6"
     }
     file_using_per_user_result = {
-        "all": {            
+        "all": {
             1: {'cur_user_id': 1, 'total_download': 2, 'total_preview': 5},
             2: {'cur_user_id': 2, 'total_download': 3},
             3: {'cur_user_id': 3, 'total_download': 4},
@@ -391,20 +390,20 @@ def test_get_reports(client, mocker):
             "search": "0",
             "top_view": "0"
         }]}
-    
+
     def file_reports_helper(**args):
         event = args.get('event')
         if event == 'file_download':
             return file_download_result
         elif event == 'file_preview':
             return file_preview_result
-        elif event == 'billing_file_download': 
+        elif event == 'billing_file_download':
             return billing_file_download_result
         elif event == 'file_using_per_user':
             return file_using_per_user_result
         else:
             return []
-    
+
     def common_reports_helper(**args):
         event = args.get('event')
         if event == 'top_page_access':
@@ -413,7 +412,7 @@ def test_get_reports(client, mocker):
             return site_access_result
         else:
             return []
-    
+
     mocker.patch('weko_admin.utils.QueryFileReportsHelper.get', side_effect=file_reports_helper)
     mocker.patch('weko_admin.utils.QueryRecordViewReportHelper.get', return_value=detail_view_result)
     mocker.patch('weko_admin.utils.QueryRecordViewPerIndexReportHelper.get', return_value=index_access_result)
@@ -565,7 +564,7 @@ def test_make_stats_file(client,mocker):
         'Aggregation Month,2022-10\n'\
         '""\n'\
         'No. Of Paid File Downloads\n'\
-        'File Name,Registered Index Name,No. Of Times Downloaded,test_group,Non-Logged In User,Logged In User,Site License,Admin,Registrar\n'
+        'File Name,Registered Index Name,No. Of Times Downloaded,Non-Logged In User,System Administrator,Repository Administrator,Contributor,Community Administrator,General,Original Role,Student,Site License,Admin,Registrar\n'
     result = make_stats_file(raw_stats,file_type,year,month)
     assert result.getvalue() == test
 
@@ -650,21 +649,49 @@ def test_write_report_file_rows(db,users):
     # filetype is billiing_file_download
     output = StringIO()
     writer = csv.writer(output,delimiter=",",lineterminator="\n")
-    record = {
-        "record1": {"file_key":"test_file_key1",
-               "index_list":"test_index_list1",
-               "total":1,"no_login":"True",
-               "login":"False",
-               "site_license":"test_site_license1",
-               "admin":"False","reg":"test_reg1"},
-        "record2": {"file_key":"test_file_key2",
-               "index_list":"test_index_list2",
-               "total":1,"no_login":"True",
-               "login":"False",
-               "site_license":"test_site_license2",
-               "admin":"False","reg":"test_reg2",
-               "group_counts":{"test_group":10}}
-    }
+    record = [
+        {
+            "file_key": "test_file_key1",
+            "index_list": "test_index_list1",
+            "total": 1,
+            "no_login": 1,
+            "login": 0,
+            "site_license": 1,
+            "admin": 0,
+            "reg": 0,
+            "System Administrator": 0,
+            "Repository Administrator": 0,
+            "Contributor": 0,
+            "Community Administrator": 0,
+        }, {
+            "file_key": "test_file_key2",
+            "index_list": "test_index_list2",
+            "total": 2,
+            "no_login": 0,
+            "login": 2,
+            "site_license": 0,
+            "admin": 0,
+            "reg": 2,
+            "System Administrator": 0,
+            "Repository Administrator": 0,
+            "Contributor": 2,
+            "Community Administrator": 0,
+            "group_counts": { "test_group": 2 }
+        }, {
+            "file_key": "test_file_key3",
+            "index_list": "test_index_list3",
+            "total": 3,
+            "no_login": 0,
+            "login": 3,
+            "site_license": 0,
+            "admin": 3,
+            "reg": 0,
+            "System Administrator": 3,
+            "Repository Administrator": 0,
+            "Contributor": 0,
+            "Community Administrator": 0,
+        },
+    ]
     other_info = ["test_group"]
     write_report_file_rows(writer,record,"billing_file_download",other_info)
     assert output.getvalue() == "test_file_key1,test_index_list1,1,True,False,test_site_license1,False,test_reg1\n"\
@@ -759,20 +786,6 @@ def test_reset_redis_cache(redis_connect,mocker):
     with mocker.patch("weko_admin.utils.RedisConnection.connection",side_effect=Exception("test_error")):
         with pytest.raises(Exception):
             reset_redis_cache("test_cache","")
-
-
-# def is_exists_key_in_redis(key):
-# .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_is_exists_key_in_redis -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_is_exists_key_in_redis(redis_connect,mocker):
-    mocker.patch("weko_admin.utils.RedisConnection.connection",return_value=redis_connect)
-    redis_connect.put("test_key",bytes("test_value","utf-8"))
-    result = is_exists_key_in_redis("test_key")
-    assert result == True
-
-    # raise Exception
-    with patch("weko_admin.utils.RedisConnection.connection", side_effect=Exception("test_error")):
-        result = is_exists_key_in_redis("test_key")
-        assert result == False
 
 
 # def is_exists_key_or_empty_in_redis(key):
@@ -2174,7 +2187,7 @@ def test_update_restricted_access(admin_settings,mocker):
     result = update_restricted_access(data)
     mock_called.assert_not_called()
     mock_called.reset_mock()
-    
+
     data = {
         "edit_mail_templates_enable": False
     }
@@ -2549,15 +2562,6 @@ def test_overwrite_the_memory_config_with_db(app,client,site_info):
     overwrite_the_memory_config_with_db(app, site_info_google2)
     assert app.config["GOOGLE_TRACKING_ID_USER"] == "test_tracking_id2"
 
-import json
-import pytest
-from flask import current_app, make_response, request, url_for
-from flask_login import current_user
-from mock import patch
-
-from weko_admin.utils import (
-    get_title_facets
-)
 
 # def get_title_facets():
 def test_get_title_facets(app, users, facet_search_settings):

@@ -416,7 +416,7 @@ def add_signals_info(record, obj):
     obj.billing_file_price = billing_file_price
 
     # Add site license flag to send_obj
-    obj.site_license_flag = True if hasattr(current_user, 'site_licese_flag') \
+    obj.site_license_flag = True if hasattr(current_user, 'site_license_flag') \
         else False
     obj.site_license_name = current_user.site_license_name \
         if hasattr(current_user, 'site_license_name') else ''
