@@ -2936,40 +2936,29 @@ def update_embargo_rights(metadata: dict) -> None:
         return
 
     def _get_nested_value(data, path):
-        """Recursively get value from nested dict/list by dot-separated path."""
+        """Recursively get value from nested dict by dot-separated path."""
         keys = path.split('.')
-        for key in keys:
-            if isinstance(data, dict):
-                if key in data:
-                    data = data[key]
-                elif 'attribute_value_mlt' in data:
-                    found = None
-                    for item in data['attribute_value_mlt']:
-                        found = _get_nested_value(
-                            item,
-                            '.'.join(keys[keys.index(key):])
-                        )
-                        if found is not None:
-                            break
-                    data = found
-                    break
-                else:
-                    data = None
-                    break
-            elif isinstance(data, list):
-                found = None
-                for item in data:
-                    found = _get_nested_value(
-                        item,
-                        '.'.join([key] + keys[keys.index(key)+1:])
-                    )
+        if not path or not keys or keys == ['']:
+            return data
+        key = keys[0]
+        rest = '.'.join(keys[1:])
+        if isinstance(data, dict):
+            if key in data:
+                return _get_nested_value(data[key], rest)
+            if 'attribute_value_mlt' in data:
+                for item in data['attribute_value_mlt']:
+                    found = _get_nested_value(item, rest)
                     if found is not None:
-                        break
-                data = found
-                break
-            else:
-                return None
-        return data
+                        return found
+            return None
+        elif isinstance(data, list):
+            for item in data:
+                found = _get_nested_value(item, path)
+                if found is not None:
+                    return found
+            return None
+        else:
+            return None
 
     access_right_value = _get_nested_value(metadata, access_path)
     if not access_right_value:
@@ -3000,46 +2989,6 @@ def update_embargo_rights(metadata: dict) -> None:
                             date_val = None
                 if accessrole_val:
                     accessrole_date.append((accessrole_val, date_val))
-        elif isinstance(v, list):
-            for data in v:
-                if (
-                    isinstance(data, dict) and
-                    data.get("attribute_type") == "file"
-                ):
-                    mlt = data.get("attribute_value_mlt", [])
-                    if mlt:
-                        for file_data in mlt:
-                            date_val = None
-                            accessrole_val = file_data.get("accessrole")
-                            if (
-                                "date" in file_data and
-                                isinstance(file_data["date"], list) and
-                                file_data["date"]
-                            ):
-                                date_val = file_data["date"][0].get("dateValue")
-                                if date_val:
-                                    if re.match(r"^\d{4}-\d{2}-\d{2}$", date_val):
-                                        date_val = datetime.strptime(date_val, "%Y-%m-%d").date()
-                                    else:
-                                        date_val = None
-                            if accessrole_val:
-                                accessrole_date.append((accessrole_val, date_val))
-                    else:
-                        date_val = None
-                        accessrole_val = data.get("accessrole")
-                        if (
-                            "date" in data and
-                            isinstance(data["date"], list) and
-                            data["date"]
-                        ):
-                            date_val = data["date"][0].get("dateValue")
-                            if date_val:
-                                if re.match(r"^\d{4}-\d{2}-\d{2}$", date_val):
-                                    date_val = datetime.strptime(date_val, "%Y-%m-%d").date()
-                                else:
-                                    date_val = None
-                        if accessrole_val:
-                            accessrole_date.append((accessrole_val, date_val))
 
     from .utils import check_embargo_rights
     is_update, change_value = check_embargo_rights(
@@ -3048,20 +2997,27 @@ def update_embargo_rights(metadata: dict) -> None:
 
     def _set_nested_value(data, path, value):
         keys = path.split('.')
-        if (
-            keys[-1] == 'subitem_access_right' and
-            isinstance(data.get(keys[0]), dict)
-        ):
-            target = data[keys[0]]
-            target[keys[-1]] = value
-            mlt = target.get('attribute_value_mlt', [])
-            for item in mlt:
-                if 'subitem_access_right' in item:
-                    item['subitem_access_right'] = value
+        key = keys[0]
+        rest = '.'.join(keys[1:])
+        if len(keys) == 1:
+            if isinstance(data, dict):
+                data[key] = value
+                if 'attribute_value_mlt' in data:
+                    for item in data['attribute_value_mlt']:
+                        _set_nested_value(item, key, value)
+            elif isinstance(data, list):
+                for item in data:
+                    _set_nested_value(item, key, value)
         else:
-            for key in keys[:-1]:
-                data = data.setdefault(key, {})
-            data[keys[-1]] = value
+            if isinstance(data, dict):
+                if key in data:
+                    _set_nested_value(data[key], rest, value)
+                if 'attribute_value_mlt' in data:
+                    for item in data['attribute_value_mlt']:
+                        _set_nested_value(item, rest, value)
+            elif isinstance(data, list):
+                for item in data:
+                    _set_nested_value(item, path, value)
 
     if is_update and change_value:
         _set_nested_value(metadata, access_path, change_value)

@@ -636,7 +636,7 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
             if not accessrights_list:
                 return None
 
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now().isoformat()
 
             def open_access_query(now):
                 """Query for open access."""
@@ -718,8 +718,6 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
                     queries.append(metadata_only_query())
 
             queries = [q for q in queries if q is not None]
-            if not queries:
-                return None
             if len(queries) == 1:
                 return queries[0]
             return Q('bool', should=queries, minimum_should_match=1)

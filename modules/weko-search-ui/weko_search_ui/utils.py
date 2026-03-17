@@ -6198,11 +6198,10 @@ def fix_aggregations_accessrights(data):
         if doc_count == 0:
             continue
         buckets.append({"key": right, "doc_count": doc_count})
-    # Update buckets for each accessRights facet
-    for key in accessrights_keys:
-        if key in aggs:
-            aggs[key]["buckets"] = buckets
-    # Remove temporary aggregation
-    aggs.pop("new_accessRights", None)
+    if buckets:
+        for key in accessrights_keys:
+            if key in aggs:
+                aggs[key]["buckets"] = buckets
+        aggs.pop("new_accessRights", None)
     data['aggregations'] = aggs
     return data
