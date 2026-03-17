@@ -138,7 +138,6 @@ def reset_tree(tree, path=None, more_ids=None, ignore_more=False, pid=0):
                 else:
                     save_filtered_index_trees_to_redis_guest(tree=tree, pid=pid)
         if not ignore_more:
-            print("5555")
             reduce_index_by_more(tree=tree, more_ids=more_ids)
 
 

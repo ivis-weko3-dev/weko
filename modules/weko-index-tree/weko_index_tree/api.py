@@ -576,6 +576,12 @@ class Indexes(object):
                 datastore = redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'], kv = True)
                 v = datastore.get("index_tree_view_" + os.environ.get('INVENIO_WEB_HOST_NAME') + "_" + current_i18n.language).decode("UTF-8")
                 tree = orjson.loads(str(v))
+                key = current_app.config.get(
+                 "WEKO_INDEX_TREE_STATE_PREFIX",
+                 WEKO_INDEX_TREE_STATE_PREFIX
+                )
+                tree = cls.update_isCollapsedOnInit(tree, set(session.get(key, [])))
+                save_index_trees_to_redis(tree)
             except RedisError:
                 tree = cls.get_index_tree(pid)
                 save_index_trees_to_redis(tree)
@@ -600,9 +606,7 @@ class Indexes(object):
                  "WEKO_INDEX_TREE_STATE_PREFIX",
                  WEKO_INDEX_TREE_STATE_PREFIX
                 )
-                roles = get_user_roles()
-                if roles[0]:
-                    tree = cls.update_isCollapsedOnInit(tree, set(session.get(key, [])))
+                tree = cls.update_isCollapsedOnInit(tree, set(session.get(key, [])))
             except KeyError:
                 tree = cls.get_index_tree(pid)
                 save_index_trees_to_redis(tree)
@@ -648,12 +652,6 @@ class Indexes(object):
                 datastore = redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'], kv = True)
                 v = datastore.get("index_tree_view_" + os.environ.get('INVENIO_WEB_HOST_NAME') + "_" + current_i18n.language).decode("UTF-8")
                 tree = orjson.loads(str(v))
-                key = current_app.config.get(
-                 "WEKO_INDEX_TREE_STATE_PREFIX",
-                 WEKO_INDEX_TREE_STATE_PREFIX
-                )
-                tree = cls.update_isCollapsedOnInit(tree, set(session.get(key, [])))
-                save_index_trees_to_redis(tree)
             except RedisError:
                 tree = cls.get_index_tree(pid)
                 save_index_trees_to_redis(tree)
