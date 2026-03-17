@@ -576,11 +576,7 @@ class Indexes(object):
                 datastore = redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'], kv = True)
                 v = datastore.get("index_tree_view_" + os.environ.get('INVENIO_WEB_HOST_NAME') + "_" + current_i18n.language).decode("UTF-8")
                 tree = orjson.loads(str(v))
-                key = current_app.config.get(
-                 "WEKO_INDEX_TREE_STATE_PREFIX",
-                 WEKO_INDEX_TREE_STATE_PREFIX
-                )
-                tree = cls.update_isCollapsedOnInit(tree, set(session.get(key, [])))
+                tree = cls.update_isCollapsedOnInit(tree)
                 save_index_trees_to_redis(tree)
             except RedisError:
                 tree = cls.get_index_tree(pid)
@@ -602,11 +598,7 @@ class Indexes(object):
                 datastore = redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'], kv = True)
                 v = datastore.get("index_tree_view_" + os.environ.get('INVENIO_WEB_HOST_NAME') + "_" + current_i18n.language).decode("UTF-8")
                 tree = orjson.loads(str(v))
-                key = current_app.config.get(
-                 "WEKO_INDEX_TREE_STATE_PREFIX",
-                 WEKO_INDEX_TREE_STATE_PREFIX
-                )
-                tree = cls.update_isCollapsedOnInit(tree, set(session.get(key, [])))
+                tree = cls.update_isCollapsedOnInit(tree)
             except KeyError:
                 tree = cls.get_index_tree(pid)
                 save_index_trees_to_redis(tree)
@@ -620,7 +612,7 @@ class Indexes(object):
         return tree
 
     @classmethod
-    def update_isCollapsedOnInit(cls, tree, key_list):
+    def update_isCollapsedOnInit(cls, tree, key_list=None):
         """Update isCollapsedOnInit of index tree 
     
         Args:
@@ -631,7 +623,13 @@ class Indexes(object):
             tree (dict): Index tree
         
         """
-        
+        if key_list is None:
+            key = current_app.config.get(
+                    "WEKO_INDEX_TREE_STATE_PREFIX",
+                    WEKO_INDEX_TREE_STATE_PREFIX
+                    )
+            key_list = set(session.get(key, []))
+            
         for node in range(len(tree)):
             if tree[node].get("children"):
                 cls.update_isCollapsedOnInit(tree[node].get("children"),key_list)
