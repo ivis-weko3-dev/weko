@@ -602,7 +602,7 @@ class Indexes(object):
                 )
                 roles = get_user_roles()
                 if roles[0]:
-                    tree = cls.update_isCollapsedOnInit(tree, session.get(key, []))
+                    tree = cls.update_isCollapsedOnInit(tree, set(session.get(key, [])))
             except KeyError:
                 tree = cls.get_index_tree(pid)
                 save_index_trees_to_redis(tree)

@@ -122,7 +122,7 @@ def reset_tree(tree, path=None, more_ids=None, ignore_more=False, pid=0):
                  "WEKO_INDEX_TREE_STATE_PREFIX",
                  WEKO_INDEX_TREE_STATE_PREFIX
                 )
-                tree = Indexes.update_isCollapsedOnInit(tree, session.get(key, []))
+                tree = Indexes.update_isCollapsedOnInit(tree, set(session.get(key, [])))
 
             except KeyError:
                 reduce_index_by_role(tree, roles, groups)
