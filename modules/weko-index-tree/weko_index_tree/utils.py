@@ -117,6 +117,12 @@ def reset_tree(tree, path=None, more_ids=None, ignore_more=False, pid=0):
                 # tree.clear()
                 # tree.append(json.loads(str(v)))
                 tree[:] = orjson.loads(str(v))
+                from .api import Indexes
+                key = current_app.config.get(
+                 "WEKO_INDEX_TREE_STATE_PREFIX",
+                 WEKO_INDEX_TREE_STATE_PREFIX
+                )
+                tree = Indexes.update_isCollapsedOnInit(tree, session.get(key, []))
 
             except KeyError:
                 reduce_index_by_role(tree, roles, groups)
@@ -132,6 +138,7 @@ def reset_tree(tree, path=None, more_ids=None, ignore_more=False, pid=0):
                 else:
                     save_filtered_index_trees_to_redis_guest(tree=tree, pid=pid)
         if not ignore_more:
+            print("5555")
             reduce_index_by_more(tree=tree, more_ids=more_ids)
 
 
