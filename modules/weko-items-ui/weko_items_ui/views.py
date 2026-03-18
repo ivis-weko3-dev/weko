@@ -1990,6 +1990,7 @@ def register_bulk_import_task():
         datastore = redis_connection.connection(
             db=current_app.config['CACHE_REDIS_DB'], kv=True)
         datastore.put(task.id, json.dumps(task_data).encode("utf-8"))
+        datastore.redis.expire(task.id, int(expire_time * 3600)) # 小数点以下切り捨て
 
         # Check mode ends here
         if is_check_only:
@@ -2031,7 +2032,10 @@ def register_bulk_import_task():
                     "task_result": {}
                 })
             task_data["tasks"] = tasks
+
+            ttl_before = datastore.redis.ttl(task.id)
             datastore.put(task.id, json.dumps(task_data).encode("utf-8"))
+            datastore.redis.expire(task.id, ttl_before)
 
         summary_result["task_id"] = task.id
         summary_result["tasks"] = task_data["tasks"]
@@ -2124,7 +2128,9 @@ def get_bulk_import_task_status(task_id):
                         raise Exception(e)
 
         # save updated task information to Redis
+        ttl_before = datastore.redis.ttl(task_id)
         datastore.put(task_id, json.dumps(task_data).encode("utf-8"))
+        datastore.redis.expire(task_id, ttl_before)
 
         status = task_data["status"]
         result = task_data["result"]
