@@ -22317,8 +22317,8 @@ def test_register_bulk_import_is_change_identifier(
         url, data={"file": file_storage}, headers=headers,
         content_type="multipart/form-data"
     )
-    called_args_tuple = mock_apply_async.call_args[0][0]
-    actual_is_change_identifier = called_args_tuple[1]
+    called_args_tuple = mock_apply_async.call_args[1]
+    actual_is_change_identifier = called_args_tuple["args"][1]
 
     mock_apply_async.assert_called_once()
     assert isinstance(actual_is_change_identifier, bool)
@@ -22455,7 +22455,9 @@ def test_get_bulk_import_task_status(
 
     # Redisのモック
     mock_redis = MagicMock()
-    if task_data is None:
+    if task_id =="invalid_task_id":
+        mock_redis.get.side_effect = Exception("Simulated Redis exception")
+    elif task_data is None:
         mock_redis.get.return_value = None
     elif task_data == "invalid_json":
         mock_redis.get.return_value = b"invalid_json"

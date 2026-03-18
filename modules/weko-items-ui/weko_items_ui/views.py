@@ -2129,7 +2129,7 @@ def get_bulk_import_task_status(task_id):
         status = task_data["status"]
         result = task_data["result"]
         result_error = result.get("error", [])
-        if status == "SUCCESS" and not result_error:
+        if status != "ERROR":
             return Response(json.dumps({
                 "can_import": True,
                 "check_status": status,

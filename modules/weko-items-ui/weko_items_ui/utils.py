@@ -2337,7 +2337,8 @@ def make_stats_file(item_type_id, recids, list_item_role, export_path=""):
                 doi_type_str = WEKO_IMPORT_DOI_TYPE[3]
         records.attr_output[recid].extend([
             doi_type_str,
-            doi_str
+            doi_str,
+            ""
         ])
         # .edit Keep/Upgrade default is Keep
         records.attr_output[recid].append('Keep')
@@ -4843,8 +4844,8 @@ def make_stats_file_with_permission(item_type_id, recids,
         ret.extend([".item_application.workflow",".item_application.terms",".item_application.termsDescription"])
         ret_label.extend([".ITEM_APPLICATION.WORKFLOW",".ITEM_APPLICATION.TERMS",".ITEM_APPLICATION.TERMS_DESCRIPTION"])
 
-    ret.extend(['.cnri', '.doi_ra', '.doi', '.edit_mode'])
-    ret_label.extend(['.CNRI', '.DOI_RA', '.DOI', 'Keep/Upgrade Version'])
+    ret.extend(['.cnri', '.doi_ra', '.doi', '.bulk_doi', '.edit_mode'])
+    ret_label.extend(['.CNRI', '.DOI_RA', '.DOI', '.BULK_DOI', 'Keep/Upgrade Version'])
     ret.append('.metadata.pubdate')
     ret_label.append('公開日' if
                      permissions['current_language']() == 'ja' else 'PubDate')
@@ -4915,7 +4916,8 @@ def make_stats_file_with_permission(item_type_id, recids,
                 doi_type_str = WEKO_IMPORT_DOI_TYPE[3]
         records.attr_output[recid].extend([
             doi_type_str,
-            doi_str
+            doi_str,
+            ""
         ])
 
         # .edit Keep or Upgrade. default is Keep
