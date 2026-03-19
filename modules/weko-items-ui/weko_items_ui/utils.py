@@ -2584,7 +2584,7 @@ def get_ranking(settings):
             event_type='record-view',
             group_field='pid_value',
             count_field='count',
-            ranking_type='most_view_ranking'
+            ranking_type='most_view_ranking',
             must_not=json.dumps([{"wildcard": {"pid_value": "*.*"}}])
         )
         rankings['most_reviewed_items'] = get_permission_record('most_reviewed_items', result, settings.display_rank, has_permission_indexes)
