@@ -163,9 +163,10 @@ def create_template(json):
     text_type = ['text', 'textarea', 'select', 'radios']
     result = {}
     for k, v in json.items():
-        if v.get('title') == 'Identifier Registration'\
-            or v.get('title').startswith('Persistent Identifier')\
-            or v.get('title') == 'File Information':
+        if v.get('title') \
+            and (v.get('title') == 'Identifier Registration'\
+                 or v.get('title').startswith('Persistent Identifier')\
+                 or v.get('title') == 'File Information'):
             continue
         if v.get('format'):
             if v.get('format') == 'datetime':
@@ -210,7 +211,10 @@ def create_random_template(json):
     result = {}
     has_uri = False
     for k, v in json.items():
-        if v.get('title') == 'Identifier Registration' or v.get('title').startswith('Persistent Identifier') or v.get('title') == 'File Information':
+        if v.get('title') \
+            and (v.get('title') == 'Identifier Registration' \
+                 or v.get('title').startswith('Persistent Identifier') \
+                 or v.get('title') == 'File Information'):
             continue
         if v.get('format'):
             if v.get('format') == 'datetime':
