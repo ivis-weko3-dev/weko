@@ -28,7 +28,8 @@ import traceback
 import zipfile
 from datetime import datetime, timedelta
 from io import BytesIO, StringIO
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union, overload
+from typing_extensions import Literal
 
 import requests
 from flask import current_app, request
@@ -329,6 +330,7 @@ def get_user_report_data(repo_id=None):
                     .outerjoin(userrole) \
                     .group_by(Role.id).all()
     except Exception as e:
+        traceback.print_exc()
         current_app.logger.error('Could not retrieve user report data: ')
         traceback.print_exc()
         return {}
@@ -344,13 +346,22 @@ def get_user_report_data(repo_id=None):
     return results
 
 
-def get_reports(type, year, month, repository_id=None):
+@overload
+def get_reports(type, year, month, *, repository_id=None, auto: Literal[False]=False): ...
+@overload
+def get_reports(type, *, auto: Literal[True], start_date, end_date, repository_id=None): ...
+def get_reports(
+    type, year=None, month=None, auto=False, start_date=None, end_date=None, repository_id=None
+):
     """Get report data from db and modify.
 
     Args:
         type (str): report's type
-        year (str): report's aggregation year
-        month (str): report's aggregation month
+        year (str): report's aggregation year, used when auto is False.
+        month (str): report's aggregation month, used when auto is False.
+        start_date (datetime): report's start date, used when auto is True.
+        end_date (datetime): report's end date, used when auto is True.
+        auto (bool): flag to indicate if the report is auto-sending
         repository_id (str): repository id
 
     Returns:
@@ -370,13 +381,16 @@ def get_reports(type, year, month, repository_id=None):
     else:
         target_types.append(type)
 
-    for target in target_types:
+    args = {'year': int(year), 'month': int(month), 'repository_id': repository_id}
+    if auto:
         args = {
-            'event': target,
-            'year': int(year),
-            'month': int(month),
-            'repository_id': repository_id
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'end_date': end_date.strftime('%Y-%m-%d'),
+            'repository_id': repository_id,
         }
+
+    for target in target_types:
+        args.update({'event': target})
         result = {}
         if target in file_report_types:
             result = QueryFileReportsHelper.get(**args)

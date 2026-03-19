@@ -565,7 +565,7 @@ class ReportView(BaseView):
                 settings = {}
             settings[repository_id] = schedule
             AdminSettings.update('report_email_schedule_settings', settings)
-            flash(_('Successfully Changed Schedule.'), 'error')
+            flash(_('Successfully Changed Schedule.'))
         except Exception as ex:
             traceback.print_exc()
             flash(_('Could Not Save Changes.'), 'error')
