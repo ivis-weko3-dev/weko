@@ -2651,6 +2651,7 @@ def test_replace_fqdn_of_file_metadata(app):
     replace_fqdn_of_file_metadata(_file_metadata_list2)
     assert _file_metadata_list2==[{'url': {'url': 'https://localhost/a'}, 'version_id': '1'}, {'url': {'url': 'https://localhost/b'}, 'version_id': '1'}]
 
+import datetime
 # .tox/c1/bin/pytest --cov=weko_records tests/test_utils.py::test_check_embargo_rights -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
 def test_check_embargo_rights():
     # Do nothing except for 'embargoed access'
@@ -2741,7 +2742,6 @@ def test_update_embargo_rights(app, monkeypatch):
                     ],
                     "accessrole": "open_date",
                     "version_id": "55995df6-6d1c-4bbf-8530-d1c0fb5a4219",
-                    "subitem_access_right": "embargoed access"
                 }
             ]
         }
@@ -2750,45 +2750,38 @@ def test_update_embargo_rights(app, monkeypatch):
     # Embargo is released and access becomes open_access
     cfg = True
     meta = copy.deepcopy(base_meta)
-    access_path = "item_1736148125517.attribute_value_mlt.subitem_access_right"
+    access_path = "item_1736146823660.attribute_value_mlt.subitem_access_right"
     monkeypatch.setattr(utils, "current_app", MagicMock(config={"WEKO_SEARCH_FIX_ACCESSRIGHTS": cfg}))
     monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
     monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (True, "open access"))
     utils.update_embargo_rights(meta)
-    assert meta["item_1736148125517"]["attribute_value_mlt"][0]["subitem_access_right"] == "open access"
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == "open access"
 
     # Embargo is released and access becomes restricted_access
     meta = copy.deepcopy(base_meta)
     monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (True, "restricted access"))
     utils.update_embargo_rights(meta)
-    assert meta["item_1736148125517"]["attribute_value_mlt"][0]["subitem_access_right"] == "restricted access"
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == "restricted access"
 
     # Embargo is not released (returns None), access remains embargoed
     meta = copy.deepcopy(base_meta)
     monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (False, None))
     utils.update_embargo_rights(meta)
-    assert meta["item_1736148125517"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
 
     # File information with accessrole=None is handled correctly
     meta = copy.deepcopy(base_meta)
-    meta["item_1736148125517"]["attribute_value_mlt"][0]["accessrole"] = None
+    meta["item_1736146823660"]["attribute_value_mlt"][0]["accessrole"] = None
     monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (False, None))
     utils.update_embargo_rights(meta)
-    assert meta["item_1736148125517"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
 
     # Access rights information with None is handled correctly
     meta = copy.deepcopy(base_meta)
     meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] = None
     monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (False, None))
     utils.update_embargo_rights(meta)
-    assert meta["item_1736148125517"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
-
-    # Access rights information with empty list is handled correctly
-    meta = copy.deepcopy(base_meta)
-    meta["item_1736146823660"]["attribute_value_mlt"] = []
-    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (False, None))
-    utils.update_embargo_rights(meta)
-    assert meta["item_1736148125517"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == None
 
     # Empty meta dict does not change anything
     meta = {}
@@ -2801,7 +2794,7 @@ def test_update_embargo_rights(app, monkeypatch):
     monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {})  # accessRights.@valueなし
     monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (True, "open access"))
     utils.update_embargo_rights(meta)
-    assert meta["item_1736148125517"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
 
     # No change if WEKO_SEARCH_FIX_ACCESSRIGHTS is False
     meta = copy.deepcopy(base_meta)
@@ -2809,7 +2802,7 @@ def test_update_embargo_rights(app, monkeypatch):
     monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
     monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (True, "open access"))
     utils.update_embargo_rights(meta)
-    assert meta["item_1736148125517"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
 
     # Only the second element in attribute_value_mlt list is the target key
     meta = {

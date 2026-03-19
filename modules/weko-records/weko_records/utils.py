@@ -2937,21 +2937,30 @@ def update_embargo_rights(metadata: dict) -> None:
 
     def _get_nested_value(data, path):
         keys = path.split('.')
-        for idx, key in enumerate(keys):
-            if isinstance(data, dict):
-                if key in data:
-                    data = data[key]
-                elif 'attribute_value_mlt' in data:
-                    for item in data['attribute_value_mlt']:
-                        found = _get_nested_value(item, '.'.join(keys[idx:]))
-                        if found is not None:
-                            return found
-                    return None
+        key = keys[0]
+        rest = '.'.join(keys[1:])
+        if isinstance(data, dict):
+            if key in data:
+                if rest:
+                    return _get_nested_value(data[key], rest)
                 else:
-                    return None
+                    return data[key]
+            elif 'attribute_value_mlt' in data:
+                for item in data['attribute_value_mlt']:
+                    found = _get_nested_value(item, '.'.join(keys))
+                    if found is not None:
+                        return found
+                return None
             else:
                 return None
-        return data
+        elif isinstance(data, list):
+            for item in data:
+                found = _get_nested_value(item, '.'.join(keys))
+                if found is not None:
+                    return found
+            return None
+        else:
+            return None
 
     access_right_value = _get_nested_value(metadata, access_path)
     if not access_right_value:
@@ -2992,12 +3001,16 @@ def update_embargo_rights(metadata: dict) -> None:
         keys = path.split('.')
         key = keys[0]
         rest = '.'.join(keys[1:])
+        if isinstance(data, list):
+            for item in data:
+                _set_nested_value(item, path, value)
+            return
         if len(keys) == 1:
-            if isinstance(data, dict):
+            if isinstance(data, dict) and key in data:
                 data[key] = value
-                if 'attribute_value_mlt' in data:
-                    for item in data['attribute_value_mlt']:
-                        _set_nested_value(item, key, value)
+            if isinstance(data, dict) and 'attribute_value_mlt' in data:
+                for item in data['attribute_value_mlt']:
+                    _set_nested_value(item, key, value)
         else:
             if isinstance(data, dict):
                 if key in data:
