@@ -21,6 +21,7 @@
 """Utilities for convert response json."""
 import copy
 import csv
+import traceback
 import orjson
 import math
 import os
@@ -28,7 +29,8 @@ import zipfile
 import pickle
 from datetime import datetime, timedelta
 from io import BytesIO, StringIO
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple, Union, overload
+from typing_extensions import Literal
 from invenio_search.api import RecordsSearch
 from elasticsearch.exceptions import NotFoundError
 from elasticsearch_dsl.query import QueryString
@@ -326,6 +328,7 @@ def get_user_report_data():
             .outerjoin(userrole) \
             .group_by(Role.id).all()
     except Exception as e:
+        traceback.print_exc()
         current_app.logger.error('Could not retrieve user report data: ')
         current_app.logger.error(e)
         return {}
@@ -341,13 +344,22 @@ def get_user_report_data():
     return results
 
 
-def get_reports(type, year, month):
+@overload
+def get_reports(type, year, month, *, auto: Literal[False]=False): ...
+@overload
+def get_reports(type, *, auto: Literal[True], start_date, end_date): ...
+def get_reports(
+    type, year=None, month=None, auto=False, start_date=None, end_date=None
+):
     """Get report data from db and modify.
     
     Args:
         type (str): report's type
-        year (str): report's aggregation year
-        month (str): report's aggregation month
+        year (str): report's aggregation year, used when auto is False.
+        month (str): report's aggregation month, used when auto is False.
+        start_date (datetime): report's start date, used when auto is True.
+        end_date (datetime): report's end date, used when auto is True.
+        auto (bool): flag to indicate if the report is auto-sending
     
     Returns:
         dict: report's data for selected types
@@ -366,12 +378,15 @@ def get_reports(type, year, month):
     else:
         target_types.append(type)
     
-    for target in target_types:
+    args = {'year': int(year), 'month': int(month)}
+    if auto:
         args = {
-            'event': target,
-            'year': int(year),
-            'month': int(month)
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'end_date': end_date.strftime('%Y-%m-%d'),
         }
+
+    for target in target_types:
+        args.update({'event': target})
         result = {}
         if target in file_report_types:
             result = QueryFileReportsHelper.get(**args)
