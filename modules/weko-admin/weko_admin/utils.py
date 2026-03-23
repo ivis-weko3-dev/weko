@@ -25,6 +25,7 @@ import math
 import os
 import traceback
 import zipfile
+import copy
 from datetime import datetime, timedelta
 from io import BytesIO, StringIO
 from typing import Dict, Optional, Tuple, Union
@@ -2198,12 +2199,186 @@ def create_facet_search_query():
             val = facet.mapping
             # Update agg query for has permission.
             agg_has_permission_query.update(
-                create_agg_by_aggregations(facet.aggregations, key, val))
+                create_agg_by_aggregations(facet.aggregations, key, val)
+            )
             # Update agg query for no permission.
             facet.aggregations.append(
-                {'agg_mapping': 'publish_status', 'agg_value': PublishStatus.PUBLIC.value})
+                {
+                    'agg_mapping': 'publish_status',
+                    'agg_value': PublishStatus.PUBLIC.value
+                }
+            )
             agg_no_permission_query.update(
-                create_agg_by_aggregations(facet.aggregations, key, val))
+                create_agg_by_aggregations(facet.aggregations, key, val)
+            )
+        # Add aggregation conditions for accessRights
+        ACCESSRIGHTS_FIX_ENABLED = current_app.config.get(
+            "WEKO_SEARCH_FIX_ACCESSRIGHTS", False
+        )
+        ACCESS_RIGHTS_CHOICES = current_app.config.get(
+            "WEKO_ACCESS_RIGHTS_CHOICES",
+            [
+                "open access",
+                "embargoed access",
+                "restricted access",
+                "metadata only access",
+            ]
+        )
+        ACCESS_RIGHTS_QUERY_TEMPLATE = {
+        "open access": {
+            "bool": {
+                "should": [
+                    {"term": {"accessRights": "open access"}},
+                    {
+                        "bool": {
+                            "must": [
+                                {"term": {"accessRights": "embargoed access"}},
+                                {
+                                    "nested": {
+                                        "path": "content",
+                                        "query": {
+                                            "bool": {
+                                                "must": [
+                                                    {"term": {"content.accessrole.raw": "open_date"}},
+                                                    {"range": {"content.date.dateValue.raw": {"lte": "@date"}}}
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "embargoed access": {
+            "bool": {
+                "must": [
+                    {"term": {"accessRights": "embargoed access"}},
+                    {
+                        "nested": {
+                            "path": "content",
+                            "query": {
+                                "bool": {
+                                    "should": [
+                                        {
+                                            "bool": {
+                                                "must": [
+                                                    {"term": {"content.accessrole.raw": "open_date"}},
+                                                    {"range": {"content.date.dateValue.raw": {"gt": "@date"}}}
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                ],
+                "must_not": [
+                    {
+                        "nested": {
+                            "path": "content",
+                            "query": {
+                                "term": {"content.accessrole.raw": "open_restricted"}
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "restricted access": {
+            "bool": {
+                "should": [
+                    {"term": {"accessRights": "restricted access"}},
+                    {
+                        "bool": {
+                            "must": [
+                                {"term": {"accessRights": "embargoed access"}},
+                                {
+                                    "nested": {
+                                        "path": "content",
+                                        "query": {
+                                            "term": {"content.accessrole.raw": "open_login"}
+                                        }
+                                    }
+                                },
+                                {
+                                    "bool": {
+                                        "must_not": [
+                                            {
+                                                "nested": {
+                                                    "path": "content",
+                                                    "query": {
+                                                        "bool": {
+                                                            "must": [
+                                                                {"term": {"content.accessrole.raw": "open_date"}},
+                                                                {"range": {"content.date.dateValue.raw": {"gt": "@date"}}}
+                                                            ]
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "metadata only access": {
+            "bool": {
+                "must": [
+                    {"term": {"accessRights": "metadata only access"}}
+                ]
+            }
+        }
+        }
+        def _replace_date(obj, now):
+            """Recursively replace @date with current date."""
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    if isinstance(v, str) and v == "@date":
+                        obj[k] = now
+                    else:
+                        _replace_date(v, now)
+            elif isinstance(obj, list):
+                for v in obj:
+                    _replace_date(v, now)
+        if ACCESSRIGHTS_FIX_ENABLED:
+            access_rights = next(
+                (facet for facet in facets if facet.mapping == "accessRights"),
+                None
+            )
+            if access_rights:
+                now = datetime.now().strftime("%Y-%m-%d")
+                must = [
+                    dict(term={d["agg_mapping"]: d["agg_value"]})
+                    for d in access_rights.aggregations
+                ]
+                new_access_rights = {
+                    "new_accessRights": {
+                        "filters": {
+                            "filters": {}
+                        }
+                    }
+                }
+                for access_type in ACCESS_RIGHTS_CHOICES:
+                    query_template = copy.deepcopy(
+                        ACCESS_RIGHTS_QUERY_TEMPLATE.get(access_type, {})
+                    )
+                    _replace_date(query_template, now)
+                    must_copy = copy.deepcopy(must)
+                    if query_template:
+                        must_copy.append(query_template)
+                    new_access_rights["new_accessRights"]["filters"]["filters"][
+                        access_type
+                    ] = {"bool": {"must": must_copy}}
+                agg_has_permission_query.update(new_access_rights)
+                agg_no_permission_query.update(new_access_rights)
         return agg_has_permission_query, agg_no_permission_query
 
     def create_post_filters(facets):
@@ -2224,6 +2399,11 @@ def create_facet_search_query():
     agg_has_permission, agg_no_permission = create_aggregations(
         activated_facets)
     post_filters = create_post_filters(activated_facets)
+    ACCESSRIGHTS_FIX_ENABLED = current_app.config.get(
+            "WEKO_SEARCH_FIX_ACCESSRIGHTS", False
+    )
+    if ACCESSRIGHTS_FIX_ENABLED and "new_accessRights" in agg_has_permission:
+        post_filters["new_accessRights"] = agg_has_permission["new_accessRights"]
     # Create facet search query for has permission.
     has_permission_query[search_index] = dict(
         aggs=agg_has_permission,
@@ -2275,6 +2455,8 @@ def get_facet_search_query(has_permission=True):
     from weko_admin.utils import get_title_facets
     titles, order, uiTypes, isOpens, displayNumbers, searchConditions = get_title_facets()
     for k, v in post_filters.items():
+        if k == "new_accessRights":
+            continue
         if v == 'temporal':
             # If the mapping name is [template], it is assumed to be a Filter to date_range1.
             post_filters.update({k: range_filter('date_range1', False, False)})

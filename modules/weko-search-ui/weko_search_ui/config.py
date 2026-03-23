@@ -780,3 +780,8 @@ ROCRATE_METADATA_FILE = "data/ro-crate-metadata.json"
 
 ROCRATE_METADATA_WK_CONTEXT_V1 = "http://purl.org/wk/v1/wk-context.jsonld"
 """ Metadata context file name for RO-Crate+Bagit. """
+
+WEKO_ACCESS_RIGHTS_CHOICES = [ "embargoed access", "metadata only access", "open access", "restricted access"]
+
+WEKO_SEARCH_FIX_ACCESSRIGHTS = True
+""" If true, the value of accessrights will be modified. """
