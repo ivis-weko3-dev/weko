@@ -958,7 +958,7 @@ msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/report.html:94
 #: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:112
-msgid "Aggregation month"
+msgid "Aggregation period"
 msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/report.html:105
@@ -1428,6 +1428,12 @@ msgstr ""
 msgid "Index Tree/Facet Display Setting"
 msgstr ""
 
+#: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:37
+msgid ""
+"Please classify a check into the organization send a use of site license "
+"statistics email."
+msgstr ""
+
 #: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:42
 msgid "Organization"
 msgstr ""
@@ -1438,7 +1444,7 @@ msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:79
 msgid ""
-"Select \"Send\" to automatically send a use of site license statistics "
+"Select \"Enable\" to automatically send a use of site license statistics "
 "email to the checked the organization."
 msgstr ""
 
