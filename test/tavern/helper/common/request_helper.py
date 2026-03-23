@@ -134,7 +134,7 @@ def request_create_deposits_redirect_param(data, title_key, file_metadata=None):
             $schema (str): schema
             lang (str): lang
             pubdate (str): publish date
-            shared_user_id (int): shared user id
+            shared_user_ids (list): shared user ids
             title (str): title
             [key] (list or dict): item data with value
             deleted_items (list): item keys with no value

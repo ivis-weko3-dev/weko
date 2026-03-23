@@ -343,5 +343,5 @@
         "bibliographicNumberOfPages": ""
     },
     "$schema": "/items/jsonschema/30001",
-    "shared_user_id": -1
+    "shared_user_ids": []
 }

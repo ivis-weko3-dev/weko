@@ -310,6 +310,7 @@ stages:
         extra_kwargs:
           expected_tree_file: "response_data/index/index_tree_community_all.json"
           role_id: 4
+          no_action: True
 
 ---
 test_name: コミュニティ管理者 インデックス情報取得 コミュニティ管理内

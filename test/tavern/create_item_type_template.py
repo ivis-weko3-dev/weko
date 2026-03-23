@@ -35,14 +35,14 @@ def create_itemtype_template():
         # Create template for entering data
         template = create_template(result['schema'])
         template['$schema'] = '/items/jsonschema/' + str(schema[0])
-        template['shared_user_id'] = -1
+        template['shared_user_ids'] = -1
         with open('request_params/item_type_template/template/' + file_name + '.json', 'w', encoding='utf-8') as f:
             f.write(json.dumps(template, indent=4, ensure_ascii=False))
         
         # Create template for generating random data
         random_template, _ = create_random_template(result['schema'])
         random_template['$schema'] = '/items/jsonschema/' + str(schema[0])
-        random_template['shared_user_id'] = -1
+        random_template['shared_user_ids'] = -1
         with open('request_params/item_type_template/template/' + file_name + '_random.json', 'w', encoding='utf-8') as f:
             f.write(json.dumps(random_template, indent=4, ensure_ascii=False))
 
