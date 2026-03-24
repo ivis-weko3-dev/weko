@@ -136,7 +136,7 @@ def send_all_reports(report_type=None, year=None, month=None, schedule=None):
             start_date = end_date.replace(day=1)
 
     reports = get_reports(
-        report_type or "all", auto=True,
+        report_type, range=True,
         start_date=start_date, end_date=end_date,
     )
     with current_app.app_context():

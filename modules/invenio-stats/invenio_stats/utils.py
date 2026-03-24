@@ -420,34 +420,23 @@ class QueryFileReportsHelper(object):
             if not start_date or not end_date:
                 query_month = str(year) + '-' + str(month).zfill(2)
                 _, lastday = calendar.monthrange(year, month)
-                all_params = {
-                    'start_date': query_month + '-01',
-                    'end_date': query_month + '-' + str(lastday).zfill(2) + 'T23:59:59',
-                    "should":[
-                        {"bool": {"must_not": {"term":{ "is_open_access": True}}}},
-                        {"bool": {"must_not": {"exists": {"field": "is_open_access"}}}}
-                    ]
-                }
-                params = {
-                    'start_date': query_month + '-01',
-                    'end_date': query_month + '-' + str(lastday).zfill(2) + 'T23:59:59',
-                    'is_open_access': True
-                }
+                start_date = query_month + '-01'
+                end_date = query_month + '-' + str(lastday).zfill(2)
             else:
                 query_month = f"{start_date}-{end_date}"
-                all_params = {
-                    'start_date': start_date,
-                    'end_date': end_date + 'T23:59:59',
-                    "should":[
-                        {"bool": {"must_not": {"term": {"is_open_access": True}}}},
-                        {"bool": {"must_not": {"exists": {"field": "is_open_access"}}}}
-                    ]
-                }
-                params = {
-                    'start_date': start_date,
-                    'end_date': end_date + 'T23:59:59',
-                    'is_open_access': True
-                }
+            all_params = {
+                'start_date': start_date,
+                'end_date': end_date + 'T23:59:59',
+                "should":[
+                    {"bool": {"must_not": {"term": {"is_open_access": True}}}},
+                    {"bool": {"must_not": {"exists": {"field": "is_open_access"}}}}
+                ]
+            }
+            params = {
+                'start_date': start_date,
+                'end_date': end_date + 'T23:59:59',
+                'is_open_access': True
+            }
 
             all_query_name = ''
             open_access_query_name = ''
@@ -503,17 +492,15 @@ class QueryFileReportsHelper(object):
             if not start_date or not end_date:
                 query_month = str(year) + '-' + str(month).zfill(2)
                 _, lastday = calendar.monthrange(year, month)
-                params = {
-                    'start_date': query_month + '-01',
-                    'end_date': query_month + '-' + str(lastday).zfill(2) + 'T23:59:59'
-                }
+                start_date = query_month + '-01'
+                end_date = query_month + '-' + str(lastday).zfill(2)
             else:
                 query_month = f"{start_date}-{end_date}"
-                params = {
-                    'start_date': start_date,
-                    'end_date': end_date + 'T23:59:59'
-                }
 
+            params = {
+                'start_date': start_date,
+                'end_date': end_date + 'T23:59:59'
+            }
             all_query_name = ['get-file-download-per-user-report',
                               'get-file-preview-per-user-report']
             for query in all_query_name:

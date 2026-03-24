@@ -345,11 +345,11 @@ def get_user_report_data():
 
 
 @overload
-def get_reports(type, year, month, *, auto: Literal[False]=False): ...
+def get_reports(type, year, month, *, range: Literal[False]=False): ...
 @overload
-def get_reports(type, *, auto: Literal[True], start_date, end_date): ...
+def get_reports(type, *, range: Literal[True], start_date, end_date): ...
 def get_reports(
-    type, year=None, month=None, auto=False, start_date=None, end_date=None
+    type, year=None, month=None, range=False, start_date=None, end_date=None
 ):
     """Get report data from db and modify.
     
@@ -377,9 +377,9 @@ def get_reports(
         target_types = current_app.config['WEKO_ADMIN_REPORT_TYPES']
     else:
         target_types.append(type)
-    
-    args = {'year': int(year), 'month': int(month)}
-    if auto:
+
+    args = {'year': int(year), 'month': int(month)} if not range else {}
+    if range:
         args = {
             'start_date': start_date.strftime('%Y-%m-%d'),
             'end_date': end_date.strftime('%Y-%m-%d'),
