@@ -403,22 +403,29 @@ def get_reports(
         result_reports[target] = result
     return result_reports
 
-
-def package_reports(all_stats, year, month):
+@overload
+def package_reports(all_stats, year, month): ...
+@overload
+def package_reports(all_stats, *, report_date): ...
+def package_reports(
+    all_stats, year=None, month=None, report_date=None
+):
     """Package the .csv files into one zip file."""
     output_files = []
     zip_stream = BytesIO()
-    year = str(year)
-    month = str(month)
+
+    if not report_date:
+        report_date = str(year) + '-' + str(month)
+
     file_format = current_app.config.get('WEKO_ADMIN_OUTPUT_FORMAT', 'tsv').lower()
+    file_name_mapping = current_app.config['WEKO_ADMIN_REPORT_FILE_NAMES']
     try:  # TODO: Make this into one loop, no need for two
         for stats_type, stats in all_stats.items():
-            file_name = current_app.config['WEKO_ADMIN_REPORT_FILE_NAMES'].get(
-                stats_type, '_')
-            file_name = 'logReport_' + file_name + year + '-' + month + '.' + file_format
+            report_name = file_name_mapping.get(stats_type, '_')
+            file_name = 'logReport_' + report_name + report_date + '.' + file_format
             output_files.append({
                 'file_name': file_name,
-                'stream': make_stats_file(stats, stats_type, year, month)})
+                'stream': make_stats_file(stats, stats_type, report_date)})
 
         # Dynamically create zip from StringIO data into BytesIO
         report_zip = zipfile.ZipFile(zip_stream, 'w')
@@ -432,7 +439,7 @@ def package_reports(all_stats, year, month):
     return zip_stream
 
 
-def make_stats_file(raw_stats, file_type, year, month):
+def make_stats_file(raw_stats, file_type, report_date):
     """Make TSV/CSV report file for stats."""
     header_row = current_app.config['WEKO_ADMIN_REPORT_HEADERS'].get(file_type)
     sub_header_row = current_app.config['WEKO_ADMIN_REPORT_SUB_HEADERS'].get(
@@ -444,11 +451,11 @@ def make_stats_file(raw_stats, file_type, year, month):
                         lineterminator="\n")
     if file_type == 'site_access':
         writer.writerows([[header_row],
-                      [_('Aggregation Month'), year + '-' + month],
+                      [_('Aggregation Month'), report_date],
                       ['']])
     else:
         writer.writerows([[header_row],
-                        [_('Aggregation Month'), year + '-' + month],
+                        [_('Aggregation Month'), report_date],
                         [''], [header_row]])
 
     if file_type == 'billing_file_download':
