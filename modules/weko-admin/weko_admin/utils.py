@@ -355,12 +355,12 @@ def get_reports(
     
     Args:
         type (str): report's type
-        year (str): report's aggregation year, used when auto is False.
-        month (str): report's aggregation month, used when auto is False.
-        start_date (datetime): report's start date, used when auto is True.
-        end_date (datetime): report's end date, used when auto is True.
-        auto (bool): flag to indicate if the report is auto-sending
-    
+        year (str): report's aggregation year, can specified when range is False.
+        month (str): report's aggregation month, can specified when range is False.
+        range (bool): flag to indicate date range in report content.
+        start_date (datetime): report's start date, required when range is True.
+        end_date (datetime): report's end date, required when range is True.
+
     Returns:
         dict: report's data for selected types
     """
