@@ -895,10 +895,9 @@ class RecordsListResource(ContentNegotiatedMethodView):
         from invenio_records_rest.sorter import default_sorter_factory
         from weko_search_ui.api import SearchSetting
         search_index = search._index[0]
-        search2, sortkwargs = default_sorter_factory(search, search_index)
+        _, sortkwargs = default_sorter_factory(search, search_index)
         for key, value in sortkwargs.items():
             if "custom_sort" in value:
-                ind_id = request.values.get("q","")
                 idx = request.values.get("idx","")
                 if isinstance(idx,list):
                     idx = idx.split(",")
