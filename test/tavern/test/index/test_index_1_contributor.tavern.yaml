@@ -304,6 +304,7 @@ stages:
         extra_kwargs:
           expected_tree_file: "response_data/index/index_tree_community_all.json"
           role_id: 3
+          no_action: True
 
 ---
 test_name: コントリビュータ インデックス情報取得 コミュニティ管理内 閲覧権限あり

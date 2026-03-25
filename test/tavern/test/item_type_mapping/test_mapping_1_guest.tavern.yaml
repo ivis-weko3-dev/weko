@@ -453,7 +453,7 @@ includes:
   - !include ../config.yaml
 
 marks:
-  - get_oai_dc_mapping_schema
+  - mapping_oai_pmh_jpcoar2
   - guest
 
 stages:

@@ -92,7 +92,8 @@ def verify_index_tree(
         expected_tree_file,
         role_id,
         edited_id_list=None,
-        deleted_id_list=None
+        deleted_id_list=None,
+        no_action=False
     ):
     """Verify the index tree structure in the response.
 
@@ -102,6 +103,7 @@ def verify_index_tree(
         role_id(str): Role ID to filter the tree information.
         edited_id_list(list, optional): List of IDs of the edited index nodes. Defaults to None.
         deleted_id_list(list, optional): List of IDs of the deleted index nodes. Defaults to None.
+        no_action(bool, optional): Flag to indicate no action. Defaults to False.
 
     Raises:
         ValueError: If an edited index ID is not found in the database.
@@ -176,7 +178,7 @@ def verify_index_tree(
 
     with open(expected_tree_file, 'r') as f:
         expected_tree = json.load(f)
-    if role_id not in [1, 2, 3, 4]:
+    if role_id not in [1, 2] and not no_action:
         browsing_tree = get_browsing_treeinfo(expected_tree, role_id)
     else:
         browsing_tree = expected_tree

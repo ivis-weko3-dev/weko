@@ -1,38 +1,38 @@
 DATABASE = {
-  'host': 'localhost',
-  'port': 25401,
-  'dbname': 'invenio',
-  'user': 'invenio',
-  'password': 'dbpass123'
+    'host': 'localhost',
+    'port': 25401,
+    'dbname': 'invenio',
+    'user': 'invenio',
+    'password': 'dbpass123'
 }
 
 REDIS = {
-  'host': 'localhost',
-  'port': 26301,
-  'db': 0
+    'host': 'localhost',
+    'port': 26301,
+    'db': 0
 }
 
 USERS = {
-  'sysadmin': {
-    'email': 'wekosoftware@nii.ac.jp',
-    'password': 'uspass123'
-  },
-  'repoadmin': {
-    'email': 'repoadmin@example.org',
-    'password': 'uspass123'
-  },
-  'comadmin': {
-    'email': 'comadmin@example.org',
-    'password': 'uspass123'
-  },
-  'contributor': {
-    'email': 'contributor@example.org',
-    'password': 'uspass123'
-  },
-  'user': {
-    'email': 'user@example.org',
-    'password': 'uspass123'
-  }
+    'sysadmin': {
+        'email': 'wekosoftware@nii.ac.jp',
+        'password': 'uspass123'
+    },
+    'repoadmin': {
+        'email': 'repoadmin@example.org',
+        'password': 'uspass123'
+    },
+    'comadmin': {
+        'email': 'comadmin@example.org',
+        'password': 'uspass123'
+    },
+    'contributor': {
+        'email': 'contributor@example.org',
+        'password': 'uspass123'
+    },
+    'user': {
+        'email': 'user@example.org',
+        'password': 'uspass123'
+    }
 }
 
 REPLACEMENT_DECISION_STRING = {
