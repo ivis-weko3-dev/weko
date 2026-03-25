@@ -113,38 +113,32 @@ def is_reindex_running():
     return False
 
 @shared_task(ignore_results=True)
-def send_all_reports(report_type=None, year=None, month=None, schedule=None):
+def send_all_reports(report_type="all", *, schedule):
     """Query elasticsearch for each type of stats report."""
     # By default get the current month and year
+    frequency = schedule['frequency']  # daily, weekly, monthly
     now = datetime.now(tz=timezone.utc)
-    month = month or now.month
-    year = year or now.year
 
-    start_date = None
-    end_date = None
-    if schedule:
-        if schedule['frequency'] == 'daily':
-            # on 2 days ago
-            start_date = end_date = (now - timedelta(days=2))
-        if schedule['frequency'] == 'weekly':
-            # from 8 days ago to 2 days ago
-            start_date = (now - timedelta(days=8))
-            end_date = (now - timedelta(days=2))
-        if schedule['frequency'] == 'monthly':
-            # from first day of previous month to last day of previous month
-            end_date = now.replace(day=1) - timedelta(days=1)
-            start_date = end_date.replace(day=1)
+    start_date, end_date = _get_start_end_date(now, frequency)
 
     reports = get_reports(
-        report_type or "all", auto=True,
+        report_type, range=True,
         start_date=start_date, end_date=end_date,
     )
+
     with current_app.app_context():
         # Allow for this to be used to get specific emails as well
-        zip_date = str(year) + '-' + str(month).zfill(2)
+        if frequency == 'monthly':
+            zip_date = start_date.strftime('%Y-%m')
+            zip_stream = package_reports(reports, start_date.year, start_date.month)
+        else:
+            zip_date = start_date.strftime('%Y-%m-%d')
+            if frequency == 'weekly':
+                zip_date += '_' + end_date.strftime('%Y-%m-%d')
+            zip_stream = package_reports(
+                reports, report_date=zip_date,
+            )
         zip_name = 'logReport_' + zip_date + '.zip'
-
-        zip_stream = package_reports(reports, year, month)
 
         recepients = StatisticsEmail.get_all_emails()
         attachments = [Attachment(zip_name,
@@ -162,6 +156,31 @@ def send_all_reports(report_type=None, year=None, month=None, schedule=None):
         except Exception as e:
             traceback.print_exc()
             current_app.logger.info('[{0}] [{1}] '.format(1, 'Could not send'))
+
+
+def _get_start_end_date(dt, frequency):
+    """Get start date and end date.
+
+    Args:
+        dt (datetime):
+            The date to calculate from.
+        frequency (str):
+            The frequency of the report ('daily', 'weekly', 'monthly').
+    """
+    if frequency == 'daily':
+        # on 2 days ago
+        start_date = end_date = dt - timedelta(days=2)
+    elif frequency == 'weekly':
+        # from 8 days ago to 2 days ago
+        start_date = dt - timedelta(days=8)
+        end_date = dt - timedelta(days=2)
+    else:
+        # monthly,
+        # from first day of previous month to last day of previous month
+        end_date = dt.replace(day=1) - timedelta(days=1)
+        start_date = end_date.replace(day=1)
+
+    return start_date, end_date
 
 
 @shared_task(ignore_results=True)  # Set for timedelta(days=1)
