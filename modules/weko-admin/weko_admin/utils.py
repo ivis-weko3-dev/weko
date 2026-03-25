@@ -2234,16 +2234,29 @@ def create_facet_search_query():
                             "must": [
                                 {"term": {"accessRights": "embargoed access"}},
                                 {
-                                    "nested": {
-                                        "path": "content",
-                                        "query": {
-                                            "bool": {
-                                                "must": [
-                                                    {"term": {"content.accessrole.raw": "open_date"}},
-                                                    {"range": {"content.date.dateValue.raw": {"lte": "@date"}}}
-                                                ]
+                                    "bool": {
+                                        "must_not": [
+                                            {
+                                                "nested": {
+                                                    "path": "content",
+                                                    "query": {
+                                                        "bool": {
+                                                            "must_not": [
+                                                                {"term": {"content.accessrole.raw": "open_access"}},
+                                                                {
+                                                                    "bool": {
+                                                                        "must": [
+                                                                            {"term": {"content.accessrole.raw": "open_date"}},
+                                                                            {"range": {"content.date.dateValue.raw": {"lte": "@date"}}}
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                }
                                             }
-                                        }
+                                        ]
                                     }
                                 }
                             ]
@@ -2269,8 +2282,16 @@ def create_facet_search_query():
                                                     {"range": {"content.date.dateValue.raw": {"gt": "@date"}}}
                                                 ]
                                             }
+                                        },
+                                        {
+                                            "bool": {
+                                                "must": [
+                                                    {"term": {"content.accessrole.raw": "open_no"}}
+                                                ]
+                                            }
                                         }
-                                    ]
+                                    ],
+                                    "minimum_should_match": 1
                                 }
                             }
                         }
@@ -2280,9 +2301,13 @@ def create_facet_search_query():
                     {
                         "nested": {
                             "path": "content",
-                            "query": {
-                                "term": {"content.accessrole.raw": "open_restricted"}
-                            }
+                            "query": {"term": {"content.accessrole.raw": "open_restricted"}}
+                        }
+                    },
+                    {
+                        "nested": {
+                            "path": "content",
+                            "query": {"term": {"content.accessrole.raw": "open_login"}}
                         }
                     }
                 ]
@@ -2321,6 +2346,21 @@ def create_facet_search_query():
                                                 }
                                             }
                                         ]
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "bool": {
+                            "must": [
+                                {"term": {"accessRights": "embargoed access"}},
+                                {
+                                    "nested": {
+                                        "path": "content",
+                                        "query": {
+                                            "term": {"content.accessrole.raw": "open_restricted"}
+                                        }
                                     }
                                 }
                             ]

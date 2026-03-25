@@ -669,14 +669,15 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
                             Q('bool', must=[
                                 Q('term', **{'content.accessrole.raw': 'open_date'}),
                                 Q('range', **{'content.date.dateValue.raw': {'gt': now}})
+                            ]),
+                            Q('bool', must=[
+                                Q('term', **{'content.accessrole.raw': 'open_no'})
                             ])
-                        ]))
+                        ], minimum_should_match=1))
                     ],
                     must_not=[
-                        Q(
-                            'nested', path='content',
-                            query=Q('term', **{'content.accessrole.raw': 'open_restricted'})
-                        )
+                        Q('nested', path='content', query=Q('term', **{'content.accessrole.raw': 'open_restricted'})),
+                        Q('nested', path='content', query=Q('term', **{'content.accessrole.raw': 'open_login'}))
                     ]
                 )
 
@@ -698,6 +699,10 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
                                     Q('range', **{'content.date.dateValue.raw': {'gt': now}})
                                 ]))
                             ])
+                        ]),
+                        Q('bool', must=[
+                            Q('term', accessRights='embargoed access'),
+                            Q('nested', path='content', query=Q('term', **{'content.accessrole.raw': 'open_restricted'}))
                         ])
                     ]
                 )
