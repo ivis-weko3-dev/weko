@@ -827,14 +827,14 @@ class RecordsListResource(ContentNegotiatedMethodView):
 
         if is_custom_sort :
             self._override_params_for_customsort(
-                search, target_index, is_asc, page, size
+                search, is_asc
             )
 
         search_result = search.execute()
         search_result_dict = search_result.to_dict()
 
         if is_custom_sort:
-            if search_result_dict['hits']['total'] < self.max_result_window:
+            if search_result.hits.total < self.max_result_window:
                 self._do_custom_sort(search_result_dict,target_index, is_asc, page, size)
             else:
                 start = (page - 1) * size
@@ -893,17 +893,14 @@ class RecordsListResource(ContentNegotiatedMethodView):
 
         return 100
 
-    def _override_params_for_customsort(self, search, target_index, is_asc, page, size):
+    def _override_params_for_customsort(self, search, is_asc):
         """ Set the sort clause for custom sort
 
             Override the sort conditions of the search object for custom sorting.
 
         Args:
             search(invenio_search.api.RecordsSearch): search query
-            target_index(set): search index
             is_asc(boolean): Whether to sort in ascending or descending order.
-            page(int): page
-            size(int): size
 
         """
         search = search[0:self.max_result_window]
@@ -961,16 +958,15 @@ class RecordsListResource(ContentNegotiatedMethodView):
             the creation date and time, and the `control_number`.
 
         Args:
-            hit(dict):
+            hit(dict): item in the search results that is subject to sorting
             target_index(set): search index
             is_asc(boolean): Whether to sort in ascending or descending order.
-            custom_sort(dict): cash
+            custom_sort(dict): cache that retains the custom sort settings for each index
 
         """
         from weko_index_tree.api import Indexes
         paths = {int(p) for p in hit["_source"]["path"]}
-        if target_index:
-            paths = paths.intersection(target_index)
+        paths = paths.intersection(target_index)
         path = min(paths) if is_asc else max(paths)
         if path not in custom_sort:
             index_custom_sort = Indexes.get_item_sort(path)
