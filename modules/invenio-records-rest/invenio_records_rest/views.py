@@ -623,7 +623,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
             # This exception is for when sort type "relevance" is used
             sort_element = "control_number"
             relevance_sort_is_used = True
-        
+
         if relevance_sort_is_used:
             sort_key = sort_element
             sort_key_arrangement = "desc"
@@ -862,7 +862,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
         links = dict(self=url_for(endpoint, page=page, **urlkwargs))
         if page > 1:
             links['prev'] = url_for(endpoint, page=page - 1, **urlkwargs)
-        if size * page < search_result_dict["hits"]["total"] and \
+        if size * page < search_result.hits.total and \
                 size * page < self.max_result_window:
             links['next'] = url_for(endpoint, page=page + 1, **urlkwargs)
 
@@ -896,6 +896,8 @@ class RecordsListResource(ContentNegotiatedMethodView):
     def _override_params_for_customsort(self, search, target_index, is_asc, page, size):
         """ Set the sort clause for custom sort
 
+            Override the sort conditions of the search object for custom sorting.
+
         Args:
             search(invenio_search.api.RecordsSearch): search query
             target_index(set): search index
@@ -928,6 +930,9 @@ class RecordsListResource(ContentNegotiatedMethodView):
     def _do_custom_sort(cls, search_result_dict, target_index, is_asc, page, size):
         """ do custom_sort
 
+            For each hit, taking target_index into account,
+            generate a priority key and sort the results.
+
         Args:
             search_result_dict(dict): search result
             is_asc(boolean): Whether to sort in ascending or descending order.
@@ -954,11 +959,15 @@ class RecordsListResource(ContentNegotiatedMethodView):
     def _customsort_priority(cls, hit, target_index, is_asc, custom_sort):
         """ Generate a priority key for custom sorting for each hit in the search results.
 
+            From the index paths associated with `hit`, select a single path based on `target_index`,
+            and return a sort key that combines the custom sort definition for each index,
+            the creation date and time, and the `control_number`.
+
         Args:
             hit(dict):
             target_index(set): search index
             is_asc(boolean): Whether to sort in ascending or descending order.
-            custom_sort(list): cash
+            custom_sort(dict): cash
 
         """
         from weko_index_tree.api import Indexes
