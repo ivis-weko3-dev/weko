@@ -934,6 +934,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
             search_result_dict(dict): search query
             page(int): page
             size(int): size
+        
         Returns:
             search_result_dict(dict): search query
         
