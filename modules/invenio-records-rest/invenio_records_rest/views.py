@@ -158,7 +158,7 @@ def create_blueprint(endpoints):
         __name__,
         url_prefix='',
     )
-    
+
     @blueprint.teardown_request
     def dbsession_clean(exception):
         current_app.logger.debug("invenio_records_rest dbsession_clean: {}".format(exception))
@@ -640,7 +640,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
             cache_name = User.query.get(current_user.id).email
         else:
             cache_name = "anonymous_user"
-        
+
         # For saving a specific page for search_after use as cache key
         cache_key = str(page)
 
@@ -676,7 +676,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
                         RECORDS_REST_DEFAULT_TTL_VALUE
                     )
                 )
-        
+
         url_args_check()
 
         next_items_sort_value = ""
@@ -725,7 +725,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
                     next_search_after_set._extra.update(search_after_size)
                     next_search_after_set._extra.update({"search_after": [orjson.loads(sessionstorage.get(cache_name)).get(cache_key).get("control_number")]})
                     next_items_sort_value = next_search_after_set.execute()["hits"]["hits"][-1]["_source"]["control_number"]
-                    
+
                 else:
                     page_list = []
                     cache_name_stored_data = orjson.loads(sessionstorage.get(cache_name))
@@ -747,7 +747,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
                         next_search_after_set = search
                         next_search_after_set._extra.update(search_after_size)
                         next_search_after_set._extra.update({"search_after": [orjson.loads(sessionstorage.get(cache_name)).get(str(sorted_page_list[-1])).get("control_number")]})
-                        
+
                         try:
                             if cache_data.get("control_number") is None:
                                 next_items_sort_value = last_sort_value
@@ -800,15 +800,21 @@ class RecordsListResource(ContentNegotiatedMethodView):
 
             # Search after trigger set to true
             use_search_after = True
-        
-        is_custom_sort = False
+
+        idx = request.values.get("idx","")
+        idx = [int(i) for i in idx.split(",") if i]
+        index_id = request.values.get("index_id","")
+        idx.append(index_id)
+        target_index = set(idx)
         request_sort = request.values.get('sort','', str)
         key, is_asc = parse_sort_field(request_sort)
-        if key == "custom_sort":
-            is_custom_sort = True
-        
-        if is_custom_sort:
-            search = search[0:self.max_result_window]
+        recursive = request.values.get("recursive","")
+        is_custom_sort = (
+            key == "custom_sort"
+                and target_index
+                and ((len(target_index)) > 1 or recursive == "1")
+        )
+
 
         if use_search_after:
             search = search[0:size]
@@ -819,16 +825,22 @@ class RecordsListResource(ContentNegotiatedMethodView):
         if query:
             urlkwargs['q'] = query
 
+        if is_custom_sort :
+            self._override_params_for_customsort(
+                search, target_index, is_asc, page, size
+            )
 
-        search = RecordsListResource.sort_set(search)
-        # Execute search
         search_result = search.execute()
         search_result_dict = search_result.to_dict()
-        index_id = request.values.get("index_id", "")
-        idx = request.values.get("idx", "")
-        if is_custom_sort and (index_id or idx) and (not search_result_dict['hits']['total'] > self.max_result_window):
-                search_result_dict = RecordsListResource.sort_custom_sort(is_asc,search_result_dict,page,size)
-            
+
+        if is_custom_sort:
+            if search_result_dict['hits']['total'] < self.max_result_window:
+                self._do_custom_sort(search_result_dict,target_index, is_asc, page, size)
+            else:
+                start = (page - 1) * size
+                end = page * size
+                search_result_dict["hits"]["hits"] = search_result_dict["hits"]["hits"][start:end]
+
         if not sessionstorage.redis.exists(cache_name) and size * math.floor(self.max_result_window/size) <= self.max_result_window:
             json_data = orjson.dumps({cache_key: {"control_number": [next_items_sort_value]}})
             sessionstorage.put(
@@ -881,101 +893,92 @@ class RecordsListResource(ContentNegotiatedMethodView):
 
         return 100
 
-    @classmethod
-    def sort_set(cls, search):
-        """ set sort of search
-    
+    def _override_params_for_customsort(self, search, target_index, is_asc, page, size):
+        """ Set the sort clause for custom sort
+
         Args:
             search(invenio_search.api.RecordsSearch): search query
-        
-        Returns:
-            search(invenio_search.api.RecordsSearch): search query
-        
-        """
-        from invenio_records_rest.sorter import default_sorter_factory
-        from weko_search_ui.api import SearchSetting
-        search_index = search._index[0]
-        _, sortkwargs = default_sorter_factory(search, search_index)
-        for key, value in sortkwargs.items():
-            if "custom_sort" in value:
-                idx = request.values.get("idx","")
-                if isinstance(idx,list):
-                    idx = idx.split(",")
-                index_id = request.values.getlist("index_id")
-                recursive = request.values.get("recursive","")
-                search._sort = []
-                if (idx or index_id) and ((len(set(list(idx) + index_id))) > 1 or recursive == "1"):
-                    if value == "custom_sort":
-                        path_sort = {"path": { "order": "asc", "mode": "min" }}
-                        default_sort = {"_created": {"order": "asc", "unmapped_type": "long"}}
-                    else:
-                        path_sort = {"path": { "order": "desc", "mode": "max" }}
-                        default_sort = {"_created": {"order": "desc", "unmapped_type": "long"}}
-                        
-                    search._sort.append(path_sort)
-                    search._sort.append(default_sort)
-        return search
-    
-    @classmethod
-    def sort_custom_sort(cls, is_asc, search_result_dict, page, size):
-        """ set custom_sort
-    
-        Args:
+            target_index(set): search index
             is_asc(boolean): Whether to sort in ascending or descending order.
-            search_result_dict(dict): search query
             page(int): page
             size(int): size
-        
+
         Returns:
-            search_result_dict(dict): search query
-        
+            search(invenio_search.api.RecordsSearch): search query
+
+        """
+        search = search[0:self.max_result_window]
+        search._sort = []
+
+        if is_asc:
+            order = "asc"
+            mode = "min"
+        else:
+            order = "desc"
+            mode = "max"
+
+        path_sort = {"path": {"order": order, "mode": mode}}
+        default_sort = {"_created": {"order": order, "unmapped_type": "long"}}
+
+        search._sort.append(path_sort)
+        search._sort.append(default_sort)
+
+
+    @classmethod
+    def _do_custom_sort(cls, search_result_dict, target_index, is_asc, page, size):
+        """ do custom_sort
+
+        Args:
+            search_result_dict(dict): search result
+            is_asc(boolean): Whether to sort in ascending or descending order.
+            target_index(set): search index
+            page(int): page
+            size(int): size
+
+        """
+
+        custom_sort = {}
+
+        sorted_result = sorted(((
+            cls._customsort_priority(hit, target_index, is_asc, custom_sort), hit)
+                for hit in search_result_dict["hits"]["hits"]
+            ), reverse=not is_asc
+        )
+
+        start = (page - 1) * size
+        end = page * size
+        sorted_hits = [hit for _, hit in sorted_result[start:end]]
+        search_result_dict["hits"]["hits"] = sorted_hits
+
+    @classmethod
+    def _customsort_priority(cls, hit, target_index, is_asc, custom_sort):
+        """ Generate a priority key for custom sorting for each hit in the search results.
+
+        Args:
+            hit(dict):
+            target_index(set): search index
+            is_asc(boolean): Whether to sort in ascending or descending order.
+            custom_sort(list): cash
+
         """
         from weko_index_tree.api import Indexes
-        sorted_result = []
-        custom_sort = {}
-        target_index = []
-        index_id = request.values.get("index_id", None)
-        idx = request.values.get("idx", None)
-        recursive = request.values.get("recursive", 0)
-        
-        if index_id:
-            target_index.append(int(index_id))
-        if idx:
-            idx_list = idx.split(',')
-            target_index.extend([int(i) for i in idx_list])
-            if recursive and not index_id:
-                for idx in idx_list:
-                    target_index.extend(
-                        [int(cid) for cid in Indexes.get_child_list_recursive(str(idx))]
-                    )
+        paths = {int(p) for p in hit["_source"]["path"]}
+        if target_index:
+            paths = paths.intersection(target_index)
+        path = min(paths) if is_asc else max(paths)
+        if path not in custom_sort:
+            index_custom_sort = Indexes.get_item_sort(path)
+            if index_custom_sort:
+                custom_sort[path] = index_custom_sort
 
-        def get_sort_value(hit):
-            paths = {int(p) for p in hit["_source"]["path"]}
-            if target_index:
-                paths = paths.intersection(set(target_index))
-            path = min(paths) if is_asc else max(paths)
-            if path not in custom_sort:
-                index_custom_sort = Indexes.get_item_sort(path)
-                if index_custom_sort:
-                    custom_sort[path] = index_custom_sort
+        cn = hit["_source"]["control_number"]
+        v = custom_sort.get(path, {}).get(cn)
+        created = hit["_source"].get("_created")
 
-            cn = hit["_source"]["control_number"]
-            v = custom_sort.get(path, {}).get(cn)
-            created = hit["_source"].get("_created")
+        priority = 0 if v is not None else 1
+        v = int(v) if v is not None else None
+        return (path, priority, v, created, int(cn))
 
-            priority = 0 if v is not None else 1
-            v = int(v) if v is not None else None
-            return (path, priority, v, created, int(cn))
-            
-        from bisect import insort
-        for hit in search_result_dict["hits"]["hits"]:
-            insort(sorted_result, (get_sort_value(hit), hit))
-
-        sorted_hits = [hit for _, hit in sorted_result]
-        search_result_dict["hits"]["hits"] = sorted_hits[(page - 1) * size : page * size] \
-            if is_asc else sorted_hits[::-1][(page - 1) * size : page * size]
-        return search_result_dict
-        
     @need_record_permission('create_permission_factory')
     def post(self, **kwargs):
         """Create a record.
