@@ -130,7 +130,7 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
                 return not is_future(adt)
             elif acsrole == "open_access":
                 return True
-            elif acsrole == "open_date":
+            else:
                 return False
 
     def __check_user_permission(user_id_list):
