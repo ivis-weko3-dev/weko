@@ -485,6 +485,16 @@ def test_delete_widget_item(client, users):
     assert res.status_code == 200
 
 
+# def get_widget_item_list()
+def test_get_widget_item_list(client, users):
+    login_user_via_session(client=client, email=users[2]['obj'].email)
+    res = client.get(
+        url_for("weko_gridlayout_api.get_widget_item_list"),
+        headers={"Content-Type": "application/json"}
+    )
+    assert res.status_code == 200
+
+
 # def get_account_role():
 def test_get_account_role(client, users):
     login_user_via_session(client=client, email=users[2]['obj'].email)
