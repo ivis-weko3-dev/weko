@@ -414,7 +414,9 @@ def package_reports(
     output_files = []
     zip_stream = BytesIO()
 
+    period = True
     if not report_date:
+        period = False
         report_date = str(year) + '-' + str(month)
 
     file_format = current_app.config.get('WEKO_ADMIN_OUTPUT_FORMAT', 'tsv').lower()
@@ -425,7 +427,8 @@ def package_reports(
             file_name = 'logReport_' + report_name + report_date + '.' + file_format
             output_files.append({
                 'file_name': file_name,
-                'stream': make_stats_file(stats, stats_type, report_date)})
+                'stream': make_stats_file(stats, stats_type, report_date, period),
+            })
 
         # Dynamically create zip from StringIO data into BytesIO
         report_zip = zipfile.ZipFile(zip_stream, 'w')
@@ -439,9 +442,10 @@ def package_reports(
     return zip_stream
 
 
-def make_stats_file(raw_stats, file_type, report_date):
+def make_stats_file(raw_stats, file_type, report_date, period):
     """Make TSV/CSV report file for stats."""
-    header_row = current_app.config['WEKO_ADMIN_REPORT_HEADERS'].get(file_type)
+    header_title = current_app.config['WEKO_ADMIN_REPORT_HEADERS'].get(file_type)
+    header_sub = _('Aggregation Period') if period else _('Aggregation Month')
     sub_header_row = current_app.config['WEKO_ADMIN_REPORT_SUB_HEADERS'].get(
         file_type)
     file_output = StringIO()
@@ -449,14 +453,10 @@ def make_stats_file(raw_stats, file_type, report_date):
     file_delimiter = '\t' if file_format == 'tsv' else ','
     writer = csv.writer(file_output, delimiter=file_delimiter,
                         lineterminator="\n")
-    if file_type == 'site_access':
-        writer.writerows([[header_row],
-                      [_('Aggregation Month'), report_date],
-                      ['']])
-    else:
-        writer.writerows([[header_row],
-                        [_('Aggregation Month'), report_date],
-                        [''], [header_row]])
+    content = [[header_title], [header_sub, report_date], ['']]
+    if file_type != 'site_access':
+        content.append([header_title])
+    writer.writerows(content)
 
     if file_type == 'billing_file_download':
         col_dict_key = file_type.split('_', 1)[1]

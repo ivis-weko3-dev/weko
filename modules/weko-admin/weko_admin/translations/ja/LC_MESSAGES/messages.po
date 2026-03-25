@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: weko-admin 0.1.0.dev20170000\n"
 "Report-Msgid-Bugs-To: wekosoftware@nii.ac.jp\n"
-"POT-Creation-Date: 2026-03-18 17:42+0900\n"
+"POT-Creation-Date: 2026-03-25 17:42+0900\n"
 "PO-Revision-Date: 2018-01-19 19:54+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja\n"
@@ -538,11 +538,15 @@ msgstr "アカウント情報が無効です。再度確認してください"
 msgid "Registered Users"
 msgstr "登録ユーザー"
 
-#: weko_admin/utils.py:374
+#: weko_admin/utils.py:448
 msgid "Aggregation Month"
 msgstr "集計月"
 
-#: weko_admin/utils.py:388
+#: weko_admin/utils.py:448
+msgid "Aggregation Period"
+msgstr "集計期間"
+
+#: weko_admin/utils.py:477
 msgid "Total Detail Views"
 msgstr "詳細ビュー合計"
 
