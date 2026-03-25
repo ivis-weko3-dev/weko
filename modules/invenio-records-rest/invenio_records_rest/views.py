@@ -824,8 +824,8 @@ class RecordsListResource(ContentNegotiatedMethodView):
         # Execute search
         search_result = search.execute()
         search_result_dict = search_result.to_dict()
-        index_id = request.values.get("index_id", None)
-        idx = request.values.get("idx", None)
+        index_id = request.values.get("index_id", "")
+        idx = request.values.get("idx", "")
         if is_custom_sort and (index_id or idx) and (not search_result_dict['hits']['total'] > self.max_result_window):
                 search_result_dict = RecordsListResource.sort_custom_sort(is_asc,search_result_dict,page,size)
             
