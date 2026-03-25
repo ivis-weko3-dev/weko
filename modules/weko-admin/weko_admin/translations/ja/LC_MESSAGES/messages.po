@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: weko-admin 0.1.0.dev20170000\n"
 "Report-Msgid-Bugs-To: wekosoftware@nii.ac.jp\n"
-"POT-Creation-Date: 2026-03-26 21:15+0900\n"
+"POT-Creation-Date: 2026-03-26 22:56+0900\n"
 "PO-Revision-Date: 2018-01-19 19:54+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja\n"
@@ -285,7 +285,7 @@ msgstr "土曜日"
 msgid "Sunday"
 msgstr "日曜日"
 
-#: weko_admin/admin.py:510 weko_admin/tasks.py:159
+#: weko_admin/admin.py:510 weko_admin/tasks.py:152
 msgid " Log report."
 msgstr "ログレポート"
 
@@ -638,36 +638,40 @@ msgstr "アカウント情報が無効です。再度確認してください"
 msgid "Registered Users"
 msgstr "登録ユーザー"
 
-#: weko_admin/utils.py:450 weko_admin/utils.py:611
+#: weko_admin/utils.py:453
+msgid "Aggregation Period"
+msgstr "集計期間"
+
+#: weko_admin/utils.py:453 weko_admin/utils.py:622
 msgid "Aggregation Month"
 msgstr "集計月"
 
-#: weko_admin/utils.py:468
+#: weko_admin/utils.py:479
 msgid "Total Detail Views"
 msgstr "詳細ビュー合計"
 
-#: weko_admin/utils.py:477
+#: weko_admin/utils.py:488
 msgid "Site license member"
 msgstr "サイトライセンス会員"
 
-#: weko_admin/utils.py:481
+#: weko_admin/utils.py:492
 msgid "Other than site license"
 msgstr "サイトライセンス以外"
 
-#: weko_admin/utils.py:492 weko_admin/utils.py:615
+#: weko_admin/utils.py:503 weko_admin/utils.py:626
 msgid "Institution Name"
 msgstr "機関名"
 
-#: weko_admin/utils.py:1361
+#: weko_admin/utils.py:1372
 msgid "Cannot update Feedback email settings."
 msgstr ""
 
-#: weko_admin/utils.py:1388
+#: weko_admin/utils.py:1399
 msgid "Author is duplicated."
 msgstr " 著者が重複しています。"
 
 #: weko_admin/templates/weko_admin/admin/feedback_mail.html:48
-#: weko_admin/utils.py:1395
+#: weko_admin/utils.py:1406
 msgid "Duplicate Email Addresses."
 msgstr "メールアドレスが重複しています。"
 

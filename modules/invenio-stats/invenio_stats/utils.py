@@ -351,26 +351,19 @@ class QueryFileReportsHelper(object):
             if not start_date or not end_date:
                 query_month = str(year) + '-' + str(month).zfill(2)
                 _, lastday = calendar.monthrange(year, month)
-                all_params = {
-                    'start_date': query_month + '-01',
-                    'end_date': query_month + '-' + str(lastday).zfill(2) + 'T23:59:59',
-                }
-                params = {
-                    'start_date': query_month + '-01',
-                    'end_date': query_month + '-' + str(lastday).zfill(2) + 'T23:59:59',
-                    'accessrole': 'open_access',
-                }
+                start_date = query_month + '-01'
+                end_date = query_month + '-' + str(lastday).zfill(2)
             else:
-                query_month = start_date + '-' + end_date
-                all_params = {
-                    'start_date': start_date,
-                    'end_date': end_date + 'T23:59:59',
-                }
-                params = {
-                    'start_date': start_date,
-                    'end_date': end_date + 'T23:59:59',
-                    'accessrole': 'open_access',
-                }
+                query_month = f"{start_date}-{end_date}"
+            all_params = {
+                'start_date': start_date,
+                'end_date': end_date + 'T23:59:59',
+            }
+            params = {
+                'start_date': start_date,
+                'end_date': end_date + 'T23:59:59',
+                'accessrole': 'open_access',
+            }
             if repository_id and repository_id != 'Root Index':
                 all_params['index_list'] = index_list
                 params['index_list'] = index_list
@@ -431,16 +424,14 @@ class QueryFileReportsHelper(object):
             if not start_date or not end_date:
                 query_month = str(year) + '-' + str(month).zfill(2)
                 _, lastday = calendar.monthrange(year, month)
-                params = {
-                    'start_date': query_month + '-01',
-                    'end_date': query_month + '-' + str(lastday).zfill(2) + 'T23:59:59'
-                }
+                start_date = query_month + '-01'
+                end_date = query_month + '-' + str(lastday).zfill(2)
             else:
                 query_month = f"{start_date}-{end_date}"
-                params = {
-                    'start_date': start_date,
-                    'end_date': end_date + 'T23:59:59'
-                }
+            params = {
+                'start_date': start_date,
+                'end_date': end_date + 'T23:59:59'
+            }
             if repository_id and repository_id != 'Root Index':
                 repository = Community.query.get(repository_id)
                 user_ids = get_user_ids_by_role(repository.group_id) if repository_id else []

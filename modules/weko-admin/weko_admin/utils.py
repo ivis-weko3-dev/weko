@@ -347,11 +347,12 @@ def get_user_report_data(repo_id=None):
 
 
 @overload
-def get_reports(type, year, month, *, repository_id=None, auto: Literal[False]=False): ...
+def get_reports(type, year, month, *, repository_id=None, range: Literal[False]=False): ...
 @overload
-def get_reports(type, *, auto: Literal[True], start_date, end_date, repository_id=None): ...
+def get_reports(type, *, range: Literal[True], start_date, end_date, repository_id=None): ...
 def get_reports(
-    type, year=None, month=None, auto=False, start_date=None, end_date=None, repository_id=None
+    type, year=None, month=None,
+    range=False, start_date=None, end_date=None, repository_id=None,
 ):
     """Get report data from db and modify.
 
@@ -381,13 +382,13 @@ def get_reports(
     else:
         target_types.append(type)
 
-    args = {'year': int(year), 'month': int(month), 'repository_id': repository_id}
-    if auto:
-        args = {
-            'start_date': start_date.strftime('%Y-%m-%d'),
-            'end_date': end_date.strftime('%Y-%m-%d'),
-            'repository_id': repository_id,
-        }
+    args = {'repository_id': repository_id}
+    if range:
+        args['start_date'] = start_date.strftime('%Y-%m-%d')
+        args['end_date'] = end_date.strftime('%Y-%m-%d')
+    else:
+        args['year'] = int(year)
+        args['month'] = int(month)
 
     for target in target_types:
         args.update({'event': target})
@@ -407,22 +408,32 @@ def get_reports(
         result_reports[target] = result
     return result_reports
 
-
-def package_reports(all_stats, year, month):
+@overload
+def package_reports(all_stats, year, month): ...
+@overload
+def package_reports(all_stats, *, report_date): ...
+def package_reports(
+    all_stats, year=None, month=None, report_date=None
+):
     """Package the .csv files into one zip file."""
     output_files = []
     zip_stream = BytesIO()
-    year = str(year)
-    month = str(month)
+
+    period = True
+    if not report_date:
+        period = False
+        report_date = str(year) + '-' + str(month)
+
     file_format = current_app.config.get('WEKO_ADMIN_OUTPUT_FORMAT', 'tsv').lower()
+    file_name_mapping = current_app.config['WEKO_ADMIN_REPORT_FILE_NAMES']
     try:  # TODO: Make this into one loop, no need for two
         for stats_type, stats in all_stats.items():
-            file_name = current_app.config['WEKO_ADMIN_REPORT_FILE_NAMES'].get(
-                stats_type, '_')
-            file_name = 'logReport_' + file_name + year + '-' + month + '.' + file_format
+            report_name = file_name_mapping.get(stats_type, '_')
+            file_name = 'logReport_' + report_name + report_date + '.' + file_format
             output_files.append({
                 'file_name': file_name,
-                'stream': make_stats_file(stats, stats_type, year, month)})
+                'stream': make_stats_file(stats, stats_type, report_date, period),
+            })
 
         # Dynamically create zip from StringIO data into BytesIO
         report_zip = zipfile.ZipFile(zip_stream, 'w')
@@ -436,9 +447,10 @@ def package_reports(all_stats, year, month):
     return zip_stream
 
 
-def make_stats_file(raw_stats, file_type, year, month):
+def make_stats_file(raw_stats, file_type, report_date, period):
     """Make TSV/CSV report file for stats."""
-    header_row = current_app.config['WEKO_ADMIN_REPORT_HEADERS'].get(file_type)
+    header_title = current_app.config['WEKO_ADMIN_REPORT_HEADERS'].get(file_type)
+    header_sub = _('Aggregation Period') if period else _('Aggregation Month')
     sub_header_row = current_app.config['WEKO_ADMIN_REPORT_SUB_HEADERS'].get(
         file_type)
     file_output = StringIO()
@@ -446,9 +458,8 @@ def make_stats_file(raw_stats, file_type, year, month):
     file_delimiter = '\t' if file_format == 'tsv' else ','
     writer = csv.writer(file_output, delimiter=file_delimiter,
                         lineterminator="\n")
-    writer.writerows([[header_row],
-                      [_('Aggregation Month'), year + '-' + month],
-                      [''], [header_row]])
+    content = [[header_title], [header_sub, report_date], [''], [header_title]]
+    writer.writerows(content)
 
     if file_type == 'billing_file_download':
         col_dict_key = file_type.split('_', 1)[1]
