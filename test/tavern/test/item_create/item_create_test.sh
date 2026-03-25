@@ -31,7 +31,7 @@ if [ "$option_cmd" = "select" ]; then
     fi
   done
   if [ -n "$target_result" ]; then
-    pytest_opts="$pytest_opts -m ('$target_result')"
+    pytest_opts="$pytest_opts -m \"$target_result\""
   fi
 fi
 

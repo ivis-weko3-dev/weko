@@ -352,6 +352,8 @@ def verify_oai_pmh(response, item_type_id, schema_name):
                             result_dict[f"@{attr_key}"] = attr_value
                 elif isinstance(v, dict):
                     result_dict[k.split(':')[-1]] = prepare_data(v, result_flg)
+                else:
+                    result_dict[k.split(':')[-1]] = v
 
         if '#text' in result_dict and len(result_dict) == 1:
             return result_dict['#text']
