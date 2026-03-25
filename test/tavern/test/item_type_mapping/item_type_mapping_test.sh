@@ -59,16 +59,16 @@ if [ "$option_cmd" = "select" ]; then
       role_result="$role_result or $line"
     fi
   done
-  if [ -z "$target_result" ] || [ -z "$role_result" ]; then
+  if [ -z "$target_result" ] && [ -z "$role_result" ]; then
     echo "エラー: 対象テストまたは役割テストの指定が不十分です。"
     exit 1
   fi
   if [ -n "$target_result" ] && [ -n "$role_result" ]; then
-    pytest_opts="$pytest_opts -m (\"($target_result) and ($role_result)\")"
+    pytest_opts="$pytest_opts -m '($target_result) and ($role_result)'"
   elif [ -n "$target_result" ]; then
-    pytest_opts="$pytest_opts -m (\"$target_result\")"
+    pytest_opts="$pytest_opts -m \"$target_result\""
   elif [ -n "$role_result" ]; then
-    pytest_opts="$pytest_opts -m (\"$role_result\")"
+    pytest_opts="$pytest_opts -m \"$role_result\""
   fi
 fi
 
