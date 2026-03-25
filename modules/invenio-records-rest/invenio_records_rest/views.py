@@ -803,16 +803,11 @@ class RecordsListResource(ContentNegotiatedMethodView):
 
         idx = request.values.get("idx","")
         idx = [int(i) for i in idx.split(",") if i]
-        index_id = request.values.get("index_id","")
-        idx.append(index_id)
-        target_index = set(idx)
+        index_id = request.values.get("index_id")
+        target_index = set(idx + [int(index_id)]) if index_id else set(idx)
         request_sort = request.values.get('sort','', str)
         key, is_asc = parse_sort_field(request_sort)
-        recursive = request.values.get("recursive","")
-        is_custom_sort = (
-            key == "custom_sort"
-                and target_index
-        )
+        is_custom_sort = key == "custom_sort" and target_index
 
 
         if use_search_after:
@@ -828,7 +823,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
             self._override_params_for_customsort(
                 search, is_asc
             )
-
+        print("リザルト",search.to_dict())
         search_result = search.execute()
         search_result_dict = search_result.to_dict()
 
