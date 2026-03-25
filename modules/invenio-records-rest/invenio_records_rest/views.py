@@ -905,9 +905,6 @@ class RecordsListResource(ContentNegotiatedMethodView):
             page(int): page
             size(int): size
 
-        Returns:
-            search(invenio_search.api.RecordsSearch): search query
-
         """
         search = search[0:self.max_result_window]
         search._sort = []
