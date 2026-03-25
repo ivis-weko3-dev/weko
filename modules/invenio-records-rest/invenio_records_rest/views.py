@@ -812,7 +812,6 @@ class RecordsListResource(ContentNegotiatedMethodView):
         is_custom_sort = (
             key == "custom_sort"
                 and target_index
-                and ((len(target_index)) > 1 or recursive == "1")
         )
 
 
