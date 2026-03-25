@@ -915,14 +915,6 @@ class RecordsListResource(ContentNegotiatedMethodView):
                         
                     search._sort.append(path_sort)
                     search._sort.append(default_sort)
-                elif ind_id:
-                    if value == "custom_sort":
-                        script_str, default_sort = SearchSetting.get_custom_sort(ind_id, "asc")
-                    else:
-                        script_str, default_sort = SearchSetting.get_custom_sort(ind_id, "desc")
-
-                    search._sort.append(script_str)
-                    search._sort.append(default_sort)
         return search
     
     @classmethod
