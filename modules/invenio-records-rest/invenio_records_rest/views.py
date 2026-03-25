@@ -805,6 +805,13 @@ class RecordsListResource(ContentNegotiatedMethodView):
         idx = [int(i) for i in idx.split(",") if i]
         index_id = request.values.get("index_id")
         target_index = set(idx + [int(index_id)]) if index_id else set(idx)
+        recursive = request.values.get("recursive", 0)
+        from weko_index_tree.api import Indexes
+        if recursive == "1":
+            for i in idx:
+                target_index.update(
+                    [int(cid) for cid in Indexes.get_child_list_recursive(str(i))]
+                )
         request_sort = request.values.get('sort','', str)
         key, is_asc = parse_sort_field(request_sort)
         is_custom_sort = key == "custom_sort" and target_index
@@ -823,7 +830,6 @@ class RecordsListResource(ContentNegotiatedMethodView):
             self._override_params_for_customsort(
                 search, is_asc
             )
-        print("リザルト",search.to_dict())
         search_result = search.execute()
         search_result_dict = search_result.to_dict()
 
