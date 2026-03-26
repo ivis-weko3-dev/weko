@@ -614,9 +614,7 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
             weko_search_fix_accessrights = current_app.config.get(
                 'WEKO_SEARCH_FIX_ACCESSRIGHTS', False
             )
-            if not weko_search_fix_accessrights:
-                return None
-
+            
             accessrights_value = params.get('accessrights')
             if not accessrights_value:
                 return None
@@ -635,6 +633,12 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
             ]
             if not accessrights_list:
                 return None
+
+            if not weko_search_fix_accessrights:
+                if len(accessrights_list) == 1:
+                    return Q('term', accessRights=accessrights_list[0])
+                else:
+                    return Q('terms', accessRights=accessrights_list)
 
             now = datetime.now().isoformat()
 
