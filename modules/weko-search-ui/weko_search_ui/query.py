@@ -614,9 +614,7 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
             weko_search_fix_accessrights = current_app.config.get(
                 'WEKO_SEARCH_FIX_ACCESSRIGHTS', False
             )
-            if not weko_search_fix_accessrights:
-                return None
-
+            
             accessrights_value = params.get('accessrights')
             if not accessrights_value:
                 return None
@@ -636,6 +634,12 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
             if not accessrights_list:
                 return None
 
+            if not weko_search_fix_accessrights:
+                if len(accessrights_list) == 1:
+                    return Q('term', accessRights=accessrights_list[0])
+                else:
+                    return Q('terms', accessRights=accessrights_list)
+
             now = datetime.now().isoformat()
 
             def open_access_query(now):
@@ -646,6 +650,7 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
                         Q('term', accessRights='open access'),
                         Q('bool', must=[
                             Q('term', accessRights='embargoed access'),
+                            Q('nested', path='content', query=Q('exists', field='content.accessrole.raw')),
                             Q('bool', must_not=[
                                 Q('nested', path='content', query=Q('bool', must_not=[
                                     Q('term', **{'content.accessrole.raw': 'open_access'}),
@@ -674,6 +679,9 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
                                 Q('nested', path='content', query=Q('term', **{'content.accessrole.raw': 'open_no'}))
                             ], must_not=[
                                 Q('nested', path='content', query=Q('term', **{'content.accessrole.raw': 'open_login'}))
+                            ]),
+                            Q('bool', must_not=[
+                                Q('nested', path='content', query=Q('exists', field='content.accessrole.raw'))
                             ])
                         ])
                     ],
