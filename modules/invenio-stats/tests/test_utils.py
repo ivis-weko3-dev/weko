@@ -465,8 +465,8 @@ def test_query_search_report_helper(app, es):
 
     with patch('invenio_stats.queries.ESWekoTermsQuery.run', return_value=_raw_res2):
         res = QuerySearchReportHelper.get(
-            year=2022, month=10, start_date='2022-10-01', end_date='2022-10-31')
-        assert res=={'all': [{'search_key': 'key2', 'count': 7}, {'search_key': 'key1', 'count': 4}], 'date': '2022-10-01-2022-10-31'}
+            year=2022, month=10)
+        assert res=={'all': [{'search_key': 'key2', 'count': 7}, {'search_key': 'key1', 'count': 4}], 'date': '2022-10'}
 
 def test_query_search_report_helper_error(app):
     res = QuerySearchReportHelper.get(
