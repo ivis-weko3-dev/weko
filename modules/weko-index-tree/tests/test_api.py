@@ -805,9 +805,7 @@ def test_indexes_get_index_tree(i18n_app,
 
         # set_item_sort_custom
         index = Indexes.get_index(3)
-        print(index.item_custom_sort)
         res = Indexes.set_item_sort_custom(3, {1: 1, 2: 2})
-        index = Indexes.get_index(3)
         assert index.item_custom_sort == {'1': 1, '2': 2}
         
 
