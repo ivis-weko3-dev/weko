@@ -280,6 +280,18 @@ def json_loader(data, pid, owner_id=None, with_deleted=False, replace_field=True
             dc.update(dict(owner=int(owner_id)))
             dc.update(dict(owners=[int(owner_id)]))
 
+        dc_copy = copy.deepcopy(dc)
+        update_embargo_rights(dc_copy)
+
+        access_right = None
+        for v in dc_copy.values():
+            if isinstance(v, dict) and v.get("attribute_name") == "アクセス権":
+                mlt = v.get("attribute_value_mlt", [])
+                if mlt and isinstance(mlt, list):
+                    access_right = mlt[0].get("subitem_access_right")
+                break
+        jrc["accessRights"] = [access_right] if access_right else []
+
     del ojson, mjson, item
     return dc, jrc, is_edit
 
