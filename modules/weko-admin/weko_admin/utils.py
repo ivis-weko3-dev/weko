@@ -2233,6 +2233,7 @@ def create_facet_search_query():
                         "bool": {
                             "must": [
                                 {"term": {"accessRights": "embargoed access"}},
+                                {"nested": {"path": "content", "query": {"exists": {"field": "content.accessrole.raw"}}}},
                                 {
                                     "bool": {
                                         "must_not": [
@@ -2297,6 +2298,16 @@ def create_facet_search_query():
                                             {"nested": {
                                                 "path": "content",
                                                 "query": {"term": {"content.accessrole.raw": "open_login"}}
+                                            }}
+                                        ]
+                                    }
+                                },
+                                {
+                                    "bool": {
+                                        "must_not": [
+                                            {"nested": {
+                                                "path": "content",
+                                                "query": {"exists": {"field": "content.accessrole.raw"}}
                                             }}
                                         ]
                                     }

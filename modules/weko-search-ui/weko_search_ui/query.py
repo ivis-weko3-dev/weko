@@ -646,6 +646,7 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
                         Q('term', accessRights='open access'),
                         Q('bool', must=[
                             Q('term', accessRights='embargoed access'),
+                            Q('nested', path='content', query=Q('exists', field='content.accessrole.raw')),
                             Q('bool', must_not=[
                                 Q('nested', path='content', query=Q('bool', must_not=[
                                     Q('term', **{'content.accessrole.raw': 'open_access'}),
@@ -674,6 +675,9 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
                                 Q('nested', path='content', query=Q('term', **{'content.accessrole.raw': 'open_no'}))
                             ], must_not=[
                                 Q('nested', path='content', query=Q('term', **{'content.accessrole.raw': 'open_login'}))
+                            ]),
+                            Q('bool', must_not=[
+                                Q('nested', path='content', query=Q('exists', field='content.accessrole.raw'))
                             ])
                         ])
                     ],
