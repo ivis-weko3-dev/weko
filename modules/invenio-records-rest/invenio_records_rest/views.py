@@ -945,9 +945,10 @@ class RecordsListResource(ContentNegotiatedMethodView):
             ), reverse=not is_asc
         )
 
-        start = (page - 1) * size
-        end = page * size
-        sorted_hits = [hit for _, hit in sorted_result[start:end]]
+        total = len(sorted_result)
+        start = total - (page - 1) * size
+        end = total - page * size
+        sorted_hits = [hit for _, hit in sorted_result[end:start]]
         search_result_dict["hits"]["hits"] = sorted_hits
 
     @classmethod
