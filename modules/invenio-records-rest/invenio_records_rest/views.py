@@ -947,7 +947,9 @@ class RecordsListResource(ContentNegotiatedMethodView):
 
         start = (page - 1) * size
         end = page * size
-        #prependの修正をする際に[end:start]から[start:end]に修正が必要
+        # The order is reversed by the `prepend` method in 
+        # `weko_records.serializers.feed:WekoFeedGenerator.add_entry`. 
+        # As a temporary workaround, change `[end:start]` to `[start:end]`.
         sorted_hits = [hit for _, hit in sorted_result[end:start]]
         search_result_dict["hits"]["hits"] = sorted_hits
 
