@@ -899,7 +899,10 @@ class RecordsListResource(ContentNegotiatedMethodView):
         Args:
             search(invenio_search.api.RecordsSearch): search query
             is_asc(boolean): Whether to sort in ascending or descending order.
-
+        
+        Returns:
+            search(invenio_search.api.RecordsSearch): search query with added sort
+            
         """
         search = search[0:self.max_result_window]
         search._sort = []
