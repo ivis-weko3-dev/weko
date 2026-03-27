@@ -280,6 +280,41 @@ def json_loader(data, pid, owner_id=None, with_deleted=False, replace_field=True
             dc.update(dict(owner=int(owner_id)))
             dc.update(dict(owners=[int(owner_id)]))
 
+        if current_app.config.get("WEKO_SEARCH_FIX_ACCESSRIGHTS", False):
+            update_embargo_rights(jrc["_item_metadata"])
+
+            from weko_records.serializers.utils import get_mapping
+            mapping = get_mapping(item_type_id, "jpcoar_mapping")
+            access_path = mapping.get("accessRights.@value")
+            def _get_nested_value(data, path):
+                keys = path.split('.')
+                key = keys[0]
+                rest = '.'.join(keys[1:])
+                if isinstance(data, dict):
+                    if key in data:
+                        if rest:
+                            return _get_nested_value(data[key], rest)
+                        else:
+                            return data[key]
+                    elif 'attribute_value_mlt' in data:
+                        for item in data['attribute_value_mlt']:
+                            found = _get_nested_value(item, '.'.join(keys))
+                            if found is not None:
+                                return found
+                        return None
+                    else:
+                        return None
+                elif isinstance(data, list):
+                    for item in data:
+                        found = _get_nested_value(item, '.'.join(keys))
+                        if found is not None:
+                            return found
+                    return None
+                else:
+                    return None
+            access_right = _get_nested_value(jrc["_item_metadata"], access_path) if access_path else None
+            jrc["accessRights"] = [access_right] if access_right else []
+
     del ojson, mjson, item
     return dc, jrc, is_edit
 
@@ -2935,6 +2970,14 @@ def update_embargo_rights(metadata: dict) -> None:
     if not access_path:
         return
 
+    if access_path.endswith("subitem_access_right"):
+        access_uri_path = (
+            access_path[:-len("subitem_access_right")] +
+            "subitem_access_right_uri"
+        )
+    else:
+        access_uri_path = None
+
     def _get_nested_value(data, path):
         keys = path.split('.')
         key = keys[0]
@@ -2997,6 +3040,9 @@ def update_embargo_rights(metadata: dict) -> None:
         access_right_value, today, accessrole_date
     )
 
+    access_right_type_uri = current_app.config.get("ACCESS_RIGHT_TYPE_URI", {})
+    access_right_type_uri_value = access_right_type_uri.get(change_value, "")
+
     def _set_nested_value(data, path, value):
         keys = path.split('.')
         key = keys[0]
@@ -3021,3 +3067,5 @@ def update_embargo_rights(metadata: dict) -> None:
 
     if is_update and change_value:
         _set_nested_value(metadata, access_path, change_value)
+        if access_uri_path and access_right_type_uri_value:
+            _set_nested_value(metadata, access_uri_path, access_right_type_uri_value)
