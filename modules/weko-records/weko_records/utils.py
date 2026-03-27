@@ -3040,7 +3040,7 @@ def update_embargo_rights(metadata: dict) -> None:
         access_right_value, today, accessrole_date
     )
 
-    access_right_type_uri = current_app.config.get("ACCESS_RIGHT_TYPE_URI", "")
+    access_right_type_uri = current_app.config.get("ACCESS_RIGHT_TYPE_URI", {})
     access_right_type_uri_value = access_right_type_uri.get(change_value, "")
 
     def _set_nested_value(data, path, value):
