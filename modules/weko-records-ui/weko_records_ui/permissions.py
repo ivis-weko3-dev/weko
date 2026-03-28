@@ -191,13 +191,20 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
                 return is_can
 
         try:
+            from .utils import is_future
             # can access
             if 'open_access' in acsrole:
                 if is_display_file_info:
                     # Always display the file info area in 'Detail' screen.
                     is_can = True
                 else:
-                    is_can = _is_open_date_past(acsrole)
+                    date = fjson.get('date')
+                    if date and isinstance(date, list) and date[0]:
+                        adt = date[0].get('dateValue')
+                        if adt:
+                            is_can = not is_future(adt)
+                        else:
+                            is_can = True
                     download_status["is_open_access"] = is_can
             # access with open date
             elif 'open_date' in acsrole:
@@ -206,8 +213,11 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
                     is_can = True
                 else:
                     try:
-                        is_can = _is_open_date_past(acsrole)
-                        download_status["is_open_access"] = is_can
+                        date = fjson.get('date')
+                        if date and isinstance(date, list) and date[0]:
+                            adt = date[0].get('dateValue')
+                            is_can = not is_future(adt)
+                            download_status["is_open_access"] = is_can
                     except BaseException:
                         is_can = False
 
