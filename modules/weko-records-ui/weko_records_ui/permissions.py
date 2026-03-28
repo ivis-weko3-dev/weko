@@ -133,6 +133,8 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
             else:
                 return False
 
+        return is_can
+
     def __check_user_permission(user_id_list):
         """Check user permission.
 

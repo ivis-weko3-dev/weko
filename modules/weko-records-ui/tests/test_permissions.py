@@ -79,24 +79,25 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
     record = results[0]["record"]
     fjson = {'url': {'url': 'https://weko3.example.org/record/11/files/001.jpg'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-27'}], 'format': 'image/jpeg', 'filename': 'helloworld.pdf', 'filesize': [{'value': '2.7 MB'}], 'accessrole': 'open_access', 'version_id': 'd73bd9cb-aa9e-4cd0-bf07-c5976d40bdde', 'displaytype': 'preview', 'is_thumbnail': False, 'future_date_message': '', 'download_preview_message': '', 'size': 2700000.0, 'mimetype': 'image/jpeg', 'file_order': 0}
     download_status = {}
-    
+
+    # login Super users (repository admin)
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
         assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
         assert download_status['is_open_access'] == True
-        
+
         fjson_no_date = fjson.copy()
         del fjson_no_date['date']
 
         assert check_file_download_permission(record, fjson_no_date, True, download_status=download_status) == True
-        assert download_status['is_open_access'] == None
+        assert download_status['is_open_access'] == True
 
         fjson['accessrole'] = 'open_date'
         assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
         assert download_status['is_open_access'] == True
-        
+
         fjson_no_dateValue = fjson.copy()
         del fjson_no_dateValue['date'][0]['dateValue']
-        
+
         assert check_file_download_permission(record, fjson_no_dateValue, True, download_status=download_status) == True
         assert download_status['is_open_access'] == False
 
@@ -110,7 +111,15 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
 
     fjson['accessrole'] = 'open_access'
     fjson['date'][0]['dateValue'] = "2022-09-27"
+    # login Registered user
     with patch("flask_login.utils._get_user", return_value=users[7]["obj"]):
+
+        fjson_no_date = fjson.copy()
+        del fjson_no_date['date']
+
+        assert check_file_download_permission(record, fjson_no_date, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == True
+
         assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
         assert download_status['is_open_access'] == True
 
@@ -128,21 +137,37 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
 
     fjson['accessrole'] = 'open_access'
     fjson['date'][0]['dateValue'] = "2022-09-27"
+    # # login Contributor
     with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
         assert check_file_download_permission(record, fjson, True) == True
-    
+
     with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+
+        fjson_no_date = fjson.copy()
+        del fjson_no_date['date']
+
+        assert check_file_download_permission(record, fjson_no_date, False) == True
+
         assert check_file_download_permission(record, fjson, False) == True
-        
+
         fjson['date'][0]['dateValue'] = ""
         assert check_file_download_permission(record, fjson, False, download_status=download_status) == True
         assert download_status['is_open_access'] == True
-        
+
         fjson['date'][0]['dateValue'] = "2022-09-27"
         fjson['accessrole'] = 'open_date'
+
         assert check_file_download_permission(record, fjson, True) == True
+
+        assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == False
+
         assert check_file_download_permission(record, fjson, False) == True
-        
+
+        assert check_file_download_permission(record, fjson, False, download_status=download_status) == True
+        assert download_status['is_open_access'] == True
+
+
         fjson['date'][0]['dateValue'] = "2100-09-27"
         assert check_file_download_permission(record, fjson, False) == False
 
@@ -163,7 +188,7 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
 
         fjson['accessrole'] = 'open_restricted'
         assert check_file_download_permission(record, fjson, True) == False
-            
+
 
     itn = ItemTypeName(
         id=1, name="テストアイテムタイプ", has_site_license=False, is_active=True
@@ -199,12 +224,12 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
                 # 8
                 with patch("weko_records_ui.utils.is_future", return_value=True):
                     assert check_file_download_permission(record_a, fjson_a, check_billing_file=True, download_status=download_status) == True
-                # 10 
+                # 10
                 with patch("weko_records_ui.utils.is_future", return_value=False):
                     assert check_file_download_permission(record_b, fjson_b, check_billing_file=True, download_status=download_status) == True
                 # 12
-                assert check_file_download_permission(record_c, fjson_c, check_billing_file=True) == True  
-                
+                assert check_file_download_permission(record_c, fjson_c, check_billing_file=True) == True
+
 
             # 課金ファイルアクセス権なし
             with patch("weko_records_ui.permissions.check_billing_file_permission", return_value=False):
@@ -216,7 +241,7 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
                     assert check_file_download_permission(record_b, fjson_b, check_billing_file=True, download_status=download_status) == True
                 # 13
                 assert check_file_download_permission(record_c, fjson_c, check_billing_file=True) == False
-                
+
 
 # def check_open_restricted_permission(record, fjson):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_check_open_restricted_permission -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -229,10 +254,10 @@ def test_check_open_restricted_permission(app, records, users,db_file_permission
 
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
         assert check_open_restricted_permission(record, fjson) == False
-        
+
         with patch("weko_records_ui.permissions.__get_file_permission", return_value=data1):
             assert check_open_restricted_permission(record, fjson) == False
-            
+
 
 # def is_open_restricted(file_data):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_get_permission -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -302,7 +327,7 @@ def test_get_permission(app, records, users,db_file_permission):
             data1.status = 0
             with patch("weko_workflow.api.WorkActivity.get_activity_steps", return_value=[data2]):
                 assert get_permission(record, fjson) == None
-            
+
             with patch("weko_workflow.api.WorkActivity.get_activity_steps", return_value=""):
                 assert get_permission(record, fjson) != None
 
@@ -398,8 +423,8 @@ def test_check_publish_status(app):
             "%Y-%m-%d"
         )
         assert check_publish_status(record) == True
-        
-        
+
+
         record["publish_status"] = "1"
         record["pubdate"]["attribute_value"] = now.strftime("%Y-%m-%d")
         assert record.get("publish_status") == "1"
@@ -853,7 +878,7 @@ def test_check_billing_file_permission(users, db_item_billing):
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
         with patch("weko_records_ui.permissions.check_charge", return_value='not_billed'):
             assert check_billing_file_permission('1', '課金ファイル.txt') == True
-    # 25 
+    # 25
     with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
         with patch("weko_records_ui.permissions.check_charge", return_value='not_billed'):
             assert check_billing_file_permission('1', '課金ファイル.txt') == False
