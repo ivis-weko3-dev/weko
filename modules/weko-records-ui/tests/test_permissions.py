@@ -82,31 +82,47 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
 
     # login Super users (repository admin)
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
+        # open access and past date
         assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
         assert download_status['is_open_access'] == True
 
+        fjson['date'][0]['dateValue'] = "2100-09-27"
+        # open access and future date
+        assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == False
+
         fjson_no_date = fjson.copy()
         del fjson_no_date['date']
-
+        # open access and no date
         assert check_file_download_permission(record, fjson_no_date, True, download_status=download_status) == True
         assert download_status['is_open_access'] == True
 
+        # open access and no dateValue
+        fjson_no_dateValue = fjson.copy()
+        del fjson_no_dateValue['date'][0]['dateValue']
+        assert check_file_download_permission(record, fjson_no_dateValue, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == True
+
+        fjson['date'][0]['dateValue'] = "2022-09-27"
         fjson['accessrole'] = 'open_date'
+        # open date access and past date
         assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
         assert download_status['is_open_access'] == True
 
         fjson_no_date = fjson.copy()
         del fjson_no_date['date']
+        # open date access and no date
         assert check_file_download_permission(record, fjson_no_date, False, download_status=download_status) == True
         assert download_status['is_open_access'] == False
 
         fjson_no_dateValue = fjson.copy()
         del fjson_no_dateValue['date'][0]['dateValue']
-
+        # open date access and no dateValue
         assert check_file_download_permission(record, fjson_no_dateValue, True, download_status=download_status) == True
         assert download_status['is_open_access'] == False
 
         fjson['date'][0]['dateValue'] = "2100-09-27"
+        # open date access and future date
         assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
         assert download_status['is_open_access'] == False
 
@@ -121,24 +137,47 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
 
         fjson_no_date = fjson.copy()
         del fjson_no_date['date']
-
+        # open access and no date
         assert check_file_download_permission(record, fjson_no_date, True, download_status=download_status) == True
         assert download_status['is_open_access'] == True
 
-        assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
-        assert download_status['is_open_access'] == True
-
-        fjson['accessrole'] = 'open_date'
-
-        fjson_no_date = fjson.copy()
-        del fjson_no_date['date']
-        assert check_file_download_permission(record, fjson_no_date, True, download_status=download_status) == True
-        assert download_status['is_open_access'] == False
-
+        # open access and past date
         assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
         assert download_status['is_open_access'] == True
 
         fjson['date'][0]['dateValue'] = "2100-09-27"
+        # open access and future date
+        assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == False
+
+        fjson_no_dateValue = fjson.copy()
+        del fjson_no_dateValue['date'][0]['dateValue']
+        # open access and no dateValue
+        assert check_file_download_permission(record, fjson_no_dateValue, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == True
+
+        fjson['date'][0]['dateValue'] = "2022-09-27"
+        fjson['accessrole'] = 'open_date'
+
+        fjson_no_date = fjson.copy()
+        del fjson_no_date['date']
+        # open date access and no date
+        assert check_file_download_permission(record, fjson_no_date, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == False
+
+        # open date access and past date
+        assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == True
+
+        fjson_no_dateValue = fjson.copy()
+        del fjson_no_dateValue['date'][0]['dateValue']
+
+        # open date access and no dateValue
+        assert check_file_download_permission(record, fjson_no_dateValue, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == False
+
+        fjson['date'][0]['dateValue'] = "2100-09-27"
+        # open date access and future date
         assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
         assert download_status['is_open_access'] == False
 
@@ -148,28 +187,52 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
 
     fjson['accessrole'] = 'open_access'
     fjson['date'][0]['dateValue'] = "2022-09-27"
-    # # login Contributor
+    # login Contributor
     with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
-        assert check_file_download_permission(record, fjson, True) == True
+        assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == False
 
-    with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+        # open access and past date
+        assert check_file_download_permission(record, fjson, False, download_status=download_status) == True
+        assert download_status['is_open_access'] == True
+
+        fjson['date'][0]['dateValue'] = "2100-09-27"
+        # open access and future date
+        assert check_file_download_permission(record, fjson, False, download_status=download_status) == False
+        assert download_status['is_open_access'] == False
 
         fjson_no_date = fjson.copy()
         del fjson_no_date['date']
+        # open access and no date
+        assert check_file_download_permission(record, fjson_no_date, False, download_status=download_status) == True
+        assert download_status['is_open_access'] == True
 
-        assert check_file_download_permission(record, fjson_no_date, False) == True
-
-        assert check_file_download_permission(record, fjson, False) == True
-
-        fjson['date'][0]['dateValue'] = ""
-        assert check_file_download_permission(record, fjson, False, download_status=download_status) == True
+        fjson_no_dateValue = fjson.copy()
+        del fjson_no_dateValue['date'][0]['dateValue']
+        # open access and no dateValue
+        assert check_file_download_permission(record, fjson_no_dateValue, False, download_status=download_status) == True
         assert download_status['is_open_access'] == True
 
         fjson['date'][0]['dateValue'] = "2022-09-27"
         fjson['accessrole'] = 'open_date'
+        # open date access and past date
+        assert check_file_download_permission(record, fjson, False, download_status=download_status) == True
+        assert download_status['is_open_access'] == True
+
+        fjson['date'][0]['dateValue'] = "2100-09-27"
+        # open date access and future date
+        assert check_file_download_permission(record, fjson, False, download_status=download_status) == False
+        assert download_status['is_open_access'] == False
+
+        fjson_no_dateValue = fjson.copy()
+        del fjson_no_dateValue['date'][0]['dateValue']
+        # open date access and no dateValue
+        assert check_file_download_permission(record, fjson_no_dateValue, False, download_status=download_status) == False
+        assert download_status['is_open_access'] == False
 
         fjson_no_date = fjson.copy()
         del fjson_no_date['date']
+        # open date access and no date
         assert check_file_download_permission(record, fjson_no_date, False, download_status=download_status) == True
         assert download_status['is_open_access'] == False
 
@@ -178,15 +241,6 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
 
         assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
         assert download_status['is_open_access'] == False
-
-        assert check_file_download_permission(record, fjson, False) == True
-
-        assert check_file_download_permission(record, fjson, False, download_status=download_status) == True
-        assert download_status['is_open_access'] == True
-
-
-        fjson['date'][0]['dateValue'] = "2100-09-27"
-        assert check_file_download_permission(record, fjson, False) == False
 
         fjson['accessrole'] = 'open_login'
         assert check_file_download_permission(record, fjson, True) == True
