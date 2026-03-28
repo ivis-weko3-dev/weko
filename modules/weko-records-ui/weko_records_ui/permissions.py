@@ -116,7 +116,7 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
 
         This value is decide whether display this file as open access or not.
         If the file has open date, return if the open date is past or not.
-        If the open date is past, return file's access role is open access or not.
+        If no date, return file's access role is open access or not.
 
         Args:
             acsrole (str): File permission
