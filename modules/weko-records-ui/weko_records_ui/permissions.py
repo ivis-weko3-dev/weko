@@ -112,15 +112,19 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
         return emails
 
     def _is_open_date_past(acsrole):
-        """ Check the open date has passed.
-    
+        """Check if file is open access by open date.
+
+        This value is decide whether display this file as open access or not.
+        If the file has open date, return if the open date is past or not.
+        If the open date is past, return file's access role is open access or not.
+
         Args:
             acsrole (str): File permission
-        
+
         Returns:
-            bool: 
-                True if the open date passed, or dateValue is None and file permission is open access.
-                False if the open date has not passed, or dateValue is None and file permission is open date.
+            bool: True if the file is open access, False otherwise.
+
+
         """
         from .utils import is_future
         date = fjson.get('date')
@@ -128,12 +132,8 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
             adt = date[0].get('dateValue')
             if adt:
                 return not is_future(adt)
-            elif acsrole == "open_access":
-                return True
-            else:
-                return False
 
-        return is_can
+        return acsrole == "open_access"
 
     def __check_user_permission(user_id_list):
         """Check user permission.

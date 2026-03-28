@@ -95,6 +95,11 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
         assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
         assert download_status['is_open_access'] == True
 
+        fjson_no_date = fjson.copy()
+        del fjson_no_date['date']
+        assert check_file_download_permission(record, fjson_no_date, False, download_status=download_status) == True
+        assert download_status['is_open_access'] == False
+
         fjson_no_dateValue = fjson.copy()
         del fjson_no_dateValue['date'][0]['dateValue']
 
@@ -124,6 +129,12 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
         assert download_status['is_open_access'] == True
 
         fjson['accessrole'] = 'open_date'
+
+        fjson_no_date = fjson.copy()
+        del fjson_no_date['date']
+        assert check_file_download_permission(record, fjson_no_date, True, download_status=download_status) == True
+        assert download_status['is_open_access'] == False
+
         assert check_file_download_permission(record, fjson, True, download_status=download_status) == True
         assert download_status['is_open_access'] == True
 
@@ -156,6 +167,12 @@ def test_check_file_download_permission(app, records, users,db_file_permission):
 
         fjson['date'][0]['dateValue'] = "2022-09-27"
         fjson['accessrole'] = 'open_date'
+
+        fjson_no_date = fjson.copy()
+        del fjson_no_date['date']
+        assert check_file_download_permission(record, fjson_no_date, False, download_status=download_status) == True
+        assert download_status['is_open_access'] == False
+
 
         assert check_file_download_permission(record, fjson, True) == True
 
