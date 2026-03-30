@@ -104,6 +104,8 @@ def column_exists(engine, table_name, column_name):
     Check if a column exists in a table.
     """
     inspector = inspect(engine)
+    if table_name not in inspector.get_table_names():
+        return False
     columns = [col["name"] for col in inspector.get_columns(table_name)]
     return column_name in columns
 
