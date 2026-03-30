@@ -275,74 +275,25 @@ update_records_metadata_version = f"""
     WHERE id IN :ids;
 """
 
+update_targets = [
+    (select_files_location, update_files_location, "no_exist", "uri"),
+    (select_files_files_uri, update_files_files_uri, "files_files", "uri"),
+    (select_files_files_json, update_files_files_json, "files_files", "json"),
+    (select_pidstore_pid, update_pidstore_pid, "pidstore_pid", "pid_value"),
+    (select_feedback_email_setting, update_feedback_email_setting, "feedback_email_setting", "root_url"),
+    (select_index, update_index, "index", "index_url"),
+    (select_changelist_indexes, update_changelist_indexes, "changelist_indexes", "url_path"),
+    (select_resourcelist_indexes, update_resourcelist_indexes, "resourcelist_indexes", "url_path"),
+    (select_widget_multi_lang_data, update_widget_multi_lang_data, "widget_multi_lang_data", "description_data"),
+    (select_widget_design_setting, update_widget_design_setting, "widget_design_setting", "settings"),
+    (select_widget_design_page, update_widget_design_page, "widget_design_page", "settings"),
+    (select_workflow_activity, update_workflow_activity, "workflow_activity", "temp_data"),
+    (select_records_metadata, update_records_metadata, "records_metadata", "json"),
+    (select_item_metadata, update_item_metadata, "item_metadata", "json"),
+    (select_records_metadata_version, update_records_metadata_version, "records_metadata_version", "json"),
+    (select_item_metadata_version, update_item_metadata_version, "item_metadata_version", "json")
+]
 
 if __name__ == "__main__":
-    update_records(
-        select_files_location, update_files_location, "files_location", "uri"
-    )
-    update_records(select_files_files_uri, update_files_files_uri, "files_files", "uri")
-    update_records(
-        select_files_files_json, update_files_files_json, "files_files", "json"
-    )
-    update_records(
-        select_pidstore_pid, update_pidstore_pid, "pidstore_pid", "pid_value"
-    )
-    update_records(
-        select_feedback_email_setting,
-        update_feedback_email_setting,
-        "feedback_email_setting",
-        "root_url",
-    )
-    update_records(select_index, update_index, "index", "index_url")
-    update_records(
-        select_changelist_indexes,
-        update_changelist_indexes,
-        "changelist_indexes",
-        "url_path",
-    )
-    update_records(
-        select_resourcelist_indexes,
-        update_resourcelist_indexes,
-        "resourcelist_indexes",
-        "url_path",
-    )
-    update_records(
-        select_widget_multi_lang_data,
-        update_widget_multi_lang_data,
-        "widget_multi_lang_data",
-        "description_data",
-    )
-    update_records(
-        select_widget_design_setting,
-        update_widget_design_setting,
-        "widget_design_setting",
-        "settings",
-    )
-    update_records(
-        select_widget_design_page,
-        update_widget_design_page,
-        "widget_design_page",
-        "settings",
-    )
-    update_records(
-        select_workflow_activity,
-        update_workflow_activity,
-        "workflow_activity",
-        "temp_data",
-    )
-    update_records(
-        select_records_metadata, update_records_metadata, "records_metadata", "json"
-    )
-    update_records(select_item_metadata, update_item_metadata, "item_metadata", "json")
-    update_records(
-        select_records_metadata_version,
-        update_records_metadata_version,
-        "records_metadata_version",
-        "json",
-    )
-    update_records(
-        select_item_metadata_version,
-        update_item_metadata_version,
-        "item_metadata_version",
-        "json",
-    )
+    for select_sql, update_sql, table_name, column_name in update_targets:
+        update_records(select_sql, update_sql, table_name, column_name)
