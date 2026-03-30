@@ -899,10 +899,10 @@ class RecordsListResource(ContentNegotiatedMethodView):
         Args:
             search(invenio_search.api.RecordsSearch): search query
             is_asc(boolean): Whether to sort in ascending or descending order.
-        
+
         Returns:
             search(invenio_search.api.RecordsSearch): search query with added sort
-            
+
         """
         search = search[0:self.max_result_window]
         search._sort = []
@@ -945,13 +945,14 @@ class RecordsListResource(ContentNegotiatedMethodView):
             ), reverse=not is_asc
         )
 
-        start = (page - 1) * size
-        end = page * size
-        # The order is reversed by the `prepend` method in 
-        # `weko_records.serializers.feed:WekoFeedGenerator.add_entry`. 
-        # As a temporary workaround, change `[end:start]` to `[start:end]`.
-        sorted_hits = [hit for _, hit in sorted_result[end:start]]
-        search_result_dict["hits"]["hits"] = sorted_hits
+        # The order is reversed by the `prepend` method in
+        # `weko_records.serializers.feed:WekoFeedGenerator.add_entry`.
+        # As a temporary workaround,  set to “prepend,” reverse the order.
+        # When it changes to “append,” please remove the flag and the if statement.
+        flag = "prepend"
+        start, end = (page - 1) * size, page * size
+        sorted_hits = [hit for _, hit in sorted_result[start:end]]
+        search_result_dict["hits"]["hits"] = sorted_hits if flag == "append" else list(reversed(sorted_hits))
 
     @classmethod
     def _customsort_priority(cls, hit, target_index, is_asc, custom_sort):
@@ -974,6 +975,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
         path = min(paths) if is_asc else max(paths)
         if path not in custom_sort:
             index_custom_sort = Indexes.get_item_sort(path)
+            print("ソート",index_custom_sort)
             if index_custom_sort:
                 custom_sort[path] = index_custom_sort
 
