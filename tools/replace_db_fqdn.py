@@ -278,7 +278,7 @@ update_records_metadata_version = f"""
 """
 
 update_targets = [
-    (select_files_location, update_files_location, "no_exist", "uri"),
+    (select_files_location, update_files_location, "files_location", "uri"),
     (select_files_files_uri, update_files_files_uri, "files_files", "uri"),
     (select_files_files_json, update_files_files_json, "files_files", "json"),
     (select_pidstore_pid, update_pidstore_pid, "pidstore_pid", "pid_value"),
