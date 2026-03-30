@@ -952,7 +952,8 @@ class RecordsListResource(ContentNegotiatedMethodView):
         flag = "prepend"
         start, end = (page - 1) * size, page * size
         sorted_hits = [hit for _, hit in sorted_result[start:end]]
-        search_result_dict["hits"]["hits"] = sorted_hits if flag == "append" else list(reversed(sorted_hits))
+        sorted_hits2 = sorted_hits.reverse()
+        search_result_dict["hits"]["hits"] = sorted_hits if flag == "append" else sorted_hits2
 
     @classmethod
     def _customsort_priority(cls, hit, target_index, is_asc, custom_sort):
