@@ -975,7 +975,6 @@ class RecordsListResource(ContentNegotiatedMethodView):
         path = min(paths) if is_asc else max(paths)
         if path not in custom_sort:
             index_custom_sort = Indexes.get_item_sort(path)
-            print("ソート",index_custom_sort)
             if index_custom_sort:
                 custom_sort[path] = index_custom_sort
 
