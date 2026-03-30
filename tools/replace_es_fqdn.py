@@ -92,6 +92,10 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
 
     query = {"query": {"match_all": {}}}
 
+    if not es.indices.exists(index=index_name):
+        print(f"[ERROR] {index_name}: Index does not exist", flush=True)
+        sys.exit(1)
+
     try:
         if id_list is not None:
             result_count = len(id_list)
