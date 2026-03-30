@@ -83,7 +83,10 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
     if id_file_path:
         with open(id_file_path, "r") as f:
             id_list = [line.strip() for line in f if line.strip()]
-        print(f"[INFO] {index_name}: {len(id_list)} IDs loaded from {id_file_path}")
+        print(
+            f"[INFO] {index_name}: {len(id_list)} IDs loaded from {id_file_path}",
+            flush=True,
+        )
     else:
         id_list = None
 
@@ -94,10 +97,10 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
             result_count = len(id_list)
         else:
             result_count = es.count(index=index_name, body=query)["count"]
-        print(f"[INFO] {index_name}: Total items: {result_count}")
+        print(f"[INFO] {index_name}: Total items: {result_count}", flush=True)
     except Exception as e:
-        print(f"[ERROR] {index_name}: Failed to get count")
-        print(f"Error: {e}")
+        print(f"[ERROR] {index_name}: Failed to get count", flush=True)
+        print(f"Error: {e}", flush=True)
         traceback.print_exc()
         sys.exit(1)
 
@@ -111,8 +114,11 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
                 try:
                     hit = es.get(index=index_name, doc_type="_doc", id=doc_id)
                 except Exception as e:
-                    print(f"[ERROR] {index_name}: Failed to get document ID: {doc_id}")
-                    print(f"Error: {e}")
+                    print(
+                        f"[ERROR] {index_name}: Failed to get document ID: {doc_id}",
+                        flush=True,
+                    )
+                    print(f"Error: {e}", flush=True)
                     traceback.print_exc()
                     failed_count += 1
                     continue
@@ -132,9 +138,10 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
                     )
                 except Exception as e:
                     print(
-                        f"[ERROR] {index_name}: Failed to update document ID: {doc_id}"
+                        f"[ERROR] {index_name}: Failed to update document ID: {doc_id}",
+                        flush=True,
                     )
-                    print(f"Error: {e}")
+                    print(f"Error: {e}", flush=True)
                     traceback.print_exc()
                     failed_count += 1
                     continue
@@ -142,7 +149,8 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
                 if count % 1000 == 0:
                     elapsed = time.time() - start_time
                     print(
-                        f"[INFO] {index_name}: {count} items processed (elapsed time: {elapsed:.2f} seconds)"
+                        f"[INFO] {index_name}: {count} items processed (elapsed time: {elapsed:.2f} seconds)",
+                        flush=True,
                     )
         else:
             scroll = es.search(
@@ -173,9 +181,10 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
                         )
                     except Exception as e:
                         print(
-                            f"[ERROR] {index_name}: Failed to update document ID: {doc_id}"
+                            f"[ERROR] {index_name}: Failed to update document ID: {doc_id}",
+                            flush=True,
                         )
-                        print(f"Error: {e}")
+                        print(f"Error: {e}", flush=True)
                         traceback.print_exc()
                         failed_count += 1
                         continue
@@ -184,7 +193,8 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
                     if count % 1000 == 0:
                         elapsed = time.time() - start_time
                         print(
-                            f"[INFO] {index_name}: {count} items processed (elapsed time: {elapsed:.2f} seconds)"
+                            f"[INFO] {index_name}: {count} items processed (elapsed time: {elapsed:.2f} seconds)",
+                            flush=True,
                         )
 
                 scroll = es.scroll(scroll_id=scroll_id, scroll="2m")
@@ -194,20 +204,24 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
         total_elapsed = time.time() - start_time
 
         print(
-            f"[INFO] {index_name}: {count} items replaced/updated elapsed time: {total_elapsed:.2f} seconds"
+            f"[INFO] {index_name}: {count} items replaced/updated elapsed time: {total_elapsed:.2f} seconds",
+            flush=True,
         )
-        print(f"[INFO] count(success, error): ({count}, {failed_count})")
+        print(f"[INFO] count(success, error): ({count}, {failed_count})", flush=True)
 
     except Exception as e:
-        print(f"[ERROR] {index_name}: Unexpected error")
-        print(f"Error: {e}")
+        print(f"[ERROR] {index_name}: Unexpected error", flush=True)
+        print(f"Error: {e}", flush=True)
         traceback.print_exc()
         sys.exit(1)
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python replace_es_fqdn.py <old_fqdn> <new_fqdn> [id_file_path]")
+        print(
+            "Usage: python replace_es_fqdn.py <old_fqdn> <new_fqdn> [id_file_path]",
+            flush=True,
+        )
         sys.exit(1)
     ofqdn = sys.argv[1]
     nfqdn = sys.argv[2]

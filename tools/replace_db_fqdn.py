@@ -7,7 +7,7 @@ import traceback
 from sqlalchemy import create_engine, inspect, text
 
 if len(sys.argv) < 3:
-    print("Usage: python replace_db_fqdn.py <old_fqdn> <new_fqdn>")
+    print("Usage: python replace_db_fqdn.py <old_fqdn> <new_fqdn>", flush=True)
     sys.exit(1)
 
 ofqdn = sys.argv[1]
@@ -51,7 +51,7 @@ def update_records(
         - Logs progress and errors.
     """
     if not column_exists(engine, table_name, column_name):
-        print(f"[INFO] {table_name}.{column_name} does not exist. Skipped.")
+        print(f"[INFO] {table_name}.{column_name} does not exist. Skipped.", flush=True)
         return
     with engine.connect() as conn:
         trans = conn.begin()
@@ -68,8 +68,11 @@ def update_records(
             try:
                 conn.execute(text(update_sql), {"ids": tuple(batch_ids)})
             except Exception as e:
-                print(f"[ERROR] {table_name}.{column_name}: Batch {batch_num} failed")
-                print(f"Error: {e}")
+                print(
+                    f"[ERROR] {table_name}.{column_name}: Batch {batch_num} failed",
+                    flush=True,
+                )
+                print(f"Error: {e}", flush=True)
                 traceback.print_exc()
                 success = False
                 break
@@ -77,18 +80,23 @@ def update_records(
             total += len(batch_ids)
             if total % 1000 == 0:
                 print(
-                    f"[INFO] {table_name}.{column_name}: {total} records processed (elapsed time: {elapsed:.2f} seconds)"
+                    f"[INFO] {table_name}.{column_name}: {total} records processed (elapsed time: {elapsed:.2f} seconds)",
+                    flush=True,
                 )
             batch_num += 1
         total_elapsed = time.time() - total_start
         if success:
             trans.commit()
             print(
-                f"[INFO] {table_name}.{column_name}: {total} records replaced/updated, elapsed time: {total_elapsed:.2f} seconds"
+                f"[INFO] {table_name}.{column_name}: {total} records replaced/updated, elapsed time: {total_elapsed:.2f} seconds",
+                flush=True,
             )
         else:
             trans.rollback()
-            print(f"[ERROR] {table_name}.{column_name}: Rolled back due to error")
+            print(
+                f"[ERROR] {table_name}.{column_name}: Rolled back due to error",
+                flush=True,
+            )
 
 
 def column_exists(engine, table_name, column_name):
