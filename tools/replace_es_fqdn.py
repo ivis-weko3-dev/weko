@@ -157,7 +157,7 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
                 index=index_name,
                 body=query,
                 params={"version": "true"},
-                scroll="2m",
+                scroll="10m",
                 size=1000,
             )
             scroll_id = scroll["_scroll_id"]
@@ -197,7 +197,7 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
                             flush=True,
                         )
 
-                scroll = es.scroll(scroll_id=scroll_id, scroll="2m")
+                scroll = es.scroll(scroll_id=scroll_id, scroll="10m")
                 scroll_id = scroll["_scroll_id"]
                 hits = scroll["hits"]["hits"]
 
