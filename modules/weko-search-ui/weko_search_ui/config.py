@@ -783,5 +783,5 @@ ROCRATE_METADATA_WK_CONTEXT_V1 = "http://purl.org/wk/v1/wk-context.jsonld"
 
 WEKO_ACCESS_RIGHTS_CHOICES = [ "embargoed access", "metadata only access", "open access", "restricted access"]
 
-WEKO_SEARCH_FIX_ACCESSRIGHTS = True
+WEKO_SEARCH_FIX_ACCESSRIGHTS = False
 """ If true, the value of accessrights will be modified. """

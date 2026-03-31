@@ -313,7 +313,8 @@ def json_loader(data, pid, owner_id=None, with_deleted=False, replace_field=True
                 else:
                     return None
             access_right = _get_nested_value(jrc["_item_metadata"], access_path) if access_path else None
-            jrc["accessRights"] = [access_right] if access_right else []
+            if access_right:
+                jrc["accessRights"] = [access_right]
 
     del ojson, mjson, item
     return dc, jrc, is_edit

@@ -952,18 +952,18 @@ def test_split_text_by_or():
     assert _split_text_by_or("AAA OR OR BBB") == ["AAA", "", "BBB"]
     assert _split_text_by_or("OR AAA |") == ["OR AAA |"]
 
-@pytest.mark.parametrize("fix_accessrights, accessrights, expected_should, expected_key", [
-    (True, "", False, None),  # empty
-    (True, "open access", False, "open access"),  # single value
-    (True, "embargoed access", False, "embargoed access"),
-    (True, "restricted access", False, "restricted access"),
-    (True, "metadata only access", False, "metadata only access"),
-    (True, "open access,embargoed access", True, "open access"),  # multiple values
-    (True, "invalid access", False, None),  # invalid value
-    (False, "open access", False, None),    # config disabled
+@pytest.mark.parametrize("fix_accessrights, accessrights, expected_key", [
+    (True, "", None),  # empty
+    (True, "open access", "open access"),  # single value
+    (True, "embargoed access", "embargoed access"),
+    (True, "restricted access", "restricted access"),
+    (True, "metadata only access", "metadata only access"),
+    (True, "open access,embargoed access", "open access"),  # multiple values
+    (True, "invalid access", None),  # invalid value
+    (False, "open access", "open access"),    # config disabled
 ])
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_query.py::test_accessrights_query_param -vv -s --cov-branch --cov-report=xml --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_accessrights_query_param(app, users, fix_accessrights, accessrights, expected_should, expected_key, mocker):
+def test_accessrights_query_param(app, users, fix_accessrights, accessrights, expected_key, mocker):
     ACCESS_RIGHTS_CHOICES = [
         'embargoed access',
         'metadata only access',
@@ -990,7 +990,6 @@ def test_accessrights_query_param(app, users, fix_accessrights, accessrights, ex
             mocker.patch("weko_search_ui.permissions.search_permission",side_effect=MockSearchPerm)
             app.extensions['invenio-oauth2server'] = 1
             app.extensions['invenio-queues'] = 1
-            mock_searchperm = MagicMock(side_effect=MockSearchPerm)
             search_result, urlkwargs = default_search_factory(self=None, search=search)
             query = search_result.query().to_dict()
             must_result = query["query"]["bool"]["filter"][0]["bool"]["must"]
