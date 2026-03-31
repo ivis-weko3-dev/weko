@@ -299,6 +299,7 @@ def test__customsort_priority(prepare_search_result2):
         result = RecordsListResource._customsort_priority(hit2,target,True,custom_sort)
         expect = (1623632832836, 0, return_value.get("2000070"), '2026-03-30T04:08:30.080849+00:00', 2000070)
         assert result == expect
+        assert get_item_sort.assert_called_once
 
     custom_sort = {}
     with patch("weko_index_tree.api.Indexes.get_item_sort",return_value = None):
