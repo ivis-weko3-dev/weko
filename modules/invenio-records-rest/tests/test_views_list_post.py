@@ -281,7 +281,6 @@ def test__do_custom_sort(is_asc, size, page, expect_len, expect_start, expect_en
 #.tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_list_post.py::test__customsort_priority -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test__customsort_priority(prepare_search_result2):
     search_result_dict, target, return_value = prepare_search_result2
-    print(search_result_dict)
     custom_sort = {}
     hit = next(
             h for h in search_result_dict["hits"]["hits"]
