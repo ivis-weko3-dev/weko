@@ -1,8 +1,7 @@
 import pytest
-import uuid
-import json
-import base64
 import copy
+from flask import request
+from urllib.parse import urlencode
 from lxml import etree
 from tests.helpers import json_data
 from mock import patch, MagicMock
@@ -25,11 +24,17 @@ from weko_records.serializers.utils import (
 
 # def get_mapping(item_type_mapping, mapping_type):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_serializers_utils.py::test_get_mapping -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
-def test_get_mapping():
+def test_get_mapping(app):
     mapping = json_data("data/item_type_mapping.json")
-    result = get_mapping(mapping, 'jpcoar_mapping')
-    data = json_data("data/get_mapping.json")
-    assert result == data
+    item_type_list  = list(mapping.keys())
+    item_type_list.append("dummy")
+    mock_return = MagicMock()
+    mock_return.render.get.return_value = item_type_list
+    with patch("weko_records.api.Mapping.get_record", return_value=mapping), \
+         patch("weko_records.api.ItemTypes.get_by_id", return_value=mock_return):
+        result = get_mapping("item_type_id", "jpcoar_mapping")
+        data = json_data("data/get_mapping.json")
+        assert result == data
 
 # def get_full_mapping(item_type_mapping, mapping_type):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_serializers_utils.py::test_get_full_mapping -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
@@ -159,6 +164,7 @@ params=[
      "data/record_hit/record_hit1.json",
      True)]
 @pytest.mark.parametrize("render, form, mapping, hit, licence", params)
+@patch("weko_records.serializers.utils.get_mapping", return_value=json_data("data/get_mapping.json"))
 def test_open_search_detail_data(app, db, db_index, record1, render, form, mapping, hit, licence):
     def fetcher(obj_uuid, data):
         assert obj_uuid=="1"
@@ -176,15 +182,17 @@ def test_open_search_detail_data(app, db, db_index, record1, render, form, mappi
         item_type_id=_item_type.id,
         mapping=json_data(mapping)
     )
-    _data = {
-        'lang': 'en',
-        'log_term': '2021-01'
-    }
+    _data = [
+        ('lang', 'en'),
+        ('log_term', '2021-01')
+    ]
+
     hit_data = json_data(hit)
     hit_data['_id'] = record1[0].object_uuid
     _search_result = {'hits': {'total': 1, 'hits': [hit_data]}}
     detail = OpenSearchDetailData(fetcher, _search_result, 'rss')
-    with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
+    with app.test_request_context(headers=[('Accept-Language','en')], query_string=urlencode(_data)):
+        assert request.args.get('lang') == "en"
         res = detail.output_open_search_detail_data()
         res = res.decode('utf-8')
         cnt = 1 if res.find('wekolog:terms') else 0
@@ -255,7 +263,7 @@ def test_open_search_detail_data(app, db, db_index, record1, render, form, mappi
     data = OpenSearchDetailData(fetcher, _search_result, 'atom')
     with app.test_request_context(headers=[('Accept-Language','ja')], query_string=_data):
         assert data.output_open_search_detail_data()
-    
+
     # test for atom with Yhandle
     _data = {
         'lang': 'ja',
@@ -287,7 +295,7 @@ sample = OpenSearchDetailData(
 )
 
 # class OpenSearchDetailData:
-#     def output_open_search_detail_data(self): 
+#     def output_open_search_detail_data(self):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_serializers_utils.py::test_output_open_search_detail_data -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
 def test_output_open_search_detail_data(app):
     item_map = {
@@ -421,10 +429,10 @@ def test__set_publication_date(app):
 
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=["date"]):
         sample_copy._set_publication_date(fe=fe, item_map=item_map, item_metadata=item_metadata)
-    
+
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value={"date.@value": "date.@value"}):
         sample_copy._set_publication_date(fe=fe, item_map=item_map, item_metadata=item_metadata)
-    
+
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value={"date.@value": ["date.@value"]}):
         sample_copy._set_publication_date(fe=fe, item_map=item_map, item_metadata=item_metadata)
 
@@ -446,7 +454,7 @@ def test__set_publication_date(app):
 
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=data2):
         sample_copy._set_publication_date(fe=fe, item_map=item_map, item_metadata=item_metadata)
-    
+
 
 #     def _set_source_identifier(self, fe, item_map, item_metadata):
 def test__set_source_identifier(app):
@@ -456,7 +464,7 @@ def test__set_source_identifier(app):
 
     def issn(item):
         return item
-    
+
     fe.prism.issn = issn
 
     item_map = {
@@ -485,14 +493,14 @@ def test__set_source_identifier(app):
 
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=item_metadata):
         assert sample_copy._set_source_identifier(fe=fe, item_map=item_map, item_metadata=item_metadata) == None
-    
+
     item_metadata["sourceIdentifier"] = [
         "sourceIdentifier"
     ]
 
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=item_metadata):
         assert sample_copy._set_source_identifier(fe=fe, item_map=item_map, item_metadata=item_metadata) == None
-    
+
     sample_copy.output_type = "not_atom"
     item_metadata["sourceIdentifier"] = "ISSN"
 
@@ -503,7 +511,7 @@ def test__set_source_identifier(app):
         item_metadata["sourceIdentifier"] = ["ISSN"]
 
         assert sample_copy._set_source_identifier(fe=fe, item_map=item_map, item_metadata=item_metadata) == None
-    
+
 # .tox/c1/bin/pytest --cov=weko_records tests/test_serializers_utils.py::test__set_author_info -v -s -vv --cov-branch --cov-report=term --cov-report=html --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
 #     def _set_author_info(self, fe, item_map, item_metadata, request_lang):
 def test__set_author_info(app):
@@ -539,7 +547,7 @@ def test__set_author_info(app):
         request_lang = "en"
 
         assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata=item_metadata, request_lang=request_lang) == None
-    
+
     # output_typeがRSSでget_pair_valueが複数値を返し、request_langが一致する場合
     sample_copy = copy.deepcopy(sample)
     sample_copy.output_type = sample_copy.OUTPUT_RSS
@@ -554,7 +562,7 @@ def test__set_author_info(app):
         # 'ja'は呼ばれない
         calls = [call[0] for call in fe.dc.dc_creator.call_args_list]
         assert ("Jiro", "ja") not in calls
-    
+
     # 異常系テスト
 
     # 1. item_mapに'creator.creatorName.@value'がない場合
@@ -689,7 +697,7 @@ def test__set_author_info(app):
 
 
 
-# def _set_publisher(self, fe, item_map, item_metadata, request_lang): 
+# def _set_publisher(self, fe, item_map, item_metadata, request_lang):
 def test__set_publisher(app):
     sample_copy = copy.deepcopy(sample)
     fe = MagicMock()
