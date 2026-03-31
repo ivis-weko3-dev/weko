@@ -7,7 +7,7 @@ import traceback
 from sqlalchemy import create_engine, inspect, text
 
 if len(sys.argv) < 3:
-    print("Usage: python replace_db_fqdn.py <old_fqdn> <new_fqdn>")
+    print("Usage: python replace_db_fqdn.py <old_fqdn> <new_fqdn>", flush=True)
     sys.exit(1)
 
 ofqdn = sys.argv[1]
@@ -51,7 +51,7 @@ def update_records(
         - Logs progress and errors.
     """
     if not column_exists(engine, table_name, column_name):
-        print(f"[INFO] {table_name}.{column_name} does not exist. Skipped.")
+        print(f"[INFO] {table_name}.{column_name} does not exist. Skipped.", flush=True)
         return
     with engine.connect() as conn:
         trans = conn.begin()
@@ -68,8 +68,11 @@ def update_records(
             try:
                 conn.execute(text(update_sql), {"ids": tuple(batch_ids)})
             except Exception as e:
-                print(f"[ERROR] {table_name}.{column_name}: Batch {batch_num} failed")
-                print(f"Error: {e}")
+                print(
+                    f"[ERROR] {table_name}.{column_name}: Batch {batch_num} failed",
+                    flush=True,
+                )
+                print(f"Error: {e}", flush=True)
                 traceback.print_exc()
                 success = False
                 break
@@ -77,18 +80,23 @@ def update_records(
             total += len(batch_ids)
             if total % 1000 == 0:
                 print(
-                    f"[INFO] {table_name}.{column_name}: {total} records processed (elapsed time: {elapsed:.2f} seconds)"
+                    f"[INFO] {table_name}.{column_name}: {total} records processed (elapsed time: {elapsed:.2f} seconds)",
+                    flush=True,
                 )
             batch_num += 1
         total_elapsed = time.time() - total_start
         if success:
             trans.commit()
             print(
-                f"[INFO] {table_name}.{column_name}: {total} records replaced/updated, elapsed time: {total_elapsed:.2f} seconds"
+                f"[INFO] {table_name}.{column_name}: {total} records replaced/updated, elapsed time: {total_elapsed:.2f} seconds",
+                flush=True,
             )
         else:
             trans.rollback()
-            print(f"[ERROR] {table_name}.{column_name}: Rolled back due to error")
+            print(
+                f"[ERROR] {table_name}.{column_name}: Rolled back due to error",
+                flush=True,
+            )
 
 
 def column_exists(engine, table_name, column_name):
@@ -96,6 +104,8 @@ def column_exists(engine, table_name, column_name):
     Check if a column exists in a table.
     """
     inspector = inspect(engine)
+    if table_name not in inspector.get_table_names():
+        return False
     columns = [col["name"] for col in inspector.get_columns(table_name)]
     return column_name in columns
 
@@ -267,74 +277,25 @@ update_records_metadata_version = f"""
     WHERE id IN :ids;
 """
 
+update_targets = [
+    (select_files_location, update_files_location, "files_location", "uri"),
+    (select_files_files_uri, update_files_files_uri, "files_files", "uri"),
+    (select_files_files_json, update_files_files_json, "files_files", "json"),
+    (select_pidstore_pid, update_pidstore_pid, "pidstore_pid", "pid_value"),
+    (select_feedback_email_setting, update_feedback_email_setting, "feedback_email_setting", "root_url"),
+    (select_index, update_index, "index", "index_url"),
+    (select_changelist_indexes, update_changelist_indexes, "changelist_indexes", "url_path"),
+    (select_resourcelist_indexes, update_resourcelist_indexes, "resourcelist_indexes", "url_path"),
+    (select_widget_multi_lang_data, update_widget_multi_lang_data, "widget_multi_lang_data", "description_data"),
+    (select_widget_design_setting, update_widget_design_setting, "widget_design_setting", "settings"),
+    (select_widget_design_page, update_widget_design_page, "widget_design_page", "settings"),
+    (select_workflow_activity, update_workflow_activity, "workflow_activity", "temp_data"),
+    (select_records_metadata, update_records_metadata, "records_metadata", "json"),
+    (select_item_metadata, update_item_metadata, "item_metadata", "json"),
+    (select_records_metadata_version, update_records_metadata_version, "records_metadata_version", "json"),
+    (select_item_metadata_version, update_item_metadata_version, "item_metadata_version", "json")
+]
 
 if __name__ == "__main__":
-    update_records(
-        select_files_location, update_files_location, "files_location", "uri"
-    )
-    update_records(select_files_files_uri, update_files_files_uri, "files_files", "uri")
-    update_records(
-        select_files_files_json, update_files_files_json, "files_files", "json"
-    )
-    update_records(
-        select_pidstore_pid, update_pidstore_pid, "pidstore_pid", "pid_value"
-    )
-    update_records(
-        select_feedback_email_setting,
-        update_feedback_email_setting,
-        "feedback_email_setting",
-        "root_url",
-    )
-    update_records(select_index, update_index, "index", "index_url")
-    update_records(
-        select_changelist_indexes,
-        update_changelist_indexes,
-        "changelist_indexes",
-        "url_path",
-    )
-    update_records(
-        select_resourcelist_indexes,
-        update_resourcelist_indexes,
-        "resourcelist_indexes",
-        "url_path",
-    )
-    update_records(
-        select_widget_multi_lang_data,
-        update_widget_multi_lang_data,
-        "widget_multi_lang_data",
-        "description_data",
-    )
-    update_records(
-        select_widget_design_setting,
-        update_widget_design_setting,
-        "widget_design_setting",
-        "settings",
-    )
-    update_records(
-        select_widget_design_page,
-        update_widget_design_page,
-        "widget_design_page",
-        "settings",
-    )
-    update_records(
-        select_workflow_activity,
-        update_workflow_activity,
-        "workflow_activity",
-        "temp_data",
-    )
-    update_records(
-        select_records_metadata, update_records_metadata, "records_metadata", "json"
-    )
-    update_records(select_item_metadata, update_item_metadata, "item_metadata", "json")
-    update_records(
-        select_records_metadata_version,
-        update_records_metadata_version,
-        "records_metadata_version",
-        "json",
-    )
-    update_records(
-        select_item_metadata_version,
-        update_item_metadata_version,
-        "item_metadata_version",
-        "json",
-    )
+    for select_sql, update_sql, table_name, column_name in update_targets:
+        update_records(select_sql, update_sql, table_name, column_name)
