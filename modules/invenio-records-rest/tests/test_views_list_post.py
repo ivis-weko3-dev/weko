@@ -286,9 +286,18 @@ def test__customsort_priority(prepare_search_result2):
             h for h in search_result_dict["hits"]["hits"]
             if h["_source"]["control_number"] == "2000035"
         )
-    with patch("weko_index_tree.api.Indexes.get_item_sort",return_value = return_value):
+
+    hit2 = next(
+            h for h in search_result_dict["hits"]["hits"]
+            if h["_source"]["control_number"] == "2000070"
+        )
+    with patch("weko_index_tree.api.Indexes.get_item_sort",return_value = return_value) as get_item_sort:
         result = RecordsListResource._customsort_priority(hit,target,True,custom_sort)
         expect = (1623632832836, 0, return_value.get("2000035"), '2026-03-30T04:08:30.080849+00:00', 2000035)
+        assert result == expect
+
+        result = RecordsListResource._customsort_priority(hit2,target,True,custom_sort)
+        expect = (1623632832836, 0, return_value.get("2000070"), '2026-03-30T04:08:30.080849+00:00', 2000070)
         assert result == expect
 
     custom_sort = {}
