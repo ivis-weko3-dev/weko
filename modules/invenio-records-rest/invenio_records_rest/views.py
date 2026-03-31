@@ -899,10 +899,10 @@ class RecordsListResource(ContentNegotiatedMethodView):
         Args:
             search(invenio_search.api.RecordsSearch): search query
             is_asc(boolean): Whether to sort in ascending or descending order.
-        
+
         Returns:
             search(invenio_search.api.RecordsSearch): search query with added sort
-            
+
         """
         search = search[0:self.max_result_window]
         search._sort = []
@@ -945,9 +945,15 @@ class RecordsListResource(ContentNegotiatedMethodView):
             ), reverse=not is_asc
         )
 
-        start = (page - 1) * size
-        end = page * size
+        # The order is reversed by the `prepend` method in
+        # `weko_records.serializers.feed:WekoFeedGenerator.add_entry`.
+        # As a temporary workaround,  set to “prepend,” reverse the order.
+        # When it changes to “append,” please remove the flag and the if statement.
+        flag = "prepend"
+        start, end = (page - 1) * size, page * size
         sorted_hits = [hit for _, hit in sorted_result[start:end]]
+        if flag == "prepend":
+             sorted_hits.reverse()
         search_result_dict["hits"]["hits"] = sorted_hits
 
     @classmethod
