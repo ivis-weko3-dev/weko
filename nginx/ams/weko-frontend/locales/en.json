@@ -301,5 +301,14 @@
   "identifierText": "identifier",
   "identifierType": "identifier type",
   "Institutional Login for institutions in Japan.": "Institutional Login for institutions in Japan.",
-  "needToLogin": "This item requires login."
+  "needToLogin": "This item requires login.",
+  "N/A(NOT analytical tools)": "N/A(NOT analytical tools)",
+  "No license": "No license",
+  "CC BY 4.0 Attribution International": "CC BY 4.0 Attribution International",
+  "CC BY-SA 4.0 Attribution-ShareAlike": "CC BY-SA 4.0 Attribution-ShareAlike",
+  "CC BY-ND 4.0 Attribution—NoDerivatives": "CC BY-ND 4.0 Attribution—NoDerivatives",
+  "CC BY-NC 4.0 Attribution—NonCommercial": "CC BY-NC 4.0 Attribution—NonCommercial",
+  "CC BY-NC-SA 4.0 Attribution—NonCommercial—ShareAlike": "CC BY-NC-SA 4.0 Attribution—NonCommercial—ShareAlike",
+  "CC BY-NC-ND 4.0 Attribution—NonCommercial—NoDerivatives": "CC BY-NC-ND 4.0 Attribution—NonCommercial—NoDerivatives",
+  "Public Domain": "Public Domain"
 }
