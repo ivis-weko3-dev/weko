@@ -894,5 +894,79 @@
         "value": false
       }
     ]
+  },
+  {
+    "id": 29,
+    "comment": "識別子",
+    "i18n": "identifierText",
+    "query": "id",
+    "type": "text",
+    "default": false
+  },
+  {
+    "id": 30,
+    "comment": "識別子タイプ",
+    "i18n": "identifierType",
+    "query": "id_attr",
+    "type": "checkbox",
+    "default": false,
+    "selected": "notSelected",
+    "data": [
+      {
+        "comment": "identifier",
+        "i18n": "identifier",
+        "value": false
+      },
+      {
+        "comment": "URI",
+        "i18n": "URI",
+        "value": false
+      },
+      {
+        "comment": "fullTextURL",
+        "i18n": "fullTextURL",
+        "value": false
+      },
+      {
+        "comment": "selfDOI",
+        "i18n": "selfDOI",
+        "value": false
+      },
+      {
+        "comment": "ISBN",
+        "i18n": "ISBN",
+        "value": false
+      },
+      {
+        "comment": "ISSN",
+        "i18n": "ISSN",
+        "value": false
+      },
+      {
+        "comment": "NCID",
+        "i18n": "NCID",
+        "value": false
+      },
+      {
+        "comment": "pmid",
+        "i18n": "pmid",
+        "value": false
+      },
+      {
+        "comment": "doi",
+        "i18n": "doi",
+        "value": false
+      },
+      {
+        "comment": "NAID",
+        "i18n": "NAID",
+        "value": false
+      },
+      {
+        "comment": "ichushi",
+        "i18n": "ichushi",
+        "value": false
+      }
+    ]
   }
 ]
