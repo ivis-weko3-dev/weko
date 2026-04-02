@@ -163,61 +163,61 @@
     "data": [
       {
         "id": 1,
-        "comment": "配列データ",
+        "comment": "Sequence data",
         "i18n": "Sequence data",
         "value": false
       },
       {
         "id": 2,
-        "comment": "エピゲノムデータ",
+        "comment": "Epigenome data",
         "i18n": "Epigenome data",
         "value": false
       },
       {
         "id": 3,
-        "comment": "トランスクリプトームデータ",
+        "comment": "Transcriptome data",
         "i18n": "Transcriptome data",
         "value": false
       },
       {
         "id": 4,
-        "comment": "プロテオームデータ",
+        "comment": "Proteome data",
         "i18n": "Proteome data",
         "value": false
       },
       {
         "id": 5,
-        "comment": "リン酸化プロテオームデータ",
+        "comment": "Phosphoproteome data",
         "i18n": "Phosphoproteome data",
         "value": false
       },
       {
         "id": 6,
-        "comment": "メタボロームデータ",
+        "comment": "Metabolome data",
         "i18n": "Metabolome data",
         "value": false
       },
       {
         "id": 7,
-        "comment": "イメージデータ",
+        "comment": "Imaging data",
         "i18n": "Imaging data",
         "value": false
       },
       {
         "id": 8,
-        "comment": "時系列データ",
+        "comment": "Time series data",
         "i18n": "Time series data",
         "value": false
       },
       {
         "id": 9,
-        "comment": "経時的データ",
+        "comment": "Over time data",
         "i18n": "Over time data",
         "value": false
       },
       {
         "id": 10,
-        "comment": "その他",
+        "comment": "Other",
         "i18n": "Other",
         "value": false
       }
@@ -287,86 +287,140 @@
     "data": [
       {
         "id": 1,
-        "comment": "license_12",
-        "i18n": "CC0",
+        "comment": "該当なし（解析ツールではない）N/A(NOT analytical tools)",
+        "i18n": "N/A(NOT analytical tools)",
         "value": false
       },
       {
         "id": 2,
-        "comment": "license_6",
-        "i18n": "CC BY 3.0",
+        "comment": "No license",
+        "i18n": "No license",
         "value": false
       },
       {
         "id": 3,
-        "comment": "license_0",
-        "i18n": "CC BY 4.0",
+        "comment": "CC0 1.0 Universal",
+        "i18n": "CC0 1.0 Universal",
         "value": false
       },
       {
         "id": 4,
-        "comment": "license_7",
-        "i18n": "CC BY-SA 3.0",
+        "comment": "CC BY 4.0 Attribution International",
+        "i18n": "CC BY 4.0 Attribution International",
         "value": false
       },
       {
         "id": 5,
-        "comment": "license_1",
-        "i18n": "CC BY-SA 4.0",
+        "comment": "CC BY-SA 4.0 Attribution-ShareAlike",
+        "i18n": "CC BY-SA 4.0 Attribution-ShareAlike",
         "value": false
       },
       {
         "id": 6,
-        "comment": "license_8",
-        "i18n": "CC BY-ND 3.0",
+        "comment": "CC BY-ND 4.0 Attribution—NoDerivatives",
+        "i18n": "CC BY-ND 4.0 Attribution—NoDerivatives",
         "value": false
       },
       {
         "id": 7,
-        "comment": "license_2",
-        "i18n": "CC BY-ND 4.0",
+        "comment": "CC BY-NC 4.0 Attribution—NonCommercial",
+        "i18n": "CC BY-NC 4.0 Attribution—NonCommercial",
         "value": false
       },
       {
         "id": 8,
-        "comment": "license_9",
-        "i18n": "CC BY-NC 3.0",
+        "comment": "CC BY-NC-SA 4.0 Attribution—NonCommercial—ShareAlike",
+        "i18n": "CC BY-NC-SA 4.0 Attribution—NonCommercial—ShareAlike",
         "value": false
       },
       {
         "id": 9,
-        "comment": "license_3",
-        "i18n": "CC BY-NC 4.0",
+        "comment": "CC BY-NC-ND 4.0 Attribution—NonCommercial—NoDerivatives",
+        "i18n": "CC BY-NC-ND 4.0 Attribution—NonCommercial—NoDerivatives",
         "value": false
       },
       {
         "id": 10,
-        "comment": "license_10",
-        "i18n": "CC BY-NC-SA 3.0",
+        "comment": "Academic Free License (AFL) 3.0",
+        "i18n": "Academic Free License (AFL) 3.0",
         "value": false
       },
       {
         "id": 11,
-        "comment": "license_4",
-        "i18n": "CC BY-NC-SA 4.0",
+        "comment": "Public Domain",
+        "i18n": "Public Domain",
         "value": false
       },
       {
         "id": 12,
-        "comment": "license_11",
-        "i18n": "CC BY-NC-ND 3.0",
+        "comment": "MIT License",
+        "i18n": "MIT License",
         "value": false
       },
       {
         "id": 13,
-        "comment": "license_5",
-        "i18n": "CC BY-NC-ND 4.0",
+        "comment": "Apache License 2.0",
+        "i18n": "Apache License 2.0",
         "value": false
       },
       {
         "id": 14,
-        "comment": "license_free",
-        "i18n": "others",
+        "comment": "BSD 2-Clause \"Simplified\" License",
+        "i18n": "BSD 2-Clause \"Simplified\" License",
+        "value": false
+      },
+      {
+        "id": 15,
+        "comment": "BSD 3-Clause \"New\"/\"Revised\" License",
+        "i18n": "BSD 3-Clause \"New\"/\"Revised\" License",
+        "value": false
+      },
+      {
+        "id": 16,
+        "comment": "GNU General Public License (GPL) 3.0",
+        "i18n": "GNU General Public License (GPL) 3.0",
+        "value": false
+      },
+      {
+        "id": 17,
+        "comment": "GNU General Public License (GPL) 2.0",
+        "i18n": "GNU General Public License (GPL) 2.0",
+        "value": false
+      },
+      {
+        "id": 18,
+        "comment": "Artistic License 2.0",
+        "i18n": "Artistic License 2.0",
+        "value": false
+      },
+      {
+        "id": 19,
+        "comment": "Eclipse Public License 1.0",
+        "i18n": "Eclipse Public License 1.0",
+        "value": false
+      },
+      {
+        "id": 20,
+        "comment": "GNU Lesser General Public License (LGPL) 3.0",
+        "i18n": "GNU Lesser General Public License (LGPL) 3.0",
+        "value": false
+      },
+      {
+        "id": 21,
+        "comment": "GNU Lesser General Public License (LGPL) 2.1",
+        "i18n": "GNU Lesser General Public License (LGPL) 2.1",
+        "value": false
+      },
+      {
+        "id": 22,
+        "comment": "Mozilla Public License 2.0",
+        "i18n": "Mozilla Public License 2.0",
+        "value": false
+      },
+      {
+        "id": 23,
+        "comment": "Other",
+        "i18n": "Other",
         "value": false
       }
     ]
@@ -481,13 +535,13 @@
       },
       {
         "id": 2,
-        "comment": "有償",
+        "comment": "Pay",
         "i18n": "Pay",
         "value": false
       },
       {
         "id": 3,
-        "comment": "無償",
+        "comment": "Free",
         "i18n": "Free",
         "value": false
       }
@@ -510,13 +564,13 @@
       },
       {
         "id": 2,
-        "comment": "可",
+        "comment": "possible",
         "i18n": "possible",
         "value": false
       },
       {
         "id": 3,
-        "comment": "否",
+        "comment": "notPossible",
         "i18n": "notPossible",
         "value": false
       }
@@ -649,19 +703,19 @@
       },
       {
         "id": 2,
-        "comment": "有",
+        "comment": "Yes",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "無",
+        "comment": "No",
         "i18n": "No",
         "value": false
       },
       {
         "id": 4,
-        "comment": "不要",
+        "comment": "Unnecessary",
         "i18n": "Unnecessary",
         "value": false
       }
@@ -684,13 +738,13 @@
       },
       {
         "id": 2,
-        "comment": "有",
+        "comment": "Yes",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "無",
+        "comment": "No",
         "i18n": "No",
         "value": false
       }
@@ -713,13 +767,13 @@
       },
       {
         "id": 2,
-        "comment": "有",
+        "comment": "Yes",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "無",
+        "comment": "No",
         "i18n": "No",
         "value": false
       }
@@ -742,13 +796,13 @@
       },
       {
         "id": 2,
-        "comment": "有",
+        "comment": "Yes",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "無",
+        "comment": "No",
         "i18n": "No",
         "value": false
       }
@@ -771,13 +825,13 @@
       },
       {
         "id": 2,
-        "comment": "オプトアウト手続き",
+        "comment": "Opt-out procedure",
         "i18n": "Opt-out procedure",
         "value": false
       },
       {
         "id": 3,
-        "comment": "同意不要",
+        "comment": "Agree not to",
         "i18n": "Agree not to",
         "value": false
       }
@@ -800,13 +854,13 @@
       },
       {
         "id": 2,
-        "comment": "有",
+        "comment": "Yes",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "無",
+        "comment": "No",
         "i18n": "No",
         "value": false
       }
@@ -829,13 +883,13 @@
       },
       {
         "id": 2,
-        "comment": "有",
+        "comment": "Yes",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "無",
+        "comment": "No",
         "i18n": "No",
         "value": false
       }
