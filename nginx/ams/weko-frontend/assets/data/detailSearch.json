@@ -287,7 +287,7 @@
     "data": [
       {
         "id": 1,
-        "comment": "該当なし（解析ツールではない）N/A(NOT analytical tools)",
+        "comment": "N/A(NOT analytical tools)",
         "i18n": "N/A(NOT analytical tools)",
         "value": false
       },

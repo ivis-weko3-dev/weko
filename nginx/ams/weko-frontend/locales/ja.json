@@ -229,7 +229,8 @@
   "Phosphoproteome data": "リン酸化プロテオームデータ",
   "Metabolome data": "メタボロームデータ",
   "Imaging data": "イメージデータ",
-  "Other biological analysis data": "その他の生物学的解析データ",
+  "Time series data": "時系列データ",
+  "Over time data": "経時的データ",
   "Yes": "有",
   "No": "無",
   "possible": "可",
@@ -301,5 +302,14 @@
   "identifierText": "識別子",
   "identifierType": "識別子タイプ",
   "Institutional Login for institutions in Japan.": "所属機関のIdPでログインする方",
-  "needToLogin": "ログインが必要なアイテムです。"
+  "needToLogin": "ログインが必要なアイテムです。",
+  "N/A(NOT analytical tools)": "該当なし（解析ツールではない）",
+  "No license": "ライセンスなし",
+  "CC BY 4.0 Attribution International": "CC BY 4.0 国際",
+  "CC BY-SA 4.0 Attribution-ShareAlike": "CC BY-SA 4.0 表示—継承",
+  "CC BY-ND 4.0 Attribution—NoDerivatives": "CC BY-ND 4.0 表示—改変禁止",
+  "CC BY-NC 4.0 Attribution—NonCommercial": "CC BY-NC 4.0 表示—非営利",
+  "CC BY-NC-SA 4.0 Attribution—NonCommercial—ShareAlike": "CC BY-NC-SA 4.0 表示—非営利—継承",
+  "CC BY-NC-ND 4.0 Attribution—NonCommercial—NoDerivatives": "CC BY-NC-ND 4.0 表示—非営利—改変禁止",
+  "Public Domain": "パブリックドメイン"
 }
