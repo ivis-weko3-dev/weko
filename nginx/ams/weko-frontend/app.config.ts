@@ -91,9 +91,9 @@ export default defineAppConfig({
         // 共有
         group: 'restricted access',
         // 非共有・非公開
-        member: 'embargoed access',
+        member: 'metadata only access',
         // 公開期間猶予
-        private: 'metadata only access'
+        private: 'embargoed access'
       }
     }
   },

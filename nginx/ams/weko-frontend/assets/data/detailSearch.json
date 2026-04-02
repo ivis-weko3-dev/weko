@@ -12,37 +12,37 @@
     "id": 2,
     "comment": "プロジェクト名",
     "i18n": "projectName",
-    "query": "projectName",
+    "query": "text5",
     "type": "checkbox",
     "default": false,
     "data": [
       {
         "id": 1,
-        "comment": "MS2合原PJ",
+        "comment": "'MS2合原PJ' OR 'MS2 Aihara PJ'",
         "i18n": "MS2 Aihara PJ",
         "value": false
       },
       {
         "id": 2,
-        "comment": "MS2大野PJ",
+        "comment": "'MS2大野PJ' OR 'MS2 Ohno PJ'",
         "i18n": "MS2 Ohno PJ",
         "value": false
       },
       {
         "id": 3,
-        "comment": "MS2片桐PJ",
+        "comment": "'MS2片桐PJ' OR 'MS2 Katagiri PJ'",
         "i18n": "MS2 Katagiri PJ",
         "value": false
       },
       {
         "id": 4,
-        "comment": "MS2高橋PJ",
+        "comment": "'MS2高橋PJ' OR 'MS2 Takahashi PJ'",
         "i18n": "MS2 Takahashi PJ",
         "value": false
       },
       {
         "id": 5,
-        "comment": "MS2松浦PJ",
+        "comment": "'MS2松浦PJ' OR 'MS2 Matsuura PJ'",
         "i18n": "MS2 Matsuura PJ",
         "value": false
       }
@@ -52,7 +52,7 @@
     "id": 3,
     "comment": "データID",
     "i18n": "dataId",
-    "query": "dataId",
+    "query": "text4",
     "type": "text",
     "default": false,
     "data": null
@@ -72,8 +72,8 @@
     "comment": "メタデータ更新日",
     "i18n": "dateUpdatedinMetadata",
     "type": "date",
-    "queryFrom": "date_range1_from",
-    "queryTo": "date_range1_to",
+    "queryFrom": "date_range2_from",
+    "queryTo": "date_range2_to",
     "default": false,
     "data": null
   },
@@ -81,73 +81,73 @@
     "id": 6,
     "comment": "データセットの分野",
     "i18n": "datasetResearchField",
-    "query": "datasetResearchField",
+    "query": "text1",
     "type": "checkbox",
     "default": false,
     "data": [
       {
         "id": 1,
-        "comment": "Natural Science",
+        "comment": "'自然科学一般' OR 'Natural Science'",
         "i18n": "Natural Science",
         "value": false
       },
       {
         "id": 2,
-        "comment": "Life Science",
+        "comment": "'ライフサイエンス' OR 'Life Science'",
         "i18n": "Life Science",
         "value": false
       },
       {
         "id": 3,
-        "comment": "Informatics",
+        "comment": "'情報通信' OR 'Informatics'",
         "i18n": "Informatics",
         "value": false
       },
       {
         "id": 4,
-        "comment": "Environmental science",
+        "comment": "'環境' OR 'Environmental science'",
         "i18n": "Environmental science",
         "value": false
       },
       {
         "id": 5,
-        "comment": "Nanotechnology/Materials",
+        "comment": "'ナノテク・材料' OR 'Nanotechnology/Materials'",
         "i18n": "Nanotechnology/Materials",
         "value": false
       },
       {
         "id": 6,
-        "comment": "Energy Engineering",
+        "comment": "'エネルギー' OR 'Energy Engineering'",
         "i18n": "Energy Engineering",
         "value": false
       },
       {
         "id": 7,
-        "comment": "Manufacturing Technology",
+        "comment": "'ものづくり技術' OR 'Manufacturing Technology'",
         "i18n": "Manufacturing Technology",
         "value": false
       },
       {
         "id": 8,
-        "comment": "Social Infrastructure",
+        "comment": "'社会基盤' OR 'Social Infrastructure'",
         "i18n": "Social Infrastructure",
         "value": false
       },
       {
         "id": 9,
-        "comment": "Frontier Technology",
+        "comment": "'フロンティア' OR 'Frontier Technology'",
         "i18n": "Frontier Technology",
         "value": false
       },
       {
         "id": 10,
-        "comment": "Humanities & Social Sciences",
+        "comment": "'人文・社会' OR 'Humanities & Social Sciences'",
         "i18n": "Humanities & Social Sciences",
         "value": false
       },
       {
         "id": 11,
-        "comment": "Others",
+        "comment": "'その他' OR 'Others'",
         "i18n": "Others",
         "value": false
       }
@@ -157,56 +157,68 @@
     "id": 7,
     "comment": "解析対象データ",
     "i18n": "analysisType",
-    "query": "analysisType",
+    "query": "text9",
     "type": "checkbox",
     "default": false,
     "data": [
       {
         "id": 1,
-        "comment": "Sequence data",
+        "comment": "'配列データ' OR 'Sequence data'",
         "i18n": "Sequence data",
         "value": false
       },
       {
         "id": 2,
-        "comment": "Epigenome data",
+        "comment": "'エピゲノムデータ' OR 'Epigenome data'",
         "i18n": "Epigenome data",
         "value": false
       },
       {
         "id": 3,
-        "comment": "Transcriptome data",
+        "comment": "'トランスクリプトームデータ' OR 'Transcriptome data'",
         "i18n": "Transcriptome data",
         "value": false
       },
       {
         "id": 4,
-        "comment": "Proteome data",
+        "comment": "'プロテオームデータ' OR 'Proteome data'",
         "i18n": "Proteome data",
         "value": false
       },
       {
         "id": 5,
-        "comment": "Phosphoproteome data",
+        "comment": "'リン酸化プロテオームデータ' OR 'Phosphoproteome data'",
         "i18n": "Phosphoproteome data",
         "value": false
       },
       {
         "id": 6,
-        "comment": "Metabolome data",
+        "comment": "'メタボロームデータ' OR 'Metabolome data'",
         "i18n": "Metabolome data",
         "value": false
       },
       {
         "id": 7,
-        "comment": "Imaging data",
+        "comment": "'イメージデータ' OR 'Imaging data'",
         "i18n": "Imaging data",
         "value": false
       },
       {
         "id": 8,
-        "comment": "Other biological analysis data",
-        "i18n": "Other biological analysis data",
+        "comment": "'時系列データ' OR 'Time series data'",
+        "i18n": "Time series data",
+        "value": false
+      },
+      {
+        "id": 9,
+        "comment": "'経時的データ' OR 'Over time data'",
+        "i18n": "Over time data",
+        "value": false
+      },
+      {
+        "id": 10,
+        "comment": "'その他' OR 'Other'",
+        "i18n": "Other",
         "value": false
       }
     ]
@@ -224,7 +236,7 @@
     "id": 9,
     "comment": "データ作成者 所属",
     "i18n": "belongingOfDataCreator",
-    "query": "creativeWorkStatus",
+    "query": "creator.affiliation.affiliationName",
     "type": "text",
     "default": false,
     "data": null
@@ -233,7 +245,7 @@
     "id": 10,
     "comment": "データ作成者 連絡先",
     "i18n": "contactOfDataCreator",
-    "query": "contactOfDataCreator",
+    "query": "text10",
     "type": "text",
     "default": false,
     "data": null
@@ -242,7 +254,7 @@
     "id": 11,
     "comment": "データ管理者 氏名",
     "i18n": "nameOfDataManager",
-    "query": "nameOfDataManager",
+    "query": "text11",
     "type": "text",
     "default": false,
     "data": null
@@ -251,7 +263,7 @@
     "id": 12,
     "comment": "データ管理者 所属",
     "i18n": "belongingOfDataManager",
-    "query": "belongingOfDataManager",
+    "query": "contributor.affiliation.affiliationName",
     "type": "text",
     "default": false,
     "data": null
@@ -260,7 +272,7 @@
     "id": 13,
     "comment": "データ管理者 連絡先",
     "i18n": "contactOfDataManager",
-    "query": "contactOfDataManager",
+    "query": "text12",
     "type": "text",
     "default": false,
     "data": null
@@ -269,7 +281,7 @@
     "id": 14,
     "comment": "ライセンス",
     "i18n": "license",
-    "query": "license",
+    "query": "text13",
     "type": "checkbox",
     "default": false,
     "data": [
@@ -363,7 +375,7 @@
     "id": 15,
     "comment": "モダリティ用メタデータファイルの有無",
     "i18n": "presenceOfMetadataFiles",
-    "query": "presenceOfMetadataFiles",
+    "query": "text14",
     "type": "radio",
     "default": false,
     "selected": "notSelected",
@@ -392,7 +404,7 @@
     "id": 16,
     "comment": "連絡・許諾の要不要",
     "i18n": "necessityOfContactPermission",
-    "query": "necessityOfContactPermission",
+    "query": "text3",
     "type": "radio",
     "default": false,
     "selected": "notSelected",
@@ -405,13 +417,13 @@
       },
       {
         "id": 2,
-        "comment": "Necessary",
+        "comment": "'要' OR 'Necessary'",
         "i18n": "Necessary",
         "value": false
       },
       {
         "id": 3,
-        "comment": "Unnecessary",
+        "comment": "'不要' OR 'Unnecessary'",
         "i18n": "Unnecessary",
         "value": false
       }
@@ -421,7 +433,7 @@
     "id": 17,
     "comment": "謝辞に記載の要不要",
     "i18n": "necessityOfIncludingInAcknowledgments",
-    "query": "necessityOfIncludingInAcknowledgments",
+    "query": "text15",
     "type": "radio",
     "default": false,
     "selected": "notSelected",
@@ -434,13 +446,13 @@
       },
       {
         "id": 2,
-        "comment": "Necessary",
+        "comment": "'要' OR 'Necessary'",
         "i18n": "Necessary",
         "value": false
       },
       {
         "id": 3,
-        "comment": "Unnecessary",
+        "comment": "'不要' OR 'Unnecessary'",
         "i18n": "Unnecessary",
         "value": false
       }
@@ -450,7 +462,7 @@
     "id": 18,
     "comment": "有償・無償",
     "i18n": "payOrFree",
-    "query": "payOrFree",
+    "query": "text2",
     "type": "listbox",
     "default": false,
     "selected": "notSelected",
@@ -463,13 +475,13 @@
       },
       {
         "id": 2,
-        "comment": "Pay",
+        "comment": "'有償' OR 'Pay'",
         "i18n": "Pay",
         "value": false
       },
       {
         "id": 3,
-        "comment": "Free",
+        "comment": "'無償' OR 'Free'",
         "i18n": "Free",
         "value": false
       }
@@ -479,7 +491,7 @@
     "id": 19,
     "comment": "商用利用の可否",
     "i18n": "availabilityOfCommercialUse",
-    "query": "availabilityOfCommercialUse",
+    "query": "text16",
     "type": "radio",
     "default": false,
     "selected": "notSelected",
@@ -492,13 +504,13 @@
       },
       {
         "id": 2,
-        "comment": "possible",
+        "comment": "'可' OR 'Yes'",
         "i18n": "possible",
         "value": false
       },
       {
         "id": 3,
-        "comment": "notPossible",
+        "comment": "'否' OR 'No'",
         "i18n": "notPossible",
         "value": false
       }
@@ -508,7 +520,7 @@
     "id": 20,
     "comment": "アクセス権",
     "i18n": "authority",
-    "query": "accessMode",
+    "query": "text7",
     "type": "checkbox",
     "default": false,
     "data": [
@@ -542,7 +554,7 @@
     "id": 21,
     "comment": "リポジトリ情報",
     "i18n": "repositoryInformation",
-    "query": "repositoryInformation",
+    "query": "text17",
     "type": "checkbox",
     "default": false,
     "data": [
@@ -554,7 +566,7 @@
       },
       {
         "id": 2,
-        "comment": "NBDC Human Database",
+        "comment": "'NBDCヒトデータベース' OR 'NBDC Human Database'",
         "i18n": "NBDC Human Database",
         "value": false
       },
@@ -602,13 +614,13 @@
       },
       {
         "id": 10,
-        "comment": "Laboratory Storage",
+        "comment": "'研究室内ストレージ' OR 'Laboratory Storage'",
         "i18n": "Laboratory Storage",
         "value": false
       },
       {
         "id": 11,
-        "comment": "Other",
+        "comment": "'その他' OR 'Other'",
         "i18n": "Other",
         "value": false
       }
@@ -618,7 +630,7 @@
     "id": 22,
     "comment": "（ヒト）インフォームドコンセント（IC） 有・無・不要",
     "i18n": "informedConsent",
-    "query": "informedConsent",
+    "query": "text8",
     "type": "radio",
     "default": false,
     "selected": "notSelected",
@@ -631,19 +643,19 @@
       },
       {
         "id": 2,
-        "comment": "Yes",
+        "comment": "'有' OR 'Yes'",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "No",
+        "comment": "'無' OR 'No'",
         "i18n": "No",
         "value": false
       },
       {
         "id": 4,
-        "comment": "Unnecessary",
+        "comment": "'不要' OR 'Unnecessary'",
         "i18n": "Unnecessary",
         "value": false
       }
@@ -653,7 +665,7 @@
     "id": 23,
     "comment": "（IC有の場合）第三者提供の同意",
     "i18n": "consentForProvisionToAThirdParty",
-    "query": "consentForProvisionToAThirdParty",
+    "query": "text18",
     "type": "radio",
     "default": false,
     "selected": "notSelected",
@@ -666,13 +678,13 @@
       },
       {
         "id": 2,
-        "comment": "Yes",
+        "comment": "'有' OR 'Yes'",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "No",
+        "comment": "'無' OR 'No'",
         "i18n": "No",
         "value": false
       }
@@ -682,7 +694,7 @@
     "id": 24,
     "comment": "（IC有の場合）海外提供",
     "i18n": "overseasOfferings",
-    "query": "overseasOfferings",
+    "query": "text19",
     "type": "radio",
     "default": false,
     "selected": "notSelected",
@@ -695,13 +707,13 @@
       },
       {
         "id": 2,
-        "comment": "Yes",
+        "comment": "'有' OR 'Yes'",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "No",
+        "comment": "'無' OR 'No'",
         "i18n": "No",
         "value": false
       }
@@ -711,7 +723,7 @@
     "id": 25,
     "comment": "（IC有の場合）産業利用等",
     "i18n": "industrialUse",
-    "query": "industrialUse",
+    "query": "text20",
     "type": "radio",
     "default": false,
     "selected": "notSelected",
@@ -724,13 +736,13 @@
       },
       {
         "id": 2,
-        "comment": "Yes",
+        "comment": "'有' OR 'Yes'",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "No",
+        "comment": "'無' OR 'No'",
         "i18n": "No",
         "value": false
       }
@@ -740,7 +752,7 @@
     "id": 26,
     "comment": "（IC無の場合）",
     "i18n": "iCIsNo",
-    "query": "iCIsNo",
+    "query": "text6",
     "type": "radio",
     "default": false,
     "selected": "notSelected",
@@ -753,13 +765,13 @@
       },
       {
         "id": 2,
-        "comment": "Opt-out procedure",
+        "comment": "'オプトアウト手続き' OR 'Opt-out procedure'",
         "i18n": "Opt-out procedure",
         "value": false
       },
       {
         "id": 3,
-        "comment": "Agree not to",
+        "comment": "'同意不要' OR 'Agree not to'",
         "i18n": "Agree not to",
         "value": false
       }
@@ -769,7 +781,7 @@
     "id": 27,
     "comment": "（ヒト）匿名加工の有無",
     "i18n": "anonymousProcessing",
-    "query": "anonymousProcessing",
+    "query": "text21",
     "type": "radio",
     "default": false,
     "selected": "notSelected",
@@ -782,13 +794,13 @@
       },
       {
         "id": 2,
-        "comment": "Yes",
+        "comment": "'有' OR 'Yes'",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "No",
+        "comment": "'無' OR 'No'",
         "i18n": "No",
         "value": false
       }
@@ -798,7 +810,7 @@
     "id": 28,
     "comment": "利益相反の有無",
     "i18n": "conflictOfInterest",
-    "query": "conflictOfInterest",
+    "query": "text22",
     "type": "radio",
     "default": false,
     "selected": "notSelected",
@@ -811,88 +823,14 @@
       },
       {
         "id": 2,
-        "comment": "Yes",
+        "comment": "'有' OR 'Yes'",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "No",
+        "comment": "'無' OR 'No'",
         "i18n": "No",
-        "value": false
-      }
-    ]
-  },
-  {
-    "id": 30,
-    "comment": "識別子",
-    "i18n": "identifierText",
-    "query": "id",
-    "type": "text",
-    "default": false
-  },
-  {
-    "id": 31,
-    "comment": "識別子タイプ",
-    "i18n": "identifierType",
-    "query": "id_attr",
-    "type": "checkbox",
-    "default": false,
-    "selected": "notSelected",
-    "data": [
-      {
-        "comment": "identifier",
-        "i18n": "identifier",
-        "value": false
-      },
-      {
-        "comment": "URI",
-        "i18n": "URI",
-        "value": false
-      },
-      {
-        "comment": "fullTextURL",
-        "i18n": "fullTextURL",
-        "value": false
-      },
-      {
-        "comment": "selfDOI",
-        "i18n": "selfDOI",
-        "value": false
-      },
-      {
-        "comment": "ISBN",
-        "i18n": "ISBN",
-        "value": false
-      },
-      {
-        "comment": "ISSN",
-        "i18n": "ISSN",
-        "value": false
-      },
-      {
-        "comment": "NCID",
-        "i18n": "NCID",
-        "value": false
-      },
-      {
-        "comment": "pmid",
-        "i18n": "pmid",
-        "value": false
-      },
-      {
-        "comment": "doi",
-        "i18n": "doi",
-        "value": false
-      },
-      {
-        "comment": "NAID",
-        "i18n": "NAID",
-        "value": false
-      },
-      {
-        "comment": "ichushi",
-        "i18n": "ichushi",
         "value": false
       }
     ]
