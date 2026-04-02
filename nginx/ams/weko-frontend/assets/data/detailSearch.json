@@ -163,61 +163,61 @@
     "data": [
       {
         "id": 1,
-        "comment": "'配列データ' OR 'Sequence data'",
+        "comment": "配列データ",
         "i18n": "Sequence data",
         "value": false
       },
       {
         "id": 2,
-        "comment": "'エピゲノムデータ' OR 'Epigenome data'",
+        "comment": "エピゲノムデータ",
         "i18n": "Epigenome data",
         "value": false
       },
       {
         "id": 3,
-        "comment": "'トランスクリプトームデータ' OR 'Transcriptome data'",
+        "comment": "トランスクリプトームデータ",
         "i18n": "Transcriptome data",
         "value": false
       },
       {
         "id": 4,
-        "comment": "'プロテオームデータ' OR 'Proteome data'",
+        "comment": "プロテオームデータ",
         "i18n": "Proteome data",
         "value": false
       },
       {
         "id": 5,
-        "comment": "'リン酸化プロテオームデータ' OR 'Phosphoproteome data'",
+        "comment": "リン酸化プロテオームデータ",
         "i18n": "Phosphoproteome data",
         "value": false
       },
       {
         "id": 6,
-        "comment": "'メタボロームデータ' OR 'Metabolome data'",
+        "comment": "メタボロームデータ",
         "i18n": "Metabolome data",
         "value": false
       },
       {
         "id": 7,
-        "comment": "'イメージデータ' OR 'Imaging data'",
+        "comment": "イメージデータ",
         "i18n": "Imaging data",
         "value": false
       },
       {
         "id": 8,
-        "comment": "'時系列データ' OR 'Time series data'",
+        "comment": "時系列データ",
         "i18n": "Time series data",
         "value": false
       },
       {
         "id": 9,
-        "comment": "'経時的データ' OR 'Over time data'",
+        "comment": "経時的データ",
         "i18n": "Over time data",
         "value": false
       },
       {
         "id": 10,
-        "comment": "'その他' OR 'Other'",
+        "comment": "その他",
         "i18n": "Other",
         "value": false
       }
@@ -417,14 +417,20 @@
       },
       {
         "id": 2,
-        "comment": "'要' OR 'Necessary'",
-        "i18n": "Necessary",
+        "comment": "連絡不要",
+        "i18n": "No contact required",
         "value": false
       },
       {
         "id": 3,
-        "comment": "'不要' OR 'Unnecessary'",
-        "i18n": "Unnecessary",
+        "comment": "連絡が必要",
+        "i18n": "Contact required",
+        "value": false
+      },
+      {
+        "id": 4,
+        "comment": "承諾が必要",
+        "i18n": "Permission required",
         "value": false
       }
     ]
@@ -446,13 +452,13 @@
       },
       {
         "id": 2,
-        "comment": "'要' OR 'Necessary'",
+        "comment": "Necessary",
         "i18n": "Necessary",
         "value": false
       },
       {
         "id": 3,
-        "comment": "'不要' OR 'Unnecessary'",
+        "comment": "Unnecessary",
         "i18n": "Unnecessary",
         "value": false
       }
@@ -475,13 +481,13 @@
       },
       {
         "id": 2,
-        "comment": "'有償' OR 'Pay'",
+        "comment": "有償",
         "i18n": "Pay",
         "value": false
       },
       {
         "id": 3,
-        "comment": "'無償' OR 'Free'",
+        "comment": "無償",
         "i18n": "Free",
         "value": false
       }
@@ -504,13 +510,13 @@
       },
       {
         "id": 2,
-        "comment": "'可' OR 'Yes'",
+        "comment": "可",
         "i18n": "possible",
         "value": false
       },
       {
         "id": 3,
-        "comment": "'否' OR 'No'",
+        "comment": "否",
         "i18n": "notPossible",
         "value": false
       }
@@ -643,19 +649,19 @@
       },
       {
         "id": 2,
-        "comment": "'有' OR 'Yes'",
+        "comment": "有",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "'無' OR 'No'",
+        "comment": "無",
         "i18n": "No",
         "value": false
       },
       {
         "id": 4,
-        "comment": "'不要' OR 'Unnecessary'",
+        "comment": "不要",
         "i18n": "Unnecessary",
         "value": false
       }
@@ -678,13 +684,13 @@
       },
       {
         "id": 2,
-        "comment": "'有' OR 'Yes'",
+        "comment": "有",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "'無' OR 'No'",
+        "comment": "無",
         "i18n": "No",
         "value": false
       }
@@ -707,13 +713,13 @@
       },
       {
         "id": 2,
-        "comment": "'有' OR 'Yes'",
+        "comment": "有",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "'無' OR 'No'",
+        "comment": "無",
         "i18n": "No",
         "value": false
       }
@@ -736,13 +742,13 @@
       },
       {
         "id": 2,
-        "comment": "'有' OR 'Yes'",
+        "comment": "有",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "'無' OR 'No'",
+        "comment": "無",
         "i18n": "No",
         "value": false
       }
@@ -765,13 +771,13 @@
       },
       {
         "id": 2,
-        "comment": "'オプトアウト手続き' OR 'Opt-out procedure'",
+        "comment": "オプトアウト手続き",
         "i18n": "Opt-out procedure",
         "value": false
       },
       {
         "id": 3,
-        "comment": "'同意不要' OR 'Agree not to'",
+        "comment": "同意不要",
         "i18n": "Agree not to",
         "value": false
       }
@@ -794,13 +800,13 @@
       },
       {
         "id": 2,
-        "comment": "'有' OR 'Yes'",
+        "comment": "有",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "'無' OR 'No'",
+        "comment": "無",
         "i18n": "No",
         "value": false
       }
@@ -823,13 +829,13 @@
       },
       {
         "id": 2,
-        "comment": "'有' OR 'Yes'",
+        "comment": "有",
         "i18n": "Yes",
         "value": false
       },
       {
         "id": 3,
-        "comment": "'無' OR 'No'",
+        "comment": "無",
         "i18n": "No",
         "value": false
       }
