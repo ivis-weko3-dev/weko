@@ -59,13 +59,27 @@ def update(username=USERNAME, password=PASSWORD, host=HOST, port=PORT, dbname=DB
 
         text_list = {
             "text1": "$.item_1739173568107.attribute_value_mlt[*].subitem_subject",
-            "text2": "$.item_1739174747677.attribute_value_mlt[*].subitem_select_item",
-            "text3": "$.item_1739174293548.attribute_value_mlt[*].subitem_select_item",
-            "text4": "$.item_1736146927028.attribute_value_mlt[*].creatorNames[*].creatorName",
+            "text2": "$.item_1762740708712.attribute_value_mlt[*].interim",
+            "text3": "$.item_1762740839887.attribute_value_mlt[*].interim",
+            "text4": "$.item_1739173160642.attribute_value_mlt[*].subitem_relation_name[*].subitem_relation_name_text",
             "text5": "$.item_1739173036322.attribute_value_mlt[*].subitem_funder_names[*].subitem_funder_name",
-            "text6": "$.item_1739175658606.attribute_value_mlt[*].subitem_select_item",
+            "text6": "$.item_1762740806359.attribute_value_mlt[*].interim",
             "text7": "$.item_1736146823660.attribute_value_mlt[*].subitem_access_right",
-            "text8": "$.item_1739175379485.attribute_value_mlt[*].subitem_select_item"
+            "text8": "$.item_1762740411055.attribute_value_mlt[*].interim",
+            "text9": "$.item_1762505013159.attribute_value_mlt[*].interim",
+            "text10": "$.item_1736146927028.attribute_value_mlt[*].creatorMails[*].creatorMail",
+            "text11": "$.item_1736147063236.attribute_value_mlt[*].contributorNames[*].contributorName",
+            "text12": "$.item_1736147063236.attribute_value_mlt[*].contributorMails[*].contributorMail",
+            "text13": "$.item_1736146491252.attribute_value_mlt[*].interim",
+            "text14": "$.item_1762740151240.attribute_value_mlt[*].interim",
+            "text15": "$.item_1762740891895.attribute_value_mlt[*].interim",
+            "text16": "$.item_1762740768615.attribute_value_mlt[*].interim",
+            "text17": "$.item_1739174941813.attribute_value_mlt[*].subitem_text_value",
+            "text18": "$.item_1762740486272.attribute_value_mlt[*].interim",
+            "text19": "$.item_1762740530112.attribute_value_mlt[*].interim",
+            "text20": "$.item_1762740567335.attribute_value_mlt[*].interim",
+            "text21": "$.item_1762740612840.attribute_value_mlt[*].interim",
+            "text22": "$.item_1762740645639.attribute_value_mlt[*].interim",
         }
 
         date_list = {
