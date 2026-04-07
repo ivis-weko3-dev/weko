@@ -20,6 +20,7 @@ from weko_index_tree.api import Indexes
 from weko_index_tree.models import Index
 from weko_schema_ui.models import PublishStatus
 from werkzeug.utils import cached_property, import_string
+from weko_search_ui.query import range_query
 
 from . import current_oaiserver
 
@@ -194,13 +195,20 @@ def get_records(**kwargs):
                 index_ids = [sets] + get_descendant_ids(sets)
                 search = search.query('terms', **{'_oai.sets': index_ids})
 
-        time_range = {}
-        if 'from_' in kwargs:
-            time_range['gte'] = kwargs['from_']
-        if 'until' in kwargs:
-            time_range['lte'] = kwargs['until']
-        if time_range:
-            search = search.filter('range', **{'_updated': time_range})
+        if not current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
+            time_range = {}
+            if 'from_' in kwargs:
+                time_range['gte'] = kwargs['from_']
+            if 'until' in kwargs:
+                time_range['lte'] = kwargs['until']
+            if time_range:
+                search = search.filter('range', **{'_updated': time_range})
+        else:
+            if 'from_' in kwargs or 'until' in kwargs:
+                now = datetime.now().isoformat()
+                rq = range_query(now, kwargs.get('from_'), kwargs.get('until'))
+                if rq is not None:
+                    search = search.filter(rq)
 
         search = search.query('match', **{'relation_version_is_last': 'true'})
         search = search.query('terms', **{'publish_status': [

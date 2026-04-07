@@ -17,6 +17,7 @@ from invenio_db import db
 from jsonpatch import apply_patch
 from sqlalchemy.orm.attributes import flag_modified
 from werkzeug.local import LocalProxy
+from datetime import datetime, time, date
 
 from .errors import MissingModelError
 from .models import RecordMetadata
@@ -377,6 +378,81 @@ class Record(RecordBase):
 
         return RevisionsIterator(self.model)
 
+    @property
+    def updated(self):
+        original_updated = self.model.updated
+        if not current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
+            return original_updated
+        db.session.expire_all()
+        metadata = self.model.json if self.model else None
+        item_type_id = metadata.get("item_type_id") if metadata else None
+        from weko_records.serializers.utils import get_mapping
+        mapping = get_mapping(item_type_id, "jpcoar_mapping") if item_type_id else None
+        access_path = mapping.get("accessRights.@value") if mapping else None
+
+        def _get_nested_value(data, path):
+            keys = path.split('.')
+            key = keys[0]
+            rest = '.'.join(keys[1:])
+            if isinstance(data, dict):
+                if key in data:
+                    if rest:
+                        return _get_nested_value(data[key], rest)
+                    else:
+                        return data[key]
+                elif 'attribute_value_mlt' in data:
+                    for item in data['attribute_value_mlt']:
+                        found = _get_nested_value(item, '.'.join(keys))
+                        if found is not None:
+                            return found
+                    return None
+                else:
+                    return None
+            elif isinstance(data, list):
+                for item in data:
+                    found = _get_nested_value(item, '.'.join(keys))
+                    if found is not None:
+                        return found
+                return None
+            else:
+                return None
+
+        access_rights = _get_nested_value(metadata, access_path) if metadata and access_path else None
+        accessrole_date = []
+        for v in metadata.values() if metadata else []:
+            if isinstance(v, dict) and v.get("attribute_type") == "file":
+                for file_info in v.get("attribute_value_mlt", []):
+                    date_list = file_info.get("date", [])
+                    date_value = date_list[0].get("dateValue") if date_list else None
+                    accessrole = file_info.get("accessrole")
+                    if date_value and accessrole:
+                        date_obj = datetime.strptime(date_value, "%Y-%m-%d").date()
+                        accessrole_date.append((accessrole, date_obj))
+
+        today = datetime.now().date()
+
+        from weko_records.utils import check_embargo_rights
+        is_update, change_value = check_embargo_rights(
+            access_rights, today, accessrole_date
+        )
+
+        if not (is_update and change_value == "open access"):
+            return original_updated
+
+        open_dates = []
+        for role, date_str in accessrole_date:
+            dt = datetime.combine(date_str, time(0, 0, 0))
+            dt = datetime.combine(dt.date(), time(0, 0, 0))
+            open_dates.append(dt)
+
+        if not open_dates:
+            return original_updated
+
+        latest_open_date = max(open_dates)
+        if original_updated:
+            return max(original_updated, latest_open_date)
+        else:
+            return latest_open_date
 
 class RecordRevision(RecordBase):
     """API for record revisions."""

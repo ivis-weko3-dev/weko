@@ -28,7 +28,9 @@ from invenio_search import RecordsSearch
 from weko_index_tree.api import Indexes
 from weko_schema_ui.models import PublishStatus
 from weko_search_ui.utils import execute_search_with_pagination
+from weko_search_ui.query import range_query
 
+from datetime import datetime
 from .config import WEKO_ROOT_INDEX
 
 
@@ -262,14 +264,20 @@ def item_changes_search_factory(search,
                         "path": list_path
                     }
                 }
-                post_filter['bool']['must'].append({
-                    "range": {
-                        "_updated": {
-                            "lte": _date_until,
-                            "gte": _date_from
+                if not current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
+                    post_filter['bool']['must'].append({
+                        "range": {
+                            "_updated": {
+                                "lte": _date_until,
+                                "gte": _date_from
+                            }
                         }
-                    }
-                })
+                    })
+                else:
+                    now = datetime.now().isoformat()
+                    rq = range_query(now, _date_from, _date_until)
+                    if rq is not None:
+                        post_filter['bool']['must'].append(rq.to_dict())
             # create search query
             try:
                 query_q = json.dumps(query_q).replace("@index", q)
@@ -285,14 +293,20 @@ def item_changes_search_factory(search,
                         "path": list_path
                     }
                 })
-                post_filter['bool']['must'].append({
-                    "range": {
-                        "_updated": {
-                            "lte": _date_until,
-                            "gte": _date_from
+                if not current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
+                    post_filter['bool']['must'].append({
+                        "range": {
+                            "_updated": {
+                                "lte": _date_until,
+                                "gte": _date_from
+                            }
                         }
-                    }
-                })
+                    })
+                else:
+                    now = datetime.now().isoformat()
+                    rq = range_query(now, _date_from, _date_until)
+                    if rq is not None:
+                        post_filter['bool']['must'].append(rq.to_dict())
             # create search query
             wild_card = []
             child_list = Indexes.get_child_list(q)
@@ -320,7 +334,6 @@ def item_changes_search_factory(search,
 
     # create a index search query
     query_q = _get_index_search_query(date_from, date_until)
-
     try:
         search.update_from_dict(query_q)
     except SyntaxError:
