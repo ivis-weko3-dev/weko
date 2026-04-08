@@ -441,16 +441,16 @@ def test_get_reports(app, mocker):
         'user_roles': user_roles_result,
         'site_access': site_access_result
     }
-    mock_file_helper.assert_any_call(event='file_download', year=year, month=month)
-    mock_file_helper.assert_any_call(event='file_preview', year=year, month=month)
-    mock_file_helper.assert_any_call(event='billing_file_download', year=year, month=month)
-    mock_file_helper.assert_any_call(event='file_using_per_user', year=year, month=month)
-    mock_record_view_helper.assert_any_call(event='detail_view', year=year, month=month)
-    mock_record_view_per_index_helper.assert_any_call(event='index_access', year=year, month=month)
-    mock_common_helper.assert_any_call(event='top_page_access', year=year, month=month)
-    mock_common_helper.assert_any_call(event='site_access', year=year, month=month)
-    mock_search_helper.assert_any_call(event='search_count', year=year, month=month)
-    mock_user_report_helper.assert_called_once_with()
+    mock_file_helper.assert_any_call(event='file_download', year=year, month=month, repository_id=None)
+    mock_file_helper.assert_any_call(event='file_preview', year=year, month=month, repository_id=None)
+    mock_file_helper.assert_any_call(event='billing_file_download', year=year, month=month, repository_id=None)
+    mock_file_helper.assert_any_call(event='file_using_per_user', year=year, month=month, repository_id=None)
+    mock_record_view_helper.assert_any_call(event='detail_view', year=year, month=month, repository_id=None)
+    mock_record_view_per_index_helper.assert_any_call(event='index_access', year=year, month=month, repository_id=None)
+    mock_common_helper.assert_any_call(event='top_page_access', year=year, month=month, repository_id=None)
+    mock_common_helper.assert_any_call(event='site_access', year=year, month=month, repository_id=None)
+    mock_search_helper.assert_any_call(event='search_count', year=year, month=month, repository_id=None)
+    mock_user_report_helper.assert_called_once_with(None)
 
     # type is file_download
     report_type = 'file_download'
@@ -459,14 +459,14 @@ def test_get_reports(app, mocker):
     assert result == {
         'file_download': file_download_result
     }
-    mock_helper.assert_called_once_with(event=report_type, year=year, month=month)
+    mock_helper.assert_called_once_with(event=report_type, year=year, month=month, repository_id=None)
 
     with patch('weko_admin.utils.QueryFileReportsHelper.get', side_effect=file_reports_helper) as mock_helper:
         result = get_reports(report_type, range=True, start_date=start_date, end_date=end_date)
     assert result == {
         'file_download': file_download_result
     }
-    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str)
+    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str, repository_id=None)
 
     # type is file_preview
     report_type = 'file_preview'
@@ -475,13 +475,13 @@ def test_get_reports(app, mocker):
     assert result == {
         'file_preview': file_preview_result
     }
-    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str)
+    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str, repository_id=None)
     with patch('weko_admin.utils.QueryFileReportsHelper.get', side_effect=file_reports_helper) as mock_helper:
         result = get_reports(report_type, range=True, start_date=start_date, end_date=end_date)
     assert result == {
         'file_preview': file_preview_result
     }
-    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str)
+    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str, repository_id=None)
 
     # type is billing_file_download
     report_type = 'billing_file_download'
@@ -490,13 +490,13 @@ def test_get_reports(app, mocker):
     assert result == {
         'billing_file_download': billing_file_download_result
     }
-    mock_helper.assert_called_once_with(event=report_type, year=year, month=month)
+    mock_helper.assert_called_once_with(event=report_type, year=year, month=month, repository_id=None)
     with patch('weko_admin.utils.QueryFileReportsHelper.get', side_effect=file_reports_helper) as mock_helper:
         result = get_reports(report_type, range=True, start_date=start_date, end_date=end_date)
     assert result == {
         'billing_file_download': billing_file_download_result
     }
-    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str)
+    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str, repository_id=None)
 
     # type is detail_view
     report_type = 'detail_view'
@@ -505,13 +505,13 @@ def test_get_reports(app, mocker):
     assert result == {
         'detail_view': detail_view_result
     }
-    mock_helper.assert_called_once_with(event=report_type, year=year, month=month)
+    mock_helper.assert_called_once_with(event=report_type, year=year, month=month, repository_id=None)
     with patch('weko_admin.utils.QueryRecordViewReportHelper.get', return_value=detail_view_result) as mock_helper:
         result = get_reports(report_type, range=True, start_date=start_date, end_date=end_date)
     assert result == {
         'detail_view': detail_view_result
     }
-    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str)
+    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str, repository_id=None)
 
     # type is index_access
     report_type = 'index_access'
@@ -520,13 +520,13 @@ def test_get_reports(app, mocker):
     assert result == {
         'index_access': index_access_result
     }
-    mock_helper.assert_called_once_with(event=report_type, year=year, month=month)
+    mock_helper.assert_called_once_with(event=report_type, year=year, month=month, repository_id=None)
     with patch('weko_admin.utils.QueryRecordViewPerIndexReportHelper.get', return_value=index_access_result) as mock_helper:
         result = get_reports(report_type, range=True, start_date=start_date, end_date=end_date)
     assert result == {
         'index_access': index_access_result
     }
-    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str)
+    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str, repository_id=None)
 
     # type is file_using_per_user
     report_type = 'file_using_per_user'
@@ -535,13 +535,13 @@ def test_get_reports(app, mocker):
     assert result == {
         'file_using_per_user': file_using_per_user_result
     }
-    mock_helper.assert_called_once_with(event=report_type, year=year, month=month)
+    mock_helper.assert_called_once_with(event=report_type, year=year, month=month, repository_id=None)
     with patch('weko_admin.utils.QueryFileReportsHelper.get', side_effect=file_reports_helper) as mock_helper:
         result = get_reports(report_type, range=True, start_date=start_date, end_date=end_date)
     assert result == {
         'file_using_per_user': file_using_per_user_result
     }
-    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str)
+    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str, repository_id=None)
 
     # type is top_page_access
     report_type = 'top_page_access'
@@ -550,13 +550,13 @@ def test_get_reports(app, mocker):
     assert result == {
         'top_page_access': top_page_access_result
     }
-    mock_helper.assert_called_once_with(event=report_type, year=year, month=month)
+    mock_helper.assert_called_once_with(event=report_type, year=year, month=month, repository_id=None)
     with patch('weko_admin.utils.QueryCommonReportsHelper.get', side_effect=common_reports_helper) as mock_helper:
         result = get_reports(report_type, range=True, start_date=start_date, end_date=end_date)
     assert result == {
         'top_page_access': top_page_access_result
     }
-    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str)
+    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str, repository_id=None)
 
     # type is search_count
     report_type = 'search_count'
@@ -565,13 +565,13 @@ def test_get_reports(app, mocker):
     assert result == {
         'search_count': search_count_result
     }
-    mock_helper.assert_called_once_with(event=report_type, year=year, month=month)
+    mock_helper.assert_called_once_with(event=report_type, year=year, month=month, repository_id=None)
     with patch('weko_admin.utils.QuerySearchReportHelper.get', return_value=search_count_result) as mock_helper:
         result = get_reports(report_type, range=True, start_date=start_date, end_date=end_date)
     assert result == {
         'search_count': search_count_result
     }
-    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str)
+    mock_helper.assert_called_once_with(event=report_type, start_date=start_date_str, end_date=end_date_str, repository_id=None)
 
     # type is user_roles
     report_type = 'user_roles'
@@ -580,13 +580,13 @@ def test_get_reports(app, mocker):
     assert result == {
         'user_roles': user_roles_result
     }
-    mock_helper.assert_called_once_with()
+    mock_helper.assert_called_once_with(None)
     with patch('weko_admin.utils.get_user_report_data', return_value=user_roles_result) as mock_helper:
         result = get_reports(report_type, range=True, start_date=start_date, end_date=end_date)
     assert result == {
         'user_roles': user_roles_result
     }
-    mock_helper.assert_called_once_with()
+    mock_helper.assert_called_once_with(None)
 
     # type is site_access
     report_type = 'site_access'
@@ -595,13 +595,13 @@ def test_get_reports(app, mocker):
     assert result == {
         'site_access': site_access_result
     }
-    mock_helper.assert_called_with(event=report_type, year=year, month=month)
+    mock_helper.assert_called_with(event=report_type, year=year, month=month, repository_id=None)
     with patch('weko_admin.utils.QueryCommonReportsHelper.get', side_effect=common_reports_helper) as mock_helper:
         result = get_reports(report_type, range=True, start_date=start_date, end_date=end_date)
     assert result == {
         'site_access': site_access_result
     }
-    mock_helper.assert_called_with(event=report_type, start_date=start_date_str, end_date=end_date_str)
+    mock_helper.assert_called_with(event=report_type, start_date=start_date_str, end_date=end_date_str, repository_id=None)
 
     # type is test
     report_type = 'test'
@@ -639,7 +639,7 @@ def test_package_reports(client, mocker):
 
 # def make_stats_file(raw_stats, file_type, year, month):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_make_stats_file -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_make_stats_file(client,mocker):
+def test_make_stats_file(client, roles, mocker):
     current_app.config.update(WEKO_ADMIN_OUTPUT_FORMAT="csv")
     mocker.patch("weko_admin.utils.write_report_file_rows")
     raw_stats=""
@@ -667,7 +667,7 @@ def test_make_stats_file(client,mocker):
         'Aggregation Month,2022-10\n'\
         '""\n'\
         'No. Of Paid File Downloads\n'\
-        'File Name,Registered Index Name,No. Of Times Downloaded,Non-Logged in User,System Administrator,Repository Administrator,Contributor,Community Administrator,General,Original Role,Student,Site License,Admin,Registrar\n'
+        'File Name,Registered Index Name,No. Of Times Downloaded,Non-Logged In User,System Administrator,Repository Administrator,Contributor,Community Administrator,Site License,Admin,Registrar\n'
     result = make_stats_file(raw_stats, file_type, report_date, False)
     assert result.getvalue() == test
 

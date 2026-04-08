@@ -294,8 +294,9 @@ def db(app):
     # if not database_exists(str(db_.engine.url)) and \
     #         app.config['SQLALCHEMY_DATABASE_URI'] != 'sqlite://':
     #     create_database(db_.engine.url)
-    if not database_exists(str(db_.engine.url)):
-        create_database(str(db_.engine.url))
+    if database_exists(str(db_.engine.url)):
+        drop_database(str(db_.engine.url))
+    create_database(str(db_.engine.url))
     db_.create_all()
     yield db_
     db_.session.remove()
@@ -907,7 +908,7 @@ def admin_settings(db):
     settings.append(AdminSettings(id=8,name='convert_pdf_settings',settings={"path":"/tmp/file","pdf_ttl":1800}))
     settings.append(AdminSettings(id=9,name="elastic_reindex_settings",settings={"has_errored": False}))
     settings.append(AdminSettings(id=10,name="sword_api_setting",settings={ "default_format": "TSV","data_format":{ "TSV":{"register_format": "Direct"},"XML":{"workflow": '31001',  "register_format": "Workflow"}}}))
-    settings.append(AdminSettings(id=11,name="report_email_schedule_settings",settings={"details":"","enabled":False,"frequency":"daily"}))
+    settings.append(AdminSettings(id=11,name="report_email_schedule_settings",settings={"Root Index": {"details": "", "enabled": False, "frequency": "daily"}}))
     settings.append(AdminSettings(id=12,name="cris_linkage",settings={'researchmap_cidkey_contents':'','researchmap_pkey_contents':'','merge_mode':''}))
     db.session.add_all(settings)
     db.session.commit()
