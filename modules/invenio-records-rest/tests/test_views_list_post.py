@@ -215,7 +215,7 @@ def test_RecordsListResource_get(app, i18n_app, db, es, test_data, search_url, s
             assert res.status_code == 200
 
             cache_key = f"{cache_name}_url_args"
-            cache_data = {'page': '1'}
+            cache_data = {'page': '1', 'q':''}
             sessionstore.put(cache_key, (json.dumps(cache_data)).encode('utf-8'))
             cache_key = cache_name
             cache_data = {"10000": {"control_number": 1}}
