@@ -22,7 +22,9 @@
 
 import os
 import shutil
-from datetime import datetime, timedelta
+import calendar
+from datetime import datetime, timedelta, timezone
+import traceback
 
 from celery import shared_task
 from celery.utils.log import get_task_logger
@@ -30,15 +32,14 @@ from flask import current_app, render_template
 from flask_babelex import gettext as _
 from flask_mail import Attachment
 from invenio_mail.api import send_mail
-from invenio_stats.utils import QueryCommonReportsHelper, \
-    QueryFileReportsHelper, QueryRecordViewPerIndexReportHelper, \
-    QueryRecordViewReportHelper, QuerySearchReportHelper
 
 from weko_admin.api import TempDirInfo
 
 from .models import AdminSettings, StatisticsEmail, FeedbackMailSetting
-from .utils import StatisticMail, get_user_report_data, package_reports ,elasticsearch_reindex
-from .views import manual_send_site_license_mail
+from .utils import (
+    StatisticMail, package_reports, elasticsearch_reindex, get_reports
+)
+from .views import handle_site_license_mail
 from celery.task.control import inspect
 from weko_search_ui.tasks import check_celery_is_run
 from .config import WEKO_ADMIN_SETTINGS_ELASTIC_REINDEX_SETTINGS,\
@@ -113,43 +114,32 @@ def is_reindex_running():
     return False
 
 @shared_task(ignore_results=True)
-def send_all_reports(report_type=None, year=None, month=None, repository_id=None):
+def send_all_reports(report_type="all", *, schedule, repository_id='Root Index'):
     """Query elasticsearch for each type of stats report."""
     # By default get the current month and year
-    now = datetime.now()
-    month = month or now.month
-    year = year or now.year
-    repository_id = repository_id or 'Root Index'
-    all_results = {
-        'file_download': QueryFileReportsHelper.get(
-            year=year, month=month, event='file_download', repository_id=repository_id),
-        'file_preview': QueryFileReportsHelper.get(
-            year=year, month=month, event='file_preview', repository_id=repository_id),
-        'index_access': QueryRecordViewPerIndexReportHelper.get(
-            year=year, month=month, repository_id=repository_id),
-        'detail_view': QueryRecordViewReportHelper.get(
-            year=year, month=month, repository_id=repository_id),
-        'file_using_per_user': QueryFileReportsHelper.get(
-            year=year, month=month, event='file_using_per_user', repository_id=repository_id),
-        'top_page_access': QueryCommonReportsHelper.get(
-            year=year, month=month, event='top_page_access'),
-        'search_count': QuerySearchReportHelper.get(
-            year=year, month=month, repository_id=repository_id),
-        'user_roles': get_user_report_data(repo_id=repository_id),
-        'site_access': QueryCommonReportsHelper.get(
-            year=year, month=month, event='site_access', repository_id=repository_id),
-    }
+    frequency = schedule['frequency']  # daily, weekly, monthly
+    now = datetime.now(tz=timezone.utc)
+
+    start_date, end_date = _get_start_end_date(now, frequency)
+
+    reports = get_reports(
+        report_type, range=True,
+        start_date=start_date, end_date=end_date, repository_id=repository_id
+    )
+
     with current_app.app_context():
         # Allow for this to be used to get specific emails as well
-        reports = {}
-        if report_type is not None and report_type in all_results:
-            reports[report_type] = all_results[report_type]
+        if frequency == 'monthly':
+            zip_date = start_date.strftime('%Y-%m')
+            zip_stream = package_reports(reports, start_date.year, start_date.month)
         else:
-            reports = all_results
-
-        zip_date = str(year) + '-' + str(month).zfill(2)
+            zip_date = start_date.strftime('%Y-%m-%d')
+            if frequency == 'weekly':
+                zip_date += '_' + end_date.strftime('%Y-%m-%d')
+            zip_stream = package_reports(
+                reports, report_date=zip_date,
+            )
         zip_name = 'logReport_' + zip_date + '.zip'
-        zip_stream = package_reports(reports, year, month)
 
         recepients = StatisticsEmail.get_emails_by_repo(repository_id=repository_id)
         attachments = [Attachment(zip_name,
@@ -165,7 +155,33 @@ def send_all_reports(report_type=None, year=None, month=None, repository_id=None
                       attachments=attachments)
             current_app.logger.info('[{0}] [{1}] '.format(0, 'Sent email'))
         except Exception as e:
+            traceback.print_exc()
             current_app.logger.info('[{0}] [{1}] '.format(1, 'Could not send'))
+
+
+def _get_start_end_date(dt, frequency):
+    """Get start date and end date.
+
+    Args:
+        dt (datetime):
+            The date to calculate from.
+        frequency (str):
+            The frequency of the report ('daily', 'weekly', 'monthly').
+    """
+    if frequency == 'daily':
+        # on 2 days ago
+        start_date = end_date = dt - timedelta(days=2)
+    elif frequency == 'weekly':
+        # from 8 days ago to 2 days ago
+        start_date = dt - timedelta(days=8)
+        end_date = dt - timedelta(days=2)
+    else:
+        # monthly,
+        # from first day of previous month to last day of previous month
+        end_date = dt.replace(day=1) - timedelta(days=1)
+        start_date = end_date.replace(day=1)
+
+    return start_date, end_date
 
 
 @shared_task(ignore_results=True)  # Set for timedelta(days=1)
@@ -178,7 +194,7 @@ def check_send_all_reports():
         schedules = schedules if schedules else {}
         for repository_id, schedule in schedules.items():
             if schedule and _due_to_run(schedule):
-                send_all_reports.delay(repository_id=repository_id)
+                send_all_reports.delay(repository_id=repository_id, schedule=schedule)
 
 
 @shared_task(ignore_results=True)
@@ -195,12 +211,24 @@ def _due_to_run(schedule):
     """Check if a task needs to be ran."""
     if not schedule['enabled']:
         return False
-    now = datetime.now()
-    return (schedule['frequency'] == 'daily') or \
-        (schedule['frequency'] == 'weekly'
-         and int(schedule['details']) == now.weekday()) or \
-        (schedule['frequency'] == 'monthly'
-         and int(schedule['details']) == now.day)
+    now = datetime.now(tz=timezone.utc)
+
+    if schedule['frequency'] == 'daily':
+        return True
+    if schedule['frequency'] == 'weekly':
+        return int(schedule['details']) == now.weekday()
+    if schedule['frequency'] == 'monthly':
+        if int(schedule['details']) == now.day:
+            return True
+        if int(schedule['details']) == -1:
+            return _is_end_of_month(now)
+    return False
+
+
+def _is_end_of_month(dt):
+    """Check if the date is end of month."""
+    _, last_day = calendar.monthrange(dt.year, dt.month)
+    return dt.day == last_day
 
 
 @shared_task(ignore_results=True)
@@ -221,7 +249,7 @@ def check_send_site_access_report():
             end_month = end_date.strftime('%Y-%m')
             start_month = start_date.strftime('%Y-%m')
             # send mail api
-            manual_send_site_license_mail(start_month=start_month,
+            handle_site_license_mail(start_month=start_month,
                                         end_month=end_month, repo_id=repository_id)
 
 

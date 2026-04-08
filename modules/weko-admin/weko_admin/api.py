@@ -31,16 +31,21 @@ from redis import RedisError
 import requests
 from flask import current_app, render_template
 from flask_babelex import lazy_gettext as _
+from flask_mail import Attachment
+from invenio_accounts.models import Role, User
 from invenio_db import db
+from invenio_mail.models import MailConfig
 from invenio_mail.api import send_mail
 from weko_redis.redis import RedisConnection
 from flask_wtf import FlaskForm
 from wtforms.validators import ValidationError
 from flask_wtf.csrf import validate_csrf,same_origin,CSRFError
 
+from .config import WEKO_ADMIN_PERMISSION_ROLE_SYSTEM
 from .models import LogAnalysisRestrictedCrawlerList, \
     LogAnalysisRestrictedIpAddress
-from .utils import get_system_default_language
+from .utils import get_system_default_language, package_site_access_stats_file
+
 
 def is_restricted_user(user_info):
     """Check if user is restricted based on IP Address and User Agent.
@@ -65,7 +70,7 @@ def is_restricted_user(user_info):
 def smart_search(pattern, text):
     """
     Smart search that handles both bytes and str types for pattern and text.
-    
+
     :param pattern: The regex pattern to search for (str or bytes).
     :param text: The text to search within (str or bytes).
     :return: Match object or None.
@@ -77,7 +82,7 @@ def smart_search(pattern, text):
     # textがstrなら、patternもstrにデコード（patternがbytesの場合）
     elif isinstance(text, str) and isinstance(pattern, bytes):
         pattern = pattern.decode('utf-8')
-        
+
     return re.search(pattern, text)
 
 def _is_crawler(user_info):
@@ -131,7 +136,7 @@ def _is_crawler(user_info):
                     connection.sadd(restricted_agent_list.list_url,restrict_ip)
                 connection.expire(restricted_agent_list.list_url, current_app.config["CRAWLER_REDIS_TTL"])
                 restrict_list = connection.smembers(restricted_agent_list.list_url)
-        
+
         if current_app.config['WEKO_ADMIN_USE_REGEX_IN_CRAWLER_LIST']:
             if bot_regex_str and (
                 smart_search(bot_regex_str, (user_info['user_agent']).encode('utf-8')) or
@@ -149,9 +154,17 @@ def send_site_license_mail(organization_name, mail_list, agg_date, data):
     """Send site license statistics mail."""
     try:
         # mail title
-        subject = '[{0}] {1} '.format(organization_name, agg_date) + \
-            _('statistics report')
+        subject = '[Weko3] ' + agg_date + ' site license statistics'
 
+        # Create attached file
+        file_name = 'SiteAccess_' + agg_date + '.zip'
+        zip_stream = package_site_access_stats_file(data, agg_date)
+        attachment = Attachment(file_name,
+                                'application/x-zip-compressed',
+                                zip_stream.getvalue())
+
+        mail_config = MailConfig.get_config()
+        site_mail= mail_config.get('mail_default_sender', '')
         with current_app.test_request_context() as ctx:
             default_lang = get_system_default_language()
             # setting locale
@@ -163,9 +176,10 @@ def send_site_license_mail(organization_name, mail_list, agg_date, data):
                 body=str(
                     render_template(
                         'weko_admin/email_templates/site_license_report.html',
+                        organization_name=organization_name,
                         agg_date=agg_date,
-                        data=data,
-                        lang_code=default_lang)))
+                        administrator=site_mail)),
+                attachments=[attachment])
     except Exception as ex:
         current_app.logger.error(ex)
 
