@@ -31,11 +31,11 @@ from weko_admin.utils import (
     get_initial_stats_report,
     get_unit_stats_report,
     get_user_report_data,
+    get_reports,
     package_reports,
     make_stats_file,
     write_report_file_rows,
     reset_redis_cache,
-    is_exists_key_in_redis,
     is_exists_key_or_empty_in_redis,
     get_redis_cache,
     StatisticMail,
@@ -271,6 +271,252 @@ def test_get_user_report_data(users, community):
     assert result == {'all': [{'role_name': 'Community Administrator', 'count': 1}, {'role_name': 'Registered Users', 'count': 1}]}
 
 
+# def get_reports(type, year, month):
+# .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_get_reports -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
+def test_get_reports(client, mocker):
+    file_download_result = {
+        "all": [
+            {'admin': 0, 'file_key': 'test1.pdf', 'group_counts': {'test1': 1, 'test2': 1}, 'index_list': 'index1', 'login': 0, 'no_login': 1, 'reg': 0, 'site_license': 1, 'total': 1},
+            {'admin': 0, 'file_key': 'test2.pdf', 'group_counts': {'test2': 2, 'test3': 2}, 'index_list': 'index2', 'login': 2, 'no_login': 0, 'reg': 2, 'site_license': 0, 'total': 2},
+            {'admin': 3, 'file_key': 'test3.pdf', 'group_counts': {'test3': 3}, 'index_list': 'index3', 'login': 3, 'no_login': 0, 'reg': 0, 'site_license': 0, 'total': 3}
+        ],
+        "all_groups": {'test1', 'test2', 'test3'},
+        "date": "2024-05",
+        "open_access": [
+            {'admin': 0, 'file_key': 'test1.pdf', 'group_counts': {'test1': 1, 'test2': 1}, 'index_list': 'index1', 'login': 0, 'no_login': 1, 'reg': 0, 'site_license': 1, 'total': 1}
+        ]
+    }
+    file_preview_result = {
+        "all": [
+            {'admin': 0, 'file_key': 'test1.txt', 'group_counts': {'test1': 1, 'test2': 1}, 'index_list': 'index1', 'login': 0, 'no_login': 1, 'reg': 0, 'site_license': 1, 'total': 1},
+            {'admin': 0, 'file_key': 'test2.txt', 'group_counts': {'test2': 2, 'test3': 2}, 'index_list': 'index2', 'login': 2, 'no_login': 0, 'reg': 2, 'site_license': 0, 'total': 2},
+            {'admin': 3, 'file_key': 'test3.txt', 'group_counts': {'test3': 3}, 'index_list': 'index3', 'login': 3, 'no_login': 0, 'reg': 0, 'site_license': 0, 'total': 3}
+        ],
+        "all_groups": {'test1', 'test2', 'test3'},
+        "date": "2024-05",
+        "open_access": [
+            {'admin': 0, 'file_key': 'test2.txt', 'group_counts': {'test2': 2, 'test3': 2}, 'index_list': 'index2', 'login': 2, 'no_login': 0, 'reg': 2, 'site_license': 0, 'total': 2}
+        ]
+    }
+    billing_file_download_result = {
+        "all": [
+            {'admin': 1, 'file_key': 'test1.pdf', 'group_counts': {'test1': 1, 'test2': 1}, 'index_list': 'index1', 'login': 1, 'no_login': 1, 'reg': 1, 'site_license': 1, 'guest': 1, 'System Administrator': 1, 'Repository Administrator': 0, 'Contributor': 0, 'Community Administrator': 0, 'total': 2},
+            {'admin': 0, 'file_key': 'test2.pdf', 'group_counts': {'test2': 2, 'test3': 2}, 'index_list': 'index2', 'login': 2, 'no_login': 0, 'reg': 0, 'site_license': 0, 'guest': 0, 'System Administrator': 0, 'Repository Administrator': 0, 'Contributor': 2, 'Community Administrator': 0, 'total': 2},
+            {'admin': 3, 'file_key': 'test3.pdf', 'group_counts': {'test3': 3}, 'index_list': 'index3', 'login': 3, 'no_login': 0, 'reg': 0, 'site_license': 0, 'guest': 0, 'System Administrator': 3, 'Repository Administrator': 0, 'Contributor': 0, 'Community Administrator': 0, 'total': 3}
+        ],
+        "all_groups": {'test1', 'test2', 'test3'},
+        "date": "2024-05",
+        "open_access": [
+            {'admin': 3, 'file_key': 'test3.pdf', 'group_counts': {'test3': 3}, 'index_list': 'index3', 'login': 3, 'no_login': 0, 'reg': 0, 'site_license': 0, 'guest': 0, 'System Administrator': 3, 'Repository Administrator': 0, 'Contributor': 0, 'Community Administrator': 0, 'total': 3}
+        ]
+    }
+    detail_view_result = {
+        "all": [
+            {
+                "index_names": "人文社会系 (Faculty of Humanities and Social Sciences)",
+                "pid_value": "3",
+                "record_id": "6f8da14f-5a24-4e07-a5cb-04e8ef1c11b3",
+                "record_name": "test_doi",
+                "same_title": "True",
+                "total_all": "2",
+                "total_not_login": "0"
+            },
+            {
+                "index_names": "コンテンツタイプ (Contents Type)-/-会議発表論文, 人文社会系 (Faculty of Humanities and Social Sciences)",
+                "pid_value": "1",
+                "record_id": "99203669-c376-4f5a-ade3-8139e7785a9d",
+                "record_name": "test full item",
+                "same_title": "True",
+                "total_all": "2",
+                "total_not_login": "1"
+            }
+        ],
+        "date": "2024-05-01-2024-05-31"
+    }
+    index_access_result = {
+        "all": [
+            {"index_name": "コンテンツタイプ (Contents Type)-/-会議発表論文","view_count": "2"},
+            {"index_name": "人文社会系 (Faculty of Humanities and Social Sciences)","view_count": "4"}
+        ],
+        "date": "2024-05",
+        "total": "6"
+    }
+    file_using_per_user_result = {
+        "all": {
+            1: {'cur_user_id': 1, 'total_download': 2, 'total_preview': 5},
+            2: {'cur_user_id': 2, 'total_download': 3},
+            3: {'cur_user_id': 3, 'total_download': 4},
+            4: {'cur_user_id': 4, 'total_preview': 1}
+        },
+        "date": "2024-05"
+    }
+    top_page_access_result = {
+        "all": {
+            "192.168.56.1": {
+                "count": "17",
+                "host": "None",
+                "ip": "192.168.56.1"
+            }
+        },
+        "date": "2024-05"
+    }
+    search_count_result = {
+        "all": [{'search_key': 'key2', 'count': 7}, {'search_key': 'key1', 'count': 4}],
+        "date": "2024-05"
+    }
+    user_roles_result = {
+        "all": [
+            {"count": "1", "role_name": "Community Administrator" },
+            {"count": "1","role_name": "Repository Administrator"},
+            {"count": "1","role_name": "Contributor"},
+            {"count": "1","role_name": "System Administrator"},
+            {"count": "4","role_name": "Registered Users"}
+        ]
+    }
+    site_access_result = {
+        "date": "2024-05",
+        "institution_name": [],
+        "other": [{
+            "file_download": "0",
+            "file_preview": "0",
+            "record_view": "4",
+            "search": "0",
+            "top_view": "17"
+        }],
+        "site_license": [{
+            "file_download": "0",
+            "file_preview": "0",
+            "record_view": "0",
+            "search": "0",
+            "top_view": "0"
+        }]}
+
+    def file_reports_helper(**args):
+        event = args.get('event')
+        if event == 'file_download':
+            return file_download_result
+        elif event == 'file_preview':
+            return file_preview_result
+        elif event == 'billing_file_download':
+            return billing_file_download_result
+        elif event == 'file_using_per_user':
+            return file_using_per_user_result
+        else:
+            return []
+
+    def common_reports_helper(**args):
+        event = args.get('event')
+        if event == 'top_page_access':
+            return top_page_access_result
+        elif event == 'site_access':
+            return site_access_result
+        else:
+            return []
+
+    mocker.patch('weko_admin.utils.QueryFileReportsHelper.get', side_effect=file_reports_helper)
+    mocker.patch('weko_admin.utils.QueryRecordViewReportHelper.get', return_value=detail_view_result)
+    mocker.patch('weko_admin.utils.QueryRecordViewPerIndexReportHelper.get', return_value=index_access_result)
+    mocker.patch('weko_admin.utils.QueryCommonReportsHelper.get', side_effect=common_reports_helper)
+    mocker.patch('weko_admin.utils.QuerySearchReportHelper.get', return_value=search_count_result)
+    mocker.patch('weko_admin.utils.get_user_report_data', return_value=user_roles_result)
+
+    year = 2024
+    month = 5
+
+    # type is all
+    type = 'all'
+    result = get_reports(type, year, month)
+    assert result == {
+        'file_download': file_download_result,
+        'file_preview': file_preview_result,
+        'billing_file_download': billing_file_download_result,
+        'detail_view': detail_view_result,
+        'index_access': index_access_result,
+        'file_using_per_user': file_using_per_user_result,
+        'top_page_access': top_page_access_result,
+        'search_count': search_count_result,
+        'user_roles': user_roles_result,
+        'site_access': site_access_result
+    }
+
+    # type is file_download
+    type = 'file_download'
+    result = get_reports(type, year, month)
+    assert result == {
+        'file_download': file_download_result
+    }
+
+    # type is file_preview
+    type = 'file_preview'
+    result = get_reports(type, year, month)
+    assert result == {
+        'file_preview': file_preview_result
+    }
+
+    # type is billing_file_download
+    type = 'billing_file_download'
+    result = get_reports(type, year, month)
+    assert result == {
+        'billing_file_download': billing_file_download_result
+    }
+
+    # type is detail_view
+    type = 'detail_view'
+    result = get_reports(type, year, month)
+    assert result == {
+        'detail_view': detail_view_result
+    }
+
+    # type is index_access
+    type = 'index_access'
+    result = get_reports(type, year, month)
+    assert result == {
+        'index_access': index_access_result
+    }
+
+    # type is file_using_per_user
+    type = 'file_using_per_user'
+    result = get_reports(type, year, month)
+    assert result == {
+        'file_using_per_user': file_using_per_user_result
+    }
+
+    # type is top_page_access
+    type = 'top_page_access'
+    result = get_reports(type, year, month)
+    assert result == {
+        'top_page_access': top_page_access_result
+    }
+
+    # type is search_count
+    type = 'search_count'
+    result = get_reports(type, year, month)
+    assert result == {
+        'search_count': search_count_result
+    }
+
+    # type is user_roles
+    type = 'user_roles'
+    result = get_reports(type, year, month)
+    assert result == {
+        'user_roles': user_roles_result
+    }
+
+    # type is site_access
+    type = 'site_access'
+    result = get_reports(type, year, month)
+    assert result == {
+        'site_access': site_access_result
+    }
+
+    # type is test
+    type = 'test'
+    result = get_reports(type, year, month)
+    assert result == {
+        'test': {}
+    }
+
+
 # def package_reports(all_stats, year, month):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_package_reports -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
 def test_package_reports(client,mocker):
@@ -318,7 +564,7 @@ def test_make_stats_file(client,mocker):
         'Aggregation Month,2022-10\n'\
         '""\n'\
         'No. Of Paid File Downloads\n'\
-        'File Name,Registered Index Name,No. Of Times Downloaded,test_group,Non-Logged In User,Logged In User,Site License,Admin,Registrar\n'
+        'File Name,Registered Index Name,No. Of Times Downloaded,Non-Logged In User,System Administrator,Repository Administrator,Contributor,Community Administrator,General,Original Role,Student,Site License,Admin,Registrar\n'
     result = make_stats_file(raw_stats,file_type,year,month)
     assert result.getvalue() == test
 
@@ -403,21 +649,49 @@ def test_write_report_file_rows(db,users):
     # filetype is billiing_file_download
     output = StringIO()
     writer = csv.writer(output,delimiter=",",lineterminator="\n")
-    record = {
-        "record1": {"file_key":"test_file_key1",
-               "index_list":"test_index_list1",
-               "total":1,"no_login":"True",
-               "login":"False",
-               "site_license":"test_site_license1",
-               "admin":"False","reg":"test_reg1"},
-        "record2": {"file_key":"test_file_key2",
-               "index_list":"test_index_list2",
-               "total":1,"no_login":"True",
-               "login":"False",
-               "site_license":"test_site_license2",
-               "admin":"False","reg":"test_reg2",
-               "group_counts":{"test_group":10}}
-    }
+    record = [
+        {
+            "file_key": "test_file_key1",
+            "index_list": "test_index_list1",
+            "total": 1,
+            "no_login": 1,
+            "login": 0,
+            "site_license": 1,
+            "admin": 0,
+            "reg": 0,
+            "System Administrator": 0,
+            "Repository Administrator": 0,
+            "Contributor": 0,
+            "Community Administrator": 0,
+        }, {
+            "file_key": "test_file_key2",
+            "index_list": "test_index_list2",
+            "total": 2,
+            "no_login": 0,
+            "login": 2,
+            "site_license": 0,
+            "admin": 0,
+            "reg": 2,
+            "System Administrator": 0,
+            "Repository Administrator": 0,
+            "Contributor": 2,
+            "Community Administrator": 0,
+            "group_counts": { "test_group": 2 }
+        }, {
+            "file_key": "test_file_key3",
+            "index_list": "test_index_list3",
+            "total": 3,
+            "no_login": 0,
+            "login": 3,
+            "site_license": 0,
+            "admin": 3,
+            "reg": 0,
+            "System Administrator": 3,
+            "Repository Administrator": 0,
+            "Contributor": 0,
+            "Community Administrator": 0,
+        },
+    ]
     other_info = ["test_group"]
     write_report_file_rows(writer,record,"billing_file_download",other_info)
     assert output.getvalue() == "test_file_key1,test_index_list1,1,True,False,test_site_license1,False,test_reg1\n"\
@@ -512,20 +786,6 @@ def test_reset_redis_cache(redis_connect,mocker):
     with mocker.patch("weko_admin.utils.RedisConnection.connection",side_effect=Exception("test_error")):
         with pytest.raises(Exception):
             reset_redis_cache("test_cache","")
-
-
-# def is_exists_key_in_redis(key):
-# .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_is_exists_key_in_redis -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_is_exists_key_in_redis(redis_connect,mocker):
-    mocker.patch("weko_admin.utils.RedisConnection.connection",return_value=redis_connect)
-    redis_connect.put("test_key",bytes("test_value","utf-8"))
-    result = is_exists_key_in_redis("test_key")
-    assert result == True
-
-    # raise Exception
-    with patch("weko_admin.utils.RedisConnection.connection", side_effect=Exception("test_error")):
-        result = is_exists_key_in_redis("test_key")
-        assert result == False
 
 
 # def is_exists_key_or_empty_in_redis(key):
@@ -1927,7 +2187,7 @@ def test_update_restricted_access(admin_settings,mocker):
     result = update_restricted_access(data)
     mock_called.assert_not_called()
     mock_called.reset_mock()
-    
+
     data = {
         "edit_mail_templates_enable": False
     }
@@ -2302,15 +2562,6 @@ def test_overwrite_the_memory_config_with_db(app,client,site_info):
     overwrite_the_memory_config_with_db(app, site_info_google2)
     assert app.config["GOOGLE_TRACKING_ID_USER"] == "test_tracking_id2"
 
-import json
-import pytest
-from flask import current_app, make_response, request, url_for
-from flask_login import current_user
-from mock import patch
-
-from weko_admin.utils import (
-    get_title_facets
-)
 
 # def get_title_facets():
 def test_get_title_facets(app, users, facet_search_settings):

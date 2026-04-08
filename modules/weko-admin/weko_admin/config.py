@@ -20,7 +20,8 @@
 
 """Configuration for weko-admin."""
 
-from flask_babelex import gettext as _
+from flask_babelex import gettext as __
+from flask_babelex import lazy_gettext as _
 
 WEKO_ADMIN_DEFAULT_AGGREGATION_MONTH = 2
 """default aggregation month for site license mail."""
@@ -157,6 +158,20 @@ WEKO_ADMIN_CACHE_PREFIX = 'admin_cache_{name}_{user_id}'
 WEKO_ADMIN_OUTPUT_FORMAT = 'tsv'
 """Output file format."""
 
+WEKO_ADMIN_REPORT_TYPES = [
+    'file_download',
+    'file_preview',
+    'billing_file_download',
+    'detail_view',
+    'index_access',
+    'file_using_per_user',
+    'top_page_access',
+    'search_count',
+    'user_roles',
+    'site_access'
+]
+"""Types for the report"""
+
 #プロフィール設定テンプレートを格納
 WEKO_ADMIN_PROFILE_SETTING_TEMPLATE  = 'weko_admin/admin/profiles_settings.html'
 """Language template."""
@@ -165,7 +180,6 @@ WEKO_ADMIN_REPORT_HEADERS = {
     'file_download': _('No. Of File Downloads'),
     'file_preview': _('No. Of File Previews'),
     'billing_file_download': _('No. Of Paid File Downloads'),
-    'billing_file_preview': _('No. Of Paid File Previews'),
     'index_access': _('Detail Views Per Index'),
     'detail_view': _('Detail Views Count'),
     'file_using_per_user': _('Usage Count By User'),
@@ -214,17 +228,16 @@ WEKO_ADMIN_REPORT_COLS = {
 """Columns for the report .csv files"""
 
 WEKO_ADMIN_REPORT_FILE_NAMES = {
-    'file_download': _('FileDownload_'),
-    'file_preview': _('FilePreview_'),
-    'billing_file_download': _('PayFileDownload_'),
-    'billing_file_preview': _('PayFilePreview_'),
-    'index_access': _('IndexAccess_'),
-    'detail_view': _('DetailView_'),
-    'file_using_per_user': _('FileUsingPerUser_'),
-    'search_count': _('SearchCount_'),
-    'user_roles': _('UserAffiliate_'),
-    'site_access': _('SiteAccess_'),
-    'top_page_access': _('TopPageAccess_'),
+    'file_download': 'FileDownload_',
+    'file_preview': 'FilePreview_',
+    'billing_file_download': 'PayFileDownload_',
+    'index_access': 'IndexAccess_',
+    'detail_view': 'DetailView_',
+    'file_using_per_user': 'FileUsingPerUser_',
+    'search_count': 'SearchCount_',
+    'user_roles': 'UserAffiliate_',
+    'site_access': 'SiteAccess_',
+    'top_page_access': 'TopPageAccess_',
 }
 """File names for the report .csv files"""
 
@@ -1335,7 +1348,7 @@ WEKO_ADMIN_RESTRICTED_ACCESS_SETTINGS = {
 """Default restricted access settings."""
 
 WEKO_ADMIN_RESTRICTED_ACCESS_MAX_INTEGER = 9999999
-"""max value of expiration_date and download_limit. 
+"""max value of expiration_date and download_limit.
     Any more than this and the datetime may overflow. """
 
 WEKO_ADMIN_ITEMS_PER_PAGE_USAGE_REPORT_REMINDER = 25
