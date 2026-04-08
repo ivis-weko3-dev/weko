@@ -206,12 +206,12 @@ def test_RecordsListResource_get(app, i18n_app, db, es, test_data, search_url, s
             cache_data = {'page': '1'}
             sessionstore.put(cache_key, (json.dumps(cache_data)).encode('utf-8'))
 
-            res = client.get(search_url, query_string=dict(page=1, size=2, q=1))
+            res = client.get(search_url, query_string=dict(page=1, size=2, q=""))
             assert res.status_code == 200
 
             cache_key = f"{cache_name}_url_args"
             sessionstore.delete(cache_key)
-            res = client.get(search_url, query_string=dict(page=1, size=2, q=1))
+            res = client.get(search_url, query_string=dict(page=1, size=2, q=""))
             assert res.status_code == 200
 
             cache_key = f"{cache_name}_url_args"
@@ -220,16 +220,16 @@ def test_RecordsListResource_get(app, i18n_app, db, es, test_data, search_url, s
             cache_key = cache_name
             cache_data = {"10000": {"control_number": 1}}
             sessionstore.put(cache_key, (json.dumps(cache_data)).encode('utf-8'))
-            res = client.get(search_url, query_string=dict(page=10000,q=1))
+            res = client.get(search_url, query_string=dict(page=10000,q=""))
             assert res.status_code == 200
 
             cache_key = f"{cache_name}_url_args"
-            cache_data = {'page': '1'}
+            cache_data = {'page': '1', 'q':''}
             sessionstore.put(cache_key, (json.dumps(cache_data)).encode('utf-8'))
             cache_key = cache_name
             cache_data = {"1": {"control_number": [1]}, "2": {"control_number": 1}}
             sessionstore.put(cache_key, (json.dumps(cache_data)).encode('utf-8'))
-            res = client.get(search_url, query_string=dict(page=10000, q=1))
+            res = client.get(search_url, query_string=dict(page=10000, q=""))
             assert res.status_code == 200
             with patch("weko_index_tree.api.Indexes.get_child_list_recursive",return_value = [1236]), \
                  patch("invenio_records_rest.views.RecordsListResource._do_custom_sort") as do:
