@@ -153,7 +153,7 @@ def get_records(**kwargs):
         descendant_ids = db.session.query(cte.c.descendant_id).all()
 
         return [descendant_id[0] for descendant_id in descendant_ids]
-        
+
 
     page_ = kwargs.get('resumptionToken', {}).get('page', 1)
     size_ = current_app.config['OAISERVER_PAGE_SIZE']
@@ -188,14 +188,20 @@ def get_records(**kwargs):
             #search = search.query('match', **{'path': kwargs['set']})
             #search = search.query('match', **{'_oai.sets': sets})
             #search = search.query('terms', **{'_oai.sets': sets})
-            
+
             if not sets:
                 search = search.query('match_none')
             else:
                 index_ids = [sets] + get_descendant_ids(sets)
                 search = search.query('terms', **{'_oai.sets': index_ids})
 
-        if not current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
+        if current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
+            if 'from_' in kwargs or 'until' in kwargs:
+                now = datetime.now().isoformat()
+                rq = range_query(now, kwargs.get('from_'), kwargs.get('until'))
+                if rq is not None:
+                    search = search.filter(rq)
+        else:
             time_range = {}
             if 'from_' in kwargs:
                 time_range['gte'] = kwargs['from_']
@@ -203,12 +209,6 @@ def get_records(**kwargs):
                 time_range['lte'] = kwargs['until']
             if time_range:
                 search = search.filter('range', **{'_updated': time_range})
-        else:
-            if 'from_' in kwargs or 'until' in kwargs:
-                now = datetime.now().isoformat()
-                rq = range_query(now, kwargs.get('from_'), kwargs.get('until'))
-                if rq is not None:
-                    search = search.filter(rq)
 
         search = search.query('match', **{'relation_version_is_last': 'true'})
         search = search.query('terms', **{'publish_status': [

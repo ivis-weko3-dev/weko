@@ -17,7 +17,7 @@ from invenio_db import db
 from jsonpatch import apply_patch
 from sqlalchemy.orm.attributes import flag_modified
 from werkzeug.local import LocalProxy
-from datetime import datetime, time, date
+from datetime import datetime, time
 
 from .errors import MissingModelError
 from .models import RecordMetadata
@@ -417,7 +417,10 @@ class Record(RecordBase):
             else:
                 return None
 
-        access_rights = _get_nested_value(metadata, access_path) if metadata and access_path else None
+        access_rights = (
+            _get_nested_value(metadata, access_path)
+            if metadata and access_path else None
+        )
         accessrole_date = []
         for v in metadata.values() if metadata else []:
             if isinstance(v, dict) and v.get("attribute_type") == "file":

@@ -264,7 +264,12 @@ def item_changes_search_factory(search,
                         "path": list_path
                     }
                 }
-                if not current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
+                if current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
+                    now = datetime.now().isoformat()
+                    rq = range_query(now, _date_from, _date_until)
+                    if rq is not None:
+                        post_filter['bool']['must'].append(rq.to_dict())
+                else:
                     post_filter['bool']['must'].append({
                         "range": {
                             "_updated": {
@@ -273,11 +278,6 @@ def item_changes_search_factory(search,
                             }
                         }
                     })
-                else:
-                    now = datetime.now().isoformat()
-                    rq = range_query(now, _date_from, _date_until)
-                    if rq is not None:
-                        post_filter['bool']['must'].append(rq.to_dict())
             # create search query
             try:
                 query_q = json.dumps(query_q).replace("@index", q)
@@ -294,6 +294,11 @@ def item_changes_search_factory(search,
                     }
                 })
                 if not current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
+                    now = datetime.now().isoformat()
+                    rq = range_query(now, _date_from, _date_until)
+                    if rq is not None:
+                        post_filter['bool']['must'].append(rq.to_dict())
+                else:
                     post_filter['bool']['must'].append({
                         "range": {
                             "_updated": {
@@ -302,11 +307,6 @@ def item_changes_search_factory(search,
                             }
                         }
                     })
-                else:
-                    now = datetime.now().isoformat()
-                    rq = range_query(now, _date_from, _date_until)
-                    if rq is not None:
-                        post_filter['bool']['must'].append(rq.to_dict())
             # create search query
             wild_card = []
             child_list = Indexes.get_child_list(q)

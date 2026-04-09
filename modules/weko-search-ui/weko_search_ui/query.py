@@ -23,7 +23,7 @@
 import json
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from functools import partial
 
 from elasticsearch_dsl.query import Bool, Q
@@ -614,7 +614,7 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
             weko_search_fix_accessrights = current_app.config.get(
                 'WEKO_SEARCH_FIX_ACCESSRIGHTS', False
             )
-            
+
             accessrights_value = params.get('accessrights')
             if not accessrights_value:
                 return None
@@ -1521,13 +1521,15 @@ def _split_text_by_or(text):
     return split_text_list
 
 def range_query(now, _from=None, _until=None):
-    """
-    Generate a search query considering update date changes.
+    """Generate a search query considering update date changes.
 
-    :param now: Current time (str)
-    :param _from: Lower bound of update date (str or None)
-    :param _until: Upper bound of update date (str or None)
-    :return: elasticsearch_dsl.query.Q or None
+    Args:
+        now (str): Current time.
+        _from (str or None): Lower bound of update date.
+        _until (str or None): Upper bound of update date.
+
+    Returns:
+        elasticsearch_dsl.query.Q or None: The generated query object, or None if no range is specified.
     """
     if _from is None and _until is None:
         return None
@@ -1594,4 +1596,4 @@ def range_query(now, _from=None, _until=None):
     should2 = Q('bool', must=must2)
 
     # Overall should
-    return Q('bool', should=[should1, should2])
+    return Q('bool', should=[should1, should2], minimum_should_match=1)
