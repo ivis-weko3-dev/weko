@@ -2,8 +2,6 @@ import json
 import copy
 
 import pytest
-from datetime import datetime, timezone
-from flask import current_app, request
 from elasticsearch_dsl.query import Match, Range, Terms, Bool
 from mock import patch, MagicMock
 from werkzeug.datastructures import MultiDict

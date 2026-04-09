@@ -2497,6 +2497,77 @@ def test_get_facet_search_query(app,mocker):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_get_title_facets -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
 def test_get_title_facets(app,facet_search_settings):
     with app.test_request_context(headers=[('Accept-Language', 'en')]):
+        titles, order = get_title_facets()
+        assert titles == {"Data Language":"Data Language","Data Type":"Data Type","raw_test":"raw_test"}
+        assert order == {1:"Data Language",3:"Data Type",4:"raw_test"}
+
+
+# def is_exits_facet(data, id):
+# .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_is_exits_facet -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
+def test_is_exits_facet(app, facet_search_settings):
+    with app.test_request_context(headers=[('Accept-Language', 'en')]):
+        # not id > 0
+        result = is_exits_facet({"name_en":"Data Type","name_jp":"データタイプ","mapping":"description.value"},None)
+        assert result == True
+        result = is_exits_facet({"name_en":"not exist facet","name_jp":"存在しないファセット","mapping":"not exist mapping"},None)
+        assert result == False
+
+        # id > 0
+        result = is_exits_facet({"name_en":"Data Type","name_jp":"データタイプ","mapping":"description.value"},"3")
+        assert result == False
+        result = is_exits_facet({"name_en":"Data Type","name_jp":"データタイプ","mapping":"description.value"},"100")
+        assert result == True
+
+# def overwrite_the_memory_config_with_db(app, site_info):
+# .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_overwrite_the_memory_config_with_db -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
+def test_overwrite_the_memory_config_with_db(app,client,site_info):
+    from flask import Flask
+
+    site_info_not_google = SiteInfo(
+        site_name=[{"name":"test_site_info"}],
+        notify={"name":"test_notify"}
+    )
+
+    site_info_google1 = SiteInfo(
+        site_name=[{"name":"test_site_info"}],
+        notify={"name":"test_notify"},
+        google_tracking_id_user="test_tracking_id1",
+    )
+    site_info_google2 = SiteInfo(
+        site_name=[{"name":"test_site_info"}],
+        notify={"name":"test_notify"},
+        google_tracking_id_user="test_tracking_id2",
+    )
+
+    app = Flask("test_weko_admin_app")
+    # site_info is None
+    overwrite_the_memory_config_with_db(app, None)
+
+    # site_info.google_tracking_id_user is not exist
+    overwrite_the_memory_config_with_db(app, site_info_not_google)
+
+    # GOOGLE_TRACKING_ID_USER is not exist
+    overwrite_the_memory_config_with_db(app, site_info_google1)
+    assert app.config["GOOGLE_TRACKING_ID_USER"] == "test_tracking_id1"
+
+    overwrite_the_memory_config_with_db(app, site_info_google2)
+    assert app.config["GOOGLE_TRACKING_ID_USER"] == "test_tracking_id2"
+
+import json
+import pytest
+from flask import current_app, make_response, request, url_for
+from flask_login import current_user
+from mock import patch
+
+from weko_admin.utils import (
+    get_title_facets
+)
+
+# def get_title_facets():
+def test_get_title_facets(app, users, facet_search_settings):
+    #facet_search_setting = json_data("data/test_facet.json")
+    with app.test_request_context(headers=[('Accept-Language', 'en')]):
+        #with patch("weko_admin.models.FacetSearchSetting.get_activated_facets", return_value=facet_search_setting):
         titles, order, uiTypes, isOpens, displayNumbers, searchConditions = get_title_facets()
         assert uiTypes
         assert isOpens
