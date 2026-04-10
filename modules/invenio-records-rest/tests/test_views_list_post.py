@@ -203,7 +203,7 @@ def test_RecordsListResource_get(app, i18n_app, db, es, test_data, search_url, s
             redis_connection = RedisConnection()
             sessionstore = redis_connection.connection(db=app.config['ACCOUNTS_SESSION_REDIS_DB_NO'], kv = True)
             cache_key = f"{cache_name}_url_args"
-            cache_data = {'page': '1'}
+            cache_data = {'page': '1', 'q':''}
             sessionstore.put(cache_key, (json.dumps(cache_data)).encode('utf-8'))
 
             res = client.get(search_url, query_string=dict(page=1, size=2, q=""))
