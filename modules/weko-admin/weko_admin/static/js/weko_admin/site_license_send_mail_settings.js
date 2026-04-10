@@ -8,7 +8,7 @@ $('#confirm_send_button').on('click', function () {
         alert('Selected period is wrong!');
         return;
     }
-    let start_month = $("#from_year_select").val() + '-' + paddingLeft($("#from_month_select").val(), 2); 
+    let start_month = $("#from_year_select").val() + '-' + paddingLeft($("#from_month_select").val(), 2);
     let end_month = $("#to_year_select").val() + '-' + paddingLeft($("#to_month_select").val(), 2);
     $.ajax({
         url: '/api/admin/sitelicensesendmail/send/' + start_month + '/' + end_month,
@@ -70,26 +70,26 @@ function paddingLeft(str,lenght){
 
 $('#all-check').on('change', function () {
   document.querySelectorAll('[id^="send_mail_flag_"]').forEach(el => {
-  if (!(el.disabled)){
-    if($('#all-check').prop('checked')){
-      el.checked = true;
-      checked_list[el.name] = 'T';
+    if (!(el.disabled)) {
+      if ($('#all-check').prop('checked')) {
+        el.checked = true;
+        checked_list[el.name] = 'T';
+      }
+      else {
+        el.checked = false;
+        checked_list[el.name] = 'F';
+      }
     }
-    else{
-      el.checked = false;
-      checked_list[el.name] = 'F';
-    }
-   }
   })
 });
 
-$(document).ready(function(){
+$(document).ready(function() {
   let checkList = Array.from(document.querySelectorAll("[id^=send_mail_flag_]")).filter(el => el.disabled === false);
   const allChecked = checkList.length>0 && Array.from(checkList).every(el => el.checked);
-  if(allChecked){
-      $('#all-check').prop('checked',true);
-    }
-    else{
-      $('#all-check').prop('checked',false);
-    }
+  if (allChecked) {
+    $('#all-check').prop('checked',true);
+  }
+  else{
+    $('#all-check').prop('checked',false);
+  }
 });
