@@ -190,6 +190,7 @@ def base_app(instance_path, search_class):
         CACHE_REDIS_DB=0,
         CACHE_REDIS_HOST="redis",
         REDIS_PORT="6379",
+        ACCOUNTS_SESSION_REDIS_DB_NO=1,
         JSONSCHEMAS_URL_SCHEME="http",
         SECRET_KEY="CHANGE_ME",
         SECURITY_PASSWORD_SALT="CHANGE_ME_ALSO",
