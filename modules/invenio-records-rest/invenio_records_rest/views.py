@@ -952,8 +952,12 @@ class RecordsListResource(ContentNegotiatedMethodView):
         flag = "prepend"
         start, end = (page - 1) * size, page * size
         sorted_hits = [hit for _, hit in sorted_result[start:end]]
-        if flag == "prepend":
-             sorted_hits.reverse()
+        if (flag == "prepend"
+            and 'html' not in request.values.getlist('format')
+            and request.values.get('q') is None
+        ):
+            sorted_hits.reverse()
+
         search_result_dict["hits"]["hits"] = sorted_hits
 
     @classmethod
