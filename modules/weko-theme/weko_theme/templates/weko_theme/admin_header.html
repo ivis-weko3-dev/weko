@@ -69,7 +69,9 @@
                   </div>
                   <div class="col-md-10">
                     <div style="display: inline-block;max-width:10vw;overflow: hidden;white-space: nowrap;text-overflow: ellipsis;">
-                      <strong>{{ username or current_user.email }}</strong>
+                      <strong>
+                        {{ username or current_user.email }}
+                      </strong>
                     </div>
                     {%- if username and username != current_user.email %}
                     <p class="text-muted small">{{ current_user.email }}</p>
