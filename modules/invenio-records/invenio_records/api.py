@@ -380,6 +380,8 @@ class Record(RecordBase):
 
     @property
     def updated(self):
+        if not self.model:
+            return None
         original_updated = self.model.updated
         if not current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
             return original_updated

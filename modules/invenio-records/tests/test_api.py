@@ -392,3 +392,55 @@ def test_validate_partial(app, db):
         record['a'] = 1
         with pytest.raises(ValidationError) as exc_info:
             record.commit(validator=PartialDraft4Validator)
+
+@pytest.mark.parametrize("fix_accessrights, updated, meta_patch, expected", [
+    # WEKO_SEARCH_FIX_ACCESSRIGHTS=True
+    (True, None, {}, None),
+    (True, datetime(2026, 3, 1, 0, 0, 0), None, datetime(2026, 3, 1, 0, 0, 0)),
+    (True, datetime(2026, 3, 1, 0, 0, 0), {"item_type_id": None}, datetime(2026, 3, 1, 0, 0, 0)),
+    (True, datetime(2026, 3, 1, 0, 0, 0), {"item_type_id": 1}, datetime(2026, 3, 1, 0, 0, 0)),
+    (True, datetime(2026, 3, 1, 0, 0, 0), {"item_type_id": 1}, datetime(2026, 3, 1, 0, 0, 0)),
+    (True, datetime(2026, 3, 1, 0, 0, 0), {"item_type_id": 1}, datetime(2026, 3, 1, 0, 0, 0)),
+    (True, datetime(2026, 3, 1, 0, 0, 0), {"item_type_id": 1, "item_1736148125517": {"attribute_type": "file", "attribute_value_mlt": []}}, datetime(2026, 3, 1, 0, 0, 0)),
+    (True, None, {"item_type_id": 1, "item_1736148125517": {"attribute_type": "file", "attribute_value_mlt": []}}, None),
+    (True, datetime(2027, 1, 1, 0, 0, 0), {"item_type_id": 1, "item_1736148125517": {"attribute_type": "file", "attribute_value_mlt": [{"date": [{"dateType": "Available", "dateValue": "2026-12-31"}], "accessrole": "open_date"}]}}, datetime(2027, 1, 1, 0, 0, 0)),
+    (True, datetime(2026, 3, 1, 0, 0, 0), {"item_type_id": 1, "item_1736148125517": {"attribute_type": "file", "attribute_value_mlt": [{"date": [{"dateType": "Available", "dateValue": "2027-01-01"}], "accessrole": "open_date"}]}}, datetime(2026, 3, 1, 0, 0, 0)),
+    (True, datetime(2026, 3, 1, 0, 0, 0), {"item_type_id": 1, "item_1736148125517": {"attribute_type": "file", "attribute_value_mlt": [{"date": [{"dateType": "Available", "dateValue": "2027-01-01"}], "accessrole": "open_access"}]}}, datetime(2026, 3, 1, 0, 0, 0)),
+
+    # WEKO_SEARCH_FIX_ACCESSRIGHTS=False
+    (False, None, {}, None),
+    (False, datetime(2026, 3, 1, 0, 0, 0), None, datetime(2026, 3, 1, 0, 0, 0)),
+    (False, datetime(2026, 3, 1, 0, 0, 0), {"item_type_id": None}, datetime(2026, 3, 1, 0, 0, 0)),
+    (False, datetime(2026, 3, 1, 0, 0, 0), {"item_type_id": 1}, datetime(2026, 3, 1, 0, 0, 0)),
+    (False, datetime(2026, 3, 1, 0, 0, 0), {"item_type_id": 1}, datetime(2026, 3, 1, 0, 0, 0)),
+    (False, datetime(2026, 3, 1, 0, 0, 0), {"item_type_id": 1}, datetime(2026, 3, 1, 0, 0, 0)),
+    (False, datetime(2026, 3, 1, 0, 0, 0), {"item_type_id": 1, "item_1736148125517": {"attribute_type": "file", "attribute_value_mlt": []}}, datetime(2026, 3, 1, 0, 0, 0)),
+    (False, None, {"item_type_id": 1, "item_1736148125517": {"attribute_type": "file", "attribute_value_mlt": []}}, None),
+    (False, datetime(2027, 1, 1, 0, 0, 0), {"item_type_id": 1, "item_1736148125517": {"attribute_type": "file", "attribute_value_mlt": [{"date": [{"dateType": "Available", "dateValue": "2026-12-31"}], "accessrole": "open_date"}]}}, datetime(2027, 1, 1, 0, 0, 0)),
+    (False, datetime(2026, 3, 1, 0, 0, 0), {"item_type_id": 1, "item_1736148125517": {"attribute_type": "file", "attribute_value_mlt": [{"date": [{"dateType": "Available", "dateValue": "2027-01-01"}], "accessrole": "open_date"}]}}, datetime(2026, 3, 1, 0, 0, 0)),
+])
+# .tox/c1/bin/pytest --cov=invenio_records tests/test_api.py::test_record_updated_with_real_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records/.tox/c1/tmp
+def test_record_updated_with_real_metadata(app, monkeypatch, fix_accessrights, updated, meta_patch, expected):
+    base_meta = {
+        "item_type_id": 1
+    }
+    meta = copy.deepcopy(base_meta)
+    if meta_patch is not None:
+        meta.update(copy.deepcopy(meta_patch))
+    else:
+        meta = None
+
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": "dummy_path"})
+    # monkeypatch.setattr("weko_records.utils.check_embargo_rights", lambda a, t, d: (True, "open access"))
+
+    with app.app_context():
+        from flask import current_app
+        current_app.config["WEKO_SEARCH_FIX_ACCESSRIGHTS"] = fix_accessrights
+        record = Record({})
+        class DummyModel:
+            def __init__(self, updated, json):
+                self.updated = updated
+                self.json = json
+        record.model = DummyModel(updated=updated, json=meta)
+        result = record.updated
+        assert result == expected

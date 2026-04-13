@@ -28,7 +28,7 @@ from invenio_search import RecordsSearch
 from weko_index_tree.api import Indexes
 from weko_schema_ui.models import PublishStatus
 from weko_search_ui.utils import execute_search_with_pagination
-from weko_search_ui.query import range_query
+from invenio_oaiserver.query import range_query
 
 from datetime import datetime
 from .config import WEKO_ROOT_INDEX
@@ -265,8 +265,7 @@ def item_changes_search_factory(search,
                     }
                 }
                 if current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
-                    now = datetime.now().isoformat()
-                    rq = range_query(now, _date_from, _date_until)
+                    rq = range_query(_date_from, _date_until)
                     if rq is not None:
                         post_filter['bool']['must'].append(rq.to_dict())
                 else:
@@ -293,9 +292,8 @@ def item_changes_search_factory(search,
                         "path": list_path
                     }
                 })
-                if not current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
-                    now = datetime.now().isoformat()
-                    rq = range_query(now, _date_from, _date_until)
+                if current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
+                    rq = range_query(_date_from, _date_until)
                     if rq is not None:
                         post_filter['bool']['must'].append(rq.to_dict())
                 else:
@@ -307,6 +305,7 @@ def item_changes_search_factory(search,
                             }
                         }
                     })
+
             # create search query
             wild_card = []
             child_list = Indexes.get_child_list(q)
