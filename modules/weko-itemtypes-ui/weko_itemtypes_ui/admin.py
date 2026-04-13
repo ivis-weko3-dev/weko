@@ -796,7 +796,7 @@ class ItemTypeMappingView(BaseView):
         :param ItemTypeID: Item type ID. (Default: 0)
         :return: The rendered template.
         """
-        current_app.logger.error("ItemTypeID:{}".format(ItemTypeID))
+        current_app.logger.info("ItemTypeID:{}".format(ItemTypeID))
         try:
             lists = ItemTypes.get_latest()  # ItemTypes.get_all()
             if lists is None or len(lists) == 0:

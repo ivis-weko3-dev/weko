@@ -268,7 +268,7 @@ class IndexSearchResource(ContentNegotiatedMethodView):
         weko_faceted_search_mapping = FacetSearchSetting.get_activated_facets_mapping()
         from weko_admin.utils import get_title_facets
         titles, order, uiTypes, isOpens, displayNumbers, searchConditions = get_title_facets()
-        current_app.logger.warning(search)
+        current_app.logger.info(search)
         for param in params:
             query_key = weko_faceted_search_mapping[param]
             if query_key == 'temporal':
