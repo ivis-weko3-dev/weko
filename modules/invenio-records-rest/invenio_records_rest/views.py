@@ -828,6 +828,8 @@ class RecordsListResource(ContentNegotiatedMethodView):
 
         if is_custom_sort :
             search = self._override_params_for_customsort(search, is_asc)
+
+        # Execute search
         search_result = search.execute()
         search_result_dict = search_result.to_dict()
 
