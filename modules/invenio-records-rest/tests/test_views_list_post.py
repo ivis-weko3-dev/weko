@@ -298,9 +298,9 @@ def test__override_params_for_customsort(app, is_asc, expect):
 def test__do_custom_sort(app, is_asc, size, page, format, q, expect_len,
                          expect_start, expect_end, prepare_search_result):
     search_result_dict, target, return_value = prepare_search_result
-    query_string = f'/?format={format}'
+    query_string = f"/?format={format}"
     if q is not None:
-        query_string += f'&q={q}'
+        query_string += f"&q={q}"
     with app.test_request_context(query_string), \
          patch("weko_index_tree.api.Indexes.get_item_sort",
                return_value=return_value):
