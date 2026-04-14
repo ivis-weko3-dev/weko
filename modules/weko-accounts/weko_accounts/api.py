@@ -35,6 +35,8 @@ class ShibUser(object):
         :param shib_attr: passed attribute for shibboleth user
         """
         self.shib_attr = shib_attr
+        if self.shib_attr['shib_handle']:
+            self.shib_attr['shib_handle']=self.shib_attr['shib_handle'][:255]
         self.user = None
         """The :class:`invenio_accounts.models.User` instance."""
         self.shib_user = None
@@ -150,7 +152,7 @@ class ShibUser(object):
                 if self.shib_attr['shib_organization']:
                     shib_user.shib_organization = self.shib_attr['shib_organization']
                 if self.shib_attr['shib_handle']:
-                    shib_user.shib_handle = self.shib_attr['shib_handle'][:255]
+                    shib_user.shib_handle = self.shib_attr['shib_handle']
             db.session.commit()
         except SQLAlchemyError as ex:
             current_app.logger.error("SQLAlchemyError: {}".format(ex))
