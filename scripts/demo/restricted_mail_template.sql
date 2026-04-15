@@ -734,4 +734,4 @@ WHERE EXCLUDED.id = 11;
 -- Name: mail_templates_id_seq; Type: SEQUENCE SET; Schema: public; Owner: invenio
 --
 
-PERFORM pg_catalog.setval('mail_templates_id_seq', 15, true);
+SELECT pg_catalog.setval('mail_templates_id_seq', 15, true);

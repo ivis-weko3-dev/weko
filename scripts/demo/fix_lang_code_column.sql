@@ -1,12 +1,9 @@
-RAISE NOTICE 'Update admin_lang_settings';
+
 --VARCHAR型カラムの文字数を変更する
 ALTER TABLE admin_lang_settings ALTER COLUMN lang_code TYPE character varying(10);
 
 --「zh」、「zh-cn」を「zh-Hans」に変更する
 UPDATE admin_lang_settings SET lang_code = 'zh_Hans', lang_name = '中文 (簡体)' WHERE lang_code = 'zh' OR lang_code = 'zh-cn';
--- Get number of rows updated
-GET DIAGNOSTICS updated_cnt = ROW_COUNT;
-RAISE NOTICE 'Updated % rows in admin_lang_settings from zh to zh_Hans', updated_cnt;
 
 -- 「zh-tw」を「zh_Hant」に書き換える
 UPDATE admin_lang_settings SET lang_code = 'zh_Hant', lang_name = '中文 (繁体)' WHERE lang_code = 'zh-tw';
