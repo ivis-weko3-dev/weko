@@ -30,7 +30,6 @@ from weko_schema_ui.models import PublishStatus
 from weko_search_ui.utils import execute_search_with_pagination
 from invenio_oaiserver.query import range_query
 
-from datetime import datetime
 from .config import WEKO_ROOT_INDEX
 
 
