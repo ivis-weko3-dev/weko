@@ -450,9 +450,6 @@ class Record(RecordBase):
             dt = datetime.combine(dt.date(), time(0, 0, 0))
             open_dates.append(dt)
 
-        if not open_dates:
-            return original_updated
-
         latest_open_date = max(open_dates)
         if original_updated:
             return max(original_updated, latest_open_date)
