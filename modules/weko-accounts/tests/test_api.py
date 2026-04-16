@@ -13,43 +13,52 @@ from weko_accounts.api import ShibUser,get_user_info_by_role_name
 #class ShibUser(object):
 class TestShibUser:
 #    def __init__(self, shib_attr=None):
+# .tox/c1/bin/pytest --cov=weko_accounts tests/test_api.py::TestShibUser::test_init -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-accounts/.tox/c1/tmp
     def test_init(self,db,users):
         user = users[0]["obj"]
         attr = {
-            "shib_eppn":"test_eppn"
+            "shib_eppn":"test_eppn",
+            "shib_handle":""
         }
         shibuser = ShibUser(attr)
         assert shibuser.shib_attr == attr
         assert shibuser.user == None
         assert shibuser.shib_user == None
-        
-        
+
+        attr = {
+            "shib_handle":"test_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletes"
+        }
+        shibuser = ShibUser(attr)
+        assert shibuser.shib_attr == attr
+        assert shibuser.shib_attr['shib_handle'] == "test_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handlete"
+
 #    def _set_weko_user_role(self, roles):
 # .tox/c1/bin/pytest --cov=weko_accounts tests/test_api.py::TestShibUser::test_set_weko_user_role -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-accounts/.tox/c1/tmp
     def test_set_weko_user_role(self,app,db,users):
-        
+
         role_sysadmin = Role.query.filter_by(name='System Administrator').first()
         role_repoadmin = Role.query.filter_by(name='Repository Administrator').first()
         role_original = Role.query.filter_by(name='Original Role').first()
-        
+
         user = users[6]["obj"]
         attr = {
-            "shib_eppn":"test_eppn"
+            "shib_eppn":"test_eppn",
+            "shib_handle":""
         }
         s_user = ShibbolethUser(weko_uid=user.id,weko_user=user,**attr)
         db.session.add(s_user)
         s_user.shib_roles.append(role_original)
         db.session.commit()
-        
+
         shibuser = ShibUser(attr)
         shibuser.shib_user = s_user
         shibuser.user=user
-        
+
         roles = ['System Administrator','Repository Administrator']
         result = shibuser._set_weko_user_role(roles)
         assert shibuser.user.roles == [role_repoadmin,role_sysadmin]
         assert shibuser.shib_user.shib_roles == [role_sysadmin]
-        
+
         # raise Exception
         error = Exception("test_error")
         with patch("weko_accounts.api.db.session.begin_nested",side_effect=error):
@@ -60,7 +69,8 @@ class TestShibUser:
     def test_get_site_license(self):
         attr = {
             "shib_eppn":"test_eppn",
-            "shib_ip_range_flag":True
+            "shib_ip_range_flag":True,
+            "shib_handle":""
         }
         shibuser = ShibUser(attr)
         result = shibuser._get_site_license()
@@ -70,6 +80,7 @@ class TestShibUser:
     def test__create_unknown_roles(self, app, users, mocker):
         attr = {
             "shib_eppn":"test_eppn",
+            "shib_handle":""
         }
         shibuser = ShibUser(attr)
 
@@ -85,13 +96,13 @@ class TestShibUser:
         app.config.update(WEKO_ACCOUNTS_SHIB_ALLOW_CREATE_GROUP_ROLE=True)
         shibuser._create_unknown_roles(role_names)
         assert before_roles == Role.query.all()
-        
+
         # Occurred exception
         role_names = ['System Administrator', 'new_role_1', 'new_role_2', '']
         with patch("weko_accounts.api.db.session.commit",side_effect=Exception):
             shibuser._create_unknown_roles(role_names)
             assert before_roles == Role.query.all()
-        
+
         # Success
         shibuser._create_unknown_roles(role_names)
         assert Role.query.filter_by(name='new_role_1').count() == 1
@@ -134,7 +145,8 @@ class TestShibUser:
         attr2 = {
             "shib_eppn": "eppn2",
             "shib_mail": "mail2@example.com",
-            "shib_user_name": "user_name2"
+            "shib_user_name": "user_name2",
+            "shib_handle": ""
         }
         s_user2 = ShibbolethUser(weko_uid=None, weko_user=None, **attr2)
         db.session.add(s_user2)
@@ -308,16 +320,16 @@ class TestShibUser:
     def test_check_weko_user(self,app,users):
         user = users[0]["obj"]
         password = user.password_plaintext
-        
+
         # exist wkeo_user, correct password
-        shibuser = ShibUser({})
+        shibuser = ShibUser({"shib_handle":""})
         result = shibuser.check_weko_user(user.email,password)
         assert result == True
-        
+
         # not exist weko_user
         result = shibuser.check_weko_user("not.exist.user@test.org",password)
         assert result == False
-        
+
         # exist weko_user, not correct password
         result = shibuser.check_weko_user(user.email,"wrong passwd")
         assert result == False
@@ -328,7 +340,8 @@ class TestShibUser:
         attr = {
             "shib_eppn":"",
             "shib_mail":"new.sysadmin_mail@test.org",
-            "shib_user_name":"shib name"
+            "shib_user_name":"shib name",
+            "shib_handle":""
         }
         # not exist shib_eppn
         shibuser = ShibUser(attr)
@@ -336,12 +349,13 @@ class TestShibUser:
         assert users[0]["obj"].email == "new.sysadmin_mail@test.org"
         assert shibuser.shib_attr["shib_eppn"] == "shib name"
         assert result == ShibbolethUser.query.filter_by(shib_eppn="shib name").one_or_none()
-        
+
         # exist shib_eppn, raise Exception
         user = users[1]["email"]
         attr = {
             "shib_eppn":"test_eppn",
-            "shib_mail":"new.repoadmin_mail@test.org"
+            "shib_mail":"new.repoadmin_mail@test.org",
+            "shib_handle":""
         }
         shibuser = ShibUser(attr)
         with patch("weko_accounts.api.ShibbolethUser.create",side_effect=Exception):
@@ -354,22 +368,24 @@ class TestShibUser:
         today = datetime(2022,10,6,1,2,3,4)
         datetime_mock.utcnow.return_value=today
         mocker.patch("weko_accounts.api.ShibUser.new_shib_profile")
-        
+
         # exist user
         user = users[0]["obj"]
         attr = {
             "shib_mail":user.email,
-            "shib_eppn":"test_eppn1"
+            "shib_eppn":"test_eppn1",
+            "shib_handle": ""
         }
         shibuser = ShibUser(attr)
         result = shibuser.new_relation_info()
         assert result.shib_eppn == "test_eppn1"
         assert result.weko_uid == user.id
-        
+
         # not exist user
         attr = {
             "shib_mail":"newuser@test.org",
-            "shib_eppn":"test_eppn2"
+            "shib_eppn":"test_eppn2",
+            "shib_handle": ""
         }
         shibuser = ShibUser(attr)
         result = shibuser.new_relation_info()
@@ -379,7 +395,8 @@ class TestShibUser:
 # .tox/c1/bin/pytest --cov=weko_accounts tests/test_api.py::TestShibUser::test_new_shib_profile -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-accounts/.tox/c1/tmp
     def test_new_shib_profile(self,db,users):
         attr = {
-            "shib_eppn":"test_eppn"
+            "shib_eppn":"test_eppn",
+            "shib_handle":""
         }
         user = users[0]["obj"]
         s_user = ShibbolethUser(weko_uid=user.id,weko_user=user,**attr)
@@ -388,17 +405,17 @@ class TestShibUser:
         shibuser = ShibUser(attr)
         shibuser.shib_user = s_user
         shibuser.user=user
-        
+
         result = shibuser.new_shib_profile()
         profile = UserProfile.query.filter_by(user_id=user.id).one_or_none()
         assert result==profile
-        
+
 #    def shib_user_login(self):
 # .tox/c1/bin/pytest --cov=weko_accounts tests/test_api.py::TestShibUser::test_shib_user_login -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-accounts/.tox/c1/tmp
     def test_shib_user_login(self,request_context,users,mocker):
         mock_sender = mocker.patch("weko_accounts.api.user_logged_in.send")
         user = users[0]["obj"]
-        shibuser = ShibUser({})
+        shibuser = ShibUser({"shib_handle":""})
         shibuser.user=user
         shibuser.shib_user_login()
         mock_sender.assert_called_with(current_app._get_current_object(),user=user)
@@ -407,16 +424,17 @@ class TestShibUser:
 #    def assign_user_role(self):
 # .tox/c1/bin/pytest --cov=weko_accounts tests/test_api.py::TestShibUser::test_assign_user_role -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-accounts/.tox/c1/tmp
     def test_assign_user_role(self,app, users,mocker):
-        
+
         # not exist self.user
-        shibuser = ShibUser({})
+        shibuser = ShibUser({"shib_handle":""})
         flg, ret = shibuser.assign_user_role()
         assert flg == False
         assert ret == "Can't get relation Weko User."
-        
+
         # exist self.user, issubset, ret is None
         attr = {
-            "shib_role_authority_name":"管理者;図書館員"
+            "shib_role_authority_name":"管理者;図書館員",
+            "shib_handle":""
         }
         shibuser = ShibUser(attr)
         shibuser.user = users[0]["obj"]
@@ -431,6 +449,7 @@ class TestShibUser:
         attr = {
             "shib_role_authority_name":"管理者;図書館員",
             "shib_page_name":"IPSJ:学会員;AL:会員;SLDM:会員",
+            "shib_handle":""
         }
         shibuser = ShibUser(attr)
         shibuser.user = users[0]["obj"]
@@ -449,10 +468,11 @@ class TestShibUser:
         mock_set_role.assert_called_with(['System Administrator','Repository Administrator','IPSJ:学会員','AL:会員','SLDM:会員',''])
         assert flg == False
         assert ret == error
-        
+
         # not issubset
         attr = {
-            "shib_role_authority_name":"異常役員"
+            "shib_role_authority_name":"異常役員",
+            "shib_handle":""
         }
         shibuser = ShibUser(attr)
         shibuser.user = users[0]["obj"]
@@ -468,7 +488,8 @@ class TestShibUser:
         # self._get_site_license is true
         attr = {
             "shib_eppn":"test_eppn",
-            "shib_ip_range_flag":True
+            "shib_ip_range_flag":True,
+            "shib_handle":""
         }
         shibuser = ShibUser(attr)
         flg,msg = shibuser.valid_site_license()
@@ -477,6 +498,7 @@ class TestShibUser:
         # self._get_site_license is false
         attr = {
             "shib_eppn":"test_eppn",
+            "shib_handle":""
         }
         shibuser = ShibUser(attr)
         flg,msg = shibuser.valid_site_license()
@@ -485,7 +507,7 @@ class TestShibUser:
 #    def check_in(self):
 # .tox/c1/bin/pytest --cov=weko_accounts tests/test_api.py::TestShibUser::test_check_in -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-accounts/.tox/c1/tmp
     def test_check_in(self,mocker):
-        shibuser = ShibUser({})
+        shibuser = ShibUser({"shib_handle":""})
         # check_role is True
         with patch("weko_accounts.api.ShibUser.assign_user_role",return_value=(True,"")):
             result = shibuser.check_in()
@@ -502,7 +524,7 @@ class TestShibUser:
         user = users[0]["obj"]
         login_user(user)
         mock_send = mocker.patch("weko_accounts.api.user_logged_out.send")
-        shibuser = ShibUser({})
+        shibuser = ShibUser({"shib_handle":""})
         shibuser.shib_user_logout()
         mock_send.assert_called_with(current_app._get_current_object(),user=user)
 #def get_user_info_by_role_name(role_name):
