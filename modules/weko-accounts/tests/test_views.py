@@ -107,7 +107,7 @@ def test_shib_auto_login(client,redis_connect,mocker):
         mock_redirect_.assert_called_once()
         assert redis_connect.redis.exists("Shib-Session-1111") == False
 
-    redis_connect.put("Shib-Session-1111",bytes('{"shib_eppn":"test_eppn"}',"utf-8"))
+    redis_connect.put("Shib-Session-1111",bytes('{"shib_eppn":"test_eppn","shib_handle":""}',"utf-8"))
 
     set_session(client,{"shib_session_id":"1111"})
     with patch("weko_accounts.views.ShibUser.check_in",return_value=None):
