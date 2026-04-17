@@ -1165,13 +1165,19 @@ def test_selected_value_by_language(app, meta):
     with patch("weko_records.utils.check_info_in_metadata", return_value="en"):
         res = selected_value_by_language(["ja-Latn"], ['ja-Latn'], _lang_id, _val_id, 'en', meta[0])
         assert res=='en'
-    with patch("weko_records.utils.check_info_in_metadata", side_effect=[None,"expected"]):
+    with patch("weko_records.utils.check_info_in_metadata", side_effect=[None, "expected"]):
         res = selected_value_by_language(['en'], ['Creator'], _lang_id, _val_id, 'en', meta[0])
         assert res=="expected"
+    with patch("weko_records.utils.check_info_in_metadata", side_effect=[None, "expected"]):
         res = selected_value_by_language(['ja-Latn'], ['Creator'], _lang_id, _val_id, 'en', meta[0])
         assert res=="expected"
+    with patch("weko_records.utils.check_info_in_metadata", side_effect=[None, None, None, None, None]):
+        res = selected_value_by_language(['en'], ['Creator'], _lang_id, _val_id, 'en', meta[0])
+        assert res==None
+    with patch("weko_records.utils.check_info_in_metadata", side_effect=[None, None]):
         res = selected_value_by_language(['ja'], ['Creator'], _lang_id, _val_id, 'en', meta[0])
         assert res==None
+    with patch("weko_records.utils.check_info_in_metadata", side_effect=[None, None]):
         res = selected_value_by_language([''], ['Creator'], _lang_id, _val_id, 'en', meta[0])
         assert res==None
 

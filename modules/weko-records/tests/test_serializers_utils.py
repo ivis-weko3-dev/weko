@@ -164,125 +164,124 @@ params=[
      "data/record_hit/record_hit1.json",
      True)]
 @pytest.mark.parametrize("render, form, mapping, hit, licence", params)
-@patch("weko_records.serializers.utils.get_mapping", return_value=json_data("data/get_mapping.json"))
 def test_open_search_detail_data(app, db, db_index, record1, render, form, mapping, hit, licence):
-    def fetcher(obj_uuid, data):
-        assert obj_uuid=="1"
-        return PersistentIdentifier(pid_type='recid', pid_value=data['pid'])
-    _item_type_name=ItemTypeName(name="test")
-    _item_type = ItemTypes.create(
-        name="test",
-        item_type_name=_item_type_name,
-        schema=json_data("data/item_type/item_type_schema.json"),
-        render=json_data(render),
-        form=json_data(form),
-        tag=1
-    )
-    Mapping.create(
-        item_type_id=_item_type.id,
-        mapping=json_data(mapping)
-    )
-    _data = [
-        ('lang', 'en'),
-        ('log_term', '2021-01')
-    ]
+    with patch("weko_records.serializers.utils.get_mapping", return_value=json_data("data/item_map.json")):
+        def fetcher(obj_uuid, data):
+            assert obj_uuid=="1"
+            return PersistentIdentifier(pid_type='recid', pid_value=data['pid'])
+        _item_type_name=ItemTypeName(name="test")
+        _item_type = ItemTypes.create(
+            name="test",
+            item_type_name=_item_type_name,
+            schema=json_data("data/item_type/item_type_schema.json"),
+            render=json_data(render),
+            form=json_data(form),
+            tag=1
+        )
+        Mapping.create(
+            item_type_id=_item_type.id,
+            mapping=json_data(mapping)
+        )
+        _data = {
+            'lang': 'en',
+            'log_term': '2021-01'
+        }
 
-    hit_data = json_data(hit)
-    hit_data['_id'] = record1[0].object_uuid
-    _search_result = {'hits': {'total': 1, 'hits': [hit_data]}}
-    detail = OpenSearchDetailData(fetcher, _search_result, 'rss')
-    with app.test_request_context(headers=[('Accept-Language','en')], query_string=urlencode(_data)):
-        assert request.args.get('lang') == "en"
-        res = detail.output_open_search_detail_data()
-        res = res.decode('utf-8')
-        cnt = 1 if res.find('wekolog:terms') else 0
-        cnt += 1 if res.find('wekolog:view') else 0
-        cnt += 1 if res.find('wekolog:download') else 0
-        assert True if cnt == 3 else False
+        hit_data = json_data(hit)
+        hit_data['_id'] = record1[0].object_uuid
+        _search_result = {'hits': {'total': 1, 'hits': [hit_data]}}
+        detail = OpenSearchDetailData(fetcher, _search_result, 'rss')
+        with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
+            res = detail.output_open_search_detail_data()
+            res = res.decode('utf-8')
+            cnt = 1 if res.find('wekolog:terms') else 0
+            cnt += 1 if res.find('wekolog:view') else 0
+            cnt += 1 if res.find('wekolog:download') else 0
+            assert True if cnt == 3 else False
 
-    _data = {
-        'lang': 'en',
-        'index_id': "1"
-    }
-    hit_data1 = copy.deepcopy(hit_data)
-    hit_data1['_source']['_item_metadata']['pubdate']['attribute_value'] = ""
-    _search_result = {'hits': {'total': 1, 'hits': [hit_data1]}}
-    detail = OpenSearchDetailData(fetcher, _search_result, 'rss')
-    with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
-        res = detail.output_open_search_detail_data()
-        res = res.decode('utf-8')
-        cnt = 1 if res.find('wekolog:terms') == -1 else 0
-        cnt += 1 if res.find('wekolog:view') == -1 else 0
-        cnt += 1 if res.find('wekolog:download') == -1 else 0
-        assert True if cnt == 3 else False
+        _data = {
+            'lang': 'en',
+            'index_id': "1"
+        }
+        hit_data1 = copy.deepcopy(hit_data)
+        hit_data1['_source']['_item_metadata']['pubdate']['attribute_value'] = ""
+        _search_result = {'hits': {'total': 1, 'hits': [hit_data1]}}
+        detail = OpenSearchDetailData(fetcher, _search_result, 'rss')
+        with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
+            res = detail.output_open_search_detail_data()
+            res = res.decode('utf-8')
+            cnt = 1 if res.find('wekolog:terms') == -1 else 0
+            cnt += 1 if res.find('wekolog:view') == -1 else 0
+            cnt += 1 if res.find('wekolog:download') == -1 else 0
+            assert True if cnt == 3 else False
 
-    _search_result = {'hits': {'total': 0, 'hits': []}}
-    data = OpenSearchDetailData(fetcher, _search_result, 'rss')
-    with app.test_request_context():
-        assert data.output_open_search_detail_data()
-
-    # test for atom
-    _data = {
-        'lang': 'en',
-        'index_id': 1,
-    }
-    _search_result = {'hits': {'total': 2, 'hits': [hit_data, hit_data]}}
-    data = OpenSearchDetailData(fetcher, _search_result, 'atom')
-    with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
-        assert data.output_open_search_detail_data()
-        with patch("weko_records.api.Mapping.get_record", return_value=dict()):
-            assert data.output_open_search_detail_data()
-        with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=None):
+        _search_result = {'hits': {'total': 0, 'hits': []}}
+        data = OpenSearchDetailData(fetcher, _search_result, 'rss')
+        with app.test_request_context():
             assert data.output_open_search_detail_data()
 
-    hit_data2 = json_data("data/record_hit/record_hit1_2.json")
-    _search_result = {'hits': {'total': 1, 'hits': [hit_data2]}}
-    data = OpenSearchDetailData(fetcher, _search_result, 'atom')
-    with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
-        assert data.output_open_search_detail_data()
+        # test for atom
+        _data = {
+            'lang': 'en',
+            'index_id': 1,
+        }
+        _search_result = {'hits': {'total': 2, 'hits': [hit_data, hit_data]}}
+        data = OpenSearchDetailData(fetcher, _search_result, 'atom')
+        with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
+            assert data.output_open_search_detail_data()
+            with patch("weko_records.api.Mapping.get_record", return_value=dict()):
+                assert data.output_open_search_detail_data()
+            with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=None):
+                assert data.output_open_search_detail_data()
 
-    hit_data3 = copy.deepcopy(hit_data)
-    hit_data3['_source']['_item_metadata'] = {
-        "item_type_id":"1",
-        "control_number": "1",
-        "item_title":"Test title",
-    }
-    _search_result = {'hits': {'total': 1, 'hits': [hit_data3]}}
-    data = OpenSearchDetailData(fetcher, _search_result, 'atom')
-    with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
-        assert data.output_open_search_detail_data()
+        hit_data2 = json_data("data/record_hit/record_hit1_2.json")
+        _search_result = {'hits': {'total': 1, 'hits': [hit_data2]}}
+        data = OpenSearchDetailData(fetcher, _search_result, 'atom')
+        with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
+            assert data.output_open_search_detail_data()
 
-    _data = {
-        'lang': 'ja',
-        'index_id': "aaa",
-        'idx': "bbb",
-    }
-    hit_data4 = copy.deepcopy(hit_data)
-    hit_data4['_source']['_item_metadata']['path'] = ["9999"]
-    _search_result = {'hits': {'total': 1, 'hits': [hit_data4]}}
-    data = OpenSearchDetailData(fetcher, _search_result, 'atom')
-    with app.test_request_context(headers=[('Accept-Language','ja')], query_string=_data):
-        assert data.output_open_search_detail_data()
+        hit_data3 = copy.deepcopy(hit_data)
+        hit_data3['_source']['_item_metadata'] = {
+            "item_type_id":"1",
+            "control_number": "1",
+            "item_title":"Test title",
+        }
+        _search_result = {'hits': {'total': 1, 'hits': [hit_data3]}}
+        data = OpenSearchDetailData(fetcher, _search_result, 'atom')
+        with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
+            assert data.output_open_search_detail_data()
 
-    # test for atom with Yhandle
-    _data = {
-        'lang': 'ja',
-        'index_id': "1",
-        'idx': "bbb",
-    }
-    _search_result = {'hits': {'total': 1, 'hits': [hit_data]}}
-    data = OpenSearchDetailData(fetcher, _search_result, 'atom')
-    with app.test_request_context(headers=[('Accept-Language','ja')], query_string=_data):
-        with patch("invenio_pidstore.models.PersistentIdentifier.get_by_object", return_value=PersistentIdentifier(pid_type='yhdl', pid_value="http://test.com/1000/00000001/")):
-            res = data.output_open_search_detail_data()
-            res = res.decode('utf-8')
-            assert res.find('<link href="http://test.com/1000/00000001/"/>') > 0
-    _data['index_id'] = "aaa"
-    with app.test_request_context(headers=[('Accept-Language','ja')], query_string=_data):
-        with patch("invenio_pidstore.models.PersistentIdentifier.get_by_object", return_value=PersistentIdentifier(pid_type='yhdl', pid_value="http://test.com/1000/00000001")):
-            res = data.output_open_search_detail_data()
-            res = res.decode('utf-8')
-            assert res.find('<link href="http://test.com/1000/00000001/"/>') > 0
+        _data = {
+            'lang': 'ja',
+            'index_id': "aaa",
+            'idx': "bbb",
+        }
+        hit_data4 = copy.deepcopy(hit_data)
+        hit_data4['_source']['_item_metadata']['path'] = ["9999"]
+        _search_result = {'hits': {'total': 1, 'hits': [hit_data4]}}
+        data = OpenSearchDetailData(fetcher, _search_result, 'atom')
+        with app.test_request_context(headers=[('Accept-Language','ja')], query_string=_data):
+            assert data.output_open_search_detail_data()
+
+        # test for atom with Yhandle
+        _data = {
+            'lang': 'ja',
+            'index_id': "1",
+            'idx': "bbb",
+        }
+        _search_result = {'hits': {'total': 1, 'hits': [hit_data]}}
+        data = OpenSearchDetailData(fetcher, _search_result, 'atom')
+        with app.test_request_context(headers=[('Accept-Language','ja')], query_string=_data):
+            with patch("invenio_pidstore.models.PersistentIdentifier.get_by_object", return_value=PersistentIdentifier(pid_type='yhdl', pid_value="http://test.com/1000/00000001/")):
+                res = data.output_open_search_detail_data()
+                res = res.decode('utf-8')
+                assert res.find('<link href="http://test.com/1000/00000001/"/>') > 0
+        _data['index_id'] = "aaa"
+        with app.test_request_context(headers=[('Accept-Language','ja')], query_string=_data):
+            with patch("invenio_pidstore.models.PersistentIdentifier.get_by_object", return_value=PersistentIdentifier(pid_type='yhdl', pid_value="http://test.com/1000/00000001")):
+                res = data.output_open_search_detail_data()
+                res = res.decode('utf-8')
+                assert res.find('<link href="http://test.com/1000/00000001/"/>') > 0
 
 
 sample = OpenSearchDetailData(
