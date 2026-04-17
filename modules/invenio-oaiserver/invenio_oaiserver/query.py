@@ -299,28 +299,34 @@ def range_query(_from=None, _until=None):
     """Generate a search query considering update date changes.
 
     Args:
-        _from (str or None): Lower bound of update date.
-        _until (str or None): Upper bound of update date.
+        _from (datetime or str or None):
+            Lower bound of update date.
+        _until (datetime or str or None):
+            Upper bound of update date.
 
     Returns:
-        elasticsearch_dsl.query.Q or None: The generated query object, or None if no range is specified.
+        elasticsearch_dsl.query.Q or None:
+            The generated query object, or None if no range is specified.
     """
     if _from is None and _until is None:
         return None
 
     if isinstance(_from, datetime):
-        _from = _from.strftime('%Y-%m-%d')
+        from_date = _from.strftime('%Y-%m-%d')
+        _from = _from.isoformat()
     elif isinstance(_from, str) and len(_from) >= 10:
-        _from = _from[:10]
+        from_date = _from[:10]
     else:
-        _from = None
+        from_date = None
 
     if isinstance(_until, datetime):
-        _until = _until.strftime('%Y-%m-%d')
+        until_date = _until.strftime('%Y-%m-%d')
+        _until = _until.isoformat()
     elif isinstance(_until, str) and len(_until) >= 10:
-        _until = _until[:10]
+        until_date = _until[:10]
     else:
-        _until = None
+        until_date = None
+
     now = datetime.now().strftime('%Y-%m-%d')
 
     # First should condition
@@ -407,7 +413,7 @@ def range_query(_from=None, _until=None):
                     'bool',
                     must=[
                         Q('term', **{'content.accessrole.raw': 'open_date'}),
-                        Q('range', **{'content.date.dateValue.raw': {'gte': _from}})
+                        Q('range', **{'content.date.dateValue.raw': {'gte': from_date}})
                     ]
                 )
             )
@@ -428,7 +434,7 @@ def range_query(_from=None, _until=None):
                             'bool',
                             must=[
                                 Q('term', **{'content.accessrole.raw': 'open_date'}),
-                                Q('range', **{'content.date.dateValue.raw': {'gt': _until}})
+                                Q('range', **{'content.date.dateValue.raw': {'gt': until_date}})
                             ]
                         )
                     )
