@@ -385,8 +385,7 @@ class Record(RecordBase):
         original_updated = self.model.updated
         if not current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
             return original_updated
-        fresh_model = db.session.query(RecordMetadata).populate_existing().get(self.model.id)
-        metadata = fresh_model.json if fresh_model else None
+        metadata = db.session.query(RecordMetadata.json).filter_by(id=self.model.id).scalar()
         item_type_id = metadata.get("item_type_id") if metadata else None
         from weko_records.serializers.utils import get_mapping
         mapping = get_mapping(item_type_id, "jpcoar_mapping") if item_type_id else None
@@ -423,7 +422,6 @@ class Record(RecordBase):
             _get_nested_value(metadata, access_path)
             if metadata and access_path else None
         )
-        print("[DEBUG] access_rights:", access_rights)
         accessrole_date = []
         for v in metadata.values() if metadata else []:
             if isinstance(v, dict) and v.get("attribute_type") == "file":
@@ -431,23 +429,18 @@ class Record(RecordBase):
                     date_list = file_info.get("date", [])
                     date_value = date_list[0].get("dateValue") if date_list else None
                     accessrole = file_info.get("accessrole")
-                    print(f"[DEBUG] file_info: {{}} date_value: {{}} accessrole: {{}}".format(file_info, date_value, accessrole))
                     if date_value and accessrole:
                         date_obj = datetime.strptime(date_value, "%Y-%m-%d").date()
                         accessrole_date.append((accessrole, date_obj))
-        print("[DEBUG] accessrole_date:", accessrole_date)
 
         today = datetime.now().date()
-        print("[DEBUG] today:", today)
 
         from weko_records.utils import check_embargo_rights
         is_update, change_value = check_embargo_rights(
             access_rights, today, accessrole_date
         )
-        print("[DEBUG] is_update:", is_update, "change_value:", change_value)
 
         if not (is_update and change_value == "open access"):
-            print("[DEBUG] Not open access or not update, returning original_updated")
             return original_updated
 
         open_dates = []
@@ -455,16 +448,12 @@ class Record(RecordBase):
             dt = datetime.combine(date_str, time(0, 0, 0))
             dt = datetime.combine(dt.date(), time(0, 0, 0))
             open_dates.append(dt)
-        print("[DEBUG] open_dates:", open_dates)
 
         latest_open_date = max(open_dates)
-        print("[DEBUG] latest_open_date:", latest_open_date)
         if original_updated:
             result = max(original_updated, latest_open_date)
-            print("[DEBUG] Returning max(original_updated, latest_open_date):", result)
             return result
         else:
-            print("[DEBUG] Returning latest_open_date:", latest_open_date)
             return latest_open_date
 class RecordRevision(RecordBase):
     """API for record revisions."""

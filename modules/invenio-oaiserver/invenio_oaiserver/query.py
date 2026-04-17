@@ -308,6 +308,21 @@ def range_query(_from=None, _until=None):
     if _from is None and _until is None:
         return None
 
+    if isinstance(_from, datetime):
+        _from = _from.strftime('%Y-%m-%d')
+    elif isinstance(_from, str) and len(_from) >= 10:
+        _from = _from[:10]
+    else:
+        _from = None
+
+    if isinstance(_until, datetime):
+        _until = _until.strftime('%Y-%m-%d')
+    elif isinstance(_until, str) and len(_until) >= 10:
+        _until = _until[:10]
+    else:
+        _until = None
+    now = datetime.now().strftime('%Y-%m-%d')
+
     # First should condition
 
     must_not_embargoed = Q(
@@ -333,7 +348,7 @@ def range_query(_from=None, _until=None):
                     'bool',
                     must=[
                         Q('term', **{'content.accessrole.raw': 'open_date'}),
-                        Q('range', **{'content.date.dateValue.raw': {'lte': 'now'}})
+                        Q('range', **{'content.date.dateValue.raw': {'lte': now}})
                     ]
                 )
             ]
@@ -374,7 +389,7 @@ def range_query(_from=None, _until=None):
                     'bool',
                     must=[
                         Q('term', **{'content.accessrole.raw': 'open_date'}),
-                        Q('range', **{'content.date.dateValue.raw': {'lte': 'now'}})
+                        Q('range', **{'content.date.dateValue.raw': {'lte': now}})
                     ]
                 )
             ]
