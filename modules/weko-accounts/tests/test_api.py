@@ -29,8 +29,14 @@ class TestShibUser:
             "shib_handle":"test_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletes"
         }
         shibuser = ShibUser(attr)
-        assert shibuser.shib_attr == attr
         assert shibuser.shib_attr['shib_handle'] == "test_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handletest_handlete"
+
+        attr = {
+            "shib_handle":"テストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハ"
+        }
+        shibuser = ShibUser(attr)
+        assert shibuser.shib_attr['shib_handle'] == "テストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテストハンドルテスト"
+
 
 #    def _set_weko_user_role(self, roles):
 # .tox/c1/bin/pytest --cov=weko_accounts tests/test_api.py::TestShibUser::test_set_weko_user_role -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-accounts/.tox/c1/tmp
