@@ -258,23 +258,60 @@ def test__override_params_for_customsort(app, is_asc, expect):
 
 #.tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_list_post.py::test__do_custom_sort -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
-    "is_asc,size,page,expect_len,expect_start,expect_end",
+    "is_asc, size, page, format, q, expect_len, expect_start, expect_end",
     [
-        (True, 20, 1, 20, "2000020", "2000001"),
-        (True, 30, 3, 30, "2000090", "2000061"),
-        (False, 20, 1, 20, "2000081", "2000100"),
-        (False, 30, 3, 30, "2000011", "2000040"),
-        (True, 100, 100, 0, "", "")
+        (True, 20, 1, "rss", None, 20, "2000020", "2000001"),
+        (True, 20, 1, "rss", "test", 20, "2000001", "2000020"),
+        (True, 20, 1, "atom", None, 20, "2000020", "2000001"),
+        (True, 20, 1, "atom", "test", 20, "2000001", "2000020"),
+        (True, 20, 1, "jpcoar", None, 20, "2000020", "2000001"),
+        (True, 20, 1, "jpcoar", "test", 20, "2000001", "2000020"),
+        (True, 20, 1, "html", None, 20, "2000001", "2000020"),
+        (True, 20, 1, "html", "test", 20, "2000001", "2000020"),
+        (True, 30, 3, "rss", None, 30, "2000090", "2000061"),
+        (True, 30, 3, "rss", "test", 30, "2000061", "2000090"),
+        (True, 30, 3, "atom", None, 30, "2000090", "2000061"),
+        (True, 30, 3, "atom", "test", 30, "2000061", "2000090"),
+        (True, 30, 3, "jpcoar", None, 30, "2000090", "2000061"),
+        (True, 30, 3, "jpcoar", "test", 30, "2000061", "2000090"),
+        (True, 30, 3, "html", None, 30, "2000061", "2000090"),
+        (True, 30, 3, "html", "test", 30, "2000061", "2000090"),
+        (False, 20, 1, "rss", None, 20, "2000081", "2000100"),
+        (False, 20, 1, "rss", "test", 20, "2000100", "2000081"),
+        (False, 20, 1, "atom", None, 20, "2000081", "2000100"),
+        (False, 20, 1, "atom", "test", 20, "2000100", "2000081"),
+        (False, 20, 1, "jpcoar", None, 20, "2000081", "2000100"),
+        (False, 20, 1, "jpcoar", "test", 20, "2000100", "2000081"),
+        (False, 20, 1, "html", None, 20, "2000100", "2000081"),
+        (False, 20, 1, "html", "test", 20, "2000100", "2000081"),
+        (False, 30, 3, "rss", None, 30, "2000011", "2000040"),
+        (False, 30, 3, "rss", "test", 30, "2000040", "2000011"),
+        (False, 30, 3, "atom", None, 30, "2000011", "2000040"),
+        (False, 30, 3, "atom", "test", 30, "2000040", "2000011"),
+        (False, 30, 3, "jpcoar", None, 30, "2000011", "2000040"),
+        (False, 30, 3, "jpcoar", "test", 30, "2000040", "2000011"),
+        (False, 30, 3, "html", None, 30, "2000040", "2000011"),
+        (False, 30, 3, "html", "test", 30, "2000040", "2000011"),
+        (True, 100, 100, "rss", None,  0, "", ""),
     ],
 )
-def test__do_custom_sort(is_asc, size, page, expect_len, expect_start, expect_end, prepare_search_result):
+def test__do_custom_sort(app, is_asc, size, page, format, q, expect_len,
+                         expect_start, expect_end, prepare_search_result):
     search_result_dict, target, return_value = prepare_search_result
-    with patch("weko_index_tree.api.Indexes.get_item_sort",return_value = return_value):
-        RecordsListResource._do_custom_sort(search_result_dict,target,is_asc,page,size)
+    query_string = f"/?format={format}"
+    if q is not None:
+        query_string += f"&q={q}"
+    with app.test_request_context(query_string), \
+         patch("weko_index_tree.api.Indexes.get_item_sort",
+               return_value=return_value):
+        RecordsListResource._do_custom_sort(
+            search_result_dict,target, is_asc, page, size)
         if expect_len > 0:
             assert len(search_result_dict["hits"]["hits"]) == expect_len
-            assert search_result_dict["hits"]["hits"][0]["_source"]["control_number"]== expect_start
-            assert search_result_dict["hits"]["hits"][size-1]["_source"]["control_number"]== expect_end
+            assert search_result_dict[
+                "hits"]["hits"][0]["_source"]["control_number"] == expect_start
+            assert search_result_dict[
+                "hits"]["hits"][size-1]["_source"]["control_number"] == expect_end
         else:
             assert search_result_dict["hits"]["hits"] == []
 
