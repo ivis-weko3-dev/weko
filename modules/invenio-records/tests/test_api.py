@@ -662,15 +662,29 @@ def test_record_updated(app, monkeypatch, access_path, fix_accessrights, updated
     else:
         meta = None
 
+    class DummyQuery:
+        def filter_by(self, id):
+            return self
+        def scalar(self):
+            return meta
+
+    class DummySession:
+        def __init__(self):
+            self.session = self
+        def query(self, *args, **kwargs):
+            return DummyQuery()
+
     monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
     with app.app_context():
         from flask import current_app
         current_app.config["WEKO_SEARCH_FIX_ACCESSRIGHTS"] = fix_accessrights
         record = Record({})
         class DummyModel:
-            def __init__(self, updated, json):
+            def __init__(self, updated, json, id=1):
                 self.updated = updated
                 self.json = json
-        record.model = DummyModel(updated=updated, json=meta)
+                self.id = id
+        record.model = DummyModel(updated=updated, json=meta, id=1)
+        monkeypatch.setattr("invenio_records.api.db", DummySession())
         result = record.updated
         assert result == expected

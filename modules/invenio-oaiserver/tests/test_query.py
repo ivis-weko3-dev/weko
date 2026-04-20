@@ -307,6 +307,45 @@ def test_get_records_with_set(es_app,db, users):
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py::test_range_query -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_range_query():
+    # Case: _from is datetime
+    from datetime import datetime
+    _from = datetime(2026, 1, 1, 12, 0, 0)
+    result = range_query(_from, None)
+    assert result is not None
+    d = result.to_dict()
+    should2 = d['bool']['should'][1]['bool']['must']
+    assert any('gte' in str(x) for x in should2)
+
+    # Case: _until is datetime
+    _until = datetime(2026, 12, 31, 23, 59, 59)
+    result = range_query(None, _until)
+    assert result is not None
+    d = result.to_dict()
+    should2 = d['bool']['should'][1]['bool']['must']
+    assert any('lte' in str(x) for x in should2)
+
+
+    # Case: _from is invalid type (int)
+    _from = 123456
+    result = range_query(_from, None)
+    assert result is None
+
+    # Case: _until is invalid type (int)
+    _until = 123456
+    result = range_query(None, _until)
+    assert result is None
+
+
+    # Case: _from is short string (invalid)
+    _from = '2026-01'
+    result = range_query(_from, None)
+    assert result is None
+
+    # Case: _until is short string (invalid)
+    _until = '2026-12'
+    result = range_query(None, _until)
+    assert result is None
+
     # Case: both _from and _until are None
     result = range_query(None, None)
     assert result is None

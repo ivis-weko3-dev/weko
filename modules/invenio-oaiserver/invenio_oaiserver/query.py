@@ -308,8 +308,6 @@ def range_query(_from=None, _until=None):
         elasticsearch_dsl.query.Q or None:
             The generated query object, or None if no range is specified.
     """
-    if _from is None and _until is None:
-        return None
 
     if isinstance(_from, datetime):
         from_date = _from.strftime('%Y-%m-%d')
@@ -317,7 +315,7 @@ def range_query(_from=None, _until=None):
     elif isinstance(_from, str) and len(_from) >= 10:
         from_date = _from[:10]
     else:
-        from_date = None
+        _from = None
 
     if isinstance(_until, datetime):
         until_date = _until.strftime('%Y-%m-%d')
@@ -325,7 +323,10 @@ def range_query(_from=None, _until=None):
     elif isinstance(_until, str) and len(_until) >= 10:
         until_date = _until[:10]
     else:
-        until_date = None
+        _until = None
+
+    if _from is None and _until is None:
+        return None
 
     now = datetime.now().strftime('%Y-%m-%d')
 
