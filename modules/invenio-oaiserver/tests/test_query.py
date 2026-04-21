@@ -377,18 +377,19 @@ def test_range_query():
     assert any('gte' in str(x) for x in should2)
     assert any('lte' in str(x) for x in should2)
 
-@pytest.mark.parametrize("fix_access, from_, until, expect_range, expect_rq", [
-    (False, None, None, False, False),
-    (False, "2026-01-01", None, True, False),
-    (False, None, "2026-12-31", True, False),
-    (False, "2026-01-01", "2026-12-31", True, False),
-    (True, None, None, False, False),
-    (True, "2026-01-01", None, True, True),
-    (True, None, "2026-12-31", True, True),
-    (True, "2026-01-01", "2026-12-31", True, True),
+@pytest.mark.parametrize("fix_access, from_, until, expect_range, expect_rq, rangequery_none", [
+    (False, None, None, False, False, False),
+    (False, "2026-01-01", None, True, False, False),
+    (False, None, "2026-12-31", True, False, False),
+    (False, "2026-01-01", "2026-12-31", True, False, False),
+    (True, None, None, False, False, False),
+    (True, "2026-01-01", None, True, True, False),
+    (True, None, "2026-12-31", True, True, False),
+    (True, "2026-01-01", "2026-12-31", True, True, False),
+    (True, "2026-01-01", "2026-12-31", False, True, True),
 ])
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py::test_get_records_range_branch -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_get_records_range_branch(es_app, db, monkeypatch, fix_access, from_, until, expect_range, expect_rq):
+def test_get_records_range_branch(es_app, db, monkeypatch, fix_access, from_, until, expect_range, expect_rq, rangequery_none):
     es_app.config['WEKO_SEARCH_FIX_ACCESSRIGHTS'] = fix_access
 
     index = Index(
@@ -439,10 +440,16 @@ def test_get_records_range_branch(es_app, db, monkeypatch, fix_access, from_, un
     monkeypatch.setattr(query_mod.OAIServerSearch, "filter", filter_spy)
 
     orig_rq = query_mod.range_query
-    def rq_spy(_from, _until):
-        called["rq"] = True
-        return orig_rq(_from, _until)
-    monkeypatch.setattr(query_mod, "range_query", rq_spy)
+    if rangequery_none:
+        def rq_spy(_from, _until):
+            called["rq"] = True
+            return None
+        monkeypatch.setattr(query_mod, "range_query", rq_spy)
+    else:
+        def rq_spy(_from, _until):
+            called["rq"] = True
+            return orig_rq(_from, _until)
+        monkeypatch.setattr(query_mod, "range_query", rq_spy)
 
     with es_app.app_context():
         kwargs = {"set": "30"}
