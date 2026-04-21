@@ -802,9 +802,9 @@ class RecordsListResource(ContentNegotiatedMethodView):
             use_search_after = True
 
         idx = request.values.get("idx","")
-        idx = [int(i) for i in idx.split(",") if i]
+        idx = [int(i) for i in idx.split(",") if i and i.isdecimal()]
         index_id = request.values.get("index_id")
-        if index_id and index_id.isdigit():
+        if index_id and index_id.isdecimal():
             target_index = set(idx + [int(index_id)])
         else:
             target_index = set(idx)
@@ -845,11 +845,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
                 search_result_dict["hits"]["hits"] = search_result_dict["hits"]["hits"][start:end]
                 flag = "prepend"
                 if (flag == "prepend"
-                    and (
-                        'rss' in request.values.getlist('format')
-                    or 'atom' in request.values.getlist('format')
-                    or 'jpcoar' in request.values.getlist('format')
-                    )
+                    and any(i in formats for i in ("rss", "atom", "jpcoar"))
                     and request.values.get('q') is None
                 ):
                     search_result_dict["hits"]["hits"].reverse()
@@ -960,6 +956,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
             ), reverse=not is_asc
         )
 
+        formats = request.values.getlist('format')
         # The order is reversed by the `prepend` method in
         # `weko_records.serializers.feed:WekoFeedGenerator.add_entry`.
         # As a temporary workaround,  set to “prepend,” reverse the order.
@@ -968,11 +965,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
         start, end = (page - 1) * size, page * size
         sorted_hits = [hit for _, hit in sorted_result[start:end]]
         if (flag == "prepend"
-            and (
-                'rss' in request.values.getlist('format')
-            or 'atom' in request.values.getlist('format')
-            or 'jpcoar' in request.values.getlist('format')
-            )
+            and any(i in formats for i in ("rss", "atom", "jpcoar"))
             and request.values.get('q') is None
         ):
             sorted_hits.reverse()
