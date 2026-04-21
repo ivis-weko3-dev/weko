@@ -98,7 +98,7 @@ def test_shib_auto_login(client,redis_connect,mocker):
     mock_new_relation = mocker.patch("weko_accounts.views.ShibUser.new_relation_info")
     mock_shib_login = mocker.patch("weko_accounts.views.ShibUser.shib_user_login")
 
-    redis_connect.put("Shib-Session-1111",bytes('{"shib_eppn":"test_eppn","shib_handle":""}',"utf-8"))
+    redis_connect.put("Shib-Session-1111",bytes('{"shib_eppn":"test_eppn"}',"utf-8"))
     # is_auto_bind is false, check_in is error
     mock_redirect_ = mocker.patch("weko_accounts.views._redirect_method",return_value=make_response())
     with patch("weko_accounts.views.ShibUser.check_in",return_value="test_error"):
@@ -107,7 +107,7 @@ def test_shib_auto_login(client,redis_connect,mocker):
         mock_redirect_.assert_called_once()
         assert redis_connect.redis.exists("Shib-Session-1111") == False
 
-    redis_connect.put("Shib-Session-1111",bytes('{"shib_eppn":"test_eppn","shib_handle":""}',"utf-8"))
+    redis_connect.put("Shib-Session-1111",bytes('{"shib_eppn":"test_eppn"}',"utf-8"))
 
     set_session(client,{"shib_session_id":"1111"})
     with patch("weko_accounts.views.ShibUser.check_in",return_value=None):
@@ -123,7 +123,7 @@ def test_shib_auto_login(client,redis_connect,mocker):
         redis_connect.put("Shib-Session-1111",bytes('{"shib_eppn":"test_eppn"}',"utf-8"))
         set_session(client,{"shib_session_id":"1111","next":"/next_page"})
 
-        shibuser = ShibUser({"shib_handle":""})
+        shibuser = ShibUser({})
         shibuser.shib_user = "test_user"
         with patch("weko_accounts.views.ShibUser",return_value=shibuser):
             mock_redirect = mocker.patch("weko_accounts.views.redirect",return_value=make_response())
