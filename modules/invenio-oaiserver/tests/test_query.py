@@ -324,7 +324,6 @@ def test_range_query():
     should2 = d['bool']['should'][1]['bool']['must']
     assert any('lte' in str(x) for x in should2)
 
-
     # Case: _from is invalid type (int)
     _from = 123456
     result = range_query(_from, None)
@@ -334,7 +333,6 @@ def test_range_query():
     _until = 123456
     result = range_query(None, _until)
     assert result is None
-
 
     # Case: _from is short string (invalid)
     _from = '2026-01'
