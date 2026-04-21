@@ -35,7 +35,7 @@ class ShibUser(object):
         :param shib_attr: passed attribute for shibboleth user
         """
         self.shib_attr = shib_attr
-        if self.shib_attr['shib_handle']:
+        if self.shib_attr.get('shib_handle'):
             self.shib_attr['shib_handle']=self.shib_attr['shib_handle'][:255]
         self.user = None
         """The :class:`invenio_accounts.models.User` instance."""
