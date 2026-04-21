@@ -91,7 +91,8 @@ def test_item_changes_search_factory(i18n_app, indices):
     (False, False, '2020-12-31T23:59:59', False, False, True),  # fix_access=False, _updated
     (True, True, '2020-12-31T23:59:59', False, True, False),    # root, range_query enabled
     (False, True, '2020-12-31T23:59:59', False, False, True),   # root, fix_access=False
-    (True, True, '2020-12-31', False, True, False),            # root, 10 digits, range_query enabled
+    (True, True, '2020-12-31', False, True, False),             # root, 10 digits, range_query enabled
+    (True, True, 'invalid', True, False, False),                # root, invalid value, range_query is None
 ])
 # .tox/c1/bin/pytest --cov=invenio_resourcesyncserver tests/test_query.py::test_item_changes_search_factory_branch -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-resourcesyncserver/.tox/c1/tmp
 def test_item_changes_search_factory_branch(monkeypatch, fix_access, is_root, date_until, rq_none, expect_range, expect_updated):
