@@ -587,7 +587,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
                                   type=int)
         size = RecordsListResource.adjust_list_view_num(size)
         formats = request.values.getlist('format')
-        if (not formats or 'html' in formats) and request.values.get('q') == None:
+        if (not formats or formats == [''] or 'html' in formats) and request.values.get('q') == None:
             return redirect_to_search(page, size)
 
         # if page * size >= self.max_result_window:
@@ -802,20 +802,23 @@ class RecordsListResource(ContentNegotiatedMethodView):
             use_search_after = True
 
         idx = request.values.get("idx","")
-        idx = [int(i) for i in idx.split(",") if i]
+        idx = [int(i) for i in idx.split(",") if i and i.isdecimal()]
         index_id = request.values.get("index_id")
-        target_index = set(idx + [int(index_id)]) if index_id else set(idx)
+        if index_id and index_id.isdecimal():
+            target_index = set(idx + [int(index_id)])
+        else:
+            target_index = set(idx)
         recursive = request.values.get("recursive", 0)
         from weko_index_tree.api import Indexes
         if recursive == "1":
             for i in idx:
-                target_index.update(
-                    [int(cid) for cid in Indexes.get_child_list_recursive(str(i))]
-                )
+                if Indexes.get_index(i):
+                    target_index.update(
+                        [int(cid) for cid in Indexes.get_child_list_recursive(str(i))]
+                    )
         request_sort = request.values.get('sort','', str)
         key, is_asc = parse_sort_field(request_sort)
         is_custom_sort = key == "custom_sort" and target_index
-
 
         if use_search_after:
             search = search[0:size]
@@ -840,6 +843,12 @@ class RecordsListResource(ContentNegotiatedMethodView):
                 start = (page - 1) * size
                 end = page * size
                 search_result_dict["hits"]["hits"] = search_result_dict["hits"]["hits"][start:end]
+                flag = "prepend"
+                if (flag == "prepend"
+                    and any(i in formats for i in ("rss", "atom", "jpcoar"))
+                    and request.values.get('q') is None
+                ):
+                    search_result_dict["hits"]["hits"].reverse()
 
         if not sessionstorage.redis.exists(cache_name) and size * math.floor(self.max_result_window/size) <= self.max_result_window:
             json_data = orjson.dumps({cache_key: {"control_number": [next_items_sort_value]}})
@@ -947,6 +956,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
             ), reverse=not is_asc
         )
 
+        formats = request.values.getlist('format')
         # The order is reversed by the `prepend` method in
         # `weko_records.serializers.feed:WekoFeedGenerator.add_entry`.
         # As a temporary workaround,  set to “prepend,” reverse the order.
@@ -955,7 +965,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
         start, end = (page - 1) * size, page * size
         sorted_hits = [hit for _, hit in sorted_result[start:end]]
         if (flag == "prepend"
-            and 'html' not in request.values.getlist('format')
+            and any(i in formats for i in ("rss", "atom", "jpcoar"))
             and request.values.get('q') is None
         ):
             sorted_hits.reverse()
