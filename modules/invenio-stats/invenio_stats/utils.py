@@ -43,8 +43,6 @@ from invenio_stats.utils_search import billing_file_search_factory
 from weko_accounts.utils import get_remote_addr
 from werkzeug.utils import import_string
 
-from weko_index_tree.models import Index
-
 from . import config
 from .models import StatsAggregation, StatsBookmark, StatsEvents
 from .proxies import current_stats
@@ -276,6 +274,8 @@ class QueryFileReportsHelper(object):
     def calc_billing_file_stats_reports(cls, res, data_list, all_groups):
         """Create response object for billing_file_download."""
         # Get all role names.
+        from weko_index_tree.models import Index
+
         roles = Role.query.all()
         role_name_list = ['guest'] + [role.name for role in roles]
 
@@ -828,6 +828,8 @@ class QuerySitelicenseReportsHelper(object):
         Returns:
             dict: Dict calculation data.
         """
+        from weko_index_tree.models import Index
+
         def Calculation(query_list, all_res, datelist):
             """Calculation.
 

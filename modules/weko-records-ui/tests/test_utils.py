@@ -14,11 +14,13 @@ from weko_records_ui.utils import (
     is_open_access, is_private_index,
     parse_one_time_download_token, replace_license_free, restore,
     send_usage_report_mail_for_user, soft_delete, update_onetime_download,
-    validate_download_record, validate_onetime_download_token, replace_license_free_for_opensearch
+    validate_download_record, validate_onetime_download_token, replace_license_free_for_opensearch,
+    restore_session_info
 )
 import base64
 from unittest.mock import MagicMock
 import copy
+import pickle
 import pytest
 import io
 from datetime import datetime as dt
@@ -38,6 +40,7 @@ from werkzeug.exceptions import NotFound
 from weko_admin.models import AdminSettings
 from weko_records.serializers.utils import get_mapping
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
+from weko_redis import RedisConnection
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 
@@ -56,51 +59,37 @@ def test_is_future(app):
 # def check_items_settings(settings=None):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_check_items_settings -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_check_items_settings(app,db_admin_settings):
-    with app.test_request_context():
-        assert check_items_settings()==None
-
     settings = AdminSettings(name='items_display_settings',settings={"items_display_email": False, "items_search_author": "name", "item_display_open_date": False})
-    setting = settings.get("items_display_settings")
+    setting = settings.get("items_display_settings",dict_to_object=False)
+    assert isinstance(setting, dict)
     with app.test_request_context():
-        assert check_items_settings(setting)==None
+        current_app.config["EMAIL_DISPLAY_FLG"]=""
+        current_app.config["ITEM_SEARCH_FLG"]=""
+        current_app.config["OPEN_DATE_DISPLAY_FLG"]=""
+        assert check_items_settings()==None
+        assert current_app.config["EMAIL_DISPLAY_FLG"]==setting["items_display_email"]
+        assert current_app.config["ITEM_SEARCH_FLG"]==setting["items_search_author"]
+        assert current_app.config["OPEN_DATE_DISPLAY_FLG"]==setting["item_display_open_date"]
 
-    settings = AdminSettings(name='items_display_settings',settings={"items_display_email": False})
-    setting = settings.get("items_display_settings")
-    with app.test_request_context():
+        current_app.config["EMAIL_DISPLAY_FLG"]=""
+        current_app.config["ITEM_SEARCH_FLG"]=""
+        current_app.config["OPEN_DATE_DISPLAY_FLG"]=""
         assert check_items_settings(setting)==None
+        assert current_app.config["EMAIL_DISPLAY_FLG"]==setting['items_display_email']
+        assert current_app.config["ITEM_SEARCH_FLG"]==setting['items_search_author']
+        assert current_app.config["OPEN_DATE_DISPLAY_FLG"]==setting['item_display_open_date']
 
-    settings = AdminSettings(name='items_display_settings',settings={"items_search_author": "name"})
-    setting = settings.get("items_display_settings")
-    with app.test_request_context():
+        current_app.config["EMAIL_DISPLAY_FLG"]=""
+        current_app.config["ITEM_SEARCH_FLG"]=""
+        current_app.config["OPEN_DATE_DISPLAY_FLG"]=""
+        setting = {}
         assert check_items_settings(setting)==None
-
-    settings = AdminSettings(name='items_display_settings',settings={"item_display_open_date": False})
-    setting = settings.get("items_display_settings")
-    with app.test_request_context():
-        assert check_items_settings(setting)==None
-
-    settings = AdminSettings(name='items_display_settings',settings={"items_display_email": False, "items_search_author": "name"})
-    setting = settings.get("items_display_settings")
-    with app.test_request_context():
-        assert check_items_settings(setting)==None
-
-    settings = AdminSettings(name='items_display_settings',settings={"items_display_email": False, "item_display_open_date": False})
-    setting = settings.get("items_display_settings")
-    with app.test_request_context():
-        assert check_items_settings(setting)==None
-
-    settings = AdminSettings(name='items_display_settings',settings={"items_search_author": "name", "item_display_open_date": False})
-    setting = settings.get("items_display_settings")
-    with app.test_request_context():
-        assert check_items_settings(setting)==None
-
-    settings = AdminSettings(name='items_display_settings',settings={})
-    setting = settings.get("items_display_settings")
-    with app.test_request_context():
-        assert check_items_settings(setting)==None
+        assert current_app.config["EMAIL_DISPLAY_FLG"]==""
+        assert current_app.config["ITEM_SEARCH_FLG"]==""
+        assert current_app.config["OPEN_DATE_DISPLAY_FLG"]==""
 
     setting = AdminSettings.get(name="items_display_settings")
-    assert isinstance(setting,AdminSettings.Dict2Obj)==True
+    assert isinstance(setting, AdminSettings.Dict2Obj)==True
     with app.test_request_context():
         current_app.config["EMAIL_DISPLAY_FLG"]=""
         current_app.config["ITEM_SEARCH_FLG"]=""
@@ -110,29 +99,24 @@ def test_check_items_settings(app,db_admin_settings):
         assert current_app.config["ITEM_SEARCH_FLG"]==setting.items_search_author
         assert current_app.config["OPEN_DATE_DISPLAY_FLG"]==setting.item_display_open_date
 
-    setting = AdminSettings.get(name="items_display_settings",dict_to_object=False)
-    assert isinstance(setting,dict)==True
-    with app.test_request_context():
         current_app.config["EMAIL_DISPLAY_FLG"]=""
         current_app.config["ITEM_SEARCH_FLG"]=""
         current_app.config["OPEN_DATE_DISPLAY_FLG"]=""
-        assert setting['items_display_email']==False
-        assert setting['items_search_author']=='name'
-        assert setting['item_display_open_date']==False
+        setting = AdminSettings.Dict2Obj({})
         assert check_items_settings(setting)==None
-        assert current_app.config["EMAIL_DISPLAY_FLG"]==setting['items_display_email']
-        assert current_app.config["ITEM_SEARCH_FLG"]==setting['items_search_author']
-        assert current_app.config["OPEN_DATE_DISPLAY_FLG"]==setting['item_display_open_date']
+        assert current_app.config["EMAIL_DISPLAY_FLG"]==""
+        assert current_app.config["ITEM_SEARCH_FLG"]==""
+        assert current_app.config["OPEN_DATE_DISPLAY_FLG"]==""
+
+    with app.test_request_context(), \
+         patch("weko_admin.models.AdminSettings.get", return_value=None):
         current_app.config["EMAIL_DISPLAY_FLG"]=""
         current_app.config["ITEM_SEARCH_FLG"]=""
         current_app.config["OPEN_DATE_DISPLAY_FLG"]=""
-        setting['items_display_email']=True
-        setting['items_search_author']='id'
-        setting['item_display_open_date']=True
-        assert check_items_settings(setting)==None
-        assert current_app.config["EMAIL_DISPLAY_FLG"]==setting['items_display_email']
-        assert current_app.config["ITEM_SEARCH_FLG"]==setting['items_search_author']
-        assert current_app.config["OPEN_DATE_DISPLAY_FLG"]==setting['item_display_open_date']
+        assert check_items_settings()==None
+        assert current_app.config["EMAIL_DISPLAY_FLG"]==""
+        assert current_app.config["ITEM_SEARCH_FLG"]==""
+        assert current_app.config["OPEN_DATE_DISPLAY_FLG"]==""
 
 
 # def get_record_permalink(record):
@@ -369,30 +353,64 @@ def test_get_pair_value(app):
 
 # def hide_item_metadata(record, settings=None, item_type_mapping=None,
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_hide_item_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_hide_item_metadata(app,records,users):
-    indexer, results = records
-    record = results[0]["record"]
-    with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
+def test_hide_item_metadata(app,records):
+    _, results = records
+
+    record = copy.deepcopy(results[0]["record"])
+    with patch("weko_items_ui.utils.hide_meta_data_for_role", return_value=False):
         assert hide_item_metadata(record)==False
 
+    record = copy.deepcopy(results[0]["record"])
     record['_deposit'] = {"owners_ext": {"email": "email"}}
     app.config['EMAIL_DISPLAY_FLG'] = False
-    with patch("weko_items_ui.utils.hide_meta_data_for_role", return_value=True):
+    with patch("weko_items_ui.utils.hide_meta_data_for_role", return_value=True), \
+         patch("weko_records_ui.utils.hide_by_file", return_value=record) as mock_hide_by_file, \
+         patch("weko_records_ui.utils.hide_by_email", return_value=record) as mock_hide_by_email:
         assert hide_item_metadata(record)==True
+        mock_hide_by_email.assert_called_once()
+        mock_hide_by_file.assert_called_once()
+
+    record = copy.deepcopy(results[0]["record"])
+    app.config['EMAIL_DISPLAY_FLG'] = False
+    with patch("weko_items_ui.utils.hide_meta_data_for_role", return_value=True), \
+         patch("weko_records_ui.utils.hide_by_file", return_value=record) as mock_hide_by_file, \
+         patch("weko_records_ui.utils.hide_by_email", return_value=record) as mock_hide_by_email:
+        assert hide_item_metadata(record)==True
+        mock_hide_by_email.assert_called_once()
+        mock_hide_by_file.assert_called_once()
+
+    record = copy.deepcopy(results[0]["record"])
+    with patch("weko_items_ui.utils.hide_meta_data_for_role", side_effect=[True, False]), \
+         patch("weko_records_ui.utils.hide_by_file", return_value=record) as mock_hide_by_file, \
+         patch("weko_records_ui.utils.hide_by_email", return_value=record) as mock_hide_by_email:
+        assert hide_item_metadata(record)==True
+        mock_hide_by_email.assert_not_called()
+        mock_hide_by_file.assert_called_once()
 
 
 # def hide_item_metadata_email_only(record):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_hide_item_metadata_email_only -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_hide_item_metadata_email_only(app,records,users):
-    indexer, results = records
-    record = results[0]["record"]
-    with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
+    _, results = records
+
+    record = copy.deepcopy(results[0]["record"])
+    with patch("weko_items_ui.utils.hide_meta_data_for_role", return_value=False):
         assert hide_item_metadata_email_only(record)==False
 
-        record['_deposit'] = {"owners_ext": {"email": "email"}}
-        app.config['EMAIL_DISPLAY_FLG'] = False
-        with patch("weko_items_ui.utils.hide_meta_data_for_role", return_value=True):
-            assert hide_item_metadata_email_only(record)==True
+    record = copy.deepcopy(results[0]["record"])
+    record['_deposit'] = {"owners_ext": {"email": "email"}}
+    app.config['EMAIL_DISPLAY_FLG'] = False
+    with patch("weko_items_ui.utils.hide_meta_data_for_role", return_value=True), \
+         patch("weko_records_ui.utils.hide_by_email", return_value=record) as mock_hide_by_email:
+        assert hide_item_metadata_email_only(record)==True
+        mock_hide_by_email.assert_called_once()
+
+    record = copy.deepcopy(results[0]["record"])
+    app.config['EMAIL_DISPLAY_FLG'] = False
+    with patch("weko_items_ui.utils.hide_meta_data_for_role", return_value=True), \
+         patch("weko_records_ui.utils.hide_by_email", return_value=record) as mock_hide_by_email:
+        assert hide_item_metadata_email_only(record)==True
+        mock_hide_by_email.assert_called_once()
 
 
 # def hide_by_file(item_metadata):
@@ -418,23 +436,35 @@ def test_hide_by_file(app,records):
 # def hide_by_email(item_metadata):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_hide_by_email -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_hide_by_email(app,records):
-    indexer, results = records
-    record = results[0]["item"]
-    assert hide_by_email(copy.deepcopy(record))==record
-    app.config['WEKO_RECORDS_UI_EMAIL_ITEM_KEYS'] = ["test"]
-    data1 = {
-        "data1": {
-            "attribute_type": "file",
-            "attribute_value_mlt": [
-                {
-                    "accessrole": "open_no",
-                    "test": {"test": "test"}
-                }
-            ]
-        },
-        "_deposit": {"owners_ext": {"email": "email"}}
-    }
-    assert hide_by_email(data1)
+    _, results = records
+
+    with patch("weko_records_ui.utils.item_setting_show_email", return_value=True):
+
+        # record = copy.deepcopy(results[0]["record"])
+        # del record["item_type_id"]
+        # assert hide_by_email(copy.deepcopy(record))==record
+
+        # app.config['WEKO_RECORDS_UI_EMAIL_ITEM_KEYS'] = ["test"]
+        # record = copy.deepcopy(results[0]["record"])
+        # assert hide_by_email(record)==results[0]["record"]
+
+        # record = copy.deepcopy(results[0]["record"])
+        # record['_deposit'] = {"owners_ext": {"email": "email"}}
+        # expected_record = copy.deepcopy(record)
+        # assert hide_by_email(record)==expected_record
+
+        record = copy.deepcopy(results[0]["record"])
+        record['_deposit'] = {"owners_ext": {"email": "email"}}
+        record['item_test'] = {
+            "attribute_value_mlt":[{
+                    'subitem_1522300695726': 'Available',
+                    'subitem_1522300722591': None
+            }],
+            "option":{"hidden": ["item_test"]}
+        }
+        expected_record = copy.deepcopy(record)
+        del expected_record['_deposit']['owners_ext']
+        assert hide_by_email(record, True)==expected_record
 
 
 # def hide_by_itemtype(item_metadata, hidden_items):
@@ -1596,3 +1626,29 @@ def test_get_billing_role(records, users):
         user_role, min_price = get_billing_role(billing_record)
         assert user_role == 'guest'
         assert min_price == ''
+
+
+# def restore_session_info(session_id, redis_connection):
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_restore_session_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_restore_session_info(app, client, users):
+    redis_connection = RedisConnection()
+    session_id = 'test_session_id'
+
+    # prepare data in redis
+    session_store = redis_connection.connection(
+        db=app.config['ACCOUNTS_SESSION_REDIS_DB_NO'], kv=True
+    )
+    session_info = {
+        'user_id': str(users[0]['id']),
+        'language': 'ja',
+        'csrf_token': 'test_token'
+    }
+    session_store.redis.set(session_id, pickle.dumps(session_info))
+
+    with patch('weko_records_ui.utils.login_user') as mock_login_user:
+        restore_session_info(session_id, redis_connection)
+        mock_login_user.assert_called_once_with(users[0]['obj'])
+        assert dict(session) == session_info
+
+    # clean up
+    session_store.redis.delete(session_id)

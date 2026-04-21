@@ -1,8 +1,7 @@
 import pytest
-import uuid
-import json
-import base64
 import copy
+from flask import request
+from urllib.parse import urlencode
 from lxml import etree
 from tests.helpers import json_data
 from mock import patch, MagicMock
@@ -25,11 +24,17 @@ from weko_records.serializers.utils import (
 
 # def get_mapping(item_type_mapping, mapping_type):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_serializers_utils.py::test_get_mapping -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
-def test_get_mapping():
+def test_get_mapping(app):
     mapping = json_data("data/item_type_mapping.json")
-    result = get_mapping(mapping, 'jpcoar_mapping')
-    data = json_data("data/get_mapping.json")
-    assert result == data
+    item_type_list  = list(mapping.keys())
+    item_type_list.append("dummy")
+    mock_return = MagicMock()
+    mock_return.render.get.return_value = item_type_list
+    with patch("weko_records.api.Mapping.get_record", return_value=mapping), \
+         patch("weko_records.api.ItemTypes.get_by_id", return_value=mock_return):
+        result = get_mapping("item_type_id", "jpcoar_mapping")
+        data = json_data("data/get_mapping.json")
+        assert result == data
 
 # def get_full_mapping(item_type_mapping, mapping_type):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_serializers_utils.py::test_get_full_mapping -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
@@ -160,121 +165,123 @@ params=[
      True)]
 @pytest.mark.parametrize("render, form, mapping, hit, licence", params)
 def test_open_search_detail_data(app, db, db_index, record1, render, form, mapping, hit, licence):
-    def fetcher(obj_uuid, data):
-        assert obj_uuid=="1"
-        return PersistentIdentifier(pid_type='recid', pid_value=data['pid'])
-    _item_type_name=ItemTypeName(name="test")
-    _item_type = ItemTypes.create(
-        name="test",
-        item_type_name=_item_type_name,
-        schema=json_data("data/item_type/item_type_schema.json"),
-        render=json_data(render),
-        form=json_data(form),
-        tag=1
-    )
-    Mapping.create(
-        item_type_id=_item_type.id,
-        mapping=json_data(mapping)
-    )
-    _data = {
-        'lang': 'en',
-        'log_term': '2021-01'
-    }
-    hit_data = json_data(hit)
-    hit_data['_id'] = record1[0].object_uuid
-    _search_result = {'hits': {'total': 1, 'hits': [hit_data]}}
-    detail = OpenSearchDetailData(fetcher, _search_result, 'rss')
-    with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
-        res = detail.output_open_search_detail_data()
-        res = res.decode('utf-8')
-        cnt = 1 if res.find('wekolog:terms') else 0
-        cnt += 1 if res.find('wekolog:view') else 0
-        cnt += 1 if res.find('wekolog:download') else 0
-        assert True if cnt == 3 else False
+    with patch("weko_records.serializers.utils.get_mapping", return_value=json_data("data/item_map.json")):
+        def fetcher(obj_uuid, data):
+            assert obj_uuid=="1"
+            return PersistentIdentifier(pid_type='recid', pid_value=data['pid'])
+        _item_type_name=ItemTypeName(name="test")
+        _item_type = ItemTypes.create(
+            name="test",
+            item_type_name=_item_type_name,
+            schema=json_data("data/item_type/item_type_schema.json"),
+            render=json_data(render),
+            form=json_data(form),
+            tag=1
+        )
+        Mapping.create(
+            item_type_id=_item_type.id,
+            mapping=json_data(mapping)
+        )
+        _data = {
+            'lang': 'en',
+            'log_term': '2021-01'
+        }
 
-    _data = {
-        'lang': 'en',
-        'index_id': "1"
-    }
-    hit_data1 = copy.deepcopy(hit_data)
-    hit_data1['_source']['_item_metadata']['pubdate']['attribute_value'] = ""
-    _search_result = {'hits': {'total': 1, 'hits': [hit_data1]}}
-    detail = OpenSearchDetailData(fetcher, _search_result, 'rss')
-    with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
-        res = detail.output_open_search_detail_data()
-        res = res.decode('utf-8')
-        cnt = 1 if res.find('wekolog:terms') == -1 else 0
-        cnt += 1 if res.find('wekolog:view') == -1 else 0
-        cnt += 1 if res.find('wekolog:download') == -1 else 0
-        assert True if cnt == 3 else False
+        hit_data = json_data(hit)
+        hit_data['_id'] = record1[0].object_uuid
+        _search_result = {'hits': {'total': 1, 'hits': [hit_data]}}
+        detail = OpenSearchDetailData(fetcher, _search_result, 'rss')
+        with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
+            res = detail.output_open_search_detail_data()
+            res = res.decode('utf-8')
+            cnt = 1 if res.find('wekolog:terms') else 0
+            cnt += 1 if res.find('wekolog:view') else 0
+            cnt += 1 if res.find('wekolog:download') else 0
+            assert True if cnt == 3 else False
 
-    _search_result = {'hits': {'total': 0, 'hits': []}}
-    data = OpenSearchDetailData(fetcher, _search_result, 'rss')
-    with app.test_request_context():
-        assert data.output_open_search_detail_data()
+        _data = {
+            'lang': 'en',
+            'index_id': "1"
+        }
+        hit_data1 = copy.deepcopy(hit_data)
+        hit_data1['_source']['_item_metadata']['pubdate']['attribute_value'] = ""
+        _search_result = {'hits': {'total': 1, 'hits': [hit_data1]}}
+        detail = OpenSearchDetailData(fetcher, _search_result, 'rss')
+        with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
+            res = detail.output_open_search_detail_data()
+            res = res.decode('utf-8')
+            cnt = 1 if res.find('wekolog:terms') == -1 else 0
+            cnt += 1 if res.find('wekolog:view') == -1 else 0
+            cnt += 1 if res.find('wekolog:download') == -1 else 0
+            assert True if cnt == 3 else False
 
-    # test for atom
-    _data = {
-        'lang': 'en',
-        'index_id': 1,
-    }
-    _search_result = {'hits': {'total': 2, 'hits': [hit_data, hit_data]}}
-    data = OpenSearchDetailData(fetcher, _search_result, 'atom')
-    with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
-        assert data.output_open_search_detail_data()
-        with patch("weko_records.api.Mapping.get_record", return_value=dict()):
-            assert data.output_open_search_detail_data()
-        with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=None):
+        _search_result = {'hits': {'total': 0, 'hits': []}}
+        data = OpenSearchDetailData(fetcher, _search_result, 'rss')
+        with app.test_request_context():
             assert data.output_open_search_detail_data()
 
-    hit_data2 = json_data("data/record_hit/record_hit1_2.json")
-    _search_result = {'hits': {'total': 1, 'hits': [hit_data2]}}
-    data = OpenSearchDetailData(fetcher, _search_result, 'atom')
-    with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
-        assert data.output_open_search_detail_data()
+        # test for atom
+        _data = {
+            'lang': 'en',
+            'index_id': 1,
+        }
+        _search_result = {'hits': {'total': 2, 'hits': [hit_data, hit_data]}}
+        data = OpenSearchDetailData(fetcher, _search_result, 'atom')
+        with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
+            assert data.output_open_search_detail_data()
+            with patch("weko_records.api.Mapping.get_record", return_value=dict()):
+                assert data.output_open_search_detail_data()
+            with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=None):
+                assert data.output_open_search_detail_data()
 
-    hit_data3 = copy.deepcopy(hit_data)
-    hit_data3['_source']['_item_metadata'] = {
-        "item_type_id":"1",
-        "control_number": "1",
-        "item_title":"Test title",
-    }
-    _search_result = {'hits': {'total': 1, 'hits': [hit_data3]}}
-    data = OpenSearchDetailData(fetcher, _search_result, 'atom')
-    with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
-        assert data.output_open_search_detail_data()
+        hit_data2 = json_data("data/record_hit/record_hit1_2.json")
+        _search_result = {'hits': {'total': 1, 'hits': [hit_data2]}}
+        data = OpenSearchDetailData(fetcher, _search_result, 'atom')
+        with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
+            assert data.output_open_search_detail_data()
 
-    _data = {
-        'lang': 'ja',
-        'index_id': "aaa",
-        'idx': "bbb",
-    }
-    hit_data4 = copy.deepcopy(hit_data)
-    hit_data4['_source']['_item_metadata']['path'] = ["9999"]
-    _search_result = {'hits': {'total': 1, 'hits': [hit_data4]}}
-    data = OpenSearchDetailData(fetcher, _search_result, 'atom')
-    with app.test_request_context(headers=[('Accept-Language','ja')], query_string=_data):
-        assert data.output_open_search_detail_data()
-    
-    # test for atom with Yhandle
-    _data = {
-        'lang': 'ja',
-        'index_id': "1",
-        'idx': "bbb",
-    }
-    _search_result = {'hits': {'total': 1, 'hits': [hit_data]}}
-    data = OpenSearchDetailData(fetcher, _search_result, 'atom')
-    with app.test_request_context(headers=[('Accept-Language','ja')], query_string=_data):
-        with patch("invenio_pidstore.models.PersistentIdentifier.get_by_object", return_value=PersistentIdentifier(pid_type='yhdl', pid_value="http://test.com/1000/00000001/")):
-            res = data.output_open_search_detail_data()
-            res = res.decode('utf-8')
-            assert res.find('<link href="http://test.com/1000/00000001/"/>') > 0
-    _data['index_id'] = "aaa"
-    with app.test_request_context(headers=[('Accept-Language','ja')], query_string=_data):
-        with patch("invenio_pidstore.models.PersistentIdentifier.get_by_object", return_value=PersistentIdentifier(pid_type='yhdl', pid_value="http://test.com/1000/00000001")):
-            res = data.output_open_search_detail_data()
-            res = res.decode('utf-8')
-            assert res.find('<link href="http://test.com/1000/00000001/"/>') > 0
+        hit_data3 = copy.deepcopy(hit_data)
+        hit_data3['_source']['_item_metadata'] = {
+            "item_type_id":"1",
+            "control_number": "1",
+            "item_title":"Test title",
+        }
+        _search_result = {'hits': {'total': 1, 'hits': [hit_data3]}}
+        data = OpenSearchDetailData(fetcher, _search_result, 'atom')
+        with app.test_request_context(headers=[('Accept-Language','en')], query_string=_data):
+            assert data.output_open_search_detail_data()
+
+        _data = {
+            'lang': 'ja',
+            'index_id': "aaa",
+            'idx': "bbb",
+        }
+        hit_data4 = copy.deepcopy(hit_data)
+        hit_data4['_source']['_item_metadata']['path'] = ["9999"]
+        _search_result = {'hits': {'total': 1, 'hits': [hit_data4]}}
+        data = OpenSearchDetailData(fetcher, _search_result, 'atom')
+        with app.test_request_context(headers=[('Accept-Language','ja')], query_string=_data):
+            assert data.output_open_search_detail_data()
+
+        # test for atom with Yhandle
+        _data = {
+            'lang': 'ja',
+            'index_id': "1",
+            'idx': "bbb",
+        }
+        _search_result = {'hits': {'total': 1, 'hits': [hit_data]}}
+        data = OpenSearchDetailData(fetcher, _search_result, 'atom')
+        with app.test_request_context(headers=[('Accept-Language','ja')], query_string=_data):
+            with patch("invenio_pidstore.models.PersistentIdentifier.get_by_object", return_value=PersistentIdentifier(pid_type='yhdl', pid_value="http://test.com/1000/00000001/")):
+                res = data.output_open_search_detail_data()
+                res = res.decode('utf-8')
+                assert res.find('<link href="http://test.com/1000/00000001/"/>') > 0
+        _data['index_id'] = "aaa"
+        with app.test_request_context(headers=[('Accept-Language','ja')], query_string=_data):
+            with patch("invenio_pidstore.models.PersistentIdentifier.get_by_object", return_value=PersistentIdentifier(pid_type='yhdl', pid_value="http://test.com/1000/00000001")):
+                res = data.output_open_search_detail_data()
+                res = res.decode('utf-8')
+                assert res.find('<link href="http://test.com/1000/00000001/"/>') > 0
 
 
 sample = OpenSearchDetailData(
@@ -287,7 +294,7 @@ sample = OpenSearchDetailData(
 )
 
 # class OpenSearchDetailData:
-#     def output_open_search_detail_data(self): 
+#     def output_open_search_detail_data(self):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_serializers_utils.py::test_output_open_search_detail_data -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
 def test_output_open_search_detail_data(app):
     item_map = {
@@ -421,10 +428,10 @@ def test__set_publication_date(app):
 
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=["date"]):
         sample_copy._set_publication_date(fe=fe, item_map=item_map, item_metadata=item_metadata)
-    
+
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value={"date.@value": "date.@value"}):
         sample_copy._set_publication_date(fe=fe, item_map=item_map, item_metadata=item_metadata)
-    
+
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value={"date.@value": ["date.@value"]}):
         sample_copy._set_publication_date(fe=fe, item_map=item_map, item_metadata=item_metadata)
 
@@ -446,7 +453,7 @@ def test__set_publication_date(app):
 
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=data2):
         sample_copy._set_publication_date(fe=fe, item_map=item_map, item_metadata=item_metadata)
-    
+
 
 #     def _set_source_identifier(self, fe, item_map, item_metadata):
 def test__set_source_identifier(app):
@@ -456,7 +463,7 @@ def test__set_source_identifier(app):
 
     def issn(item):
         return item
-    
+
     fe.prism.issn = issn
 
     item_map = {
@@ -485,14 +492,14 @@ def test__set_source_identifier(app):
 
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=item_metadata):
         assert sample_copy._set_source_identifier(fe=fe, item_map=item_map, item_metadata=item_metadata) == None
-    
+
     item_metadata["sourceIdentifier"] = [
         "sourceIdentifier"
     ]
 
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=item_metadata):
         assert sample_copy._set_source_identifier(fe=fe, item_map=item_map, item_metadata=item_metadata) == None
-    
+
     sample_copy.output_type = "not_atom"
     item_metadata["sourceIdentifier"] = "ISSN"
 
@@ -503,7 +510,7 @@ def test__set_source_identifier(app):
         item_metadata["sourceIdentifier"] = ["ISSN"]
 
         assert sample_copy._set_source_identifier(fe=fe, item_map=item_map, item_metadata=item_metadata) == None
-    
+
 # .tox/c1/bin/pytest --cov=weko_records tests/test_serializers_utils.py::test__set_author_info -v -s -vv --cov-branch --cov-report=term --cov-report=html --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
 #     def _set_author_info(self, fe, item_map, item_metadata, request_lang):
 def test__set_author_info(app):
@@ -539,7 +546,7 @@ def test__set_author_info(app):
         request_lang = "en"
 
         assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata=item_metadata, request_lang=request_lang) == None
-    
+
     # output_typeがRSSでget_pair_valueが複数値を返し、request_langが一致する場合
     sample_copy = copy.deepcopy(sample)
     sample_copy.output_type = sample_copy.OUTPUT_RSS
@@ -554,7 +561,7 @@ def test__set_author_info(app):
         # 'ja'は呼ばれない
         calls = [call[0] for call in fe.dc.dc_creator.call_args_list]
         assert ("Jiro", "ja") not in calls
-    
+
     # 異常系テスト
 
     # 1. item_mapに'creator.creatorName.@value'がない場合
@@ -689,7 +696,7 @@ def test__set_author_info(app):
 
 
 
-# def _set_publisher(self, fe, item_map, item_metadata, request_lang): 
+# def _set_publisher(self, fe, item_map, item_metadata, request_lang):
 def test__set_publisher(app):
     sample_copy = copy.deepcopy(sample)
     fe = MagicMock()
