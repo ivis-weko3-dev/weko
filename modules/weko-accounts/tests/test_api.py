@@ -147,7 +147,7 @@ class TestShibUser:
         attr2 = {
             "shib_eppn": "eppn2",
             "shib_mail": "mail2@example.com",
-            "shib_user_name": "user_name2",
+            "shib_user_name": "user_name2"
         }
         s_user2 = ShibbolethUser(weko_uid=None, weko_user=None, **attr2)
         db.session.add(s_user2)
@@ -166,7 +166,8 @@ class TestShibUser:
             "shib_page_name": None,
             "shib_active_flag": None,
             "shib_ip_range_flag": None,
-            "shib_organization": None
+            "shib_organization": None,
+            "shib_handle": None
         }
         user3 = users[1]["obj"]
         s_user3 = ShibbolethUser(weko_uid=user3.id, weko_user=user3, shib_eppn="dummy_eppn3", shib_user_name="user_name3")
@@ -371,7 +372,7 @@ class TestShibUser:
         user = users[0]["obj"]
         attr = {
             "shib_mail":user.email,
-            "shib_eppn":"test_eppn1",
+            "shib_eppn":"test_eppn1"
         }
         shibuser = ShibUser(attr)
         result = shibuser.new_relation_info()
@@ -381,7 +382,7 @@ class TestShibUser:
         # not exist user
         attr = {
             "shib_mail":"newuser@test.org",
-            "shib_eppn":"test_eppn2",
+            "shib_eppn":"test_eppn2"
         }
         shibuser = ShibUser(attr)
         result = shibuser.new_relation_info()
@@ -391,7 +392,7 @@ class TestShibUser:
 # .tox/c1/bin/pytest --cov=weko_accounts tests/test_api.py::TestShibUser::test_new_shib_profile -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-accounts/.tox/c1/tmp
     def test_new_shib_profile(self,db,users):
         attr = {
-            "shib_eppn":"test_eppn",
+            "shib_eppn":"test_eppn"
         }
         user = users[0]["obj"]
         s_user = ShibbolethUser(weko_uid=user.id,weko_user=user,**attr)
@@ -428,7 +429,7 @@ class TestShibUser:
 
         # exist self.user, issubset, ret is None
         attr = {
-            "shib_role_authority_name":"管理者;図書館員",
+            "shib_role_authority_name":"管理者;図書館員"
         }
         shibuser = ShibUser(attr)
         shibuser.user = users[0]["obj"]
@@ -464,7 +465,7 @@ class TestShibUser:
 
         # not issubset
         attr = {
-            "shib_role_authority_name":"異常役員",
+            "shib_role_authority_name":"異常役員"
         }
         shibuser = ShibUser(attr)
         shibuser.user = users[0]["obj"]
@@ -480,7 +481,7 @@ class TestShibUser:
         # self._get_site_license is true
         attr = {
             "shib_eppn":"test_eppn",
-            "shib_ip_range_flag":True,
+            "shib_ip_range_flag":True
         }
         shibuser = ShibUser(attr)
         flg,msg = shibuser.valid_site_license()
