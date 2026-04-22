@@ -237,6 +237,9 @@ def test_RecordsListResource_get(app, i18n_app, db, es, test_data, search_url, s
                     assert res.status_code == 200
                     assert do.assert_called
                     assert recursive.assert_not_called
+                    res = client.get(search_url, query_string=dict(page=1, size=2, format="rss", recursive=1, index_id=[1234,1235], sort="custom_sort"))
+                    assert res.status_code == 200
+                    assert do.assert_not_called
                     with patch("weko_index_tree.api.Indexes.get_index",return_value=[1235]):
                         search_result.hits.total = 10001
                         res = client.get(search_url, query_string=dict(page=1, size=2, format="rss", recursive=1, idx=[1234,1235], sort="custom_sort"))
@@ -249,9 +252,6 @@ def test_RecordsListResource_get(app, i18n_app, db, es, test_data, search_url, s
                         assert res.status_code == 302
                         res = client.get(search_url, query_string=dict(page=1, size=2, format="html", recursive=1, idx=[1234,1235], sort="custom_sort"))
                         assert res.status_code == 302
-                        res = client.get(search_url, query_string=dict(page=1, size=2, format="rss", recursive=1, index_id=[1234,1235], sort="custom_sort"))
-                        assert res.status_code == 200
-                        assert do.assert_not_called
 
 
 
