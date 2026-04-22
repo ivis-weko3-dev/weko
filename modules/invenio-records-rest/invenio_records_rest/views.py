@@ -810,7 +810,6 @@ class RecordsListResource(ContentNegotiatedMethodView):
             target_index = set(idx)
         recursive = request.values.get("recursive", 0)
         from weko_index_tree.api import Indexes
-        print(Indexes.get_browsing_info())
         if recursive == "1":
             for i in idx:
                 if Indexes.get_index(i):
