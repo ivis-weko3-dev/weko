@@ -250,7 +250,7 @@ def test_RecordsListResource_get(app, i18n_app, db, es, test_data, search_url, s
                         res = client.get(search_url, query_string=dict(page=1, size=2, format="html", recursive=1, idx=[1234,1235], sort="custom_sort"))
                         assert res.status_code == 302
                         res = client.get(search_url, query_string=dict(page=1, size=2, format="rss", recursive=1, index_id=[1234,1235], sort="custom_sort"))
-                        assert res.status_code == 302
+                        assert res.status_code == 200
                         assert do.assert_not_called
 
 
