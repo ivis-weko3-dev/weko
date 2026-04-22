@@ -231,15 +231,29 @@ def test_RecordsListResource_get(app, i18n_app, db, es, test_data, search_url, s
             sessionstore.put(cache_key, (json.dumps(cache_data)).encode('utf-8'))
             res = client.get(search_url, query_string=dict(page=10000, q=""))
             assert res.status_code == 200
-            with patch("weko_index_tree.api.Indexes.get_child_list_recursive",return_value = [1236]), \
+            with patch("weko_index_tree.api.Indexes.get_child_list_recursive",return_value = [1235]) as recursive, \
                  patch("invenio_records_rest.views.RecordsListResource._do_custom_sort") as do:
                     res = client.get(search_url, query_string=dict(page=1, size=2, format="rss", recursive=1, idx=[1234,1235], sort="custom_sort"))
                     assert res.status_code == 200
                     assert do.assert_called
-                    search_result.hits.total = 10001
-                    res = client.get(search_url, query_string=dict(page=1, size=2, format="rss", recursive=1, idx=[1234,1235], sort="custom_sort"))
-                    assert res.status_code == 200
-                    assert do.assert_not_called
+                    assert recursive.assert_not_called
+                    with patch("weko_index_tree.api.Indexes.get_index",return_value=[1235]):
+                        search_result.hits.total = 10001
+                        res = client.get(search_url, query_string=dict(page=1, size=2, format="rss", recursive=1, idx=[1234,1235], sort="custom_sort"))
+                        assert res.status_code == 200
+                        assert do.assert_not_called
+                        assert recursive.assert_called
+                        res = client.get(search_url, query_string=dict(page=1, size=2, recursive=1, idx=[1234,1235], sort="custom_sort"))
+                        assert res.status_code == 302
+                        res = client.get(search_url, query_string=dict(page=1, size=2, format='', recursive=1, idx=[1234,1235], sort="custom_sort"))
+                        assert res.status_code == 302
+                        res = client.get(search_url, query_string=dict(page=1, size=2, format="html", recursive=1, idx=[1234,1235], sort="custom_sort"))
+                        assert res.status_code == 302
+                        res = client.get(search_url, query_string=dict(page=1, size=2, format="rss", recursive=1, index_id=[1234,1235], sort="custom_sort"))
+                        assert res.status_code == 302
+                        assert do.assert_not_called
+
+
 
 #.tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_list_post.py::test__override_params_for_customsort -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
@@ -293,6 +307,7 @@ def test__override_params_for_customsort(app, is_asc, expect):
         (False, 30, 3, "html", None, 30, "2000040", "2000011"),
         (False, 30, 3, "html", "test", 30, "2000040", "2000011"),
         (True, 100, 100, "rss", None,  0, "", ""),
+        (True, 20, 1, "json", None, 20, "2000001", "2000020")
     ],
 )
 def test__do_custom_sort(app, is_asc, size, page, format, q, expect_len,
