@@ -187,7 +187,7 @@
                 <!-- 選択ダウンロード -->
                 <button
                   v-if="filteredList.length"
-                  class="flex gap-1 text-white px-4 py-2 rounded button-center"
+                  class="flex gap-1 text-white px-4 py-2 rounded button-center whitespace-nowrap"
                   :class="[selectedFiles.length == 0 ? 'bg-miby-dark-gray' : 'bg-miby-link-blue']"
                   :disabled="selectedFiles.length == 0"
                   @click="downloadFilesSelected(selectedFiles)">

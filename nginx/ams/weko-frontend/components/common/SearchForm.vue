@@ -358,7 +358,11 @@ function search() {
       }
       // NOTE: 公開区分とダウンロード区分はdetailSearch.jsonのdata.queryに値があれば渡る
       if (valueList) {
-        Object.assign(detail, { [column.query]: valueList.join(',') });
+        if (column.query === 'id_attr') {
+          Object.assign(conditions.filter, { [column.query]: valueList.join(',') });
+        } else {
+          Object.assign(detail, { [column.query]: valueList.join(' OR ') });
+        }
       } else {
         Object.assign(detail, { [column.query]: '' });
       }
@@ -377,7 +381,7 @@ function search() {
         Object.assign(detail, {
           [column.queryTo]: column.data ? (column.data[1] ? column.data[1].replaceAll('-', '') : '') : ''
         });
-        Object.assign(detail, { [column.query]: valueList.join(',') });
+        Object.assign(detail, { [column.query]: valueList.join(' OR ') });
       } else {
         Object.assign(detail, {
           [column.queryFrom]: column.data ? column.data[0].replaceAll('-', '') : ''
