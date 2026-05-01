@@ -820,7 +820,6 @@ class OpenSearchDetailData:
                 if item_id in item_metadata:
                     source_identifier_metadata = get_metadata_from_map(
                         item_metadata[item_id], item_id)
-                    print(source_identifier_metadata)
                     if self.output_type == self.OUTPUT_ATOM:
                         if not isinstance(source_identifier_metadata, dict) \
                                 or source_identifier_metadata.get(
