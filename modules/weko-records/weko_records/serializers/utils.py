@@ -796,60 +796,59 @@ class OpenSearchDetailData:
                                                publisher_lang)
 
     def _set_source_identifier(self, fe, item_map, item_metadata):
-        if self.output_type == self.OUTPUT_ATOM:
-            _source_identifier_value = 'sourceIdentifier.@value'
-            if _source_identifier_value in item_map:
-                source_identifier_key = item_map[_source_identifier_value]
-                item_id = source_identifier_key.split('.')[0]
+        """Retrieve the source identifier from
+           the item's metadata and set it in the feedentry.
 
+        Args:
+            fe: feed entry
+            item_map: itemtype mapping
+            item_metadata: item metadata
+        """
+        _source_identifier_value = 'sourceIdentifier.@value'
+        if _source_identifier_value in item_map:
+            source_identifier_value_keys = item_map[_source_identifier_value].split(',')
+            for source_identifier_value_key in source_identifier_value_keys:
+                item_id = source_identifier_value_key.split('.')[0]
                 # Get item data
                 if item_id in item_metadata:
                     source_identifier_metadata = get_metadata_from_map(
                         item_metadata[item_id], item_id)
+                    if self.output_type == self.OUTPUT_ATOM:
+                        if not isinstance(source_identifier_metadata, dict) \
+                                or source_identifier_metadata.get(
+                                source_identifier_value_key) is None:
+                            return
+                        source_identifiers = source_identifier_metadata.get(
+                            source_identifier_value_key)
 
-                    if not isinstance(source_identifier_metadata, dict) \
-                            or source_identifier_metadata.get(
-                            source_identifier_key) is None:
-                        return
-                    source_identifiers = source_identifier_metadata.get(
-                        source_identifier_key)
+                        if source_identifiers:
+                            if isinstance(source_identifiers, list):
+                                for source_identifier in source_identifiers:
+                                    fe.prism.issn(source_identifier)
+                            else:
+                                fe.prism.issn(source_identifiers)
+                    else:
+                        _source_identifier_attr_type = \
+                            'sourceIdentifier.@attributes.identifierType'
+                        if _source_identifier_attr_type in item_map:
+                            source_identifier_attr_type_keys=item_map[_source_identifier_attr_type].split(',')
+                            source_identifiers = source_identifier_metadata.get(
+                                    source_identifier_value_key)
+                            for source_identifier_attr_type_key in source_identifier_attr_type_keys:
+                                source_identifier_types = source_identifier_metadata.get(
+                                    source_identifier_attr_type_key)
+                                if source_identifiers:
+                                    if isinstance(source_identifiers, list):
+                                        for i in range(len(source_identifiers)):
+                                            source_identifier_type = \
+                                                source_identifier_types[i]
+                                            if source_identifier_type \
+                                                    and source_identifier_type == 'ISSN':
+                                                fe.prism.issn(source_identifiers[i])
 
-                    if source_identifiers:
-                        if isinstance(source_identifiers, list):
-                            for source_identifier in source_identifiers:
-                                fe.prism.issn(source_identifier)
-                        else:
-                            fe.prism.issn(source_identifiers)
-        else:
-            _source_identifier_attr_type = \
-                'sourceIdentifier.@attributes.identifierType'
-            _source_identifier_value = 'sourceIdentifier.@value'
-            if _source_identifier_value in item_map:
-                item_id = item_map[_source_identifier_value].split('.')[0]
-
-                # Get item data
-                if item_id in item_metadata:
-                    source_identifier_metadata = get_metadata_from_map(
-                        item_metadata[item_id], item_id)
-
-                    source_identifiers = source_identifier_metadata[
-                        item_map[_source_identifier_attr_type]]
-
-                    source_identifier_types = source_identifier_metadata[
-                        item_map[_source_identifier_value]]
-
-                    if source_identifiers:
-                        if isinstance(source_identifiers, list):
-                            for i in range(len(source_identifiers)):
-                                source_identifier_type = \
-                                    source_identifier_types[i]
-                                if source_identifier_type \
-                                        and source_identifier_type == 'ISSN':
-                                    fe.prism.issn(source_identifiers[i])
-
-                        elif source_identifier_types \
-                                and source_identifier_types == 'ISSN':
-                            fe.prism.issn(source_identifiers)
+                                    elif source_identifier_types \
+                                            and source_identifier_types == 'ISSN':
+                                        fe.prism.issn(source_identifiers)
 
     def _set_author_info(self, fe, item_map, item_metadata, request_lang):
         from weko_records_ui.utils import get_pair_value
