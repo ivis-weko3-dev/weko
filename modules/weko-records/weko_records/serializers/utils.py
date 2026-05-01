@@ -800,17 +800,16 @@ class OpenSearchDetailData:
            the item's metadata and set it in the feedentry.
 
         Args:
-            fe: feed entry
-            item_map: itemtype mapping
-            item_metadata: item metadata
+            fe(WekoFeedGenerator): feed entry
+            item_map(dict): itemtype mapping
+            item_metadata(dict): item metadata
         """
         _source_identifier_value = 'sourceIdentifier.@value'
         _source_identifier_attr_type = \
                             'sourceIdentifier.@attributes.identifierType'
-
         if _source_identifier_value in item_map:
             source_identifier_value_keys = item_map[_source_identifier_value].split(',')
-            source_identifier_attr_type_keys=item_map[_source_identifier_attr_type].split(',')
+            source_identifier_attr_type_keys = item_map[_source_identifier_attr_type].split(',')
             for source_identifier_value_key,source_identifier_attr_type_key in zip(
                     source_identifier_value_keys,
                     source_identifier_attr_type_keys
