@@ -24,7 +24,7 @@ import pickle
 from datetime import datetime
 
 import pytz
-from flask import request,current_app
+from flask import request, current_app
 from invenio_db import db
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_records.models import RecordMetadata
