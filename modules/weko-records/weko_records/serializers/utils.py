@@ -838,12 +838,9 @@ class OpenSearchDetailData:
                                     source_identifier_value_key)
                             source_identifier_types = source_identifier_metadata.get(
                                 source_identifier_attr_type_key)
-                            print(source_identifier_metadata)
-                            print(source_identifiers)
-                            print(source_identifier_types)
                             if source_identifiers:
-                                if isinstance(source_identifiers, list)\
-                                      and isinstance(source_identifier_types, list)\
+                                if isinstance(source_identifiers, list) \
+                                      and isinstance(source_identifier_types, list) \
                                       and len(source_identifiers)==len(source_identifier_types):
                                     for i in range(len(source_identifiers)):
                                         source_identifier_type = \
