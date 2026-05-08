@@ -843,6 +843,10 @@ class RecordsListResource(ContentNegotiatedMethodView):
                 start = (page - 1) * size
                 end = page * size
                 search_result_dict["hits"]["hits"] = search_result_dict["hits"]["hits"][start:end]
+                # The order is reversed by the `prepend` method in
+                # `weko_records.serializers.feed:WekoFeedGenerator.add_entry`.
+                # As a temporary workaround,  set to “prepend,” reverse the order.
+                # When it changes to “append,” please remove the flag and the if statement.
                 flag = "prepend"
                 if (flag == "prepend"
                     and any(i in formats for i in ("rss", "atom", "jpcoar"))
