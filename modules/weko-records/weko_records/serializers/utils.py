@@ -838,22 +838,25 @@ class OpenSearchDetailData:
                                     source_identifier_value_key)
                             source_identifier_types = source_identifier_metadata.get(
                                 source_identifier_attr_type_key)
-                            if source_identifiers:
-                                if isinstance(source_identifiers, list) \
-                                      and isinstance(source_identifier_types, list) \
-                                      and len(source_identifiers)==len(source_identifier_types):
-                                    for i in range(len(source_identifiers)):
-                                        source_identifier_type = \
-                                            source_identifier_types[i]
-                                        if source_identifier_type \
-                                                and source_identifier_type == 'ISSN':
-                                            fe.prism.issn(source_identifiers[i])
-
-                                elif isinstance(source_identifiers, str) \
-                                      and isinstance(source_identifier_types, str) \
-                                      and source_identifier_types \
-                                      and source_identifier_types == 'ISSN':
-                                    fe.prism.issn(source_identifiers)
+                            if isinstance(source_identifiers, str):
+                                source_identifiers = [source_identifiers]
+                            if isinstance(source_identifier_types, str):
+                                source_identifier_types = [source_identifier_types]
+                            if source_identifiers and source_identifier_types:
+                                if len(source_identifiers) != len(source_identifier_types):
+                                    attr = item_metadata.get(item_id).get("attribute_value_mlt")
+                                    for i in range(len(attr)):
+                                        if len(attr[i]) == 1:
+                                            value = next(iter(attr[i].values()))
+                                            if value in source_identifiers:
+                                                source_identifiers.remove(value)
+                                            if value in source_identifier_types:
+                                                source_identifier_types.remove(value)
+                                for source_identifier_type, source_identifier in zip(
+                                    source_identifier_types, source_identifiers
+                                    ):
+                                    if source_identifier_type == 'ISSN':
+                                        fe.prism.issn(source_identifier)
         except Exception as ex:
             current_app.logger.error(ex)
 
