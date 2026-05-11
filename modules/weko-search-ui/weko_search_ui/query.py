@@ -23,7 +23,7 @@
 import json
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from functools import partial
 
 from elasticsearch_dsl.query import Bool, Q
@@ -614,7 +614,7 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
             weko_search_fix_accessrights = current_app.config.get(
                 'WEKO_SEARCH_FIX_ACCESSRIGHTS', False
             )
-            
+
             accessrights_value = params.get('accessrights')
             if not accessrights_value:
                 return None

@@ -87,6 +87,7 @@ def test_create_filter_dsl():
 
 def test_create_filter_dsl_accessrights():
     app = Flask('testapp')
+    app.config['WEKO_SEARCH_FIX_ACCESSRIGHTS'] = True
     # Definition of new_accessRights
     definitions = {
         "accessRights": lambda values: Q('terms', accessRights=values),

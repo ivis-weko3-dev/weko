@@ -2,7 +2,7 @@ import csv
 import uuid
 from mock import patch
 from datetime import datetime, timedelta
-from flask import current_app, Markup
+from flask import current_app, Markup, Flask
 from io import StringIO
 import pytest
 import json
@@ -2171,10 +2171,6 @@ def test_create_facet_search_query(facet_search_settings):
     assert has_permission == test_has_permission
     assert no_permission == test_no_permission
 
-from flask import Flask, current_app
-from datetime import datetime
-from weko_admin.utils import create_facet_search_query
-
 class DummyFacet:
     def __init__(self, name_en, mapping, aggregations):
         self.name_en = name_en
@@ -2192,17 +2188,31 @@ def test_create_aggregations_branch(mocker):
                         "bool": {
                             "must": [
                                 {"term": {"accessRights": "embargoed access"}},
+                                {"nested": {"path": "content", "query": {"exists": {"field": "content.accessrole.raw"}}}},
                                 {
-                                    "nested": {
-                                        "path": "content",
-                                        "query": {
-                                            "bool": {
-                                                "must": [
-                                                    {"term": {"content.accessrole.raw": "open_date"}},
-                                                    {"range": {"content.date.dateValue.raw": {"lte": "@date"}}}
-                                                ]
+                                    "bool": {
+                                        "must_not": [
+                                            {
+                                                "nested": {
+                                                    "path": "content",
+                                                    "query": {
+                                                        "bool": {
+                                                            "must_not": [
+                                                                {"term": {"content.accessrole.raw": "open_access"}},
+                                                                {
+                                                                    "bool": {
+                                                                        "must": [
+                                                                            {"term": {"content.accessrole.raw": "open_date"}},
+                                                                            {"range": {"content.date.dateValue.raw": {"lte": "@date"}}}
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                }
                                             }
-                                        }
+                                        ]
                                     }
                                 }
                             ]
@@ -2216,12 +2226,12 @@ def test_create_aggregations_branch(mocker):
                 "must": [
                     {"term": {"accessRights": "embargoed access"}},
                     {
-                        "nested": {
-                            "path": "content",
-                            "query": {
-                                "bool": {
-                                    "should": [
-                                        {
+                        "bool": {
+                            "should": [
+                                {
+                                    "nested": {
+                                        "path": "content",
+                                        "query": {
                                             "bool": {
                                                 "must": [
                                                     {"term": {"content.accessrole.raw": "open_date"}},
@@ -2229,9 +2239,35 @@ def test_create_aggregations_branch(mocker):
                                                 ]
                                             }
                                         }
-                                    ]
+                                    }
+                                },
+                                {
+                                    "bool": {
+                                        "must": [
+                                            {"nested": {
+                                                "path": "content",
+                                                "query": {"term": {"content.accessrole.raw": "open_no"}}
+                                            }}
+                                        ],
+                                        "must_not": [
+                                            {"nested": {
+                                                "path": "content",
+                                                "query": {"term": {"content.accessrole.raw": "open_login"}}
+                                            }}
+                                        ]
+                                    }
+                                },
+                                {
+                                    "bool": {
+                                        "must_not": [
+                                            {"nested": {
+                                                "path": "content",
+                                                "query": {"exists": {"field": "content.accessrole.raw"}}
+                                            }}
+                                        ]
+                                    }
                                 }
-                            }
+                            ]
                         }
                     }
                 ],
@@ -2239,9 +2275,7 @@ def test_create_aggregations_branch(mocker):
                     {
                         "nested": {
                             "path": "content",
-                            "query": {
-                                "term": {"content.accessrole.raw": "open_restricted"}
-                            }
+                            "query": {"term": {"content.accessrole.raw": "open_restricted"}}
                         }
                     }
                 ]
@@ -2284,6 +2318,21 @@ def test_create_aggregations_branch(mocker):
                                 }
                             ]
                         }
+                    },
+                    {
+                        "bool": {
+                            "must": [
+                                {"term": {"accessRights": "embargoed access"}},
+                                {
+                                    "nested": {
+                                        "path": "content",
+                                        "query": {
+                                            "term": {"content.accessrole.raw": "open_restricted"}
+                                        }
+                                    }
+                                }
+                            ]
+                        }
                     }
                 ]
             }
@@ -2304,9 +2353,6 @@ def test_create_aggregations_branch(mocker):
     with app.app_context():
         has_permission, no_permission = create_facet_search_query()
         aggs = has_permission["testidx"]["aggs"]
-        print("--- new_accessRights aggregation ---")
-        import pprint
-        pprint.pprint(aggs.get("new_accessRights"))
         assert "new_accessRights" not in aggs
 
     # 2. ACCESSRIGHTS_FIX_ENABLED=True, no accessRights facet
@@ -2340,7 +2386,6 @@ def test_create_aggregations_branch(mocker):
             assert access_type in filters
             assert "bool" in filters[access_type]
             import copy
-            from datetime import datetime
             for access_type in app.config["WEKO_ACCESS_RIGHTS_CHOICES"]:
                 template = copy.deepcopy(ACCESS_RIGHTS_QUERY_TEMPLATE[access_type])
                 actual_bool = filters[access_type]["bool"]
@@ -2452,6 +2497,77 @@ def test_get_facet_search_query(app,mocker):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_get_title_facets -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
 def test_get_title_facets(app,facet_search_settings):
     with app.test_request_context(headers=[('Accept-Language', 'en')]):
+        titles, order = get_title_facets()
+        assert titles == {"Data Language":"Data Language","Data Type":"Data Type","raw_test":"raw_test"}
+        assert order == {1:"Data Language",3:"Data Type",4:"raw_test"}
+
+
+# def is_exits_facet(data, id):
+# .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_is_exits_facet -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
+def test_is_exits_facet(app, facet_search_settings):
+    with app.test_request_context(headers=[('Accept-Language', 'en')]):
+        # not id > 0
+        result = is_exits_facet({"name_en":"Data Type","name_jp":"データタイプ","mapping":"description.value"},None)
+        assert result == True
+        result = is_exits_facet({"name_en":"not exist facet","name_jp":"存在しないファセット","mapping":"not exist mapping"},None)
+        assert result == False
+
+        # id > 0
+        result = is_exits_facet({"name_en":"Data Type","name_jp":"データタイプ","mapping":"description.value"},"3")
+        assert result == False
+        result = is_exits_facet({"name_en":"Data Type","name_jp":"データタイプ","mapping":"description.value"},"100")
+        assert result == True
+
+# def overwrite_the_memory_config_with_db(app, site_info):
+# .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_overwrite_the_memory_config_with_db -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
+def test_overwrite_the_memory_config_with_db(app,client,site_info):
+    from flask import Flask
+
+    site_info_not_google = SiteInfo(
+        site_name=[{"name":"test_site_info"}],
+        notify={"name":"test_notify"}
+    )
+
+    site_info_google1 = SiteInfo(
+        site_name=[{"name":"test_site_info"}],
+        notify={"name":"test_notify"},
+        google_tracking_id_user="test_tracking_id1",
+    )
+    site_info_google2 = SiteInfo(
+        site_name=[{"name":"test_site_info"}],
+        notify={"name":"test_notify"},
+        google_tracking_id_user="test_tracking_id2",
+    )
+
+    app = Flask("test_weko_admin_app")
+    # site_info is None
+    overwrite_the_memory_config_with_db(app, None)
+
+    # site_info.google_tracking_id_user is not exist
+    overwrite_the_memory_config_with_db(app, site_info_not_google)
+
+    # GOOGLE_TRACKING_ID_USER is not exist
+    overwrite_the_memory_config_with_db(app, site_info_google1)
+    assert app.config["GOOGLE_TRACKING_ID_USER"] == "test_tracking_id1"
+
+    overwrite_the_memory_config_with_db(app, site_info_google2)
+    assert app.config["GOOGLE_TRACKING_ID_USER"] == "test_tracking_id2"
+
+import json
+import pytest
+from flask import current_app, make_response, request, url_for
+from flask_login import current_user
+from mock import patch
+
+from weko_admin.utils import (
+    get_title_facets
+)
+
+# def get_title_facets():
+def test_get_title_facets(app, users, facet_search_settings):
+    #facet_search_setting = json_data("data/test_facet.json")
+    with app.test_request_context(headers=[('Accept-Language', 'en')]):
+        #with patch("weko_admin.models.FacetSearchSetting.get_activated_facets", return_value=facet_search_setting):
         titles, order, uiTypes, isOpens, displayNumbers, searchConditions = get_title_facets()
         assert uiTypes
         assert isOpens
