@@ -845,13 +845,17 @@ class OpenSearchDetailData:
                                     source_identifier_types = [source_identifier_types]
                                 if len(source_identifiers) != len(source_identifier_types):
                                     attr = item_metadata.get(item_id).get("attribute_value_mlt")
-                                    for i in range(len(attr)):
-                                        if len(attr[i]) == 1:
-                                            value = next(iter(attr[i].values()))
-                                            if value in source_identifiers:
-                                                source_identifiers.remove(value)
-                                            if value in source_identifier_types:
-                                                source_identifier_types.remove(value)
+                                    if not attr:
+                                        continue
+                                    for a in attr:
+                                        if a.get(source_identifier_attr_type_key.split('.')[1]) \
+                                            and a.get(source_identifier_value_key.split('.')[1]):
+                                            continue
+                                        value = next(iter(a.values()))
+                                        if value in source_identifiers:
+                                            source_identifiers.remove(value)
+                                        if value in source_identifier_types:
+                                            source_identifier_types.remove(value)
                                 for source_identifier_type, source_identifier in zip(
                                     source_identifier_types, source_identifiers
                                     ):
