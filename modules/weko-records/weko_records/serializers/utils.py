@@ -834,21 +834,17 @@ class OpenSearchDetailData:
                                 else:
                                     fe.prism.issn(source_identifiers)
                         else:
-                            source_identifiers = []
-                            source_identifier_types = []
                             attr = item_metadata.get(item_id).get("attribute_value_mlt")
                             if not attr:
                                 continue
+                            type_key = source_identifier_attr_type_key.split('.')[1]
+                            value_key = source_identifier_value_key.split('.')[1]
                             for a in attr:
-                                if a.get(source_identifier_attr_type_key.split('.')[1]) \
-                                    and a.get(source_identifier_value_key.split('.')[1]):
-                                    source_identifier_types.append(a.get(source_identifier_attr_type_key.split('.')[1]))
-                                    source_identifiers.append(a.get(source_identifier_value_key.split('.')[1]))
-                            for source_identifier_type, source_identifier in zip(
-                                source_identifier_types, source_identifiers
-                                ):
-                                if source_identifier_type == 'ISSN':
-                                    fe.prism.issn(source_identifier)
+                                source_identifier_type = a.get(type_key)
+                                source_identifier_value = a.get(value_key)
+                                if source_identifier_type and source_identifier_value \
+                                    and source_identifier_type == 'ISSN':
+                                    fe.prism.issn(source_identifier_value)
         except Exception as ex:
             current_app.logger.error(ex)
 
