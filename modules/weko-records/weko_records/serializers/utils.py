@@ -834,28 +834,21 @@ class OpenSearchDetailData:
                                 else:
                                     fe.prism.issn(source_identifiers)
                         else:
-                            source_identifiers = source_identifier_metadata.get(
-                                    source_identifier_value_key)
-                            source_identifier_types = source_identifier_metadata.get(
-                                source_identifier_attr_type_key)
-                            if source_identifiers and source_identifier_types:
-                                if isinstance(source_identifiers, str):
-                                    source_identifiers = [source_identifiers]
-                                if isinstance(source_identifier_types, str):
-                                    source_identifier_types = [source_identifier_types]
-                                source_identifiers.clear()
-                                source_identifier_types.clear()
-                                attr = item_metadata.get(item_id).get("attribute_value_mlt")
-                                for a in attr:
-                                    if a.get(source_identifier_attr_type_key.split('.')[1]) \
-                                        and a.get(source_identifier_value_key.split('.')[1]):
-                                        source_identifier_types.append(a.get(source_identifier_attr_type_key.split('.')[1]))
-                                        source_identifiers.append(a.get(source_identifier_value_key.split('.')[1]))
-                                for source_identifier_type, source_identifier in zip(
-                                    source_identifier_types, source_identifiers
-                                    ):
-                                    if source_identifier_type == 'ISSN':
-                                        fe.prism.issn(source_identifier)
+                            source_identifiers = []
+                            source_identifier_types = []
+                            attr = item_metadata.get(item_id).get("attribute_value_mlt")
+                            if not attr:
+                                continue
+                            for a in attr:
+                                if a.get(source_identifier_attr_type_key.split('.')[1]) \
+                                    and a.get(source_identifier_value_key.split('.')[1]):
+                                    source_identifier_types.append(a.get(source_identifier_attr_type_key.split('.')[1]))
+                                    source_identifiers.append(a.get(source_identifier_value_key.split('.')[1]))
+                            for source_identifier_type, source_identifier in zip(
+                                source_identifier_types, source_identifiers
+                                ):
+                                if source_identifier_type == 'ISSN':
+                                    fe.prism.issn(source_identifier)
         except Exception as ex:
             current_app.logger.error(ex)
 
