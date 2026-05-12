@@ -845,8 +845,6 @@ class OpenSearchDetailData:
                                     source_identifier_types = [source_identifier_types]
                                 if len(source_identifiers) != len(source_identifier_types):
                                     attr = item_metadata.get(item_id).get("attribute_value_mlt")
-                                    if not attr:
-                                        continue
                                     for a in attr:
                                         if a.get(source_identifier_attr_type_key.split('.')[1]) \
                                             and a.get(source_identifier_value_key.split('.')[1]):
