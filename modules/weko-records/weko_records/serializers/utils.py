@@ -843,17 +843,14 @@ class OpenSearchDetailData:
                                     source_identifiers = [source_identifiers]
                                 if isinstance(source_identifier_types, str):
                                     source_identifier_types = [source_identifier_types]
-                                if len(source_identifiers) != len(source_identifier_types):
-                                    attr = item_metadata.get(item_id).get("attribute_value_mlt")
-                                    for a in attr:
-                                        if a.get(source_identifier_attr_type_key.split('.')[1]) \
-                                            and a.get(source_identifier_value_key.split('.')[1]):
-                                            continue
-                                        value = next(iter(a.values()))
-                                        if value in source_identifiers:
-                                            source_identifiers.remove(value)
-                                        if value in source_identifier_types:
-                                            source_identifier_types.remove(value)
+                                source_identifiers.clear()
+                                source_identifier_types.clear()
+                                attr = item_metadata.get(item_id).get("attribute_value_mlt")
+                                for a in attr:
+                                    if a.get(source_identifier_attr_type_key.split('.')[1]) \
+                                        and a.get(source_identifier_value_key.split('.')[1]):
+                                        source_identifier_types.append(a.get(source_identifier_attr_type_key.split('.')[1]))
+                                        source_identifiers.append(a.get(source_identifier_value_key.split('.')[1]))
                                 for source_identifier_type, source_identifier in zip(
                                     source_identifier_types, source_identifiers
                                     ):
