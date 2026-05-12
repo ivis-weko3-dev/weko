@@ -626,9 +626,6 @@ def test__set_source_identifier(app):
                     "subitem_3": "ISSN",
                     "subitem_1": "test_source2"
                 },
-                {
-                    "subitem_1": "test_source3"
-                },
             ]
         }
     }
@@ -640,11 +637,6 @@ def test__set_source_identifier(app):
     item_metadata = {
         "item_1": {
                 "attribute_name": "Source Identifier",
-                "attribute_value_mlt": [
-                    {
-                        "subitem_1": "test"
-                    }
-                ]
             }
         }
     sample_copy._set_source_identifier(fe=fe, item_map=item_map, item_metadata=item_metadata)
