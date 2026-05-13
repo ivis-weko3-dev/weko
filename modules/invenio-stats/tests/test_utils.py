@@ -549,6 +549,26 @@ def test_query_record_view_per_index_report_helper(mock_Community, mock_get_desc
     res = QueryRecordViewPerIndexReportHelper.get(year=2022, month=10, repository_id='com1')
     assert res=={'all': [], 'date': '2022-10', 'total': 0}
 
+    # end_dateに時間が追加されているか
+    with patch.object(QueryRecordViewPerIndexReportHelper, 'build_query')\
+            as mock_build_query:
+        mock_agg_query = MagicMock()
+        mock_agg_query.execute.return_value.to_dict.return_value = {
+            'aggregations': {
+                QueryRecordViewPerIndexReportHelper.nested_path: {
+                    'my_buckets': {'buckets': []},
+                    'doc_count': 0
+                }
+            }
+        }
+        mock_build_query.return_value = mock_agg_query
+        with patch.object(QueryRecordViewPerIndexReportHelper,
+                          'parse_bucket_response', return_value=0):
+            QueryRecordViewPerIndexReportHelper.get(
+                start_date='2022-10-01', end_date='2022-10-31')
+            called_args = mock_build_query.call_args[0]
+            assert called_args[1] == '2022-10-31T23:59:59'
+
 def test_query_record_view_per_index_report_helper_error(app):
     # get
     res = QueryRecordViewPerIndexReportHelper.get(year=2022, month=10)
