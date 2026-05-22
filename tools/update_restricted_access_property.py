@@ -25,6 +25,7 @@ def main(target_item_type_property_id, update_type):
         current_app.logger.error(str(ex))
         current_app.logger.error("Failed to update restricted access property.")
         current_app.logger.error(traceback.format_exc())
+        sys.exit(1)
 
 def update_item_type_property(target_item_type_property_id, update_type):
     """Update the schema, form, and forms of a specific item type property.
