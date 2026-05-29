@@ -164,6 +164,7 @@ def test_check_file_download_permission(app, records, users, db_file_permission,
             fjson['roles'] = [{'role':'Contributor'}]
             assert check_file_download_permission(record, fjson, False) == True
 
+            # Test Case: accessrole=open_login, logged in user, any role
             fjson['accessrole'] = 'open_login'
             fjson['roles'] = [{'role':'none_loggin'},{'role':'1'},{'role':'2'},{'role':'3'},{'role':'4'},{'role':'5'}]
             assert check_file_download_permission(record, fjson, True) == True
@@ -192,8 +193,20 @@ def test_check_file_download_permission(app, records, users, db_file_permission,
             assert check_file_download_permission(record, fjson, True) == False
             assert check_file_download_permission(record, fjson, False) == False
 
+            # Test Case: accessrole=open_restricted, logged in user, site license check returns False
             fjson['accessrole'] = 'open_restricted'
-            assert check_file_download_permission(record, fjson, True) == False
+            with patch("weko_records_ui.permissions.check_site_license_permission", return_value=False):
+                assert check_file_download_permission(record, fjson, True) == False
+
+            # Test Case: accessrole=open_restricted, logged in user, site license check returns True
+            fjson["accessrole"] = "open_restricted"
+            with patch("weko_records_ui.permissions.check_site_license_permission", return_value=True):
+                assert check_file_download_permission(record, fjson, True) == True
+
+            # Test Case: accessrole=open_restricted, check_open_restricted_permission returns True
+            fjson["accessrole"] = "open_restricted"
+            with patch("weko_records_ui.permissions.check_open_restricted_permission", return_value=True):
+                assert check_file_download_permission(record, fjson, True) == True
 
         with patch("weko_records_ui.utils.is_future",return_value=False):
             fjson['accessrole'] = 'open_date'
@@ -201,12 +214,22 @@ def test_check_file_download_permission(app, records, users, db_file_permission,
             fjson['roles'] = [{'role':'none_loggin'},{'role':'System Administrator'},{'role':'Repository Administrator'},{'role':'Contributor'},{'role':'Community Administrator'},{'role':'General'}]
             assert check_file_download_permission(record, fjson, False) == True
 
+            # Test Case: accessrole=open_login, not logged in user, any role
             fjson['accessrole'] = 'open_login'
             assert check_file_download_permission(record, fjson, False) == False
+
+            # Test Case: accessrole=open_login, not logged in user, but site license check returns True
+            fjson['accessrole'] = 'open_login'
+            with patch("weko_records_ui.permissions.check_site_license_permission", return_value=True):
+                assert check_file_download_permission(record, fjson, False) == True
 
             fjson['roles'] = []
             fjson['groupsprice'] = ''
             fjson['groups'] = 'group'
+            assert check_file_download_permission(record, fjson, False) == False
+
+            # Test Case: accessrole=invalid_value, not logged in user
+            fjson['accessrole'] = 'invalid_value'
             assert check_file_download_permission(record, fjson, False) == False
 
     record = results[2]["record"]
