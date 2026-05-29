@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import traceback
 
 from flask import current_app
 
@@ -691,8 +692,10 @@ def main():
                 if isinstance(result, int):
                     expected_count = len(records) if isinstance(records, list) else 1
                     _put_status_list(key, expected_count, result)
-            except Exception:
+            except Exception as ex:
+                current_app.logger.error(str(ex))
                 current_app.logger.exception(f"Error while verifying '{key}'")
+                current_app.logger.error(traceback.format_exc())
 
         current_app.logger.info(f"Verification completed. \n"
                                 f"Tables with all records correct: {tables_all}, \n"
