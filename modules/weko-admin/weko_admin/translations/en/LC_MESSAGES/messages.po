@@ -1898,13 +1898,13 @@ msgstr ""
 msgid "(from - to)"
 msgstr ""
 
-#: weko_admin/templates/weko_admin/admin/site_license_settings.html:135
-msgid "Please input a correct number"
+#: weko_admin/templates/weko_admin/admin/site_license_settings.html:137
+msgid "Please input a correct number."
 msgstr ""
 
-#: weko_admin/templates/weko_admin/admin/site_license_settings.html:136
-msgid "The range of ipAddress is not correct"
-msgstr "IP Address range is not correct"
+#: weko_admin/templates/weko_admin/admin/site_license_settings.html:138
+msgid "The range of ipAddress is not correct."
+msgstr "IP Address range is not correct."
 
 #: weko_admin/templates/weko_admin/admin/site_license_settings.html:142
 #: weko_admin/templates/weko_admin/admin/site_license_settings.html:153
