@@ -833,6 +833,8 @@ class CheckComponent extends React.Component {
     this.handleGenerateData = this.handleGenerateData.bind(this)
     this.generateTitle = this.generateTitle.bind(this)
     this.handleDownload = this.handleDownload.bind(this)
+    this.handleOnInputChanged = this.handleOnInputChanged.bind(this)
+    this.handleOnInputBlur = this.handleOnInputBlur.bind(this)
   }
 
   componentWillReceiveProps(nextProps, prevProps) {
@@ -935,6 +937,44 @@ class CheckComponent extends React.Component {
     });
   }
 
+  handleOnInputChanged(e) {
+    // The input values are temporarily stored in the state, and list_record is not modified.
+    const value = e.target.value;
+    let name = e.target.name;
+    if (name === "list_doi") {
+      name = "bulk_doi";
+    }
+    const key = e.target.getAttribute("data-key");
+    this.setState(prevState => {
+      const temp_inputs = { ...(prevState.temp_inputs || {}) };
+      if (typeof key !== "undefined") {
+        if (!temp_inputs[key]) temp_inputs[key] = {};
+        temp_inputs[key][name] = value;
+      }
+      return { temp_inputs };
+    });
+  }
+
+  handleOnInputBlur(e) {
+    //　When the input loses focus, the value is reflected in list_record and temp_inputs is cleared.
+    const value = e.target.value;
+    let name = e.target.name;
+    if (name === "list_doi") {
+      name = "bulk_doi";
+    }
+    const key = e.target.getAttribute("data-key");
+    this.setState(prevState => {
+      const list_record = [...prevState.list_record];
+      if (typeof key !== "undefined" && list_record[key]) {
+        list_record[key][name] = value;
+      }
+      // temp_inputsもクリア
+      const temp_inputs = { ...(prevState.temp_inputs || {}) };
+      if (temp_inputs[key]) delete temp_inputs[key];
+      return { list_record, temp_inputs };
+    });
+  }
+
   render() {
     const { total, list_record, update_item, new_item, check_error, warning_item } = this.state
     const { is_import, isShowMessage } = this.props
@@ -1020,7 +1060,22 @@ class CheckComponent extends React.Component {
                         </td>
                         <td>
                           <div class="form-inline">
-                            <input class="form-control" type="text" name="list_doi" disabled={item.errors && item.errors.length > 0} />
+                            <input
+                              className="form-control"
+                              type="text"
+                              name="list_doi"
+                              value={
+                                (this.state.temp_inputs &&
+                                  this.state.temp_inputs[key] &&
+                                  this.state.temp_inputs[key].bulk_doi) ||
+                                item.bulk_doi ||
+                                undefined
+                              }
+                              data-key={key}
+                              onChange={this.handleOnInputChanged}
+                              onBlur={this.handleOnInputBlur}
+                              disabled={item.errors && item.errors.length > 0}
+                            />
                           </div>
                         </td>
                         <td>
@@ -1144,7 +1199,7 @@ class ResultComponent extends React.Component {
                       <td>{item.start_date ? item.start_date : ''}</td>
                       <td>{item.end_date ? item.end_date : ''}</td>
                       <td><a href={item.item_id ? "/records/" + item.item_id : ''} target="_blank">
-                          {item.item_id || ''}</a>
+                        {item.item_id || ''}</a>
                       </td>
                       <td>{getTaskStatusLabel(item.task_status)}</td>
                       <td>{getTaskResult(item.task_result)}</td>

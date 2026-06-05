@@ -2261,8 +2261,8 @@ def make_stats_file(item_type_id, recids, list_item_role, export_path=""):
         ret.extend([".item_application.workflow",".item_application.terms",".item_application.termsDescription"])
         ret_label.extend([".ITEM_APPLICATION.WORKFLOW",".ITEM_APPLICATION.TERMS",".ITEM_APPLICATION.TERMS_DESCRIPTION"])
 
-    ret.extend(['.cnri', '.doi_ra', '.doi', '.edit_mode'])
-    ret_label.extend(['.CNRI', '.DOI_RA', '.DOI', 'Keep/Upgrade Version'])
+    ret.extend(['.cnri', '.doi_ra', '.doi', '.bulk_doi', '.edit_mode'])
+    ret_label.extend(['.CNRI', '.DOI_RA', '.DOI', '.BULK_DOI', 'Keep/Upgrade Version'])
     has_pubdate = len([
         record for _, record in records.records.items()
         if record.get('pubdate')
@@ -2337,7 +2337,8 @@ def make_stats_file(item_type_id, recids, list_item_role, export_path=""):
                 doi_type_str = WEKO_IMPORT_DOI_TYPE[3]
         records.attr_output[recid].extend([
             doi_type_str,
-            doi_str
+            doi_str,
+            ""
         ])
         # .edit Keep/Upgrade default is Keep
         records.attr_output[recid].append('Keep')
@@ -4066,6 +4067,8 @@ def get_duplicate_fields(data):
 def check_duplicate(data, is_item=True, exclude_ids=[]):
     """Check if a record or item is duplicate in records_metadata.
 
+    If the setting for enabling/disabling the duplicate check function is False, it returns false.
+    
     Checks whether records or items in records_metadata are unique.
 
     If an identifier exists, returns True if a duplicate item exists.
@@ -4086,6 +4089,9 @@ def check_duplicate(data, is_item=True, exclude_ids=[]):
             - List of duplicate record IDs.
             - List of duplicate record URLs.
     """
+    if current_app.config.get("WEKO_ITEMS_UI_ENABLE_DUPLICATE_CHECK", False) is False:
+        return False, [], []
+    
     if isinstance(data, str):
         try:
             data = json.loads(data)
@@ -4843,8 +4849,8 @@ def make_stats_file_with_permission(item_type_id, recids,
         ret.extend([".item_application.workflow",".item_application.terms",".item_application.termsDescription"])
         ret_label.extend([".ITEM_APPLICATION.WORKFLOW",".ITEM_APPLICATION.TERMS",".ITEM_APPLICATION.TERMS_DESCRIPTION"])
 
-    ret.extend(['.cnri', '.doi_ra', '.doi', '.edit_mode'])
-    ret_label.extend(['.CNRI', '.DOI_RA', '.DOI', 'Keep/Upgrade Version'])
+    ret.extend(['.cnri', '.doi_ra', '.doi', '.bulk_doi', '.edit_mode'])
+    ret_label.extend(['.CNRI', '.DOI_RA', '.DOI', '.BULK_DOI', 'Keep/Upgrade Version'])
     ret.append('.metadata.pubdate')
     ret_label.append('公開日' if
                      permissions['current_language']() == 'ja' else 'PubDate')
@@ -4915,7 +4921,8 @@ def make_stats_file_with_permission(item_type_id, recids,
                 doi_type_str = WEKO_IMPORT_DOI_TYPE[3]
         records.attr_output[recid].extend([
             doi_type_str,
-            doi_str
+            doi_str,
+            ""
         ])
 
         # .edit Keep or Upgrade. default is Keep
@@ -5566,7 +5573,7 @@ def set_scheme_by_author_table(data_type, meta_list, result):
             key_list["contributor"]["key"] = key
         elif data and "input_type" in data and data["input_type"] == "cus_{}".format(rightsHolder_id):
             key_list["rightsHolder"]["key"] = key
-    
+
     if key_list["creator"]["key"] or key_list["contributor"]["key"] or key_list["rightsHolder"]["key"]:
         prefix_scheme = WekoAuthors.get_scheme_of_id_prefix()
         affiliation_scheme = WekoAuthors.get_scheme_of_affiliaiton_id()
@@ -5651,12 +5658,12 @@ def set_scheme_to_schema(schema_data, prefix_scheme, affiliation_scheme, key_lis
         if key_list["rightsHolder"]["key"]:
             schema = schema_data["properties"][key_list["rightsHolder"]["key"]]
             set_prefix_scheme_to_schema("rightsHolder", schema, prefix_list, affiliation_list, key_list)
-        
+
 
 def set_prefix_scheme_to_schema(prop_type, schema_data, prefix_list, affiliation_list, key_list):
     ids_key = key_list[prop_type]["ids_key"]
     id_key = key_list[prop_type]["id_key"]
-    as_key = key_list[prop_type]["as_key"] 
+    as_key = key_list[prop_type]["as_key"]
     aids_key = key_list[prop_type]["aids_key"]
     aid_key = key_list[prop_type]["aid_key"]
     if "items" in schema_data and \

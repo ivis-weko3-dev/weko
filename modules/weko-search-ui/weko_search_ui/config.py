@@ -562,6 +562,7 @@ WEKO_EXPORT_TEMPLATE_BASIC_ID = [
     ".cnri",
     ".doi_ra",
     ".doi",
+    ".bulk_doi",
     ".edit_mode",
 ]
 WEKO_EXPORT_TEMPLATE_BASIC_NAME = [
@@ -575,6 +576,7 @@ WEKO_EXPORT_TEMPLATE_BASIC_NAME = [
     ".CNRI",
     ".DOI_RA",
     ".DOI",
+    ".BULK_DOI",
     "Keep/Upgrade Version",
 ]
 WEKO_EXPORT_TEMPLATE_BASIC_OPTION = [
@@ -786,3 +788,8 @@ ROCRATE_METADATA_FILE = "data/ro-crate-metadata.json"
 
 ROCRATE_METADATA_WK_CONTEXT_V1 = "http://purl.org/wk/v1/wk-context.jsonld"
 """ Metadata context file name for RO-Crate+Bagit. """
+
+WEKO_ACCESS_RIGHTS_CHOICES = [ "embargoed access", "metadata only access", "open access", "restricted access"]
+
+WEKO_SEARCH_FIX_ACCESSRIGHTS = False
+""" If true, the value of accessrights will be modified. """
