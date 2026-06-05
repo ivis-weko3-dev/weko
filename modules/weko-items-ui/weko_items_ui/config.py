@@ -391,3 +391,5 @@ WEKO_ITEMS_UI_BULK_IMPORT_TIMEOUT = 60
 
 WEKO_ITEMS_UI_EXPIRE_TIME = 24
 """ Expire time(hours) for bulk import task data stored in Redis. """
+WEKO_ITEMS_UI_ENABLE_DUPLICATE_CHECK = False
+"""Setting for duplicate check."""

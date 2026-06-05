@@ -4067,6 +4067,8 @@ def get_duplicate_fields(data):
 def check_duplicate(data, is_item=True, exclude_ids=[]):
     """Check if a record or item is duplicate in records_metadata.
 
+    If the setting for enabling/disabling the duplicate check function is False, it returns false.
+    
     Checks whether records or items in records_metadata are unique.
 
     If an identifier exists, returns True if a duplicate item exists.
@@ -4087,6 +4089,9 @@ def check_duplicate(data, is_item=True, exclude_ids=[]):
             - List of duplicate record IDs.
             - List of duplicate record URLs.
     """
+    if current_app.config.get("WEKO_ITEMS_UI_ENABLE_DUPLICATE_CHECK", False) is False:
+        return False, [], []
+    
     if isinstance(data, str):
         try:
             data = json.loads(data)
