@@ -1113,7 +1113,30 @@ WEKO_ADMIN_MANAGEMENT_OPTIONS = {
          'mappingName':'',
          'item_value':{'1': {'path': {'type': '', 'coordinates': ''}, 'path_type': {'type': 'json', 'coordinates': 'json'}}
                        }
-         }
+         },
+         {
+            "id":"accessrights",
+            "contents":"",
+            "contents_value":{"en":"Access Rights","ja":"アクセス権"},
+            "useable_status":True,
+            "mapping":[
+                "embargoed access",
+                "metadata only access",
+                "open access",
+                "restricted access",
+            ],
+            "check_val":[
+                {"id":"embargoed access","contents":"embargoed access","checkStus":False},
+                {"id":"metadata only access","contents":"metadata only access","checkStus":False},
+                {"id":"open access","contents":"open access","checkStus":False},
+                {"id":"restricted access","contents":"restricted access","checkStus":False},
+            ],
+            "default_display":True,
+            "inputType":"checkbox_list",
+            "inputVal":"",
+            "mappingFlg":False,
+            "mappingName":""
+        }
     ]
 }
 
@@ -1335,7 +1358,7 @@ WEKO_ADMIN_RESTRICTED_ACCESS_SETTINGS = {
 """Default restricted access settings."""
 
 WEKO_ADMIN_RESTRICTED_ACCESS_MAX_INTEGER = 9999999
-"""max value of expiration_date and download_limit. 
+"""max value of expiration_date and download_limit.
     Any more than this and the datetime may overflow. """
 
 WEKO_ADMIN_ITEMS_PER_PAGE_USAGE_REPORT_REMINDER = 25
@@ -1379,7 +1402,7 @@ WEKO_ADMIN_USE_REGEX_IN_CRAWLER_LIST = False
 WEKO_ADMIN_USE_MAIL_TEMPLATE_EDIT = False
 """Whether system can edit mail template or not."""
 
-WEKO_ADMIN_DISPLAY_RESTRICTED_SETTINGS = False
+WEKO_ADMIN_DISPLAY_RESTRICTED_SETTINGS = True
 """If True, display admin restricted settings."""
 
 WEKO_ADMIN_CRIS_LINKAGE_SETTINGS_TEMPLATE = 'weko_admin/admin/cris_linkage_setting.html'

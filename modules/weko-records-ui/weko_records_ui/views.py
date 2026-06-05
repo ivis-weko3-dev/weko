@@ -537,8 +537,8 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
     google_scholar_meta = get_google_scholar_meta(record,record_tree=et)
     google_dataset_meta = get_google_detaset_meta(record,record_tree=et)
 
-    current_lang = current_i18n.language \
-        if hasattr(current_i18n, 'language') else None
+    current_lang = str(current_i18n.locale) \
+        if hasattr(current_i18n, 'locale') else None
     # get title name
     from weko_search_ui.utils import get_data_by_property
     from weko_items_ui.utils import get_options_and_order_list, get_hide_list_by_schema_form
@@ -781,6 +781,7 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
         is_no_content_item_application = item_application_settings.get("item_application_enable", False) \
             and int(item_type_id) in item_application_settings.get("application_item_types", [])
 
+
     return render_template(
         template,
         pid=pid,
@@ -837,6 +838,7 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
         restricted_errorMsg = restricted_errorMsg,
         with_files = with_files,
         belonging_community=belonging_community,
+        is_storage_editable=current_app.config.get('WEKO_RECORDS_UI_USER_STORAGE_MODIFICATION_ENABLED'),
         **ctx,
         **kwargs
     )
@@ -1495,7 +1497,7 @@ def copy_bucket():
         return jsonify(uri)
     except Exception as e:
         current_app.logger.error(str(e))
-        traceback.print_exc()
+        current_app.logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 400
 
 

@@ -280,6 +280,42 @@ def json_loader(data, pid, owner_id=None, with_deleted=False, replace_field=True
             dc.update(dict(owner=int(owner_id)))
             dc.update(dict(owners=[int(owner_id)]))
 
+        if current_app.config.get("WEKO_SEARCH_FIX_ACCESSRIGHTS", False):
+            update_embargo_rights(jrc["_item_metadata"])
+
+            from weko_records.serializers.utils import get_mapping
+            mapping = get_mapping(item_type_id, "jpcoar_mapping")
+            access_path = mapping.get("accessRights.@value")
+            def _get_nested_value(data, path):
+                keys = path.split('.')
+                key = keys[0]
+                rest = '.'.join(keys[1:])
+                if isinstance(data, dict):
+                    if key in data:
+                        if rest:
+                            return _get_nested_value(data[key], rest)
+                        else:
+                            return data[key]
+                    elif 'attribute_value_mlt' in data:
+                        for item in data['attribute_value_mlt']:
+                            found = _get_nested_value(item, '.'.join(keys))
+                            if found is not None:
+                                return found
+                        return None
+                    else:
+                        return None
+                elif isinstance(data, list):
+                    for item in data:
+                        found = _get_nested_value(item, '.'.join(keys))
+                        if found is not None:
+                            return found
+                    return None
+                else:
+                    return None
+            access_right = _get_nested_value(jrc["_item_metadata"], access_path) if access_path else None
+            if access_right:
+                jrc["accessRights"] = [access_right]
+
     del ojson, mjson, item
     return dc, jrc, is_edit
 
@@ -2252,6 +2288,10 @@ def selected_value_by_language(
     lang_key_list = lang_key_str.split(",")
     val_key_list = val_key_str.split(",")
 
+    if lang_selected == 'zh_Hans':
+            lang_selected = 'zh-cn'
+    elif lang_selected == 'zh_Hant':
+        lang_selected = 'zh-tw'
     for val_key in val_key_list:
         val_parent_key = val_key.split(".")[0]
         val_sub_key = val_key.split(".")[-1]
@@ -2860,3 +2900,173 @@ def replace_fqdn_of_file_metadata(file_metadata_lst: list, file_url: list = None
                 file["url"]["url"] = replace_fqdn(file["url"]["url"])
             elif isinstance(file_url, list):
                 file_url.append(file["url"]["url"])
+
+def check_embargo_rights(access_right: str, today, accessrole_date: list = []):
+    """
+    Determines whether the accessrights value needs to be updated based on
+    the mapped item values and file information, and what value it should be
+    changed to.
+    Args:
+        access_right (str): The value mapped to the item's accessRight.
+        today (date): The current date.
+        accessrole_date (list): List of (accessrole, date) tuples for
+            registered files.
+    Returns:
+        is_update_required (bool): Whether an update is required.
+        change_value (str): The value after the update.
+    """
+    # Do nothing if not 'embargoed access'
+    if access_right != "embargoed access":
+        return False, None
+
+    # 1. If there is at least one 'open_restricted', set to 'restricted access'
+    if any(
+        role == "open_restricted" for role, _ in accessrole_date
+    ):
+        return True, "restricted access"
+
+    # 2. If there is at least one 'open_date' with a future date, no update required
+    if any(
+        role == "open_date" and date and today and date > today
+        for role, date in accessrole_date
+    ):
+        return False, None
+
+    # 3. If there is at least one 'open_login', set to 'restricted access'
+    if any(
+        role == "open_login" for role, _ in accessrole_date
+    ):
+        return True, "restricted access"
+
+    # 4. If all are 'open_access' or 'open_date' with date <= today,
+    #    set to 'open access'
+    if accessrole_date and all(
+        (role == "open_access") or
+        (role == "open_date" and date and today and date <= today)
+        for role, date in accessrole_date
+    ):
+        return True, "open access"
+
+    return False, None
+
+def update_embargo_rights(metadata: dict) -> None:
+    """
+    Update accessrights value in item metadata in-place.
+    Args:
+        metadata (dict): Item metadata to update.
+    Returns:
+        None (modifies metadata in-place)
+    """
+    # Skip if config disables accessrights fix
+    if not current_app.config.get("WEKO_SEARCH_FIX_ACCESSRIGHTS", False):
+        return
+
+    item_type_id = metadata.get("item_type_id")
+    if not item_type_id:
+        return
+
+    from weko_records.serializers.utils import get_mapping
+    mapping = get_mapping(item_type_id, "jpcoar_mapping")
+    access_path = mapping.get("accessRights.@value")
+    if not access_path:
+        return
+
+    if access_path.endswith("subitem_access_right"):
+        access_uri_path = (
+            access_path[:-len("subitem_access_right")] +
+            "subitem_access_right_uri"
+        )
+    else:
+        access_uri_path = None
+
+    def _get_nested_value(data, path):
+        keys = path.split('.')
+        key = keys[0]
+        rest = '.'.join(keys[1:])
+        if isinstance(data, dict):
+            if key in data:
+                if rest:
+                    return _get_nested_value(data[key], rest)
+                else:
+                    return data[key]
+            elif 'attribute_value_mlt' in data:
+                for item in data['attribute_value_mlt']:
+                    found = _get_nested_value(item, '.'.join(keys))
+                    if found is not None:
+                        return found
+                return None
+            else:
+                return None
+        elif isinstance(data, list):
+            for item in data:
+                found = _get_nested_value(item, '.'.join(keys))
+                if found is not None:
+                    return found
+            return None
+        else:
+            return None
+
+    access_right_value = _get_nested_value(metadata, access_path)
+    if not access_right_value:
+        return
+
+    from datetime import datetime
+    accessrole_date = []
+    today = datetime.now().date()
+
+    for v in metadata.values():
+        if (
+            isinstance(v, dict) and v.get("attribute_type") == "file"
+        ):
+            mlt = v.get("attribute_value_mlt", [])
+            for data in mlt:
+                date_val = None
+                accessrole_val = data.get("accessrole")
+                if (
+                    "date" in data and
+                    isinstance(data["date"], list) and
+                    data["date"]
+                ):
+                    date_val = data["date"][0].get("dateValue")
+                    if date_val:
+                        if re.match(r"^\d{4}-\d{2}-\d{2}$", date_val):
+                            date_val = datetime.strptime(date_val, "%Y-%m-%d").date()
+                        else:
+                            date_val = None
+                if accessrole_val:
+                    accessrole_date.append((accessrole_val, date_val))
+
+    from .utils import check_embargo_rights
+    is_update, change_value = check_embargo_rights(
+        access_right_value, today, accessrole_date
+    )
+
+    access_right_type_uri = current_app.config.get("ACCESS_RIGHT_TYPE_URI", {})
+    access_right_type_uri_value = access_right_type_uri.get(change_value, "")
+
+    def _set_nested_value(data, path, value):
+        keys = path.split('.')
+        key = keys[0]
+        rest = '.'.join(keys[1:])
+        if isinstance(data, list):
+            for item in data:
+                _set_nested_value(item, path, value)
+            return
+        if len(keys) == 1:
+            if isinstance(data, dict) and key in data:
+                data[key] = value
+            if isinstance(data, dict) and 'attribute_value_mlt' in data:
+                for item in data['attribute_value_mlt']:
+                    _set_nested_value(item, key, value)
+        else:
+            if isinstance(data, dict):
+                if key in data:
+                    _set_nested_value(data[key], rest, value)
+                if 'attribute_value_mlt' in data:
+                    for item in data['attribute_value_mlt']:
+                        _set_nested_value(item, rest, value)
+
+    if is_update and change_value:
+        _set_nested_value(metadata, access_path, change_value)
+        if access_uri_path and access_right_type_uri_value:
+            _set_nested_value(metadata, access_uri_path, access_right_type_uri_value)
