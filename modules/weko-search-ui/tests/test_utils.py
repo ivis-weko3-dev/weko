@@ -44,7 +44,6 @@ from weko_workflow.errors import WekoWorkflowException
 from weko_workflow.headless.activity import HeadlessActivity
 from weko_workflow.models import Activity, WorkFlow
 
-
 from weko_search_ui.config import (
     ACCESS_RIGHT_TYPE_URI,
     RESOURCE_TYPE_URI,
@@ -76,6 +75,7 @@ from weko_search_ui.utils import (
     delete_records,
     execute_search_with_pagination,
     export_all,
+    fix_aggregations_accessrights,
     get_retry_info,
     generate_metadata_from_jpcoar,
     get_change_identifier_mode_content,
@@ -1006,7 +1006,8 @@ def test_handle_convert_validate_msg_to_jp(i18n_app):
 
 
 # def handle_validate_item_import(list_record, schema) -> list:
-def test_handle_validate_item_import(app, mocker_itemtype):
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_handle_validate_item_import -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_handle_validate_item_import(app, mocker_itemtype, mocker):
     filepath = os.path.join(
         os.path.dirname(os.path.realpath(__file__)), "data", "csv", "data.json"
     )
@@ -1040,6 +1041,96 @@ def test_handle_validate_item_import(app, mocker_itemtype):
                 == result
             )
 
+    schema = {
+        "type": "object",
+        "properties": {
+            "item_xxx": {
+                "type": "object",
+                "properties": {
+                    "subitem_yyy": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "subitem_zzz": {
+                                    "type": "string",
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    list_record = [
+        {   
+            "metadata": {
+                'item_xxx': {
+                    'subitem_yyy':[ 
+                        {"subitem_zzz": 123}
+                    ]
+                }
+            }
+        }
+    ]
+    with app.test_request_context():
+        with set_locale("en"):
+            result = handle_validate_item_import(list_record, schema)
+            warnings = result[0].get("warnings", [])
+            target = list_record[0]["metadata"]['item_xxx']['subitem_yyy'][0]["subitem_zzz"]
+            assert any("Replace value of" in w for w in warnings)
+            assert any("is different from existing" in w for w in warnings)
+            assert type(target) == str
+
+    list_record[0]["metadata"]['item_xxx']['subitem_yyy'][0]["subitem_zzz"] = 456
+
+    with app.test_request_context():
+        with set_locale("ja"):
+            result = handle_validate_item_import(list_record, schema)
+            warnings = result[0].get("warnings", [])
+            assert any("へ置き換えました。" in w for w in warnings)
+            assert any("と異なっています。" in w for w in warnings)
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "item_aaa": {
+                "type": "object",
+                "properties": {
+                    "subitem_bbb": {
+                        "type": "object",
+                        "properties": {
+                            "subitem_ccc": {
+                                "enum": [None, "Yes|Yes", "No|No"],
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    list_record = [
+        {   
+            "metadata": {
+                'item_aaa': {
+                    'subitem_bbb': {
+                        "subitem_ccc": "Yes"
+                    }
+                }
+            }
+        }
+    ]
+    with app.test_request_context():
+        with set_locale("en"):
+            result = handle_validate_item_import(list_record, schema)
+            assert "errors" in result[0]
+            
+    with app.test_request_context():
+        with set_locale("ja"):
+            result = handle_validate_item_import(list_record, schema)
+            assert "errors" in result[0]
 
 # def represents_int(s):
 def test_represents_int():
@@ -6125,3 +6216,69 @@ class TestHandleCheckAuthorsAffiliation:
         handle_check_authors_affiliation(list_record)
 
         assert "errors" not in list_record[0]
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_fix_aggregations_accessrights -v -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_fix_aggregations_accessrights(app, mocker):
+    # 1. When the flag is OFF, the aggregation result is returned as is.
+    with app.app_context():
+        app.config["WEKO_SEARCH_FIX_ACCESSRIGHTS"] = False
+        app.config["WEKO_ACCESS_RIGHTS_CHOICES"] = ["embargoed access", "metadata only access", "open access", "restricted access"]
+        mocker.patch("weko_search_ui.utils.FacetSearchSetting.get_activated_facets_mapping", return_value={"access": "accessRights"})
+        aggs = {"access": {"buckets": []}}
+        data = {"aggregations": aggs.copy()}
+        result = fix_aggregations_accessrights(data.copy())
+        assert result["aggregations"] == aggs  # No change when the flag is OFF
+
+    # 2. If the mapping is not accessRights, new_accessRights remains.
+    with app.app_context():
+        app.config["WEKO_SEARCH_FIX_ACCESSRIGHTS"] = True
+        app.config["WEKO_ACCESS_RIGHTS_CHOICES"] = ["embargoed access", "metadata only access", "open access", "restricted access"]
+        mocker.patch("weko_search_ui.utils.FacetSearchSetting.get_activated_facets_mapping", return_value={"other": "notAccessRights"})
+        aggs = {"access": {"buckets": []}, "new_accessRights": {"buckets": {}}}
+        data = {"aggregations": aggs.copy()}
+        result = fix_aggregations_accessrights(data.copy())
+        assert "new_accessRights" in result["aggregations"]  # new_accessRights remains if mapping does not match
+        assert result["aggregations"]["access"] == {"buckets": []}
+
+    # 3. If new_accessRights does not exist, return as is.
+    with app.app_context():
+        app.config["WEKO_SEARCH_FIX_ACCESSRIGHTS"] = True
+        app.config["WEKO_ACCESS_RIGHTS_CHOICES"] = ["embargoed access", "metadata only access", "open access", "restricted access"]
+        mocker.patch("weko_search_ui.utils.FacetSearchSetting.get_activated_facets_mapping", return_value={"access": "accessRights"})
+        aggs = {"access": {"buckets": []}}
+        data = {"aggregations": aggs.copy()}
+        result = fix_aggregations_accessrights(data.copy())
+        assert result["aggregations"] == aggs  # No change if new_accessRights does not exist
+
+    # 4. If ACCESS_RIGHTS_CHOICES are not in new_accessRights buckets, new_accessRights remains.
+    with app.app_context():
+        app.config["WEKO_SEARCH_FIX_ACCESSRIGHTS"] = True
+        app.config["WEKO_ACCESS_RIGHTS_CHOICES"] = ["embargoed access", "metadata only access", "open access", "restricted access"]
+        mocker.patch("weko_search_ui.utils.FacetSearchSetting.get_activated_facets_mapping", return_value={"access": "accessRights"})
+        aggs = {"access": {"buckets": []}, "new_accessRights": {"buckets": {}}}
+        data = {"aggregations": aggs.copy()}
+        result = fix_aggregations_accessrights(data.copy())
+        assert "new_accessRights" in result["aggregations"]  # new_accessRights remains if ACCESS_RIGHTS_CHOICES not in buckets
+        assert result["aggregations"]["access"] == {"buckets": []}
+
+    # 5. If doc_count is 0, new_accessRights remains.
+    with app.app_context():
+        app.config["WEKO_SEARCH_FIX_ACCESSRIGHTS"] = True
+        app.config["WEKO_ACCESS_RIGHTS_CHOICES"] = ["embargoed access", "metadata only access", "open access", "restricted access"]
+        mocker.patch("weko_search_ui.utils.FacetSearchSetting.get_activated_facets_mapping", return_value={"access": "accessRights"})
+        aggs = {"access": {"buckets": []}, "new_accessRights": {"buckets": {"open access": {"doc_count": 0}}}}
+        data = {"aggregations": aggs.copy()}
+        result = fix_aggregations_accessrights(data.copy())
+        assert "new_accessRights" in result["aggregations"]  # new_accessRights remains if doc_count is 0
+        assert result["aggregations"]["access"] == {"buckets": []}
+
+    # 6. Normal case: If doc_count > 0, accessrights are set in buckets and new_accessRights is removed.
+    with app.app_context():
+        app.config["WEKO_SEARCH_FIX_ACCESSRIGHTS"] = True
+        app.config["WEKO_ACCESS_RIGHTS_CHOICES"] = ["embargoed access", "metadata only access", "open access", "restricted access"]
+        mocker.patch("weko_search_ui.utils.FacetSearchSetting.get_activated_facets_mapping", return_value={"access": "accessRights"})
+        aggs = {"access": {"buckets": []}, "new_accessRights": {"buckets": {"open access": {"doc_count": 2}, "embargoed access": {"doc_count": 1}}}}
+        data = {"aggregations": aggs.copy()}
+        result = fix_aggregations_accessrights(data.copy())
+        assert "new_accessRights" not in result["aggregations"]  # new_accessRights is removed in normal case
+        assert result["aggregations"]["access"] == {"buckets": [{"key": "embargoed access", "doc_count": 1}, {"key": "open access", "doc_count": 2}]}
