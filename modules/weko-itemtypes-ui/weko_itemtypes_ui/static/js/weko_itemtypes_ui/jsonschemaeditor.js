@@ -206,7 +206,7 @@
 		},
 		export: function _export() {
 			var arr = [];
-			if (this.state.enum.length > 0) {
+			if (this.state.enum.length > 0 && !Array.isArray(this.state.enum)) {
 				arr = this.state.enum.split('|');
 			}
 			return {
@@ -276,7 +276,7 @@
 		},
 		export: function _export() {
 			var arr = [];
-			if (this.state.enum.length > 0) {
+			if (this.state.enum.length > 0 && !Array.isArray(this.state.enum)) {
 				arr = this.state.enum.split('|');
 			}
 			return {
@@ -343,7 +343,7 @@
 		},
 		export: function _export() {
 			var arr = [];
-			if (this.state.enum.length > 0) {
+			if (this.state.enum.length > 0 && !Array.isArray(this.state.enum)) {
 				arr = this.state.enum.split('|');
 				if (!arr.includes(null)) {
 					arr.unshift(null);
@@ -586,9 +586,10 @@
 			}
 		},
 		changeRequired: function changeRequired(event) {
-			if (event.target.checked) {
+			if (event.target.checked && this.state.required.indexOf(event.target.name) === -1) {
 				this.state.required.push(event.target.name);
-			} else {
+			}
+			else if (!event.target.checked && this.state.required.indexOf(event.target.name) !== -1) {
 				var i = this.state.required.indexOf(event.target.name);
 				this.state.required.splice(i, 1);
 			}

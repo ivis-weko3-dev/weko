@@ -28,7 +28,21 @@ def terms_filter(field):
     :param field: Field name.
     :returns: Function that returns the Terms query.
     """
+    return terms_condition_filter(field, False)
+
+def terms_condition_filter(field, isAndFileter):
+    """Create a term filter.
+
+    :param field: Field name.
+    :param isAndFileter: AND condition if true. OR condition if false.
+    :returns: Function that returns the Terms query.
+    """
     def inner(values):
+        if len(values) > 1 and isAndFileter:
+            q_list = []
+            for value in values:
+                q_list.append(Q('term', **{field: value}))
+            return Q('bool', **{'must': q_list})
         return Q('terms', **{field: values})
     return inner
 
@@ -46,7 +60,6 @@ def range_filter(field, start_date_math=None, end_date_math=None, **kwargs):
         if len(values) != 1 or values[0].count('--') != 1 or values[0] == '--':
             raise RESTValidationError(
                 errors=[FieldError(field, 'Invalid range format.')])
-
         range_ends = values[0].split('--')
         range_args = dict()
 
@@ -73,8 +86,7 @@ def range_filter(field, start_date_math=None, end_date_math=None, **kwargs):
 
         args = kwargs.copy()
         args.update(range_args)
-
-        return Range(**{field: args})
+        return Q(Range(**{field: args}))
 
     return inner
 
@@ -82,13 +94,23 @@ def range_filter(field, start_date_math=None, end_date_math=None, **kwargs):
 def _create_filter_dsl(urlkwargs, definitions):
     """Create a filter DSL expression."""
     filters = []
+    weko_search_fix_accessrights = current_app.config.get("WEKO_SEARCH_FIX_ACCESSRIGHTS", False)
     for name, filter_factory in definitions.items():
         values = request.values.getlist(name, type=text_type)
         if values:
-            filters.append(filter_factory(values))
-            for v in values:
-                urlkwargs.add(name, v)
-
+            if name in ("Access", "accessRights") and "new_accessRights" in definitions and weko_search_fix_accessrights:
+                new_accessrights_filters = definitions["new_accessRights"]["filters"]["filters"]
+                access_rights_queries = []
+                for v in values:
+                    if v in new_accessrights_filters:
+                        access_rights_queries.append(Q(new_accessrights_filters[v]))
+                        urlkwargs.add(name, v)
+                if access_rights_queries:
+                    filters.append(Q('bool', should=access_rights_queries))
+            else:
+                filters.append(filter_factory(values))
+                for v in values:
+                    urlkwargs.add(name, v)
     return (filters, urlkwargs)
 
 
@@ -98,7 +120,6 @@ def _post_filter(search, urlkwargs, definitions):
 
     for filter_ in filters:
         search = search.post_filter(filter_)
-
     return (search, urlkwargs)
 
 
@@ -108,7 +129,6 @@ def _query_filter(search, urlkwargs, definitions):
 
     for filter_ in filters:
         search = search.filter(filter_)
-
     return (search, urlkwargs)
 
 
@@ -133,7 +153,6 @@ def default_facets_factory(search, index):
     from weko_admin.utils import get_facet_search_query
     from weko_search_ui.permissions import search_permission
     facets = get_facet_search_query(search_permission.can()).get(index)
-
     if facets is not None:
         # Aggregations.
         search = _aggregations(search, facets.get("aggs", {}))
