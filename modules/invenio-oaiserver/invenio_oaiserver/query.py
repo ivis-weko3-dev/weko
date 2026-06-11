@@ -121,6 +121,39 @@ def get_records(**kwargs):
                         **{'must_not': [
                             {'term': {'_id': str(record.id)}}]})
 
+    def get_descendant_ids(index_id):
+        """Get all descendant index IDs using CTE."""
+        from sqlalchemy.orm import aliased
+        from invenio_db import db
+        # Create an alias for the Index table
+        parent = aliased(Index)
+        child = aliased(Index)
+
+        # Define the CTE for recursive query
+        cte = db.session.query(
+            parent.id.label('ancestor_id'),
+            child.id.label('descendant_id')
+        ).filter(
+            parent.id == index_id,
+            child.parent == parent.id
+        ).cte(name='descendants', recursive=True)
+
+        # Recursive part of the CTE
+        cte = cte.union_all(
+            db.session.query(
+                cte.c.ancestor_id,
+                child.id
+            ).filter(
+                child.parent == cte.c.descendant_id
+            )
+        )
+
+        # Query the CTE to get all descendant IDs
+        descendant_ids = db.session.query(cte.c.descendant_id).all()
+
+        return [descendant_id[0] for descendant_id in descendant_ids]
+
+
     page_ = kwargs.get('resumptionToken', {}).get('page', 1)
     size_ = current_app.config['OAISERVER_PAGE_SIZE']
     scroll = current_app.config['OAISERVER_RESUMPTION_TOKEN_EXPIRE_TIME']
@@ -139,23 +172,41 @@ def get_records(**kwargs):
             {'control_number': {'order': 'asc'}}
         )[(page_ - 1) * size_:page_ * size_]
 
-        sets = []
         if 'set' in kwargs:
-            if ":" in kwargs['set']:
-                sets = kwargs['set'].split(':')[-1]
+            if kwargs['set'][0].isdigit():
+                # set is index_id
+                if ":" in kwargs['set']:
+                    sets = kwargs['set'].split(':')[-1]
+                else:
+                    sets = kwargs['set']
             else:
-                sets = kwargs['set']
+                # set is community_id
+                from .utils import get_community_index_from_set
+                sets = get_community_index_from_set(kwargs['set'])
+
             #search = search.query('match', **{'path': kwargs['set']})
-            search = search.query('match', **{'_oai.sets': sets})
+            #search = search.query('match', **{'_oai.sets': sets})
             #search = search.query('terms', **{'_oai.sets': sets})
 
-        time_range = {}
-        if 'from_' in kwargs:
-            time_range['gte'] = kwargs['from_']
-        if 'until' in kwargs:
-            time_range['lte'] = kwargs['until']
-        if time_range:
-            search = search.filter('range', **{'_updated': time_range})
+            if not sets:
+                search = search.query('match_none')
+            else:
+                index_ids = [sets] + get_descendant_ids(sets)
+                search = search.query('terms', **{'_oai.sets': index_ids})
+
+        if current_app.config.get('WEKO_SEARCH_FIX_ACCESSRIGHTS', False):
+            if 'from_' in kwargs or 'until' in kwargs:
+                rq = range_query(kwargs.get('from_'), kwargs.get('until'))
+                if rq is not None:
+                    search = search.filter(rq)
+        else:
+            time_range = {}
+            if 'from_' in kwargs:
+                time_range['gte'] = kwargs['from_']
+            if 'until' in kwargs:
+                time_range['lte'] = kwargs['until']
+            if time_range:
+                search = search.filter('range', **{'_updated': time_range})
 
         search = search.query('match', **{'relation_version_is_last': 'true'})
         search = search.query('terms', **{'publish_status': [
@@ -243,3 +294,175 @@ def get_records(**kwargs):
                     }
 
     return Pagination(response)
+
+def range_query(_from=None, _until=None):
+    """Generate a search query considering update date changes.
+
+    Args:
+        _from (datetime or str or None):
+            Lower bound of update date.
+        _until (datetime or str or None):
+            Upper bound of update date.
+
+    Returns:
+        elasticsearch_dsl.query.Q or None:
+            The generated query object, or None if no range is specified.
+    """
+
+    if isinstance(_from, datetime):
+        from_date = _from.strftime('%Y-%m-%d')
+        _from = _from.isoformat()
+    elif isinstance(_from, str) and len(_from) >= 10:
+        from_date = _from[:10]
+    else:
+        _from = None
+
+    if isinstance(_until, datetime):
+        until_date = _until.strftime('%Y-%m-%d')
+        _until = _until.isoformat()
+    elif isinstance(_until, str) and len(_until) >= 10:
+        until_date = _until[:10]
+    else:
+        _until = None
+
+    if _from is None and _until is None:
+        return None
+
+    now = datetime.now().strftime('%Y-%m-%d')
+
+    # First should condition
+
+    must_not_embargoed = Q(
+        'bool', must_not=[Q('term', accessRights='embargoed access')]
+    )
+    must_not_content_accessrole = Q(
+        'bool', must_not=[
+            Q(
+                'nested',
+                path='content',
+                query=Q('exists', field='content.accessrole.raw')
+            )
+        ]
+    )
+    must_not_open_access = Q(
+        'nested',
+        path='content',
+        query=Q(
+            'bool',
+            must_not=[
+                Q('term', **{'content.accessrole.raw': 'open_access'}),
+                Q(
+                    'bool',
+                    must=[
+                        Q('term', **{'content.accessrole.raw': 'open_date'}),
+                        Q('range', **{'content.date.dateValue.raw': {'lte': now}})
+                    ]
+                )
+            ]
+        )
+    )
+    should1 = Q(
+        'bool',
+        must=[
+            Q(
+                'bool',
+                should=[
+                    must_not_embargoed,
+                    must_not_content_accessrole,
+                    must_not_open_access
+                ]
+            ),
+            Q(
+                'range',
+                **{
+                    '_updated': {
+                        **({'gte': _from} if _from else {}),
+                        **({'lte': _until} if _until else {})
+                    }
+                }
+            )
+        ]
+    )
+
+    # Second should condition
+    must_not_open_access2 = Q(
+        'nested',
+        path='content',
+        query=Q(
+            'bool',
+            must_not=[
+                Q('term', **{'content.accessrole.raw': 'open_access'}),
+                Q(
+                    'bool',
+                    must=[
+                        Q('term', **{'content.accessrole.raw': 'open_date'}),
+                        Q('range', **{'content.date.dateValue.raw': {'lte': now}})
+                    ]
+                )
+            ]
+        )
+    )
+
+    # from condition
+    from_should = []
+    if _from:
+        from_should.append(
+            Q(
+                'nested',
+                path='content',
+                query=Q(
+                    'bool',
+                    must=[
+                        Q('term', **{'content.accessrole.raw': 'open_date'}),
+                        Q('range', **{'content.date.dateValue.raw': {'gte': from_date}})
+                    ]
+                )
+            )
+        )
+        from_should.append(Q('range', **{'_updated': {'gte': _from}}))
+
+    # until condition
+    until_must = []
+    if _until:
+        until_must.append(
+            Q(
+                'bool',
+                must_not=[
+                    Q(
+                        'nested',
+                        path='content',
+                        query=Q(
+                            'bool',
+                            must=[
+                                Q('term', **{'content.accessrole.raw': 'open_date'}),
+                                Q('range', **{'content.date.dateValue.raw': {'gt': until_date}})
+                            ]
+                        )
+                    )
+                ]
+            )
+        )
+        until_must.append(Q('range', **{'_updated': {'lte': _until}}))
+
+    must2 = [
+        Q('term', accessRights='embargoed access'),
+        Q(
+            'nested',
+            path='content',
+            query=Q('exists', field='content.accessrole.raw')
+        ),
+        Q('bool', must_not=[must_not_open_access2])
+    ]
+    if from_should:
+        must2.append(Q('bool', should=from_should))
+    if until_must:
+        must2.extend(until_must)
+
+    should2 = Q('bool', must=must2)
+
+    # Overall should
+    return Q(
+        'bool',
+        should=[should1, should2],
+        minimum_should_match=1
+    )
