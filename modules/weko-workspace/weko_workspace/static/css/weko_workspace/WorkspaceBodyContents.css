@@ -1,0 +1,125 @@
+/* テーブル全体のスタイルを調整、画像の枠線やレイアウトに合わせる */
+.workspace-body-contents table {
+  width: 100%;
+  margin: 20px auto;
+  border-collapse: collapse;
+  border: 1px solid #ccc;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+}
+.workspace-body-contents th{
+  padding: 5px 12px 5px 12px;
+  border: 1px solid #ccc;
+  text-align: left;
+  vertical-align: top;
+}
+.workspace-body-contents td {
+  padding: 5px;
+  border: 1px solid #ccc;
+  text-align: left;
+  vertical-align: top;
+}
+.workspace-body-contents th {
+  font-weight: bold;
+  background-color: #f5f5f5;
+  color: #333;
+  font-size: 16px;
+}
+.workspace-body-contents td {
+  font-weight: normal;
+  color: #666;
+}
+.workspace-body-contents .checkbox-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  column-gap: 10px;
+  row-gap: 3px;
+  max-height: 713px;
+  overflow-y: auto;
+  width: 100%;
+  padding: 0px 5px 0px 5px;
+}
+
+.workspace-body-contents .checkbox-group-single {
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+}
+
+.workspace-body-contents .checkbox-group-exclude {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  max-height: none;       
+  overflow-y: visible;
+
+}
+
+.workspace-body-contents .checkbox-group label {
+  display: flex;
+  align-items: center;
+  margin: 2px 0;
+  white-space: normal;
+  font-size: 14px;
+  color: #333;
+}
+.workspace-body-contents .checkbox-group input[type="checkbox"] {
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.workspace-body-contents .single-checkbox-group {
+  display: block;
+}
+.workspace-body-contents .checkbox-label {
+  display: block;
+  margin: 5px 0;
+}
+.workspace-body-contents .see-more {
+  cursor: pointer;
+  text-decoration: underline;
+  color: #007bff;
+  margin-left: 5px;
+}
+.workspace-body-contents .text-hidden {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 200px;
+  display: inline-block;
+  vertical-align: top;
+}
+.workspace-body-contents .button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 20px;
+}
+.workspace-body-contents .button-group button {
+  min-width: 100px;
+}
+.workspace-body-contents #itemListContainer td:first-child,
+.workspace-body-contents #itemListContainer td:last-child {
+  width: 45px;
+}
+.workspace-body-contents #itemListContainer td:nth-last-child(2) {
+  width: 200px;
+}
+.workspace-body-contents #itemListContainer td:nth-last-child(3) {
+  width: 100px;
+}
+
+
+.unread_show {
+    display: inline-block;
+    background-color: orange;
+    color: black;
+    font-size: 80%;
+    border-radius: 12px;
+    margin-left: 8px;
+    text-align: center;
+    vertical-align: middle;
+    padding: 1px 7.5px;
+    visibility: visible;
+}
+
+.unread_hide {
+    visibility: hidden;
+}
+
