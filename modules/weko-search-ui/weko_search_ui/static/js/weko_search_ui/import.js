@@ -1246,6 +1246,7 @@ class ResultComponent extends React.Component {
                       <td>{item.end_date ? item.end_date : ''}</td>
                       <td><a href={item.item_id ? "/records/" + item.item_id : ''} target="_blank">
                         {item.item_id || ''}</a>
+                      </td>
                       <td>
                         {item.task_result ? (item.task_result.success ? end : (item.task_status && item.task_status === "STARTED") ? "Started" : <strong>Error</strong>) : "Start"}
                       </td>
