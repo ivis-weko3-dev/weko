@@ -2321,15 +2321,7 @@ def import_items_to_system(
                 remarks=tb_info[0],
                 request_info=request_info,
             )
-            error_id = None
-            if (
-                ex.args
-                and len(ex.args)
-                and isinstance(ex.args[0], dict)
-                and ex.args[0].get("error_id")
-            ):
-                error_id = ex.args[0].get("error_id")
-
+            error_id = "sqlalchemy error: {}".format(type(ex).__name__)
             return {"success": False, "error_id": error_id}
         except ConnectionError as ex:
             current_app.logger.error("elasticsearch  error: %s", ex)
@@ -2395,15 +2387,7 @@ def import_items_to_system(
                 remarks=tb_info[0],
                 request_info=request_info,
             )
-            error_id = None
-            if (
-                ex.args
-                and len(ex.args)
-                and isinstance(ex.args[0], dict)
-                and ex.args[0].get("error_id")
-            ):
-                error_id = ex.args[0].get("error_id")
-
+            error_id = "redis error: {}".format(type(ex).__name__)
             return {"success": False, "error_id": error_id}
         except Exception as ex:
             current_app.logger.error("Unexpected error: %s", ex)
@@ -2428,15 +2412,7 @@ def import_items_to_system(
                 remarks=tb_info[0],
                 request_info=request_info,
             )
-            error_id = None
-            if (
-                ex.args
-                and len(ex.args)
-                and isinstance(ex.args[0], dict)
-                and ex.args[0].get("error_id")
-            ):
-                error_id = ex.args[0].get("error_id")
-
+            error_id = "Unexpected error: {}".format(type(ex).__name__)
             return {"success": False, "error_id": error_id}
     return {"success": True, "recid": item["id"]}
 
