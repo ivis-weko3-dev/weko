@@ -129,13 +129,22 @@ class ESDateHistogramQuery(ESQuery):
         for modifier in self.query_modifiers:
             agg_query = modifier(agg_query, **kwargs)
 
-        base_agg = agg_query.aggs.bucket(
-            'histogram',
-            'date_histogram',
-            field=self.time_field,
-            interval=interval,
-            time_zone=current_app.config['STATS_WEKO_DEFAULT_TIMEZONE']
-        )
+        try:
+            base_agg = agg_query.aggs.bucket(
+                'histogram',
+                'date_histogram',
+                field=self.time_field,
+                interval=interval,
+                time_zone=str(current_app.config['STATS_WEKO_DEFAULT_TIMEZONE']())
+            )
+        except AttributeError:
+            base_agg = agg_query.aggs.bucket(
+                'histogram',
+                'date_histogram',
+                field=self.time_field,
+                interval=interval,
+                time_zone=current_app.config.get('BABEL_DEFAULT_TIMEZONE', 'Asia/Tokyo')
+            )
 
         for destination, (metric, field, opts) in self.metric_fields.items():
             base_agg.metric(destination, metric, field=field, **opts)
@@ -251,7 +260,11 @@ class ESTermsQuery(ESQuery):
                 time_range['gte'] = start_date.isoformat()
             if end_date:
                 time_range['lte'] = end_date.isoformat()
-            time_range['time_zone'] = current_app.config['STATS_WEKO_DEFAULT_TIMEZONE']
+            try:
+                time_range['time_zone'] = str(
+                    current_app.config['STATS_WEKO_DEFAULT_TIMEZONE']())
+            except AttributeError:
+                time_range['time_zone'] = current_app.config.get('BABEL_DEFAULT_TIMEZONE', 'Asia/Tokyo')
             agg_query = agg_query.filter(
                 'range',
                 **{self.time_field: time_range})
@@ -430,7 +443,11 @@ class ESWekoFileStatsQuery(ESTermsQuery):
                 time_range['gte'] = start_date.isoformat()
             if end_date:
                 time_range['lte'] = end_date.isoformat()
-            time_range['time_zone'] = current_app.config['STATS_WEKO_DEFAULT_TIMEZONE']
+            try:
+                time_range['time_zone'] = str(
+                    current_app.config['STATS_WEKO_DEFAULT_TIMEZONE']())
+            except AttributeError:
+                time_range['time_zone'] = current_app.config.get('BABEL_DEFAULT_TIMEZONE', 'Asia/Tokyo')
             agg_query = agg_query.filter(
                 'range',
                 **{self.time_field: time_range})
@@ -489,8 +506,12 @@ class ESWekoTermsQuery(ESTermsQuery):
                 time_range['gte'] = start_date.isoformat()
             if end_date is not None:
                 time_range['lte'] = end_date.isoformat()
-            time_range['time_zone'] = current_app.config[
-                'STATS_WEKO_DEFAULT_TIMEZONE']
+            try:
+                time_range['time_zone'] = str(
+                    current_app.config['STATS_WEKO_DEFAULT_TIMEZONE']())
+            except AttributeError:
+                time_range['time_zone'] = current_app.config.get('BABEL_DEFAULT_TIMEZONE', 'Asia/Tokyo')
+
             agg_query = agg_query.filter(
                 'range',
                 **{self.time_field: time_range})
@@ -574,9 +595,14 @@ class ESWekoRankingQuery(ESTermsQuery):
             query_q = query_q.replace(
                 "@{}".format(_field), kwargs.get(_field, ""))
 
-        query_q = query_q.replace(
-            "@time_zone", current_app.config['STATS_WEKO_DEFAULT_TIMEZONE']
-        )
+        try:
+            query_q = query_q.replace(
+                "@time_zone", str(current_app.config['STATS_WEKO_DEFAULT_TIMEZONE']())
+            )
+        except AttributeError:
+            query_q = query_q.replace(
+                "@time_zone", current_app.config.get('BABEL_DEFAULT_TIMEZONE', 'Asia/Tokyo')
+            )
         query_q = orjson.loads(query_q)
         if kwargs.get("must_not"):
             query_q['query']['bool']['must_not'] = orjson.loads(kwargs.get('must_not'))
@@ -600,5 +626,5 @@ class ESWekoRankingQuery(ESTermsQuery):
         agg_query = self.build_query(**kwargs)
 
         query_result = agg_query.execute().to_dict()
-        
+
         return query_result

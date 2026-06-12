@@ -36,6 +36,7 @@ from kombu import Exchange, Queue
 from flask import Flask, appcontext_pushed, g
 from flask.cli import ScriptInfo
 from flask_celeryext import FlaskCeleryExt
+from flask_babelex import Babel
 
 from invenio_access import InvenioAccess
 from invenio_accounts import InvenioAccounts, InvenioAccountsREST
@@ -281,6 +282,7 @@ def base_app(instance_path, mock_gethostbyaddr, search_class):
         CACHE_REDIS_URL="redis://redis:6379/0",
         CACHE_REDIS_DB=0,
         CACHE_REDIS_HOST="redis",
+        BABEL_DEFAULT_TIMEZONE='Asia/Tokyo',
         QUEUES_BROKER_URL="amqp://guest:guest@rabbitmq:5672//",
         # SQLALCHEMY_DATABASE_URI=os.environ.get(
         #     'SQLALCHEMY_DATABASE_URI', 'sqlite://'),
@@ -357,6 +359,7 @@ def app(base_app):
 
 @pytest.yield_fixture()
 def i18n_app(app):
+    Babel(app)
     InvenioI18N(app)
     with app.test_request_context(
         headers=[('Accept-Language','ja')]):
@@ -499,7 +502,7 @@ def role_users(app, db):
         ds.add_role_to_user(originalroleuser, originalrole)
         ds.add_role_to_user(originalroleuser2, originalrole)
         ds.add_role_to_user(originalroleuser2, repoadmin_role)
-        
+
 
     return [
         {"email": contributor.email, "id": contributor.id, "obj": contributor},
@@ -563,7 +566,7 @@ class MockEs():
                 return False
         def flush(self,index):
             pass
-        
+
         def search(self,index,doc_type,body,**kwargs):
             pass
 
@@ -1019,7 +1022,7 @@ def stats_events_for_db(app, db):
             source=json.dumps({'test': 'test'}),
             date=datetime.datetime(2023, 1, 1, 1, 0, 0)
         )
-    
+
     try:
         with db.session.begin_nested():
             db.session.add(base_event(1, 'top-view'))
@@ -1190,7 +1193,7 @@ def index(app, db):
             "parent": 0,
             "value": "index_{}".format(i)
         })
-    
+
     return Index.query.all()
 
 @pytest.fixture()
