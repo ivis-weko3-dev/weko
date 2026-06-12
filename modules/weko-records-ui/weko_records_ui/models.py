@@ -360,10 +360,15 @@ class DownloadMixin:
             cls.download_count  < cls.download_limit,
             cls.is_deleted     == False
         )
+        records = []
         if ascending:
-            return query.order_by(asc(cls.id)).all()
+            records = query.order_by(asc(cls.id)).all()
         else:
-            return query.order_by(desc(cls.id)).all()
+            records = query.order_by(desc(cls.id)).all()
+        for record in records:
+            record.created = record.created.replace(tzinfo=timezone.utc)
+            record.expiration_date = record.expiration_date.replace(tzinfo=timezone.utc)
+        return records
 
 
 class FileOnetimeDownload(db.Model, Timestamp, DownloadMixin):
@@ -395,7 +400,7 @@ class FileOnetimeDownload(db.Model, Timestamp, DownloadMixin):
                         db.ForeignKey(
                             'accounts_user.id',
                             name='fk_file_onetime_download_approver_id'),
-                        nullable=False)
+                        nullable=True)
     record_id       = db.Column(db.String(255), nullable=False)
     file_name       = db.Column(db.String(255), nullable=False)
     expiration_date = db.Column(db.DateTime, nullable=False)
@@ -462,6 +467,7 @@ class FileOnetimeDownload(db.Model, Timestamp, DownloadMixin):
             ValueError: If the arguments are invalid.
             Exception: If an unexpected error occurs during the creation.
         """
+        current_app.logger.debug(f"Creating FileOnetimeDownload with data: {data}")
         if data['expiration_date'] < datetime.now(tz=timezone.utc):
             raise ValueError('The expiration date must be in the future.')
         if data['download_limit'] <= 0:

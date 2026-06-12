@@ -146,6 +146,25 @@ class LocationModelView(ModelView):
 
     _system_role = os.environ.get('INVENIO_ROLE_SYSTEM',
                                   'System Administrator')
+    _repoadmin_role = os.environ.get('INVENIO_ROLE_REPOSITORY',
+                                    'Repository Administrator')
+
+    def get_query(self):
+        """Override get_query to filter locations based on user roles."""
+        query = super(LocationModelView, self).get_query()
+        user_role_names = {role.name for role in current_user.roles}
+        if not (self._system_role in user_role_names or self._repoadmin_role in user_role_names):
+            # Non-system or Non-repository admins should not see default locations.
+            query = query.filter_by(default=False)
+        return query
+
+    def get_count_query(self):
+        """Override get_count_query to apply the same role-based filters."""
+        query = super(LocationModelView, self).get_count_query()
+        user_role_names = {role.name for role in current_user.roles}
+        if not self._system_role in user_role_names:
+            query = query.filter_by(default=False)
+        return query
     @expose('/')
     def index_view(self):
         """Override index view to add custom logic.
@@ -289,17 +308,20 @@ class LocationModelView(ModelView):
     @property
     def can_create(self):
         """Check permission for creating."""
-        return self._system_role in [role.name for role in current_user.roles]
+        return {self._system_role} & \
+            set([role.name for role in current_user.roles])
 
     @property
     def can_edit(self):
         """Check permission for Editing."""
-        return self._system_role in [role.name for role in current_user.roles]
+        return {self._system_role} & \
+            set([role.name for role in current_user.roles])
 
     @property
     def can_delete(self):
         """Check permission for Deleting."""
-        return self._system_role in [role.name for role in current_user.roles]
+        return {self._system_role} & \
+            set([role.name for role in current_user.roles])
 
 
 class BucketModelView(ModelView):

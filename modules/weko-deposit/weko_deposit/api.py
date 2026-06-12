@@ -26,6 +26,7 @@ import sys
 import uuid
 import io
 import chardet
+import traceback
 from collections import OrderedDict
 from datetime import datetime, timezone,date
 from typing import NoReturn, Union
@@ -384,16 +385,19 @@ class WekoIndexer(RecordIndexer):
 
             self.client.clear_scroll(scroll_id=scroll_id)
 
-    def get_metadata_by_item_id(self, item_id):
+    def get_metadata_by_item_id(self, item_id, is_ignore=False):
         """Get metadata of item by id from ES.
 
         :param item_id: Item ID (UUID).
         :return: Metadata.
         """
         self.get_es_index()
-        return self.client.get(index=self.es_index,
-                               doc_type=self.es_doc_type,
-                               id=str(item_id))
+        args = {"index": self.es_index,
+                "doc_type": self.es_doc_type,
+                "id": str(item_id)}
+        if is_ignore:
+            args["ignore"] = [404]
+        return self.client.get(**args)
 
     def update_feedback_mail_list(self, feedback_mail):
         """Update feedback mail info.
@@ -437,19 +441,17 @@ class WekoIndexer(RecordIndexer):
             body=body
         )
 
-    def update_author_link_and_weko_link(self, link):
+    def update_author_link(self, author_link):
         """Update author_link info."""
         # current_app.logger.error("author_link:{}".format(author_link));
         self.get_es_index()
         pst = 'author_link'
-        pst2 = "weko_link"
-        body = {'doc': {pst: link.get('author_link'),
-                        pst2: link.get('weko_link')}}
+        body = {'doc': {pst: author_link.get('author_link')}}
 
         return self.client.update(
             index=self.es_index,
             doc_type=self.es_doc_type,
-            id=str(link.get('id')),
+            id=str(author_link.get('id')),
             body=body
         )
 
@@ -1023,12 +1025,21 @@ class WekoDeposit(Deposit):
                                                  self.revision_id)
                     # Upload pdf file content to Elasticsearch
                     from .tasks import extract_pdf_and_update_file_contents
-                    extract_pdf_and_update_file_contents.apply_async((reading_targets, str(self.pid.object_uuid)))
+                    extract_pdf_and_update_file_contents.apply_async((reading_targets, str(self.pid.object_uuid)), countdown=10)
                 except TransportError as err:
                     if self.jrc.get('content'):
                         for content in self.jrc['content']:
                             if 'attachment' in content and 'content' in content.get('attachment'):
                                 del content['attachment']['content']
+            
+                try:
+                    feedback_mail_list = FeedbackMailList.get_mail_list_by_item_id(self.id)
+                    if feedback_mail_list:
+                        self.update_feedback_mail()
+                    else:
+                        self.remove_feedback_mail()
+                except TransportError as err:    
+                    raise err
 
                 # Remove large base64 files for release memory
                 if self.jrc.get('content'):
@@ -1204,9 +1215,9 @@ class WekoDeposit(Deposit):
                 mimetypes = current_app.config["WEKO_MIMETYPE_WHITELIST_FOR_ES"]
                 content = lst.copy()
                 attachment = {}
-
+                mimetype = file.obj.mimetype
                 if (
-                    file.obj.mimetype in mimetypes
+                    mimetype in mimetypes
                     and file.obj.key not in non_extract
                 ):
                     # Extract content from file
@@ -1216,25 +1227,26 @@ class WekoDeposit(Deposit):
                         )
                         with file.obj.file.storage().open(mode="rb") as fp:
                             data = ""
-                            if file.obj.mimetype in current_app.config[
+                            if mimetype in current_app.config[
                                 "WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES"
                             ]:
                                 data = fp.read(
                                     current_app.config["WEKO_DEPOSIT_FILESIZE_LIMIT"]
                                 )
                                 inf = chardet.detect(data)
-                                data = data.decode(inf["encoding"], errors="replace")
+                                encoding = inf.get("encoding") or "utf-8"
+                                data = data.decode(encoding, errors="replace")
                             else:
                                 file_instance = file.obj.file
                                 file_info = {
                                     "uri": file_instance.uri,
-                                    "size": file_instance.size
+                                    "size": file_instance.size,
+                                    "is_pdf": mimetype == 'application/pdf'
                                 }
                                 reading_targets[lst["filename"]] = file_info
                             attachment["content"] = data
                     except FileNotFoundError as se:
-                        current_app.logger.error(f"FileNotFoundError: {se}")
-                        current_app.logger.error(f"file.obj: {file.obj}")
+                        current_app.logger.error(f"FileNotFoundError: {se}, {file.obj.key}")
 
                 content.update({"attachment": attachment})
                 contents.append(content)
@@ -1245,82 +1257,6 @@ class WekoDeposit(Deposit):
                 abort(500, f"{str(e2)}")
 
         self.jrc.update({"content": contents})
-        return reading_targets
-
-
-    def get_content_files_reindex_command(self):
-        """
-
-        Get content file metadata.
-
-        Args:
-            None
-        Returns:
-            None
-
-        """
-        from weko_workflow.utils import get_url_root
-        contents = []
-        fmd = self.get_file_data()
-        reading_targets = {}
-        if fmd:
-            for file in self.files:
-                if isinstance(fmd, list):
-                    for lst in fmd:
-                        filename = lst.get('filename')
-                        if file.obj.key == filename:
-                            lst.update({'mimetype': file.obj.mimetype})
-                            lst.update(
-                                {'version_id': str(file.obj.version_id)})
-
-                            # update file url
-                            url_metadata = lst.get('url', {})
-                            url_metadata['url'] = '{}record/{}/files/{}' \
-                                .format(get_url_root(),
-                                        self['recid'], filename)
-                            lst.update({'url': url_metadata})
-
-                            # update file_files's json
-                            file.obj.file.update_json(lst)
-
-                            # upload file metadata to Elasticsearch
-                            try:
-                                mimetypes = current_app.config[
-                                    'WEKO_MIMETYPE_WHITELIST_FOR_ES']
-                                content = lst.copy()
-                                attachment = {}
-                                mimetype = file.obj.mimetype
-                                if mimetype in mimetypes:
-                                    try:
-                                        with file.obj.file.storage().open(mode='rb') as fp:
-                                            data = ""
-                                            if mimetype in current_app.config['WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES']:
-                                                data = fp.read(current_app.config['WEKO_DEPOSIT_FILESIZE_LIMIT'])
-                                                inf = chardet.detect(data)
-                                                data = data.decode(inf['encoding'], errors='replace')
-                                            else:
-                                                file_instance = file.obj.file
-                                                file_info = {
-                                                    "uri": file_instance.uri,
-                                                    "size": file_instance.size,
-                                                    "is_pdf": mimetype == 'application/pdf'
-                                                }
-                                                reading_targets[filename] = file_info
-                                            attachment["content"] = data
-                                    except (FileNotFoundError, ResourceNotFoundError) as se:
-                                        current_app.logger.error("FileNotFoundError: {}".format(se))
-                                        current_app.logger.error("file.obj: {}".format(file.obj))
-
-                                content.update({"attachment": attachment})
-                                contents.append(content)
-                            except Exception as e2:
-                                import traceback
-                                current_app.logger.error(e2)
-                                current_app.logger.error(
-                                    traceback.format_exc())
-                                abort(500, '{}'.format(str(e2)))
-                            break
-            self.jrc.update({'content': contents})
         return reading_targets
 
 
@@ -1345,38 +1281,13 @@ class WekoDeposit(Deposit):
                         file_instance = file.obj.file
                         file_info = {
                             "uri": file_instance.uri,
-                            "size": file_instance.size
-                        }
-                        pdf_files[filename] = file_info
-        return pdf_files
-
-    def get_pdf_info_reindex_command(self):
-        """Get the path and size of the registered PDF file
-
-        Returns:
-            pdf_files(dict): pdf_files ex: {'test1.pdf': {'uri': '/var/tmp/tmp5beo2byv/e2/5a/e1af-d89b-4ce0-bd01-a78833acbe1e/data', 'size': 1252395}"
-        """
-        pdf_files = {}
-        fmd = self.get_file_data()
-        if fmd:
-            for file in self.files:
-                for lst in fmd:
-                    filename = lst.get('filename')
-                    if file.obj.key != filename:
-                        continue
-                    mimetype = file.obj.mimetype
-                    if mimetype not in current_app.config['WEKO_MIMETYPE_WHITELIST_FOR_ES']:
-                        continue
-                    if file.obj.mimetype not in current_app.config['WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES']:
-                        file_instance = file.obj.file
-                        file_info = {
-                            "uri": file_instance.uri,
                             "size": file_instance.size,
                             "is_pdf": mimetype == 'application/pdf'
                         }
                         pdf_files[filename] = file_info
         return pdf_files
-
+    
+    
     def get_file_data(self):
         """
         Get file data.
@@ -1665,7 +1576,6 @@ class WekoDeposit(Deposit):
             traceback.print_exc()
             raise
         except BaseException:
-            import traceback
             traceback.print_exc()
             abort(500, 'MAPPING_ERROR')
 
@@ -1682,7 +1592,7 @@ class WekoDeposit(Deposit):
         actions = index_obj.get('actions')
         if actions == 'publish' or actions == PublishStatus.PUBLIC.value:
             pubs = PublishStatus.PUBLIC.value
-        elif 'id' in data:
+        elif 'id' in data and is_edit:
             recid = PersistentIdentifier.query.filter_by(
                 pid_type='recid', pid_value=data['id']).first()
             rec = RecordMetadata.query.filter_by(id=recid.object_uuid).first()
@@ -1856,20 +1766,19 @@ class WekoDeposit(Deposit):
         if index_id:
             index_id = str(index_id)
         obj_ids = next((cls.indexer.get_pid_by_es_scroll(index_id, only_latest_version=True)), [])
-        removed_records = []
         for obj_uuid in obj_ids:
             r = RecordMetadata.query.filter_by(id=obj_uuid).first()
             if r.json['recid'] in ignore_items:
                 continue
             r.json['path'].remove(index_id)
+            if '_oai' in r.json and 'sets' in r.json['_oai']:
+                r.json['_oai']['sets'] = r.json['path']
             flag_modified(r, 'json')
             if r.json and not r.json['path']:
                 from weko_records_ui.utils import soft_delete
                 soft_delete(obj_uuid)
-                removed_records.append(r)
-        for r in removed_records:
             dep = WekoDeposit(r.json, r)
-            dep.indexer.update_es_data(dep, update_revision=False)
+            dep.indexer.update_es_data(dep, update_revision=False, update_oai=True)
 
     def update_pid_by_index_tree_id(self, path):
         """
@@ -1941,7 +1850,7 @@ class WekoDeposit(Deposit):
                 pass
             raise PIDResolveRESTError(description='This item has been deleted')
 
-    def update_author_link_and_weko_link(self, author_link, weko_link):
+    def update_author_link(self, author_link):
         """Summary line.
 
     I   ndex author_link list.
@@ -1954,14 +1863,12 @@ class WekoDeposit(Deposit):
 
         """
         item_id = self.id
-        if author_link and weko_link:
-            link_info = {
+        if author_link:
+            author_link_info = {
                 "id": item_id,
-                "author_link": author_link,
-                "weko_link": weko_link
-
+                "author_link": author_link
             }
-            self.indexer.update_author_link_and_weko_link(link_info)
+            self.indexer.update_author_link(author_link_info)
 
     def update_request_mail(self):
         """
@@ -2803,32 +2710,45 @@ class _FormatSysCreator:
         @return:
         """
         # Prioriry languages: creator, family, given, alternative, affiliation
-        lang_key = OrderedDict()
-        lang_key[WEKO_DEPOSIT_SYS_CREATOR_KEY['creator_names']] = \
-            WEKO_DEPOSIT_SYS_CREATOR_KEY['creator_lang']
-        lang_key[WEKO_DEPOSIT_SYS_CREATOR_KEY['family_names']] = \
-            WEKO_DEPOSIT_SYS_CREATOR_KEY['family_lang']
-        lang_key[WEKO_DEPOSIT_SYS_CREATOR_KEY['given_names']] = \
-            WEKO_DEPOSIT_SYS_CREATOR_KEY['given_lang']
-        lang_key[WEKO_DEPOSIT_SYS_CREATOR_KEY['alternative_names']] = \
-            WEKO_DEPOSIT_SYS_CREATOR_KEY['alternative_lang']
+        try:
+            lang_key = OrderedDict()
+            lang_key[WEKO_DEPOSIT_SYS_CREATOR_KEY['creator_names']] = \
+                WEKO_DEPOSIT_SYS_CREATOR_KEY['creator_lang']
+            lang_key[WEKO_DEPOSIT_SYS_CREATOR_KEY['family_names']] = \
+                WEKO_DEPOSIT_SYS_CREATOR_KEY['family_lang']
+            lang_key[WEKO_DEPOSIT_SYS_CREATOR_KEY['given_names']] = \
+                WEKO_DEPOSIT_SYS_CREATOR_KEY['given_lang']
+            lang_key[WEKO_DEPOSIT_SYS_CREATOR_KEY['alternative_names']] = \
+                WEKO_DEPOSIT_SYS_CREATOR_KEY['alternative_lang']
 
-        # Get languages for all same structure languages key
-        languages = []
-        [languages.append(data.get(v)) for k, v in lang_key.items()
-         for data in self.creator.get(k, []) if data.get(v) not in languages]
+            # Get languages for all same structure languages key
+            languages = []
+            [languages.append(data.get(v)) for k, v in lang_key.items()
+             for data in self.creator.get(k, []) if data.get(v) not in languages]
 
-        # Get languages affiliation
-        for creator_affiliation in self.creator.get(
-                WEKO_DEPOSIT_SYS_CREATOR_KEY['creatorAffiliations'], []):
-            for affiliation_name in creator_affiliation.get(
-                    WEKO_DEPOSIT_SYS_CREATOR_KEY['affiliation_names'], []):
-                if affiliation_name.get(
-                    WEKO_DEPOSIT_SYS_CREATOR_KEY[
-                        'affiliation_lang']) not in languages:
-                    languages.append(affiliation_name.get(
-                        WEKO_DEPOSIT_SYS_CREATOR_KEY['affiliation_lang']))
-        self.languages = languages
+            # Get languages affiliation
+            for creator_affiliation in self.creator.get(
+                    WEKO_DEPOSIT_SYS_CREATOR_KEY['creatorAffiliations'], []):
+                for affiliation_name in creator_affiliation.get(
+                        WEKO_DEPOSIT_SYS_CREATOR_KEY['affiliation_names'], []):
+                    if affiliation_name.get(
+                        WEKO_DEPOSIT_SYS_CREATOR_KEY[
+                            'affiliation_lang']) not in languages:
+                        languages.append(affiliation_name.get(
+                            WEKO_DEPOSIT_SYS_CREATOR_KEY['affiliation_lang']))
+            self.languages = languages
+        except KeyError as e:
+            current_app.logger.error("KeyError in _get_creator_languages_order: {}".format(e))
+            current_app.logger.error(traceback.format_exc())
+            self.languages = []
+        except AttributeError as e:
+            current_app.logger.error("AttributeError in _get_creator_languages_order: {}".format(e))
+            current_app.logger.error(traceback.format_exc())
+            self.languages = []
+        except Exception as e:
+            current_app.logger.error("Exception in _get_creator_languages_order: {}".format(e))
+            current_app.logger.error(traceback.format_exc())
+            self.languages = []
 
     def _format_creator_to_show_detail(self, language: str, parent_key: str,
                                        lst: list) -> NoReturn:
@@ -2853,15 +2773,17 @@ class _FormatSysCreator:
             name_key = WEKO_DEPOSIT_SYS_CREATOR_KEY['alternative_name']
             lang_key = WEKO_DEPOSIT_SYS_CREATOR_KEY['alternative_lang']
         elif parent_key == WEKO_DEPOSIT_SYS_CREATOR_KEY['creator_type']: #? ADDED 20231017 CREATOR TYPE BUG FIX
-            return
+            name_key = WEKO_DEPOSIT_SYS_CREATOR_KEY['creator_name_type']
         if parent_key in self.creator:
             lst_value = self.creator[parent_key]
-            if len(lst_value) > 0:
+            if isinstance(lst_value, list) and len(lst_value) > 0:
                 for i in range(len(lst_value)):
                     if lst_value[i] and lst_value[i].get(lang_key) == language:
                         if name_key in lst_value[i]:
                             lst.append(lst_value[i][name_key])
                             break
+            elif isinstance(lst_value, str) and parent_key == WEKO_DEPOSIT_SYS_CREATOR_KEY['creator_type']:
+                lst.append(lst_value)
 
     def _get_creator_to_show_popup(self, creators: Union[list, dict],
                                    language: any,
@@ -2977,47 +2899,64 @@ class _FormatSysCreator:
 
         :return: <dict> The creators are formatted.
         """
-        creator_lst = []
-        rtn_value = {}
-        creator_type = WEKO_DEPOSIT_SYS_CREATOR_KEY['creator_type'] #? ADDED 20231017 CREATOR TYPE BUG FIX
-        creator_names = WEKO_DEPOSIT_SYS_CREATOR_KEY['creator_names']
-        family_names = WEKO_DEPOSIT_SYS_CREATOR_KEY['family_names']
-        given_names = WEKO_DEPOSIT_SYS_CREATOR_KEY['given_names']
-        alternative_names = WEKO_DEPOSIT_SYS_CREATOR_KEY['alternative_names']
-        list_parent_key = [
-            creator_type, #? ADDED 20231017 CREATOR TYPE BUG FIX
-            creator_names,
-            family_names,
-            given_names,
-            alternative_names
-        ]
+        try:
+            creator_lst = []
+            rtn_value = {}
+            creator_type = WEKO_DEPOSIT_SYS_CREATOR_KEY['creator_type'] #? ADDED 20231017 CREATOR TYPE BUG FIX
+            creator_type_lst = []
+            creator_names = WEKO_DEPOSIT_SYS_CREATOR_KEY['creator_names']
+            family_names = WEKO_DEPOSIT_SYS_CREATOR_KEY['family_names']
+            given_names = WEKO_DEPOSIT_SYS_CREATOR_KEY['given_names']
+            alternative_names = WEKO_DEPOSIT_SYS_CREATOR_KEY['alternative_names']
+            list_parent_key = [
+                creator_names,
+                family_names,
+                given_names,
+                alternative_names
+            ]
 
-        # Get default creator name to show on detail screen.
-        self._get_default_creator_name(list_parent_key,
-                                       creator_lst)
+            # Get default creator name to show on detail screen.
+            self._get_default_creator_name(list_parent_key,
+                                           creator_lst)
 
-        rtn_value['name'] = creator_lst
-        creator_list_tmp = []
-        creator_list = []
+            rtn_value['name'] = creator_lst
+            self._format_creator_to_show_detail(None, creator_type, creator_type_lst)
 
-        # Get creators are displayed on creator pop up.
-        self._get_creator_to_display_on_popup(creator_list_tmp)
-        for creator_data in creator_list_tmp:
-            if isinstance(creator_data, dict):
-                creator_temp = {}
-                for k, v in creator_data.items():
-                    if isinstance(v, list):
-                        merged_data = {}
-                        self._merge_creator_data(v, merged_data)
-                        creator_temp[k] = merged_data
-                creator_list.append(creator_temp)
+            if isinstance(creator_type_lst, list) and len(creator_type_lst) > 0:
+                rtn_value['type'] = creator_type_lst[0]
+            else:
+                rtn_value['type'] = ""
 
-        # Format creators
-        formatted_creator_list = []
-        self._format_creator_on_creator_popup(creator_list,
-                                              formatted_creator_list)
+            creator_list_tmp = []
+            creator_list = []
 
-        rtn_value.update({'order_lang': formatted_creator_list})
+            # Get creators are displayed on creator pop up.
+            self._get_creator_to_display_on_popup(creator_list_tmp)
+            for creator_data in creator_list_tmp:
+                if isinstance(creator_data, dict):
+                    creator_temp = {}
+                    for k, v in creator_data.items():
+                        if isinstance(v, list):
+                            merged_data = {}
+                            self._merge_creator_data(v, merged_data)
+                            creator_temp[k] = merged_data
+                    creator_list.append(creator_temp)
+
+            # Format creators
+            formatted_creator_list = []
+            self._format_creator_on_creator_popup(creator_list,
+                                                  formatted_creator_list)
+
+            rtn_value.update({'order_lang': formatted_creator_list})
+        
+        except KeyError as e:
+            current_app.logger.error("KeyError in format_creator: {}".format(e))
+            current_app.logger.error(traceback.format_exc())
+            return {}
+        except Exception as e:
+            current_app.logger.error("Unexpected error in format_creator: {}".format(e))
+            current_app.logger.error(traceback.format_exc())
+            return {}
 
         return rtn_value
 
@@ -3058,11 +2997,13 @@ class _FormatSysCreator:
         :param des_creator: Creator des
         """
         creator_name_key = WEKO_DEPOSIT_SYS_CREATOR_KEY['creator_name']
+        creator_name_type_key = WEKO_DEPOSIT_SYS_CREATOR_KEY['creator_name_type']
         family_name_key = WEKO_DEPOSIT_SYS_CREATOR_KEY['family_name']
         given_name_key = WEKO_DEPOSIT_SYS_CREATOR_KEY['given_name']
         creator_name = creator_data.get(creator_name_key)
         family_name = creator_data.get(family_name_key)
         given_name = creator_data.get(given_name_key)
+        creator_name_type = creator_data.get(creator_name_type_key)
         if creator_name:
             des_creator[creator_name_key] = creator_name
         else:
@@ -3078,6 +3019,14 @@ class _FormatSysCreator:
                         _creator_name += " " + given_name[idx]
                     lst.append(_creator_name)
                 des_creator[creator_name_key] = lst
+        if creator_name_type:
+            lst = []
+            for idx, name in enumerate(creator_name):
+                if len(creator_name_type) > idx:
+                    lst.append(f"{name}（{creator_name_type[idx]}）")
+                else:
+                    lst.append(name)
+            des_creator[creator_name_key] = lst
 
     @staticmethod
     def _format_creator_affiliation(creator_data: dict,

@@ -775,28 +775,47 @@ def test_WorkActivity_count_waiting_approval_by_workflow_id(app, db, db_register
 
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_WorkFlow_upt_workflow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_WorkFlow_upt_workflow(app, db, workflow, logging_client):
-    w = workflow["workflow"]
-    _workflow = WorkFlow()
-    data = dict(flows_id=w.flows_id,
-                flows_name='test workflow01',
-                itemtype_id=1,
-                flow_id=1,
-                index_tree_id=None,
-                open_restricted=False,
-                location_id=None,
-                is_gakuninrdm=False,
-                repository_id='Root Index')
+def test_WorkFlow_upt_workflow(app, db, workflow, logging_client, users):
+    with app.test_request_context():
+        # System Administrator
+        login_user(users[2]["obj"])
+        w = workflow["workflow"]
+        _workflow = WorkFlow()
+        data = dict(flows_id=w.flows_id,
+                    flows_name='test workflow01',
+                    itemtype_id=1,
+                    flow_id=1,
+                    index_tree_id=None,
+                    open_restricted=False,
+                    location_id=None,
+                    is_gakuninrdm=False,
+                    repository_id='Root Index')
 
-    res = _workflow.upt_workflow(data)
-    for key in data:
-        assert getattr(res, key) == data[key]
+        res = _workflow.upt_workflow(data)
+        for key in data:
+            assert getattr(res, key) == data[key]
 
-    res = _workflow.upt_workflow({'flows_id': uuid.uuid4()})
-    assert res is None
+        # Repository Administrator
+        login_user(users[1]["obj"])
+        data = dict(flows_id=w.flows_id,
+                    flows_name='test workflow01',
+                    itemtype_id=1,
+                    flow_id=1,
+                    index_tree_id=None,
+                    open_restricted=True,
+                    location_id=None,
+                    is_gakuninrdm=False,
+                    repository_id='Root Index')
+        res = _workflow.upt_workflow(data)
+        data["open_restricted"] = False  # cannot update open_restricted
+        for key in data:
+            assert getattr(res, key) == data[key]
 
-    with pytest.raises(AssertionError):
-        _workflow.upt_workflow(None)
+        res = _workflow.upt_workflow({'flows_id': uuid.uuid4()})
+        assert res is None
+
+        with pytest.raises(AssertionError):
+            _workflow.upt_workflow(None)
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_WorkFlow_get_workflow_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_WorkFlow_get_workflow_list(app, db, workflow, users):
@@ -818,6 +837,50 @@ def test_WorkFlow_get_workflow_list(app, db, workflow, users):
     user = users[3]["obj"]
     res = _workflow.get_workflow_list(user=user)
     assert len(res) == 1
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_get_workflows_by_roles -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_get_workflows_by_roles(app, mocker):
+    role_1 = MagicMock(id=1, name='')
+    role_2 = MagicMock(id=2, name='')
+    role_3 = MagicMock(id=3, name='')
+
+    mock_user = MagicMock()
+    mock_user.roles = [role_1, role_2]
+    mocker.patch("flask_login.utils._get_user", return_value=mock_user) # current_user_roles
+
+    mock_query = mocker.patch("invenio_accounts.models.Role.query")
+    mock_filter = mock_query.filter.return_value
+    mock_filter.all.return_value = [role_1, role_3] # all roles
+
+    mock_outerjoin = mock_query.outerjoin.return_value
+    mock_filter1 = mock_outerjoin.filter.return_value
+    mock_filter2 = mock_filter1.filter.return_value
+    mock_filter2.all.return_value = [role_1] # list_hide
+
+    wf = WorkFlow()
+    wf1 = MagicMock(id=11, name='')
+
+    # user_roles:[role_1] - list_hide:[role_1] = [] -> not show wf1
+    workflows = wf.get_workflows_by_roles([wf1])
+    assert workflows == []
+
+    mock_filter2.all.return_value = [] # list_hide
+
+    # user_roles:[role_1] - list_hide:[] = [role_1] -> show wf1
+    workflows = wf.get_workflows_by_roles([wf1])
+    assert workflows == [wf1]
+
+    # argument is None
+    workflows = wf.get_workflows_by_roles(None)
+    assert workflows == []
+
+    # user_roles is None
+    mock_filter.all.return_value = None # role
+    workflows = wf.get_workflows_by_roles([wf1])
+    assert workflows == []
+
+
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_WorkActivity_filter_by_action -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_WorkActivity_filter_by_action(app, db):
     query = db.session.query(Activity)
@@ -2253,13 +2316,36 @@ def test_get_non_extract_files(app, mocker):
     assert result == []
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_UpdateItem_publish -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_UpdateItem_publish(app, db_records):
+def test_UpdateItem_publish(app, db_records, mocker):
+    mock_update_es_data = mocker.patch("weko_deposit.api.WekoIndexer.update_es_data")
+
     updated_item = UpdateItem()
     dep = db_records[0][6]
     updated_item.publish(dep, PublishStatus.PRIVATE.value)
     assert dep.get('publish_status') == PublishStatus.PRIVATE.value
+    mock_update_es_data.assert_called_once_with(
+        dep, update_revision=False, field="publish_status")
+
+    mock_update_es_data.reset_mock()
     updated_item.publish(dep, PublishStatus.PUBLIC.value)
     assert dep.get('publish_status') == PublishStatus.PUBLIC.value
+    mock_update_es_data.assert_called_once_with(
+        dep, update_revision=False, field="publish_status")
+
+# def __create_self_user_id_json(self_user_id)
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test___create_self_user_id_json -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test___create_self_user_id_json(app):
+    activity = WorkActivity()
+    self_user_id = 123
+    # WEKO_ITEMS_UI_PROXY_POSTING is False
+    app.config['WEKO_ITEMS_UI_PROXY_POSTING'] = False
+    result = activity._WorkActivity__create_self_user_id_json(self_user_id)
+    assert result == '{"user": 123}]'
+
+    # WEKO_ITEMS_UI_PROXY_POSTING is True
+    app.config['WEKO_ITEMS_UI_PROXY_POSTING'] = True
+    result = activity._WorkActivity__create_self_user_id_json(self_user_id)
+    assert result == '{"user": 123}'
 
 # def query_activities_by_tab_is_wait(query)
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_query_activities_by_tab_is_wait -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp

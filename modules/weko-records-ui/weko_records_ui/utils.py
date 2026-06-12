@@ -46,6 +46,7 @@ from invenio_accounts.models import Role, User
 from invenio_cache import current_cache
 from invenio_db import db
 from invenio_i18n.ext import current_i18n
+from invenio_mail.models import MailTemplateGenres
 from invenio_oaiserver.response import getrecord
 from invenio_pidrelations.contrib.versioning import PIDVersioning
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
@@ -377,10 +378,20 @@ def delete_version(recid):
         new_item_reference_list = ItemReference.get_src_references(id_without_version).all()
         call_external_system(old_record=old_record, new_record=weko_record,
                              old_item_reference_list=old_item_reference_list, new_item_reference_list=new_item_reference_list)
+        # upate index of new lastest_pid
+        list_index = parent_deposit.get('path', [])
+        if list_index:
+            data = {"index": list_index}
+            latest_record = WekoRecord.get_record_by_pid(latest_version)
+            latest_deposit = WekoDeposit(latest_record, latest_record.model)
+            latest_deposit.update(data, latest_deposit.item_metadata)
+            latest_deposit.commit()
 
     # update draft item
     draft_pid = PersistentIdentifier.query.filter_by(
-        pid_type='recid', pid_value='{}.0'.format(id_without_version)).first()
+        pid_type='recid',
+        pid_value='{}.0'.format(id_without_version)
+    ).one_or_none()
     if draft_pid is not None and not is_workflow_activity_work(draft_pid.object_uuid):
         draft_deposit = WekoDeposit.get_record(
             draft_pid.object_uuid)
@@ -2040,7 +2051,7 @@ def validate_expiration_date(expiration_str, offset_minutes):
     secret_url_settings = get_restricted_access('secret_URL_file_download')
     if not secret_url_settings:
         return False
-    expiration_days = secret_url_settings.get('secret_expiration_date', 30) + 1
+    expiration_days = secret_url_settings.get('max_secret_expiration_date', 30) + 1
     if expiration_dt > dt.now(timezone.utc) + timedelta(days=expiration_days):
         return False
     return True
@@ -2131,8 +2142,12 @@ def create_onetime_url_record(activity_id, record_id, file_name,
         "password_for_download": encrypted_password
     }
 
+    approver_id = None
+    if current_user and current_user.is_authenticated:
+        approver_id = current_user.id
+
     onetime_url_obj = FileOnetimeDownload.create(
-        approver_id     = current_user.id,
+        approver_id     = approver_id,
         record_id       = record_id,
         file_name       = file_name,
         expiration_date = expiration_date,
@@ -2205,13 +2220,14 @@ def generate_sha256_hash(url_obj):
     return hash_obj.digest()
 
 
-def send_secret_url_mail(uuid, secret_url_obj, item_title):
+def send_secret_url_mail(uuid, secret_url_obj, item_title, offset_time):
     """Send an email with a secret URL.
 
     Args:
         uuid (UUID): The UUID of the item.
         secret_url_obj (FileSecretDownload): The secret URL object.
         item_title (str): The item title.
+        offset_time (int): The timezone offset in minutes.
 
     Returns:
         bool: True if the email sent successfully, False otherwise.
@@ -2219,40 +2235,35 @@ def send_secret_url_mail(uuid, secret_url_obj, item_title):
     # Setup mail info
     user_profile = UserProfile.get_by_userid(current_user.id)
     fullname = user_profile._displayname if user_profile else ''
-    expiration_dt = secret_url_obj.expiration_date
-    jst_date = expiration_dt.astimezone(timezone(timedelta(hours=9))).date()
-    jst_str = jst_date.strftime('%Y-%m-%d') + ' 23:59:59(JST)'
+    expiration_dt = secret_url_obj.expiration_date.replace(tzinfo=timezone.utc)
+    local_dt = expiration_dt.astimezone(timezone(timedelta(minutes=-offset_time)))
+    local_expiration_str = local_dt.strftime('%Y-%m-%d %H:%M')
     secret_url_info = {
-        'restricted_download_link'  : create_download_url(secret_url_obj),
+        'secret_url' : create_download_url(secret_url_obj),
         'mail_recipient'            : current_user.email,
         'file_name'                 : secret_url_obj.file_name,
-        'restricted_expiration_date': jst_str,
+        'restricted_expiration_date': local_expiration_str,
         'restricted_download_count' : str(secret_url_obj.download_limit),
         'restricted_fullname'       : fullname,
         'restricted_data_name'      : item_title,
     }
 
-    #     return_dict: dict = {
-    #     "secret_url": secret_file_url,
-    #     "mail_recipient": secret_obj.user_mail,
-    #     "file_name": file_name,
-    #     "restricted_expiration_date": "",
-    #     "restricted_expiration_date_ja": "",
-    #     "restricted_expiration_date_en": "",
-    #     "restricted_download_count": "",
-    #     "restricted_download_count_ja": "",
-    #     "restricted_download_count_en": "",
-    #     "restricted_fullname": restricted_fullname,
-    #     "restricted_data_name": restricted_data_name,
-    # }
     mail_info = set_mail_info(get_item_info(uuid),
                               type('' ,(object,), {'activity_id': ''})())
     mail_info.update(secret_url_info)
 
-    # Send mail
-    mail_pattern = current_app.config.get(
-        'WEKO_RECORDS_UI_MAIL_TEMPLATE_SECRET_URL')
-    is_succeeded = process_send_mail(mail_info, mail_pattern)
+    # query secret mail template record
+    mail_category_id = current_app.config.get('WEKO_RECORDS_UI_MAIL_TEMPLATE_SECRET_GENRE_ID', -1)
+    secret_url_category = MailTemplateGenres.query.get(mail_category_id)
+    secret_mail_template = None
+    if secret_url_category:
+        secret_mail_template = next(iter(secret_url_category.templates or []), None)
+
+    #send mail
+    is_succeeded = False
+    if secret_mail_template:
+        is_succeeded = process_send_mail(mail_info, secret_mail_template.id)
+
     return is_succeeded
 
 

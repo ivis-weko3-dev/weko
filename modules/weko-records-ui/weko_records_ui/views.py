@@ -506,8 +506,16 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
     # Get index style
     style = IndexStyle.get(
         current_app.config['WEKO_INDEX_TREE_STYLE_OPTIONS']['id'])
-    width = style.width if style else '3'
-    height = style.height if style else None
+    if not style:
+        IndexStyle.create(
+            current_app.config['WEKO_INDEX_TREE_STYLE_OPTIONS']['id'],
+            width=3,
+            height=None)
+        style = IndexStyle.get(
+            current_app.config['WEKO_INDEX_TREE_STYLE_OPTIONS']['id'])
+    width = style.width
+    height = style.height
+    index_link_enabled = style.index_link_enabled
 
     detail_condition = get_search_detail_keyword('')
 
@@ -529,8 +537,8 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
     google_scholar_meta = get_google_scholar_meta(record,record_tree=et)
     google_dataset_meta = get_google_detaset_meta(record,record_tree=et)
 
-    current_lang = current_i18n.language \
-        if hasattr(current_i18n, 'language') else None
+    current_lang = str(current_i18n.locale) \
+        if hasattr(current_i18n, 'locale') else None
     # get title name
     from weko_search_ui.utils import get_data_by_property
     from weko_items_ui.utils import get_options_and_order_list, get_hide_list_by_schema_form
@@ -668,7 +676,9 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
     # else:
     #     index_link_list = get_index_link_list()
 
-    index_link_list = get_index_link_list()
+    index_link_list = []
+    if index_link_enabled:
+        index_link_list = get_index_link_list()
 
     files_thumbnail = []
     if record.files:
@@ -730,7 +740,7 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
 
     restricted_errorMsg = ''
     restricted_access = get_restricted_access('error_msg')
-    restricted_errorMsg = restricted_access['content'].get(current_lang, None)['content']
+    restricted_errorMsg = restricted_access['content'].get(current_lang, restricted_access['content']['en'])['content']
 
     onetime_file_name = ''
     onetime_url = request.args.get("onetime_url")
@@ -771,6 +781,7 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
         is_no_content_item_application = item_application_settings.get("item_application_enable", False) \
             and int(item_type_id) in item_application_settings.get("application_item_types", [])
 
+
     return render_template(
         template,
         pid=pid,
@@ -792,7 +803,7 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
         width=width,
         detail_condition=detail_condition,
         height=height,
-        index_link_enabled=style.index_link_enabled,
+        index_link_enabled=index_link_enabled,
         index_link_list=index_link_list,
         google_scholar_meta=google_scholar_meta,
         google_dataset_meta=google_dataset_meta,
@@ -827,6 +838,7 @@ def default_view_method(pid, record, filename=None, template=None, **kwargs):
         restricted_errorMsg = restricted_errorMsg,
         with_files = with_files,
         belonging_community=belonging_community,
+        is_storage_editable=current_app.config.get('WEKO_RECORDS_UI_USER_STORAGE_MODIFICATION_ENABLED'),
         **ctx,
         **kwargs
     )
@@ -904,7 +916,11 @@ def create_secret_url_and_send_mail(pid, record, filename, **kwargs):
     message = _('Secret URL generated successfully')
     if request.json['send_email'] is True:
         sending_result = send_secret_url_mail(
-            pid.object_uuid, url_obj, record.get('item_title', ''))
+            pid.object_uuid,
+            url_obj,
+            record.get('item_title', ''),
+            request.json['timezone_offset_minutes']
+        )
         if sending_result:
             message += _(', please check your email inbox')
         else:
@@ -1481,6 +1497,7 @@ def copy_bucket():
         return jsonify(uri)
     except Exception as e:
         current_app.logger.error(str(e))
+        current_app.logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 400
 
 

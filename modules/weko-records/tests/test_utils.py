@@ -7,6 +7,7 @@ import pytest
 import copy
 from mock import patch, MagicMock
 from tests.helpers import json_data
+import types
 
 from invenio_accounts import testutils
 from weko_admin.models import AdminSettings
@@ -58,7 +59,9 @@ from weko_records.utils import (
     replace_fqdn,
     replace_fqdn_of_file_metadata,
     get_author_link,
-    set_file_date)
+    set_file_date,
+    check_embargo_rights,
+    update_embargo_rights)
 from weko_records.api import ItemTypes, Mapping
 from weko_records.models import ItemTypeName
 from weko_workflow.models import Activity
@@ -71,9 +74,7 @@ def test_json_loader(app, db, item_type, item_type2, item_type_mapping2, db_regi
     item_type_scheme={"properties":{"control_number":{"type":"string"},"item_1":{"title":"item_1","type":"string"},"item_2":{"title":"item_2","type":"string"},"item_3":{"title":"item_3","type":"object","properties":{"item_3_1":{"title":"item_3_1","type":"string"},"iscreator":{"type":"string"}}},"item_4":{"title":"item_4","type":"object","properties":{"item_4_1":{"title":"item_4_1","type":"string"}}},"item_5":{"title":"item_5","type":"array","items":{"properties":{"filename":{"type":"string","title":"filename"},"iscreator":{"type":"string"}}},},"item_6":{"title":"item_6","type":"array","items":{"properties":{"item_6_1":{"title":"item_6_1","type":"string"}}},},"item_7":{"title":"item_7","type":"array","items":{"properties":{"nameIdentifiers":{"type":"array","items":{"properties":{"nameIdentifier":{"title":"name identifier","type":"string"},"nameIdentifierScheme":{"title":"name identifier scheme","type":"string"}}}}}}},"item_8":{"title":"item_8","type": "object","properties":{"nameIdentifiers":{"type":"array","items":{"properties":{"nameIdentifier":{"title":"name identifier","type":"string"},"nameIdentifierScheme":{"title":"name identifier scheme","type":"string"}}}}}}}}
     item_type_mapping = {"control_number":{},"item_1":{"jpcoar_mapping":""},"item_2":{"jpcoar_mapping":""},"item_3":{"jpcoar_mapping":{"item_3":{"@value":"item_3_1"}}},"item_4":{"jpcoar_mapping":{"item_4":{"@value":"item_4_1"}}},"item_5":{"jpcoar_mapping":{"item_5":{"@value":"filename"}}},"item_6":{"jpcoar_mapping":{"item_6":{"@value":"item_6_1"}}},"item_7":{"jpcoar_mapping":{"creator1":{"nameIdentifier":{"@value":"nameIdentifiers.nameIdentifier","@attributes":{"nameIdentifierScheme":"nameIdentifiers.nameIdentifierScheme"}}}}},"item_8":{"jpcoar_mapping":{"creator1":{"nameIdentifier":{"@value":"nameIdentifiers.nameIdentifier","@attributes":{"nameIdentifierScheme":"nameIdentifiers.nameIdentifierScheme"}}}}}}
     _pid = records[0][0]
-    _pid2 = records[1][0]
-    mocker.patch("weko_authors.api.WekoAuthors.get_pk_id_by_weko_id", return_value="2")
-    mocker.patch("weko_authors.utils.update_data_for_weko_link")
+
     # not exist $schema
     data1={}
     result = json_loader(data1, _pid)
@@ -124,12 +125,11 @@ def test_json_loader(app, db, item_type, item_type2, item_type_mapping2, db_regi
     app.config['WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME'] = 'jpcoar_v1_mapping'
     app.config['WEKO_SCHEMA_DDI_SCHEMA_NAME'] = 'ddi_mapping'
     dc, jrc, is_edit = json_loader(data3,_pid)
-
-    assert dc == OrderedDict([('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': ''}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item1'), ('item_type_id', '3'), ('control_number', '1'), 
-                        ('author_link', ['2', '2']), ('weko_shared_ids', []),("weko_link", {"2": "5678"}), ('_oai', {'id': '1'}), ('owner', 1), ('owners', [1])])
+    assert dc == OrderedDict([('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': ''}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item1'), ('item_type_id', '3'), ('control_number', '1'),
+                        ('author_link', ['1234', '5678']), ('weko_shared_ids', []), ('_oai', {'id': '1'}), ('owner', 1), ('owners', [1])])
     assert jrc == {'item_4': ['item_4_1_v'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'item_5': ['item_5'], 'item_3': ['item_3_1_v'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata': OrderedDict([('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': ''}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item1'), ('item_type_id', '3'), ('control_number', '1'),
-                        ('author_link', ['2', '2']), ('weko_shared_ids', []),("weko_link", {"2": "5678"}), ('_oai', {'id': '1'}), ('owner', 1), ('owners', [1])]), 'itemtype': 'test10', 'publish_date': None,
-                        'author_link': ['2', '2'], "weko_link": {"2": "5678"}, 'weko_creator_id': '1', 'weko_shared_ids': []}
+                        ('author_link', ['1234', '5678']), ('weko_shared_ids', []), ('_oai', {'id': '1'}), ('owner', 1), ('owners', [1])]), 'itemtype': 'test10', 'publish_date': None,
+                        'author_link': ['1234', '5678'], 'weko_creator_id': '1', 'weko_shared_ids': []}
     assert is_edit == False
 
 
@@ -154,10 +154,10 @@ def test_json_loader(app, db, item_type, item_type2, item_type_mapping2, db_regi
         }
         dc, jrc, is_edit = json_loader(data4,_pid)
         assert dc == OrderedDict([('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '3'), ('control_number', '1'),
-                                ('author_link', ['2', '2']),('weko_shared_ids', [2]),("weko_link", {"2": "5678"}), ('owner', 1), ('owners', [1])])
+                                ('author_link', ['1234', '5678']),('weko_shared_ids', [2]), ('owner', 1), ('owners', [1])])
         assert jrc == {'item_6': ['item_6_1_v'], 'item_5': ['item_5'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'item_3': ['item_3_1_v'], 'item_4': ['item_4_1_v'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata': OrderedDict([('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '3'), ('control_number', '1'),
-                    ('author_link', ['2', '2']), ('weko_shared_ids', [2]),("weko_link" ,{"2": "5678"}), ('owner', 1), ('owners', [1])]), 'itemtype': 'test10', 'publish_date': None,
-                    'author_link': ['2', '2'], "weko_link" :{"2": "5678"}, 'weko_creator_id': '1', 'weko_shared_ids': [2]}
+                    ('author_link', ['1234', '5678']), ('weko_shared_ids', [2]), ('owner', 1), ('owners', [1])]), 'itemtype': 'test10', 'publish_date': None,
+                    'author_link': ['1234', '5678'], 'weko_creator_id': '1', 'weko_shared_ids': [2]}
         assert is_edit == True
     with patch("weko_records.utils.COPY_NEW_FIELD",False):
         with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
@@ -177,20 +177,20 @@ def test_json_loader(app, db, item_type, item_type2, item_type_mapping2, db_regi
             }
             dc, jrc, is_edit = json_loader(data5, _pid)
             assert dc == OrderedDict([('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '3'), ('control_number', '1'),
-                                    ('author_link', ['2', '2']), ('weko_shared_ids', [2]),("weko_link", {"2": "5678"}), ('owner', 5), ('owners', [5])])
-            assert jrc == {'item_5': ['item_5'], 'item_4': ['item_4_1_v'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'item_6': ['item_6_1_v'], 'item_3': ['item_3_1_v'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata': 
-                OrderedDict([('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), 
-                            ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), 
+                                    ('author_link', ['1234', '5678']), ('weko_shared_ids', [2]), ('owner', 5), ('owners', [5])])
+            assert jrc == {'item_5': ['item_5'], 'item_4': ['item_4_1_v'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'item_6': ['item_6_1_v'], 'item_3': ['item_3_1_v'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata':
+                OrderedDict([('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}),
+                            ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}),
                             ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}),
                             ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}),
                             ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}),
                             ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}),
                             ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}),
                             ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}),
-                            ('item_title', 'test_item2'), ('item_type_id', '3'), ('control_number', '1'), 
-                            ('author_link', ['2', '2']),('weko_shared_ids', [2]),("weko_link", {"2": "5678"}),  ('owner', 5), ('owners', [5])]),
-                            'itemtype': 'test10', 'publish_date': None, 
-                            'author_link': ['2', '2'], "weko_link": {"2": "5678"}, 'weko_creator_id': '5', 'weko_shared_ids': [2]}
+                            ('item_title', 'test_item2'), ('item_type_id', '3'), ('control_number', '1'),
+                            ('author_link', ['1234', '5678']),('weko_shared_ids', [2]),  ('owner', 5), ('owners', [5])]),
+                            'itemtype': 'test10', 'publish_date': None,
+                            'author_link': ['1234', '5678'], 'weko_creator_id': '5', 'weko_shared_ids': [2]}
 
             assert is_edit == True
 
@@ -214,7 +214,7 @@ def test_json_loader(app, db, item_type, item_type2, item_type_mapping2, db_regi
             }
             dc, jrc, is_edit = json_loader(data6, _pid)
             assert dc == OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value': ["item_6_1","item_6_1_v"]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '3'), ('control_number', '1'),
-                                    ('author_link', ['2', '2']),('weko_shared_ids', [2]),("weko_link", {"2": "5678"}),  ('owner', 1),('owners',[1])])
+                                    ('author_link', ['1234', '5678']),('weko_shared_ids', [2]),  ('owner', 1),('owners',[1])])
             assert jrc == {'item_5': ['item_5'], 'item_4': ['item_4_1_v'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'item_6': ["item_6_1",'item_6_1_v'], 'item_3': ['item_3_1_v'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata':
                 OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}),
                             ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}),
@@ -226,9 +226,9 @@ def test_json_loader(app, db, item_type, item_type2, item_type_mapping2, db_regi
                             ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}),
                             ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}),
                             ('item_title', 'test_item2'), ('item_type_id', '3'), ('control_number', '1'),
-                            ('author_link', ['2', '2']), ('weko_shared_ids', [2]),("weko_link", {"2": "5678"}), ('owner', 1),('owners',[1])]),
+                            ('author_link', ['1234', '5678']), ('weko_shared_ids', [2]), ('owner', 1),('owners',[1])]),
                             'itemtype': 'test10', 'publish_date': None,
-                            'author_link': ['2', '2'], "weko_link": {"2": "5678"}, 'weko_creator_id': '1', 'weko_shared_ids': [2]}
+                            'author_link': ['1234', '5678'], 'weko_creator_id': '1', 'weko_shared_ids': [2]}
             assert is_edit == True
     with patch("weko_records.utils.COPY_NEW_FIELD",False):
         with patch("flask_login.utils._get_user", return_value=users[7]["obj"]):
@@ -252,7 +252,7 @@ def test_json_loader(app, db, item_type, item_type2, item_type_mapping2, db_regi
                     }
                     dc, jrc, is_edit = json_loader(data, _pid)
                     assert dc == OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value': ["item_6_1","item_6_1_v"]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '3'), ('control_number', '1'),
-                                            ('author_link', ['2', '2']),('weko_shared_ids', [2]),("weko_link", {"2": "5678"}), ('owner', 1),('owners',[1])])
+                                            ('author_link', ['1234', '5678']),('weko_shared_ids', [2]), ('owner', 1),('owners',[1])])
                     assert jrc == {'item_5': ['item_5'], 'item_4': ['item_4_1_v'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'item_6': ['item_6_1_v'], 'item_3': ['item_3_1_v'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata':
                         OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}),
                                     ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}),
@@ -264,9 +264,9 @@ def test_json_loader(app, db, item_type, item_type2, item_type_mapping2, db_regi
                                     ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}),
                                     ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}),
                                     ('item_title', 'test_item2'), ('item_type_id', '3'), ('control_number', '1'),
-                                    ('author_link', ['2', '2']), ('weko_shared_ids', [2]), ("weko_link", {"2": "5678"}), ('owner', 1),('owners',[1])]),
+                                    ('author_link', ['1234', '5678']), ('weko_shared_ids', [2]), ('owner', 1), ('owners',[1])]),
                                     'itemtype': 'test10', 'publish_date': None,
-                                    'author_link': ['2', '2'], "weko_link": {"2": "5678"},  'weko_shared_ids': [2] ,'weko_creator_id': '1'}
+                                    'author_link': ['1234', '5678'],  'weko_shared_ids': [2] ,'weko_creator_id': '1'}
                     assert is_edit == True
                     data={
                         '$schema': 'http://schema/3',
@@ -284,17 +284,6 @@ def test_json_loader(app, db, item_type, item_type2, item_type_mapping2, db_regi
                         "item_7":[{},{"nameIdentifiers":[{"nameIdentifierScheme":"WEKO","nameIdentifier":"1234"}]}],
                         "item_8":{"nameIdentifiers":[{"nameIdentifierScheme":"WEKO","nameIdentifier":"5678"}]},
                     }
-                    with patch("weko_authors.utils.update_data_for_weko_link") as update_data_for_weko_link:
-
-                        dc, jrc, is_edit = json_loader(data, _pid)
-                        assert is_edit == True
-                        with patch("weko_authors.api.WekoAuthors.get_pk_id_by_weko_id", return_value="-1"):
-                            dc, jrc, is_edit = json_loader(data, _pid)
-                            assert is_edit == True
-                        dc, jrc, is_edit = json_loader(data, _pid2)
-                        assert is_edit == False
-                        update_data_for_weko_link.assert_not_called()
-
 
 # .tox/c1/bin/pytest --cov=weko_records tests/test_utils.py::test_json_loader2 -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
 def test_json_loader2(app, db, item_type, item_type2, item_type3, item_type_mapping2, item_type_mapping3, records, users, mocker):
@@ -356,8 +345,8 @@ def test_json_loader2(app, db, item_type, item_type2, item_type3, item_type_mapp
     app.config['WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME'] = 'jpcoar_v1_mapping'
     app.config['WEKO_SCHEMA_DDI_SCHEMA_NAME'] = 'ddi_mapping'
     dc, jrc, is_edit = json_loader(data3,_pid)
-    assert dc == OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': ''}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item1'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']),('weko_shared_ids',[]),('weko_link', {'1234': '1234','5678': '5678'}), ('_oai', {'id': '1'}),('owner', 1),('owners',[1])])
-    assert jrc == {'item_4': ['item_4_1_v'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'item_5': ['item_5'], 'item_3': ['item_3_1_v'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata': OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': ''}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item1'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']),('weko_shared_ids',[]),('weko_link', {'1234': '1234','5678': '5678'}), ('_oai', {'id': '1'}),('owner', 1),('owners',[1])]), 'itemtype': 'test10', 'publish_date': None, 'author_link': ['1234', '5678'],'weko_shared_ids':[],'weko_link': {'1234': '1234','5678': '5678'},'weko_creator_id': '1'}
+    assert dc == OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': ''}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item1'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']),('weko_shared_ids',[]), ('_oai', {'id': '1'}),('owner', 1),('owners',[1])])
+    assert jrc == {'item_4': ['item_4_1_v'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'item_5': ['item_5'], 'item_3': ['item_3_1_v'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata': OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': ''}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item1'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']),('weko_shared_ids',[]), ('_oai', {'id': '1'}),('owner', 1),('owners',[1])]), 'itemtype': 'test10', 'publish_date': None, 'author_link': ['1234', '5678'],'weko_shared_ids':[],'weko_creator_id': '1'}
     assert is_edit == False
 
 
@@ -382,8 +371,8 @@ def test_json_loader2(app, db, item_type, item_type2, item_type3, item_type_mapp
             "item_8":{"nameIdentifiers":[{"nameIdentifierScheme":"WEKO","nameIdentifier":"5678"}]}
         }
         dc, jrc, is_edit = json_loader(data4,_pid)
-        assert dc == OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']),('weko_shared_ids',[2]),('weko_link', {'1234': '1234','5678': '5678'}),('owner', 1),('owners',[1])])
-        assert jrc == {'item_6': ['item_6_1_v'], 'item_5': ['item_5'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'item_3': ['item_3_1_v'], 'item_4': ['item_4_1_v'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata': OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']),('weko_shared_ids',[2]),('weko_link', {'1234': '1234','5678': '5678'}),('owner', 1),('owners',[1])]), 'itemtype': 'test10', 'publish_date': None, 'author_link': ['1234', '5678'],'weko_creator_id': '1','weko_link': {'1234': '1234','5678': '5678'},'weko_shared_ids': [2]}
+        assert dc == OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']),('weko_shared_ids',[2]),('owner', 1),('owners',[1])])
+        assert jrc == {'item_6': ['item_6_1_v'], 'item_5': ['item_5'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'item_3': ['item_3_1_v'], 'item_4': ['item_4_1_v'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata': OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']),('weko_shared_ids',[2]),('owner', 1),('owners',[1])]), 'itemtype': 'test10', 'publish_date': None, 'author_link': ['1234', '5678'],'weko_creator_id': '1','weko_shared_ids': [2]}
         assert is_edit == True
         mocker.patch("weko_authors.api.WekoAuthors.get_pk_id_by_weko_id", side_effect=["1234","5678"])
     with patch("weko_records.utils.COPY_NEW_FIELD",False):
@@ -403,8 +392,8 @@ def test_json_loader2(app, db, item_type, item_type2, item_type3, item_type_mapp
                 "item_8":{"nameIdentifiers":[{"nameIdentifierScheme":"WEKO","nameIdentifier":"5678"}]}
             }
             dc, jrc, is_edit = json_loader(data5, _pid)
-            assert dc == OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']), ('weko_shared_ids', [2]),('weko_link', {'1234': '1234','5678': '5678'}),('owner', 5),('owners',[5])])
-            assert jrc == {'item_5': ['item_5'], 'item_4': ['item_4_1_v'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'item_6': ['item_6_1_v'], 'item_3': ['item_3_1_v'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata': OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']), ('weko_shared_ids', [2]),('weko_link', {'1234': '1234','5678': '5678'}),('owner', 5),('owners',[5])]), 'itemtype': 'test10', 'publish_date': None, 'author_link': ['1234', '5678'], 'weko_creator_id': '5','weko_link': {'1234': '1234', '5678': '5678'}, 'weko_shared_ids': [2]}
+            assert dc == OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']), ('weko_shared_ids', [2]),('owner', 5),('owners',[5])])
+            assert jrc == {'item_5': ['item_5'], 'item_4': ['item_4_1_v'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'item_6': ['item_6_1_v'], 'item_3': ['item_3_1_v'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata': OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']), ('weko_shared_ids', [2]),('owner', 5),('owners',[5])]), 'itemtype': 'test10', 'publish_date': None, 'author_link': ['1234', '5678'], 'weko_creator_id': '5', 'weko_shared_ids': [2]}
             assert is_edit == True
 
 
@@ -449,8 +438,7 @@ def test_json_loader2(app, db, item_type, item_type2, item_type3, item_type_mapp
         'item_type_id': '2',
         'owner': 1,
         'owners':[1],
-        'weko_shared_ids': [],
-        'weko_link':{}
+        'weko_shared_ids': []
     }
     _jrc_data = {
         '_item_metadata': {
@@ -530,7 +518,6 @@ def test_json_loader2(app, db, item_type, item_type2, item_type3, item_type_mapp
         'author_link': [],
         'owner': 1,
         'owners': [1],
-        'weko_link': {},
         'weko_shared_ids': []
     }
 
@@ -550,7 +537,6 @@ def test_json_loader2(app, db, item_type, item_type2, item_type3, item_type_mapp
             'control_number': '1',
             'author_link': [],
             'weko_shared_ids': [],
-            'weko_link': {},
             'owner': 1,
             'owners':[1]
         },
@@ -560,7 +546,6 @@ def test_json_loader2(app, db, item_type, item_type2, item_type3, item_type_mapp
         'author_link': [],
         'owner': 1,
         'owners': [1],
-        'weko_link': {},
         'weko_shared_ids': []
     }
 
@@ -628,7 +613,6 @@ def test_json_loader2(app, db, item_type, item_type2, item_type3, item_type_mapp
         'item_type_id': '2',
         'owner': 3,
         'owners':[3],
-        'weko_link': {},
         'weko_shared_ids': [1,2]
     }
 
@@ -642,7 +626,6 @@ def test_json_loader2(app, db, item_type, item_type2, item_type3, item_type_mapp
         'item_type_id': '2',
         'owner': 1,
         'owners':[1],
-        'weko_link': {},
         'weko_shared_ids': [1,2]
     }
 
@@ -818,8 +801,6 @@ def test_json_loader_with_out_workflow_activity(app, db, item_type, item_type2, 
     item_type_mapping = { "control_number":{},"item_1":{"jpcoar_mapping":""},"item_2":{"jpcoar_mapping":""},"item_3":{"jpcoar_mapping":{"item_3":{"@value":"item_3_1"}}},"item_4":{"jpcoar_mapping":{"item_4":{"@value":"item_4_1"}}},"item_5":{"jpcoar_mapping":{"item_5":{"@value":"filename"}}},"item_6":{"jpcoar_mapping":{"item_6":{"@value":"item_6_1"}}},"item_7":{"jpcoar_mapping":{"creator1":{"nameIdentifier":{"@value":"nameIdentifiers.nameIdentifier","@attributes":{"nameIdentifierScheme":"nameIdentifiers.nameIdentifierScheme"}}}}},"item_8":{"jpcoar_mapping":{"creator1":{"nameIdentifier":{"@value":"nameIdentifiers.nameIdentifier","@attributes":{"nameIdentifierScheme":"nameIdentifiers.nameIdentifierScheme"}}}}}}
     _pid = records[0][0]
 
-    mocker.patch("weko_authors.api.WekoAuthors.get_pk_id_by_weko_id", return_value="2")
-    mocker.patch("weko_authors.utils.update_data_for_weko_link")
     ItemTypes.create(
         name='test10',
         item_type_name=ItemTypeName(name='test10'),
@@ -854,16 +835,120 @@ def test_json_loader_with_out_workflow_activity(app, db, item_type, item_type2, 
                         "item_8":{"nameIdentifiers":[{"nameIdentifierScheme":"WEKO","nameIdentifier":"5678"}]},
                     }
                     dc, jrc, is_edit = json_loader(data, _pid)
-                    assert dc == OrderedDict([('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value': ['item_6_1', 'item_6_1_v']}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '3'), ('control_number', '1'), ('author_link', ['2', '2']), ('weko_shared_ids', 2), ('weko_link', {'2': '5678'}), ('_oai', {'id': '1'}), ('owner', 1), ('owners', [1])])
-                    assert jrc == {'weko_creator_id': '1', 'item_5': ['item_5'], 'item_6': ['item_6_1_v'], 'item_3': ['item_3_1_v'], 'item_4': ['item_4_1_v'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata': OrderedDict([('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value': ['item_6_1', 'item_6_1_v']}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '3'), ('control_number', '1'), ('author_link', ['2', '2']), ('weko_shared_ids', 2), ('weko_link', {'2': '5678'}), ('_oai', {'id': '1'}), ('owner', 1), ('owners', [1])]), 'itemtype': 'test10', 'publish_date': None, 'author_link': ['2', '2'], 'weko_link': {'2': '5678'}, 'weko_shared_ids': 2}
+                    assert dc == OrderedDict([('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}),('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}),('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}),('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}),('item_6', {'attribute_name': 'item_6', 'attribute_value': ['item_6_1', 'item_6_1_v']}),('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}),('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}),('item_title', 'test_item2'),('item_type_id', '3'),('control_number', '1'),('author_link', ['1234', '5678']),('weko_shared_ids', 2),('_oai', {'id': '1'}),('owner', 1),('owners', [1])])
+                    assert jrc == {'weko_creator_id': '1', 'item_5': ['item_5'], 'item_6': ['item_6_1_v'], 'item_3': ['item_3_1_v'], 'item_4': ['item_4_1_v'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata': OrderedDict([('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value': ['item_6_1', 'item_6_1_v']}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '3'), ('control_number', '1'), ('author_link', ['1234', '5678']), ('weko_shared_ids', 2), ('_oai', {'id': '1'}), ('owner', 1), ('owners', [1])]), 'itemtype': 'test10', 'publish_date': None, 'author_link': ['1234', '5678'], 'weko_shared_ids': 2}
                     assert is_edit == False
+
+# .tox/c1/bin/pytest --cov=weko_records tests/test_utils.py::test_json_loader_access_rights -v -s -vv --cov-branch --cov-report=html --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
+def test_json_loader_access_rights(app, db, monkeypatch):
+    app.config["WEKO_SEARCH_FIX_ACCESSRIGHTS"] = True
+
+    minimal_item_data = {
+        "$schema": "test_schema/1",
+        "item_type_id": "test",
+        "item_1": {
+            "attribute_name": "アクセス権",
+            "attribute_value_mlt": [
+                {
+                    "subitem_access_right": "open access",
+                    "subitem_access_right_uri": "http://purl.org/coar/access_right/c_f1cf"
+                }
+            ]
+        },
+    }
+    minimal_item_data2 = {
+        "$schema": "test_schema/1",
+        "item_type_id": "test",
+        "item_1": {
+            "attribute_name": "アクセス権",
+            "attribute_value_mlt": [{}]
+        },
+    }
+    minimal_item_data3 = {
+        "$schema": "test_schema/1",
+        "item_type_id": "test",
+        "item_1": {
+            "attribute_name": "アクセス権",
+            "attribute_value_mlt": "test_data"
+        },
+    }
+    class DummyPid:
+        object_uuid = "dummy-uuid"
+        pid_value = "dummy-pid"
+    minimal_pid = DummyPid()
+
+    # ItemTypes, Mapping, SchemaTree, PersistentIdentifier, current_pidstore などをモック
+    from collections import UserDict
+    class DummyOjson(UserDict):
+        pass
+
+    dummy_ojson = DummyOjson()
+    dummy_ojson["properties"] = {
+        "item_1": {
+            "type": "array",
+            "items": {"properties": {}}
+        }
+    }
+    dummy_ojson.model = types.SimpleNamespace()
+    dummy_ojson.model.item_type_name = types.SimpleNamespace()
+    dummy_ojson.model.item_type_name.name = "dummy_type"
+    dummy_mjson = types.SimpleNamespace()
+    dummy_mjson.dumps = lambda: {"item_1": {}}
+    dummy_schema_tree = types.SimpleNamespace()
+    dummy_schema_tree.get_jpcoar_json = lambda jpcoar, replace_field=True: {
+        "item_1": {
+            "attribute_value_mlt": [
+                {"subitem_access_right": "open access"}
+            ]
+        }
+    }
+    monkeypatch.setattr("weko_records.utils.ItemTypes", types.SimpleNamespace(get_record=lambda *a, **k: dummy_ojson))
+    monkeypatch.setattr("weko_records.utils.Mapping", types.SimpleNamespace(get_record=lambda *a, **k: dummy_mjson))
+    monkeypatch.setattr("weko_records.utils.SchemaTree", types.SimpleNamespace(get_jpcoar_json=dummy_schema_tree.get_jpcoar_json))
+    monkeypatch.setattr("weko_records.utils.PersistentIdentifier", types.SimpleNamespace(get_by_object=lambda *a, **k: types.SimpleNamespace(pid_value="oaiid"), get=lambda *a, **k: types.SimpleNamespace(object_uuid="dummy-uuid")))
+    monkeypatch.setattr("weko_records.utils.current_pidstore", types.SimpleNamespace(minters={"oaiid": lambda *a, **k: types.SimpleNamespace(pid_value="oaiid")}))
+    monkeypatch.setattr("weko_records.utils.current_user", types.SimpleNamespace(get_id=lambda: "1"))
+    monkeypatch.setattr("weko_records.utils.COPY_NEW_FIELD", False)
+    monkeypatch.setattr("weko_records.utils.sm", types.SimpleNamespace(get=lambda: None))
+    monkeypatch.setattr("weko_records.utils.ad_config", types.SimpleNamespace(WEKO_ADMIN_MANAGEMENT_OPTIONS={"detail_condition": []}))
+
+    access_path = "item_1.attribute_value_mlt.subitem_access_right"
+    with app.app_context():
+        # When access_path is set (accessRights should be found)
+        monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+        monkeypatch.setattr("weko_records.utils.update_embargo_rights", lambda meta: None)
+        from weko_records.utils import json_loader
+        dc, jrc, is_edit = json_loader(minimal_item_data, minimal_pid)
+        assert "accessRights" in jrc
+        assert "open access" in jrc["accessRights"]
+
+        # When access_path is not set (accessRights should not exist)
+        monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {})
+        dc, jrc, is_edit = json_loader(minimal_item_data, minimal_pid)
+        assert "accessRights" not in jrc
+
+        # When config is False (accessRights should not exist)
+        app.config["WEKO_SEARCH_FIX_ACCESSRIGHTS"] = False
+        monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+        dc, jrc, is_edit = json_loader(minimal_item_data, minimal_pid)
+        assert "accessRights" not in jrc
+
+        # When access_path is set but value cannot be found (accessRights should not exist)
+        app.config["WEKO_SEARCH_FIX_ACCESSRIGHTS"] = True
+        monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+        dc, jrc, is_edit = json_loader(minimal_item_data2, minimal_pid)
+        assert "accessRights" not in jrc
+
+        # When access_path is set but value cannot be found (accessRights should not exist)
+        monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+        dc, jrc, is_edit = json_loader(minimal_item_data3, minimal_pid)
+        assert "accessRights" not in jrc
 
 
 # def get_author_link(author_link, value)
 # .tox/c1/bin/pytest --cov=weko_records tests/test_utils.py::test_get_author_link -v -s -vv --cov-branch --cov-report=term --cov-report=html --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
 def test_get_author_link(app,mocker):
     author_link = []
-    weko_link=dict()
     value_list = [
         {
             "nameIdentifiers":[{
@@ -879,7 +964,7 @@ def test_get_author_link(app,mocker):
         }
     ]
     mocker.patch("weko_authors.api.WekoAuthors.get_pk_id_by_weko_id", side_effect=["1"])
-    ret = get_author_link(author_link, weko_link, value_list)
+    ret = get_author_link(author_link, value_list)
     assert ['1'] == author_link
 
     author_link = []
@@ -890,12 +975,12 @@ def test_get_author_link(app,mocker):
                 }]
     }
     mocker.patch("weko_authors.api.WekoAuthors.get_pk_id_by_weko_id", side_effect=["2"])
-    ret = get_author_link(author_link,  weko_link, value_dict)
+    ret = get_author_link(author_link,  value_dict)
     assert ['2'] == author_link
 
     author_link = []
     value_str = 'v2'
-    ret = get_author_link(author_link,weko_link, value_str)
+    ret = get_author_link(author_link,value_str)
     assert [] == author_link
 
 
@@ -2672,3 +2757,361 @@ def test_replace_fqdn_of_file_metadata(app):
     replace_fqdn_of_file_metadata(_file_metadata_list2)
     assert _file_metadata_list2==[{'url': {'url': 'https://localhost/a'}, 'version_id': '1'}, {'url': {'url': 'https://localhost/b'}, 'version_id': '1'}]
 
+import datetime
+# .tox/c1/bin/pytest --cov=weko_records tests/test_utils.py::test_check_embargo_rights -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
+def test_check_embargo_rights():
+    # Do nothing except for 'embargoed access'
+    result = check_embargo_rights("open_access", datetime.date.today(), [])
+    assert result == (False, None)
+
+    # If there is at least one 'open_restricted', return 'restricted access'
+    today = datetime.date.today()
+    accessrole_date = [("open_restricted", None), ("open_access", None)]
+    result = check_embargo_rights("embargoed access", today, accessrole_date)
+    assert result == (True, "restricted access")
+
+    # If there is a future date in 'open_date', do nothing
+    today = datetime.date.today()
+    future = today + datetime.timedelta(days=1)
+    accessrole_date = [("open_date", future)]
+    result = check_embargo_rights("embargoed access", today, accessrole_date)
+    assert result == (False, None)
+
+    # If there is at least one 'open_login', return 'restricted access'
+    today = datetime.date.today()
+    accessrole_date = [("open_login", None)]
+    result = check_embargo_rights("embargoed access", today, accessrole_date)
+    assert result == (True, "restricted access")
+
+    # If all are 'open_access', return 'open access'
+    today = datetime.date.today()
+    accessrole_date = [("open_access", None), ("open_access", None)]
+    result = check_embargo_rights("embargoed access", today, accessrole_date)
+    assert result == (True, "open access")
+
+    # If all are 'open_date' and the date is in the past, return 'open access'
+    today = datetime.date.today()
+    past = today - datetime.timedelta(days=1)
+    accessrole_date = [("open_date", past), ("open_date", past)]
+    result = check_embargo_rights("embargoed access", today, accessrole_date)
+    assert result == (True, "open access")
+
+    # If 'open_access' and 'open_date' (past) are mixed, return 'open access'
+    today = datetime.date.today()
+    past = today - datetime.timedelta(days=1)
+    accessrole_date = [("open_access", None), ("open_date", past)]
+    result = check_embargo_rights("embargoed access", today, accessrole_date)
+    assert result == (True, "open access")
+
+    # If accessrole_date is empty, do nothing
+    today = datetime.date.today()
+    accessrole_date = []
+    result = check_embargo_rights("embargoed access", today, accessrole_date)
+    assert result == (False, None)
+
+from unittest.mock import MagicMock
+import weko_records.utils as utils
+
+# .tox/c1/bin/pytest --cov=weko_records tests/test_utils.py::test_update_embargo_rights -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
+def test_update_embargo_rights(app, monkeypatch):
+    base_meta = {
+        "item_type_id": "test",
+        "item_1736146823660": {
+            "attribute_name": "アクセス権",
+            "attribute_value_mlt": [
+                {
+                    "subitem_access_right": "embargoed access",
+                    "subitem_access_right_uri": "http://purl.org/coar/access_right/c_f1cf"
+                }
+            ]
+        },
+        "item_1736148125517": {
+            "attribute_name": "ファイル情報",
+            "attribute_type": "file",
+            "attribute_value_mlt": [
+                {
+                    "url": {
+                        "url": "https://weko3.example.org/record/2000088/files/image141.png"
+                    },
+                    "date": [
+                        {
+                            "dateType": "Available",
+                            "dateValue": "2026-03-31"
+                        }
+                    ],
+                    "format": "image/png",
+                    "filename": "image141.png",
+                    "filesize": [
+                        {
+                            "value": "11 KB"
+                        }
+                    ],
+                    "accessrole": "open_date",
+                    "version_id": "55995df6-6d1c-4bbf-8530-d1c0fb5a4219",
+                }
+            ]
+        }
+    }
+
+    # Embargo is released and access becomes open_access
+    cfg = True
+    meta = copy.deepcopy(base_meta)
+    access_path = "item_1736146823660.attribute_value_mlt.subitem_access_right"
+    access_right_type_uri = {
+        "embargoed access": "http://purl.org/coar/access_right/c_f1cf",
+        "metadata only access": "http://purl.org/coar/access_right/c_14cb",
+        "open access": "http://purl.org/coar/access_right/c_abf2",
+        "restricted access": "http://purl.org/coar/access_right/c_16ec",
+    }
+    monkeypatch.setattr(
+        utils,
+        "current_app",
+        MagicMock(config={
+            "WEKO_SEARCH_FIX_ACCESSRIGHTS": cfg,
+            "ACCESS_RIGHT_TYPE_URI": access_right_type_uri,
+        })
+    )
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (True, "open access"))
+    utils.update_embargo_rights(meta)
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == "open access"
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right_uri"] == "http://purl.org/coar/access_right/c_abf2"
+
+    # Embargo is released and access becomes restricted_access
+    meta = copy.deepcopy(base_meta)
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (True, "restricted access"))
+    utils.update_embargo_rights(meta)
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == "restricted access"
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right_uri"] == "http://purl.org/coar/access_right/c_16ec"
+
+    # Embargo is not released (returns None), access remains embargoed
+    meta = copy.deepcopy(base_meta)
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (False, None))
+    utils.update_embargo_rights(meta)
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right_uri"] == "http://purl.org/coar/access_right/c_f1cf"
+
+    # File information with accessrole=None is handled correctly
+    meta = copy.deepcopy(base_meta)
+    meta["item_1736146823660"]["attribute_value_mlt"][0]["accessrole"] = None
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (False, None))
+    utils.update_embargo_rights(meta)
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right_uri"] == "http://purl.org/coar/access_right/c_f1cf"
+
+    # Access rights information with None is handled correctly
+    meta = copy.deepcopy(base_meta)
+    meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] = None
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (False, None))
+    utils.update_embargo_rights(meta)
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == None
+
+    # Empty meta dict does not change anything
+    meta = {}
+    utils.update_embargo_rights(meta)
+    assert "subitem_access_right" not in meta
+
+    # No change if access_path does not exist in mapping
+    meta = copy.deepcopy(base_meta)
+    monkeypatch.setattr(utils, "current_app", MagicMock(config={"WEKO_SEARCH_FIX_ACCESSRIGHTS": True}))
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {})  # accessRights.@valueなし
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (True, "open access"))
+    utils.update_embargo_rights(meta)
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
+
+    # No change if WEKO_SEARCH_FIX_ACCESSRIGHTS is False
+    meta = copy.deepcopy(base_meta)
+    monkeypatch.setattr(utils, "current_app", MagicMock(config={"WEKO_SEARCH_FIX_ACCESSRIGHTS": False}))
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (True, "open access"))
+    utils.update_embargo_rights(meta)
+    assert meta["item_1736146823660"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
+
+    # Only the second element in attribute_value_mlt list is the target key
+    meta = {
+        "item_type_id": "test",
+        "item_1": {
+            "attribute_value_mlt": [
+                {"dummy": 1},
+                {"subitem_access_right": "embargoed access"}
+            ]
+        }
+    }
+    access_path = "item_1.attribute_value_mlt.subitem_access_right"
+    monkeypatch.setattr(utils, "current_app", MagicMock(config={"WEKO_SEARCH_FIX_ACCESSRIGHTS": True}))
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (True, "open access"))
+    utils.update_embargo_rights(meta)
+    assert meta["item_1"]["attribute_value_mlt"][1]["subitem_access_right"] == "open access"
+
+    # Deep nesting in attribute_value_mlt is handled correctly
+    meta = {
+        "item_type_id": "test",
+        "item_1": {
+            "attribute_value_mlt": [
+                {"attribute_value_mlt": [
+                    {"subitem_access_right": "embargoed access"}
+                ]}
+            ]
+        }
+    }
+    access_path = "item_1.attribute_value_mlt.attribute_value_mlt.subitem_access_right"
+    monkeypatch.setattr(utils, "current_app", MagicMock(config={"WEKO_SEARCH_FIX_ACCESSRIGHTS": True}))
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (False, None))
+    utils.update_embargo_rights(meta)
+    assert meta["item_1"]["attribute_value_mlt"][0]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
+
+    # Tests recursive list branch in _set_nested_value; all nested rights are updated.
+    meta = {
+        "item_type_id": "test",
+        "item_1": {
+            "attribute_value_mlt": [
+                {"attribute_value_mlt": [
+                    {"subitem_access_right": "embargoed access"},
+                    {"subitem_access_right": "embargoed access"}
+                ]},
+                {"attribute_value_mlt": [
+                    {"subitem_access_right": "embargoed access"}
+                ]}
+            ]
+        }
+    }
+    access_path = "item_1.attribute_value_mlt.attribute_value_mlt.subitem_access_right"
+    monkeypatch.setattr(utils, "current_app", MagicMock(config={"WEKO_SEARCH_FIX_ACCESSRIGHTS": True}))
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (True, "open access"))
+    utils.update_embargo_rights(meta)
+    for item in meta["item_1"]["attribute_value_mlt"]:
+        for subitem in item["attribute_value_mlt"]:
+            assert subitem["subitem_access_right"] == "open access"
+
+    # File information date (dateValue) is None
+    meta = {
+        "item_type_id": "test",
+        "item_1": {
+            "attribute_type": "file",
+            "attribute_value_mlt": [
+                {
+                    "date": [
+                        {"dateType": "Available", "dateValue": None}
+                    ],
+                    "accessrole": "open_date",
+                    "subitem_access_right": "embargoed access"
+                }
+            ]
+        }
+    }
+    access_path = "item_1.attribute_value_mlt.subitem_access_right"
+    monkeypatch.setattr(utils, "current_app", MagicMock(config={"WEKO_SEARCH_FIX_ACCESSRIGHTS": True}))
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (False, None))
+    utils.update_embargo_rights(meta)
+    assert meta["item_1"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
+
+    # File information date (dateValue) is invalid format
+    meta = {
+        "item_type_id": "test",
+        "item_1": {
+            "attribute_type": "file",
+            "attribute_value_mlt": [
+                {
+                    "date": [
+                        {"dateType": "Available", "dateValue": "test_invalid"}
+                    ],
+                    "accessrole": "open_date",
+                    "subitem_access_right": "embargoed access"
+                }
+            ]
+        }
+    }
+    access_path = "item_1.attribute_value_mlt.subitem_access_right"
+    monkeypatch.setattr(utils, "current_app", MagicMock(config={"WEKO_SEARCH_FIX_ACCESSRIGHTS": True}))
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (False, None))
+    utils.update_embargo_rights(meta)
+    assert meta["item_1"]["attribute_value_mlt"][0]["subitem_access_right"] == "embargoed access"
+
+    # Update value if mapping path points to a key inside attribute_value_mlt list element, even if not directly in the dict.
+    meta = {
+        "item_type_id": "test",
+        "item_1": {
+            "attribute_value_mlt": [
+                {"subitem_access_right": "embargoed access"}
+            ]
+        }
+    }
+    access_path = "item_1.subitem_access_right"
+    monkeypatch.setattr(utils, "current_app", MagicMock(config={"WEKO_SEARCH_FIX_ACCESSRIGHTS": True}))
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (True, "open access"))
+    utils.update_embargo_rights(meta)
+    assert meta["item_1"]["attribute_value_mlt"][0]["subitem_access_right"] == "open access"
+
+    # Test: Do nothing if mapping path points to a key that does not exist in any attribute_value_mlt list element.
+    meta = {
+        "item_type_id": "test",
+        "item_1": {
+            "attribute_value_mlt": [
+                {"dummy": 1}
+            ]
+        }
+    }
+    access_path = "item_1.subitem_access_right"
+    monkeypatch.setattr(utils, "current_app", MagicMock(config={"WEKO_SEARCH_FIX_ACCESSRIGHTS": True}))
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (False, None))
+    utils.update_embargo_rights(meta)
+    assert "subitem_access_right" not in meta["item_1"]["attribute_value_mlt"][0]
+
+    # If mapping points to a non-dict/list (e.g. int), no error and value stays unchanged.
+    class DummyMapping(dict):
+        def get(self, key, default=None):
+            if key == "accessRights.@value":
+                return "item1.item2.item3"
+            return super().get(key, default)
+    def dummy_get_mapping(item_type_id, mapping_type):
+        return DummyMapping({"accessRights.@value": "item1.item2.item3"})
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", dummy_get_mapping)
+    with app.app_context():
+        import flask
+        flask.current_app.config["WEKO_SEARCH_FIX_ACCESSRIGHTS"] = True
+        metadata = {
+            "item_type_id": 1,
+            "item1": {"item2": 12345}
+        }
+        update_embargo_rights(metadata)
+        assert metadata["item1"]["item2"] == 12345
+
+    # access_path points to a nested key inside a list
+    meta = {
+        "item_type_id": "test",
+        "item_1": {
+            "attribute_value_mlt": [
+                {"subitem_access_right": "embargoed access"},
+                {"subitem_access_right": "embargoed access"}
+            ]
+        }
+    }
+    access_path = "item_1.attribute_value_mlt.subitem_access_right"
+    monkeypatch.setattr(utils, "current_app", MagicMock(config={"WEKO_SEARCH_FIX_ACCESSRIGHTS": True}))
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (True, "open access"))
+    utils.update_embargo_rights(meta)
+    # Both elements in the list should be updated
+    assert meta["item_1"]["attribute_value_mlt"][0]["subitem_access_right"] == "open access"
+    assert meta["item_1"]["attribute_value_mlt"][1]["subitem_access_right"] == "open access"
+
+    # When the list is empty
+    meta = {
+        "item_type_id": "test",
+        "item_1": {
+            "attribute_value_mlt": []
+        }
+    }
+    access_path = "item_1.attribute_value_mlt.subitem_access_right"
+    monkeypatch.setattr(utils, "current_app", MagicMock(config={"WEKO_SEARCH_FIX_ACCESSRIGHTS": True}))
+    monkeypatch.setattr("weko_records.serializers.utils.get_mapping", lambda i, t: {"accessRights.@value": access_path})
+    monkeypatch.setattr(utils, "check_embargo_rights", lambda a, t, d: (True, "open access"))
+    utils.update_embargo_rights(meta)
+    assert meta["item_1"]["attribute_value_mlt"] == []

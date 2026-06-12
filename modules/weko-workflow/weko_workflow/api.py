@@ -520,7 +520,9 @@ class WorkFlow(object):
                     _workflow.flow_id = workflow.get('flow_id')
                     _workflow.delete_flow_id = workflow.get('delete_flow_id')
                     _workflow.index_tree_id = workflow.get('index_tree_id')
-                    _workflow.open_restricted = workflow.get('open_restricted')
+                    roles=[r.name for r in current_user.roles]
+                    if current_app.config['WEKO_SYS_USER'] in roles:
+                        _workflow.open_restricted = workflow.get('open_restricted')
                     _workflow.location_id = workflow.get('location_id')
                     _workflow.is_gakuninrdm = workflow.get('is_gakuninrdm')
                     _workflow.repository_id = workflow.get('repository_id') if workflow.get('repository_id') else _workflow.repository_id
@@ -728,7 +730,11 @@ class WorkFlow(object):
         wfs = []
         current_user_roles = [role.id for role in current_user.roles]
         if isinstance(workflows, list):
-            role = Role.query.all()
+            role_key = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["role_keyword"]
+            prefix = current_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"]["prefix"]
+            role = Role.query.filter(
+                ~and_(Role.name.like(f"%{role_key}%"), Role.name.startswith(prefix))
+            ).all()
             while workflows:
                 tmp = workflows.pop(0)
                 list_hide = Role.query.outerjoin(WorkflowRole) \
@@ -1800,6 +1806,32 @@ class WorkActivity(object):
         return query if is_within else ~query
 
     @staticmethod
+    def __create_self_user_id_json(self_user_id):
+        """Create self user ID in JSON format.
+
+        Example:
+            shared_user_ids = [{"user": 2}, {"user": 1}]
+
+            # When WEKO_ITEMS_UI_PROXY_POSTING is False:
+            #   Target contributor is the last of shared_user_ids.
+            #   The SQL LIKE condition: '%{"user": 1}]%'
+
+            # When WEKO_ITEMS_UI_PROXY_POSTING is True:
+            #   Target contributor is any of shared_user_ids.
+            #   The SQL LIKE condition: '%{"user": 1}%'
+
+        Args:
+            self_user_id (int): User ID.
+
+        Returns:
+            str: User ID in JSON format.
+        """
+        self_user_id_json = json.dumps({"user" : self_user_id})
+        if not current_app.config.get('WEKO_ITEMS_UI_PROXY_POSTING', False):
+            self_user_id_json += ']'
+        return self_user_id_json
+
+    @staticmethod
     def query_activities_by_tab_is_wait(query, is_admin, is_community_admin, comadmin_index_list):
         """
         Query activities by tab is wait.
@@ -1808,7 +1840,7 @@ class WorkActivity(object):
         :return:
         """
         self_user_id = int(current_user.get_id())
-        self_user_id_json = json.dumps({"user" : self_user_id})
+        self_user_id_json = WorkActivity.__create_self_user_id_json(self_user_id)
         self_group_ids = [role.id for role in current_user.roles]
         action_handler = [self_user_id, -1] if is_admin else [self_user_id]
         query = query \
@@ -1957,7 +1989,7 @@ class WorkActivity(object):
         :return:
         """
         self_user_id = int(current_user.get_id())
-        self_user_id_json = json.dumps({"user" : self_user_id})
+        self_user_id_json = WorkActivity.__create_self_user_id_json(self_user_id)
         self_group_ids = [role.id for role in current_user.roles]
         recid_list= WorkActivity().get_recids_for_request_mail_by_mailaddress(current_user.email)
         conditions = [
@@ -1986,8 +2018,7 @@ class WorkActivity(object):
                     cast(_Activity.shared_user_ids, String).contains(self_user_id_json),
                     _Activity.temp_data.op("#>>")("{'metainfo', 'shared_user_ids'}").contains(self_user_id_json),
                     _Activity.temp_data.op("#>>")("{'metainfo', 'owner'}") == str(self_user_id),
-                ),
-                _FlowAction.action_id != 4
+                )
             ),
             and_(
                 _FlowActionRole.action_item_registrant == True,
@@ -2055,7 +2086,7 @@ class WorkActivity(object):
         if not is_admin or current_app.config[
                 'WEKO_WORKFLOW_ENABLE_SHOW_ACTIVITY']:
             self_user_id = int(current_user.get_id())
-            self_user_id_json = json.dumps({"user" : self_user_id})
+            self_user_id_json = WorkActivity.__create_self_user_id_json(self_user_id)
             self_group_ids = [role.id for role in current_user.roles]
             recid_list= WorkActivity().get_recids_for_request_mail_by_mailaddress(current_user.email)
             condition1 = [
@@ -2283,7 +2314,7 @@ class WorkActivity(object):
             ).all()
             com_roles = list(
                 set([comm.id_role for comm in comm_list]).union(
-                    set([comm.group_id for comm in comm_list])))            
+                    set([comm.group_id for comm in comm_list])))
 
             if com_roles:
                 com_users = User.query.outerjoin(userrole).outerjoin(Role) \
@@ -2476,7 +2507,7 @@ class WorkActivity(object):
         his = WorkActivityHistory()
         histories = his.get_activity_history_list(activity_id)
         if not histories:
-            abort(404)
+            return []
         history_dict = {}
         activity = WorkActivity()
         activity_detail = activity.\

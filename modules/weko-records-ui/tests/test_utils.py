@@ -628,15 +628,17 @@ def test_get_file_info_list_1(app, make_record_need_restricted_access, esindex):
     # terms='term_free' termsDescription='利用規約本文'
     record_2 = WekoRecord.get_record_by_pid(12)
     with app.test_request_context(headers=[("Accept-Language", "en")]):
-        is_display_file_preview, files =  get_file_info_list(record_2)
-        assert is_display_file_preview == True
-        assert len(files) == 1
+        with patch('weko_records_ui.utils.check_file_download_permission',return_value=True):
+            is_display_file_preview, files =  get_file_info_list(record_2)
+            assert is_display_file_preview == True
+            assert len(files) == 1
 
     record_2['item_1689228169922']['attribute_value_mlt'][0]['terms'] = '100'
     with app.test_request_context(headers=[("Accept-Language", "en")]):
-        is_display_file_preview, files =  get_file_info_list(record_2)
-        assert is_display_file_preview == True
-        assert len(files) == 1
+        with patch('weko_records_ui.utils.check_file_download_permission',return_value=True):
+            is_display_file_preview, files =  get_file_info_list(record_2)
+            assert is_display_file_preview == True
+            assert len(files) == 1
 
 # def get_data_by_key_array_json(record):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_get_data_by_key_array_json -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -1186,7 +1188,7 @@ def test_validate_expiration_date(app):
 
     in_a_week = (dt.now(timezone.utc) + timedelta(7)).strftime("%Y-%m-%d")
     with patch('weko_records_ui.utils.get_restricted_access') as mock_settings:
-        mock_settings.return_value = {'secret_expiration_date': 1}
+        mock_settings.return_value = {'max_secret_expiration_date': 1}
         assert validate_expiration_date(in_a_week, 0) is False
 
     in_an_year = (dt.now(timezone.utc) + timedelta(365)).strftime("%Y-%m-%d")
@@ -1291,6 +1293,24 @@ def test_create_onetime_download_record(mock_user, mock_get, users):
     assert create_onetime_url_record(
         activity_id, record_id, file_name, user_mail) is None
 
+    # Test Case: user is guest (is_authenticated is False)
+    mock_get.return_value = {'expiration_date': 30}
+    mock_user.is_authenticated = False
+    mock_user.id = None
+    url_obj2 = create_onetime_url_record(
+        activity_id, record_id, file_name, user_mail, is_guest=True)
+    assert FileOnetimeDownload.query.count() == 2
+    assert isinstance(url_obj2, FileOnetimeDownload)
+    assert url_obj2.approver_id is None
+    assert url_obj2.record_id == str(record_id)
+    assert url_obj2.file_name == file_name
+    now = (dt.now(timezone.utc) + timedelta(days=31)).replace(tzinfo=None)
+    tolerance = timedelta(seconds=1)
+    assert now - url_obj2.expiration_date <= tolerance
+    assert url_obj2.download_limit == 10
+    assert url_obj2.user_mail == user_mail
+    assert url_obj2.is_guest is True
+
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_create_download_url -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_create_download_url(app):
@@ -1384,7 +1404,7 @@ def test_generate_sha256_hash(app):
 @patch('weko_records_ui.utils.set_mail_info', return_value={})
 @patch('weko_records_ui.utils.process_send_mail', return_value=True)
 def test_send_secret_url_mail(mock_send, mock_set_info, mock_user,
-                              mock_profile, app):
+                              mock_profile, app, db_mailTemplateGenre, db_mailtemplates):
     app.config['WEKO_RECORDS_UI_MAIL_TEMPLATE_SECRET_URL'] = 'test_template'
     mock_profile_obj = MagicMock()
     mock_profile_obj._displayname = 'test_user'
@@ -1401,34 +1421,36 @@ def test_send_secret_url_mail(mock_send, mock_set_info, mock_user,
         expiration_date=dt(2125, 1, 1, 0, 0),
         download_limit=10)
     item_title = 'test_title'
+    offset_time = -540
     mock_user.id = 1
     expected_info = {
         'mail_recipient'            : 'test@example.org',
         'file_name'                 : url_obj.file_name,
-        'restricted_expiration_date': '2125-01-01 23:59:59(JST)',
+        'restricted_expiration_date': '2125-01-01 09:00',
         'restricted_download_count' : str(url_obj.download_limit),
         'restricted_fullname'       : 'test_user',
         'restricted_data_name'      : item_title,
     }
-    expected_pattern = 'test_template'
+    expected_template_id = 1
     with app.test_request_context(), \
         patch("weko_records_ui.utils.get_item_info",return_value={}):
-        expected_info["restricted_download_link"] = create_download_url(url_obj)
-        assert send_secret_url_mail(uuid, url_obj, item_title) is True
-    mock_send.assert_called_once_with(expected_info, expected_pattern)
+        expected_info["secret_url"] = create_download_url(url_obj)
+        assert send_secret_url_mail(uuid, url_obj, item_title, offset_time) is True
+    mock_send.assert_called_once_with(expected_info, expected_template_id)
     mock_send.reset_mock()
 
     mock_profile.return_value = None
     with app.test_request_context(), \
         patch("weko_records_ui.utils.get_item_info",return_value={}):
-        assert send_secret_url_mail(uuid, url_obj, item_title) is True
+        assert send_secret_url_mail(uuid, url_obj, item_title, offset_time) is True
     expected_info['restricted_fullname'] = ''
-    mock_send.assert_called_once_with(expected_info, expected_pattern)
+    mock_send.assert_called_once_with(expected_info, expected_template_id)
 
     mock_send.return_value = False
     with app.test_request_context(), \
         patch("weko_records_ui.utils.get_item_info",return_value={}):
-        assert send_secret_url_mail(uuid, url_obj, item_title) is False
+        assert send_secret_url_mail(uuid, url_obj, item_title, offset_time) is False
+
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_validate_token -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_validate_token(app, users):

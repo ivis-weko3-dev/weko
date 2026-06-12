@@ -319,7 +319,7 @@ class IndexSearchResource(ContentNegotiatedMethodView):
         rd["aggregations"]["aggregations"] = pickle.loads(pickle.dumps(agp, -1))
         nlst = []
         items_count = dict()
-        public_indexes = Indexes.get_public_indexes_list()
+        public_indexes = set(Indexes.get_public_indexes_list())
         recorrect_private_items_count(agp)
         for i in agp:
             items_count[i["key"]] = {
@@ -600,6 +600,8 @@ class IndexSearchResourceAPI(ContentNegotiatedMethodView):
         try:
             # Language setting
             language = request.headers.get('Accept-Language')
+            if isinstance(language, str):
+                language = language.split(',')[0].split(';')[0].strip()
             if language:
                 get_locale().language = language
 

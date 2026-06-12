@@ -425,6 +425,20 @@ class ProfileForm(FlaskForm):
         choices=WEKO_USERPROFILES_INSTITUTE_POSITION_LIST
     )
 
+    def __init__(self, *args, **kwargs):
+        super(ProfileForm, self).__init__(*args, **kwargs)
+        if not current_app.config.get("WEKO_RECORDS_UI_USER_STORAGE_MODIFICATION_ENABLED", False):
+            if hasattr(self, 'access_key'):
+                del self.access_key
+            
+            if hasattr(self, 'secret_key'):
+                del self.secret_key
+            
+            if hasattr(self, 's3_endpoint_url'):
+                del self.s3_endpoint_url
+            
+            if hasattr(self, 's3_region_name'):
+                del self.s3_region_name
 
     def validate_username(form, field):
         """Wrap username validator for WTForms."""
@@ -449,6 +463,13 @@ class EmailProfileForm(ProfileForm):
         """
         super().__init__(*args, **kwargs)
         form_column = current_app.config['WEKO_USERPROFILES_FORM_COLUMN']
+        if current_app.config.get("WEKO_USERPROFILES_CUSTOMIZE_ENABLED", False):
+            profile_setting = AdminSettings.get("profiles_items_settings", dict_to_object=False)
+            if profile_setting is None:
+                profile_setting = current_app.config.get("WEKO_USERPROFILES_DEFAULT_FIELDS_SETTINGS", {})
+            for key, value in profile_setting.items():
+                if value.get('visible', False):
+                    form_column.append(key)
         disable_column_lst = list()
         if isinstance(form_column, list):
             for key in kwargs:

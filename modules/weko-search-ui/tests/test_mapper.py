@@ -1,9 +1,15 @@
+import json
 import pytest
 import xmltodict
 import uuid
+import json
+import copy
 from datetime import date
 from unittest.mock import patch, MagicMock
 from collections import OrderedDict
+from pypdfium2 import PdfiumError
+
+from invenio_i18n.babel import set_locale
 
 from weko_records.api import Mapping
 from weko_records.serializers.utils import get_full_mapping
@@ -58,7 +64,8 @@ from weko_search_ui.mapper import (
     add_catalog,
     JPCOARV2Mapper,
     JsonMapper,
-    JsonLdMapper
+    JsonLdMapper,
+    set_by_jsonpath,
 )
 from .helpers import json_data
 
@@ -4679,6 +4686,7 @@ class TestJsonLdMapper:
             assert system_info["cnri"] == "1234/5678"
             assert system_info["doi_ra"] == "DataCite"
             assert system_info["doi"] == "10.1234/5678"
+            assert system_info["file_path"] == ["sample.txt", "data.csv", "0606/data.csv", ""]
             assert system_info["non_extract"] == ["data.csv"]
             assert system_info["save_as_is"] == False
             assert system_info["amend_doi"] == "10.2964/jsik_2021_067"
@@ -4739,7 +4747,8 @@ class TestJsonLdMapper:
             mapper = JsonLdMapper(item_type2.model.id, json_mapping)
             item_metadatas, format = mapper.to_item_metadata(json_ld)
             item_metadata, system_info = item_metadatas[0]
-            assert item_metadata["item_1754636750964"]
+            assert isinstance(item_metadata["item_1754636750964"], str)
+            assert isinstance(json.loads(item_metadata["item_1754636750964"]), dict)
 
         schema = json_data("data/jsonld/item_type_schema.json")
         schema["properties"].update({
@@ -4777,23 +4786,25 @@ class TestJsonLdMapper:
             assert system_info["_id"] == "_:JournalPaper1"
             assert system_info["link_data"][0]["item_id"] == "_:EvidenceData1"
             assert system_info["link_data"][0]["sele_id"] == "isSupplementedBy"
+            assert system_info["file_path"] == ["sample.rst"]
             assert thesis["pubdate"] == "2021-10-15"
             assert thesis["path"] == [1623632832836]
             assert thesis["item_30001_title0"][0]["subitem_title"] == "The Sample Dataset for WEKO"
             assert thesis["item_30001_title0"][1]["subitem_title"] == "WEKO用サンプルデータセット"
             assert thesis["files_info"][0]["key"] == "item_30001_file22"
-            assert thesis["item_1744171568909"]
+            assert thesis["item_1744171568909"][0]["interim"]
 
             evidence, system_info = item_metadatas[1]
             assert system_info["_id"] == "_:EvidenceData1"
             assert system_info["link_data"][0]["item_id"] == "_:JournalPaper1"
             assert system_info["link_data"][0]["sele_id"] == "isSupplementTo"
+            assert system_info["file_path"] == ["data.csv"]
             assert system_info["non_extract"] == ["data.csv"]
             assert evidence["pubdate"] == "2021-10-15"
             assert evidence["path"] == [1623632832836]
             assert evidence["item_30001_title0"][0]["subitem_title"] == "The Sample Dataset for WEKO, evidence part"
             assert evidence["item_30001_title0"][1]["subitem_title"] == "WEKO用サンプルデータセットのエビデンス部分"
-            assert evidence["item_1744171568909"]
+            assert evidence["item_1744171568909"][0]["interim"]
 
             list_record = [
                 {
@@ -4811,17 +4822,20 @@ class TestJsonLdMapper:
 
     # def deconstruct_json_ld(json_ld):
     # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_mapper.py::TestJsonLdMapper::test__deconstruct_json_ld -v -vv -s --cov-branch --cov-report=xml --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-    def test__deconstruct_json_ld(self, app):
+    def test__deconstruct_json_ld(self, app, item_type2):
         json_ld = json_data("data/jsonld/ro-crate-metadata.json")
-        deconstructed_metadata, format = JsonLdMapper._deconstruct_json_ld(json_ld)
+        mapper = JsonLdMapper(item_type2.model.id, None)
+        deconstructed_metadata, format = mapper._deconstruct_json_ld(json_ld)
         metadata, system_info =  deconstructed_metadata[0]
 
         assert format == "ro-crate"
         assert system_info["cnri"] == "1234/5678"
         assert system_info["doi_ra"] == "DataCite"
         assert system_info["doi"] == "10.1234/5678"
-        assert system_info["non_extract"] == ["data/data.csv"]
+        assert system_info["file_path"] == ["sample.txt", "data.csv", "0606/data.csv", "https://example.com/test/sample/1"]
+        assert system_info["non_extract"] == ["data.csv"]
         assert system_info["save_as_is"] == False
+        assert system_info["researchmap_linkage"] == True
         assert metadata["@id"] == "./"
         assert metadata["name"] == "The Sample Dataset for WEKO"
         assert metadata["description"] == "Item metadata for Item ID: 2000001. Title: The Sample Dataset for WEKO."
@@ -4832,15 +4846,16 @@ class TestJsonLdMapper:
         assert metadata["dc:title[1].language"] == "ja"
         assert metadata["dc:type.rdf:resource"] == "http://purl.org/coar/resource_type/c_ddb1"
         assert metadata["dc:type.value"] == "dataset"
-        assert metadata["hasPart[0].@id"] == "data/sample.txt"
+        assert metadata["hasPart[0].@id"] == "sample.txt"
         assert metadata["hasPart[0].name"] == "sample.txt"
-        assert metadata["hasPart[1].@id"] == "data/data.csv"
+        assert metadata["hasPart[1].@id"] == "data.csv"
         assert metadata["hasPart[1].name"] == "data.csv"
         assert metadata["dcterms:accessRights.value"] == "embargoed access"
         assert not any("@type" in key for key in metadata.keys())
 
         json_ld = json_data("data/jsonld/ro-crate-metadata2.json")
-        deconstructed_metadata, format = JsonLdMapper._deconstruct_json_ld(json_ld)
+        mapper = JsonLdMapper(item_type2.model.id, None)
+        deconstructed_metadata, format = mapper._deconstruct_json_ld(json_ld)
         thesis, system_info =  deconstructed_metadata[0]
 
         assert format == "ro-crate"
@@ -4849,6 +4864,7 @@ class TestJsonLdMapper:
         assert system_info["link_data"][0]["sele_id"] == "isSupplementedBy"
         assert system_info["link_data"][1]["item_id"] == "https://example.repo.nii.ac.jp/records/123456789"
         assert system_info["link_data"][1]["sele_id"] == "isSupplementedBy"
+        assert system_info["file_path"] == ["sample.rst"]
         assert thesis["@id"] == "_:JournalPaper1"
         assert thesis["dc:title[0].value"] == "The Sample Dataset for WEKO"
         assert thesis["dc:title[1].value"] == "WEKO用サンプルデータセット"
@@ -4860,7 +4876,8 @@ class TestJsonLdMapper:
         assert system_info["_id"] == "_:EvidenceData1"
         assert system_info["link_data"][0]["item_id"] == "_:JournalPaper1"
         assert system_info["link_data"][0]["sele_id"] == "isSupplementTo"
-        assert system_info["non_extract"] == ["data/data.csv"]
+        assert system_info["file_path"] == ["data.csv"]
+        assert system_info["non_extract"] == ["data.csv"]
         assert evidence["@id"] == "_:EvidenceData1"
         assert evidence["dc:title[0].value"] == "The Sample Dataset for WEKO, evidence part"
         assert evidence["dc:title[1].value"] == "WEKO用サンプルデータセットのエビデンス部分"
@@ -4868,7 +4885,8 @@ class TestJsonLdMapper:
         assert evidence["dc:type.@id"] == "http://purl.org/coar/resource_type/c_1843"
 
         with pytest.raises(ValueError) as ex:
-            deconstructed_metadata, format = JsonLdMapper._deconstruct_json_ld({})
+            mapper = JsonLdMapper(item_type2.model.id, None)
+            deconstructed_metadata, format = mapper._deconstruct_json_ld({})
         ex.match('Invalid json-ld format: "@context" is invalid.')
 
     # def to_rocrate_metadata(self, metadata):
@@ -4914,6 +4932,7 @@ class TestJsonLdMapper:
         assert graph["wk:editMode"] == "Keep"
         assert graph["wk:feedbackMail"] == ["wekosoftware@nii.ac.jp"]
         assert graph["wk:metadataAutoFill"] == False
+        assert graph["wk:researchmapLinkage"] == False
         if metadata.get("publish_status") == "0":
             assert graph["wk:publishStatus"] == "public"
         elif metadata.get("publish_status") == "1":
@@ -4932,10 +4951,10 @@ class TestJsonLdMapper:
         haspart_1 = graph["hasPart"][1]["@id"]
         file_1 = rocrate.dereference(haspart_1)
 
-        assert haspart_0 == "data/sample.txt"
+        assert haspart_0 == "sample.txt"
         assert file_0["name"] == "sample.txt"
         assert rocrate.dereference(file_0["jpcoar:URI"]["@id"])["value"] == "https://localhost/record/2000001/files/sample.txt"
-        assert haspart_1 == "data/data.csv"
+        assert haspart_1 == "data.csv"
         assert file_1["name"] == "data.csv"
         assert rocrate.dereference(file_1["jpcoar:URI"]["@id"])["value"] == "https://localhost/record/2000001/files/data.csv"
 
@@ -4993,6 +5012,7 @@ class TestJsonLdMapper:
         assert "wk:feedbackMail" in graph
         assert "wk:itemLinks" in graph
         assert "wk:metadataAutoFill" in graph
+        assert "wk:researchmapLinkage" in graph
         assert graph["wk:index"] == metadata["path"]
         if metadata.get("publish_status") == "0":
             assert graph["wk:publishStatus"] == "public"
@@ -5038,6 +5058,7 @@ class TestJsonLdMapper:
             assert "wk:feedbackMail" in graph
             assert "wk:itemLinks" in graph
             assert "wk:metadataAutoFill" in graph
+            assert "wk:researchmapLinkage" in graph
             assert graph["wk:index"] == metadata["path"]
             if metadata.get("publish_status") == "0":
                 assert graph["wk:publishStatus"] == "public"
@@ -5107,6 +5128,7 @@ class TestJsonLdMapper:
         assert "wk:feedbackMail" in graph
         assert "wk:itemLinks" in graph
         assert "wk:metadataAutoFill" in graph
+        assert "wk:researchmapLinkage" in graph
         assert graph["wk:index"] == metadata["path"]
         if metadata.get("publish_status") == "0":
             assert graph["wk:publishStatus"] == "public"
@@ -5169,6 +5191,7 @@ class TestJsonLdMapper:
         assert "wk:feedbackMail" in graph
         assert "wk:itemLinks" in graph
         assert "wk:metadataAutoFill" in graph
+        assert "wk:researchmapLinkage" in graph
         assert graph["wk:index"] == metadata["path"]
         if metadata.get("publish_status") == "0":
             assert graph["wk:publishStatus"] == "public"
@@ -5268,3 +5291,456 @@ class TestJsonLdMapper:
             assert item_metadata["item_1736145554459"]["subitem_date_issued_datetime"] == "2025-06-11"
             assert item_metadata["item_1749689698804"]["subitem_relation_type_id"]["subitem_relation_type_id_text"] == "grdm"
             assert item_metadata["item_1749689698804"]["subitem_relation_type"] == "isVersionOf"
+
+
+    # def extract_extended_metadata(self, list_extracted):
+    # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_mapper.py::TestJsonLdMapper::test_extract_extended_metadata -v -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+    def test_extract_extended_metadata(self, app, db, item_type2, mocker):
+        mapper = JsonLdMapper(item_type2.model.id, None)
+        values = ["first", "second"]
+        mocker.patch.object(mapper, "extract_text_from_files",
+                            side_effect = values)
+
+        rocrate = json_data("data/ams/with_two_extended_metadata.json")
+        rocrate = mapper.extract_extended_metadata([rocrate])[0]
+
+        ids = [part["@id"]
+               for part in rocrate.get("hasPart", [])
+               if "@id" in part]
+        assert ids == ["data/pp.pptx"]
+
+        ext = rocrate["extended_metadata"]["value"]
+        ext = json.loads(ext)
+
+        assert len(ext) == 2
+        assert ext["data/sample.txt"] == "first"
+        assert ext["data/guide.pdf"] == "second"
+
+        # without hasPart
+        rocrate = json_data("data/ams/without_hasPart.json")
+        rocrate = mapper.extract_extended_metadata([rocrate])[0]
+        assert "extended_metadata" not in rocrate
+
+    # def extract_text_from_files(self, filename):
+    # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_mapper.py::TestJsonLdMapper::test_extract_text_from_files -v -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+    def test_extract_text_from_files(self, app, db, item_type2, mocker, tmp_path):
+        mapper = JsonLdMapper(item_type2.model.id, None)
+
+        mapper.data_path = str(tmp_path)
+        file_content = "これは\r\nテキストファイルです\r\n"
+
+        file_name = "サンプル.txt"
+        tmpfile = tmp_path / file_name
+        tmpfile.write_text(file_content, encoding="shift_jis")
+        extract_text = mapper.extract_text_from_files(file_name)
+        assert extract_text == file_content
+
+        file_name = "サンプル.TXT"
+        tmpfile = tmp_path / file_name
+        tmpfile.write_text(file_content, encoding="utf-8")
+        extract_text = mapper.extract_text_from_files(file_name)
+        assert extract_text == file_content
+
+        file_name = "サンプル.ｔｘｔ"
+        tmpfile = tmp_path / file_name
+        tmpfile.write_text(file_content, encoding="utf-8")
+        extract_text = mapper.extract_text_from_files(file_name)
+        assert extract_text == ""
+
+        mapper.data_path = "tests/data/ams"
+
+        app.config.update({"WEKO_DEPOSIT_FILESIZE_LIMIT": 8})
+        extract_text = mapper.extract_text_from_files("sample.txt")
+        assert extract_text == "This is "
+
+        app.config.update({"WEKO_DEPOSIT_FILESIZE_LIMIT": 8})
+        extract_text = mapper.extract_text_from_files("サンプル2.txt")
+        assert extract_text == "上限:8"
+
+        app.config.update({"WEKO_DEPOSIT_FILESIZE_LIMIT": 2 * 1024 * 1024})
+        extract_text = mapper.extract_text_from_files("sample.txt")
+        assert extract_text == "This is a\ntext file.\n"
+
+        with pytest.raises(ValueError) as e:
+            extract_text = mapper.extract_text_from_files("png_file.txt")
+        assert str(e.value) == "Failed to load text file: png_file.txt"
+
+        with pytest.raises(PdfiumError) as e:
+            extract_text = mapper.extract_text_from_files("png_file.pdf")
+        assert str(e.value) == "Failed to load PDF file: png_file.pdf"
+
+        with pytest.raises(ValueError) as e:
+            extract_text = mapper.extract_text_from_files("broken_word.docx")
+        assert str(e.value) == "Failed to load document: broken_word.docx"
+
+        with pytest.raises(FileNotFoundError) as e:
+            extract_text = mapper.extract_text_from_files("not_exist.txt")
+        assert str(e.value) == "File Not Found: not_exist.txt"
+
+        mocker.patch("weko_search_ui.mapper.extract_text_from_pdf",
+                     return_value="This is a pdf file.")
+        mocker.patch("os.path.isfile", return_value=True)
+        extract_text = mapper.extract_text_from_files("pdffile.pdf")
+        assert extract_text == "This is a pdf file."
+
+        mocker.patch("weko_search_ui.mapper.extract_text_with_tika",
+                     return_value="This is a pptx file.")
+        extract_text = mapper.extract_text_from_files("powerpoint.pptx")
+        assert extract_text == "This is a pptx file."
+
+        extract_text = mapper.extract_text_from_files("sample.other")
+        assert extract_text == ""
+
+    # def apply_import_replace_rules(self, metadata, info):
+    # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_mapper.py::TestJsonLdMapper::test_apply_import_replace_rules -v -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+    def test_apply_import_replace_rules(self, item_type2, app):
+        with app.test_request_context():
+            mapper = JsonLdMapper(item_type2.model.id, None)
+            mapper.mapping_id = 123
+            metadata = {"key1": "ab|cd", "key2": "efg|hij"}
+            info = {"warnings": []}
+
+            # invalid rules
+            app.config["WEKO_SEARCH_UI_IMPORT_REPLACE_RULES"] = "invalid_val"
+            with set_locale("en"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("Replacement failed.: The type of the jsonld mapping "
+                            "replacement rule is invalid."\
+                            in w for w in result_info["warnings"])
+            with set_locale("ja"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("置換処理に失敗しました。: jsonldマッピングの置換ルール"
+                           "の型が不正です。"\
+                            in w for w in result_info["warnings"])
+            assert result_metadata == metadata
+
+            # invalid rule_map
+            app.config["WEKO_SEARCH_UI_IMPORT_REPLACE_RULES"] = {
+                "pipe_full_width_normal": {
+                    "from": "|",
+                    "to": "｜",
+                    "is_regex": False,
+                    "target_path": ["key1"]
+                },
+            }
+            app.config["WEKO_SEARCH_UI_IMPORT_REPLACE_RULE_MAP"] = ["invalid_val"]
+            with set_locale("en"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("Replacement failed.: The type of the jsonld mapping "
+                           "replacement rule is invalid."\
+                            in w for w in result_info["warnings"])
+            with set_locale("ja"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("置換処理に失敗しました。: jsonldマッピングの置換ルールの"
+                           "型が不正です。"\
+                            in w for w in result_info["warnings"])
+            assert result_metadata == metadata
+
+            # invalid rule_keys
+            app.config["WEKO_SEARCH_UI_IMPORT_REPLACE_RULE_MAP"] = {
+                "123": {"abc": "notalist"}
+            }
+            with set_locale("en"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("Replacement failed.: The type of the jsonld mapping "
+                           "replacement rule is invalid."\
+                            in w for w in result_info["warnings"])
+            with set_locale("ja"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("置換処理に失敗しました。: jsonldマッピングの置換ルール"
+                           "の型が不正です。"\
+                            in w for w in result_info["warnings"])
+            assert result_metadata == metadata
+
+            app.config["WEKO_SEARCH_UI_IMPORT_REPLACE_RULE_MAP"] = {
+                "123": [
+                    "pipe_full_width_normal",
+                    "pipe_full_width_regex"
+                ]
+            }
+            with set_locale("en"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("Replacement failed.: Required replacement rule: "
+                           "'pipe_full_width_regex' is missing."\
+                            in w for w in result_info["warnings"])
+                assert result_metadata["key1"] == "ab｜cd"
+                assert result_metadata["key2"] == "efg|hij"
+
+            with set_locale("ja"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("置換処理に失敗しました。: 必要な置換ルール："
+                           "'pipe_full_width_regex'が見つかりません。"\
+                            in w for w in result_info["warnings"])
+
+            app.config["WEKO_SEARCH_UI_IMPORT_REPLACE_RULES"] = {
+                "rule_not_dict": "notadict",
+                "from_type_invalid": {
+                    "from": [],
+                    "to": "def",
+                    "is_regex": False,
+                    "target_path": ["key1"]
+                },
+                "from_str_empty": {
+                    "from": "",
+                    "to": "abc",
+                    "is_regex": False,
+                    "target_path": ["key1"]
+                },
+                "to_type_invalid": {
+                    "from": "abc",
+                    "to": {},
+                    "is_regex": False,
+                    "target_path": ["key1"]
+                },
+                "target_path_type_invalid": {
+                    "from": "ghi",
+                    "to": "klm",
+                    "is_regex": False,
+                    "target_path": "notalist"
+                },
+                "pipe_full_width_regex": {
+                    "from": r"\|",
+                    "to": "｜",
+                    "is_regex": True,
+                    "target_path": ["key2"]
+                }
+            }
+            app.config["WEKO_SEARCH_UI_IMPORT_REPLACE_RULE_MAP"] = {
+                "123": [
+                    "rule_not_dict",
+                    "from_type_invalid",
+                    "from_str_empty",
+                    "to_type_invalid",
+                    "target_path_type_invalid",
+                    "pipe_full_width_regex"
+                ]
+            }
+
+            with set_locale("en"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("Replacement failed.: Replacement rule: "
+                           "'rule_not_dict' is invalid."\
+                            in w for w in result_info["warnings"])
+                assert any("Replacement failed.: Replacement rule: "
+                           "'from_type_invalid' is invalid."\
+                            in w for w in result_info["warnings"])
+                assert any("Replacement failed.: Replacement rule: "
+                           "'from_str_empty' is invalid."\
+                            in w for w in result_info["warnings"])
+                assert any("Replacement failed.: Replacement rule: "
+                           "'to_type_invalid' is invalid."\
+                            in w for w in result_info["warnings"])
+                assert any("Replacement failed.: Replacement rule: "
+                           "'target_path_type_invalid' is invalid."\
+                            in w for w in result_info["warnings"])
+            with set_locale("ja"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("置換処理に失敗しました。: 置換ルール： "
+                           "'rule_not_dict'の設定が不正です。"\
+                            in w for w in result_info["warnings"])
+                assert any("置換処理に失敗しました。: 置換ルール： "
+                           "'from_type_invalid'の設定が不正です。"\
+                            in w for w in result_info["warnings"])
+                assert any("置換処理に失敗しました。: 置換ルール： "
+                           "'from_str_empty'の設定が不正です。"\
+                            in w for w in result_info["warnings"])
+                assert any("置換処理に失敗しました。: 置換ルール： "
+                           "'to_type_invalid'の設定が不正です。"\
+                            in w for w in result_info["warnings"])
+                assert any("置換処理に失敗しました。: 置換ルール： "
+                           "'target_path_type_invalid'の設定が不正です。"\
+                            in w for w in result_info["warnings"])
+            assert result_metadata["key1"] == "ab|cd"
+            assert result_metadata["key2"] == "efg｜hij"
+
+            metadata["key3"] = "[abc"
+
+            app.config["WEKO_SEARCH_UI_IMPORT_REPLACE_RULES"] = {
+                "is_regex_not_bool_false": {
+                    "from": "|",
+                    "to": "｜",
+                    "is_regex": "false",
+                    "target_path": ["key1"]
+                },
+                "is_regex_not_bool_true": {
+                    "from": r"(\|)|(\\\|)",
+                    "to": "\uFF5C",
+                    "is_regex": "true",
+                    "target_path": ["key2"]
+                },
+                "invalid_regex": {
+                    "from": "[",
+                    "to": "「",
+                    "is_regex": True,
+                    "target_path": ["key3"]
+                }
+            }
+            app.config["WEKO_SEARCH_UI_IMPORT_REPLACE_RULE_MAP"] = {
+                "123": [
+                    "is_regex_not_bool_false",
+                    "is_regex_not_bool_true",
+                    "invalid_regex"
+                ]
+            }
+            with set_locale("en"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("Replacement rule: 'is_regex_not_bool_false' - "
+                           "'is_regex' is not boolean. Treated as False."\
+                            in w for w in result_info["warnings"])
+                assert any("Replacement rule: 'is_regex_not_bool_true' - "
+                           "'is_regex' is not boolean. Treated as False."\
+                            in w for w in result_info["warnings"])
+                assert any("Replacement failed.: Replacement rule: "
+                           "'invalid_regex' - regex error:"\
+                            in w for w in result_info["warnings"])
+            with set_locale("ja"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("置換ルール: 'is_regex_not_bool_false' - 'is_regex' "
+                           "が真偽値ではありません。Falseとして処理します。"\
+                            in w for w in result_info["warnings"])
+                assert any("置換ルール: 'is_regex_not_bool_true' - 'is_regex' "
+                           "が真偽値ではありません。Falseとして処理します。"\
+                            in w for w in result_info["warnings"])
+                assert any("置換処理に失敗しました。: 置換ルール: 'invalid_regex' "
+                           "- 正規表現エラー:"\
+                            in w for w in result_info["warnings"])
+            assert result_metadata["key1"] == "ab｜cd"
+            assert result_metadata["key2"] == "efg|hij"
+            assert result_metadata["key3"] == "[abc"
+
+            app.config["WEKO_SEARCH_UI_IMPORT_REPLACE_RULES"] = {
+                "pipe_full_width_normal": {
+                    "from": "|",
+                    "to": "｜",
+                    "is_regex": False,
+                    "target_path": ["key1"]
+                },
+                "pipe_full_width_regex": {
+                    "from": r"(\|)|(\\\|)",
+                    "to": "｜",
+                    "is_regex": True,
+                    "target_path": ["key2"]
+                }
+            }
+            app.config["WEKO_SEARCH_UI_IMPORT_REPLACE_RULE_MAP"] = {
+                "123": [
+                    "pipe_full_width_normal",
+                    "pipe_full_width_regex"
+                ]
+            }
+
+            result_metadata, result_info = mapper.apply_import_replace_rules(
+                copy.deepcopy(metadata), copy.deepcopy(info))
+            assert result_metadata != metadata
+            assert result_metadata["key1"] == "ab｜cd"
+            assert result_metadata["key2"] == "efg｜hij"
+            assert result_info["warnings"] == []
+
+            metadata = None
+            with set_locale("en"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("Replacement failed.:"\
+                            in w for w in result_info["warnings"])
+            with set_locale("ja"):
+                result_metadata, result_info = mapper.apply_import_replace_rules(
+                    copy.deepcopy(metadata), copy.deepcopy(info))
+                assert any("置換処理に失敗しました。:"\
+                            in w for w in result_info["warnings"])
+
+def test_set_by_jsonpath():
+    data = {}
+
+    set_by_jsonpath(data, "pubdate", "2025-06-12")
+    assert data["pubdate"] == "2025-06-12"
+
+    set_by_jsonpath(data, "item_1.subitem_1", "value_1")
+    assert data["item_1"]["subitem_1"] == "value_1"
+
+    set_by_jsonpath(data, "item_1.subitem_2.subsubitem_1", "value_2", {"item_1": {"subitem_2": {"default_factory": "default_value"}}})
+    assert data["item_1"]["subitem_2"]["default_factory"] == "default_value"
+    assert data["item_1"]["subitem_2"]["subsubitem_1"] == "value_2"
+
+    with pytest.raises(TypeError):
+        set_by_jsonpath(data, "item_1[0].subitem_invalid", "value_invalid")
+
+
+    set_by_jsonpath(data, "item_2[0].subitem_3", "value_2")
+    assert data["item_2"][0]["subitem_3"] == "value_2"
+
+    set_by_jsonpath(data, "item_2[1].subitem_4", "value_3")
+    assert data["item_2"][1]["subitem_4"] == "value_3"
+
+    with pytest.raises(ValueError):
+        set_by_jsonpath(data, "item_2[2.subitem_4", "value_3")
+
+    with pytest.raises(ValueError):
+        set_by_jsonpath(data, "item_2[foo].subitem_invalid", "value_invalid")
+
+    set_by_jsonpath(data, "item_3[0].subitem_5.subsubitem_2", "value_4")
+    assert data["item_3"][0]["subitem_5"]["subsubitem_2"] == "value_4"
+
+    set_by_jsonpath(data, "item_3[1].subitem_5.subsubitem_3", "value_5")
+    assert data["item_3"][1]["subitem_5"]["subsubitem_3"] == "value_5"
+
+    set_by_jsonpath(data, "item_3[1].subitem_6[0].subsubitem_4", "value_6", {"item_3.subitem_6": {"default_factory": "default_value"}})
+    assert data["item_3"][1]["subitem_6"][0]["subsubitem_4"] == "value_6"
+    assert data["item_3"][1]["subitem_6"][0]["default_factory"] == "default_value"
+
+    with pytest.raises(TypeError):
+        set_by_jsonpath(data, "item_3.subitem_invalid", "value_invalid")
+
+    with pytest.raises(ValueError):
+        set_by_jsonpath(data, "", "value_invalid")
+
+    assert data == {
+        "pubdate": "2025-06-12",
+        "item_1": {
+            "subitem_1": "value_1",
+            "subitem_2": "value_2"
+        },
+        "item_2": [
+            {
+                "subitem_3": "value_2"
+            },
+            {
+                "subitem_4": "value_3"
+            }
+        ],
+        "item_3": [
+            {
+                "subitem_5": {
+                    "subsubitem_2": "value_4"
+                }
+            },
+            {
+                "subitem_5": {
+                    "subsubitem_3": "value_5"
+                },
+                "subitem_6": [
+                    {
+                        "subsubitem_4": "value_6",
+                        "default_factory": "default_value"
+                    }
+                ]
+            }
+        ]
+    }
+
+    set_by_jsonpath(data, "item_4.subitem_6[1]", "value_7")
+    assert data["item_4"]["subitem_6"][0] == None
+    assert data["item_4"]["subitem_6"][1] == "value_7"
+
+    set_by_jsonpath(data, "item_4.subitem_6[1]", "value_7")

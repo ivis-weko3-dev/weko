@@ -265,7 +265,7 @@ class TestHeadlessActivity:
         mock_activity.workflow = workflow["workflow"]
         # login user matches
         mock_activity.activity_login_user = users[0]["id"]
-        mock_activity.shared_user_ids = [users[3]["id"]]
+        mock_activity.shared_user_ids = [{"user": users[3]["id"]}]
         with patch("weko_workflow.headless.activity.verify_deletion") as mock_verify_deletion, \
                 patch("weko_workflow.headless.activity.HeadlessActivity.get_activity_by_id") as mock_get_activity_by_id, \
                 patch("weko_workflow.headless.activity.PersistentIdentifier.get_by_object") as mock_get_pid, \
@@ -500,13 +500,14 @@ class TestHeadlessActivity:
         activity.workflow = MagicMock(**workflow["workflow"].__dict__, spec=WorkFlow)
         activity.workflow.index_tree_id = "1"
         activity.workflow.location = MagicMock(name="local", spec=Location)
-        activity.item_type = item_type[0]["obj"]
+        activity.item_type = next(i['obj'] for i in item_type if i['id'] == 1)
 
         metadata = {
             "pubdate": "2024-01-01",
             "shared_user_ids": [users[1]["id"]],
             "item_title":[{"subitem_title":"Test Title"}],
-            "item_files": [{"filename": "test.txt"}, {"filename": "ignore.txt"}]
+            "item_files": [{"filename": "test.txt"}, {"filename": "ignore.txt"}],
+            "researchmap": True
         }
         files = ["test.txt", "ignore.txt"]
 
@@ -543,6 +544,7 @@ class TestHeadlessActivity:
             assert updated_data["files"][0]["non_extract"] is False
             assert updated_data["files"][1]["filename"] == "ignore.txt"
             assert updated_data["files"][1]["non_extract"] is True
+            assert updated_data["cris_linkage"]["researchmap"] is True
 
         activity = HeadlessActivity(_lock_skip=True)
         mock_activity = MagicMock(spec=Activity)
@@ -552,14 +554,15 @@ class TestHeadlessActivity:
         activity._model = mock_activity
         activity.workflow = workflow["workflow"]
         activity.workflow.index_tree_id = "1"
-        activity.item_type = item_type[0]["obj"]
+        activity.item_type = next(i['obj'] for i in item_type if i['id'] == 1)
 
         metadata = {
             "pubdate": "2024-01-01",
             "weko_shared_ids": [users[1]["id"]],
             "item_title":[{"subitem_title":"Test Title"}],
             "item_files": [{"filename": "test.txt"}, {"filename": "ignore.txt"}],
-            "item_1617186783814": []
+            "item_1617186783814": [],
+            "researchmap": False
         }
 
         with patch("weko_workflow.headless.activity.validate_form_input_data") as mock_validate, \
@@ -586,6 +589,7 @@ class TestHeadlessActivity:
             assert updated_data["files"][0]["non_extract"] is False
             assert updated_data["files"][1]["filename"] == "ignore.txt"
             assert updated_data["files"][1]["non_extract"] is False
+            assert updated_data["cris_linkage"]["researchmap"] is False
 
         activity = HeadlessActivity(_lock_skip=True)
         mock_activity = MagicMock(spec=Activity)
@@ -633,7 +637,7 @@ class TestHeadlessActivity:
         mock_activity.activity_community_id = None
         activity._model = mock_activity
         activity.workflow = workflow["workflow"]
-        activity.item_type = item_type
+        activity.item_type = next(i['obj'] for i in item_type if i['id'] == 1)
         # no index tree id, shared_user_ids and weko_shared_ids are specified
         metadata = {
             "pubdate": "2024-01-01",
@@ -753,7 +757,8 @@ class TestHeadlessActivity:
             "edit_mode": "Keep",
             "item_title":[{"subitem_title":"Test Title"}],
             "item_files": [{"filename": "test.txt"}, {"filename": "ignore.txt"}],
-            "item_1617186981471": "New Data"
+            "item_1617186981471": "New Data",
+            "researchmap": True
         }
         _uuid0 = uuid.uuid4()
         old_files_info = [
@@ -812,6 +817,7 @@ class TestHeadlessActivity:
             assert updated_data["files"][0]["filename"] == "test.txt"
             assert updated_data["files"][1]["filename"] == "ignore.txt"
             assert len(updated_data["files"]) == 2                              # Only new files are added
+            assert updated_data["cris_linkage"]["researchmap"] is True
 
         activity = HeadlessActivity(_lock_skip=True, _files_inheritance=True)
         mock_activity = MagicMock(spec=Activity)
@@ -836,7 +842,8 @@ class TestHeadlessActivity:
             "edit_mode": "Keep",
             "item_title":[{"subitem_title":"Test Title"}],
             "item_files": [{"filename": "old.txt"}, {"filename": "test.txt"}, {"filename": "ignore.txt"}],
-            "item_1617186981471": "New Data"
+            "item_1617186981471": "New Data",
+            "researchmap": False
         }
         old_files_info = [
             {"filename": "old.txt", "key": "old.txt", "version_id": str(uuid.uuid4())},
@@ -892,6 +899,7 @@ class TestHeadlessActivity:
             assert updated_data["files"][0]["filename"] == "old.txt"            # Old file is kept
             assert updated_data["files"][1]["filename"] == "ignore.txt"
             assert updated_data["files"][2]["filename"] == "test.txt"
+            assert updated_data["cris_linkage"]["researchmap"] is False
 
         # success to input metadata; inherit old files but ole file metadata is not kept
         activity = HeadlessActivity(_lock_skip=True, _files_inheritance=True)
@@ -970,6 +978,7 @@ class TestHeadlessActivity:
             assert updated_data["files"][0]["filename"] == "ignore.txt"         # Old file is kept
             assert updated_data["files"][1]["filename"] == "test.txt"           # New file is added
             assert len(updated_data["files"]) == 2                              # No file with deleted metadata
+            assert updated_data["cris_linkage"]["researchmap"] is False
 
 
     # def _input_metadata(self, metadata, files=None, non_extract=None):
@@ -1009,7 +1018,8 @@ class TestHeadlessActivity:
             "edit_mode": "Upgrade",
             "item_title":[{"subitem_title":"Test Title"}],
             "item_files": [{"filename": "test.txt"}, {"filename": "ignore.txt"}],
-            "item_1617186981471": "New Data"
+            "item_1617186981471": "New Data",
+            "researchmap": True
         }
         _uuid0 = uuid.uuid4()
         old_files_info = [
@@ -1078,6 +1088,7 @@ class TestHeadlessActivity:
             assert updated_data["files"][0]["filename"] == "test.txt"
             assert updated_data["files"][1]["filename"] == "ignore.txt"
             assert len(updated_data["files"]) == 2                              # Only new files are added
+            assert updated_data["cris_linkage"]["researchmap"] is True
 
         # success to input metadata; inherit old files
         activity = HeadlessActivity(_lock_skip=True, _files_inheritance=True)
@@ -1103,7 +1114,8 @@ class TestHeadlessActivity:
             "edit_mode": "Upgrade",
             "item_title":[{"subitem_title":"Test Title"}],
             "item_files": [{"filename": "old.txt"}, {"filename": "test.txt"}, {"filename": "ignore.txt"}],
-            "item_1617186981471": "New Data"
+            "item_1617186981471": "New Data",
+            "researchmap": False
         }
         old_files_info = [
             {"filename": "old.txt", "key": "old.txt", "version_id": str(uuid.uuid4())},
@@ -1170,6 +1182,7 @@ class TestHeadlessActivity:
             assert updated_data["files"][0]["filename"] == "old.txt"            # Old file is kept
             assert updated_data["files"][1]["filename"] == "ignore.txt"
             assert updated_data["files"][2]["filename"] == "test.txt"
+            assert updated_data["cris_linkage"]["researchmap"] is False
 
         # success to input metadata; activity item_id is not draft already
         activity = HeadlessActivity(_lock_skip=True, _files_inheritance=True)
@@ -1255,6 +1268,7 @@ class TestHeadlessActivity:
             assert updated_data["files"][0]["filename"] == "old.txt"            # Old file is kept
             assert updated_data["files"][1]["filename"] == "ignore.txt"
             assert updated_data["files"][2]["filename"] == "test.txt"
+            assert updated_data["cris_linkage"]["researchmap"] is False
             mock_get.assert_not_called()
             mock_get_weko_record.assert_not_called()
 

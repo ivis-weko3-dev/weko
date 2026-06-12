@@ -108,6 +108,7 @@ from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName, SiteLic
 from weko_records_ui.config import WEKO_ADMIN_PDFCOVERPAGE_TEMPLATE,RECORDS_UI_ENDPOINTS,WEKO_RECORDS_UI_SECRET_KEY,WEKO_RECORDS_UI_ONETIME_DOWNLOAD_PATTERN
 from weko_records_ui.models import FileSecretDownload, PDFCoverPageSettings,FileOnetimeDownload, FilePermission, RocrateMapping
 from weko_records_ui.utils import create_download_url
+from weko_user_profiles.models import UserProfile
 
 from weko_schema_ui.config import (
     WEKO_SCHEMA_DDI_SCHEMA_NAME,
@@ -289,7 +290,8 @@ def base_app(instance_path):
         WEKO_RECORDS_UI_OA_API_CODE = WEKO_RECORDS_UI_OA_API_CODE,
         EXTERNAL_SYSTEM = EXTERNAL_SYSTEM,
         ITEM_ACTION = ITEM_ACTION,
-        FILE_OPEN_STATUS = FILE_OPEN_STATUS
+        FILE_OPEN_STATUS = FILE_OPEN_STATUS,
+        WEKO_RECORDS_UI_RESTRICTED_API = False
     )
     #with ESTestServer(timeout=30) as server:
     client = Elasticsearch(['localhost:9200'])
@@ -922,6 +924,7 @@ def make_record(db, indexer, i, filepath, filename, mimetype, shared_ids, file_h
             "pid": {"type": "depid", "value": "{}".format(i), "revision_id": 0},
             "owners": [1],
             "status": "published",
+            "created_by": 2,
         },
         "item_title": "ja_conference paperITEM00000009(public_open_access_open_access_simple)",
         "author_link": ["4"],
@@ -5548,57 +5551,63 @@ def db_file_permission(app, db,users,records_restricted):
     filename0 = results[0]["filename"]
     record0 = FilePermission(
         user_id=1, record_id=recid0.pid_value, file_name=filename0,
-        usage_application_activity_id="usage_application_activity_id_dummy1",
+        usage_application_activity_id="usage_application_1",
         usage_report_activity_id=None, status=1,
     )
     email = list(filter(lambda x : x['email'] if x['id'] == record0.user_id else None,users))[0]['email']
-    record0_onetime=FileOnetimeDownload(user_mail=email
-                                        ,record_id=recid0.pid_value
-                                        ,file_name=filename0
-                                        ,download_limit=10
-                                        ,expiration_date = datetime.now(timezone.utc) + timedelta(hours=24)
-                                        ,extra_info={}
-                                        ,is_guest=False
-                                        ,approver_id=1)
+    record0_onetime=FileOnetimeDownload(
+        approver_id=users[0]['id'],
+        record_id=recid0.pid_value,
+        file_name=filename0,
+        expiration_date=datetime.now(timezone.utc) + timedelta(days=1),
+        download_limit=1,
+        user_mail=email,
+        is_guest=False,
+        extra_info={}
+    )
     recid1 = results[1]["recid"]
     filename1 = results[1]["filename"]
     record1 = FilePermission(
         user_id=1, record_id=recid1.pid_value, file_name=filename1,
-                 usage_application_activity_id="usage_application_activity_id_dummy1",
+                 usage_application_activity_id="usage_application_1",
                  usage_report_activity_id="usage_report_activity_id_dummy1",status=1,
     )
     email = list(filter(lambda x : x['email'] if x['id'] == record1.user_id else None,users))[0]['email']
-    record1_onetime=FileOnetimeDownload(user_mail=email
-                                        ,record_id=recid1.pid_value
-                                        ,file_name=filename1
-                                        ,download_limit=10
-                                        ,expiration_date = datetime.now(timezone.utc) + timedelta(hours=24)
-                                        ,extra_info={}
-                                        ,is_guest=False
-                                        ,approver_id=1)
+    record1_onetime=FileOnetimeDownload(
+        approver_id=users[0]['id'],
+        record_id=recid1.pid_value,
+        file_name=filename1,
+        expiration_date=datetime.now(timezone.utc) + timedelta(days=1),
+        download_limit=1,
+        user_mail=email,
+        is_guest=False,
+        extra_info={}
+    )
     recid2 = results[2]["recid"]
     filename2 = results[2]["filename"]
     record2 = FilePermission(
         user_id=1, record_id=recid2.pid_value, file_name=filename2,
-                 usage_application_activity_id="usage_application_activity_id_dummy1",
+                 usage_application_activity_id="usage_application_1",
                  usage_report_activity_id="usage_report_activity_id_dummy1",status=1,
     )
     email = list(filter(lambda x : x['email'] if x['id'] == record2.user_id else None,users))[0]['email']
-    record2_onetime=FileOnetimeDownload(user_mail=email
-                                        ,record_id=recid2.pid_value
-                                        ,file_name=filename2
-                                        ,download_limit=10
-                                        ,expiration_date = datetime.now(timezone.utc) + timedelta(hours=24)
-                                        ,extra_info={}
-                                        ,is_guest=False
-                                        ,approver_id=1)
+    record2_onetime=FileOnetimeDownload(
+        approver_id=users[0]['id'],
+        record_id=recid2.pid_value,
+        file_name=filename2,
+        expiration_date=datetime.now(timezone.utc) + timedelta(days=1),
+        download_limit=1,
+        user_mail=email,
+        is_guest=False,
+        extra_info={}
+    )
 
     # not approved yet
     recid3 = results[len(results)-1]["recid"]
     filename3 = results[len(results)-1]["filename"]
     record3 = FilePermission(
         user_id=users[0]['id'], record_id=recid3.pid_value, file_name=filename3,
-        usage_application_activity_id="usage_application_activity_id_dummy1",
+        usage_application_activity_id="usage_application_1",
         usage_report_activity_id=None, status=-1,
     )
 
@@ -5606,35 +5615,39 @@ def db_file_permission(app, db,users,records_restricted):
     filename4 = results[len(results)-1]["filename"]
     record4 = FilePermission(
         user_id=users[0]['id'], record_id=recid4.pid_value, file_name=filename4,
-        usage_application_activity_id="usage_application_activity_id_dummy1",
+        usage_application_activity_id="usage_application_1",
         usage_report_activity_id=None, status=1,
     )
     email = list(filter(lambda x : x['email'] if x['id'] == record4.user_id else None,users))[0]['email']
-    record4_onetime=FileOnetimeDownload(user_mail =email
-                                        ,record_id=recid4.pid_value
-                                        ,file_name=filename4
-                                        ,download_limit =10
-                                        ,expiration_date = datetime.now(timezone.utc) + timedelta(hours=24)
-                                        ,extra_info={}
-                                        ,is_guest=False
-                                        ,approver_id=1)
+    record4_onetime=FileOnetimeDownload(
+        approver_id=users[0]['id'],
+        record_id=recid4.pid_value,
+        file_name=filename4,
+        expiration_date=datetime.now(timezone.utc) + timedelta(days=1),
+        download_limit=1,
+        user_mail=email,
+        is_guest=False,
+        extra_info={}
+    )
 
     recid5 = results[len(results)-1]["recid"]
     filename5 = results[len(results)-1]["filename"]
     record5 = FilePermission(
         user_id=users[0]['id'], record_id=recid5.pid_value, file_name=filename5,
-        usage_application_activity_id="usage_application_activity_id_dummy1",
+        usage_application_activity_id="usage_application_1",
         usage_report_activity_id=None, status=1,
     )
     email = list(filter(lambda x : x['email'] if x['id'] == record5.user_id else None,users))[0]['email']
-    record5_onetime=FileOnetimeDownload(user_mail=email
-                                        ,record_id=recid5.pid_value
-                                        ,file_name=filename5
-                                        ,download_limit=10
-                                        ,expiration_date = datetime.now(timezone.utc) + timedelta(hours=24)
-                                        ,extra_info={}
-                                        ,is_guest=False
-                                        ,approver_id=1)
+    record5_onetime=FileOnetimeDownload(
+        approver_id=users[0]['id'],
+        record_id=recid5.pid_value,
+        file_name=filename5,
+        expiration_date=datetime.now(timezone.utc) + timedelta(days=1),
+        download_limit=1,
+        user_mail=email,
+        is_guest=False,
+        extra_info={}
+    )
     with db.session.begin_nested():
         db.session.add(record0)
         db.session.add(record1)
@@ -5934,7 +5947,7 @@ def make_record_need_restricted_access(app, db, workflows, users):
         file_name="dummy.txt",
         activity_id="A-00000000-1234",
         token='',
-        expiration_date=10
+        expiration_date=1
     )
 
     with db.session.begin_nested():
@@ -6319,3 +6332,76 @@ def communities(app, indices, users, db):
     db.session.add(community)
     db.session.commit()
     return [community]
+
+@pytest.fixture()
+def communities2(app, indices, users, db):
+    """Create communities."""
+    user_record = users[3]
+    user_obj = user_record["obj"]
+
+    community = Community(
+        id="community_sample",
+        group_id=4,
+        id_role=user_obj.roles[0].id,
+        id_user=user_record["id"],
+        title='Community 1',
+        description='Community 1 description',
+        page=1,
+        curation_policy='curation_policy',
+        community_header='community_header',
+        community_footer='community_footer',
+        last_record_accepted=datetime.now(),
+        root_node_id=2,
+    )
+
+    db.session.add(community)
+    db.session.commit()
+    return [community]
+
+@pytest.fixture()
+def users_storage_info(db, users):
+    """Create user profile for storage."""
+
+    users_info = {
+        "s3_storage_user": {
+            "user_info": users[1], # Repository Administrator
+            "profile_obj": UserProfile(
+                user_id=users[1]["id"], # Repository Administrator
+                _username="testuser_s3",
+                _displayname="Repository Admin",
+                fullname="Test User",
+                language="ja",
+                university="Test University",
+                department="Test Department",
+                position="Test Position",
+                access_key="access_key_12345",
+                secret_key="secret_key_12345",
+                s3_endpoint_url="https://s3.ap-southeast-2.amazonaws.com/", # Example S3 endpoint
+                s3_region_name="ap-southeast-2",
+            ),
+        },
+        "not_s3_storage_user": {
+            "user_info": users[2], # System Administrator
+            "profile_obj": UserProfile(
+                user_id=users[2]["id"], # System Administrator
+                _username="testuser_not_s3",
+                _displayname="System Admin",
+                fullname="Test User System",
+                language="ja",
+                university="Test University",
+                department="Test Department",
+                position="Test Position",
+                access_key="access_key_12345",
+                secret_key="secret_key_12345",
+                s3_endpoint_url="https://s3.custom.endpoint.com/", # not S3
+                s3_region_name="custom region",
+            ),
+        }
+    }
+
+    with db.session.begin_nested():
+        for user_info in users_info.values():
+            db.session.add(user_info["profile_obj"])
+    db.session.commit()
+
+    yield users_info

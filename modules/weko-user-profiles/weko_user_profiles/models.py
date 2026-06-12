@@ -21,8 +21,10 @@
 """Database models for user profiles."""
 
 from flask import current_app
+from flask_babelex import lazy_gettext as _
 from invenio_accounts.models import User
 from invenio_db import db
+from invenio_files_rest.utils import create_boto3_s3_client
 from sqlalchemy import event
 from sqlalchemy.ext.hybrid import hybrid_property
 
@@ -183,7 +185,7 @@ class UserProfile(db.Model):
         :param username: A username to query for (case insensitive).
         """
         return cls.query.filter(
-            UserProfile._displayname == username.lower()
+            UserProfile._displayname == username
         ).first()
 
     @classmethod
@@ -204,8 +206,39 @@ class UserProfile(db.Model):
         """Return whether this UserProfile is anonymous."""
         return False
 
-    def get_institute_data(self):
+    @property
+    def client_credentials_configured(self):
+        """Check whether S3 credentials are configured.
+        Returns:
+            bool: True if S3 credentials are configured, False otherwise.
+        """
+        return all([
+            self.s3_endpoint_url,
+            self.access_key,
+            self.secret_key,
+        ])
+
+    def create_s3_client(self):
+        """Create boto3 S3 client.
+        Returns:
+            boto3.client: Boto3 S3 client instance.
+        """
+        # Check if S3 credentials are configured
+        if not self.client_credentials_configured:
+            raise Exception(_('S3 setting none. Please check your profile.'))
+
+        return create_boto3_s3_client(
+            self.access_key, self.secret_key,
+            region_name=self.s3_region_name,
+            endpoint_url=self.s3_endpoint_url,
+        )
+
+    def get_institute_data(self, enable_custom=False):
         """Get institute data.
+
+        Args:
+            enable_custom (bool): enable customize profile fields.
+
         Returns:
             list: list of dict which contains affiliated institution name and position.
         """
@@ -218,16 +251,36 @@ class UserProfile(db.Model):
         item_field_settings = [
             profile_setting.get("item"+ str(i), {}).get("visible", False)  for i in range(3, 17)]
         institute_dict = [
-            {"subitem_affiliated_institution_name": self.item3 if item_field_settings[0] else "",
-            'subitem_affiliated_institution_position': self.item4 if item_field_settings[1] else ""},
-            {'subitem_affiliated_institution_name': self.item5 if item_field_settings[2] else "",
-            'subitem_affiliated_institution_position': self.item6 if item_field_settings[3] else ""},
-            {'subitem_affiliated_institution_name': self.item7 if item_field_settings[4] else "",
-            'subitem_affiliated_institution_position':self.item8 if item_field_settings[5] else ""},
-            {'subitem_affiliated_institution_name': self.item9 if item_field_settings[6] else "",
-            'subitem_affiliated_institution_position': self.item10 if item_field_settings[7] else ""},
-            {'subitem_affiliated_institution_name': self.item11 if item_field_settings[8] else "",
-            'subitem_affiliated_institution_position': self.item12 if item_field_settings[9] else ""}
+            {
+                "subitem_affiliated_institution_name": self.item3 \
+                    if not enable_custom or item_field_settings[0] else "",
+                'subitem_affiliated_institution_position': self.item4 \
+                    if not enable_custom or item_field_settings[1] else ""
+            },
+            {
+                'subitem_affiliated_institution_name': self.item5 \
+                    if not enable_custom or item_field_settings[2] else "",
+                'subitem_affiliated_institution_position': self.item6 \
+                    if not enable_custom or item_field_settings[3] else ""
+            },
+            {
+                'subitem_affiliated_institution_name': self.item7 \
+                    if not enable_custom or item_field_settings[4] else "",
+                'subitem_affiliated_institution_position': self.item8 \
+                    if not enable_custom or item_field_settings[5] else ""
+            },
+            {
+                'subitem_affiliated_institution_name': self.item9 \
+                    if not enable_custom or item_field_settings[6] else "",
+                'subitem_affiliated_institution_position': self.item10 \
+                    if not enable_custom or item_field_settings[7] else ""
+            },
+            {
+                'subitem_affiliated_institution_name': self.item11 \
+                    if not enable_custom or item_field_settings[8] else "",
+                'subitem_affiliated_institution_position': self.item12 \
+                    if not enable_custom or item_field_settings[9] else ""
+            }
         ]
         return institute_dict
 

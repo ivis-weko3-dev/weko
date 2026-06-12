@@ -1,23 +1,4 @@
 # -*- coding: utf-8 -*-
-#
-# This file is part of WEKO3.
-# Copyright (C) 2017 National Institute of Informatics.
-#
-# WEKO3 is free software; you can redistribute it
-# and/or modify it under the terms of the GNU General Public License as
-# published by the Free Software Foundation; either version 2 of the
-# License, or (at your option) any later version.
-#
-# WEKO3 is distributed in the hope that it will be
-# useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with WEKO3; if not, write to the
-# Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-# MA 02111-1307, USA.
-
 """Blueprint for weko-workflow."""
 
 import json
@@ -81,6 +62,7 @@ from weko_records.api import FeedbackMailList, RequestMailList, ItemLink, ItemTy
 from weko_records.models import ItemMetadata
 from weko_records.serializers.utils import get_item_type_name
 from weko_records_ui.models import FilePermission
+from weko_records_ui.permissions import has_comadmin_permission
 from weko_search_ui.utils import check_tsv_import_items, import_items_to_system
 from weko_user_profiles.config import \
     WEKO_USERPROFILES_INSTITUTE_POSITION_LIST, \
@@ -776,6 +758,9 @@ def render_guest_workflow(file_name=""):
     )
 
     form = FlaskForm(request.form)
+    if not guest_activity.get("steps",[]):
+        current_app.logger.error("can not get workflow_action_history:{}".format(activity_id))
+        abort(404)
 
     return render_template(
         'weko_workflow/activity_detail.html',
@@ -898,7 +883,9 @@ def display_activity(activity_id="0", community_id=None):
         current_app.logger.error("display_activity: can not get activity display info")
         return render_template("weko_theme/error.html",
                 error="can not get data required for rendering")
-
+    if not steps:
+        current_app.logger.error("can not get workflow_action_history:{}".format(activity_id))
+        abort(404)
     # display_activity of Identifier grant
     identifier_setting = None
     if action_endpoint == 'identifier_grant' and item:
@@ -1042,7 +1029,7 @@ def display_activity(activity_id="0", community_id=None):
             if len(shared_user_ids) == 0:
                 contributors = get_contributors(recid.pid_value)
             else:
-                contributors = get_contributors(None, user_id_list_json=shared_user_ids, owner_id=owner_id)
+                contributors = get_contributors(None, user_id_list_json=shared_user_ids)
         except PIDDeletedError:
             current_app.logger.error("PIDDeletedError: {}".format(sys.exc_info()))
             abort(404)
@@ -1054,7 +1041,7 @@ def display_activity(activity_id="0", community_id=None):
     else:
             # get contributors data
             # 登録済みアイテムが無い場合は、一時保存データから取得する
-            contributors = get_contributors(None, user_id_list_json=shared_user_ids, owner_id=owner_id)
+            contributors = get_contributors(None, user_id_list_json=shared_user_ids)
 
     res_check = check_authority_action(str(activity_id), int(action_id),
                                        is_auto_set_index_action,
@@ -1108,8 +1095,11 @@ def display_activity(activity_id="0", community_id=None):
 
 
     if action_endpoint == 'item_link' and recid:
-        item_link = ItemLink.get_item_link_info(recid.pid_value)
-        ctx['item_link'] = item_link
+        try:
+            item_link = ItemLink.get_item_link_info(recid.pid_value)
+            ctx['item_link'] = item_link
+        except Exception:
+            current_app.logger.error("Unexpected error: {}".format(sys.exc_info()))
 
     # Get item link info.
     try:
@@ -1144,6 +1134,18 @@ def display_activity(activity_id="0", community_id=None):
     if approval_record and files:
         files = set_files_display_type(approval_record, files)
 
+    # Add item link data for approval steps
+    if approval_record and recid and action_endpoint in ['approval', 'approval_advisor', 'approval_guarantor', 'approval_administrator']:
+        try:
+            item_link_info = ItemLink.get_item_link_info(recid.pid_value)
+        except Exception:
+            item_link_info = None
+            current_app.logger.error("Unexpected error: {}".format(sys.exc_info()))
+
+        if item_link_info:
+            approval_record["relation"] = item_link_info
+        else:
+            approval_record["relation"] = []
 
     ctx.update(
         dict(
@@ -1214,6 +1216,8 @@ def display_activity(activity_id="0", community_id=None):
             'WEKO_WORKFLOW_ENABLE_CONTRIBUTOR'],
         enable_feedback_maillist=current_app.config[
             'WEKO_WORKFLOW_ENABLE_FEEDBACK_MAIL'],
+        enable_multi_contributors = current_app.config[
+            'WEKO_ITEMS_UI_PROXY_POSTING'],
         enable_request_maillist=enable_request_maillist,
         endpoints=endpoints,
         error_type='item_login_error',
@@ -1296,6 +1300,23 @@ def check_authority_action(activity_id='0', action_id=0,
                            contain_login_item_application=False,
                            action_order=0):
     """Check authority."""
+
+    def _get_shared_user_ids_from_list(shared_user_ids_list):
+        """Get shared user ids from list.
+
+        Args:
+            shared_user_ids_list (list): List of shared user ids.
+        Returns:
+            list: List of shared user ids.
+        """
+        shared_user_ids = []
+        for shared_user in shared_user_ids_list:
+            if isinstance(shared_user, dict):
+                shared_user_ids.append(shared_user.get('user'))
+            elif isinstance(shared_user, int):
+                shared_user_ids.append(shared_user)
+        return shared_user_ids
+
     if not current_user.is_authenticated:
         return 1
 
@@ -1310,25 +1331,65 @@ def check_authority_action(activity_id='0', action_id=0,
         action_id != _Action.query.filter_by(action_endpoint='approval').one().id:
         # item_registrationが完了していないactivityを再編集する場合、item_metadataテーブルにデータはない
         # その為、workflow_activityテーブルのtemp_dataを参照し、保存されている代理投稿者をチェックする
+        proxy_posting = current_app.config.get('WEKO_ITEMS_UI_PROXY_POSTING', False)
         im = ItemMetadata.query.filter_by(id=activity.item_id).one_or_none()
         if not im and activity.temp_data:
+            # Get shared_user_ids from shared_user_ids columns
+            activity_shared_user_ids = activity.shared_user_ids \
+                if activity.shared_user_ids else []
+            activity_user_ids = _get_shared_user_ids_from_list(
+                activity_shared_user_ids
+            )
+
             temp_data = json.loads(activity.temp_data)
+            temp_user_ids = []
             if temp_data is not None:
-                activity_shared_user_ids = temp_data.get('metainfo').get("shared_user_ids", [])
-                activity_owner = temp_data.get('metainfo').get("owner", '-1')
-                shared_user_ids = [ int(shared_user_ids_dict['user']) for shared_user_ids_dict in activity_shared_user_ids ]
+                # Get shared_user_ids from temp_data's metainfo
+                temp_shared_user_ids = temp_data.get('metainfo', {}).get(
+                    "shared_user_ids", []
+                )
+                temp_user_ids = _get_shared_user_ids_from_list(
+                    temp_shared_user_ids
+                )
+                activity_owner = temp_data.get('metainfo', {}).get(
+                    "owner", '-1'
+                )
+
                 # if exist shared_user_ids or owner allow to access
-                if int(cur_user) in shared_user_ids:
-                    return 0
                 if int(cur_user) == int(activity_owner):
                     return 0
+            
+            if proxy_posting:
+                # If current user is in activity_user_ids or temp_user_ids
+                if int(cur_user) in activity_user_ids + temp_user_ids:
+                    return 0
+            else:
+                last_user_id = None
+                # Check only last added user
+                if activity_user_ids:
+                    last_user_id = activity_user_ids[-1]
+                elif temp_user_ids:
+                    last_user_id = temp_user_ids[-1]
+                if last_user_id and int(cur_user) == int(last_user_id):
+                    return 0
+
         elif im:
             # Check if this activity has contributor equaling to current user
             metadata_shared_user_ids = im.json.get('shared_user_ids', [])
             metadata_weko_shared_ids = im.json.get('weko_shared_ids', [])
             metadata_owner = int(im.json.get('owner', '-1'))
-            if int(cur_user) in metadata_shared_user_ids + metadata_weko_shared_ids:
-                return 0
+            if proxy_posting:
+                if int(cur_user) in metadata_shared_user_ids + metadata_weko_shared_ids:
+                    return 0
+            else:
+                last_user_id = None
+                # Check only last added user
+                if metadata_shared_user_ids:
+                    last_user_id = metadata_shared_user_ids[-1]
+                elif metadata_weko_shared_ids:
+                    last_user_id = metadata_weko_shared_ids[-1]
+                if last_user_id and int(cur_user) == int(last_user_id):
+                    return 0
             if int(cur_user) == int(metadata_owner):
                 return 0
 
@@ -1564,10 +1625,12 @@ def next_action(activity_id='0', action_id=0, json_data=None):
             res = ResponseMessageSchema().load({"code":-2, "msg":"can not get next_action_detail"})
             return jsonify(res.data), 500
 
+        enable_restricted = current_app.config.get('WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG', False)
+
         is_last_step = next_action_endpoint == 'end_action'
         # Only gen url file link at last approval step
         url_and_expired_date = {}
-        if is_last_step:
+        if is_last_step and enable_restricted:
             # Approve to file permission
             # 利用申請のWF時、申請されたファイルと、そのアイテム内の制限公開ファイルすべてにアクセス権を付与する
             permissions :List[FilePermission] = FilePermission.find_by_activity(activity_id)
@@ -1587,6 +1650,7 @@ def next_action(activity_id='0', action_id=0, json_data=None):
                 url_and_expired_date = {}
         action_mails_setting['approval'] = True
 
+        restricted_access_setting = AdminSettings.get("restricted_access", dict_to_object=False) or {}
         next_action_handler = next_action_detail.action_handler
         # in case of current action has action user
         if next_action_handler == -1:
@@ -1595,8 +1659,7 @@ def next_action(activity_id='0', action_id=0, json_data=None):
                 action_id=next_action_id,
                 action_order=next_action_order).one_or_none()
             if current_flow_action and current_flow_action.action_roles and current_flow_action.action_roles[0].action_request_mail:
-                is_request_enabled = (AdminSettings.get("restricted_access", dict_to_object=False) or {}) \
-                    .get("display_request_form", False)
+                is_request_enabled = restricted_access_setting.get("display_request_form", False)
                 #リクエスト機能がAdmin画面で無効化されている場合、メールは送信しない。
                 if is_request_enabled :
                     next_action_handler = work_activity.get_user_ids_of_request_mails_by_activity_id(activity_id)
@@ -1606,16 +1669,18 @@ def next_action(activity_id='0', action_id=0, json_data=None):
                     current_flow_action.action_roles[0].action_user:
                 next_action_handler = current_flow_action.action_roles[
                     0].action_user
-        # next_action_handlerがlist型ならfor文で複数回メール送信する。その際、handlerがロールを満たすか確認する。
-        if type(next_action_handler) == list:
-            for handler in next_action_handler:
-                roles, users = work_activity.get_activity_action_role(activity_id, next_action_id,
-                                                 current_flow_action.action_order)
-                is_approver = work_activity.check_user_role_for_mail(handler, roles)
-                if is_approver:
-                    process_send_approval_mails(activity_detail, action_mails_setting, handler, url_and_expired_date)
-        else:
-            process_send_approval_mails(activity_detail, action_mails_setting, next_action_handler, url_and_expired_date)
+        enable_mail_templates = restricted_access_setting.get("edit_mail_templates_enable", False)
+        if enable_restricted and enable_mail_templates:
+            # next_action_handlerがlist型ならfor文で複数回メール送信する。その際、handlerがロールを満たすか確認する。
+            if type(next_action_handler) == list:
+                for handler in next_action_handler:
+                    roles, users = work_activity.get_activity_action_role(activity_id, next_action_id,
+                                                    current_flow_action.action_order)
+                    is_approver = work_activity.check_user_role_for_mail(handler, roles)
+                    if is_approver:
+                        process_send_approval_mails(activity_detail, action_mails_setting, handler, url_and_expired_date)
+            else:
+                process_send_approval_mails(activity_detail, action_mails_setting, next_action_handler, url_and_expired_date)
     if current_app.config.get(
         'WEKO_WORKFLOW_ENABLE_AUTO_SEND_EMAIL') and \
         current_user.is_authenticated and \
@@ -3956,9 +4021,10 @@ def edit_item_direct_after_login(pid_value):
     latest_pid = PIDVersioning(child=recid).last_child
 
     # ! Check User's Permissions
-    if user_id not in authenticators and not get_user_roles(is_super_role=True)[0]:
-        return render_template("weko_theme/error.html",
-                error="You are not allowed to edit this item."), 400
+    if user_id not in authenticators and not get_user_roles(is_super_role=False)[0]:
+        if not has_comadmin_permission(deposit):
+            return render_template("weko_theme/error.html",
+                    error="You are not allowed to edit this item."), 400
 
     # ! Check dependency ItemType
     if not ItemTypes.get_latest():
@@ -3980,11 +4046,11 @@ def edit_item_direct_after_login(pid_value):
     item_uuid = latest_pid.object_uuid
     post_workflow = activity.get_workflow_activity_by_item_id(item_uuid)
 
-    if post_workflow:
-        is_begin_edit = check_item_is_being_edit(recid, post_workflow, activity)
-        if is_begin_edit:
-            return render_template("weko_theme/error.html",
-                    error="This Item is being edited."), 400
+    
+    is_begin_edit = check_item_is_being_edit(recid, post_workflow, activity)
+    if is_begin_edit:
+        return render_template("weko_theme/error.html",
+                error="This Item is being edited."), 400
 
     post_activity = '{"workflow_id": 0, "flow_id": 0, ' \
         '"itemtype_id": 0, "community": 0, "post_workflow": 0}'
@@ -3997,7 +4063,8 @@ def edit_item_direct_after_login(pid_value):
             recid.object_uuid
         )
         workflow = get_workflow_by_item_type_id(item_type.name_id,
-                                                item_type_id)
+                                                item_type_id,
+                                                with_deleted=False)
         if not workflow:
             return render_template("weko_theme/error.html",
                     error="Workflow setting does not exist."), 400

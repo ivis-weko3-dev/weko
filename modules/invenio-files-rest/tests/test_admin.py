@@ -226,3 +226,257 @@ class TestLocationModelView():
         assert result == dummy_form
         mock_super.assert_called_once_with("dummy_obj")
         mock_handle.assert_called_once_with(dummy_form, "dummy_obj")
+
+
+    # def can_create(self)
+    # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_admin.py::TestLocationModelView::test_can_create -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+    def test_can_create(self, app, db, monkeypatch):
+        monkeypatch.setenv('INVENIO_ROLE_SYSTEM', 'System Administrator')
+        monkeypatch.setenv('INVENIO_ROLE_REPOSITORY', 'Repository Administrator')
+        mock_user = MagicMock()
+
+        # Test Case (Pos): System Administrator can create
+        mock_role_sysad = MagicMock()
+        mock_role_sysad.name = 'System Administrator'
+        mock_user.roles = [mock_role_sysad]
+        with patch('invenio_files_rest.admin.current_user', mock_user):
+            view = LocationModelView(Location, db.session)
+            assert view.can_create
+
+        # Test Case (Pos): Repository Administrator can create
+        mock_role_repoad = MagicMock()
+        mock_role_repoad.name = 'Repository Administrator'
+        mock_user.roles = [mock_role_repoad]
+        with patch('invenio_files_rest.admin.current_user', mock_user):
+            view = LocationModelView(Location, db.session)
+            assert not view.can_create
+
+        # Test Case (Pos): Community Administrator can not create
+        mock_role_repoad = MagicMock()
+        mock_role_repoad.name = 'Community Administrator'
+        mock_user.roles = [mock_role_repoad]
+        with patch('invenio_files_rest.admin.current_user', mock_user):
+            view = LocationModelView(Location, db.session)
+            assert not view.can_create
+
+        # Test Case (Pos): user without role can not create
+        mock_user = MagicMock()
+        mock_user.roles = []
+        with patch('invenio_files_rest.admin.current_user', mock_user):
+            view = LocationModelView(Location, db.session)
+            assert not view.can_create
+
+
+    # def can_edit(self)
+    # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_admin.py::TestLocationModelView::test_can_edit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+    def test_can_edit(self, app, db, monkeypatch):
+        monkeypatch.setenv('INVENIO_ROLE_SYSTEM', 'System Administrator')
+        monkeypatch.setenv('INVENIO_ROLE_REPOSITORY', 'Repository Administrator')
+        mock_user = MagicMock()
+
+        # Test Case (Pos): System Administrator can edit
+        mock_role_sysad = MagicMock()
+        mock_role_sysad.name = 'System Administrator'
+        mock_user.roles = [mock_role_sysad]
+        with patch('invenio_files_rest.admin.current_user', mock_user):
+            view = LocationModelView(Location, db.session)
+            assert view.can_edit
+
+        # Test Case (Pos): Repository Administrator can edit
+        mock_role_repoad = MagicMock()
+        mock_role_repoad.name = 'Repository Administrator'
+        mock_user.roles = [mock_role_repoad]
+        with patch('invenio_files_rest.admin.current_user', mock_user):
+            view = LocationModelView(Location, db.session)
+            assert not view.can_edit
+
+        # Test Case (Pos): Community Administrator can not create
+        mock_role_repoad = MagicMock()
+        mock_role_repoad.name = 'Community Administrator'
+        mock_user.roles = [mock_role_repoad]
+        with patch('invenio_files_rest.admin.current_user', mock_user):
+            view = LocationModelView(Location, db.session)
+            assert not view.can_edit
+
+        # Test Case (Pos): user without role can not edit
+        mock_user = MagicMock()
+        mock_user.roles = []
+        with patch('invenio_files_rest.admin.current_user', mock_user):
+            view = LocationModelView(Location, db.session)
+            assert not view.can_edit
+
+
+    # def can_delete(self)
+    # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_admin.py::TestLocationModelView::test_can_delete -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+    def test_can_delete(self, app, db, monkeypatch):
+        monkeypatch.setenv('INVENIO_ROLE_SYSTEM', 'System Administrator')
+        monkeypatch.setenv('INVENIO_ROLE_REPOSITORY', 'Repository Administrator')
+        mock_user = MagicMock()
+
+        # Test Case (Pos): System Administrator can delete
+        mock_role_sysad = MagicMock()
+        mock_role_sysad.name = 'System Administrator'
+        mock_user.roles = [mock_role_sysad]
+        with patch('invenio_files_rest.admin.current_user', mock_user):
+            view = LocationModelView(Location, db.session)
+            assert view.can_delete
+
+        # Test Case (Pos): Repository Administrator can delete
+        mock_role_repoad = MagicMock()
+        mock_role_repoad.name = 'Repository Administrator'
+        mock_user.roles = [mock_role_repoad]
+        with patch('invenio_files_rest.admin.current_user', mock_user):
+            view = LocationModelView(Location, db.session)
+            assert not view.can_delete
+
+        # Test Case (Pos): Community Administrator can not delete
+        mock_role_repoad = MagicMock()
+        mock_role_repoad.name = 'Community Administrator'
+        mock_user.roles = [mock_role_repoad]
+        with patch('invenio_files_rest.admin.current_user', mock_user):
+            view = LocationModelView(Location, db.session)
+            assert not view.can_delete
+
+        # Test Case (Pos): user without role can not delete
+        mock_user = MagicMock()
+        mock_user.roles = []
+        with patch('invenio_files_rest.admin.current_user', mock_user):
+            view = LocationModelView(Location, db.session)
+            assert not view.can_delete
+
+
+    def test_get_query(self, app, db, monkeypatch):
+        """Test get_query filters locations based on user roles."""
+        monkeypatch.setenv('INVENIO_ROLE_SYSTEM', 'System Administrator')
+        monkeypatch.setenv('INVENIO_ROLE_REPOSITORY', 'Repository Administrator')
+        
+        # Create test locations
+        default_loc = Location(name='default-loc', uri='/tmp/default', default=True)
+        non_default_loc = Location(name='non-default-loc', uri='/tmp/non-default', default=False)
+        db.session.add(default_loc)
+        db.session.add(non_default_loc)
+        db.session.commit()
+        
+        try:
+            mock_user = MagicMock()
+            
+            # Test Case: System Administrator sees all locations (including default)
+            mock_role_sysad = MagicMock()
+            mock_role_sysad.name = 'System Administrator'
+            mock_user.roles = [mock_role_sysad]
+            with patch('invenio_files_rest.admin.current_user', mock_user):
+                view = LocationModelView(Location, db.session)
+                query = view.get_query()
+                locations = query.all()
+                location_names = {loc.name for loc in locations}
+                assert 'default-loc' in location_names
+                assert 'non-default-loc' in location_names
+            
+            # Test Case: Repository Administrator does not see default locations
+            mock_role_repoad = MagicMock()
+            mock_role_repoad.name = 'Repository Administrator'
+            mock_user.roles = [mock_role_repoad]
+            with patch('invenio_files_rest.admin.current_user', mock_user):
+                view = LocationModelView(Location, db.session)
+                query = view.get_query()
+                locations = query.all()
+                location_names = {loc.name for loc in locations}
+                assert 'default-loc' in location_names
+                assert 'non-default-loc' in location_names
+            
+            # Test Case: Community Administrator does not see default locations
+            mock_role_commad = MagicMock()
+            mock_role_commad.name = 'Community Administrator'
+            mock_user.roles = [mock_role_commad]
+            with patch('invenio_files_rest.admin.current_user', mock_user):
+                view = LocationModelView(Location, db.session)
+                query = view.get_query()
+                locations = query.all()
+                location_names = {loc.name for loc in locations}
+                assert 'default-loc' not in location_names
+                assert 'non-default-loc' in location_names
+            
+            # Test Case: User without role does not see default locations
+            mock_user.roles = []
+            with patch('invenio_files_rest.admin.current_user', mock_user):
+                view = LocationModelView(Location, db.session)
+                query = view.get_query()
+                locations = query.all()
+                location_names = {loc.name for loc in locations}
+                assert 'default-loc' not in location_names
+                assert 'non-default-loc' in location_names
+        finally:
+            # Clean up test locations
+            db.session.delete(default_loc)
+            db.session.delete(non_default_loc)
+            db.session.commit()
+
+
+    def test_get_count_query(self, app, db, monkeypatch):
+        """Test get_count_query filters locations based on user roles."""
+        monkeypatch.setenv('INVENIO_ROLE_SYSTEM', 'System Administrator')
+        monkeypatch.setenv('INVENIO_ROLE_REPOSITORY', 'Repository Administrator')
+        
+        # Create test locations
+        default_loc = Location(name='default-loc-count', uri='/tmp/default-count', default=True)
+        non_default_loc1 = Location(name='non-default-loc-1', uri='/tmp/non-default-1', default=False)
+        non_default_loc2 = Location(name='non-default-loc-2', uri='/tmp/non-default-2', default=False)
+        db.session.add(default_loc)
+        db.session.add(non_default_loc1)
+        db.session.add(non_default_loc2)
+        db.session.commit()
+        
+        try:
+            mock_user = MagicMock()
+            
+            # Test Case: System Administrator sees count of all locations (including default)
+            mock_role_sysad = MagicMock()
+            mock_role_sysad.name = 'System Administrator'
+            mock_user.roles = [mock_role_sysad]
+            with patch('invenio_files_rest.admin.current_user', mock_user):
+                view = LocationModelView(Location, db.session)
+                query = view.get_count_query()
+                count = query.count()
+                # Should see all locations in the database
+                total_locations = db.session.query(Location).count()
+                assert count == total_locations
+            
+            # Test Case: Repository Administrator sees count excluding default locations
+            mock_role_repoad = MagicMock()
+            mock_role_repoad.name = 'Repository Administrator'
+            mock_user.roles = [mock_role_repoad]
+            with patch('invenio_files_rest.admin.current_user', mock_user):
+                view = LocationModelView(Location, db.session)
+                query = view.get_count_query()
+                count = query.count()
+                # Should only see non-default locations
+                non_default_count = db.session.query(Location).filter_by(default=False).count()
+                assert count == non_default_count
+            
+            # Test Case: Community Administrator sees count excluding default locations
+            mock_role_commad = MagicMock()
+            mock_role_commad.name = 'Community Administrator'
+            mock_user.roles = [mock_role_commad]
+            with patch('invenio_files_rest.admin.current_user', mock_user):
+                view = LocationModelView(Location, db.session)
+                query = view.get_count_query()
+                count = query.count()
+                # Should only see non-default locations
+                non_default_count = db.session.query(Location).filter_by(default=False).count()
+                assert count == non_default_count
+            
+            # Test Case: User without role sees count excluding default locations
+            mock_user.roles = []
+            with patch('invenio_files_rest.admin.current_user', mock_user):
+                view = LocationModelView(Location, db.session)
+                query = view.get_count_query()
+                count = query.count()
+                # Should only see non-default locations
+                non_default_count = db.session.query(Location).filter_by(default=False).count()
+                assert count == non_default_count
+        finally:
+            # Clean up test locations
+            db.session.delete(default_loc)
+            db.session.delete(non_default_loc1)
+            db.session.delete(non_default_loc2)
+            db.session.commit()

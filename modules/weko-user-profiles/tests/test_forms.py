@@ -386,6 +386,40 @@ class TestProfileForm:
         res = client.post("/test_form/profile_form",data=data)
         assert res.data == bytes("invalid","utf-8")
 
+    def test_init_storage_fields_removed_when_disabled(self, app):
+        """Test that storage fields are removed when feature flag is disabled."""
+        # Set the config to disable storage modification
+        app.config.update(
+            WEKO_RECORDS_UI_USER_STORAGE_MODIFICATION_ENABLED=False
+        )
+        
+        with app.app_context():
+            # Create the form
+            form = ProfileForm()
+            
+            # Verify storage-related fields are removed
+            assert not hasattr(form, 'access_key')
+            assert not hasattr(form, 'secret_key')
+            assert not hasattr(form, 's3_endpoint_url')
+            assert not hasattr(form, 's3_region_name')
+
+    def test_init_storage_fields_present_when_enabled(self, app):
+        """Test that storage fields are present when feature flag is enabled."""
+        # Set the config to enable storage modification
+        app.config.update(
+            WEKO_RECORDS_UI_USER_STORAGE_MODIFICATION_ENABLED=True
+        )
+        
+        with app.app_context():
+            # Create the form
+            form = ProfileForm()
+            
+            # Verify storage-related fields are present
+            assert hasattr(form, 'access_key')
+            assert hasattr(form, 'secret_key')
+            assert hasattr(form, 's3_endpoint_url')
+            assert hasattr(form, 's3_region_name')
+
 # def custom_profile_form_factory(profile_cls):
 # .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_forms.py::test_custom_profile_form_factory -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
 class DummyClass:
@@ -711,7 +745,66 @@ def test_EmailProfileForm(app):
             assert "username" in form.data
             assert "university" not in form.data
             assert "phoneNumber" not in form.data
+        
+        current_app.config.update(WEKO_USERPROFILES_CUSTOMIZE_ENABLED = True)
+        #AdminSettings.get=True
+        with patch('weko_admin.models.AdminSettings.get',
+                   return_value={"item3": {"order": 7, "visible": True, "label_name": "所属学会名", "format": "text"},
+                                 "item6": {"order": 10, "visible": False, "label_name": "所属学会役職", "format": "select"}}):
+            form = EmailProfileForm(
+                    formdata=None,
+                    username="test",
+                    fullname="test user",
+                    timezone="Etc/GMT-9",
+                    language="ja",
+                    email="test@test.org",
+                    email_repeat="test@test.org",
+                    university="test university",
+                    department="test department",
+                    position="test position",
+                    item1="test other position",
+                    item2="1234567",
+                    item3="test institute",
+                    item4="test institute position",
+                    item5="test institute2",
+                    item6="test institute position2",
+                    item7="",
+                    item8="",
+                    item9="",
+                    item10="",
+                    item11="",
+                    item12=""
+                )
+            assert "item3" in form.data
+            assert "item6" not in form.data
 
+        #university:visible == True
+        form = EmailProfileForm(
+                formdata=None,
+                username="test",
+                fullname="test user",
+                timezone="Etc/GMT-9",
+                language="ja",
+                email="test@test.org",
+                email_repeat="test@test.org",
+                university="test university",
+                department="test department",
+                position="test position",
+                item1="test other position",
+                item2="1234567",
+                item3="test institute",
+                item4="test institute position",
+                item5="test institute2",
+                item6="test institute position2",
+                item7="",
+                item8="",
+                item9="",
+                item10="",
+                item11="",
+                item12=""
+            )
+        assert "university" in form.data
+        assert "item1" not in form.data
 
 #class VerificationForm(FlaskForm):
 # .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_forms.py::test_verificationForm -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp

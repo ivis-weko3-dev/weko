@@ -21,7 +21,7 @@ from invenio_accounts.models import User
 from invenio_records_files.models import RecordsBuckets
 from invenio_files_rest.models import Bucket
 from invenio_cache import current_cache
-from invenio_pidstore.models import PersistentIdentifier, PIDStatus, RecordIdentifier
+from invenio_pidstore.models import PersistentIdentifier, PIDStatus, RecordIdentifier, PIDDoesNotExistError
 from flask_login.utils import login_user
 from .helpers import json_data, create_activity
 from invenio_mail.models import MailConfig, MailTemplateUsers
@@ -32,7 +32,7 @@ from weko_records_ui.utils import get_list_licence
 from weko_user_profiles import UserProfile
 from weko_records.api import ItemTypes, ItemsMetadata, Mapping
 from weko_user_profiles.config import WEKO_USERPROFILES_POSITION_LIST,WEKO_USERPROFILES_INSTITUTE_POSITION_LIST
-from weko_workflow.models import Activity, ActivityHistory, GuestActivity
+from weko_workflow.models import Activity, ActivityHistory, FlowActionRole, GuestActivity
 from weko_workflow.config import WEKO_WORKFLOW_FILTER_PARAMS,IDENTIFIER_GRANT_LIST
 from weko_workflow.errors import InvalidParameterValueError
 from weko_workflow.utils import (
@@ -157,9 +157,12 @@ from weko_workflow.utils import (
     load_template,
     fill_template,
     get_non_extract_files_by_recid,
-    check_activity_settings
+    check_activity_settings,
+    reset_flow_action_roles_restricted_access
 )
-from weko_workflow.api import WorkActivity
+from weko_workflow.api import GetCommunity, UpdateItem, WorkActivity, WorkActivityHistory, WorkFlow
+from weko_workflow.models import Activity,ActionIdentifier
+from datetime import timedelta
 
 # def get_current_language():
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_get_current_language -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
@@ -858,6 +861,25 @@ class TestIdentifierHandle:
         mock_mapping_data.assert_called_once()
         mock_get_metadata.assert_called_once_with(item_uuid)
 
+        with patch("weko_workflow.utils.WekoRecord.get_record", return_value=MagicMock(spec=WekoRecord)) as mock_get_record, \
+                patch("weko_workflow.utils.ItemTypes.get_by_id", return_value=MagicMock(spec=ItemType, id=1)) as mock_get_by_id, \
+                patch("weko_workflow.utils.Mapping.get_record", return_value=MagicMock(spec=Mapping)) as mock_get_mapping, \
+                patch("weko_workflow.utils.ItemsMetadata.get_record", return_value=MagicMock(spec=ItemsMetadata)) as mock_get_metadata, \
+                patch("weko_workflow.utils.get_full_mapping", return_value={"mapping": "mapping"}) as mock_mapping_data:
+            obj2 = IdentifierHandle(item_uuid,record={"id" : 1},item_type_id=1)
+        assert obj2.item_uuid == item_uuid
+        assert obj2.item_record is not None
+        mock_get_record.assert_not_called()
+        mock_get_by_id.assert_not_called()
+        mock_get_mapping.assert_called_once_with(1)
+        mock_mapping_data.assert_called_once()
+        mock_get_metadata.assert_called_once_with(item_uuid)
+
+        with patch("weko_workflow.utils.WekoRecord.get_record", return_value=MagicMock(spec=WekoRecord)) as mock_get_record, \
+                patch("weko_workflow.utils.ItemTypes.get_by_id", return_value=None) as mock_get_by_id:
+                with pytest.raises(ValueError) as e:
+                    obj3 = IdentifierHandle(item_uuid)
+                    assert str(e.value) == "item_type is None"
 #     def get_pidstore(self, pid_type='doi', object_uuid=None):
 
     # def check_pidstore_exist(self, pid_type, chk_value=None):
@@ -1117,6 +1139,555 @@ def test_prepare_edit_workflow(app, workflow, db_records,users,mocker, order_if)
             res = prepare_edit_workflow(data,recid,deposit)
             assert res.activity_id != None
 
+        mocker.patch("weko_workflow.utils.IdentifierHandle.get_pidstore")
+        with patch("weko_deposit.api.WekoRecord.get_record_by_pid", return_value=None):
+            recid = db_records[4][0]
+            deposit = db_records[4][6]
+            res = prepare_edit_workflow(data,recid,deposit)
+            assert res.activity_id != None
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_existing_draft_pid_and_bucket -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_existing_draft_pid_and_bucket(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        recid = db_records[3][0]
+        deposit = db_records[3][6]
+
+        # 52716-2 existing draft pid and bucket
+        res = prepare_edit_workflow(data, recid, deposit)
+        assert res.item_id != None
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_existing_draft_pid_no_bucket -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_existing_draft_pid_no_bucket(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        draft_pid = db_records[12][0]
+        deposit = db_records[12][6]
+
+        before_count_bucket = Bucket.query.count()
+        before_count_records_buckets = RecordsBuckets.query.count()
+
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+
+        mocker.patch("invenio_deposit.api.Deposit.files")
+        create_bucket_mock = mocker.patch("invenio_files_rest.models.Bucket.create")
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        mocker.patch("invenio_files_rest.models.Bucket.get" , return_value=None)
+
+        # 52716-3 existing draft pid but no bucket
+        with patch("invenio_records_files.models.RecordsBuckets.create", side_effect=SQLAlchemyError("Test Exception")) as create_records_buckets_mock:
+            with pytest.raises(SQLAlchemyError) as excinfo:
+                prepare_edit_workflow(data, draft_pid, deposit)
+
+                assert create_bucket_mock.called
+                assert create_records_buckets_mock.called
+                assert str(ex) == "Test Exception"
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_check_doi -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_check_doi(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+        draft_pid = db_records[3][0]
+        deposit = db_records[3][6]
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        mock_pid_doi = MagicMock()
+        # 52716-4 pid_doi.status == PIDStatus.DELETED
+        mock_pid_doi.status = PIDStatus.DELETED
+        with patch("weko_workflow.utils.IdentifierHandle.get_pidstore", return_value=mock_pid_doi):
+            rtn = prepare_edit_workflow(data, draft_pid, deposit)
+
+            action_identifier = ActionIdentifier.query.filter_by(activity_id=rtn.activity_id).first()
+            assert action_identifier.action_identifier_select == -3
+
+        # 52716-5 pid_doi.status is not PIDStatus.DELETED
+        mock_pid_doi.status = PIDStatus.REGISTERED
+        with patch("weko_workflow.utils.IdentifierHandle.get_pidstore", return_value=mock_pid_doi):
+            rtn = prepare_edit_workflow(data, draft_pid, deposit)
+
+            action_identifier = ActionIdentifier.query.filter_by(activity_id=rtn.activity_id).first()
+            assert action_identifier.action_identifier_select == -1
+
+        # 52716-6 pid_doi is None
+        mock_pid_doi = None
+        with patch("weko_workflow.utils.IdentifierHandle.get_pidstore", return_value=mock_pid_doi):
+            rtn = prepare_edit_workflow(data, draft_pid, deposit)
+
+            action_identifier = ActionIdentifier.query.filter_by(activity_id=rtn.activity_id).first()
+            assert action_identifier.action_identifier_select == 0
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_existing_feedbackmail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_existing_feedbackmail(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        recid = db_records[3][0]
+        deposit = db_records[3][6]
+
+        # 52716-7 feedbackmail exists
+        with patch("weko_workflow.utils.FeedbackMailList.get_mail_list_by_item_id", return_value=["test@example.com"]):
+            mock_create_or_update_action_feedbackmail = mocker.patch("weko_workflow.api.WorkActivity.create_or_update_action_feedbackmail")
+            res = prepare_edit_workflow(data, recid, deposit)
+
+            assert mock_create_or_update_action_feedbackmail.called
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_rtn_none -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_rtn_none(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        recid = db_records[3][0]
+        deposit = db_records[3][6]
+
+        # 52716-9 failed init_activity
+        with patch("weko_workflow.api.WorkActivity.init_activity", return_value=None):
+            res = prepare_edit_workflow(data, recid, deposit)
+
+            assert res is None
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_exception(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        draft_pid = db_records[3][0]
+        deposit = db_records[3][6]
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+        # 52716-10 raises SQLAlchemyError
+        with patch("weko_workflow.utils.WekoDeposit.commit", side_effect=SQLAlchemyError("Test Exception")):
+            with pytest.raises(SQLAlchemyError) as excinfo:
+                prepare_edit_workflow(data, draft_pid, deposit)
+            assert str(excinfo.value) == "Test Exception"
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_draft_item_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_draft_item_exception(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+        draft_pid = db_records[2][0]
+        deposit = db_records[2][6]
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        # 52716-11 failed prepare_draft_item
+        mocker.patch("weko_deposit.api.WekoDeposit.prepare_draft_item", return_value=None)
+        with pytest.raises(AttributeError) as excinfo:
+            prepare_edit_workflow(data, draft_pid, deposit)
+        assert "object has no attribute" in str(excinfo.value)
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_get_record_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_get_record_exception(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+        draft_pid = db_records[3][0]
+        deposit = db_records[3][6]
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        # 52716-12 failed get_record
+        mocker.patch("weko_deposit.api.WekoDeposit.get_record", return_value=None)
+        with pytest.raises(AttributeError) as excinfo:
+            prepare_edit_workflow(data, draft_pid, deposit)
+        assert "object has no attribute" in str(excinfo.value)
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_convert_item_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_convert_item_exception(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+        draft_pid = db_records[12][0]
+        deposit = db_records[12][6]
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        # 52716-13 failed convert_record_to_item_metadata
+        with pytest.raises(KeyError) as excinfo:
+            prepare_edit_workflow(data, draft_pid, deposit)
+        assert isinstance(excinfo.value, KeyError)
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_pidstore_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_pidstore_exception(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+        draft_pid = db_records[3][0]
+        deposit = db_records[3][6]
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        # 52716-14 failed get_pidstore
+        with patch("weko_workflow.utils.get_parent_pid_with_type", side_effect=PIDDoesNotExistError("recid", draft_pid.pid_value)):
+            with pytest.raises(PIDDoesNotExistError):
+                rtn = prepare_edit_workflow(data, draft_pid, deposit)
+
+                action_identifier = ActionIdentifier.query.filter_by(activity_id=rtn.activity_id).first()
+                assert action_identifier.action_identifier_select == 0
+
+
+        mocker.patch("weko_workflow.utils.IdentifierHandle.get_pidstore")
+        with patch("weko_deposit.api.WekoRecord.get_record_by_pid", return_value=None):
+            recid = db_records[4][0]
+            deposit = db_records[4][6]
+            res = prepare_edit_workflow(data,recid,deposit)
+            assert res.activity_id != None
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_existing_draft_pid_and_bucket -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_existing_draft_pid_and_bucket(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        recid = db_records[3][0]
+        deposit = db_records[3][6]
+
+        # 52716-2 existing draft pid and bucket
+        res = prepare_edit_workflow(data, recid, deposit)
+        assert res.item_id != None
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_existing_draft_pid_no_bucket -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_existing_draft_pid_no_bucket(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        draft_pid = db_records[12][0]
+        deposit = db_records[12][6]
+
+        before_count_bucket = Bucket.query.count()
+        before_count_records_buckets = RecordsBuckets.query.count()
+
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+
+        mocker.patch("invenio_deposit.api.Deposit.files")
+        create_bucket_mock = mocker.patch("invenio_files_rest.models.Bucket.create")
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        mocker.patch("invenio_files_rest.models.Bucket.get" , return_value=None)
+
+        # 52716-3 existing draft pid but no bucket
+        with patch("invenio_records_files.models.RecordsBuckets.create", side_effect=SQLAlchemyError("Test Exception")) as create_records_buckets_mock:
+            with pytest.raises(SQLAlchemyError) as excinfo:
+                prepare_edit_workflow(data, draft_pid, deposit)
+
+                assert create_bucket_mock.called
+                assert create_records_buckets_mock.called
+                assert str(ex) == "Test Exception"
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_check_doi -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_check_doi(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+        draft_pid = db_records[3][0]
+        deposit = db_records[3][6]
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        mock_pid_doi = MagicMock()
+        # 52716-4 pid_doi.status == PIDStatus.DELETED
+        mock_pid_doi.status = PIDStatus.DELETED
+        with patch("weko_workflow.utils.IdentifierHandle.get_pidstore", return_value=mock_pid_doi):
+            rtn = prepare_edit_workflow(data, draft_pid, deposit)
+
+            action_identifier = ActionIdentifier.query.filter_by(activity_id=rtn.activity_id).first()
+            assert action_identifier.action_identifier_select == -3
+
+        # 52716-5 pid_doi.status is not PIDStatus.DELETED
+        mock_pid_doi.status = PIDStatus.REGISTERED
+        with patch("weko_workflow.utils.IdentifierHandle.get_pidstore", return_value=mock_pid_doi):
+            rtn = prepare_edit_workflow(data, draft_pid, deposit)
+
+            action_identifier = ActionIdentifier.query.filter_by(activity_id=rtn.activity_id).first()
+            assert action_identifier.action_identifier_select == -1
+
+        # 52716-6 pid_doi is None
+        mock_pid_doi = None
+        with patch("weko_workflow.utils.IdentifierHandle.get_pidstore", return_value=mock_pid_doi):
+            rtn = prepare_edit_workflow(data, draft_pid, deposit)
+
+            action_identifier = ActionIdentifier.query.filter_by(activity_id=rtn.activity_id).first()
+            assert action_identifier.action_identifier_select == 0
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_existing_feedbackmail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_existing_feedbackmail(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        recid = db_records[3][0]
+        deposit = db_records[3][6]
+
+        # 52716-7 feedbackmail exists
+        with patch("weko_workflow.utils.FeedbackMailList.get_mail_list_by_item_id", return_value=["test@example.com"]):
+            mock_create_or_update_action_feedbackmail = mocker.patch("weko_workflow.api.WorkActivity.create_or_update_action_feedbackmail")
+            res = prepare_edit_workflow(data, recid, deposit)
+
+            assert mock_create_or_update_action_feedbackmail.called
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_rtn_none -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_rtn_none(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        recid = db_records[3][0]
+        deposit = db_records[3][6]
+
+        # 52716-9 failed init_activity
+        with patch("weko_workflow.api.WorkActivity.init_activity", return_value=None):
+            res = prepare_edit_workflow(data, recid, deposit)
+
+            assert res is None
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_exception(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        draft_pid = db_records[3][0]
+        deposit = db_records[3][6]
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+        # 52716-10 raises SQLAlchemyError
+        with patch("weko_workflow.utils.WekoDeposit.commit", side_effect=SQLAlchemyError("Test Exception")):
+            with pytest.raises(SQLAlchemyError) as excinfo:
+                prepare_edit_workflow(data, draft_pid, deposit)
+            assert str(excinfo.value) == "Test Exception"
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_draft_item_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_draft_item_exception(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+        draft_pid = db_records[2][0]
+        deposit = db_records[2][6]
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        # 52716-11 failed prepare_draft_item
+        mocker.patch("weko_deposit.api.WekoDeposit.prepare_draft_item", return_value=None)
+        with pytest.raises(AttributeError) as excinfo:
+            prepare_edit_workflow(data, draft_pid, deposit)
+        assert "object has no attribute" in str(excinfo.value)
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_get_record_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_get_record_exception(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+        draft_pid = db_records[3][0]
+        deposit = db_records[3][6]
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        # 52716-12 failed get_record
+        mocker.patch("weko_deposit.api.WekoDeposit.get_record", return_value=None)
+        with pytest.raises(AttributeError) as excinfo:
+            prepare_edit_workflow(data, draft_pid, deposit)
+        assert "object has no attribute" in str(excinfo.value)
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_convert_item_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_convert_item_exception(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+        draft_pid = db_records[12][0]
+        deposit = db_records[12][6]
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        # 52716-13 failed convert_record_to_item_metadata
+        with pytest.raises(KeyError) as excinfo:
+            prepare_edit_workflow(data, draft_pid, deposit)
+        assert isinstance(excinfo.value, KeyError)
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_pidstore_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_pidstore_exception(app, workflow, db_records, users, mocker):
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+        draft_pid = db_records[3][0]
+        deposit = db_records[3][6]
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        # 52716-14 failed get_pidstore
+        with patch("weko_workflow.utils.get_parent_pid_with_type", side_effect=PIDDoesNotExistError("recid", draft_pid.pid_value)):
+            with pytest.raises(PIDDoesNotExistError):
+                rtn = prepare_edit_workflow(data, draft_pid, deposit)
+
+                action_identifier = ActionIdentifier.query.filter_by(activity_id=rtn.activity_id).first()
+                assert action_identifier.action_identifier_select == 0
+
+
+
 # def prepare_edit_workflow(post_activity, recid, deposit):
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 @pytest.mark.parametrize("order_if",[0, 1])
@@ -1152,12 +1723,12 @@ def test_prepare_edit_workflow2(app, workflow, db_records,users,mocker, order_if
 
 # def prepare_delete_workflow(deposit, current_pid, recid):
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_delete_workflow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_prepare_delete_workflow(app, db_records,users,db_register_fullaction,mocker):
+def test_prepare_delete_workflow(app, db_records,users,db_register_full_action,mocker):
     # delete flow item
     del_recid, _, _, _, _, _, del_deposit = db_records[7]
-    del_workflow_id = db_register_fullaction["activities"][7].workflow_id
-    del_flow_id = db_register_fullaction["activities"][7].flow_id
-    del_title = db_register_fullaction["activities"][7].title
+    del_workflow_id = db_register_full_action["activities"][7].workflow_id
+    del_flow_id = db_register_full_action["activities"][7].flow_id
+    del_title = db_register_full_action["activities"][7].title
     del_post_activity = {
         'pid_value': del_recid, 'itemtype_id': '1',
         'community': None, 'workflow_id': del_workflow_id,
@@ -1166,9 +1737,9 @@ def test_prepare_delete_workflow(app, db_records,users,db_register_fullaction,mo
 
     # not delete flow item
     recid_1,  _, _, _, _, _, deposit_1 = db_records[2]
-    workflow_id_1 = db_register_fullaction["activities"][0].workflow_id
-    flow_id_1 = db_register_fullaction["activities"][0].flow_id
-    title_1 = db_register_fullaction["activities"][0].title
+    workflow_id_1 = db_register_full_action["activities"][0].workflow_id
+    flow_id_1 = db_register_full_action["activities"][0].flow_id
+    title_1 = db_register_full_action["activities"][0].title
     post_activity_1 = {
         'pid_value': recid_1, 'itemtype_id': '1',
         'community': None, 'workflow_id': workflow_id_1,
@@ -1177,22 +1748,24 @@ def test_prepare_delete_workflow(app, db_records,users,db_register_fullaction,mo
 
     # approval delete flow item
     app_recid, _, _, _, _, _, app_deposit = db_records[7]
-    app_workflow_id = db_register_fullaction["activities"][8].workflow_id
-    app_flow_id = db_register_fullaction["activities"][8].flow_id
-    app_title = db_register_fullaction["activities"][8].title
+    app_workflow_id = db_register_full_action["activities"][8].workflow_id
+    app_flow_id = db_register_full_action["activities"][8].flow_id
+    app_title = db_register_full_action["activities"][8].title
     app_post_activity = {
         'pid_value': app_recid, 'itemtype_id': '1',
         'community': None, 'workflow_id': app_workflow_id,
         'title': app_title, 'flow_id': app_flow_id, 'shared_user_ids': []
     }
 
-    current_app.config.update(WEKO_NOTIFICATIONS=False)
+    current_app.config.update(
+            WEKO_NOTIFICATIONS=False
+        )
     with app.test_request_context(), \
             patch("flask_login.utils._get_user", return_value=users[0]['obj']), \
             patch("weko_records_ui.views.check_created_id_by_recid", return_value=True), \
             patch("weko_records_ui.views.soft_delete", return_value=True):
-        # result = prepare_delete_workflow(del_post_activity, del_recid, del_deposit)
-        # assert result.workflow_id
+        result = prepare_delete_workflow(del_post_activity, del_recid, del_deposit)
+        assert result.workflow_id
 
         result = prepare_delete_workflow(post_activity_1, recid_1, deposit_1)
         assert result.workflow_id
@@ -3331,9 +3904,10 @@ def test_create_onetime_download_url_to_guest(
 
 
 # def create_onetime_download_url_to_guest(activity_id: str,
-# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_create_onetime_download_url_to_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_create_onetime_download_url_to_guest_password(app, workflow,mocker):
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_create_onetime_download_url_to_guest_password -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_create_onetime_download_url_to_guest_password(app, workflow,mocker, users):
     with app.test_request_context():
+        login_user(users[7]["obj"])
         today = datetime.datetime(2022,10,6,1,2,3,4)
         datetime_mock = mocker.patch("weko_workflow.utils.datetime")
         datetime_mock.today.return_value=today
@@ -3360,18 +3934,23 @@ def test_create_onetime_download_url_to_guest_password(app, workflow,mocker):
         datetime_mock_ui = mocker.patch("weko_records_ui.utils.dt")
         datetime_mock_ui.utcnow.return_value=today
         expiration_date = today + datetime.timedelta(days=30)
-        mocker.patch("weko_records_ui.utils.oracle10.hash",return_value="CE06FDFB15823A5C")
-        url_token = "{} {} {} {}".format(record_id,user_mail,"2022-10-06","CE06FDFB15823A5C")
-        url_token_value = base64.b64encode(url_token.encode()).decode()
-        url = 'http://TEST_SERVER.localdomain/record/{}/file/onetime/test_file.txt?token={}'.format(record_id,url_token_value)
+        mock_url_obj=FileOnetimeDownload(user_mail=user_mail
+                                ,record_id=record_id
+                                ,file_name=file_name
+                                ,download_limit=1
+                                ,expiration_date = expiration_date
+                                ,extra_info=extra_info
+                                ,is_guest=True
+                                ,approver_id=1)
+        from weko_records_ui.utils import create_download_url
+        url = create_download_url(mock_url_obj)
         test = {
             "file_url":url,
-            "expiration_date":expiration_date.strftime("%Y-%m-%d"),
-            "expiration_date_ja":"",
-            "expiration_date_en":""
+            "expiration_date":expiration_date.strftime("%Y-%m-%d")
         }
-        result = create_onetime_download_url_to_guest(activity_id, extra_info)
-        assert result == test
+        with patch("weko_records_ui.utils.create_onetime_url_record",return_value=mock_url_obj):
+            result = create_onetime_download_url_to_guest(activity_id, extra_info)
+            assert result == test
 
         # not exist user_mail
         extra_info = {
@@ -3379,19 +3958,28 @@ def test_create_onetime_download_url_to_guest_password(app, workflow,mocker):
             "record_id":record_id,
             "guest_mail":user_mail
         }
-        result = create_onetime_download_url_to_guest(activity_id, extra_info)
-        assert result == test
-
-        # raise OverflowError
-        with patch("weko_workflow.utils.timedelta",side_effect=OverflowError):
-            test = {
-                "file_url":url,
-                "expiration_date":"",
-                "expiration_date_ja":"無制限",
-                "expiration_date_en":"Unlimited"
-            }
+        mock_url_obj=FileOnetimeDownload(user_mail=user_mail
+                                ,record_id=record_id
+                                ,file_name=file_name
+                                ,download_limit=1
+                                ,expiration_date = expiration_date
+                                ,extra_info=extra_info
+                                ,is_guest=True
+                                ,approver_id=1)
+        url = create_download_url(mock_url_obj)
+        with patch("weko_records_ui.utils.create_onetime_url_record",return_value=mock_url_obj):
             result = create_onetime_download_url_to_guest(activity_id, extra_info)
             assert result == test
+
+        # raise Exception
+        url = create_download_url(mock_url_obj)
+        with patch("weko_records_ui.utils.create_onetime_url_record",side_effect=Exception("Test Error")):
+            mock_logger = mocker.patch("weko_workflow.utils.current_app.logger.error")
+            test = {}
+            result = create_onetime_download_url_to_guest(activity_id, extra_info)
+            assert result == test
+            mock_logger.assert_called_once_with("Failed to create onetime URL.")
+
 # def delete_guest_activity(activity_id: str) -> bool:
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_delete_guest_activity -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_delete_guest_activity(client,workflow):
@@ -3431,10 +4019,10 @@ def test_get_activity_display_info(app,db, users, db_register_full_action, mocke
         with db.session.begin_nested():
             db.session.add(db_history1)
         test_steps = [
-            {"ActivityId":activity_id,"ActionId":1,"ActionName":"Start","ActionVersion":"1.0.0","ActionEndpoint":"begin_action", "Author":"contributor@test.org", "Status":"action_doing", "ActionOrder":1},
+            {"ActivityId":activity_id,"ActionId":1,"ActionName":"Start","ActionVersion":"1.0.0","ActionEndpoint":"begin_action", "Author":"user@test.org", "Status":"action_doing", "ActionOrder":1},
             {"ActivityId":activity_id,"ActionId":3,"ActionName":"Item Registration","ActionVersion":"1.0.0","ActionEndpoint":"item_login", "Author":"", "Status":" ","ActionOrder":2},
             {"ActivityId":activity_id,"ActionId":5,"ActionName":"Item Link","ActionVersion":"1.0.0","ActionEndpoint":"item_link", "Author":"", "Status":" ","ActionOrder":3},
-            {"ActivityId":activity_id,"ActionId":4,"ActionName":"Approval","ActionVersion":"1.0.0","ActionEndpoint":"approval", "Author":"", "Status":" ","ActionOrder":4}
+            {"ActivityId":activity_id,"ActionId":4,"ActionName":"Approval","ActionVersion":"1.0.0","ActionEndpoint":"approval","Author":"","Status":" ","ActionOrder":4}
         ]
         endpoint, action_id, activity_detail, cur_action, histories, item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids = get_activity_display_info(activity_id)
         assert endpoint == "begin_action"
@@ -3473,12 +4061,24 @@ def test_get_activity_display_info(app,db, users, db_register_full_action, mocke
         # if metadata: == True
         import json
         target_activity = Activity.query.filter_by(activity_id=activity_id).first()
-        target_activity.temp_data = json.dumps({"metainfo":{"owner": 2, "shared_user_ids":[{"user": -1}, {"user": 1}]}})
-        db.session.merge(activity)
+        target_activity.temp_data = json.dumps({"metainfo":{"owner": 2, "shared_user_ids":[{"user": -1}, {"user": 1}, {"user": 1}]}})
+        db.session.merge(target_activity)
         db.session.commit()
         endpoint, action_id, activity_detail, cur_action, histories, item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids = get_activity_display_info(activity_id)
         assert owner_id == 2
-        assert shared_user_ids == [{"user": -1}, {"user": 1}]
+        assert shared_user_ids == [{"user":-1},{"user":1}]
+
+        # if metadata: owner and shared_user_ids are int
+        import json
+        target_activity = Activity.query.filter_by(activity_id=activity_id).first()
+        target_activity.shared_user_ids = [{'user': -1}, {'user': 1}, {'user': 1}]
+        target_activity.temp_data = json.dumps({"metainfo":{"owner": 2, "shared_user_ids":[-1,1]}})
+        db.session.merge(target_activity)
+        db.session.commit()
+        endpoint, action_id, activity_detail, cur_action, histories, item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids = get_activity_display_info(activity_id)
+        assert owner_id == 2
+        assert shared_user_ids == [{"user":-1},{"user":1}]
+
 
 # def __init_activity_detail_data_for_guest(activity_id: str, community_id: str):
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test___init_activity_detail_data_for_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
@@ -4749,6 +5349,7 @@ def test_grant_access_rights_to_all_open_restricted_files(app ,db,users ):
                                 ,{'accessrole' : 'open_access'    ,'filename':'ccc.txt'}]
 
     with app.test_request_context():
+        login_user(users[0]["obj"])
         with patch('weko_workflow.utils.WekoRecord.get_record_by_pid',return_value = mock):
             res = grant_access_rights_to_all_open_restricted_files(activity_id ,file_permission, activity_detail )
             # print(res)
@@ -4770,6 +5371,7 @@ def test_grant_access_rights_to_all_open_restricted_files(app ,db,users ):
                 assert len(fd) == 1
 
     with app.test_request_context():
+        login_user(users[0]["obj"])
         res = grant_access_rights_to_all_open_restricted_files(activity_id_guest ,guest_activity, activity_detail_guest )
         assert 'bbb.txt' in res["file_url"]
         fps = FilePermission.find_by_activity(activity_id_guest)
@@ -4786,119 +5388,135 @@ def test_grant_access_rights_to_all_open_restricted_files(app ,db,users ):
 
 # def get_contributors(pid_value)
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_get_contributors -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_get_contributors(db, users_1, db_records_1):
-    # 引数のpid_valueをfalseに設定する。
-    actual = get_contributors(False)
-    assert actual == []
+def test_get_contributors(app, db, users_1, db_records_1):
+    with app.test_request_context():
+        login_user(users_1[0]["obj"])
+        # 引数のpid_valueをfalseに設定する。
+        actual = get_contributors(False)
+        assert actual == []
+        # user_id_list_json値を設定
+        # 引数のpid_valueをfalseに設定する。 user_id_list_json(List型) Listの中がdict
+        user_id_list_json = [{"user":1},{"user":2}]
+        actual = get_contributors(False, user_id_list_json=user_id_list_json)
+        expected = [{
+                    'userid' : 1,
+                    'username': "",
+                    'email' : "user1@sample.com",
+                    'error': ''
+                    },{
+                    'userid' : 2,
+                    'username': "",
+                    'email' : "user2@sample.com",
+                    'error': ''
+                    }]
+        assert actual == expected
 
-    # 引数のpid_valueをfalseに設定する。 user_id_list_json(List型) Listの中がdict
-    user_id_list_json = [{"user":1},{"user":2}]
-    actual = get_contributors(False, user_id_list_json=user_id_list_json, owner_id=1)
-    expected = [{
+        # type of user_id_list_json is List but contents are int
+        user_id_list_json = [1, 2]
+        actual = get_contributors(False, user_id_list_json=user_id_list_json)
+        expected = [
+            {
                 'userid' : 1,
                 'username': "",
                 'email' : "user1@sample.com",
-                'owner' : True,
                 'error': ''
-                },{
+            },
+            {
                 'userid' : 2,
                 'username': "",
                 'email' : "user2@sample.com",
-                'owner' : False,
                 'error': ''
-                }]
-    assert actual == expected
+            }
+        ]
+        assert actual == expected
 
-    # 引数のpid_valueをfalseに設定する。 user_id_list_json(List型) Listの中がstring
-    user_id_list_json = ["漢字", "ひらがな"]
-    actual = get_contributors(False, user_id_list_json=user_id_list_json, owner_id=1)
-    expected = [{
-                'userid' : 1,
-                'username': "",
-                'email' : "user1@sample.com",
-                'owner' : True,
-                'error': ''
-                }]
-    assert actual == expected
+        # 引数のpid_valueをfalseに設定する。 user_id_list_json(List型) Listの中がstring
+        user_id_list_json = ["漢字", "ひらがな"]
+        actual = get_contributors(False, user_id_list_json=user_id_list_json)
+        expected = []
+        assert actual == expected
 
-    # 引数のpid_valueをfalseに設定する。 user_id_list_json(Dict型)
-    user_id_list_json = {"user": 1}
-    actual = get_contributors(False, user_id_list_json=user_id_list_json, owner_id=1)
-    expected = [{
-                'userid' : 1,
-                'username': "",
-                'email' : "user1@sample.com",
-                'owner' : True,
-                'error': ''
-                }]
-    assert actual == expected
+        # 引数のpid_valueをfalseに設定する。 user_id_list_json(Dict型)
+        user_id_list_json = {"user": 1}
+        actual = get_contributors(False, user_id_list_json=user_id_list_json)
+        expected = []
+        assert actual == expected
 
-    # pid_value=196.0を設定
-    user_profile_1 = UserProfile(
-        user_id=1,
-        _username="ユーザー1",
-        fullname="ユーザー1 full",
-        timezone="asia",
-        language="japanese",
-        _displayname="display ユーザー1"
-    )
-    user_profile_2 = UserProfile(
-        user_id=2,
-        _username="ユーザー2",
-        fullname="ユーザー2 full",
-        timezone="asia",
-        language="japanese",
-        _displayname="display ユーザー2"
-    )
-    db.session.add(user_profile_1)
-    db.session.add(user_profile_2)
-    db.session.commit()
+        # user_id_list_jsonに値を設定しない
+        user_id_list_json=None
+        actual = get_contributors(False, user_id_list_json=user_id_list_json)
+        expected = []
+        assert actual == expected
 
-    actual = get_contributors('196.0')
-    assert actual == [{ 'userid' : 1,
-                       'username': "ユーザー1",
-                       'email' : "user1@sample.com",
-                       'owner' : True,
-                       'error': ''
-                    }]
+        # pid_value=196.0を設定
+        user_profile_1 = UserProfile(
+            user_id=1,
+            _username="ユーザー1",
+            fullname="ユーザー1 full",
+            timezone="asia",
+            language="japanese",
+            _displayname="display ユーザー1"
+        )
+        user_profile_2 = UserProfile(
+            user_id=2,
+            _username="ユーザー2",
+            fullname="ユーザー2 full",
+            timezone="asia",
+            language="japanese",
+            _displayname="display ユーザー2"
+        )
+        db.session.add(user_profile_1)
+        db.session.add(user_profile_2)
+        db.session.commit()
 
-    # pid_value=196.1を設定
-    # weko_shared_ids": [100] を設定（存在しないユーザーID）
-    actual = get_contributors('197')
-    expected = [{
-                'userid' : 1,
-                'username': "ユーザー1",
-                'email' : "user1@sample.com",
-                'owner' : True,
-                'error': ''
-                },
-                {
+        actual = get_contributors('196.0')
+        assert actual == []
+
+        # pid_value=196.1を設定
+        # weko_shared_ids": [100] を設定（存在しないユーザーID）
+        actual = get_contributors('197')
+        expected = [
+            {
                 'userid' : 100,
                 'username': '',
                 'email' : '',
-                'owner' : False,
                 'error': 'The specified user ID is incorrect'
-                }]
-    assert sorted(actual, key=lambda x: x["userid"]) == sorted(expected, key=lambda x: x["userid"])
+            }
+        ]
+        assert sorted(actual, key=lambda x: x["userid"]) == sorted(expected, key=lambda x: x["userid"])
 
-    expected = [{
-            'userid' : 1,
-            'username': "ユーザー1",
-            'email' : "user1@sample.com",
-            'owner' : True,
-            'error': ''
+        expected = [
+            {
+                'userid' : 2,
+                'username': "display ユーザー2",
+                'email' : "user2@sample.com",
+                'error': ''
+            }
+        ]
+        # user_id_list_jsonを設定
+        user_id_list_json = [2]
+        actual = get_contributors(None, user_id_list_json=user_id_list_json)
+        assert sorted(actual, key=lambda x: x["userid"]) == sorted(expected, key=lambda x: x["userid"])
+
+        # WEKO_ITEMS_UI_PROXY_POSTING is False
+        app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = False
+        user_id_list_json = [1, 2]
+        actual = get_contributors(None, user_id_list_json=user_id_list_json)
+        expected = [
+            {
+                'userid' : 1,
+                'username': "display ユーザー1",
+                'email' : "user1@sample.com",
+                'error': ''
             },
             {
-            'userid' : 2,
-            'username': "ユーザー2",
-            'email' : "user2@sample.com",
-            'owner' : False,
-            'error': ''
-            }]
-    # user_id_list_jsonを設定
-    user_id_list_json = [2]
-    actual = get_contributors(None, user_id_list_json, owner_id=1)
-    assert sorted(actual, key=lambda x: x["userid"]) == sorted(expected, key=lambda x: x["userid"])
+                'userid' : 2,
+                'username': "display ユーザー2",
+                'email' : "user2@sample.com",
+                'error': ''
+            }
+        ]
+        assert expected == actual
 
 
 status_list = [
@@ -5207,3 +5825,21 @@ def test_check_activity_settings(app):
             # case: object type settings(Other), no changes from (case: object type settings(False))
             check_activity_settings(other_obj_settings)
             assert current_app.config['WEKO_WORKFLOW_APPROVER_EMAIL_COLUMN_VISIBLE'] == False
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_reset_flow_action_roles_restricted_access -vv -s -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_reset_flow_action_roles_restricted_access(app,db,db_register_full_action):
+    # 異常系:specify_propertyとaction_item_registrantが変化なし
+    pre = FlowActionRole.query.all()
+    with patch("weko_workflow.models.FlowActionRole.query") as mock_exception:
+        mock_exception.filter.side_effect = Exception()
+        reset_flow_action_roles_restricted_access()
+    post = FlowActionRole.query.all()
+    for action_role, action_role2 in zip(pre, post):
+        assert action_role.specify_property == action_role2.specify_property
+        assert action_role.action_item_registrant == action_role2.action_item_registrant
+    # 正常系:specify_property、action_item_registrantがNone、False
+    reset_flow_action_roles_restricted_access()
+    for action_role in FlowActionRole.query.all():
+       assert action_role.specify_property == None
+       assert action_role.action_item_registrant == False
+

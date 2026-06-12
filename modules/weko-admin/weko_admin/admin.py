@@ -1553,7 +1553,8 @@ class SwordAPISettingsView(BaseView):
                 active_value = active_value,
                 registration_type_value = registration_type_value,
                 workflow_value = workflow_value,
-                duplicate_check_value = duplicate_check_value
+                duplicate_check_value = duplicate_check_value,
+                is_enable_duplicate_check = current_app.config.get("WEKO_ITEMS_UI_ENABLE_DUPLICATE_CHECK", False)
             )
         else:
             # POST
@@ -1650,6 +1651,8 @@ class SwordAPIJsonldSettingsView(ModelView):
             return _("Inactive Message")
 
     def _format_duplicate_check(view, context, model, name):
+        if current_app.config.get("WEKO_ITEMS_UI_ENABLE_DUPLICATE_CHECK", False) == False:
+            return ""
         if model.duplicate_check:
             return _("Active Message")
         else:
@@ -1672,26 +1675,8 @@ class SwordAPIJsonldSettingsView(ModelView):
     def get_query(self):
         """Get query for SWORD API JSON-LD settings."""
         query = super().get_query().order_by(SwordClientModel.id)
-        list_role = [role.name for role in current_user.roles]
-        if current_app.config["WEKO_ADMIN_PERMISSION_ROLE_SYSTEM"] not in list_role:
-            query = (
-                query.join(Client)
-                .filter(Client.client_id == SwordClientModel.client_id)
-                .filter(Client.user_id == current_user.get_id())
-            )
         return query
 
-    def get_count_query(self):
-        """Get count query for SWORD API JSON-LD settings."""
-        query = super().get_count_query()
-        list_role = [role.name for role in current_user.roles]
-        if current_app.config["WEKO_ADMIN_PERMISSION_ROLE_SYSTEM"] not in list_role:
-            query = (
-                query.join(Client)
-                .filter(Client.client_id == SwordClientModel.client_id)
-                .filter(Client.user_id == current_user.get_id())
-            )
-        return query
 
     @expose("/add/", methods=["GET", "POST"])
     def create_view(self):
@@ -1701,12 +1686,8 @@ class SwordAPIJsonldSettingsView(ModelView):
             form = FlaskForm(request.form)
 
             # GET current user oauth clients
-            list_cur_user_client = [
-                client
-                for client in Client.get_by_user_id(current_user.get_id())
-                # exclude personal clients
-                if not client.is_internal
-            ]
+            # exclude personal clients
+            list_cur_user_client = Client.query.filter_by(is_internal=False).all()
             list_sword_clients = SwordClient.get_client_id_all()
             # exclude already registered clients
             client_list = [
@@ -1763,6 +1744,7 @@ class SwordAPIJsonldSettingsView(ModelView):
                 current_model_json=None,
                 can_edit=True,
                 item_type_names=item_type_names,
+                is_enable_duplicate_check = current_app.config.get("WEKO_ITEMS_UI_ENABLE_DUPLICATE_CHECK", False)
             )
         else:
             # POST
@@ -1901,6 +1883,7 @@ class SwordAPIJsonldSettingsView(ModelView):
                 can_edit=can_edit,
                 item_type_names=item_type_names,
                 id=model.id,
+                is_enable_duplicate_check = current_app.config.get("WEKO_ITEMS_UI_ENABLE_DUPLICATE_CHECK", False)
             )
         else:
             # POST
@@ -2092,6 +2075,13 @@ class JsonldMappingView(ModelView):
             super().get_query()
             .filter(ItemTypeJsonldMapping.is_deleted == False)
             .order_by(ItemTypeJsonldMapping.id)
+        )
+
+    def get_count_query(self):
+        """Get query for JSON-LD mapping."""
+        return (
+            super().get_count_query()
+            .filter(ItemTypeJsonldMapping.is_deleted == False)
         )
 
     @expose("/new/", methods=["GET", "POST"])
@@ -2303,15 +2293,15 @@ class CrisLinkageSettingView(BaseView):
         is_pkey_registered = settings and settings.researchmap_pkey_contents != ''
 
 
-        MERGE_MODES = current_app.config["WEKO_ADMIN_SETTINGS_RESEARCHMAP_MERGE_MODES"] # type: ignore 
+        MERGE_MODES = current_app.config["WEKO_ADMIN_SETTINGS_RESEARCHMAP_MERGE_MODES"] # type: ignore
         return self.render(
-            current_app.config["WEKO_ADMIN_CRIS_LINKAGE_SETTINGS_TEMPLATE"] # type: ignore 
+            current_app.config["WEKO_ADMIN_CRIS_LINKAGE_SETTINGS_TEMPLATE"] # type: ignore
             ,merge_modes=MERGE_MODES
             ,default_merge_mode = default_merge_mode
             ,is_clidkey_registered = is_clidkey_registered
             ,is_pkey_registered = is_pkey_registered
             )
-    
+
     @expose('/save_keys' ,methods=['POST'])
     def save_keys(self):
         researchmap_cidkey_contents = request.form.get('researchmap_cidkey_contents' ,'')
@@ -2322,11 +2312,11 @@ class CrisLinkageSettingView(BaseView):
             flash(_('Please input at least one of client id key or private key') ,'error')
             return redirect(url_for('cris_linkage.index'))
 
-        if len(str(researchmap_cidkey_contents)) > 100: #valid about 20 
+        if len(str(researchmap_cidkey_contents)) > 100: #valid about 20
             flash(_('Failurely Changed Settings.') ,'error')
             flash(_('client id key size too large.') ,'error')
             return redirect(url_for('cris_linkage.index'))
-        if len(str(researchmap_pkey_contents)) > 100*50: #valid about 30*70 
+        if len(str(researchmap_pkey_contents)) > 100*50: #valid about 30*70
             flash(_('Failurely Changed Settings.') ,'error')
             flash(_('private key size too large.') ,'error')
             return redirect(url_for('cris_linkage.index'))
@@ -2342,9 +2332,9 @@ class CrisLinkageSettingView(BaseView):
             }
         else :
             set = {
-                'researchmap_cidkey_contents' : researchmap_cidkey_contents if researchmap_cidkey_contents != '' else settings.researchmap_cidkey_contents # type: ignore 
-                ,'researchmap_pkey_contents' : researchmap_pkey_contents if researchmap_pkey_contents != '' else settings.researchmap_pkey_contents # type: ignore 
-                ,'merge_mode' : settings.merge_mode # type: ignore 
+                'researchmap_cidkey_contents' : researchmap_cidkey_contents if researchmap_cidkey_contents != '' else settings.researchmap_cidkey_contents # type: ignore
+                ,'researchmap_pkey_contents' : researchmap_pkey_contents if researchmap_pkey_contents != '' else settings.researchmap_pkey_contents # type: ignore
+                ,'merge_mode' : settings.merge_mode # type: ignore
             }
 
         try :
@@ -2376,9 +2366,9 @@ class CrisLinkageSettingView(BaseView):
             }
         else :
             set = {
-                'researchmap_cidkey_contents' : settings.researchmap_cidkey_contents # type: ignore 
-                ,'researchmap_pkey_contents' : settings.researchmap_pkey_contents # type: ignore 
-                ,'merge_mode' : merge_mode  # type: ignore 
+                'researchmap_cidkey_contents' : settings.researchmap_cidkey_contents # type: ignore
+                ,'researchmap_pkey_contents' : settings.researchmap_pkey_contents # type: ignore
+                ,'merge_mode' : merge_mode  # type: ignore
             }
 
         try :

@@ -43,7 +43,8 @@ from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_records.models import RecordMetadata
 from invenio_search import RecordsSearch
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, DisconnectionError, TimeoutError
+from amqp.exceptions import ConnectionError
 from weko_authors.models import Authors, AuthorsPrefixSettings, AuthorsAffiliationSettings
 from weko_records.api import ItemsMetadata
 from weko_schema_ui.models import PublishStatus
@@ -80,6 +81,7 @@ def update_items_by_authorInfo( user_id, target, origin_pkid_list=[], origin_id_
             "names_key": "creatorNames",
             "name_key": "creatorName",
             "name_lang_key": "creatorNameLang",
+            "name_type_key": "creatorNameType",
             "fnames_key": "familyNames",
             "fname_key": "familyName",
             "fname_lang_key": "familyNameLang",
@@ -105,6 +107,7 @@ def update_items_by_authorInfo( user_id, target, origin_pkid_list=[], origin_id_
             "names_key": "contributorNames",
             "name_key": "contributorName",
             "name_lang_key": "lang",
+            "name_type_key": "nameType",
             "fnames_key": "familyNames",
             "fname_key": "familyName",
             "fname_lang_key": "familyNameLang",
@@ -130,6 +133,7 @@ def update_items_by_authorInfo( user_id, target, origin_pkid_list=[], origin_id_
             "names_key": "names",
             "name_key": "name",
             "name_lang_key": "nameLang",
+            "name_type_key": None,
             "fnames_key": "familyNames",
             "fname_key": "familyName",
             "fname_lang_key": "familyNameLang",
@@ -167,24 +171,29 @@ def update_items_by_authorInfo( user_id, target, origin_pkid_list=[], origin_id_
         if update_gather_flg:
             process_counter[ORIGIN_LABEL] = get_origin_data(origin_pkid_list)
             update_db_es_data(origin_pkid_list, origin_id_list)
-            delete_cache_data("update_items_by_authorInfo_{}".format(user_id))
-            update_cache_data(
-                "update_items_status_{}".format(user_id),
-                json.dumps(process_counter),
-                current_app.config["WEKO_DEPOSIT_ITEM_UPDATE_STATUS_TTL"])
+    except (DisconnectionError, TimeoutError, ConnectionError) as e:
+        db.session.rollback()
+        retry_count = update_items_by_authorInfo.request.retries
+        countdown = current_app.config['WEKO_DEPOSIT_ITEM_UPDATE_RETRY_COUNTDOWN']
+        if retry_count < current_app.config['WEKO_DEPOSIT_ITEM_UPDATE_RETRY_COUNT']:
+            current_app.logger.exception('Retry due to connection error. err:{0}'.format(e))
+            countdown *= current_app.config['WEKO_DEPOSIT_ITEM_UPDATE_RETRY_BACKOFF_RATE'] ** retry_count
+        else:
+            current_app.logger.exception('Failed to update items by author data. err:{0}'.format(e))
+            process_counter[SUCCESS_LABEL] = []
+            process_counter[FAIL_LABEL] = [{"record_id": "ALL", "author_ids": [], "message": str(e)}]
+        update_items_by_authorInfo.retry(countdown=countdown, exc=e, max_retries=current_app.config['WEKO_DEPOSIT_ITEM_UPDATE_RETRY_COUNT'])
     except SQLAlchemyError as e:
         process_counter[SUCCESS_LABEL] = []
         process_counter[FAIL_LABEL] = [{"record_id": "ALL", "author_ids": [], "message": str(e)}]
+        db.session.rollback()
+        current_app.logger.exception('Failed to update items by author data. err:{0}'.format(e))
+    finally:
         delete_cache_data("update_items_by_authorInfo_{}".format(user_id))
         update_cache_data(
             "update_items_status_{}".format(user_id),
             json.dumps(process_counter),
             current_app.config["WEKO_DEPOSIT_ITEM_UPDATE_STATUS_TTL"])
-        db.session.rollback()
-        current_app.logger. \
-            exception('Failed to update items by author data. err:{0}'.
-                      format(e))
-        update_items_by_authorInfo.retry(countdown=3, exc=e, max_retries=1)
 
 def _get_author_prefix():
     result = {}
@@ -207,6 +216,7 @@ def _get_affiliation_id():
                 'url': s.url
             }
     return result
+
 
 def _process(data_size, data_from, process_counter, target, origin_pkid_list, key_map, author_prefix, affiliation_id, force_change):
     res = False
@@ -249,11 +259,11 @@ def _process(data_size, data_from, process_counter, target, origin_pkid_list, ke
     update_es_authorinfo = []
     for item in search['hits']['hits']:
         item_id = item['_source']['control_number']
-        object_uuid, record_ids, author_link, weko_link = \
+        object_uuid, record_ids, author_link = \
             _update_author_data(item_id, record_ids, process_counter, target, origin_pkid_list, key_map, author_prefix, affiliation_id, force_change)
         if object_uuid:
             update_es_authorinfo.append({
-                'id': object_uuid, 'author_link': list(author_link), 'weko_link': weko_link
+                'id': object_uuid, 'author_link': list(author_link)
             })
     db.session.commit()
     # update record to ES
@@ -290,10 +300,10 @@ def _process(data_size, data_from, process_counter, target, origin_pkid_list, ke
             while True:
                 try:
                     dep = WekoDeposit.get_record(d['id'])
-                    dep.update_author_link_and_weko_link(d['author_link'], d["weko_link"])
+                    dep.update_author_link(d['author_link'])
                     break
                 except Exception as e:
-                    current_app.logger.error("Failed to update record to ES. method:update_author_link_and_weko_link err:{}".format(e))
+                    current_app.logger.error("Failed to update record to ES. method:update_author_link err:{}".format(e))
                     current_app.logger.error("retrys:{} sleep{}".format(count, sleep_time))
                     if sleep_time > max_back_off_time:
                         raise e
@@ -315,19 +325,6 @@ def _update_author_data(item_id, record_ids, process_counter, target, origin_pki
         dep = WekoDeposit.get_record(pid.object_uuid)
         author_link = set()
         author_data = {}
-        current_weko_link = dep.get("weko_link", {})
-        weko_link = copy.deepcopy(current_weko_link)
-
-        # targetを用いてweko_linkを新しくする。
-        if target:
-            # weko_idを取得する。
-            target_pk_id = target["pk_id"]
-            author_id_info = target["authorIdInfo"]
-            for i in author_id_info:
-                # idTypeが1の場合、weko_idを取得し、weko_linkを更新する。
-                if i.get('idType') == '1':
-                    weko_link[target_pk_id] = i.get('authorId')
-                    break
         for k, v in dep.items():
             if isinstance(v, dict) \
                 and v.get('attribute_value_mlt') \
@@ -349,40 +346,36 @@ def _update_author_data(item_id, record_ids, process_counter, target, origin_pki
                         change_flag = False
                         for id in data.get('nameIdentifiers', []):
                             if id.get('nameIdentifierScheme', '') == 'WEKO':
-
-                                # author_link.add(id['nameIdentifier'])
-                                # 1.current_weko_linkの値にdataのweko_idが含まれているかを確認する。
-                                # 2.weko_idが含まれている場合、current_weko_linkでそのweko_id対応するpk_idを取得する。
-                                pk_ids = [k for k, v in current_weko_link.items() if v == id.get("nameIdentifier")]
-                                if pk_ids:
-                                    pk_id = pk_ids[0]
-                                    author_link.add(pk_id)
-                                    # 3.origin_pkid_listにpk_idが含まれているかを確認する。
-                                    if pk_id in origin_pkid_list:
-                                        # 4.含まれている場合change_flagをTrueにする。
-                                        change_flag = True
-                                        record_ids.append(pid.object_uuid)
-                                        break
+                                author_link.add(id['nameIdentifier'])
+                                if id['nameIdentifier'] in origin_pkid_list:
+                                    origin_id = id['nameIdentifier']
+                                    change_flag = True
+                                    record_ids.append(pid.object_uuid)
+                                    break
                             else:
                                 continue
                         if change_flag:
-                            target_id, new_meta = _change_to_meta(
-                                target, author_prefix, affiliation_id, key_map[prop_type], force_change)
                             # targetは著者DBの情報
+                            target_id, new_meta = _change_to_meta(
+                                target, author_prefix, affiliation_id, key_map[prop_type], dep[k]["attribute_value_mlt"][index].get(key_map[prop_type]["names_key"], None), force_change)
+
                             dep[k]['attribute_value_mlt'][index].update(
                                 new_meta)
                             author_data.update(
                                 {k: dep[k]['attribute_value_mlt']})
+                            if origin_id != target_id:
+                                temp_list.append(origin_id)
+                                author_link.remove(origin_id)
+                                author_link.add(target_id)
 
         dep['author_link'] = list(author_link)
-        dep["weko_link"] = weko_link
-
+        
         dep.update_item_by_task()
         obj = ItemsMetadata.get_record(pid.object_uuid)
         obj.update(author_data)
         obj.commit()
         process_counter[SUCCESS_LABEL].append({"record_id": item_id, "author_ids": temp_list, "message": ""})
-        return pid.object_uuid, record_ids, author_link, weko_link
+        return pid.object_uuid, record_ids, author_link
     except PIDDoesNotExistError as pid_error:
         current_app.logger.error("PID {} does not exist.".format(item_id))
         process_counter[FAIL_LABEL].append({"record_id": item_id, "author_ids": temp_list, "message": "PID {} does not exist.".format(item_id)})
@@ -392,8 +385,7 @@ def _update_author_data(item_id, record_ids, process_counter, target, origin_pki
         process_counter[FAIL_LABEL].append({"record_id": item_id, "author_ids": temp_list, "message": str(ex)})
         return None, set(), {}
 
-
-def _change_to_meta(target, author_prefix, affiliation_id, key_map, force_change=False):
+def _change_to_meta(target, author_prefix, affiliation_id, key_map, item_names_data, force_change=False):
     target_id = None
     meta = {}
     if target:
@@ -405,8 +397,23 @@ def _change_to_meta(target, author_prefix, affiliation_id, key_map, force_change
         affiliation_identifiers = []
         affiliation_names = []
         affiliations = []
-
-        # 著者識別子情報
+        for name in target.get('authorNameInfo', []):
+            if not bool(name.get('nameShowFlg', "true")):
+                continue
+            family_names.append({
+                key_map['fname_key']: name.get('familyName', ''),
+                key_map['fname_lang_key']: name.get('language', '')
+            })
+            given_names.append({
+                key_map['gname_key']: name.get('firstName', ''),
+                key_map['gname_lang_key']: name.get('language', '')
+            })
+            full_names.append({
+                key_map['name_key']: "{}, {}".format(
+                    name.get('familyName', ''),
+                    name.get('firstName', '')),
+                key_map['name_lang_key']: name.get('language', '')
+            })
         for id in target.get('authorIdInfo', []):
             if not strtobool(id.get('authorIdShowFlg', "true")):
                 continue
@@ -502,6 +509,12 @@ def _change_to_meta(target, author_prefix, affiliation_id, key_map, force_change
                 key_map['gnames_key']: given_names
             })
         if full_names:
+            if item_names_data:
+                for idx, fn in enumerate(item_names_data):
+                    if len(full_names) > idx and key_map["name_type_key"]:
+                        full_names[idx][key_map["name_type_key"]] = item_names_data[idx].get(key_map["name_type_key"])
+                    else:
+                        break
             meta.update({
                 key_map['names_key']: full_names
             })
@@ -611,93 +624,7 @@ def make_stats_file(raw_stats):
 
 
 @shared_task(ignore_result=True)
-def extract_pdf_and_update_file_contents(files, record_uuid, retry_count=3, retry_delay=1):
-    """Extract text from pdf and update es document
-
-    Args:
-        files(dict): pdf_files uri and size. ex: {'test1.pdf': {'uri': '/var/tmp/tmp5beo2byv/e2/5a/e1af-d89b-4ce0-bd01-a78833acbe1e/data', 'size': 1252395}"
-        record_uuid(str): The id of the document to update.
-        retry_count(int, Optional): The number of times to retry. Defaults to 3.
-        retry_delay(int, Optional): The number of seconds to wait between retries. Defaults to 1.
-    """
-    tika_jar_path = os.environ.get("TIKA_JAR_FILE_PATH")
-    if not tika_jar_path or os.path.isfile(tika_jar_path) is False:
-        raise Exception("not exist tika jar file.")
-    file_datas = {}
-    for filename, file in files.items():
-        data = ""
-        try:
-            storage = current_files_rest.storage_factory(
-                fileurl=file["uri"],
-                size=file["size"],
-            )
-
-            with storage.open(mode="rb") as fp:
-                buffer = fp.read(current_app.config['WEKO_DEPOSIT_FILESIZE_LIMIT'])
-                args = ["java", "-jar", tika_jar_path, "-t"]
-                result = subprocess.run(
-                    args,
-                    input=buffer,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                if result.returncode != 0:
-                    raise Exception("raise in tika: {}".format(result.stderr.decode("utf-8")))
-                data = "".join(result.stdout.decode("utf-8").splitlines())
-        except FileNotFoundError as ex:
-            current_app.logger.error(ex)
-        except ResourceNotFoundError as ex:
-            current_app.logger.error(ex)
-        except Exception as ex:
-            current_app.logger.error(ex)
-        file_datas[filename] = data
-
-    for attempt in range(retry_count):
-        try:
-            update_file_content(record_uuid, file_datas)
-            break
-        except ConflictError:
-            current_app.logger.error(f"Version conflict error occurred while updating file content. Retrying {attempt + 1}/{retry_count}")
-            time.sleep(retry_delay)
-        except NotFoundError:
-            current_app.logger.error(f"The document targeted for content update({record_uuid}) does not exist. Retrying {attempt + 1}/{retry_count}")
-            time.sleep(retry_delay)
-        except Exception:
-            current_app.logger.error(f"An error occurred({record_uuid}). Retrying {attempt + 1}/{retry_count}")
-            time.sleep(retry_delay)
-
-def update_file_content(record_uuid, file_datas):
-    """Update the content of the es document
-
-    Args:
-        record_uuid (str): The id of the document to update.
-        file_datas (dict): A dictionary of file names and contents.
-
-    Raises:
-        ConflictError: Elasticsearch document version conflict error
-        NotFoundError: No document to update error
-    """
-    indexer = WekoIndexer()
-    indexer.get_es_index()
-    res = indexer.get_metadata_by_item_id(record_uuid)
-    es_data = res.get("_source",{})
-    contents = es_data.get("content",[])
-    for content in contents:
-        if content.get("filename") not in list(file_datas.keys()):
-            continue
-        if content.get("attachment",{}):
-            content["attachment"]["content"] = file_datas[content.get("filename")]
-    update_body = {"doc":{"content":contents}}
-    indexer.client.update(
-        index=indexer.es_index,
-        doc_type=indexer.es_doc_type,
-        id=str(record_uuid),
-        body=update_body
-    )
-
-
-@shared_task(ignore_result=True)
-def extract_pdf_and_update_file_contents_with_index_api(
+def extract_pdf_and_update_file_contents(
     files, record_uuid, retry_count=3, retry_delay=1):
     """Extract text from pdf and update es document
     Args:
@@ -742,7 +669,7 @@ def extract_pdf_and_update_file_contents_with_index_api(
 
     for attempt in range(retry_count):
         try:
-            update_file_content_with_index_api(record_uuid, file_datas)
+            update_file_content(record_uuid, file_datas)
             success = True
             break
         except ConflictError:
@@ -761,7 +688,7 @@ def extract_pdf_and_update_file_contents_with_index_api(
         current_app.logger.error(f"Failed to update file content after {retry_count} attempts. record_uuid: {record_uuid}")
 
 
-def update_file_content_with_index_api(record_uuid, file_datas):
+def update_file_content(record_uuid, file_datas):
     """Update the content of the es document
     Args:
         record_uuid (str): The id of the document to update.

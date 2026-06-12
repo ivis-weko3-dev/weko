@@ -530,11 +530,15 @@ $(document).ready(function () {
         page_global.table_row_map.mapping[row_id] = mapping_value;
       }
 
-      if (tmp.option.required) {
+      if(tmp.option.required && page_global.table_row_map.schema.required.indexOf(row_id) === -1) {
         page_global.table_row_map.schema.required.push(row_id);
       }
-      if (tmp.input_type == 'text' || tmp.input_type == 'textarea') {
-        if (tmp.option.multiple) {
+      else if(!tmp.option.required && page_global.table_row_map.schema.required.indexOf(row_id) !== -1) {
+        let indexOfRowId = page_global.table_row_map.schema.required.indexOf(row_id)
+        page_global.table_row_map.schema.required.splice(indexOfRowId, 1)
+      }
+      if(tmp.input_type == 'text' || tmp.input_type == 'textarea') {
+        if(tmp.option.multiple) {
           page_global.table_row_map.schema.properties[row_id] = {
             type: "array",
             title: tmp.title,
@@ -1418,13 +1422,16 @@ $(document).ready(function () {
             if (listSubItem && listSubItem.length > 0 && listSubItem[0] in data.meta_list) {
               var temp_prop = properties_obj[data.meta_list[listSubItem[0]].input_type.substr(4)].schema.properties;
               for (var idx = 1; idx < listSubItem.length; idx++) {
-                let _item = temp_prop[listSubItem[idx]]
-                if (_item && _item.items) {
-                  temp_prop = _item.items.properties;
-                } else if (_item && _item.properties) {
-                  temp_prop = _item.properties;
-                } else if (_item && idx === listSubItem.length - 1) {
-                  _item['isSubLanguage'] = true;
+                if ( temp_prop && listSubItem[idx] in temp_prop) {
+                  let _item = temp_prop[listSubItem[idx]]
+                  if (_item && _item.items) {
+                    temp_prop = _item.items.properties;
+                  } else if (_item && _item.properties) {
+                    temp_prop = _item.properties;
+                  } else if (_item && idx === listSubItem.length - 1) {
+                    _item['isSubLanguage'] = true;
+                  }
+
                 }
               }
             }

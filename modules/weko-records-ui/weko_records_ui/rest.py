@@ -67,6 +67,11 @@ from .errors import AvailableFilesNotFoundRESTError, ContentsNotFoundError, Date
     InvalidTokenError, InvalidWorkflowError, ModeNotFoundRESTError, PermissionError, \
     RecordsNotFoundRESTError, RequiredItemNotExistError, VersionNotFoundRESTError
 from .permissions import page_permission_factory, file_permission_factory
+from .errors import AvailableFilesNotFoundRESTError, ContentsNotFoundError, \
+    InvalidRequestError, VersionNotFoundRESTError, InternalServerError, \
+    RecordsNotFoundRESTError, PermissionError, DateFormatRESTError, \
+    FilesNotFoundRESTError, ModeNotFoundRESTError, RequiredItemNotExistError, \
+    AuthenticationRequiredError
 from .scopes import file_read_scope
 from .views import escape_str, get_usage_workflow
 
@@ -407,6 +412,8 @@ class GetFileTerms(ContentNegotiatedMethodView):
             raise VersionNotFoundRESTError() # 404 Error
 
     def get_v1(self, **kwargs):
+        if not current_app.config["WEKO_RECORDS_UI_RESTRICTED_API"]:
+            abort(403)
         # Get parameter
         param_pretty = str(request.values.get('pretty', 'false'))
         language = str(request.headers.get('Accept-Language', 'en'))
@@ -483,6 +490,8 @@ class FileApplication(ContentNegotiatedMethodView):
             raise VersionNotFoundRESTError() # 404 Error
 
     def post_v1(self, **kwargs):
+        if not current_app.config["WEKO_RECORDS_UI_RESTRICTED_API"]:
+            abort(403)
         # Get parameter
         language = str(request.headers.get('Accept-Language', 'en'))
         param_pretty = str(request.values.get('pretty', 'false'))
@@ -707,7 +716,10 @@ class WekoRecordsResource(ContentNegotiatedMethodView):
 
             # Check Permission
             if not page_permission_factory(record).can():
-                raise PermissionError()
+                if current_user.is_authenticated:
+                    raise PermissionError()
+                else:
+                    raise AuthenticationRequiredError()
 
             # Convert RO-Crate format
             from .utils import RoCrateConverter
@@ -752,8 +764,10 @@ class WekoRecordsResource(ContentNegotiatedMethodView):
 
             return res
 
-        except (PermissionError, SameContentException) as e:
-            raise e
+        except (PermissionError,
+                SameContentException,
+                AuthenticationRequiredError) as e:
+                raise e
 
         except PIDDoesNotExistError:
             raise RecordsNotFoundRESTError()

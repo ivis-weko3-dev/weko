@@ -67,6 +67,7 @@ from .scopes import (
 )
 from .utils import (
     check_doi_in_index, check_index_permissions, can_admin_access_index,
+    delete_index_reset_trees_from_redis, delete_index_reset_ignore_more_trees_from_redis,
     is_index_locked, perform_delete_index, save_index_trees_to_redis, reset_tree
 )
 from .schema import IndexCreateRequestSchema, IndexUpdateRequestSchema
@@ -263,6 +264,21 @@ def create_blueprint(app, endpoints):
     return blueprint
 
 
+def json_serialize(obj):
+    """Serialize object to JSON.
+
+    Args:
+        obj: The object to serialize.
+
+    Returns:
+        str: The serialized JSON string.
+    """
+    if isinstance(obj, (datetime, date)):
+        return obj.strftime("%Y%m%d")
+    else:
+        return str(obj)
+
+
 class IndexActionResource(ContentNegotiatedMethodView):
     """Index create update delete view."""
 
@@ -360,6 +376,8 @@ class IndexActionResource(ContentNegotiatedMethodView):
                     save_index_trees_to_redis(tree_ja, lang=lang_code)
                 else:
                     save_index_trees_to_redis(tree, lang=lang_code)
+                delete_index_reset_trees_from_redis(lang_code)
+                delete_index_reset_ignore_more_trees_from_redis(lang_code)
 
         return make_response(
             jsonify({'status': status, 'message': msg, 'errors': errors}),
@@ -427,6 +445,8 @@ class IndexActionResource(ContentNegotiatedMethodView):
                     save_index_trees_to_redis(tree_ja, lang=lang_code)
                 else:
                     save_index_trees_to_redis(tree, lang=lang_code)
+                delete_index_reset_trees_from_redis(lang_code)
+                delete_index_reset_ignore_more_trees_from_redis(lang_code)
 
         return make_response(jsonify(
             {'status': status, 'message': msg, 'errors': errors,
@@ -460,6 +480,8 @@ class IndexActionResource(ContentNegotiatedMethodView):
                 save_index_trees_to_redis(tree_ja, lang=lang_code)
             else:
                 save_index_trees_to_redis(tree, lang=lang_code)
+            delete_index_reset_trees_from_redis(lang_code)
+            delete_index_reset_ignore_more_trees_from_redis(lang_code)
 
         return make_response(jsonify(
             {'status': 200, 'message': msg, 'errors': errors}), 200)
@@ -553,8 +575,10 @@ class IndexTreeActionResource(ContentNegotiatedMethodView):
                     tree = self.record_class.get_contribute_tree(pid)
             elif action and 'browsing' in action and comm_id is None:
                 if more_id_list is None:
-                    tree = self.record_class.get_browsing_tree()
-
+                    if current_user and current_user.is_authenticated:
+                        tree = self.record_class.get_browsing_tree()
+                    else:
+                        tree = self.record_class.get_browsing_reset_tree()
                 else:
                     tree = self.record_class.get_more_browsing_tree(
                         more_ids=more_ids)
@@ -649,6 +673,8 @@ class IndexTreeActionResource(ContentNegotiatedMethodView):
                         save_index_trees_to_redis(tree_ja, lang=lang_code)
                 else:
                     save_index_trees_to_redis(tree, lang=lang_code)
+                delete_index_reset_trees_from_redis(lang_code)
+                delete_index_reset_ignore_more_trees_from_redis(lang_code)
         return make_response(
             jsonify({'status': status, 'message': msg}), status)
 
@@ -686,6 +712,21 @@ class GetIndex(ContentNegotiatedMethodView):
             raise VersionNotFoundRESTError()
 
     def get_v1(self, **kwargs):
+
+        def json_serialize(obj):
+            """Serialize object to JSON.
+
+            Args:
+                obj: The object to serialize.
+
+            Returns:
+                str: The serialized JSON string.
+            """
+            if isinstance(obj, (datetime, date)):
+                return obj.strftime("%Y%m%d")
+            else:
+                return str(obj)
+
         try:
             pid = kwargs.get('index_id')
 
@@ -742,7 +783,9 @@ class GetIndex(ContentNegotiatedMethodView):
 
             # Create Response
             res = Response(
-                response=json.dumps(result_tree, indent=indent),
+                response=json.dumps(
+                    result_tree, indent=indent, default=json_serialize
+                ),
                 status=200,
                 content_type='application/json')
             res.set_etag(etag)
@@ -978,21 +1021,6 @@ class IndexManagementAPI(ContentNegotiatedMethodView):
 
     def get_v1(self, **kwargs):
         """Get index tree."""
-
-        def json_serialize(obj):
-            """Serialize object to JSON.
-
-            Args:
-                obj: The object to serialize.
-
-            Returns:
-                str: The serialized JSON string.
-            """
-            if isinstance(obj, (datetime, date)):
-                return obj.strftime("%Y%m%d")
-            else:
-                return str(obj)
-
         try:
             pid = kwargs.get('index_id')
 
@@ -1103,6 +1131,10 @@ class IndexManagementAPI(ContentNegotiatedMethodView):
             for cid in set(children_ja.keys()).union(children_en.keys()):
                 merged_children.append(merge_nodes(children_ja.get(cid), children_en.get(cid)))
             merged_node["children"] = merged_children
+
+            # Ensure public_date is empty string if None
+            if "public_date" in merged_node and merged_node["public_date"] is None:
+                merged_node["public_date"] = ""
 
             return merged_node
 
@@ -1215,8 +1247,7 @@ class IndexManagementAPI(ContentNegotiatedMethodView):
                 "updated": updated_index.updated.isoformat(),
                 **{
                     "public_date": updated_index.public_date.strftime("%Y%m%d")
-                    if updated_index.public_date
-                    else {}
+                    if updated_index.public_date else ""
                 },
             }
         }
@@ -1326,8 +1357,7 @@ class IndexManagementAPI(ContentNegotiatedMethodView):
                 "updated": updated_index.updated.isoformat(),
                 **{
                     "public_date": updated_index.public_date.strftime("%Y%m%d")
-                    if updated_index.public_date
-                    else {}
+                    if updated_index.public_date else ""
                 },
             }
         }
@@ -1516,7 +1546,7 @@ class IndexManagementAPI(ContentNegotiatedMethodView):
         Returns:
             dict: A dictionary with allowed group roles.
         """
-        def _get_allowed_list(self, group_str): 
+        def _get_allowed_list(self, group_str):
             """Convert group string to allowed group roles."""
             return {
                 "allow": [{"id": role} for role in group_str.split(",")]

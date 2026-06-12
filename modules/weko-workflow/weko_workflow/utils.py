@@ -90,7 +90,7 @@ from .config import DOI_VALIDATION_INFO, DOI_VALIDATION_INFO_CROSSREF, DOI_VALID
 from .errors import InvalidParameterValueError
 from .models import Action as _Action
 from .models import ActionStatusPolicy, Activity, ActivityStatusPolicy, \
-    FlowAction, GuestActivity
+    FlowAction, FlowActionRole, GuestActivity
 
 
 def _check_mail_setting(setting):
@@ -1194,11 +1194,15 @@ class MappingData(object):
     record = None
     item_map = None
 
-    def __init__(self, item_id=None, record=None):
+    def __init__(self, item_id=None, record=None, item_type_id=None):
         """Initilize pagination."""
         self.record = WekoRecord.get_record(item_id) if item_id else record
-        item_type = self.get_data_item_type()
-        item_type_mapping = Mapping.get_record(item_type.id)
+        if not item_type_id:
+            item_type = self.get_data_item_type()
+            if item_type is None:
+                raise ValueError("item_type is None")
+            item_type_id = item_type.id
+        item_type_mapping = Mapping.get_record(item_type_id)
         self.item_map = get_full_mapping(item_type_mapping, "jpcoar_mapping")
 
     def get_data_item_type(self):
@@ -1318,12 +1322,18 @@ class IdentifierHandle(object):
     item_metadata = None
     metadata_mapping = None
 
-    def __init__(self, item_id=None):
+    def __init__(self, item_id=None, record=None, item_type_id=None):
         """Initialize IdentifierHandle."""
         self.item_uuid = item_id
         if item_id:
-            self.metadata_mapping = MappingData(item_id)
-            self.item_type_id = self.metadata_mapping.get_data_item_type().id
+            if record:
+                self.metadata_mapping = MappingData(record=record, item_type_id=item_type_id)
+            else:
+                self.metadata_mapping = MappingData(item_id=item_id, item_type_id=item_type_id)
+            if item_type_id:
+                self.item_type_id = item_type_id
+            else:
+                self.item_type_id = self.metadata_mapping.get_data_item_type().id
             self.item_metadata = ItemsMetadata.get_record(item_id)
             self.item_record = self.metadata_mapping.record
 
@@ -1358,9 +1368,10 @@ class IdentifierHandle(object):
                 records = PersistentIdentifier.query.filter_by(
                     pid_type=pid_type,
                     object_uuid=self.item_uuid).all()
-            records = PersistentIdentifier.query.filter_by(
-                pid_type=pid_type,
-                pid_value=chk_value).all()
+            else:
+                records = PersistentIdentifier.query.filter_by(
+                    pid_type=pid_type,
+                    pid_value=chk_value).all()
         return cast(List[PersistentIdentifier], records)
 
     def register_pidstore(self, pid_type, reg_value):
@@ -1746,15 +1757,17 @@ def get_actionid(endpoint):
 
 def convert_record_to_item_metadata(record_metadata):
     """Convert record_metadata to item_metadata."""
+    owner_id = record_metadata.get('owner')
+    creater_id = record_metadata.get('_deposit', {}).get('created_by', owner_id)
     item_metadata = {
         'id': record_metadata['recid'],
         'pid': record_metadata['_deposit']['pid'],
         '$schema': record_metadata['item_type_id'],
         'pubdate': record_metadata['publish_date'],
         'title': record_metadata['item_title'],
-        'owner': record_metadata['owner'],
+        'owner': owner_id,
         'owners': record_metadata['owners'],
-        'created_by': record_metadata['_deposit']['created_by'],
+        'created_by': creater_id,
         'shared_user_ids': record_metadata['weko_shared_ids']
     }
     item_type = ItemTypes.get_by_id(record_metadata['item_type_id']).render
@@ -1813,6 +1826,7 @@ def prepare_edit_workflow(post_activity, recid, deposit):
             _parent = WekoDeposit.get_record(recid.object_uuid)
             _deposit = WekoDeposit.get_record(draft_pid.object_uuid)
             _deposit['path'] = _parent.get('path')
+            _deposit['_deposit']['status'] = 'draft'
             _deposit.merge_data_to_record_without_version(recid, True)
             _deposit.publish()
             _bucket = Bucket.get(_deposit.files.bucket.id)
@@ -3773,7 +3787,7 @@ def create_onetime_download_url_to_guest(activity_id: str,
 
     return {
         "file_url": create_download_url(url_obj),
-        "expiration_date": url_obj.expiration_date
+        "expiration_date": url_obj.expiration_date.strftime("%Y-%m-%d")
     }
 
 
@@ -3807,6 +3821,23 @@ def get_activity_display_info(activity_id: str):
         _type_: temporary_comment [{'ActivityId': 'A-20220821-00003', 'ActionId': 1, 'ActionName': 'Start', 'ActionVersion': '1.0.0', 'ActionEndpoint': 'begin_action', 'Author': 'wekosoftware@nii.ac.jp', 'Status': 'action_done', 'ActionOrder': 1}, {'ActivityId': 'A-20220821-00003', 'ActionId': 3, 'ActionName': 'Item Registration', 'ActionVersion': '1.0.1', 'ActionEndpoint': 'item_login', 'Author': '', 'Status': ' ', 'ActionOrder': 2}, {'ActivityId': 'A-20220821-00003', 'ActionId': 4, 'ActionName': 'Approval', 'ActionVersion': '2.0.0', 'ActionEndpoint': 'approval', 'Author': '', 'Status': ' ', 'ActionOrder': 3}, {'ActivityId': 'A-20220821-00003', 'ActionId': 5, 'ActionName': 'Item Link', 'ActionVersion': '1.0.1', 'ActionEndpoint': 'item_link', 'Author': '', 'Status': ' ', 'ActionOrder': 4}, {'ActivityId': 'A-20220821-00003', 'ActionId': 7, 'ActionName': 'Identifier Grant', 'ActionVersion': '1.0.0', 'ActionEndpoint': 'identifier_grant', 'Author': '', 'Status': ' ', 'ActionOrder': 5}, {'ActivityId': 'A-20220821-00003', 'ActionId': 2, 'ActionName': 'End', 'ActionVersion': '1.0.0', 'ActionEndpoint': 'end_action', 'Author': '', 'Status': ' ', 'ActionOrder': 6}]
         Workflow: workflow_detail
     """
+
+    def _get_shared_user_ids_from_list(shared_user_ids_list):
+        """Get shared user ids from list.
+
+        Args:
+            shared_user_ids_list (list): List of shared user ids.
+        Returns:
+            list: List of shared user ids.
+        """
+        shared_user_ids = []
+        for user_id in shared_user_ids_list:
+            if isinstance(user_id, dict) and 'user' in user_id:
+                shared_user_ids.append(user_id['user'])
+            else:
+                shared_user_ids.append(user_id)
+        return shared_user_ids
+
     activity = WorkActivity()
     activity_detail = activity.get_activity_detail(activity_id)
     item = None
@@ -3841,13 +3872,32 @@ def get_activity_display_info(activity_id: str):
     if action_data:
         temporary_comment = action_data.action_comment
     metadata = activity.get_activity_metadata(activity_id)
+
+    # Initialize as an ordered list without duplicates
+    shared_user_unique_ids = []
+    seen = set()
+    owner_id = -1
+    if activity_detail.shared_user_ids:
+        shared_user_ids = _get_shared_user_ids_from_list(
+            activity_detail.shared_user_ids
+        )
+        for uid in shared_user_ids:
+            if uid not in seen:
+                shared_user_unique_ids.append(uid)
+                seen.add(uid)
+
     if metadata:
         item_json = json.loads(metadata).get('metainfo')
         owner_id = item_json.get('owner', -1)
         shared_user_ids = item_json.get('shared_user_ids', [])
-    else:
-        owner_id = -1
-        shared_user_ids = []
+        for uid in _get_shared_user_ids_from_list(shared_user_ids):
+            if uid not in seen:
+                shared_user_unique_ids.append(uid)
+                seen.add(uid)
+
+    shared_user_ids = [
+        {"user": user_id} for user_id in list(shared_user_unique_ids)
+    ]
 
     current_app.logger.debug("action_endpoint:{}".format(action_endpoint))
     current_app.logger.debug("action_id:{}".format(action_id))
@@ -5084,7 +5134,16 @@ def delete_user_lock_activity_cache(activity_id, data):
         msg = "User Unlock Success"
     return msg
 
-def get_contributors(pid_value, user_id_list_json=None, owner_id=-1):
+def get_contributors(pid_value, user_id_list_json=None):
+    """Get contributors information.
+    
+    Args:
+        pid_value(str): PID value of item.
+        user_id_list_json(list, Optional): List of user IDs in JSON format.
+    
+    Returns:
+        list: A list of dictionaries containing contributor information.
+    """
     from weko_items_ui.utils import get_user_information
 
     userid_list = []
@@ -5093,38 +5152,29 @@ def get_contributors(pid_value, user_id_list_json=None, owner_id=-1):
         pid_value = pid_value.split('.')[0]
         # Get Record by pid_value
         record = WekoRecord.get_record_by_pid(pid_value)
-        owner_id = record['_deposit']['owner']
-        userid_list.append(int(owner_id))
         userid_list.extend(record['weko_shared_ids'])
     # 一時保存ユーザーデータ
-    elif user_id_list_json and owner_id != -1:
-        if type(user_id_list_json) == list:
-            for rec in user_id_list_json:
-                if type(rec) == dict:
-                    userid_list.append(int(rec['user']))
-                elif type(rec) == int:
-                    userid_list.append(rec)
-        userid_list.append(int(owner_id))
+    elif user_id_list_json:
+        for rec in user_id_list_json:
+            if type(rec) == dict:
+                userid_list.append(int(rec['user']))
+            elif type(rec) == int:
+                userid_list.append(rec)
 
-    #　重複を削除
-    userid_list = list(set(userid_list))
     result = []
 
     user_infos = get_user_information(userid_list)
     for user_info in user_infos:
         info = {
-        'userid': '',
-        'username': '',
-        'email': '',
-        'owner': False,
-        'error': ''
+            'userid': '',
+            'username': '',
+            'email': '',
+            'error': ''
         }
         info['userid'] = int(user_info['userid'])
         info['username'] = user_info['username'] if not user_info['username'] == None else ''
         info['email'] = user_info['email']
         info['error'] = user_info['error']
-        if int(owner_id) != -1 and int(owner_id) == int(user_info['userid']):
-            info['owner'] = True
         result.append(info)
 
     return result
@@ -5288,3 +5338,19 @@ def check_activity_settings(settings=None):
         else:
             if hasattr(settings,'activity_display_flg'):
                 current_app.config['WEKO_WORKFLOW_APPROVER_EMAIL_COLUMN_VISIBLE'] = settings.activity_display_flg
+
+def reset_flow_action_roles_restricted_access():
+    """Reset FlowActionRole specify_property and action_item_registrant for restricted access."""
+    try:
+        with db.session.begin_nested():
+            flow_action_roles = FlowActionRole.query.filter(
+                (FlowActionRole.specify_property.isnot(None)) |
+                (FlowActionRole.action_item_registrant.is_(True))
+            ).all()
+            for action_role in flow_action_roles:
+                action_role.specify_property = None
+                action_role.action_item_registrant = False
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.exception(str(e))

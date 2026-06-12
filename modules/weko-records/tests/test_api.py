@@ -38,7 +38,7 @@ from invenio_pidstore.models import PersistentIdentifier
 from weko_records.api import FeedbackMailList, RequestMailList, ItemApplication, FilesMetadata, ItemLink, \
     ItemsMetadata, ItemTypeEditHistory, ItemTypeNames, ItemTypeProps, \
     ItemTypes, Mapping, JsonldMapping, SiteLicense, RecordBase, WekoRecord
-from weko_records.models import ItemReference, ItemTypeMapping, ItemTypeJsonldMapping, ItemTypeName, ItemTypeProperty
+from weko_records.models import ItemReference, ItemTypeMapping, ItemTypeJsonldMapping, ItemTypeName, ItemTypeProperty, ItemType
 from jsonschema.validators import Draft4Validator
 from datetime import datetime, timedelta
 
@@ -147,9 +147,16 @@ def test_itemtypenames(app, db, item_type, item_type2):
     lst = ItemTypeNames.get_all_by_id(ids=[1,2,3], with_deleted=True)
     assert len(lst)==3
 
+    _item_type_name_10 = ItemTypeName(id=10,name='test10')
+    with db.session.begin_nested():
+        db.session.add(_item_type_name_10)
+    _item_type_30 = ItemType(id=30,item_type_name=_item_type_name_10, schema={}, form={}, render={}, tag=1)
+    with db.session.begin_nested():
+        db.session.add(_item_type_30)
     # def get_name_and_id_all(cls):
     lst = ItemTypeNames.get_name_and_id_all()
-    assert len(lst)>0
+    res = [('test', 1), ('test2 updated', 2), ('test10', 30)]
+    assert lst == res
 
     # def delete(self, force=True):
     item_type_name = ItemTypeNames.get_record(3)
@@ -996,7 +1003,31 @@ class TestItemTypes:
         expected_dict = {"isHide": False, "isShowList": False, "isNonDisplay": False, "isSpecifyNewline": False, "required": False,"key": "key", "type": "fieldset", "items": [{"key": "key.subitem_select_item", "type": "select", "title": "値", "titleMap": [{"name": "a", "value": "a"}, {"name": "b", "value": "b"}], "title_i18n": {"en": "Test Value", "ja": "テスト値"}, "title_i18n_temp": {"en": "Test Value", "ja": "テスト値"},'isHide': False,'isNonDisplay': False,'isShowList': False, 'isSpecifyNewline': False,'required': False}], "title": "abcdef", "title_i18n": {"en": "", "ja": ""}}
         ItemTypes.update_attribute_options(old_value,new_value,"ALL")
         TestCase().assertDictEqual(new_value, expected_dict)
-
+    def test_update_mapping_without_static(self):
+        old_data={
+            "str_not_static":"b",
+            "str_static":"=str_static_value",
+            "dict_not_static":{"a":"b"},
+            "dict_static":{"not_static":"a","static":"=dict_static_value"},
+            "not_exist_path":{"not_static":"a","static":"=not_exist_static_value"},
+        }
+        
+        new_data={
+            "str_not_static":"b",
+            "str_static":"c",
+            "dict_not_static":{"a":"b"},
+            "dict_static":{"not_static":"a","static":"b"},
+        }
+        
+        test = {
+            "str_not_static":"b",
+            "str_static":"=str_static_value",
+            "dict_not_static":{"a":"b"},
+            "dict_static":{"not_static":"a","static":"=dict_static_value"}
+        }
+        
+        result = ItemTypes.update_mapping_without_static(old_data,new_data)
+        assert result==test
 
 # class ItemTypeEditHistory(RecordBase):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::test_item_type_edit_history -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
