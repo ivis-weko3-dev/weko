@@ -1556,7 +1556,8 @@ class SwordAPISettingsView(BaseView):
                 active_value = active_value,
                 registration_type_value = registration_type_value,
                 workflow_value = workflow_value,
-                duplicate_check_value = duplicate_check_value
+                duplicate_check_value = duplicate_check_value,
+                is_enable_duplicate_check = current_app.config.get("WEKO_ITEMS_UI_ENABLE_DUPLICATE_CHECK", False)
             )
         else:
             # POST
@@ -1653,6 +1654,8 @@ class SwordAPIJsonldSettingsView(ModelView):
             return _("Inactive Message")
 
     def _format_duplicate_check(view, context, model, name):
+        if current_app.config.get("WEKO_ITEMS_UI_ENABLE_DUPLICATE_CHECK", False) == False:
+            return ""
         if model.duplicate_check:
             return _("Active Message")
         else:
@@ -1744,6 +1747,7 @@ class SwordAPIJsonldSettingsView(ModelView):
                 current_model_json=None,
                 can_edit=True,
                 item_type_names=item_type_names,
+                is_enable_duplicate_check = current_app.config.get("WEKO_ITEMS_UI_ENABLE_DUPLICATE_CHECK", False)
             )
         else:
             # POST
@@ -1882,6 +1886,7 @@ class SwordAPIJsonldSettingsView(ModelView):
                 can_edit=can_edit,
                 item_type_names=item_type_names,
                 id=model.id,
+                is_enable_duplicate_check = current_app.config.get("WEKO_ITEMS_UI_ENABLE_DUPLICATE_CHECK", False)
             )
         else:
             # POST
