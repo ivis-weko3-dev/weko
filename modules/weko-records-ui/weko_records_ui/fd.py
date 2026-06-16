@@ -47,7 +47,7 @@ from weko_deposit.api import WekoRecord
 from weko_groups.api import Group
 from weko_logging.activity_logger import UserActivityLogger
 from weko_records.api import FilesMetadata, ItemTypes
-from weko_redis.redis import RedisConnection
+from weko_records_ui.ipaddr import check_site_license_permission
 from weko_user_profiles.models import UserProfile
 from weko_workflow.utils import is_terms_of_use_only
 from werkzeug.datastructures import Headers
@@ -373,6 +373,9 @@ def add_signals_info(record, obj):
     :param record: the record metadate.
     :param obj: send object.
     """
+    # Add site license permission to current user
+    check_site_license_permission()
+
     # Add user role info to send_obj
 
     userrole = 'guest'
@@ -416,7 +419,7 @@ def add_signals_info(record, obj):
     obj.billing_file_price = billing_file_price
 
     # Add site license flag to send_obj
-    obj.site_license_flag = True if hasattr(current_user, 'site_licese_flag') \
+    obj.site_license_flag = True if hasattr(current_user, 'site_license_flag') \
         else False
     obj.site_license_name = current_user.site_license_name \
         if hasattr(current_user, 'site_license_name') else ''

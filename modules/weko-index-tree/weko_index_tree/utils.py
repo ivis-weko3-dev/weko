@@ -40,7 +40,6 @@ from invenio_i18n.ext import current_i18n
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_search import RecordsSearch
 from simplekv.memory.redisstore import RedisStore
-from weko_admin.utils import is_exists_key_in_redis
 from weko_groups.models import Group
 from weko_logging.activity_logger import UserActivityLogger
 from weko_redis.redis import RedisConnection
@@ -1051,6 +1050,17 @@ def is_index_locked(index_id):
             index_id)):
         current_app.logger.info(f"Index with ID {index_id} is locked.")
         return True
+    return False
+
+
+def is_exists_key_in_redis(key):
+    """Check key exist in redis."""
+    try:
+        redis_connection = RedisConnection()
+        datastore = redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'], kv = True)
+        return datastore.redis.exists(key)
+    except Exception as e:
+        current_app.logger.error('Could get value for ' + key, e)
     return False
 
 

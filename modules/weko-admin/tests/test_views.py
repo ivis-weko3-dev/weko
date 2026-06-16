@@ -620,7 +620,7 @@ def test_manual_send_site_license_mail(api, db, users, mocker):
     mocker.patch("weko_admin.views.QueryCommonReportsHelper.get",return_value=report_helper_result)
     mock_send = mocker.patch("weko_admin.views.send_site_license_mail")
     res = api.post(url, data={"repo_id": "Root Index"})
-    assert res.data == b"finished"
+    assert res.data == b'{"status":"success"}\n'
     mock_send.assert_has_calls(
         [mocker.call("test data1",["test@mail.com"],"202201-202203",{"name":"test data1"}),
         mocker.call("test data2",["test@mail.com"],"202201-202203",{"file_download":0,"file_preview":0,"record_view":0,"search":0,"top_view":0}),
@@ -629,18 +629,23 @@ def test_manual_send_site_license_mail(api, db, users, mocker):
 
     # call with repo_id
     res = manual_send_site_license_mail("202201", "202203", "Root Index")
-    assert res == "finished"
+    assert res.data == b'{"status":"success"}\n'
     mock_send.assert_has_calls(
         [mocker.call("test data1",["test@mail.com"],"202201-202203",{"name":"test data1"}),
         mocker.call("test data2",["test@mail.com"],"202201-202203",{"file_download":0,"file_preview":0,"record_view":0,"search":0,"top_view":0}),
         ]
     )
 
+    # Exception
+    with patch("weko_admin.views.send_site_license_mail",side_effect=Exception("test_error")):
+        res = api.post(url)
+        assert res.data == b'{"status":"error"}\n'
+
     # send_list is None
     SiteLicenseInfo.query.delete()
     db.session.commit()
-    with pytest.raises(TypeError):
-        res = api.post(url)
+    res = api.post(url)
+    assert res.data == b'{"status":"error"}\n'
 
 #def get_site_license_send_mail_settings():
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_views.py::test_get_site_license_send_mail_settings -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
