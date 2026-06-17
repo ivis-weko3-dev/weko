@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import sys
 import traceback
@@ -667,6 +668,19 @@ def main():
             tables_partial.append(table_name)
         elif actual_count == expected_count:
             tables_all.append(table_name)
+
+    # for logging set to info level
+    format = '[%(asctime)s,%(msecs)03d][%(levelname)s] \033[32mweko\033[0m - '\
+            '%(message)s [file %(pathname)s line %(lineno)d in %(funcName)s]'
+    datefmt = '%Y-%m-%d %H:%M:%S'
+    formatter = logging.Formatter(fmt=format, datefmt=datefmt)
+
+    current_app.logger.setLevel("INFO")
+    if current_app.logger.handlers:
+        # if app.logger has handlers, set level and formatter
+        for h in current_app.logger.handlers:
+            h.setLevel("INFO")
+            h.setFormatter(formatter)
 
     args = sys.argv
     if len(args) == 2:
