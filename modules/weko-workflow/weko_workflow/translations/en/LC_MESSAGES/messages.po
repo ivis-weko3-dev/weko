@@ -770,7 +770,7 @@ msgstr ""
 
 #: weko_workflow/templates/weko_workflow/activity_list.html:450
 msgid "Send"
-msgstr ""
+msgstr "送信"
 
 #: weko_workflow/templates/weko_workflow/activity_list.html:493
 msgid "Please contact your system administrator."

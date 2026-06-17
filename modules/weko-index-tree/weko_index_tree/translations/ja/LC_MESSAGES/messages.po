@@ -206,7 +206,7 @@ msgstr "アップロード開始"
 
 #: weko_index_tree/templates/weko_index_tree/tree_edit.html:54
 msgid "Send"
-msgstr ""
+msgstr "送信"
 
 #: weko_index_tree/templates/weko_index_tree/tree_edit.html:69
 msgid "Result"
