@@ -1060,7 +1060,7 @@ def is_exists_key_in_redis(key):
         datastore = redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'], kv = True)
         return datastore.redis.exists(key)
     except Exception as e:
-        current_app.logger.error('Could get value for ' + key, e)
+        current_app.logger.error('Could get value for %s: %s', key, e)
     return False
 
 

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: weko-admin 0.1.0.dev20170000\n"
 "Report-Msgid-Bugs-To: wekosoftware@nii.ac.jp\n"
-"POT-Creation-Date: 2026-06-15 18:54+0900\n"
+"POT-Creation-Date: 2026-06-16 17:54+0900\n"
 "PO-Revision-Date: 2025-04-24 10:54+0900\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja\n"
@@ -54,7 +54,7 @@ msgstr "土曜日"
 msgid "Sunday"
 msgstr "日曜日"
 
-#: weko_admin/admin.py:510 weko_admin/tasks.py:162
+#: weko_admin/admin.py:510 weko_admin/tasks.py:152
 msgid " Log report."
 msgstr "ログレポート"
 
@@ -615,48 +615,52 @@ msgstr "トップページへのアクセス"
 msgid "A translation string"
 msgstr "翻訳文字列"
 
-#: weko_admin/utils.py:237
+#: weko_admin/utils.py:238
 msgid "Input type is invalid. Please check again."
 msgstr "入力タイプが無効です。再度確認してください"
 
-#: weko_admin/utils.py:240 weko_admin/views.py:335 weko_admin/views.py:342
+#: weko_admin/utils.py:241 weko_admin/views.py:335 weko_admin/views.py:342
 msgid "Account information is invalid. Please check again."
 msgstr "アカウント情報が無効です。再度確認してください"
 
-#: weko_admin/utils.py:342
+#: weko_admin/utils.py:344
 msgid "Registered Users"
 msgstr "登録ユーザー"
 
-#: weko_admin/utils.py:436 weko_admin/utils.py:597
+#: weko_admin/utils.py:453
+msgid "Aggregation Period"
+msgstr "集計期間"
+
+#: weko_admin/utils.py:453 weko_admin/utils.py:622
 msgid "Aggregation Month"
 msgstr "集計月"
 
-#: weko_admin/utils.py:454
+#: weko_admin/utils.py:479
 msgid "Total Detail Views"
 msgstr "詳細ビュー合計"
 
-#: weko_admin/utils.py:463
+#: weko_admin/utils.py:488
 msgid "Site license member"
 msgstr "サイトライセンス会員"
 
-#: weko_admin/utils.py:467
+#: weko_admin/utils.py:492
 msgid "Other than site license"
 msgstr "サイトライセンス以外"
 
-#: weko_admin/utils.py:478 weko_admin/utils.py:601
+#: weko_admin/utils.py:503 weko_admin/utils.py:626
 msgid "Institution Name"
 msgstr "機関名"
 
-#: weko_admin/utils.py:1347
+#: weko_admin/utils.py:1372
 msgid "Cannot update Feedback email settings."
 msgstr ""
 
-#: weko_admin/utils.py:1374
+#: weko_admin/utils.py:1399
 msgid "Author is duplicated."
 msgstr " 著者が重複しています。"
 
 #: weko_admin/templates/weko_admin/admin/feedback_mail.html:48
-#: weko_admin/utils.py:1381
+#: weko_admin/utils.py:1406
 msgid "Duplicate Email Addresses."
 msgstr "メールアドレスが重複しています。"
 
@@ -732,7 +736,7 @@ msgstr "ようこそ"
 #: weko_admin/templates/weko_admin/admin/sword_api_jsonld_settings.html:243
 #: weko_admin/templates/weko_admin/admin/sword_api_settings.html:113
 #: weko_admin/templates/weko_admin/admin/web_api_account.html:71
-#: weko_admin/templates/weko_admin/partials/email_schedule.html:88
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:92
 msgid "Save"
 msgstr "保存"
 
@@ -882,7 +886,6 @@ msgid "Edit"
 msgstr "編集"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:75
-#: weko_admin/templates/weko_admin/partials/email_schedule.html:23
 msgid "Details"
 msgstr "詳細"
 
@@ -1041,7 +1044,7 @@ msgstr ""
 #: weko_admin/templates/weko_admin/admin/item_export_settings.html:78
 #: weko_admin/templates/weko_admin/admin/ranking_settings.html:48
 #: weko_admin/templates/weko_admin/admin/stats_settings.html:59
-#: weko_admin/templates/weko_admin/partials/email_schedule.html:75
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:79
 msgid "On"
 msgstr "オン"
 
@@ -1049,7 +1052,7 @@ msgstr "オン"
 #: weko_admin/templates/weko_admin/admin/item_export_settings.html:84
 #: weko_admin/templates/weko_admin/admin/ranking_settings.html:53
 #: weko_admin/templates/weko_admin/admin/stats_settings.html:64
-#: weko_admin/templates/weko_admin/partials/email_schedule.html:80
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:84
 msgid "Off"
 msgstr "オフ"
 
@@ -1903,10 +1906,6 @@ msgstr "レポートログが送信されました"
 msgid "Attached file"
 msgstr "添付ファイル"
 
-#: weko_admin/templates/weko_admin/email_templates/site_license_report.html:22
-msgid "Aggregation"
-msgstr "集計一覧"
-
 #: weko_admin/templates/weko_admin/macros/sword_api_tabs_selector.html:22
 msgid "TSV/CSV"
 msgstr "TSV/CSV"
@@ -1926,6 +1925,14 @@ msgstr "送信間隔"
 #: weko_admin/templates/weko_admin/partials/email_schedule.html:19
 msgid "Frequency"
 msgstr "頻度"
+
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:23
+msgid "Send Date"
+msgstr "送信日"
+
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:58
+msgid "End of Month"
+msgstr "月末"
 
 #: weko_admin/templates/weko_admin/settings/lifetime.html:30
 msgid "Life Time"

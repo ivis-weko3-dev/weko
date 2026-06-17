@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: weko-admin 0.1.0.dev20170000\n"
 "Report-Msgid-Bugs-To: wekosoftware@nii.ac.jp\n"
-"POT-Creation-Date: 2026-06-15 18:54+0900\n"
+"POT-Creation-Date: 2026-06-16 17:54+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -53,7 +53,7 @@ msgstr ""
 msgid "Sunday"
 msgstr ""
 
-#: weko_admin/admin.py:510 weko_admin/tasks.py:162
+#: weko_admin/admin.py:510 weko_admin/tasks.py:152
 msgid " Log report."
 msgstr ""
 
@@ -614,48 +614,52 @@ msgstr ""
 msgid "A translation string"
 msgstr ""
 
-#: weko_admin/utils.py:237
+#: weko_admin/utils.py:238
 msgid "Input type is invalid. Please check again."
 msgstr ""
 
-#: weko_admin/utils.py:240 weko_admin/views.py:335 weko_admin/views.py:342
+#: weko_admin/utils.py:241 weko_admin/views.py:335 weko_admin/views.py:342
 msgid "Account information is invalid. Please check again."
 msgstr ""
 
-#: weko_admin/utils.py:342
+#: weko_admin/utils.py:344
 msgid "Registered Users"
 msgstr ""
 
-#: weko_admin/utils.py:436 weko_admin/utils.py:597
+#: weko_admin/utils.py:453
+msgid "Aggregation Period"
+msgstr ""
+
+#: weko_admin/utils.py:453 weko_admin/utils.py:622
 msgid "Aggregation Month"
 msgstr ""
 
-#: weko_admin/utils.py:454
+#: weko_admin/utils.py:479
 msgid "Total Detail Views"
 msgstr ""
 
-#: weko_admin/utils.py:463
+#: weko_admin/utils.py:488
 msgid "Site license member"
 msgstr ""
 
-#: weko_admin/utils.py:467
+#: weko_admin/utils.py:492
 msgid "Other than site license"
 msgstr ""
 
-#: weko_admin/utils.py:478 weko_admin/utils.py:601
+#: weko_admin/utils.py:503 weko_admin/utils.py:626
 msgid "Institution Name"
 msgstr ""
 
-#: weko_admin/utils.py:1347
+#: weko_admin/utils.py:1372
 msgid "Cannot update Feedback email settings."
 msgstr ""
 
-#: weko_admin/utils.py:1374
+#: weko_admin/utils.py:1399
 msgid "Author is duplicated."
 msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/feedback_mail.html:48
-#: weko_admin/utils.py:1381
+#: weko_admin/utils.py:1406
 msgid "Duplicate Email Addresses."
 msgstr ""
 
@@ -731,7 +735,7 @@ msgstr ""
 #: weko_admin/templates/weko_admin/admin/sword_api_jsonld_settings.html:243
 #: weko_admin/templates/weko_admin/admin/sword_api_settings.html:113
 #: weko_admin/templates/weko_admin/admin/web_api_account.html:71
-#: weko_admin/templates/weko_admin/partials/email_schedule.html:88
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:92
 msgid "Save"
 msgstr ""
 
@@ -881,7 +885,6 @@ msgid "Edit"
 msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:75
-#: weko_admin/templates/weko_admin/partials/email_schedule.html:23
 msgid "Details"
 msgstr ""
 
@@ -1040,7 +1043,7 @@ msgstr ""
 #: weko_admin/templates/weko_admin/admin/item_export_settings.html:78
 #: weko_admin/templates/weko_admin/admin/ranking_settings.html:48
 #: weko_admin/templates/weko_admin/admin/stats_settings.html:59
-#: weko_admin/templates/weko_admin/partials/email_schedule.html:75
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:79
 msgid "On"
 msgstr ""
 
@@ -1048,7 +1051,7 @@ msgstr ""
 #: weko_admin/templates/weko_admin/admin/item_export_settings.html:84
 #: weko_admin/templates/weko_admin/admin/ranking_settings.html:53
 #: weko_admin/templates/weko_admin/admin/stats_settings.html:64
-#: weko_admin/templates/weko_admin/partials/email_schedule.html:80
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:84
 msgid "Off"
 msgstr ""
 
@@ -1902,10 +1905,6 @@ msgstr ""
 msgid "Attached file"
 msgstr ""
 
-#: weko_admin/templates/weko_admin/email_templates/site_license_report.html:22
-msgid "Aggregation"
-msgstr ""
-
 #: weko_admin/templates/weko_admin/macros/sword_api_tabs_selector.html:22
 msgid "TSV/CSV"
 msgstr ""
@@ -1924,6 +1923,14 @@ msgstr ""
 
 #: weko_admin/templates/weko_admin/partials/email_schedule.html:19
 msgid "Frequency"
+msgstr ""
+
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:23
+msgid "Send Date"
+msgstr ""
+
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:58
+msgid "End of Month"
 msgstr ""
 
 #: weko_admin/templates/weko_admin/settings/lifetime.html:30
