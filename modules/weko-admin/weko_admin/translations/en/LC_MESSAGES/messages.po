@@ -485,11 +485,11 @@ msgid "No. Of Times Downloaded"
 msgstr "Number of  Downloads/Views"
 
 #: weko_admin/config.py:203 weko_admin/config.py:208
-msgid "Non-Logged In User"
+msgid "Non-Logged in User"
 msgstr "Non-Logged in User"
 
 #: weko_admin/config.py:204 weko_admin/config.py:209
-msgid "Logged In User"
+msgid "Logged in User"
 msgstr "Logged in User"
 
 #: weko_admin/config.py:190 weko_admin/config.py:195
