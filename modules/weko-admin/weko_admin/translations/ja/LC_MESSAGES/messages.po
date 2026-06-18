@@ -395,22 +395,6 @@ msgstr "CRIS 連携"
 msgid "statistics report"
 msgstr "統計設定"
 
-#: weko_admin/config.py:165
-msgid "No. Of File Downloads"
-msgstr "ファイルダウンロード回数"
-
-#: weko_admin/config.py:166
-msgid "No. Of File Previews"
-msgstr "ファイルプレビュー数"
-
-#: weko_admin/config.py:167
-msgid "No. Of Paid File Downloads"
-msgstr "課金ファイルダウンロード回数"
-
-#: weko_admin/config.py:168
-msgid "No. Of Paid File Previews"
-msgstr "ファイルプレビュー数"
-
 #: weko_admin/config.py:169
 msgid "Detail Views Per Index"
 msgstr "インデックス毎の詳細ビュー"
@@ -440,33 +424,30 @@ msgstr "ユーザー所属情報"
 msgid "Access Count By Site License"
 msgstr "サイトライセンス別アクセス数"
 
-#: weko_admin/config.py:159
+#: weko_admin/config.py:180
 msgid "Number of File Downloads"
 msgstr "ファイルダウンロード回数"
 
-#: weko_admin/config.py:160
+#: weko_admin/config.py:181
 msgid "Number of File Previews"
 msgstr "ファイルプレビュー数"
 
-#: weko_admin/config.py:161
+#: weko_admin/config.py:182
 msgid "Number of Paid File Downloads"
 msgstr "課金ファイルダウンロード回数"
 
-#: weko_admin/config.py:173
+#: weko_admin/config.py:194
 msgid "Number of Open-Access File Downloads"
 msgstr "オープンアクセスファイルダウンロード数"
 
-#: weko_admin/config.py:174
+#: weko_admin/config.py:195
 msgid "Number of Open-Access File Previews"
 msgstr "オープンアクセスファイルプレビュー数"
 
-#: weko_admin/config.py:175
+#: weko_admin/config.py:196
 msgid "Access Number Breakdown By Site License"
 msgstr "サイトライセンス別アクセス数内訳"
 
-#: weko_admin/config.py:176
-msgid "Number of Open-Access Paid File Downloads"
-msgstr "オープンアクセス課金ファイルダウンロード数"
 
 #: weko_admin/config.py:152 weko_admin/config.py:157
 msgid "File Name"
@@ -480,12 +461,12 @@ msgstr "登録インデックス名"
 msgid "No. Of Times Downloaded"
 msgstr "ファイルダウンロード回数"
 
-#: weko_admin/config.py:189 weko_admin/config.py:194
-msgid "Non-Logged In User"
+#: weko_admin/config.py:183 weko_admin/config.py:203
+msgid "Non-Logged in User"
 msgstr "未ログインユーザー"
 
-#: weko_admin/config.py:190 weko_admin/config.py:195
-msgid "Logged In User"
+#: weko_admin/config.py:184 weko_admin/config.py:204
+msgid "Logged in User"
 msgstr "ログインユーザー"
 
 #: weko_admin/config.py:190 weko_admin/config.py:195
