@@ -422,14 +422,6 @@ msgstr "Number of Open-Access File Previews"
 msgid "Access Number Breakdown By Site License"
 msgstr "Access Number Breakdown By Site License"
 
-#: weko_admin/config.py:183 weko_admin/config.py:203
-msgid "Non-Logged in User"
-msgstr "Non-Logged in User"
-
-#: weko_admin/config.py:184 weko_admin/config.py:208
-msgid "Logged in User"
-msgstr "Logged in User"
-
 #: weko_admin/config.py:169
 msgid "Detail Views Per Index"
 msgstr ""
