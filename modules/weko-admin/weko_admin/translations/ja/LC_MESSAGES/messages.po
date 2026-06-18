@@ -461,11 +461,11 @@ msgstr "登録インデックス名"
 msgid "No. Of Times Downloaded"
 msgstr "ファイルダウンロード回数"
 
-#: weko_admin/config.py:183 weko_admin/config.py:203
+#: weko_admin/config.py:203 weko_admin/config.py:208
 msgid "Non-Logged in User"
 msgstr "未ログインユーザー"
 
-#: weko_admin/config.py:184 weko_admin/config.py:204
+#: weko_admin/config.py:204 weko_admin/config.py:209
 msgid "Logged in User"
 msgstr "ログインユーザー"
 
