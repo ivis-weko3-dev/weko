@@ -448,8 +448,7 @@ msgstr "オープンアクセスファイルプレビュー数"
 msgid "Access Number Breakdown By Site License"
 msgstr "サイトライセンス別アクセス数内訳"
 
-
-#: weko_admin/config.py:152 weko_admin/config.py:193
+#: weko_admin/config.py:188 weko_admin/config.py:193
 msgid "File Name"
 msgstr "ファイル名"
 
