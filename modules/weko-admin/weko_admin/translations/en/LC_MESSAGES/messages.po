@@ -410,18 +410,6 @@ msgstr "Number of File Previews"
 msgid "Number of Paid File Downloads"
 msgstr "Number of Paid File Downloads"
 
-#: weko_admin/config.py:194
-msgid "Number of Open-Access File Downloads"
-msgstr "Number of Open-Access File Downloads"
-
-#: weko_admin/config.py:195
-msgid "Number of Open-Access File Previews"
-msgstr "Number of Open-Access File Previews"
-
-#: weko_admin/config.py:196
-msgid "Access Number Breakdown By Site License"
-msgstr "Access Number Breakdown By Site License"
-
 #: weko_admin/config.py:169
 msgid "Detail Views Per Index"
 msgstr ""
@@ -451,17 +439,17 @@ msgstr ""
 msgid "Access Count By Site License"
 msgstr ""
 
-#: weko_admin/config.py:180
-msgid "Open-Access No. Of File Downloads"
+#: weko_admin/config.py:194
+msgid "Number of Open-Access File Downloads"
 msgstr "Number of Open-Access File Downloads"
 
-#: weko_admin/config.py:181
-msgid "Open-Access No. Of File Previews"
+#: weko_admin/config.py:195
+msgid "Number of Open-Access File Previews"
 msgstr "Number of Open-Access File Previews"
 
-#: weko_admin/config.py:182
+#: weko_admin/config.py:196
 msgid "Access Number Breakdown By Site License"
-msgstr ""
+msgstr "Access Number Breakdown By Site License"
 
 #: weko_admin/config.py:188 weko_admin/config.py:193
 msgid "File Name"
