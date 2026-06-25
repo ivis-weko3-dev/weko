@@ -160,7 +160,6 @@ def create_or_update_mapping(created, updated, item_type_id, mapping):
     if obj:
         obj.updated = updated
         obj.mapping = mapping
-        db.session.merge(obj)
         print(f"  Updated: item_type_id={item_type_id}, version_id={obj.version_id}")
     else:
         obj = ItemTypeMapping(
