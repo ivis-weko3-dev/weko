@@ -109,28 +109,33 @@ def atomic_migration_stream(*models: Meta):
     """Context manager to create temporary tables for migration."""
     start = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
     info(f"Migration started at {start}.")
-
+    from sqlalchemy.orm import sessionmaker
     create_temp_tables(*models)
-
-    stream: ResultProxy = db.engine.execute(
-        text(f"SELECT * FROM {models[0].__tablename__}_tmp ORDER BY id ASC"),
-        execution_options={"stream_results": True}
+    Session = sessionmaker(bind=db.engine)
+    temp_session = Session()
+    
+    stream: ResultProxy = temp_session.execute(
+        text("SELECT * FROM {}_tmp ORDER BY id ASC".format(
+            models[0].__tablename__
+        )).execution_options(stream_results=True)
     )
 
     try:
         yield stream
     except BaseException as e:
         stream.close()
+        temp_session.close() 
         faild = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
         error(f"Migration failed at {faild}.")
         traceback.print_exc()
-
+        db.session.rollback()
         recover_from_temp_tables(*models)
 
         drop_temp_tables(*models)
 
     else:
         stream.close()
+        temp_session.close() 
         drop_temp_tables(*models)
 
         end = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -155,7 +160,6 @@ def create_or_update_mapping(created, updated, item_type_id, mapping):
     if obj:
         obj.updated = updated
         obj.mapping = mapping
-        db.session.merge(obj)
         print(f"  Updated: item_type_id={item_type_id}, version_id={obj.version_id}")
     else:
         obj = ItemTypeMapping(
