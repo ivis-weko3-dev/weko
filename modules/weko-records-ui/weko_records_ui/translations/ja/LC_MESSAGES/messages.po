@@ -988,7 +988,7 @@ msgstr ""
 
 #: weko_records_ui/templates/weko_records_ui/admin/institution_name_setting.html:43
 msgid "Institution Name"
-msgstr ""
+msgstr "機関名"
 
 #: weko_records_ui/templates/weko_records_ui/admin/institution_name_setting.html:56
 #: weko_records_ui/templates/weko_records_ui/admin/item_setting.html:68

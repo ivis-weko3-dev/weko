@@ -771,7 +771,7 @@ msgstr "を送付します。"
 
 #: weko_workflow/templates/weko_workflow/activity_list.html:450
 msgid "Send"
-msgstr ""
+msgstr "送信"
 
 #: weko_workflow/templates/weko_workflow/activity_list.html:493
 msgid "Please contact your system administrator."
@@ -1266,7 +1266,7 @@ msgstr "ストレージロケーション"
 
 #: weko_workflow/templates/weko_workflow/admin/workflow_detail.html:183
 msgid "Role"
-msgstr ""
+msgstr "ロール"
 
 #: weko_workflow/templates/weko_workflow/admin/workflow_list.html:33
 msgid "Create WorkFlow"
