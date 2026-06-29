@@ -157,8 +157,8 @@ class LocationModelView(ModelView):
         """Override get_query to filter locations based on user roles."""
         query = super(LocationModelView, self).get_query()
         user_role_names = {role.name for role in current_user.roles}
-        if not self._system_role in user_role_names:
-            # Non-system admins should not see default locations.
+        if not (self._system_role in user_role_names or self._repoadmin_role in user_role_names):
+            # Non-system or Non-repository admins should not see default locations.
             query = query.filter_by(default=False)
         return query
 
@@ -312,19 +312,19 @@ class LocationModelView(ModelView):
     @property
     def can_create(self):
         """Check permission for creating."""
-        return {self._system_role, self._repoadmin_role} & \
+        return {self._system_role} & \
             set([role.name for role in current_user.roles])
 
     @property
     def can_edit(self):
         """Check permission for Editing."""
-        return {self._system_role, self._repoadmin_role} & \
+        return {self._system_role} & \
             set([role.name for role in current_user.roles])
 
     @property
     def can_delete(self):
         """Check permission for Deleting."""
-        return {self._system_role, self._repoadmin_role} & \
+        return {self._system_role} & \
             set([role.name for role in current_user.roles])
 
 

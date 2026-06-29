@@ -718,6 +718,7 @@ def indices(app, db):
         testIndexOne = Index(
             index_name="testIndexOne",
             browsing_role="1,2,3,4,-98,-99",
+            browsing_group="-89",
             public_state=True,
             id=11,
             position=0
@@ -732,6 +733,7 @@ def indices(app, db):
         testIndexThree = Index(
             index_name="testIndexThree",
             browsing_role="1,2,3,4,-98,-99",
+            browsing_group="-89",
             public_state=True,
             harvest_public_state=True,
             id=33,
@@ -747,6 +749,7 @@ def indices(app, db):
         testIndexThreeChild = Index(
             index_name="testIndexThreeChild",
             browsing_role="1,2,3,4,-98,-99",
+            browsing_group="-89",
             parent=33,
             index_link_enabled=True,
             index_link_name="test_link",
@@ -766,6 +769,7 @@ def indices(app, db):
         testIndexSix = Index(
             index_name="testIndexSix",
             browsing_role="1,2,3,4,-98,-99",
+            browsing_group="-89",
             public_state=True,
             id=66,
             position=4
@@ -800,7 +804,7 @@ def test_indices(app, db):
                    recursive_contribute_group=False, online_issn='', is_deleted=False):
         _browsing_role = "3,-99"
         _contribute_role = "1,2,3,4,-98,-99"
-        _group = "g1,g2"
+        _group = "g1,g2,-89"
         return Index(
             id=id,
             parent=parent,
@@ -860,8 +864,8 @@ def indices_for_api(app, db):
             index_name_english="Sample Index",
             browsing_role="3,-98,-99",
             contribute_role="1,2,3,4,-98",
-            browsing_group="",
-            contribute_group="",
+            browsing_group="-89",
+            contribute_group="-89",
             public_state=False,
             harvest_public_state=False,
             owner_user_id=1,
@@ -877,8 +881,8 @@ def indices_for_api(app, db):
             index_name_english="parent index",
             browsing_role="3,4,-98,-99",
             contribute_role="3,4,-98,-99",
-            browsing_group="",
-            contribute_group="",
+            browsing_group="-89",
+            contribute_group="-89",
             public_state=True,
             public_date=datetime(2025, 3, 1, 0, 0, 0, 0),
             harvest_public_state=True,
@@ -895,8 +899,8 @@ def indices_for_api(app, db):
             index_name_english="child index 1",
             browsing_role="3,4,-98,-99",
             contribute_role="3,4,-98,-99",
-            browsing_group="",
-            contribute_group="",
+            browsing_group="-89",
+            contribute_group="-89",
             public_state=False,
             harvest_public_state=True,
             owner_user_id=1,
@@ -912,8 +916,8 @@ def indices_for_api(app, db):
             index_name_english="child index 2",
             browsing_role="3,4,-98,-99",
             contribute_role="3,4,-98,-99",
-            browsing_group="",
-            contribute_group="",
+            browsing_group="-89",
+            contribute_group="-89",
             public_state=True,
             harvest_public_state=True,
             owner_user_id=1,
@@ -929,8 +933,8 @@ def indices_for_api(app, db):
             index_name_english="child index 3",
             browsing_role="3,4,-98,-99",
             contribute_role="3,4,-98,-99",
-            browsing_group="",
-            contribute_group="",
+            browsing_group="-89",
+            contribute_group="-89",
             public_state=False,
             harvest_public_state=True,
             owner_user_id=1,
@@ -963,8 +967,8 @@ def indices_for_api(app, db):
             index_name_english="Community Child Index",
             browsing_role="3,4,-98,-99",
             contribute_role="3,4,-98,-99",
-            browsing_group="",
-            contribute_group="",
+            browsing_group="-89",
+            contribute_group="-89",
             public_state=True,
             harvest_public_state=True,
             owner_user_id=1,

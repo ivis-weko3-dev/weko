@@ -235,6 +235,10 @@ def base_app(instance_path, search_class, cache_config):
         CACHE_REDIS_DB='0',
         CACHE_REDIS_HOST="redis",
         REDIS_PORT='6379',
+        WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT={
+            'role_keyword': 'roles',
+            'prefix': 'jc'
+        },
         ACCOUNTS_SESSION_REDIS_DB_NO = 1,
         WEKO_RECORDS_UI_LICENSE_DICT=[
             {
@@ -573,51 +577,52 @@ def base_app(instance_path, search_class, cache_config):
     )
 
     app_.testing = True
-    Babel(app_)
-    InvenioI18N(app_)
-    Menu(app_)
-    # InvenioTheme(app_)
-    OAuth2Provider(app_)
-    InvenioAccess(app_)
-    InvenioAccounts(app_)
-    InvenioFilesREST(app_)
-    InvenioCache(app_)
-    InvenioDB(app_)
-    InvenioDeposit(app_)
-    InvenioStats(app_)
-    InvenioAssets(app_)
-    InvenioAdmin(app_)
-    InvenioPIDRelations(app_)
-    InvenioJSONSchemas(app_)
-    InvenioPIDStore(app_)
-    InvenioRecords(app_)
-    InvenioRecordsUI(app_)
-    InvenioREST(app_)
-    InvenioOAuth2Server(app_)
-    InvenioOAuth2ServerREST(app_)
-    WekoRecordsUI(app_)
-    search = InvenioSearch(app_, client=MockEs())
-    search.register_mappings(search_class.Meta.index, 'mock_module.mappings')
-    # InvenioCommunities(app_)
-    # WekoAdmin(app_)
-    WekoSearchUI(app_)
-    WekoWorkflow(app_)
-    WekoUserProfiles(app_)
-    WekoDeposit(app_)
-    WekoItemsUI(app_)
-    WekoAdmin(app_)
-    InvenioOAuth2Server(app_)
-    WekoLoggingUserActivity(app_)
-    WekoNotifications(app_)
-    # WekoRecordsUI(app_)
-    app_.register_blueprint(invenio_communities_blueprint)
-    # app_.register_blueprint(invenio_admin_blueprint)
-    # app_.register_blueprint(invenio_accounts_blueprint)
-    # app_.register_blueprint(weko_theme_blueprint)
-    # app_.register_blueprint(weko_admin_blueprint)
-    # app_.register_blueprint(weko_workflow_blueprint)
-    WekoWorkflowREST(app_)
-    app_.register_blueprint(oauth2server_settings_blueprint)
+    with app_.app_context():
+        Babel(app_)
+        InvenioI18N(app_)
+        Menu(app_)
+        # InvenioTheme(app_)
+        OAuth2Provider(app_)
+        InvenioAccess(app_)
+        InvenioAccounts(app_)
+        InvenioFilesREST(app_)
+        InvenioCache(app_)
+        InvenioDB(app_)
+        InvenioDeposit(app_)
+        InvenioStats(app_)
+        InvenioAssets(app_)
+        InvenioAdmin(app_)
+        InvenioPIDRelations(app_)
+        InvenioJSONSchemas(app_)
+        InvenioPIDStore(app_)
+        InvenioRecords(app_)
+        InvenioRecordsUI(app_)
+        InvenioREST(app_)
+        InvenioOAuth2Server(app_)
+        InvenioOAuth2ServerREST(app_)
+        WekoRecordsUI(app_)
+        search = InvenioSearch(app_, client=MockEs())
+        search.register_mappings(search_class.Meta.index, 'mock_module.mappings')
+        # InvenioCommunities(app_)
+        # WekoAdmin(app_)
+        WekoSearchUI(app_)
+        WekoWorkflow(app_)
+        WekoUserProfiles(app_)
+        WekoDeposit(app_)
+        WekoItemsUI(app_)
+        WekoAdmin(app_)
+        InvenioOAuth2Server(app_)
+        WekoLoggingUserActivity(app_)
+        WekoNotifications(app_)
+        # WekoRecordsUI(app_)
+        app_.register_blueprint(invenio_communities_blueprint)
+        # app_.register_blueprint(invenio_admin_blueprint)
+        # app_.register_blueprint(invenio_accounts_blueprint)
+        # app_.register_blueprint(weko_theme_blueprint)
+        # app_.register_blueprint(weko_admin_blueprint)
+        # app_.register_blueprint(weko_workflow_blueprint)
+        WekoWorkflowREST(app_)
+        app_.register_blueprint(oauth2server_settings_blueprint)
 
     return app_
 
@@ -1298,7 +1303,7 @@ def item_type(db):
     with db.session.begin_nested():
         db.session.add(item_type)
         db.session.add(item_type_property)
-    mappin = Mapping.create(
+    mappin = Mapping.create_or_update(
         item_type.id,
         mapping = json_data("data/item_type/item_type_mapping.json")
     )

@@ -325,33 +325,45 @@ def provider_fixture(app):
                 _default_scopes="test:scope",
             )
             # Same as 'c2' but user belonging to a user that's inactive
-            c3 = Client(
-                client_id="confidential-user-inactive",
-                client_secret="confidential-user-inactive",
-                name="confidential-user-inactive",
-                description="",
-                is_confidential=True,
-                user=user3,
-                _redirect_uris=url_for("oauth2test.authorized", _external=True),
-                _default_scopes="test:scope",
-            )
-            c4 = Client(
-                client_id="confidential-email",
-                client_secret="confidential-email",
-                name="confidential-email",
-                description="",
-                is_confidential=True,
-                user=user1,
-                _redirect_uris=url_for("oauth2test.authorized", _external=True),
-                _default_scopes="email",
-            )
+            c3 = Client(client_id='confidential-user-inactive',
+                        client_secret='confidential-user-inactive',
+                        name='confidential-user-inactive',
+                        description='',
+                        is_confidential=True,
+                        user=user3,
+                        _redirect_uris=url_for(
+                            'oauth2test.authorized', _external=True
+                        ),
+                        _default_scopes='test:scope'
+                        )
+            c4 = Client(client_id='confidential-email',
+                        client_secret='confidential-email',
+                        name='confidential-email',
+                        description='',
+                        is_confidential=True,
+                        user=user1,
+                        _redirect_uris=url_for(
+                            'oauth2test.authorized', _external=True
+                        ),
+                        _default_scopes='email')
+            c5 = Client(client_id='no-scopes',
+                        client_secret='no-scopes',
+                        name='no-scopes',
+                        description='',
+                        is_confidential=False,
+                        user=user1,
+                        _redirect_uris=url_for(
+                            'oauth2test.authorized', _external=True
+                        ))
             db.session.add(c1)
             db.session.add(c2)
             db.session.add(c3)
             db.session.add(c4)
-        personal_token = Token.create_personal(
-            "test-personal", user1.id, scopes=[], is_internal=True
-        )
+            db.session.add(c5)
+        personal_token = Token.create_personal('test-personal',
+                                               user1.id,
+                                               scopes=[],
+                                               is_internal=True)
 
         personal_token3 = Token.create_personal(
             "test-personal", user3.id, scopes=[], is_internal=True

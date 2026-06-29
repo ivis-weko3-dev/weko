@@ -539,7 +539,7 @@ def users(app, db):
 
 
 @pytest.fixture()
-def indextree(client, users):
+def indextree(client, users, user_activity_log_partition_table):
     index_metadata = {
         "id": 1,
         "parent": 0,
@@ -547,10 +547,12 @@ def indextree(client, users):
     }
 
     with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
-        ret = Indexes.create(0, index_metadata)
         index = Index.get_index_by_id(1)
-        index.public_state = True
-        index.harvest_public_state = True
+        if index is None:
+            Indexes.create(0, index_metadata)
+            index = Index.get_index_by_id(1)
+            index.public_state = True
+            index.harvest_public_state = True
 
     index_metadata = {
         "id": 2,
@@ -559,10 +561,12 @@ def indextree(client, users):
     }
 
     with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
-        Indexes.create(0, index_metadata)
         index = Index.get_index_by_id(2)
-        index.public_state = True
-        index.harvest_public_state = False
+        if index is None:
+            Indexes.create(0, index_metadata)
+            index = Index.get_index_by_id(2)
+            index.public_state = True
+            index.harvest_public_state = False
 
     index_metadata = {
         "id": 3,
@@ -571,10 +575,12 @@ def indextree(client, users):
     }
 
     with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
-        Indexes.create(0, index_metadata)
         index = Index.get_index_by_id(3)
-        index.public_state = False
-        index.harvest_public_state = True
+        if index is None:
+            Indexes.create(0, index_metadata)
+            index = Index.get_index_by_id(3)
+            index.public_state = False
+            index.harvest_public_state = True
 
     index_metadata = {
         "id": 4,
@@ -583,10 +589,12 @@ def indextree(client, users):
     }
 
     with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
-        Indexes.create(0, index_metadata)
         index = Index.get_index_by_id(4)
-        index.public_state = False
-        index.harvest_public_state = False
+        if index is None:
+            Indexes.create(0, index_metadata)
+            index = Index.get_index_by_id(4)
+            index.public_state = False
+            index.harvest_public_state = False
 
 
 @pytest.fixture()
@@ -6417,3 +6425,21 @@ def users_storage_info(db, users):
     db.session.commit()
 
     yield users_info
+
+@pytest.fixture()
+def user_activity_log_partition_table(app, db):
+    """Create user activity log partition."""
+    # Create partition for current month
+    now = datetime.now()
+    start = now.date().replace(day=1)
+    end = (start + timedelta(days=31)).replace(day=1)
+    partition_name = f"user_activity_logs_{now.year}_{now.month:02d}"
+    create_partition_sql = f"""
+        CREATE TABLE IF NOT EXISTS {partition_name}
+        PARTITION OF user_activity_logs
+        FOR VALUES FROM ('{start}') TO ('{end}');
+    """
+
+    with db.session.begin_nested():
+        db.session.execute(create_partition_sql)
+    db.session.commit()

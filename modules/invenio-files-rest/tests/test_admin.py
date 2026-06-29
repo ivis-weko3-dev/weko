@@ -248,7 +248,7 @@ class TestLocationModelView():
         mock_user.roles = [mock_role_repoad]
         with patch('invenio_files_rest.admin.current_user', mock_user):
             view = LocationModelView(Location, db.session)
-            assert view.can_create
+            assert not view.can_create
 
         # Test Case (Pos): Community Administrator can not create
         mock_role_repoad = MagicMock()
@@ -287,7 +287,7 @@ class TestLocationModelView():
         mock_user.roles = [mock_role_repoad]
         with patch('invenio_files_rest.admin.current_user', mock_user):
             view = LocationModelView(Location, db.session)
-            assert view.can_edit
+            assert not view.can_edit
 
         # Test Case (Pos): Community Administrator can not create
         mock_role_repoad = MagicMock()
@@ -326,7 +326,7 @@ class TestLocationModelView():
         mock_user.roles = [mock_role_repoad]
         with patch('invenio_files_rest.admin.current_user', mock_user):
             view = LocationModelView(Location, db.session)
-            assert view.can_delete
+            assert not view.can_delete
 
         # Test Case (Pos): Community Administrator can not delete
         mock_role_repoad = MagicMock()
@@ -380,7 +380,7 @@ class TestLocationModelView():
                 query = view.get_query()
                 locations = query.all()
                 location_names = {loc.name for loc in locations}
-                assert 'default-loc' not in location_names
+                assert 'default-loc' in location_names
                 assert 'non-default-loc' in location_names
             
             # Test Case: Community Administrator does not see default locations

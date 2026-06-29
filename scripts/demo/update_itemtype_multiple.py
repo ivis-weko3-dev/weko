@@ -64,7 +64,7 @@ def main():
         dcndl_edition.property_id,
         date_literal.property_id,
     ]
-    
+
     new_prop_mapping = {
         publisher_info.property_id:publisher_info.mapping,
         jpcoar_catalog.property_id:jpcoar_catalog.mapping,
@@ -94,7 +94,7 @@ def main():
             last_id = result[0]
             db.session.execute("SELECT setval('item_type_id_seq', {}, false);".format(multiple_id))
             ItemTypes.create(name='Multiple', schema=multiple_schema, form=multiple_from, render=multiple_render)
-            Mapping.create(item_type_id=multiple_id, mapping=multiple_mapping)
+            Mapping.create_or_update(item_type_id=multiple_id, mapping=multiple_mapping)
             db.session.execute("UPDATE item_type SET harvesting_type = 't' WHERE id = {};".format(multiple_id))
             db.session.execute("SELECT setval('item_type_id_seq', {}, true);".format(last_id))
             db.session.commit()
@@ -163,11 +163,11 @@ def main():
                 flag_modified(itemType, "form")
                 flag_modified(itemType, "render")
                 db.session.merge(itemType)
-                
+
                 flag_modified(_mapping, 'mapping')
                 db.session.merge(_mapping)
                 fixed_mapping_ids.append(_mapping.id)
-                new_mapping = Mapping.create(item_type_id=itemType.id,
+                new_mapping = Mapping.create_or_update(item_type_id=itemType.id,
                             mapping=_mapping.mapping)
                 fixed_mapping_ids.append(new_mapping.model.id)
                 current_app.logger.info("session merged.")

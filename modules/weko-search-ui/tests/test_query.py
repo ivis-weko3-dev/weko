@@ -1,5 +1,7 @@
 import json
 import copy
+
+import pytest
 from opensearch_dsl.query import Match, Range, Terms, Bool
 from mock import patch, MagicMock
 from werkzeug.datastructures import MultiDict
@@ -947,3 +949,51 @@ def test_split_text_by_or():
     assert _split_text_by_or("AAA OR　BBB | CCC") == ["AAA", "BBB", "CCC"]
     assert _split_text_by_or("AAA OR OR BBB") == ["AAA", "", "BBB"]
     assert _split_text_by_or("OR AAA |") == ["OR AAA |"]
+
+@pytest.mark.parametrize("fix_accessrights, accessrights, expected_key", [
+    (True, "", None),  # empty
+    (True, "open access", "open access"),  # single value
+    (True, "embargoed access", "embargoed access"),
+    (True, "restricted access", "restricted access"),
+    (True, "metadata only access", "metadata only access"),
+    (True, "open access,embargoed access", "open access"),  # multiple values
+    (True, "invalid access", None),  # invalid value
+    (False, "open access", "open access"),    # config disabled
+])
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_query.py::test_accessrights_query_param -vv -s --cov-branch --cov-report=xml --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_accessrights_query_param(app, users, fix_accessrights, accessrights, expected_key, mocker):
+    ACCESS_RIGHTS_CHOICES = [
+        'embargoed access',
+        'metadata only access',
+        'open access',
+        'restricted access',
+    ]
+    _data = {
+        'search_type': '0',
+        'accessrights': accessrights,
+        'sort': 'controlnumber',
+        'page': '1',
+        'size': '20',
+    }
+    with app.test_client() as client:
+        login_user_via_session(client, email=users[3]["email"])
+        search = RecordsSearch()
+
+        with app.test_request_context(headers=[('Accept-Language','en')], data=_data):
+            app.config['WEKO_SEARCH_KEYWORDS_DICT'] = WEKO_SEARCH_KEYWORDS_DICT
+            app.config['WEKO_ADMIN_MANAGEMENT_OPTIONS'] = WEKO_ADMIN_MANAGEMENT_OPTIONS
+            app.config['WEKO_SEARCH_FIX_ACCESSRIGHTS'] = fix_accessrights
+            app.config['WEKO_ACCESS_RIGHTS_CHOICES'] = ACCESS_RIGHTS_CHOICES
+            mocker.patch("weko_search_ui.query.search_permission",side_effect=MockSearchPerm)
+            mocker.patch("weko_search_ui.permissions.search_permission",side_effect=MockSearchPerm)
+            app.extensions['invenio-oauth2server'] = 1
+            app.extensions['invenio-queues'] = 1
+            search_result, urlkwargs = default_search_factory(self=None, search=search)
+            query = search_result.query().to_dict()
+            must_result = query["query"]["bool"]["filter"][0]["bool"]["must"]
+            if expected_key:
+                assert "accessRights" in str(must_result)
+                assert "accessRights" in str(urlkwargs)
+            else:
+                assert "accessRights" not in str(must_result)
+                assert "accessRights" not in str(urlkwargs)

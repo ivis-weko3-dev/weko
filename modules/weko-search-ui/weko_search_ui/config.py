@@ -558,6 +558,7 @@ WEKO_EXPORT_TEMPLATE_BASIC_ID = [
     ".cnri",
     ".doi_ra",
     ".doi",
+    ".bulk_doi",
     ".edit_mode",
 ]
 WEKO_EXPORT_TEMPLATE_BASIC_NAME = [
@@ -571,6 +572,7 @@ WEKO_EXPORT_TEMPLATE_BASIC_NAME = [
     ".CNRI",
     ".DOI_RA",
     ".DOI",
+    ".BULK_DOI",
     "Keep/Upgrade Version",
 ]
 WEKO_EXPORT_TEMPLATE_BASIC_OPTION = [
@@ -755,6 +757,12 @@ WEKO_SEARCH_UI_BULK_EXPORT_RETRY_INTERVAL = 1
 
 WEKO_SEARCH_UI_REGEX_MAX_LENGTH = 1000
 
+WEKO_SEARCH_UI_IMPORT_REPLACE_RULES = {}
+"""Strings to be replaced during item import."""
+
+WEKO_SEARCH_UI_IMPORT_REPLACE_RULE_MAP = {}
+"""Mapping of jsonld_mappings table 'id' to replacement rule keys."""
+
 CELERY_RESULT_PERSISTENT = True
 """ If set to True, result messages will be persistent. This means the messages will not be lost after a broker restart. The default is for the results to be transient."""
 CELERY_TASK_TRACK_STARTED=True
@@ -782,3 +790,8 @@ ROCRATE_METADATA_WK_CONTEXT_V1 = "http://purl.org/wk/v1/wk-context.jsonld"
 from .views import search
 
 SEARCH_UI_SEARCH_VIEW = search
+
+WEKO_ACCESS_RIGHTS_CHOICES = [ "embargoed access", "metadata only access", "open access", "restricted access"]
+
+WEKO_SEARCH_FIX_ACCESSRIGHTS = False
+""" If true, the value of accessrights will be modified. """
