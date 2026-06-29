@@ -198,7 +198,7 @@ def test_getrecord(app, db, item_type, mocker):
                 "item_custom_sort": {"2": 1}
             }
         private_index = Index(**private_index_metadata)
-        mapping = Mapping.create(
+        mapping = Mapping.create_or_update(
             item_type_id=item_type.id,
             mapping={}
         )
@@ -449,7 +449,7 @@ def test_getrecord_future_item(app,records,item_type,mock_execute,db,mocker):
             "item_custom_sort": {"2": 1}
         }
         index = Index(**index_metadata)
-        mapping = Mapping.create(
+        mapping = Mapping.create_or_update(
             item_type_id=item_type.id,
             mapping={}
         )
@@ -538,7 +538,7 @@ def test_listidentifiers(es_app,records,item_type,mock_execute,db,mocker):
             "item_custom_sort":{"2":1}
         }
         index = Index(**index_metadata)
-        mapping = Mapping.create(
+        mapping = Mapping.create_or_update(
             item_type_id=item_type.id,
             mapping={}
         )
@@ -883,7 +883,7 @@ def test_listrecords(es_app,records,item_type,mock_execute,db,mocker):
             "item_custom_sort":{"2":1}
         }
         index = Index(**index_metadata)
-        mapping = Mapping.create(
+        mapping = Mapping.create_or_update(
             item_type_id=item_type.id,
             mapping={}
         )
@@ -2036,7 +2036,7 @@ def test_issue34851_listrecords(es_app, records, item_type, mock_execute,db,mock
             "item_custom_sort":{"2":1}
         }
         index = Index(**index_metadata)
-        mapping = Mapping.create(
+        mapping = Mapping.create_or_update(
             item_type_id=item_type.id,
             mapping={}
         )
@@ -2159,7 +2159,7 @@ def test_issue34851_listidentifiers(es_app, records, item_type, mock_execute,db,
             "item_custom_sort":{"2":1}
         }
         index = Index(**index_metadata)
-        mapping = Mapping.create(
+        mapping = Mapping.create_or_update(
             item_type_id=item_type.id,
             mapping={}
         )

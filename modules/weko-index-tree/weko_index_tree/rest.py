@@ -1531,7 +1531,7 @@ class IndexManagementAPI(ContentNegotiatedMethodView):
         Returns:
             dict: A dictionary with allowed group roles.
         """
-        def _get_allowed_list(self, group_str): 
+        def _get_allowed_list(self, group_str):
             """Convert group string to allowed group roles."""
             return {
                 "allow": [{"id": role} for role in group_str.split(",")]

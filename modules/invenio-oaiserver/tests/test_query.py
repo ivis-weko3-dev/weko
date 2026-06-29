@@ -1,4 +1,3 @@
-
 import pytest
 import uuid
 
@@ -9,7 +8,8 @@ from invenio_oaiserver import current_oaiserver
 from invenio_oaiserver.query import (
     query_string_parser,
     get_affected_records,
-    get_records
+    get_records,
+    range_query
 )
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records.models import RecordMetadata
@@ -199,7 +199,7 @@ def test_get_records_with_set(es_app,db, users):
                 browsing_role="3,-99"
             )
         )
-    
+
     rec_uuid1 = uuid.uuid4()
     rec_data1 = {"title":["test_item1"],
                  "path":["123"],
@@ -210,7 +210,7 @@ def test_get_records_with_set(es_app,db, users):
                  "_updated": "2022-01-01T00:00:00"
                  }
     rec1 = RecordMetadata(id=rec_uuid1,json=rec_data1)
-    
+
     rec_uuid2 = uuid.uuid4()
     rec_data2 = {"title":["test_item2"],
                  "path":["456"],
@@ -221,7 +221,7 @@ def test_get_records_with_set(es_app,db, users):
                  "_updated": "2022-01-01T00:00:00"
                  }
     rec2 = RecordMetadata(id=rec_uuid2,json=rec_data2)
-    
+
     rec_uuid3 = uuid.uuid4()
     rec_data3 = {"title":["test_item3"],
                  "path":["789"],
@@ -232,7 +232,7 @@ def test_get_records_with_set(es_app,db, users):
                  "_updated": "2022-01-01T00:00:00"
                  }
     rec3 = RecordMetadata(id=rec_uuid3,json=rec_data3)
-    
+
     db.session.add_all(indexes)
     db.session.add(rec1)
     db.session.add(rec2)
@@ -256,7 +256,7 @@ def test_get_records_with_set(es_app,db, users):
                             root_node_id=indexes[0].id)
     db.session.add(comm1)
     db.session.commit()
-    
+
     data = {"set":"123"}
     result = get_records(**data)
     assert result.total == 3
@@ -264,20 +264,20 @@ def test_get_records_with_set(es_app,db, users):
     assert result_items[0]["json"]["_source"] == rec_data1
     assert result_items[1]["json"]["_source"] == rec_data2
     assert result_items[2]["json"]["_source"] == rec_data3
-    
+
     data = {"set":"123:456"}
     result = get_records(**data)
     assert result.total == 2
     result_items = [r for r in result.items]
     assert result_items[0]["json"]["_source"] == rec_data2
     assert result_items[1]["json"]["_source"] == rec_data3
-    
+
     data = {"set":"123:456:789"}
     result = get_records(**data)
     assert result.total == 1
     result_items = [r for r in result.items]
     assert result_items[0]["json"]["_source"] == rec_data3
-    
+
     data = {"set":"user-test_comm"}
     result = get_records(**data)
     assert result.total == 3
@@ -285,7 +285,7 @@ def test_get_records_with_set(es_app,db, users):
     assert result_items[0]["json"]["_source"] == rec_data1
     assert result_items[1]["json"]["_source"] == rec_data2
     assert result_items[2]["json"]["_source"] == rec_data3
-    
+
     data = {"set":"test_comm"}
     result = get_records(**data)
     assert result.total == 3
@@ -293,11 +293,167 @@ def test_get_records_with_set(es_app,db, users):
     assert result_items[0]["json"]["_source"] == rec_data1
     assert result_items[1]["json"]["_source"] == rec_data2
     assert result_items[2]["json"]["_source"] == rec_data3
-    
+
     data = {"set":"999"}
     result = get_records(**data)
     assert result.total == 0
-    
+
     data = {"set":"aaa"}
     result = get_records(**data)
     assert result.total == 0
+
+# .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py::test_range_query -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
+def test_range_query():
+    # Case: _from is datetime
+    from datetime import datetime
+    _from = datetime(2026, 1, 1, 12, 0, 0)
+    result = range_query(_from, None)
+    assert result is not None
+    d = result.to_dict()
+    should2 = d['bool']['should'][1]['bool']['must']
+    assert any('gte' in str(x) for x in should2)
+
+    # Case: _until is datetime
+    _until = datetime(2026, 12, 31, 23, 59, 59)
+    result = range_query(None, _until)
+    assert result is not None
+    d = result.to_dict()
+    should2 = d['bool']['should'][1]['bool']['must']
+    assert any('lte' in str(x) for x in should2)
+
+    # Case: _from is invalid type (int)
+    _from = 123456
+    result = range_query(_from, None)
+    assert result is None
+
+    # Case: _until is invalid type (int)
+    _until = 123456
+    result = range_query(None, _until)
+    assert result is None
+
+    # Case: _from is short string (invalid)
+    _from = '2026-01'
+    result = range_query(_from, None)
+    assert result is None
+
+    # Case: _until is short string (invalid)
+    _until = '2026-12'
+    result = range_query(None, _until)
+    assert result is None
+
+    # Case: both _from and _until are None
+    result = range_query(None, None)
+    assert result is None
+
+    # Case: only _from is specified
+    _from = '2026-01-01'
+    result = range_query(_from, None)
+    assert result is not None
+    d = result.to_dict()
+    # Check that 'gte' appears in should2 (from_should is active)
+    should2 = d['bool']['should'][1]['bool']['must']
+    assert any('gte' in str(x) for x in should2)
+
+    # Case: only _until is specified
+    _until = '2026-12-31'
+    result = range_query(None, _until)
+    assert result is not None
+    d = result.to_dict()
+    # Check that 'lte' appears in should2 (until_must is active)
+    should2 = d['bool']['should'][1]['bool']['must']
+    assert any('lte' in str(x) for x in should2)
+
+    # Case: both _from and _until are specified
+    _from = '2026-01-01'
+    _until = '2026-12-31'
+    result = range_query(_from, _until)
+    assert result is not None
+    d = result.to_dict()
+    should2 = d['bool']['should'][1]['bool']['must']
+    # Both from_should and until_must should be active
+    assert any('gte' in str(x) for x in should2)
+    assert any('lte' in str(x) for x in should2)
+
+@pytest.mark.parametrize("fix_access, from_, until, expect_range, expect_rq, rangequery_none", [
+    (False, None, None, False, False, False),
+    (False, "2026-01-01", None, True, False, False),
+    (False, None, "2026-12-31", True, False, False),
+    (False, "2026-01-01", "2026-12-31", True, False, False),
+    (True, None, None, False, False, False),
+    (True, "2026-01-01", None, True, True, False),
+    (True, None, "2026-12-31", True, True, False),
+    (True, "2026-01-01", "2026-12-31", True, True, False),
+    (True, "2026-01-01", "2026-12-31", False, True, True),
+])
+# .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py::test_get_records_range_branch -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
+def test_get_records_range_branch(es_app, db, monkeypatch, fix_access, from_, until, expect_range, expect_rq, rangequery_none):
+    es_app.config['WEKO_SEARCH_FIX_ACCESSRIGHTS'] = fix_access
+
+    index = Index(
+        id=30,
+        parent=0,
+        position=1,
+        index_name_english="range_index",
+        index_link_name_english="range_index_link",
+        harvest_public_state=True,
+        public_state=True,
+        public_date=datetime(2100,1,1),
+        browsing_role="3,-99"
+    )
+    db.session.add(index)
+    rec_uuid = uuid.uuid4()
+    PersistentIdentifier.create('doi', "https://doi.org/00030", object_type='rec', object_uuid=rec_uuid, status=PIDStatus.REGISTERED)
+    rec_data = {
+        "title": ["range_item"],
+        "path": ["30"],
+        "_oai": {"id": "oai:test:00030", "sets": ["30"]},
+        "set": ["30"],
+        "relation_version_is_last": "true",
+        "control_number": "30",
+        "publish_status": "0",
+        "_updated": "2100-01-01T00:00:00"
+    }
+    rec = RecordMetadata(id=rec_uuid, json=rec_data)
+    db.session.add(rec)
+    db.session.commit()
+    es_info = dict(
+        id=str(rec_uuid),
+        index=es_app.config['INDEXER_DEFAULT_INDEX'],
+        doc_type=es_app.config['INDEXER_DEFAULT_DOCTYPE'],
+        refresh="wait_for"
+    )
+    body = dict(version=1, version_type="external_gte", body=rec_data)
+    from invenio_search import current_search_client
+    current_search_client.index(**{**es_info, **body})
+    current_search_client.indices.refresh(index=es_app.config['INDEXER_DEFAULT_INDEX'])
+
+    called = {"filter": False, "rq": False}
+    import invenio_oaiserver.query as query_mod
+
+    orig_filter = query_mod.OAIServerSearch.filter
+    def filter_spy(self, *args, **kwargs):
+        called["filter"] = True
+        return orig_filter(self, *args, **kwargs)
+    monkeypatch.setattr(query_mod.OAIServerSearch, "filter", filter_spy)
+
+    orig_rq = query_mod.range_query
+    if rangequery_none:
+        def rq_spy(_from, _until):
+            called["rq"] = True
+            return None
+        monkeypatch.setattr(query_mod, "range_query", rq_spy)
+    else:
+        def rq_spy(_from, _until):
+            called["rq"] = True
+            return orig_rq(_from, _until)
+        monkeypatch.setattr(query_mod, "range_query", rq_spy)
+
+    with es_app.app_context():
+        kwargs = {"set": "30"}
+        if from_:
+            kwargs["from_"] = from_
+        if until:
+            kwargs["until"] = until
+        get_records(**kwargs)
+        assert called["filter"] == expect_range
+        assert called["rq"] == expect_rq

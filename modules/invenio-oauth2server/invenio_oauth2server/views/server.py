@@ -16,12 +16,15 @@ from flask import (
     abort,
     current_app,
     jsonify,
+    make_response,
     redirect,
     render_template,
     request,
 )
+from flask_babel import lazy_gettext as _
 from flask_login import login_required
-from oauthlib.oauth2.rfc6749.errors import InvalidClientError, OAuth2Error
+from oauthlib.oauth2.rfc6749.errors import InvalidClientError, OAuth2Error, \
+    AccessDeniedError, raise_from_error
 from invenio_db import db
 
 from ..models import Client
@@ -72,10 +75,14 @@ def authorize(*args, **kwargs):
             abort(404)
 
         scopes = current_oauth2server.scopes
+        scopes_list = [scopes[x] for x in kwargs.get('scopes', [])]
+        if not scopes_list:
+            return redirect('/oauth/errors?error=invalid_scope')
+
         ctx = dict(
             client=client,
-            oauth_request=kwargs.get("request"),
-            scopes=[scopes[x] for x in kwargs.get("scopes", [])],
+            oauth_request=kwargs.get('request'),
+            scopes=scopes_list
         )
         return render_template("invenio_oauth2server/authorize.html", **ctx)
 
@@ -115,15 +122,22 @@ def access_token():
 @blueprint.route("/errors")
 def errors():
     """Error view in case of invalid oauth requests."""
-    from oauthlib.oauth2.rfc6749.errors import raise_from_error
-
+    status_code = 200
     try:
         error = None
-        raise_from_error(request.values.get("error"), params=dict())
+        error_code = request.values.get('error')
+        description = request.values.get('error_description')
+        params = {}
+        if description:
+            params['error_description'] = description
+
+        raise_from_error(error_code, params=params)
     except OAuth2Error as raised:
         error = raised
-    return render_template("invenio_oauth2server/errors.html", error=error)
-
+        if not isinstance(error, AccessDeniedError):
+            status_code = 400
+    response = make_response(render_template('invenio_oauth2server/errors.html', error=error), status_code)
+    return response
 
 @blueprint.route("/ping", methods=["GET", "POST"])
 @oauth2.require_oauth()
@@ -160,6 +174,7 @@ def invalid():
 
 @blueprint.teardown_request
 def dbsession_clean(exception):
+    """Clean up the database session after each request."""
     current_app.logger.debug("invenio_oauth2server dbsession_clean: {}".format(exception))
     if exception is None:
         try:
