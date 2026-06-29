@@ -23,7 +23,6 @@
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
 """Previews a JSON file."""
-from __future__ import absolute_import, print_function
 
 import json
 import re

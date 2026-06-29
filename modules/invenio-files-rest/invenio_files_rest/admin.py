@@ -12,11 +12,11 @@ import os
 import uuid
 
 from flask import current_app, flash, url_for
-from flask_admin.actions import action
 from flask_admin import expose
+from flask_admin.actions import action
 from flask_admin.contrib.sqla import ModelView
 from flask_admin.form import SecureForm
-from flask_babelex import gettext as _
+from flask_babel import gettext as _
 from flask_security import current_user
 from flask_wtf import FlaskForm
 from invenio_admin.filters import FilterConverter
@@ -24,9 +24,8 @@ from invenio_admin.forms import LazyChoices
 from invenio_db import db
 from markupsafe import Markup
 from sqlalchemy.exc import SQLAlchemyError
-from wtforms.fields import PasswordField
-from wtforms.fields import StringField, SelectField, IntegerField
-from wtforms.fields import BooleanField
+from wtforms.fields import (
+    PasswordField, StringField, SelectField, IntegerField, BooleanField)
 from wtforms.validators import ValidationError, NumberRange, Length, Optional
 from wtforms.widgets import PasswordInput
 

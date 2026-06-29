@@ -11,13 +11,11 @@
 # TODO: This is an example file. Remove it if you do not need it, including
 # the templates and static folders as well as the test case.
 
-from __future__ import absolute_import, print_function
-
 import json
+import numpy
 import os
 import sys
 
-import numpy
 from flask import Blueprint, abort, current_app, json, jsonify, render_template
 from flask_babel import gettext as _
 from flask_login import login_required

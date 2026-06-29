@@ -21,12 +21,10 @@
 """Blueprint for Weko deposit rest."""
 
 import json
-from wsgiref.util import request_uri
-
 import redis
-from redis import sentinel
-from invenio_search.engine import search
+
 from flask import Blueprint, abort, current_app, jsonify, request
+from invenio_search.engine import search
 from invenio_db import db
 from invenio_pidstore import current_pidstore
 from invenio_pidstore.models import PersistentIdentifier
@@ -37,12 +35,14 @@ from invenio_records_rest.links import default_links_factory
 from invenio_records_rest.utils import obj_or_import_string
 from invenio_records_rest.views import pass_record
 from invenio_rest import ContentNegotiatedMethodView
+from redis import sentinel
 from sqlalchemy.exc import SQLAlchemyError
 from weko_records.errors import WekoRecordsError
 from weko_redis.errors import WekoRedisError
 from weko_redis.redis import RedisConnection
 from weko_workflow.api import WorkActivity
 from weko_workflow.errors import WekoWorkflowError
+from wsgiref.util import request_uri
 
 from .api import WekoDeposit, WekoRecord
 from .errors import WekoDepositError
@@ -150,7 +150,6 @@ def create_blueprint(app, endpoints):
 
         search_class_kwargs = {}
         search_class_kwargs['index'] = options.get('search_index')
-        search_class_kwargs['doc_type'] = options.get('search_type')
 
         ctx = {
             "read_permission_factory": obj_or_import_string(
@@ -277,7 +276,7 @@ class ItemResource(ContentNegotiatedMethodView):
     def put(self, **kwargs):
         """Put the record.
 
-        Put the record to Postgres DB, Elasticsearch, and Redis.
+        Put the record to Postgres DB, Search, and Redis.
         If failed, rollback the transaction and abort 400.
 
         Args:
@@ -376,7 +375,7 @@ class ItemResource(ContentNegotiatedMethodView):
             abort(400, "Failed to register item!")
 
         except search.OpenSearchException as ex:
-            weko_logger(key='WEKO_COMMON_ERROR_ELASTICSEARCH', ex=ex)
+            weko_logger(key='WEKO_COMMON_ERROR_SEARCH', ex=ex)
             db.session.rollback()
             abort(400, "Failed to register item!")
 

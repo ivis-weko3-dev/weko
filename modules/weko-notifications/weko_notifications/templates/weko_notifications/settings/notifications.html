@@ -7,17 +7,14 @@
 
 {%- extends config.WEKO_NOTIFICATIONS_SETTINGS_TEMPLATE %}
 {% block css %}
-{{ super() }}
-{% assets "weko_theme_css_buttons" %}
-<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
-{% assets "weko_notifications_settings_css" %}
-<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
+  {{ super() }}
+  {{ webpack["theme-css-buttons.css"] }}
+  {{ webpack["notifications_settings_css.css"] }}
 {% endblock %}
 
 {%- block javascript %}
-{{ super() }}
-{% assets "weko_notifications_settings_js" %}
-<script src="{{ ASSET_URL }}"></script>{% endassets %}
+  {{ super() }}
+  {{ webpack["notifications_settings_js.js"] }}
 {% endblock %}
 
 {% from "weko_notifications/settings/_macros.html" import render_field, form_errors %}

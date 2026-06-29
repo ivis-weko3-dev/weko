@@ -105,10 +105,6 @@ setup(
         'invenio_base.api_blueprints': [
             'weko_workspace_api = weko_workspace.views:blueprint_itemapi',
         ],
-        'invenio_assets.bundles': [
-            'workspace_item_list_js = weko_workspace.bundles:js_item_list',
-            'workspace_css = weko_workspace.bundles:css_workspace',
-        ],
         'invenio_i18n.translations': [
             'messages = weko_workspace',
         ],
@@ -117,6 +113,9 @@ setup(
         ],
         'invenio_db.alembic': [
             'weko_workspace = weko_workspace:alembic',
+        ],
+        "invenio_assets.webpack": [
+            "weko_workspace = weko_workspace.webpack:weko_workspace",
         ],
     },
     extras_require=extras_require,

@@ -8,8 +8,6 @@
 
 """Invenio module that adds support for communities."""
 
-from __future__ import absolute_import, print_function
-
 from .ext import InvenioCommunities
 from .version import __version__
 

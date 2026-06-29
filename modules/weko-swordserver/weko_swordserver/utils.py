@@ -9,22 +9,20 @@
 
 
 import traceback
-from hashlib import sha256
-from zipfile import ZipFile
+
 
 from flask import current_app
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm.exc import NoResultFound
-
+from hashlib import sha256
 from invenio_accounts.models import User
 from invenio_oauth2server.models import Token
-from invenio_pidrelations.contrib.versioning import PIDVersioning
+from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
 from invenio_pidstore.resolver import Resolver
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm.exc import NoResultFound
 
 from weko_accounts.models import ShibbolethUser
 from weko_admin.models import AdminSettings
 from weko_deposit.api import WekoDeposit, WekoRecord
-
 from weko_items_ui.utils import (
     check_item_is_being_edit, send_mail_direct_registered, send_mail_item_deleted
 )
@@ -38,6 +36,7 @@ from weko_search_ui.utils import (
 )
 from weko_workflow.api import WorkFlow as WorkFlows, WorkActivity
 from weko_workflow.utils import check_an_item_is_locked
+from zipfile import ZipFile
 
 from .api import SwordClient
 from .errors import ErrorType, WekoSwordserverException
@@ -518,7 +517,8 @@ def delete_item_directly(recid, request_info=None):
         )
 
     work_activity = WorkActivity()
-    latest_pid = PIDVersioning(child=pid).last_child
+    parent_pid = PIDNodeVersioning(pid=pid).parents.one_or_none()
+    latest_pid = PIDNodeVersioning(pid=parent_pid).last_child
 
     # Check Record is in import progress
     if check_an_item_is_locked(recid):

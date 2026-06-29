@@ -11,7 +11,7 @@ def mock_author_indexer(mocker):
     return instance
 
 @pytest.fixture
-def default_es_bulk_kwargs():
+def default_search_bulk_kwargs():
     return {
         "raise_on_error": True,
         "raise_on_exception": True,
@@ -41,7 +41,7 @@ def test_reindex_skip_prompt(script_info, mock_author_indexer):
 
 # --file or -f specified
 @pytest.mark.parametrize("flag", ["--file", "-f"])
-def test_reindex_with_file(script_info, mock_author_indexer, tmp_path, default_es_bulk_kwargs, flag):
+def test_reindex_with_file(script_info, mock_author_indexer, tmp_path, default_search_bulk_kwargs, flag):
     file_path = tmp_path / "uuids.txt"
     file_path.write_text("uuid1\nuuid2\nuuid3")
 
@@ -50,17 +50,17 @@ def test_reindex_with_file(script_info, mock_author_indexer, tmp_path, default_e
 
     assert result.exit_code == 0
     mock_author_indexer.bulk_process_authors.assert_called_once_with(
-        default_es_bulk_kwargs, ["uuid1", "uuid2", "uuid3"], None, None, True
+        default_search_bulk_kwargs, ["uuid1", "uuid2", "uuid3"], None, None, True
     )
 
 # --id specified
-def test_reindex_with_id(script_info, mock_author_indexer, default_es_bulk_kwargs):
+def test_reindex_with_id(script_info, mock_author_indexer, default_search_bulk_kwargs):
     runner = CliRunner()
     result = runner.invoke(authors, ["reindex", "--yes-i-know", "--id", "uuid1"], obj=script_info)
 
     assert result.exit_code == 0
     mock_author_indexer.bulk_process_authors.assert_called_once_with(
-        default_es_bulk_kwargs, ["uuid1"], None, None, True
+        default_search_bulk_kwargs, ["uuid1"], None, None, True
     )
 
 # --start-date specified
@@ -70,13 +70,13 @@ def test_reindex_with_id(script_info, mock_author_indexer, default_es_bulk_kwarg
     ("2025-01", "2025-01-01T00:00:00"),
     ("2025", "2025-01-01T00:00:00"),
 ])
-def test_reindex_with_start_date(script_info, mock_author_indexer, default_es_bulk_kwargs, input, expected):
+def test_reindex_with_start_date(script_info, mock_author_indexer, default_search_bulk_kwargs, input, expected):
     runner = CliRunner()
     result = runner.invoke(authors, ["reindex", "--yes-i-know", "--start-date", input], obj=script_info)
 
     assert result.exit_code == 0
     mock_author_indexer.bulk_process_authors.assert_called_once_with(
-        default_es_bulk_kwargs, [], expected, None, True
+        default_search_bulk_kwargs, [], expected, None, True
     )
 
 # --end-date specified
@@ -86,13 +86,13 @@ def test_reindex_with_start_date(script_info, mock_author_indexer, default_es_bu
     ("2025-02", "2025-02-01T00:00:00"),
     ("2026", "2026-01-01T00:00:00"),
 ])
-def test_reindex_with_end_date(script_info, mock_author_indexer, default_es_bulk_kwargs, input, expected):
+def test_reindex_with_end_date(script_info, mock_author_indexer, default_search_bulk_kwargs, input, expected):
     runner = CliRunner()
     result = runner.invoke(authors, ["reindex", "--yes-i-know", "--end-date", input], obj=script_info)
 
     assert result.exit_code == 0
     mock_author_indexer.bulk_process_authors.assert_called_once_with(
-        default_es_bulk_kwargs, [], None, expected, True
+        default_search_bulk_kwargs, [], None, expected, True
     )
 
 # --with-deleted specified
@@ -101,24 +101,24 @@ def test_reindex_with_end_date(script_info, mock_author_indexer, default_es_bulk
     (["--with-deleted=True"], True),
     (["--with-deleted=False"], False),
 ])
-def test_reindex_with_with_deleted(script_info, mock_author_indexer, default_es_bulk_kwargs, args, expected):
+def test_reindex_with_with_deleted(script_info, mock_author_indexer, default_search_bulk_kwargs, args, expected):
     runner = CliRunner()
     result = runner.invoke(authors, ["reindex", "--yes-i-know"] + args, obj=script_info)
 
     assert result.exit_code == 0
     mock_author_indexer.bulk_process_authors.assert_called_once_with(
-        default_es_bulk_kwargs, [], None, None, expected
+        default_search_bulk_kwargs, [], None, None, expected
     )
 
-# Elasticsearch parameters
-def test_reindex_with_es_bulk_kwargs(script_info, mock_author_indexer):
+# Search parameters
+def test_reindex_with_search_bulk_kwargs(script_info, mock_author_indexer):
     runner = CliRunner()
     cli_args = [
         "reindex", "--yes-i-know", "--raise-on-error=False",
         "--raise-on-exception=False", "--chunk-size=50", "--max-retries=1"
     ]
 
-    expected_es_bulk_kwargs = {
+    expected_search_bulk_kwargs = {
         'raise_on_error': False,
         'raise_on_exception': False,
         'chunk_size': 50,
@@ -133,7 +133,7 @@ def test_reindex_with_es_bulk_kwargs(script_info, mock_author_indexer):
 
     assert result.exit_code == 0
     mock_author_indexer.bulk_process_authors.assert_called_once_with(
-        expected_es_bulk_kwargs, [], None, None, True
+        expected_search_bulk_kwargs, [], None, None, True
     )
 
 # Normal execution

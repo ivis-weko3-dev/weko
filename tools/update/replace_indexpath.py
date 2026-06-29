@@ -20,23 +20,24 @@
 
 """WEKO3 module docstring."""
 
-from sqlalchemy import create_engine
-from sqlalchemy.exc import SQLAlchemyError
-from flask import current_app
-from invenio_oaiserver import current_oaiserver
-from invenio_oaiserver.models import OAISet
-from invenio_communities.config import COMMUNITIES_OAI_FORMAT
-from invenio_records.models import RecordMetadata
-from elasticsearch.exceptions import TransportError
-from weko_deposit.api import WekoDeposit
-
-from datetime import datetime
 import os
 import sys
 import math
 import json
 import logging
 import traceback
+
+from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
+from flask import current_app
+from invenio_communities.config import COMMUNITIES_OAI_FORMAT
+from invenio_oaiserver import current_oaiserver
+from invenio_oaiserver.models import OAISet
+from invenio_records.models import RecordMetadata
+from invenio_search.engine import search
+from weko_deposit.api import WekoDeposit
+
+from datetime import datetime
 
 # for logging
 start_time = datetime.today()
@@ -485,12 +486,12 @@ def update_records_metadata(oai_sets: list = []):
                         is_deleted = False
                         if metadata_id in delete_records:
                             is_deleted = True
-                        deposit.indexer.update_es_data(
+                        deposit.indexer.update_search_data(
                             deposit,
                             update_revision=False,
                             update_oai=True,
                             is_deleted=is_deleted)
-                    except TransportError as ex:
+                    except search.TransportError as ex:
                         current_app.logger.info(' ERROR-TransportError: {}.'.format(ex))
                         transport_error+=1
                         continue

@@ -1,17 +1,18 @@
 
-from os.path import dirname, join
-import pytest
 import copy
-from mock import patch, MagicMock, Mock
-from flask import current_app
+import csv
 import datetime
+import pytest
 import json
-from unittest.mock import mock_open
+
+from flask import current_app
 
 from invenio_accounts.testutils import login_user_via_session
-from invenio_indexer.api import RecordIndexer
 from invenio_cache import current_cache
-import csv
+from invenio_indexer.api import RecordIndexer
+from mock import patch, MagicMock, Mock
+from os.path import dirname, join
+from unittest.mock import mock_open
 
 from weko_authors.models import Authors, AuthorsPrefixSettings, AuthorsAffiliationSettings
 from weko_authors.config import WEKO_AUTHORS_FILE_MAPPING
@@ -66,7 +67,6 @@ from weko_authors.errors import AuthorsValidationError, AuthorsPermissionError
 class MockClient():
     def __init__(self):
         self.return_value=""
-    # def search(self,index,doc_type,body):
     def search(self,index,body):
         return self.return_value
 
@@ -1811,18 +1811,15 @@ def test_get_count_item_link(app):
 
 # def count_authors():
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_count_authors -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
-def test_count_authors(app2, esindex2):
-    index = app2.config["WEKO_AUTHORS_ES_INDEX_NAME"]
-    doc_type = "author-v1.0.0"
+def test_count_authors(app2, search_index2):
+    index = app2.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"]
 
     def register(i):
         with open(f"tests/data/test_authors/author{i:02}.json","r") as f:
-            esindex2.index(index=index, doc_type=doc_type,
-                           id=f"{i}", body=json.load(f), refresh="true")
+            search_index2.index(index=index, id=f"{i}", body=json.load(f), refresh="true")
 
     def delete(i):
-        esindex2.delete(index=index, doc_type=doc_type,
-                        id=f"{i}", refresh="true")
+        search_index2.delete(index=index, id=f"{i}", refresh="true")
 
     # 3 Register 1 author data
     register(1)

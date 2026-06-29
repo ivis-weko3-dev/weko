@@ -8,8 +8,6 @@
 
 """Errors for persistent identifiers."""
 
-from __future__ import absolute_import, print_function
-
 
 class CommunitiesError(Exception):
     """Base class for errors that deal with a community."""

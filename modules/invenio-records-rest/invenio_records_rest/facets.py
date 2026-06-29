@@ -13,12 +13,10 @@ information on how to specify aggregations and filters.
 """
 
 from flask import current_app, request
+from invenio_records_rest.utils import make_comma_list_a_list
 from invenio_rest.errors import FieldError, RESTValidationError
 from invenio_search.engine import dsl
-from six import text_type
 from werkzeug.datastructures import MultiDict
-
-from invenio_records_rest.utils import make_comma_list_a_list
 
 
 def nested_filter(field, subfield):
@@ -140,7 +138,7 @@ def _create_filter_dsl(urlkwargs, definitions):
     """Create a filter DSL expression."""
     filters = []
     for name, filter_factory in definitions.items():
-        values = request.values.getlist(name, type=text_type)
+        values = request.values.getlist(name, type=str)
         if values:
             filters.append(filter_factory(values))
             for v in values:

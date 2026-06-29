@@ -1,8 +1,3 @@
-
-//require([
-//    "jquery",
-//    "bootstrap"
-//], function () {
 import "bootstrap";
 import $ from "jquery";
 

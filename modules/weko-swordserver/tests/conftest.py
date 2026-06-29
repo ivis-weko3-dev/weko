@@ -11,27 +11,19 @@ See https://pytest-invenio.readthedocs.io/ for documentation on which test
 fixtures are available.
 """
 
-from __future__ import absolute_import, print_function
-
-import shutil
 import json
+import os
+import pytest
+import shutil
 import subprocess
 import tempfile
-import os
-from os.path import join, dirname
-from io import BytesIO
 import uuid
-from zipfile import ZipFile, ZIP_DEFLATED
-from datetime import datetime, timedelta
 
-from invenio_theme import InvenioTheme
-import pytest
+from datetime import datetime, timedelta
 from flask import Flask
 from flask_babel import Babel
 from flask_mail import Mail
 from flask_menu import Menu
-from sqlalchemy_utils.functions import create_database, database_exists
-from werkzeug.local import LocalProxy
 
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionUsers,ActionRoles
@@ -59,6 +51,10 @@ from invenio_oauth2server.models import Client, Token
 from invenio_records import InvenioRecords
 from invenio_records_ui import InvenioRecordsUI
 from invenio_search import InvenioSearch, current_search_client
+from invenio_theme import InvenioTheme
+from io import BytesIO
+from os.path import join, dirname
+from sqlalchemy_utils.functions import create_database, database_exists
 
 from weko_accounts import WekoAccounts
 from weko_admin import WekoAdmin
@@ -79,6 +75,8 @@ from weko_workflow.models import Action, ActionStatus, FlowAction, FlowDefine, W
 from weko_swordserver import WekoSWORDServer
 from weko_swordserver.views import blueprint as weko_swordserver_blueprint
 from weko_logging.audit import WekoLoggingUserActivity
+from werkzeug.local import LocalProxy
+from zipfile import ZipFile, ZIP_DEFLATED
 
 from .helpers import json_data, create_record
 
@@ -106,7 +104,7 @@ def base_app(instance_path):
             'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         OAUTH2_CACHE_TYPE='simple',
         OAUTHLIB_INSECURE_TRANSPORT=True,
-        SEARCH_ELASTIC_HOSTS=os.environ.get("SEARCH_ELASTIC_HOSTS", "opensearch"),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch"),
         SEARCH_HOSTS=os.environ.get('SEARCH_HOST', 'opensearch'),
         SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         CACHE_TYPE="redis",
@@ -119,7 +117,6 @@ def base_app(instance_path):
         WEKO_MAX_FILE_SIZE_FOR_ES = 1 * 1024 * 1024,
         DEPOSIT_DEFAULT_JSONSCHEMA = 'deposits/deposit-v1.0.0.json',
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME = 'jpcoar_v1_mapping',
@@ -198,18 +195,18 @@ def client(app):
         yield client
 
 @pytest.yield_fixture()
-def esindex(app):
+def search_index(app):
     app.config.update(
-        WEKO_AUTHORS_ES_INDEX_NAME="test-weko-author"
+        WEKO_AUTHORS_SEARCH_INDEX_NAME="test-weko-author"
     )
     current_search_client.indices.delete(index="test-*")
     mapping_author = json_data("data/author-v1.0.0.json")
     try:
         current_search_client.indices.create(
-            app.config["WEKO_AUTHORS_ES_INDEX_NAME"], body=mapping_author
+            app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"], body=mapping_author
         )
         current_search_client.indices.put_alias(
-            index=app.config["WEKO_AUTHORS_ES_INDEX_NAME"],name="test-weko-authors"
+            index=app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"],name="test-weko-authors"
         )
     except:
         current_search_client.indices.create("test-weko-author", body=mapping_author)
@@ -620,9 +617,9 @@ def bucket(app, db, location):
     return bucket
 
 @pytest.fixture()
-def es_records(app, esindex, records):
+def search_records(app, search_index, records):
     for recid, depid, record, item, parent, doi, deposit in records:
-        esindex.index(
+        search_index.index(
             index=app.config["INDEXER_DEFAULT_INDEX"],
             id=record.id,
             body=record,

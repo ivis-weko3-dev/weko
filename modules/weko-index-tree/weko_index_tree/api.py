@@ -23,24 +23,25 @@
 import pickle
 import os
 import sys
-from datetime import date, datetime, timezone
-from functools import partial
 import traceback
 
 from b2handle.clientcredentials import PIDClientCredentials
-from redis.exceptions import RedisError
+from datetime import date, datetime, timezone
+from functools import partial
+
 from flask import current_app, json, request
 from flask_babel import gettext as _
 from flask_login import current_user
+from invenio_accounts.models import Role
+from invenio_db import db
+from invenio_i18n.ext import current_i18n
+from invenio_indexer.api import RecordIndexer
+from redis.exceptions import RedisError
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql.expression import case, func, literal_column, and_
 
-from invenio_accounts.models import Role
-from invenio_db import db
-from invenio_i18n.ext import current_i18n
-from invenio_indexer.api import RecordIndexer
 
 from weko_groups.api import Group
 from weko_redis.redis import RedisConnection
@@ -1745,7 +1746,7 @@ class Indexes(object):
         return index
 
     @classmethod
-    def update_item_sort_custom_es(cls, index_path, sort_json=[]):
+    def update_item_sort_custom_search(cls, index_path, sort_json=[]):
         """Set custom sort.
 
         :param index_path selected index path
@@ -1761,12 +1762,12 @@ class Indexes(object):
                 }
             }
             from invenio_search.utils import build_alias_name
-            es_index = build_alias_name(current_app.config['SEARCH_UI_SEARCH_INDEX'])
+            search_index = build_alias_name(current_app.config['SEARCH_UI_SEARCH_INDEX'])
             query_q = json.dumps(upd_item_sort_q).replace("@index", index_path)
             query_q = json.loads(query_q)
             indexer = RecordIndexer()
             res = indexer.client.search(
-                index=es_index,
+                index=search_index,
                 body=query_q)
 
             for d in sort_json:
@@ -1780,7 +1781,7 @@ class Indexes(object):
                             }
                         }
                         indexer.client.update(
-                            index=es_index,
+                            index=search_index,
                             id=h.get("_id"),
                             body=body
                         )

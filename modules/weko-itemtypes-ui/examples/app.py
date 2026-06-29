@@ -55,7 +55,7 @@ SPHINX-END
 """
 
 from flask import Flask
-from flask_babelex import Babel
+from flask_babel import Babel
 from invenio_db import InvenioDB, db
 from invenio_i18n import InvenioI18N
 from weko_records import WekoRecords

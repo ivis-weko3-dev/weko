@@ -8,8 +8,6 @@
 
 """Invenio module contains the serialization of communities."""
 
-from __future__ import absolute_import, print_function
-
 from .response import community_responsify
 from .schemas.community import CommunitySchemaV1
 

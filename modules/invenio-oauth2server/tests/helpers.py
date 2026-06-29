@@ -7,8 +7,7 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 
 """Test helper functions."""
-
-from __future__ import absolute_import, print_function
+import invenio_oauth2server._compat  # noqa isort:skip
 
 from flask import (  # noqa isort:skip
     Blueprint,
@@ -19,10 +18,9 @@ from flask import (  # noqa isort:skip
     url_for,
 )
 
-import invenio_oauth2server._compat  # noqa isort:skip
 
 from flask_oauthlib.client import OAuth, prepare_request  # noqa isort:skip
-from six.moves.urllib.parse import urlparse  # noqa isort:skip
+from urllib.parse import urlparse  # noqa isort:skip
 from werkzeug.urls import url_decode, url_parse, url_unparse  # noqa isort:skip
 
 

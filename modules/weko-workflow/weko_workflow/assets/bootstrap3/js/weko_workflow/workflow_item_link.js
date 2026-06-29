@@ -1,7 +1,3 @@
-//require([
-//  "jquery",
-//  "bootstrap"
-//], function () {
 import "bootstrap";
 import $ from "jquery";
 import angular from "angular";

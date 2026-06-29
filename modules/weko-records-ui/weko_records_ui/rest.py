@@ -25,33 +25,31 @@ import re
 import traceback
 
 from email_validator import validate_email
-from flask import Blueprint, current_app, jsonify, make_response, request, Response, abort, url_for
+from flask import (
+    Blueprint, current_app, jsonify, make_response, 
+    request, Response, abort, url_for)
 from flask_babel import get_locale
 from flask_babel import gettext as _
 from flask_login import current_user
-from werkzeug.http import generate_etag
-from redis import RedisError
-from invenio_oauth2server import require_api_auth, require_oauth_scopes
-from urllib import parse
-from redis import RedisError
-from werkzeug.http import generate_etag
 
 from invenio_db import db
 from invenio_oauth2server import require_api_auth, require_oauth_scopes
-from invenio_pidrelations.contrib.versioning import PIDVersioning
+from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
 from invenio_pidstore.errors import PIDInvalidAction, PIDDoesNotExistError
 from invenio_pidstore.models import PersistentIdentifier
+from invenio_records_files.utils import record_file_factory
 from invenio_records_rest.links import default_links_factory
 from invenio_records_rest.utils import obj_or_import_string
 from invenio_records_rest.views import \
     create_error_handlers as records_rest_error_handlers
-from invenio_records_files.utils import record_file_factory
 from invenio_rest import ContentNegotiatedMethodView
 from invenio_rest.errors import SameContentException
-from invenio_db import db
 from invenio_rest.views import create_api_errorhandler
 from invenio_stats.views import QueryRecordViewCount, QueryFileStatsCount
+
+from redis import RedisError
 from sqlalchemy.exc import SQLAlchemyError
+from urllib import parse
 from weko_accounts.utils import limiter
 from weko_deposit.api import WekoRecord
 from weko_items_ui.scopes import item_read_scope
@@ -61,6 +59,7 @@ from weko_workflow.api import WorkActivity, WorkFlow
 from weko_workflow.models import GuestActivity
 from weko_workflow.scopes import activity_scope
 from weko_workflow.utils import check_etag, check_pretty, init_activity_for_guest_user
+from werkzeug.http import generate_etag
 
 from .errors import AvailableFilesNotFoundRESTError, ContentsNotFoundError, DateFormatRESTError, \
     FilesNotFoundRESTError, InternalServerError, InvalidEmailError, InvalidRequestError, \
@@ -366,7 +365,8 @@ class NeedRestrictedAccess(ContentNegotiatedMethodView):
             # Get latest PID.
             from weko_deposit.pidstore import get_record_without_version
             pid_without_version = get_record_without_version(pid)
-            latest_pid = PIDVersioning(child=pid_without_version).last_child
+            parent_pid = PIDNodeVersioning(pid=pid_without_version).parents.one_or_none()
+            latest_pid = PIDNodeVersioning(pid=parent_pid).last_child
 
             # Check if activity is completed.
             from weko_workflow.api import WorkActivity

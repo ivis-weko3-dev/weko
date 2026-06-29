@@ -12,16 +12,13 @@ See https://pytest-invenio.readthedocs.io/ for documentation on which test
 fixtures are available.
 """
 
+import json
 import os
+import pytest
 import shutil
 import tempfile
-import json
-from unittest.mock import patch
 
-import pytest
 from flask import Flask
-from sqlalchemy_utils.functions import create_database, database_exists
-
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts import InvenioAccounts
@@ -35,6 +32,8 @@ from invenio_pidstore import InvenioPIDStore
 from invenio_pidstore import current_pidstore
 from invenio_accounts.testutils import create_test_user
 from invenio_records_ui import InvenioRecordsUI
+from unittest.mock import patch
+from sqlalchemy_utils.functions import create_database, database_exists
 
 from weko_index_tree import WekoIndexTree
 from weko_index_tree.api import Indexes
@@ -72,7 +71,6 @@ def base_app(instance_path):
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI','postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         TESTING=True,
         OAISERVER_METADATA_FORMATS=oaiserver,

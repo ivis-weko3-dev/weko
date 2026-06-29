@@ -21,18 +21,17 @@
 """Blueprint for Weko index tree rest."""
 
 import inspect
-
 import json
+
 from datetime import datetime as dt
 from flask import Blueprint, current_app, jsonify, request, make_response, session, abort
-from flask_babelex import get_locale
-from flask_babelex import gettext as _
+from flask_babel import get_locale
+from flask_babel import gettext as _
 from flask_login import current_user
 from invenio_db import db
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_oauth2server import require_api_auth, require_oauth_scopes
 from invenio_rest import ContentNegotiatedMethodView
-from werkzeug.http import generate_etag
 from weko_deposit.api import WekoDeposit
 from weko_index_tree.api import Indexes
 from weko_index_tree.utils import get_index_id
@@ -42,6 +41,7 @@ from weko_records.serializers.utils import get_item_type_name, get_mapping
 from weko_redis.redis import RedisConnection
 from weko_search_ui.utils import get_thumbnail_key, handle_check_item_is_locked
 from weko_workflow.models import ActionStatusPolicy
+from werkzeug.http import generate_etag
 
 from .api import WorkActivity, Action, WorkActivityHistory, WorkFlow
 from .errors import ExpiredActivityError, IndexNotFoundError, InternalServerError, InvalidParameterValueError, InvalidTokenError, ItemUneditableError, MetadataFormatError, PermissionError, StatusNotItemRegistrationError, VersionNotFoundRESTError, \

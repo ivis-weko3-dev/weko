@@ -8,22 +8,23 @@
 
 """Harvest records from an OAI-PMH repository."""
 
-import os
-import re
 import json
 import itertools
-import xmltodict
+import os
+import re
 import traceback
+import xmltodict
+
 from datetime import date
 from difflib import SequenceMatcher as SeqMatcher
+from flask import current_app, url_for
 from functools import partial, reduce
+from invenio_pidstore.models import PersistentIdentifier
 from rocrate.rocrate import ROCrate
 from rocrate.model.contextentity import ContextEntity
 from urllib.parse import urlparse
 
-from flask import current_app, url_for
 
-from invenio_pidstore.models import PersistentIdentifier
 from weko_records.api import (
     Mapping, ItemTypes, FeedbackMailList, RequestMailList, ItemLink
 )
@@ -1338,7 +1339,7 @@ class JsonLdMapper(JsonMapper):
         Returns:
             errors (list[str] | None): list of errors.
         """
-        from flask_babelex import gettext as _
+        from flask_babel import gettext as _
         errors = []
         item_map = self._create_item_map(detail=True)
         required_map = self.required_properties()
@@ -1456,7 +1457,7 @@ class JsonLdMapper(JsonMapper):
 
         missing_metadata = {}
 
-        from flask_babelex import gettext as _
+        from flask_babel import gettext as _
         for META_KEY, META_VALUE in metadata.items():
             if not isinstance(META_KEY, str):
                 continue

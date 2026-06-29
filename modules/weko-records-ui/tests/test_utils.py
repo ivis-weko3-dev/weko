@@ -1,5 +1,21 @@
-import re
+import base64
+import copy
 import pytest
+import re
+import io
+import datetime
+
+from datetime import date, datetime as dt, time, timezone
+from datetime import timedelta
+from flask import json, current_app
+from flask_babel import gettext as _
+from flask_babel import to_utc
+from fpdf import FPDF
+from invenio_pidstore.models import PersistentIdentifier, PIDStatus
+from lxml import etree
+from unittest.mock import MagicMock, patch
+from weko_admin.models import AdminSettings
+from weko_deposit.api import WekoRecord
 from weko_records_ui.utils import (
     can_manage_onetime_url,
     convert_token_into_obj,
@@ -63,31 +79,13 @@ from weko_records_ui.utils import (
     generate_one_time_download_url,
     parse_one_time_download_token,
     )
-import base64
-from unittest.mock import MagicMock
-import copy
-import pytest
-import io
-from datetime import date, datetime as dt, time, timezone
-from datetime import timedelta
-from lxml import etree
-from fpdf import FPDF
-from flask import json, current_app
-from flask_babelex import to_utc
-from invenio_pidstore.models import PersistentIdentifier, PIDStatus
-from unittest.mock import patch
-from weko_deposit.api import WekoRecord
 from weko_records_ui.models import (
     AccessStatus, FileOnetimeDownload, FileSecretDownload, FileUrlDownloadLog,
     UrlType
 )
-from werkzeug.exceptions import NotFound
-from weko_admin.models import AdminSettings
-from flask_babel import gettext as _
-import datetime
-from werkzeug.exceptions import Gone, NotFound
-
 from weko_schema_ui.models import PublishStatus
+from werkzeug.exceptions import NotFound, Gone
+
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 
@@ -269,7 +267,7 @@ def test_soft_delete(app, records, users):
         data1 = MagicMock()
         data1.exists = False
 
-        with patch("weko_records_ui.utils.PIDVersioning", return_value=data1):
+        with patch("weko_records_ui.utils.PIDNodeVersioning", return_value=data1):
             assert soft_delete(record.pid.pid_value) == None
 
     recid = results[0]["recid"]
@@ -614,7 +612,7 @@ def test_get_file_info_list(app,records, itemtypes):
 #     def set_message_for_file(p_file):
 #     def get_data_by_key_array_json(key, array_json, get_key):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_get_file_info_list_1 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_get_file_info_list_1(app, make_record_need_restricted_access, esindex):
+def test_get_file_info_list_1(app, make_record_need_restricted_access, search_index):
     # roles = [{"role":1},{"role":2}]
     record_1 = WekoRecord.get_record_by_pid(11)
     record_1['item_1689228169922']['attribute_value_mlt'][0]['roles'] = [{"role":1},{"role":2}]
@@ -1710,7 +1708,7 @@ def test_save_download_log(secret_url, onetime_url, mocker):
 
 # def update_secret_download(**kwargs) -> Optional[List[FileSecretDownload]]:
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_export_preprocess -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_export_preprocess(app, records, esindex):
+def test_export_preprocess(app, records, search_index):
     indexer, results = records
     record = results[0]["record"]
     recid = results[0]["recid"]
@@ -1854,7 +1852,7 @@ def test_delete_version(app, records):
     with patch(
         "weko_records_ui.utils.WekoDeposit.merge_data_to_record_without_version"):
         with patch("weko_records_ui.utils.WekoDeposit.publish"):
-            with patch("weko_deposit.api.WekoIndexer.update_es_data"):
+            with patch("weko_deposit.api.WekoIndexer.update_search_data"):
                 with patch(
                     "weko_records_ui.utils.call_external_system") as mock_external:
                     delete_version("1.1")
@@ -1873,7 +1871,7 @@ def test_delete_version(app, records):
     with patch(
         "weko_records_ui.utils.WekoDeposit.merge_data_to_record_without_version"):
         with patch("weko_records_ui.utils.WekoDeposit.publish"):
-            with patch("weko_deposit.api.WekoIndexer.update_es_data"):
+            with patch("weko_deposit.api.WekoIndexer.update_search_data"):
                 with patch(
                     "weko_records_ui.utils.call_external_system") as mock_external:
                     delete_version("2.0")

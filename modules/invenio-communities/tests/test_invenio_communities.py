@@ -9,16 +9,11 @@
 
 """Module tests."""
 
-from __future__ import absolute_import, print_function
-
 import json
-from datetime import datetime, timedelta
-from mock import patch
-
 import pytest
+
+from datetime import datetime, timedelta
 from flask import Flask
-from invenio_oaiserver.models import OAISet
-from invenio_records.api import Record
 
 from invenio_communities import InvenioCommunities
 from invenio_communities.errors import CommunitiesError, \
@@ -26,6 +21,11 @@ from invenio_communities.errors import CommunitiesError, \
     InclusionRequestObsoleteError
 from invenio_communities.models import Community, FeaturedCommunity, \
     InclusionRequest
+from invenio_oaiserver.models import OAISet
+from invenio_records.api import Record
+
+from mock import patch
+
 
 try:
     from werkzeug.urls import url_parse
@@ -212,7 +212,7 @@ def test_communities_rest_all_communities(app, db, communities):
     with app.test_client() as client:
         response = client.get('/api/communities/')
         response_data = get_json(response)
-        assert response_data['hits']['total'] == 3
+        assert response_data["hits"]["total"]["value"] == 3
         assert len(response_data['hits']['hits']) == 3
 
         assert set(comm.id for comm in communities) == set(
@@ -242,7 +242,7 @@ def test_communities_rest_all_communities_query_and_sort(app, db, communities):
         response = client.get('/api/communities/?q=comm&sort=title')
         response_data = get_json(response)
 
-        assert response_data['hits']['total'] == 2
+        assert response_data["hits"]["total"]["value"] == 2
         assert response_data['hits']['hits'][0]['id'] == 'comm2'
         assert response_data['hits']['hits'][1]['id'] == 'comm1'
 

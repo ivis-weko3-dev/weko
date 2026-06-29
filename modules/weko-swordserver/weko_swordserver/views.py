@@ -7,22 +7,15 @@
 
 """Module of weko-swordserver."""
 
-from __future__ import absolute_import, print_function
-
 import os
 import shutil
-from datetime import datetime, timedelta
 import sys
 import traceback
 
+from datetime import datetime, timedelta
 from flask import Blueprint, current_app, jsonify, request, url_for, abort, Response
 from flask_login import current_user
 from flask_limiter.errors import RateLimitExceeded
-from sword3common import (
-    ServiceDocument, StatusDocument, constants, Error as sword3commonError
-)
-from sword3common.lib.seamless import SeamlessException
-from werkzeug.http import parse_options_header
 
 from invenio_db import db
 from invenio_deposit.scopes import write_scope, actions_scope
@@ -31,8 +24,12 @@ from invenio_oaiserver.api import OaiIdentify
 from invenio_oauth2server.decorators import require_oauth_scopes
 from invenio_oauth2server.ext import verify_oauth_token_and_set_current_user
 from invenio_oauth2server.provider import oauth2
+from sword3common import (
+    ServiceDocument, StatusDocument, constants, Error as sword3commonError
+)
+from sword3common.lib.seamless import SeamlessException
 
-from weko_accounts.utils import roles_required
+from weko_accounts.utils import roles_required, limiter
 from weko_admin.api import TempDirInfo
 from weko_deposit.api import WekoRecord
 from weko_items_ui.scopes import item_create_scope, item_update_scope, item_delete_scope
@@ -46,6 +43,7 @@ from weko_search_ui.utils import (
 from weko_workflow.errors import WekoWorkflowException
 from weko_workflow.utils import get_site_info_name
 from weko_workflow.scopes import activity_scope
+from werkzeug.http import parse_options_header
 
 from .config import WEKO_SWORDSERVER_DEPOSIT_ROLE_ENABLE
 from .decorators import check_on_behalf_of, check_package_contents
@@ -60,7 +58,6 @@ from .utils import (
     delete_item_directly,
     notify_about_item,
 )
-from weko_accounts.utils import limiter
 
 class SwordState:
     accepted = "http://purl.org/net/sword/3.0/state/accepted"

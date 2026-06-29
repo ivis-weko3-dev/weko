@@ -6,19 +6,18 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 
 """Module tests."""
-import pytest
-import json
 import copy
-from mock import patch, MagicMock, Mock
-from datetime import datetime
-from uuid import UUID
-from io import BytesIO
-from werkzeug.datastructures import FileStorage
+import json
+import pytest
 
+from datetime import datetime
+from io import BytesIO
 from invenio_files_rest.models import Bucket, Location
 from invenio_files_rest.errors import FileInstanceAlreadySetError, \
     FilesException, UnexpectedFileSizeError
+from mock import patch, MagicMock, Mock
 from sqlalchemy.orm.exc import MultipleResultsFound    
+from uuid import UUID
 
 from weko_gridlayout.utils import (
     get_widget_type_list,
@@ -47,7 +46,7 @@ from weko_gridlayout.utils import (
     build_rss_xml,
     find_rss_value,
     get_rss_data_source,
-    get_elasticsearch_result_by_date,
+    get_search_result_by_date,
     validate_main_widget_insertion,
     get_widget_design_page_with_main,
     main_design_has_main_widget,
@@ -58,6 +57,7 @@ from weko_gridlayout.utils import (
     validate_upload_file,
     WidgetBucket,
 )
+from werkzeug.datastructures import FileStorage
 
 
 
@@ -799,19 +799,19 @@ def test_get_rss_data_source(i18n_app):
     assert not get_rss_data_source(source, keyword)
     
 
-# def get_elasticsearch_result_by_date(start_date, end_date):
-def test_get_elasticsearch_result_by_date(i18n_app):
+# def get_search_result_by_date(start_date, end_date):
+def test_get_search_result_by_date(i18n_app):
     from opensearchpy.exceptions import NotFoundError
 
     start_date = "2021-11-11"
     end_date = "2021-11-22"
 
-    assert get_elasticsearch_result_by_date(start_date, end_date)
+    assert get_search_result_by_date(start_date, end_date)
 
     with patch('weko_gridlayout.utils.item_search_factory', side_effect=NotFoundError('')):
         # Exception coverage ~ line 779
         try:
-            get_elasticsearch_result_by_date(start_date, end_date)
+            get_search_result_by_date(start_date, end_date)
         except:
             pass
     

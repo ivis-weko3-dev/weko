@@ -8,13 +8,11 @@
 
 """Deposit UI."""
 
-from __future__ import absolute_import, print_function
-
 from copy import deepcopy
 
 from flask import Blueprint, current_app, render_template, request
-from invenio_db import db
 from flask_login import login_required
+from invenio_db import db
 from invenio_pidstore.errors import PIDDeletedError
 from invenio_records_ui.signals import record_viewed
 

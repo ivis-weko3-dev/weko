@@ -1,31 +1,25 @@
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 import json
-import uuid
-from datetime import datetime
-from unittest.mock import Mock, MagicMock, call, patch
-import unittest
-from unittest.mock import MagicMock, patch
-import pytest
 import math
+import pytest
+import uuid
+import unittest
+
 from flask import current_app, session
 from flask_login.utils import login_user, logout_user
-
-from marshmallow import ValidationError
-from requests import HTTPError
-from sqlalchemy import and_, or_, not_
-from sqlalchemy.exc import SQLAlchemyError
-
-from weko_notifications.notifications import Notification
-from weko_records.api import ItemsMetadata
-from weko_workflow.api import Flow, GetCommunity, WorkActivity, WorkFlow, UpdateItem
-from weko_workflow.models import Activity, ActivityHistory, ActivityAction, FlowAction, FlowActionRole
-from weko_schema_ui.models import PublishStatus
+from datetime import datetime
 
 from invenio_accounts.testutils import login_user_via_session
 from invenio_accounts.models import Role, User
 from invenio_pidstore.errors import PIDAlreadyExists
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records.models import RecordMetadata
+from marshmallow import ValidationError
+from requests import HTTPError
+from sqlalchemy import and_, or_, not_
+from sqlalchemy.exc import SQLAlchemyError
+from unittest.mock import Mock, MagicMock, call, patch
+
 from weko_deposit.api import WekoIndexer
 from weko_notifications.notifications import Notification
 from weko_records.api import ItemsMetadata
@@ -33,11 +27,11 @@ from weko_records.models import RequestMailList as _RequestMailList
 from weko_records.models import ItemApplication as _ItemApplication
 from weko_records_ui.models import FileSecretDownload
 from weko_schema_ui.models import PublishStatus
-
-
 from weko_workflow.api import (
     Flow, GetCommunity, UpdateItem, WorkActivity, WorkFlow
 )
+from weko_workflow.models import (
+    Activity, ActivityHistory, ActivityAction, FlowAction, FlowActionRole)
 from weko_workflow.models import Action as _Action
 from weko_workflow.models import Activity as _Activity
 from weko_workflow.models import ActivityAction
@@ -952,7 +946,7 @@ def test_publish(mock_db_commit, mock_WekoIndexer, mock_FileSecretDownload):
         assert record['publish_status'] == status
         record.commit.assert_called_once()
         mock_db_commit.assert_called()
-        mock_WekoIndexer.return_value.update_es_data.assert_called_with(record, update_revision=False, field='publish_status')
+        mock_WekoIndexer.return_value.update_search_data.assert_called_with(record, update_revision=False, field='publish_status')
         if reset_mock:
             mock_FileSecretDownload.query.filter_by.return_value.all.reset_mock()
 
@@ -2273,19 +2267,19 @@ def test_get_non_extract_files(app, mocker):
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_UpdateItem_publish -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_UpdateItem_publish(app, db_records, mocker):
-    mock_update_es_data = mocker.patch("weko_deposit.api.WekoIndexer.update_es_data")
+    mock_update_search_data = mocker.patch("weko_deposit.api.WekoIndexer.update_search_data")
 
     updated_item = UpdateItem()
     dep = db_records[0][6]
     updated_item.publish(dep, PublishStatus.PRIVATE.value)
     assert dep.get('publish_status') == PublishStatus.PRIVATE.value
-    mock_update_es_data.assert_called_once_with(
+    mock_update_search_data.assert_called_once_with(
         dep, update_revision=False, field="publish_status")
 
-    mock_update_es_data.reset_mock()
+    mock_update_search_data.reset_mock()
     updated_item.publish(dep, PublishStatus.PUBLIC.value)
     assert dep.get('publish_status') == PublishStatus.PUBLIC.value
-    mock_update_es_data.assert_called_once_with(
+    mock_update_search_data.assert_called_once_with(
         dep, update_revision=False, field="publish_status")
 
 # def __create_self_user_id_json(self_user_id)

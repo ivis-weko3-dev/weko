@@ -1,11 +1,15 @@
-from logging import exception
 import pytest
 import redis
+from logging import exception
+
 from datetime import datetime, timezone
-from unittest.mock import patch, MagicMock
 from flask import session,current_app,Flask
 from flask_login.utils import login_user
+from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import Role, User,userrole
+from invenio_db import db as db_
+from invenio_db import InvenioDB
+from unittest.mock import patch, MagicMock
 from weko_user_profiles.models import UserProfile
 from weko_accounts.models import ShibbolethUser
 from weko_accounts.api import (
@@ -20,9 +24,6 @@ from weko_accounts.api import (
     bind_roles_to_indices,
     create_fqdn_from_entity_id
 )
-from invenio_db import db as db_
-from invenio_db import InvenioDB
-from invenio_accounts import InvenioAccounts
 from weko_index_tree.models import Index
 
 #class ShibUser(object):
@@ -371,7 +372,7 @@ class TestShibUser:
         shibuser.user=user
         shibuser.shib_user_login()
         mock_sender.assert_called_with(current_app._get_current_object(),user=user)
-        assert session["user_id"] == user.id
+        assert session["_user_id"] == user.id
         assert session["user_src"] == "Shib"
 #    def assign_user_role(self):
 # .tox/c1/bin/pytest --cov=weko_accounts tests/test_api.py::TestShibUser::test_assign_user_role -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-accounts/.tox/c1/tmp

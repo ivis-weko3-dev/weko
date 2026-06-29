@@ -2667,7 +2667,9 @@ class WorkActivity(object):
             if not temp_user_info:
                 continue
             #ユーザーロールがあるか否か
-            user_role = db.session.query(Role).join(userrole).filter_by(user_id=temp_user_info.id).all()
+            user_role = db.session.query(Role).join(
+                userrole, userrole.c.role_id == Role.id).filter_by(
+                    user_id=temp_user_info.id).all()
             if not user_role:
                 continue
             user_ids.append(temp_user_info.id)
@@ -2695,7 +2697,9 @@ class WorkActivity(object):
             if not temp_user_info:
                 continue
             #ユーザーロールがあるか否か
-            user_role = db.session.query(Role).join(userrole).filter_by(user_id=temp_user_info.id).all()
+            user_role = db.session.query(Role).join(
+                userrole, userrole.c.role_id == Role.id).filter_by(
+                    user_id=temp_user_info.id).all()
             if not user_role:
                 continue
             user_ids.append(temp_user_info.id)
@@ -2708,7 +2712,9 @@ class WorkActivity(object):
                roles: get_activity_action_role's return,ex: roles={'allow':[1],'deny':[]}
         :return: return ids of request mails that set to item
         """
-        user_role = db.session.query(Role).join(userrole).filter_by(user_id=user_id).all()
+        user_role = db.session.query(Role).join(
+            userrole, userrole.c.role_id == Role.id).filter_by(
+                user_id=user_id).all()
         is_approver = True
         supers = current_app.config['WEKO_PERMISSION_SUPER_ROLE_USER']
         for role in list(user_role or []):
@@ -4112,7 +4118,7 @@ class UpdateItem(object):
             db.session.commit()
 
         indexer = WekoIndexer()
-        indexer.update_es_data(record, update_revision=False, field='publish_status')
+        indexer.update_search_data(record, update_revision=False, field='publish_status')
 
     def update_status(self, record, status=PublishStatus.PRIVATE.value):
         r"""Record update status.
@@ -4132,7 +4138,7 @@ class UpdateItem(object):
         db.session.commit()
 
         indexer = WekoIndexer()
-        indexer.update_es_data(record, update_revision=False, field='publish_status')
+        indexer.update_search_data(record, update_revision=False, field='publish_status')
 
     def set_item_relation(self, relation_data, record):
         """Set relation info of item.

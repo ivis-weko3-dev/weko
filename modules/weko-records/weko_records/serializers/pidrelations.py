@@ -24,8 +24,6 @@
 
 """Zenodo Serializers."""
 
-from __future__ import absolute_import, print_function
-
 from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
 from invenio_pidstore.models import PersistentIdentifier
 from weko_deposit.api import WekoDeposit

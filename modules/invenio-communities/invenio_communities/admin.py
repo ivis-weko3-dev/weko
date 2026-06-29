@@ -8,33 +8,31 @@
 
 """Admin model views for Communities."""
 
-from __future__ import absolute_import, print_function
-
-import os
 import json
+import os
 import re
 import sys
 import traceback
 
+from b2handle.clientcredentials import PIDClientCredentials
 from flask import request, abort, jsonify, redirect, url_for, flash
 from flask.globals import current_app
-from flask_admin.contrib.sqla import ModelView
 from flask_admin import expose
+from flask_admin.contrib.sqla import ModelView
 from flask_login import current_user
 from invenio_accounts.models import Role
 from invenio_db import db
-from sqlalchemy import func, or_
-from weko_index_tree.api import Indexes
-from weko_index_tree.models import Index
-from wtforms.validators import ValidationError, Length
-from wtforms import FileField, RadioField, StringField
-from wtforms.utils import unset_value
 from invenio_i18n.ext import current_i18n
+from sqlalchemy import func, or_
 from weko_gridlayout.services import WidgetDesignPageServices
 from weko_handle.api import Handle
+from weko_index_tree.api import Indexes
+from weko_index_tree.models import Index
 from weko_workflow.config import WEKO_SERVER_CNRI_HOST_LINK
-from b2handle.clientcredentials import PIDClientCredentials
+from wtforms import FileField, RadioField, StringField
 from wtforms.ext.sqlalchemy.fields import QuerySelectField
+from wtforms.utils import unset_value
+from wtforms.validators import ValidationError, Length
 
 from .models import Community, FeaturedCommunity, InclusionRequest
 from .utils import get_user_role_ids, get_numeric_user_role_ids, delete_empty

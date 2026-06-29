@@ -8,8 +8,6 @@
 
 """Links for community serialization."""
 
-from __future__ import absolute_import, print_function
-
 from flask import current_app, request, url_for
 
 

@@ -1,17 +1,18 @@
-import json
 import copy
+import json
 import uuid
-from os.path import dirname, join
-from flask import url_for
 
+from flask import url_for
 from invenio_db import db
-from invenio_pidstore import current_pidstore
-from invenio_pidstore.models import PersistentIdentifier, PIDStatus, RecordIdentifier
+from invenio_files_rest.models import Bucket, ObjectVersion
 from invenio_pidrelations.models import PIDRelation
+from invenio_pidstore import current_pidstore
+from invenio_pidstore.models import (
+    PersistentIdentifier, PIDStatus, RecordIdentifier)
+from invenio_records_files.models import RecordsBuckets
+from os.path import dirname, join
 from weko_records.api import ItemsMetadata, WekoRecord
 from weko_deposit.api import WekoIndexer, WekoDeposit, WekoRecord
-from invenio_files_rest.models import Bucket, ObjectVersion
-from invenio_records_files.models import RecordsBuckets
 
 
 def json_data(filename):
@@ -102,7 +103,7 @@ def logout(app,client):
 
 def create_record_with_pdf(rec_uuid, recid):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     record_data = {
         "_oai": {"id": f"oai:weko3.example.org:{recid}","sets": ["1732762571081"]},
         "path": ["1732762571081"],
@@ -254,7 +255,7 @@ def create_record_with_pdf(rec_uuid, recid):
         },
         "relation_version_is_last": True
     }
-    es_data = {
+    search_data = {
         "file": {
             "URI": [
                 {"value": f"https://192.168.56.134/record/{recid}/files/test_file_82K.pdf"},
@@ -748,43 +749,43 @@ def create_record_with_pdf(rec_uuid, recid):
     mini_filepath = "tests/data/test_files/test_file_82K.pdf"
     with open(mini_filepath, "rb") as f:
         obj=ObjectVersion.create(bucket=bucket.id, key='test_file_82K.pdf',stream=f)
-    es_data["_item_metadata"]["item_1617605131499"]["attribute_value_mlt"][0]["version_id"] = obj.version_id
-    es_data["content"][0]["version_id"] = obj.version_id
+    search_data["_item_metadata"]["item_1617605131499"]["attribute_value_mlt"][0]["version_id"] = obj.version_id
+    search_data["content"][0]["version_id"] = obj.version_id
     
     # big size file
     big_filepath = "tests/data/test_files/test_file_1.2M.pdf"
     with open(big_filepath, "rb") as f:
         obj=ObjectVersion.create(bucket=bucket.id, key='test_file_1.2M.pdf',stream=f)
-    es_data["_item_metadata"]["item_1617605131499"]["attribute_value_mlt"][1]["version_id"] = obj.version_id
-    es_data["content"][1]["version_id"] = obj.version_id
+    search_data["_item_metadata"]["item_1617605131499"]["attribute_value_mlt"][1]["version_id"] = obj.version_id
+    search_data["content"][1]["version_id"] = obj.version_id
     
     # word file
     word_filepath = "tests/data/test_files/sample_word.docx"
     with open(word_filepath, "rb") as f:
         obj=ObjectVersion.create(bucket=bucket.id, key='sample_word.docx',stream=f)
-    es_data["_item_metadata"]["item_1617605131499"]["attribute_value_mlt"][4]["version_id"] = obj.version_id
-    es_data["content"][4]["version_id"] = obj.version_id
+    search_data["_item_metadata"]["item_1617605131499"]["attribute_value_mlt"][4]["version_id"] = obj.version_id
+    search_data["content"][4]["version_id"] = obj.version_id
     
     # png file
     png_filepath = "tests/data/test_files/test.png"
     with open(png_filepath, "rb") as f:
         obj=ObjectVersion.create(bucket=bucket.id, key='test.png',stream=f)
-    es_data["_item_metadata"]["item_1617605131499"]["attribute_value_mlt"][2]["version_id"] = obj.version_id
-    es_data["content"][2]["version_id"] = obj.version_id
+    search_data["_item_metadata"]["item_1617605131499"]["attribute_value_mlt"][2]["version_id"] = obj.version_id
+    search_data["content"][2]["version_id"] = obj.version_id
     
     # txt file
     txt_filepath = "tests/data/test_files/sample.txt"
     with open(txt_filepath, "rb") as f:
         obj=ObjectVersion.create(bucket=bucket.id, key='sample.txt',stream=f)
-    es_data["_item_metadata"]["item_1617605131499"]["attribute_value_mlt"][5]["version_id"] = obj.version_id
-    es_data["content"][5]["version_id"] = obj.version_id
+    search_data["_item_metadata"]["item_1617605131499"]["attribute_value_mlt"][5]["version_id"] = obj.version_id
+    search_data["content"][5]["version_id"] = obj.version_id
     
     # Phantom files
-    from six import BytesIO
+    from io import BytesIO
     f=BytesIO(b"this is not exist pdf.")
     obj = ObjectVersion.create(bucket=bucket.id, key="not_exist.pdf",stream=f)
-    es_data["_item_metadata"]["item_1617605131499"]["attribute_value_mlt"][3]["version_id"] = obj.version_id
-    es_data["content"][3]["version_id"] = obj.version_id
+    search_data["_item_metadata"]["item_1617605131499"]["attribute_value_mlt"][3]["version_id"] = obj.version_id
+    search_data["content"][3]["version_id"] = obj.version_id
     obj.file.uri = "/not_exist_dir"+str(recid)
     db.session.merge(obj.file)
     db.session.commit()
@@ -795,7 +796,7 @@ def create_record_with_pdf(rec_uuid, recid):
     obj.file.uri = "/only_db_"+str(recid)
     db.session.merge(obj.file)
     db.session.commit()
-    indexer.upload_metadata(es_data,rec_uuid,1)
+    indexer.upload_metadata(search_data,rec_uuid,1)
     
     pdf_files = {}
     # pdfファイル複数渡す

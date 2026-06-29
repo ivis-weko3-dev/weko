@@ -8,8 +8,6 @@
 
 """Module for depositing record metadata and uploading files."""
 
-from __future__ import absolute_import, print_function
-
 from collections import defaultdict
 
 from invenio_records_rest import utils

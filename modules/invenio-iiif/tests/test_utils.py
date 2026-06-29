@@ -7,14 +7,12 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 
 """Test of image opener."""
-
-from __future__ import absolute_import, print_function
-
 import pytest
-from flask_iiif import iiif_image_url
-from six.moves.urllib.parse import quote
 
+from flask_iiif import iiif_image_url
 from invenio_iiif.utils import iiif_image_key, ui_iiif_image_url
+from urllib.parse import quote
+
 
 # .tox/c1/bin/pytest --cov=invenio_iiif tests/test_utils.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio_iiif/.tox/c1/tmp
 

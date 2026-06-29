@@ -53,8 +53,8 @@ def base_app(request):
         # ),
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-                'SEARCH_ELASTIC_HOSTS', 'opensearch'),
+       SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'
         ),

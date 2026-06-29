@@ -1,14 +1,15 @@
 
-from unittest import mock
-from unittest.mock import patch
 import uuid
-
-from sqlalchemy.exc import SQLAlchemyError
 
 from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore.models import PersistentIdentifier,RecordIdentifier,PIDStatus
+from sqlalchemy.exc import SQLAlchemyError
+from unittest import mock
+from unittest.mock import patch
+from weko_deposit.pidstore import (
+  weko_deposit_minter,weko_deposit_fetcher,get_latest_version_id,
+  get_record_identifier,get_record_identifier,get_record_without_version)
 
-from weko_deposit.pidstore import weko_deposit_minter,weko_deposit_fetcher,get_latest_version_id,get_record_identifier,get_record_identifier,get_record_without_version
 
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_pidstore.py -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
 
@@ -125,7 +126,7 @@ def test_get_latest_version_id(app,db, location, records):
 
 # # def get_record_identifier(recid):
 # # .tox/c1/bin/pytest --cov=weko_deposit tests/test_pidstore.py::test_get_record_identifier -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-# def test_get_record_identifier(app,db,es_records):
+# def test_get_record_identifier(app,db,search_records):
 #     RecordIdentifier.next()
 #     result = get_record_identifier("1")
 #     assert result.recid == 1
@@ -135,7 +136,7 @@ def test_get_latest_version_id(app,db, location, records):
 
 # def get_record_identifier(recid):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_pidstore.py::TestGetRecordIdentifier -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-def test_get_record_identifier(app, db, es_records):
+def test_get_record_identifier(app, db, search_records):
     
     # exsit record
     recid = "1"

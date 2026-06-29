@@ -9,16 +9,10 @@
 """Event processor tests."""
 
 import logging
-from datetime import datetime, timezone, timedelta
-from unittest.mock import patch, MagicMock
-from dateutil import parser
-from time import mktime
-from pytz import utc
-
 import pytest
-from tests.conftest import _create_file_download_event
-from tests.helpers import get_queue_size
-from invenio_queues.proxies import current_queues
+
+from datetime import datetime, timezone, timedelta
+from dateutil import parser
 from invenio_search import current_search
 from invenio_search.engine import dsl
 
@@ -26,6 +20,7 @@ from invenio_stats.contrib.event_builders import (
     build_file_unique_id,
     file_download_event_builder,
 )
+from invenio_stats.tasks import process_events
 from invenio_stats.processors import (
     EventsIndexer,
     anonymize_user,
@@ -34,7 +29,13 @@ from invenio_stats.processors import (
     hash_id,
 )
 from invenio_stats.proxies import current_stats
-from invenio_stats.tasks import process_events
+from invenio_queues.proxies import current_queues
+from unittest.mock import patch, MagicMock
+from tests.conftest import _create_file_download_event
+from tests.helpers import get_queue_size
+from time import mktime
+from pytz import utc
+
 from .helpers import mock_date
 
 @pytest.mark.parametrize(
@@ -363,7 +364,7 @@ def test_events_indexer_id_windowing(app, mock_event_queue):
     assert len(ids) == 3
 
 
-def test_double_clicks(app, mock_event_queue, es):
+def test_double_clicks(app, mock_event_queue, open_search):
     """Test that events occurring within a time window are counted as 1."""
     event_type = "file-download"
     events = [
@@ -379,16 +380,16 @@ def test_double_clicks(app, mock_event_queue, es):
     current_stats.publish(event_type, events)
     process_events(["file-download"])
     current_search.flush_and_refresh(index="*")
-    res = es.search(
+    res = open_search.search(
         index='test-events-stats-file-download-0001',
     )
     assert res["hits"]["total"]["value"] == 2
 
 
 @pytest.mark.skip('This test dont ever finish')
-def test_failing_processors(app, es, event_queues, caplog):
+def test_failing_processors(app, open_search, event_queues, caplog):
     """Test events that raise an exception when processed."""
-    search_obj = dsl.Search(using=es)
+    search_obj = dsl.Search(using=open_search)
 
     current_queues.declare()
     current_stats.publish(
@@ -413,11 +414,11 @@ def test_failing_processors(app, es, event_queues, caplog):
 
     current_search.flush_and_refresh(index="*")
     assert get_queue_size("stats-file-download") == 4
-    assert not es.indices.exists("events-stats-file-download-2018-01")
-    assert not es.indices.exists("events-stats-file-download-2018-01")
-    assert not es.indices.exists("events-stats-file-download-2018-01")
-    assert not es.indices.exists("events-stats-file-download-2018-01")
-    assert not es.indices.exists_alias(name="events-stats-file-download")
+    assert not open_search.indices.exists("events-stats-file-download-2018-01")
+    assert not open_search.indices.exists("events-stats-file-download-2018-01")
+    assert not open_search.indices.exists("events-stats-file-download-2018-01")
+    assert not open_search.indices.exists("events-stats-file-download-2018-01")
+    assert not open_search.indices.exists_alias(name="events-stats-file-download")
 
     with caplog.at_level(logging.ERROR):
         indexer.run()  # 2nd event raises exception and is dropped
@@ -525,7 +526,7 @@ def test_events_indexer_actionsiter(app, mock_event_queue, caplog):
     print("All assertions passed. EventsIndexer actionsiter functionality verified.")
 
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_processors.py::test_events_indexer_run -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
-def test_events_indexer_run(app, es):
+def test_events_indexer_run(app, open_search):
     """
     Test the EventsIndexer run functionality,
     ensuring correct indexing and processing of events for different event types.
@@ -533,7 +534,7 @@ def test_events_indexer_run(app, es):
 
     # Skip database operation
     with patch.dict(app.config, {'STATS_WEKO_DB_BACKUP_EVENTS': False}):
-        es_client = es
+        es_client = open_search
         double_click_window = 30
 
         event_types = ['celery-task', 'item-create', 'top-view', 'record-view', 'file-download', 'file-preview', 'search']

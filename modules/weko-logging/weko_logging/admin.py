@@ -11,7 +11,7 @@ from celery import states
 from flask import current_app, jsonify, abort
 from flask.helpers import url_for
 from flask_admin import BaseView, expose
-from flask_babelex import gettext as _
+from flask_babel import gettext as _
 
 from invenio_files_rest.models import FileInstance
 from weko_logging.utils import UserActivityLogUtils

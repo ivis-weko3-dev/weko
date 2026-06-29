@@ -20,17 +20,22 @@
 """Module tests."""
 
 import csv
-from io import StringIO
-from unittest import mock
-import pytest
-import uuid
 import os
+import pytest
 import types
-from tests.helpers import json_data, create_record_with_pdf
-from unittest.mock import patch, MagicMock
+import uuid
+
+from io import StringIO
 from invenio_pidstore.errors import PIDDoesNotExistError
+from invenio_pidstore.models import PersistentIdentifier
 from invenio_search.engine import search
-from weko_authors.models import Authors, AuthorsAffiliationSettings,AuthorsPrefixSettings
+from sqlalchemy.exc import SQLAlchemyError
+from tests.helpers import json_data, create_record_with_pdf
+from unittest import mock
+from unittest.mock import patch, MagicMock
+from weko_authors.models import (
+    Authors, AuthorsAffiliationSettings,AuthorsPrefixSettings
+)
 from weko_deposit.api import WekoIndexer, WekoDeposit
 from weko_deposit.tasks import (
     update_items_by_authorInfo,
@@ -43,10 +48,8 @@ from weko_deposit.tasks import (
     _process,
     get_origin_data,
     make_stats_file,
-    update_db_es_data,
+    update_db_search_data,
 )
-from invenio_pidstore.models import PersistentIdentifier
-from sqlalchemy.exc import SQLAlchemyError
 
 [
     {
@@ -71,7 +74,7 @@ from sqlalchemy.exc import SQLAlchemyError
     },
 ]
 
-# mock Elasticsearch search
+# mock Search
 class MockRecordsSearch:
     class MockQuery:
         class MockExecute:
@@ -273,7 +276,7 @@ def test_update_authorInfo_no_nameIdentifiers(app, db, location, records2):
     app.config.update(WEKO_SEARCH_MAX_RESULT=1)
     patch("weko_deposit.tasks.WekoDeposit.update_author_link")
     mock_recordssearch = MagicMock(side_effect=MockRecordsSearch)
-    with patch("weko_deposit.tasks.update_db_es_data") as mock_update_db_es_data:
+    with patch("weko_deposit.tasks.update_db_search_data") as mock_update_db_search_data:
         with patch("weko_deposit.tasks.RecordsSearch", mock_recordssearch):
             with patch("weko_deposit.tasks.RecordIndexer", MockRecordIndexer):
                 update_items_by_authorInfo(1, {})
@@ -998,7 +1001,7 @@ class TestUpdateItemsByAuthorInfo:
                 patch('weko_deposit.tasks._get_affiliation_id') as mock_get_affiliation_id, \
                 patch('weko_deposit.tasks._process') as mock_process, \
                 patch('weko_deposit.tasks.get_origin_data') as mock_get_origin_data, \
-                patch('weko_deposit.tasks.update_db_es_data') as mock_update_db_es_data, \
+                patch('weko_deposit.tasks.update_db_search_data') as mock_update_db_search_data, \
                 patch('weko_deposit.tasks.delete_cache_data') as mock_delete_cache_data, \
                 patch('weko_deposit.tasks.update_cache_data') as mock_update_cache_data:
 
@@ -1006,7 +1009,7 @@ class TestUpdateItemsByAuthorInfo:
             mock_get_affiliation_id.return_value = {}
             mock_process.return_value = (1, False)
             mock_get_origin_data.return_value = []
-            mock_update_db_es_data.return_value = None
+            mock_update_db_search_data.return_value = None
             mock_delete_cache_data.return_value = None
             mock_update_cache_data.return_value = None
 
@@ -1024,14 +1027,14 @@ class TestUpdateItemsByAuthorInfo:
                 patch('weko_deposit.tasks._get_affiliation_id') as mock_get_affiliation_id, \
                 patch('weko_deposit.tasks._process') as mock_process, \
                 patch('weko_deposit.tasks.get_origin_data') as mock_get_origin_data, \
-                patch('weko_deposit.tasks.update_db_es_data') as mock_update_db_es_data, \
+                patch('weko_deposit.tasks.update_db_search_data') as mock_update_db_search_data, \
                 patch('weko_deposit.tasks.delete_cache_data') as mock_delete_cache_data, \
                 patch('weko_deposit.tasks.update_cache_data') as mock_update_cache_data:
             mock_get_author_prefix.return_value = {}
             mock_get_affiliation_id.return_value = {}
             mock_process.return_value = (1, False)
             mock_get_origin_data.return_value = []
-            mock_update_db_es_data.return_value = None
+            mock_update_db_search_data.return_value = None
             mock_delete_cache_data.return_value = None
             mock_update_cache_data.return_value = None
             user_id = 1
@@ -1043,7 +1046,7 @@ class TestUpdateItemsByAuthorInfo:
             update_items_by_authorInfo(user_id, target, origin_pkid_list, origin_id_list, update_gather_flg)
             mock_process.assert_called()
             mock_get_origin_data.assert_called()
-            mock_update_db_es_data.assert_called()
+            mock_update_db_search_data.assert_called()
             mock_delete_cache_data.assert_called()
             mock_update_cache_data.assert_called()
 
@@ -1054,14 +1057,14 @@ class TestUpdateItemsByAuthorInfo:
                 patch('weko_deposit.tasks._get_affiliation_id') as mock_get_affiliation_id, \
                 patch('weko_deposit.tasks._process') as mock_process, \
                 patch('weko_deposit.tasks.get_origin_data') as mock_get_origin_data, \
-                patch('weko_deposit.tasks.update_db_es_data') as mock_update_db_es_data, \
+                patch('weko_deposit.tasks.update_db_search_data') as mock_update_db_search_data, \
                 patch('weko_deposit.tasks.delete_cache_data') as mock_delete_cache_data, \
                 patch('weko_deposit.tasks.update_cache_data') as mock_update_cache_data:
             mock_get_author_prefix.return_value = {}
             mock_get_affiliation_id.return_value = {}
             mock_process.side_effect = [(1, True), (2, False)]  # 1度目と2度目のreturn_valueを設定
             mock_get_origin_data.return_value = []
-            mock_update_db_es_data.return_value = None
+            mock_update_db_search_data.return_value = None
             mock_delete_cache_data.return_value = None
             mock_update_cache_data.return_value = None
             user_id = 1
@@ -1073,7 +1076,7 @@ class TestUpdateItemsByAuthorInfo:
             update_items_by_authorInfo(user_id, target, origin_pkid_list, origin_id_list, update_gather_flg)
             mock_process.assert_called()
             mock_get_origin_data.assert_not_called()
-            mock_update_db_es_data.assert_not_called()
+            mock_update_db_search_data.assert_not_called()
             mock_delete_cache_data.assert_not_called()
             mock_update_cache_data.assert_not_called()
 
@@ -1084,7 +1087,7 @@ class TestUpdateItemsByAuthorInfo:
                 patch('weko_deposit.tasks._get_affiliation_id') as mock_get_affiliation_id, \
                 patch('weko_deposit.tasks._process') as mock_process, \
                 patch('weko_deposit.tasks.get_origin_data') as mock_get_origin_data, \
-                patch('weko_deposit.tasks.update_db_es_data') as mock_update_db_es_data, \
+                patch('weko_deposit.tasks.update_db_search_data') as mock_update_db_search_data, \
                 patch('weko_deposit.tasks.delete_cache_data') as mock_delete_cache_data, \
                 patch('weko_deposit.tasks.update_cache_data') as mock_update_cache_data, \
                 patch('weko_deposit.tasks.db.session.rollback') as mock_db_rollback, \
@@ -1094,7 +1097,7 @@ class TestUpdateItemsByAuthorInfo:
             mock_get_affiliation_id.return_value = {}
             mock_process.side_effect = SQLAlchemyError("Test SQLAlchemyError")
             mock_get_origin_data.return_value = []
-            mock_update_db_es_data.return_value = None
+            mock_update_db_search_data.return_value = None
             mock_delete_cache_data.return_value = None
             mock_update_cache_data.return_value = None
             mock_db_rollback.return_value = None
@@ -1720,7 +1723,7 @@ class TestUpdateAuthorData_Extended:
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_tasks.py::test_extract_pdf_and_update_file_contents -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
 def test_extract_pdf_and_update_file_contents(app, db, location, caplog):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
 
     app.config["WEKO_DEPOSIT_FILESIZE_LIMIT"] = 100 * 1024 # 1KB
     rec_uuid = uuid.uuid4()
@@ -1733,7 +1736,7 @@ def test_extract_pdf_and_update_file_contents(app, db, location, caplog):
     test_file_data = {}
 
     # Create the number of pdf files to analyze, the number of tika files,
-    # and the value to be passed to the method to update es
+    # and the value to be passed to the method to update search
     for filename, info in pdf_files.items():
         file = info.get("file")
         if file.obj.mimetype == 'application/pdf':
@@ -1796,15 +1799,14 @@ def test_extract_pdf_and_update_file_contents(app, db, location, caplog):
                     filepath = args[0]
                     assert os.path.exists(filepath) == False
 
-        from elasticsearch.exceptions import NotFoundError, ConflictError
         # raise ConflictError in update_file_content
-        with patch("weko_deposit.tasks.update_file_content", side_effect=ConflictError()) as mock_update:
+        with patch("weko_deposit.tasks.update_file_content", side_effect=search.ConflictError()) as mock_update:
             extract_pdf_and_update_file_contents(test_data, deposit.id)
             assert mock_update.call_count == 3 # retry 3 times
             assert f"Failed to update file content after 3 attempts. record_uuid: {rec_uuid}" in caplog.text
             caplog.clear()
         # raise ConflictError in update_file_content
-        with patch("weko_deposit.tasks.update_file_content", side_effect=NotFoundError()) as mock_update:
+        with patch("weko_deposit.tasks.update_file_content", side_effect=search.NotFoundError()) as mock_update:
             extract_pdf_and_update_file_contents(test_data, deposit.id)
             assert mock_update.call_count == 3 # retry 3 times
             assert f"Failed to update file content after 3 attempts. record_uuid: {rec_uuid}" in caplog.text
@@ -1889,9 +1891,9 @@ def test_update_file_content_cases(monkeypatch, content, file_datas, expected):
     class DummyIndexer:
         def __init__(self):
             self.client = DummyClient()
-            self.es_index = 'idx'
+            self.search_index = 'idx'
             self.es_doc_type = 'doc'
-        def get_es_index(self): pass
+        def get_search_index(self): pass
         def get_metadata_by_item_id(self, rid):
             return {
                 '_source': {'content': content} if content is not None else {},
@@ -1933,21 +1935,21 @@ def test_update_authorInfo_with_update_gather_flg(app, db, location, records):
     with patch("weko_deposit.tasks.RecordsSearch", mock_recordssearch):
         with patch("weko_deposit.tasks.RecordIndexer", MockRecordIndexer):
             with patch("weko_deposit.tasks.get_origin_data", return_value={}):
-                with patch("weko_deposit.tasks.update_db_es_data") as mock_update_db_es_data:
+                with patch("weko_deposit.tasks.update_db_search_data") as mock_update_db_search_data:
                     with patch("weko_deposit.tasks.delete_cache_data") as mock_delete_cache_data:
                         with patch("weko_deposit.tasks.update_cache_data") as mock_update_cache_data:
                             with patch("weko_deposit.tasks.weko_logger") as mock_logger:
                                     update_items_by_authorInfo(["1","xxx"], _target, ['xxx', '1', '2'], [], True)
                                     mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch='update_gather_flg is not empty')
-                                    mock_update_db_es_data.assert_called_once()
+                                    mock_update_db_search_data.assert_called_once()
                                     mock_delete_cache_data.assert_called_once_with("update_items_by_authorInfo_['1', 'xxx']")
                                     mock_update_cache_data.assert_called_once()
 
 # def update_items_by_authorInfo(user_id, target, origin_pkid_list=[], origin_id_list=[], update_gather_flg=False):
 #   def _update_author_data(item_id, record_ids):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_tasks.py::test_update_author_data -vv -s --cov-branch --cov-report=html --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp --full-trace
-def test_update_author_data(app, db, es_records):
-    pid_value = es_records[1][0]["deposit"].pid.pid_value
+def test_update_author_data(app, db, search_records):
+    pid_value = search_records[1][0]["deposit"].pid.pid_value
     mock_recordssearch = MagicMock(side_effect=MockRecordsSearch)
     with patch("weko_deposit.tasks.RecordsSearch", mock_recordssearch):
         with patch("weko_deposit.tasks.RecordIndexer", MockRecordIndexer):
@@ -2013,41 +2015,40 @@ def test_get_origin_data(app, db):
     result = get_origin_data([5])
     assert result == []
 
-# def update_db_es_data(origin_pkid_list, origin_id_list):
-def test_update_db_es_data(app, db,esindex, es_records,authors):
+# def update_db_search_data(origin_pkid_list, origin_id_list):
+def test_update_db_search_data(app, db,search_index, search_records,authors):
     authors_db = Authors.query.all()
     origin_id_list=[]
     for author in authors_db:
         origin_id_list.append(author.json["id"])
     origin_pkid_list = [1, 2]
 
-    update_db_es_data(origin_pkid_list, origin_id_list)
+    update_db_search_data(origin_pkid_list, origin_id_list)
     author1 = db.session.query(Authors).filter(Authors.id == 1).first()
     author2 = db.session.query(Authors).filter(Authors.id == 2).first()
     assert author1.gather_flg == 1
     assert author2.gather_flg == 1
     from flask import current_app
-    current_app.config["WEKO_AUTHORS_ES_DOC_TYPE"]="wrong_doctype"
 
     # SQLAlchemyError by db.session.commit()
     ex = SQLAlchemyError("test_error")
     with patch("weko_deposit.tasks.db.session.commit", side_effect=ex):
         with patch("weko_deposit.tasks.weko_logger") as mock_logger:
-            update_db_es_data(origin_pkid_list, origin_id_list)
+            update_db_search_data(origin_pkid_list, origin_id_list)
             mock_logger.assert_any_call(key='WEKO_COMMON_DB_SOME_ERROR', ex=ex)
 
-    # ElasticsearchException by indexer.client.update()
-    ex = search.OpenSearchException("test_elasticsearch_error")
-    with patch("invenio_search.ext.Elasticsearch.update", side_effect=ex):
+    # OpenSearchException by indexer.client.update()
+    ex = search.OpenSearchException("test_search_error")
+    with patch("search.update", side_effect=ex):
         with patch("weko_deposit.tasks.weko_logger") as mock_logger:
-            update_db_es_data(origin_pkid_list, origin_id_list)
-            mock_logger.assert_any_call(key='WEKO_COMMON_ERROR_ELASTICSEARCH', ex=ex)
+            update_db_search_data(origin_pkid_list, origin_id_list)
+            mock_logger.assert_any_call(key='WEKO_COMMON_ERROR_SEARCH', ex=ex)
 
     # Exception by indexer.client.update()
     ex = Exception("test_exception")
-    with patch("invenio_search.ext.Elasticsearch.update", side_effect=ex):
+    with patch("search.update", side_effect=ex):
         with patch("weko_deposit.tasks.weko_logger") as mock_logger:
-            update_db_es_data(origin_pkid_list, origin_id_list)
+            update_db_search_data(origin_pkid_list, origin_id_list)
             mock_logger.assert_any_call(key='WEKO_COMMON_ERROR_UNEXPECTED', ex=ex)
 
 # def make_stats_file(raw_stats):

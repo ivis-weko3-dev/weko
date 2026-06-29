@@ -9,8 +9,6 @@
 """Test deposit UI views."""
 # .tox/c1/bin/pytest --cov=invenio_deposit tests/test_views_ui.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-deposit/.tox/c1/tmp
 
-from __future__ import absolute_import, print_function
-
 from flask import url_for
 from invenio_accounts.testutils import login_user_via_session
 from invenio_db import db

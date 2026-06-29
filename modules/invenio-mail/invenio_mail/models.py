@@ -27,7 +27,7 @@ import pickle
 from flask import current_app
 from invenio_db import db
 from sqlalchemy import or_
-from flask_babelex import gettext as _
+from flask_babel import gettext as _
 
 from invenio_mail.config import INVENIO_MAIL_DEFAULT_TEMPLATE_CATEGORY_ID
 from sqlalchemy.dialects import mysql

@@ -42,10 +42,8 @@ To reset the example application run:
 SPHINX-END
 """
 
-from __future__ import absolute_import, print_function
-
 from flask import Flask
-from flask_babelex import Babel
+from flask_babel import Babel
 
 from invenio_resourcesyncclient import INVENIOResourceSyncClient
 from invenio_resourcesyncclient.views import blueprint

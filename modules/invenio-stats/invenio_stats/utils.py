@@ -10,30 +10,30 @@
 """Utilities for Invenio-Stats."""
 
 import calendar
-from itertools import islice
+import click
+import netaddr
 import operator
 import os
 import re
+import traceback
+
 from base64 import b64encode
 from datetime import datetime, timedelta
-from math import ceil
-import traceback
-from typing import Generator, Union
-
-import click
-import netaddr
 from dateutil import parser
-from elasticsearch import exceptions as es_exceptions
 from flask import current_app, request, session
 from flask_login import current_user
 from geolite2 import geolite2
+from itertools import islice
+
 from invenio_accounts.utils import get_user_ids_by_role
 from invenio_cache import current_cache
-from invenio_search import current_search_client
-from invenio_search.engine import dsl, search
 from invenio_db import db
 from invenio_indexer.api import RecordIndexer
 from invenio_records.models import RecordMetadata
+from invenio_search import current_search_client
+from invenio_search.engine import dsl, search
+from math import ceil
+from typing import Generator, Union
 from weko_accounts.utils import get_remote_addr
 
 from . import config
@@ -930,7 +930,7 @@ class QueryRecordViewReportHelper(object):
             all_res = all_query.run(**params)
             cls.Calculation(all_res, all_list)
 
-        except es_exceptions.NotFoundError as e:
+        except search.NotFoundError as e:
             current_app.logger.error(e)
             traceback.print_exc()
             result["all"] = []
@@ -1330,7 +1330,7 @@ class QueryItemRegReportHelper(object):
                                         reverse=True)
                 else:
                     result = []
-            except es_exceptions.NotFoundError as e:
+            except search.NotFoundError as e:
                 current_app.logger.error(e)
                 traceback.print_exc()
                 result = []
@@ -1481,8 +1481,8 @@ class StatsCliUtil:
 
         :param bookmark: set True if delete bookmark
         """
-        for _index, _type in self.__prepare_es_indexes():
-            self.__cli_delete_es_index(_index,_type)
+        for _index, _type in self.__prepare_search_indexes():
+            self.__cli_delete_search_index(_index,_type)
         if bookmark:
             if self.verbose:
                 click.secho(
@@ -1499,7 +1499,7 @@ class StatsCliUtil:
         else:
             data = self.__get_stats_data_from_db(StatsAggregation)
         modified_data = self.__modify_restore_data(data)    
-        self.__cli_restore_es_data_from_db(modified_data)
+        self.__cli_restore_search_data_from_db(modified_data)
         
     def __modify_restore_data(self, data):
         """
@@ -1548,8 +1548,8 @@ class StatsCliUtil:
             doc["_source"] = document
             yield doc
         
-    def __prepare_es_indexes(self):
-        """Prepare ElasticSearch index data.
+    def __prepare_search_indexes(self):
+        """Prepare Search index data.
 
         :param bookmark_index: set True if prepare the index for the bookmark
         :param delete: set True if prepare the index for the delete data feature
@@ -1568,7 +1568,7 @@ class StatsCliUtil:
             
             yield _index, _type
 
-    def __build_es_data(self, data_list: list) -> Generator:
+    def __build_search_data(self, data_list: list) -> Generator:
         """Build search engine data.
 
         :param data_list: Stats data from DB.
@@ -1576,18 +1576,18 @@ class StatsCliUtil:
         for data in data_list:
             if self.flush_indices is not None:
                 self.flush_indices.add(data.index)
-            es_data = {
+            search_data = {
                 "_id": data.source_id,
                 "_index": data.index,
                 "_source": data.source
             }
             if self.cli_type == self.EVENTS_TYPE:
-                es_data["_op_type"] = "index"
-            yield es_data
+                search_data["_op_type"] = "index"
+            yield search_data
 
     def __get_data_from_db_by_stats_type(self, data_model):
         rtn_data = []
-        for _index, _type in self.__prepare_es_indexes():
+        for _index, _type in self.__prepare_search_indexes():
             data = data_model.get_by_event_type(_index, _type, self.start_date, self.end_date)
             if data:
                 rtn_data.extend(data)
@@ -1607,7 +1607,7 @@ class StatsCliUtil:
             rtn_data = self.__get_data_from_db_by_stats_type(data_model)
         else:
             rtn_data = data_model.get_all(self.start_date, self.end_date)
-        return self.__build_es_data(rtn_data)
+        return self.__build_search_data(rtn_data)
 
     def __show_message(self, index_name, success, failed):
         """Show message.
@@ -1629,7 +1629,7 @@ class StatsCliUtil:
                 for err in failed:
                     click.secho(str(err), fg="red")
 
-    def __cli_restore_es_data_from_db(
+    def __cli_restore_search_data_from_db(
         self,
         restore_data: Generator,
         flush_indices: set = None
@@ -1658,8 +1658,8 @@ class StatsCliUtil:
                 click.secho("There is no stats data from Database.",
                             fg="yellow")
 
-    def __cli_delete_es_index(self, _index,_type) -> None:
-        """Delete ES index.
+    def __cli_delete_search_index(self, _index,_type) -> None:
+        """Delete Search index.
 
         :param _index: search engine index.
         """

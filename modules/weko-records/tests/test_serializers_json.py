@@ -1,10 +1,10 @@
 import pytest
+
+from invenio_records_files.api import Record
+from invenio_pidstore.models import PersistentIdentifier
 from mock import patch, MagicMock
 from tests.helpers import json_data
-
-from invenio_pidstore.models import PersistentIdentifier
 from weko_records.serializers.json import WekoJSONSerializer
-from invenio_records_files.api import Record
 
 # class WekoJSONSerializer(JSONSerializer):
 #     def preprocess_record(self, pid, record, links_factory=None):
@@ -48,7 +48,7 @@ def test_json_serializer(app, db, records, hit):
 
     data2.exists = exists
 
-    with patch("weko_records.serializers.json.PIDVersioning", return_value=data2):
+    with patch("weko_records.serializers.json.PIDNodeVersioning", return_value=data2):
         with patch("weko_records.serializers.json.serialize_related_identifiers", return_value=[True]):
             assert _json_serializer.transform_record(records[0][0], data1)
 

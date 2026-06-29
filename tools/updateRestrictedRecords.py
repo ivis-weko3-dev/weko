@@ -6,20 +6,20 @@ import json
 import sys
 import traceback
 import requests
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm.attributes import flag_modified
+import weko_schema_ui
 
 from flask import current_app
 from invenio_db import db
 from invenio_indexer.api import RecordIndexer
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records.models import RecordMetadata
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm.attributes import flag_modified
 
-from weko_records.models import ItemMetadata, ItemType, ItemTypeProperty
-import weko_schema_ui
 from weko_admin.models import AdminSettings
+from weko_records.models import ItemMetadata, ItemType, ItemTypeProperty
 
-def main(restricted_item_type_id, batch_size=500, run_es_reindex=False):
+def main(restricted_item_type_id, batch_size=500, run_search_reindex=False):
     """Main context."""
 
     try:
@@ -33,10 +33,10 @@ def main(restricted_item_type_id, batch_size=500, run_es_reindex=False):
         update_admin_settings()
         db.session.commit()
         current_app.logger.info('restricted records update end')
-        if run_es_reindex:
-            current_app.logger.info('ElasticSearch data update start')
-            elasticsearch_reindex(True)
-            current_app.logger.info('ElasticSearch data update end')
+        if run_search_reindex:
+            current_app.logger.info('Search data update start')
+            search_reindex(True)
+            current_app.logger.info('Search data update end')
     except SQLAlchemyError as ex:
         db.session.rollback()
         
@@ -310,21 +310,21 @@ def update_admin_settings():
     if target_id:
         current_app.logger.info(f"[FIX] admin_settings:{target_id}")
 
-def elasticsearch_reindex( is_db_to_es ):
+def search_reindex( is_db_to_search ):
     """ 
-    reindex *-weko-item-* of elasticsearch index
+    reindex *-weko-item-* of search index
 
     Args:
-    is_db_to_es : boolean
+    is_db_to_search : boolean
         if True,  index Documents from DB data
-        if False, index Documents from ES data itself
+        if False, index Documents from Search data itself
     
     Returns:
         str : 'completed' 
         
     Raises:
     AssersionError 
-        In case of the response code from ElasticSearch is not 200,
+        In case of the response code from Search is not 200,
         Subsequent processing is interrupted.
     
     Todo:
@@ -381,7 +381,7 @@ def elasticsearch_reindex( is_db_to_es ):
         ]
     }
 
-    current_app.logger.info(' START elasticsearch reindex: {}.'.format(index))
+    current_app.logger.info(' START search reindex: {}.'.format(index))
 
     # トランザクションログをLucenceに保存。
     response = requests.post(base_url + index + "/_flush?wait_if_ongoing=true") 
@@ -463,16 +463,16 @@ def elasticsearch_reindex( is_db_to_es ):
 
     # アイテムを再投入する。
     current_app.logger.info("START reindex")
-    if is_db_to_es :
-        current_app.logger.info("reindex es from db")
-        response = _elasticsearch_remake_item_index(index_name=index)
+    if is_db_to_search :
+        current_app.logger.info("reindex search from db")
+        response = _search_remake_item_index(index_name=index)
         current_app.logger.info(response) # array
 
         response = requests.post(url=base_url + "_refresh")
         current_app.logger.info(response.text)
         assert response.status_code == 200 ,response.text
     else :
-        current_app.logger.info("reindex es from es")
+        current_app.logger.info("reindex search from search")
         # 一時保管用のインデックスから、新しく作成したインデックスに再インデックスを行う
         # reindex from tmpindex to index
         response = requests.post(url=reindex_url , headers=headers, json=json_data_to_dest)
@@ -503,26 +503,26 @@ def elasticsearch_reindex( is_db_to_es ):
     assert response.status_code == 200 ,response.text
     current_app.logger.info("END delete tmpindex") 
 
-    current_app.logger.info(' END elasticsearch reindex: {}.'.format(index))
+    current_app.logger.info(' END search reindex: {}.'.format(index))
     
     return 'completed'
 
-def _elasticsearch_remake_item_index(index_name):
+def _search_remake_item_index(index_name):
     """ index Documents from DB (Private method) """
     from invenio_oaiserver.models import OAISet
     from invenio_oaiserver.percolator import _new_percolator
     returnlist = []
     # インデックスを登録
-    current_app.logger.info(' START elasticsearch import from oaiserver_set')
+    current_app.logger.info(' START search import from oaiserver_set')
     oaiset_ = OAISet.query.all()
     for target in oaiset_ :
         spec = target.spec
         search_pattern = target.search_pattern
         _new_percolator(spec , search_pattern)
-    current_app.logger.info(' END elasticsearch import from oaiserver_set')
+    current_app.logger.info(' END search import from oaiserver_set')
 
     # アイテムを登録
-    current_app.logger.info(' START elasticsearch import from records_metadata')
+    current_app.logger.info(' START search import from records_metadata')
     # get all registered record_metadata's ids
     uuids = (x[0] for x in PersistentIdentifier.query.filter_by(
         object_type='rec', status=PIDStatus.REGISTERED
@@ -537,7 +537,7 @@ def _elasticsearch_remake_item_index(index_name):
         assert res != None ,'Index class is None.'
         assert res.get("_shards").get("failed") == 0 ,'Index fail.'
         returnlist.append(res)
-    current_app.logger.info(' END elasticsearch import from records_metadata')
+    current_app.logger.info(' END search import from records_metadata')
     
     return returnlist
 

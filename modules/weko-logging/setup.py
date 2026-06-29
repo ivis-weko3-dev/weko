@@ -90,12 +90,9 @@ setup(
         "invenio_db.models": [
             "weko_logging = weko_logging.models",
         ],
-        "invenio_assets.bundles": [
-            "weko_logging_export_css = "
-            "weko_logging.bundles:weko_logging_export_css",
-            "weko_logging_export_js = "
-            "weko_logging.bundles:weko_logging_export_js",
-        ],
+        "invenio_assets.webpack": [
+            "weko_logging = weko_logging.webpack:weko_logging"
+        ]
     },
     extras_require=extras_require,
     install_requires=install_requires,

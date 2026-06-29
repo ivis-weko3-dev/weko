@@ -22,19 +22,21 @@
 import inspect
 
 from flask import Blueprint, current_app, jsonify, make_response, request
-from flask_babelex import gettext as _
+from flask_babel import gettext as _
 from invenio_db import db
 
 from invenio_oauth2server import require_api_auth, require_oauth_scopes
 from invenio_oauth2server.provider import oauth2
 from invenio_pidstore.errors import PIDInvalidAction
-from invenio_records_rest.views import create_error_handlers as records_rest_error_handlers
+from invenio_records_rest.views import (
+    create_error_handlers as records_rest_error_handlers)
 from invenio_rest import ContentNegotiatedMethodView
 from invenio_rest.views import create_api_errorhandler
 from sqlalchemy.exc import SQLAlchemyError
 from weko_accounts.utils import limiter
 
-from .errors import InvalidRequestError, InternalServerError, VersionNotFoundRESTError
+from .errors import (
+    InvalidRequestError, InternalServerError, VersionNotFoundRESTError)
 from .models import OaStatus
 from .scopes import oa_status_update_scope
 

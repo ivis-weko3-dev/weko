@@ -20,13 +20,12 @@
 
 """Weko Authors admin."""
 
-from __future__ import absolute_import, print_function
-
 import os
 import json, tempfile, datetime, base64
 import traceback
+
 from celery import group, states
-from celery.task.control import revoke
+from celery.worker.control import revoke
 from flask import abort, current_app, request, session, send_file
 from flask.helpers import url_for
 from flask.json import jsonify
@@ -40,10 +39,13 @@ from weko_logging.activity_logger import UserActivityLogger
 from .config import WEKO_AUTHORS_EXPORT_FILE_NAME, \
     WEKO_AUTHORS_IMPORT_CACHE_KEY
 from .permissions import author_permission
-from .tasks import check_is_import_available, export_all, import_author, import_id_prefix, import_affiliation_id, import_author_over_max
-from .utils import check_import_data, check_import_data_for_prefix, delete_export_status, \
-    get_export_status, get_export_url, set_export_status, check_file_name, delete_export_url,\
-    band_check_file_for_user, prepare_import_data, create_result_file_for_user, update_cache_data
+from .tasks import (
+    check_is_import_available, export_all, import_author, 
+    import_id_prefix, import_affiliation_id, import_author_over_max)
+from .utils import (check_import_data, check_import_data_for_prefix, 
+    delete_export_status, get_export_status, get_export_url, set_export_status,
+    check_file_name, delete_export_url, band_check_file_for_user, 
+    prepare_import_data, create_result_file_for_user, update_cache_data)
 
 
 class AuthorManagementView(BaseView):

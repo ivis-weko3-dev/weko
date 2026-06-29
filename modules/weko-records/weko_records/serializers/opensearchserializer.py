@@ -38,7 +38,7 @@ class OpenSearchSerializer(JSONSerializer):
         """Serialize a search result.
 
         :param pid_fetcher: Persistent identifier fetcher.
-        :param search_result: Elasticsearch search result.
+        :param search_result: Search result.
         :param links: Dictionary of links to add to response.
 
         """

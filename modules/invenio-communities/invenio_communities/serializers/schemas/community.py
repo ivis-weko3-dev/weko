@@ -8,13 +8,11 @@
 
 """Community JSON schema."""
 
-from __future__ import absolute_import, print_function
-
 from flask import current_app, url_for
-from marshmallow import Schema, fields, post_dump
-
 from invenio_communities.links import default_links_item_factory, \
     default_links_pagination_factory
+from marshmallow import Schema, fields, post_dump
+
 
 
 class CommunitySchemaV1(Schema):

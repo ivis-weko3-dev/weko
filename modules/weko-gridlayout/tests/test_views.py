@@ -1,12 +1,13 @@
 import json
 import pytest
-from mock import patch, Mock, MagicMock
 import uuid
+
 from flask import jsonify, url_for
 from flask_security import url_for_security
 
 from invenio_cache import current_cache
 from invenio_accounts.testutils import login_user_via_session
+from mock import patch, Mock, MagicMock
 from weko_gridlayout.models import WidgetDesignPage,WidgetDesignSetting
 
 user_results1 = [
@@ -602,7 +603,7 @@ def test__add_url_rule(app):
     assert _add_url_rule(url_or_urls) == None
 
 # .tox/c1/bin/pytest --cov=weko_gridlayout tests/test_views.py::test_get_access_counter_record -vv -s -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-gridlayout/.tox/c1/tmp
-def test_get_access_counter_record(i18n_app, db, es, monkeypatch):
+def test_get_access_counter_record(i18n_app, db, open_search, monkeypatch):
     current_cache.delete("access_counter")
     # not exist count_start_date
     widget_design_setting_settings = [
@@ -708,9 +709,8 @@ def test_get_access_counter_record(i18n_app, db, es, monkeypatch):
     db.session.commit()
 
     uuid1=uuid.uuid4()
-    es.index(
+    open_search.index(
         index='{}stats-top-view-0001'.format(i18n_app.config['SEARCH_INDEX_PREFIX']),
-        doc_type="top-view-day-aggregation",
         id=uuid1,
         body={
             "timestamp":"2024-03-08T00:00:00",
@@ -723,9 +723,8 @@ def test_get_access_counter_record(i18n_app, db, es, monkeypatch):
         refresh='true'
     )
     uuid2=uuid.uuid4()
-    es.index(
+    open_search.index(
         index='{}stats-top-view-0001'.format(i18n_app.config['SEARCH_INDEX_PREFIX']),
-        doc_type="top-view-day-aggregation",
         id=uuid2,
         body={
             "timestamp":"2024-03-09T00:00:00",
@@ -738,9 +737,8 @@ def test_get_access_counter_record(i18n_app, db, es, monkeypatch):
         refresh='true'
     )
     uuid3=uuid.uuid4()
-    es.index(
+    open_search.index(
         index='{}stats-top-view-0001'.format(i18n_app.config['SEARCH_INDEX_PREFIX']),
-        doc_type="top-view-day-aggregation",
         id=uuid3,
         body={
             "timestamp":"2024-03-09T00:00:00",

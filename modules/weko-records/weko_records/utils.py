@@ -21,12 +21,12 @@
 """Item API."""
 import copy
 import pickle
+import pytz
 import re
 import time
 import xml.etree.ElementTree as ET
-from collections import OrderedDict
 
-import pytz
+from collections import OrderedDict
 from flask import current_app, json, Flask
 from flask_security import current_user
 from invenio_i18n.ext import current_i18n
@@ -180,7 +180,7 @@ def json_loader(data, pid, owner_id=None, with_deleted=False, replace_field=True
             pubdate = v
         jpcoar[k] = item.copy()
 
-    # convert to es jpcoar mapping data
+    # convert to search jpcoar mapping data
     jrc = SchemaTree.get_jpcoar_json(jpcoar,replace_field=replace_field)
     list_key = []
     for k, v in jrc.items():

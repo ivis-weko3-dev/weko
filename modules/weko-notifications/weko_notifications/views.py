@@ -8,15 +8,13 @@
 """Module of weko-notifications."""
 
 
-from __future__ import absolute_import, print_function
-
 import traceback
 import requests
 
 from flask import (
     Blueprint, current_app, flash, jsonify, render_template, request
 )
-from flask_babelex import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from flask_breadcrumbs import register_breadcrumb
 from flask_login import current_user, login_required
 from flask_menu import register_menu

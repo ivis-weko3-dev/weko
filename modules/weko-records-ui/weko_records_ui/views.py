@@ -27,10 +27,9 @@ import traceback
 import uuid
 import copy
 import sys
-from urllib.parse import quote, urlparse
-
-import six
 import werkzeug
+
+
 from flask import Blueprint, abort, current_app, escape, flash, json, \
     jsonify, make_response, redirect, render_template, request, url_for
 from flask_babel import get_locale, gettext as _
@@ -51,6 +50,7 @@ from invenio_records_ui.signals import record_viewed
 from invenio_files_rest.signals import file_downloaded
 from invenio_records_ui.utils import obj_or_import_string
 from lxml import etree
+from urllib.parse import quote, urlparse
 from weko_accounts.views import _redirect_method
 from weko_admin.models import AdminSettings
 from weko_admin.utils import get_search_setting, get_restricted_access
@@ -177,8 +177,8 @@ def publish(pid, record, template=None, **kwargs):
     db.session.commit()
 
     indexer = WekoIndexer()
-    indexer.update_es_data(record, update_revision=False, field='publish_status')
-    indexer.update_es_data(last_record, update_revision=False, field='publish_status')
+    indexer.update_search_data(record, update_revision=False, field='publish_status')
+    indexer.update_search_data(last_record, update_revision=False, field='publish_status')
     call_external_system(old_record=old_record, new_record=last_record)
 
     operation = "ITEM_PUBLISH" if publish_status else "ITEM_UNPUBLISH"
@@ -1257,7 +1257,8 @@ def soft_delete(recid):
                  is_editing = True
             if not is_editing:
                 pid = PersistentIdentifier.get('recid', recid)
-                versioning = PIDVersioning(child=pid)
+                parent_pid = PIDNodeVersioning(pid=pid).parents.one_or_none()
+                versioning = PIDNodeVersioning(pid=parent_pid)
                 if versioning.exists:
                    all_ver = versioning.children.all()
                    for ver in all_ver:

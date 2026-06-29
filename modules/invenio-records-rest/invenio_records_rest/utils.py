@@ -8,11 +8,10 @@
 
 """General utility functions module."""
 
-from functools import partial
-
 import pkg_resources
-import six
+
 from flask import abort, current_app, jsonify, make_response, request, url_for
+from functools import partial
 from invenio_pidstore.errors import (
     PIDDeletedError,
     PIDDoesNotExistError,
@@ -74,7 +73,7 @@ def obj_or_import_string(value, default=None):
     :params default: Default object to return if the import fails.
     :returns: The imported object.
     """
-    if isinstance(value, six.string_types):
+    if isinstance(value, str):
         return import_string(value)
     elif value:
         return value

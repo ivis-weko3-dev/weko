@@ -8,18 +8,14 @@
 
 
 """Module tests."""
-
-from __future__ import absolute_import, print_function
+import pytest
 
 from copy import deepcopy
-
-import pytest
 from flask import Flask, render_template_string
-from invenio_records_rest import InvenioRecordsREST
-from invenio_records_rest.utils import PIDConverter
-
 from invenio_deposit import InvenioDeposit, InvenioDepositREST, bundles
 from invenio_deposit.proxies import current_deposit
+from invenio_records_rest import InvenioRecordsREST
+from invenio_records_rest.utils import PIDConverter
 
 
 def _check_template():

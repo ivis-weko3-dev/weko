@@ -8,4 +8,3 @@
 
 """Invenio module contains the schemas for serialization."""
 
-from __future__ import absolute_import, print_function

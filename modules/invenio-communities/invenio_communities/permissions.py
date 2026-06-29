@@ -8,8 +8,6 @@
 
 """Permissions for communities."""
 
-from __future__ import absolute_import, print_function
-
 import humanize
 
 from datetime import datetime, timedelta

@@ -8,22 +8,26 @@
 
 """Test of image opener."""
 
-from __future__ import absolute_import, print_function
-
 import pytest
-from unittest.mock import patch
-from werkzeug.exceptions import HTTPException
 from flask import url_for,make_response
 from flask_iiif.utils import iiif_image_url
 
+from invenio_iiif.views import (
+    create_blueprint_from_app,
+    create_blueprint,
+    create_url_rule,
+    manifest_view
+)
 from invenio_pidstore.errors import (
     PIDDeletedError,
     PIDDoesNotExistError,
     PIDMissingObjectError,
     PIDRedirectedError,
 )
+
+from unittest.mock import patch
+from werkzeug.exceptions import HTTPException
 from werkzeug.routing import BuildError
-from invenio_iiif.views import create_blueprint_from_app,create_blueprint,create_url_rule,manifest_view
 
 # .tox/c1/bin/pytest --cov=invenio_iiif tests/test_views.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio_iiif/.tox/c1/tmp
 

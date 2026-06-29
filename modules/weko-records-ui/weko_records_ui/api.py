@@ -1,34 +1,38 @@
-from datetime import datetime, timezone
+import copy
+import hashlib
+import json
 import os
 import random
+import shutil
 import string
 import sys
-import hashlib
 import traceback
 import tempfile
-import shutil
-import copy
-import json
-from urllib.parse import urlparse, urljoin, uses_relative, uses_netloc
 
 from botocore.exceptions import BotoCoreError, ClientError
 from boto3.s3.transfer import TransferConfig
+from datetime import datetime, timezone
 from email_validator import validate_email
 from flask import current_app, request
-
 from flask_login import current_user
 from flask_mail import Message
-from flask_babelex import lazy_gettext as _
-from sqlalchemy import func, String
+from flask_babel import lazy_gettext as _
 
-from invenio_mail.admin import _load_mail_cfg_from_db, _set_flask_mail_cfg
-from invenio_files_rest.models import Bucket, ObjectVersion, FileInstance
-from invenio_files_rest.utils import parse_storage_host
-from invenio_pidstore.models import PersistentIdentifier
-from invenio_records.api import Record
-from weko_logging.activity_logger import UserActivityLogger
 from invenio_db import db
+from invenio_files_rest.models import (
+    Bucket, ObjectVersion, FileInstance, Location)
+from invenio_files_rest.utils import parse_storage_host
+from invenio_mail.admin import _load_mail_cfg_from_db, _set_flask_mail_cfg
+from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
+from invenio_pidstore.models import PersistentIdentifier
+from invenio_pidstore.resolver import Resolver
+from invenio_records.api import Record
+from invenio_records_files.models import RecordsBuckets
 
+from sqlalchemy import func, String
+from urllib.parse import urlparse, urljoin, uses_relative, uses_netloc
+
+from weko_logging.activity_logger import UserActivityLogger
 from weko_records.api import RequestMailList
 from weko_records.models import ItemApplication
 from weko_records_ui.captcha import get_captcha_info
@@ -38,17 +42,12 @@ from weko_records_ui.errors import (
 )
 from weko_redis.redis import RedisConnection
 from weko_user_profiles.models import UserProfile
-from invenio_files_rest.models import Bucket, ObjectVersion, FileInstance
-from invenio_pidstore.models import PersistentIdentifier
-from werkzeug.utils import import_string
-from invenio_pidstore.resolver import Resolver
-from invenio_records.api import Record
-from invenio_pidrelations.contrib.versioning import PIDVersioning
 from weko_workflow.api import WorkFlow
 from weko_records.api import ItemTypes
-from invenio_files_rest.models import Location
-from weko_search_ui.utils import handle_check_item_is_locked, check_replace_file_import_items, import_items_to_system
-from invenio_records_files.models import RecordsBuckets
+from weko_search_ui.utils import (
+    handle_check_item_is_locked, check_replace_file_import_items,
+    import_items_to_system)
+from werkzeug.utils import import_string
 
 def send_request_mail(item_id, mail_info):
 
@@ -572,7 +571,8 @@ def get_file_place_info(org_pid, org_bucket_id, file_name):
                         object_type="rec",
                         getter=record_class.get_record)
     recid, deposit = resolver.resolve(pid_value)
-    latest_pid = PIDVersioning(child=recid).last_child
+    parent_pid = PIDNodeVersioning(pid=recid).parents.one_or_none()
+    latest_pid = PIDNodeVersioning(pid=parent_pid).last_child
     item_uuid = latest_pid.object_uuid
 
     org_bucket = Bucket.query.get(org_bucket_id)
@@ -711,7 +711,8 @@ def replace_file_bucket(org_pid, org_bucket_id, file=None,
                         object_type="rec",
                         getter=record_class.get_record)
     recid, deposit = resolver.resolve(pid_value)
-    latest_pid = PIDVersioning(child=recid).last_child
+    parent_pid = PIDNodeVersioning(pid=recid).parents.one_or_none()
+    latest_pid = PIDNodeVersioning(pid=parent_pid).last_child
     item_uuid = latest_pid.object_uuid
     item_type_id = deposit.get('item_type_id')
     item_type = ItemTypes.get_by_id(item_type_id)
@@ -937,7 +938,8 @@ def replace_file_bucket(org_pid, org_bucket_id, file=None,
 
         # records_bucketsの更新
         recid, deposit = resolver.resolve(pid_value)
-        latest_pid = PIDVersioning(child=recid).last_child
+        parent_pid = PIDNodeVersioning(pid=recid).parents.one_or_none()
+        latest_pid = PIDNodeVersioning(pid=parent_pid).last_child
         item_uuid = latest_pid.object_uuid
 
         records_buckets = RecordsBuckets.query.filter_by(

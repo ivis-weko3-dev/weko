@@ -7,8 +7,6 @@
 
 """Module of weko-swordserver."""
 
-from __future__ import absolute_import, print_function
-
 from .ext import WekoSWORDServer
 from .version import __version__
 

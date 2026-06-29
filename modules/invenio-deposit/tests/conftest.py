@@ -9,32 +9,29 @@
 
 """Pytest configuration."""
 
-from __future__ import absolute_import, print_function
-
 import datetime
 import os
+import pytest
 import shutil
 import tempfile
-from time import sleep
 
-import pytest
 from flask import Flask
 from flask.cli import ScriptInfo
 from flask_babel import Babel
 from flask_celeryext import FlaskCeleryExt
 from flask_oauthlib.provider import OAuth2Provider
 from flask_security import login_user
-from .helpers import fill_oauth2_headers, make_pdf_fixture
-from opensearchpy import OpenSearch
-from opensearchpy.exceptions import NotFoundError, RequestError
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionUsers
-from invenio_i18n import InvenioI18N
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.views.rest import create_rest_blueprint
 from invenio_accounts.views.settings import create_settings_blueprint
+from invenio_i18n import InvenioI18N
 from invenio_assets import InvenioAssets
 from invenio_db import InvenioDB, db
+from invenio_deposit import InvenioDeposit, InvenioDepositREST
+from invenio_deposit.api import Deposit
+from invenio_deposit.scopes import write_scope
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location
 from invenio_indexer import InvenioIndexer
@@ -56,17 +53,19 @@ from invenio_search import InvenioSearch, current_search, current_search_client
 from invenio_search.errors import IndexAlreadyExistsError
 from invenio_search.engine import search
 from invenio_search_ui import InvenioSearchUI
-from six import BytesIO, get_method_self
+from kombu import Exchange, Queue
+
+from opensearchpy import OpenSearch
+from opensearchpy.exceptions import NotFoundError, RequestError
+from time import sleep
+from io import BytesIO, get_method_self
 from sqlalchemy import inspect
 from sqlalchemy_utils.functions import create_database, database_exists, \
     drop_database
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
-from invenio_deposit import InvenioDeposit, InvenioDepositREST
-from invenio_deposit.api import Deposit
-from invenio_deposit.scopes import write_scope
-from kombu import Exchange, Queue
 
+from .helpers import fill_oauth2_headers, make_pdf_fixture
 
 def object_as_dict(obj):
     """Make a dict from SQLAlchemy object."""
@@ -101,8 +100,8 @@ def base_app(request):
             #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
             SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                               'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
-            SEARCH_ELASTIC_HOSTS=os.environ.get(
-                    'SEARCH_ELASTIC_HOSTS', 'opensearch'),
+            SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                    'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
             SEARCH_HOSTS=os.environ.get(
                 'SEARCH_HOST', 'opensearch'
             ),
@@ -119,7 +118,6 @@ def base_app(request):
             OAUTH2_CACHE_TYPE='simple',
             ACCOUNTS_JWT_ENABLE=False,
             INDEXER_DEFAULT_INDEX='records-default-v1.0.0',
-            INDEXER_DEFAULT_DOC_TYPE='default-v1.0.0',
             INDEXER_MQ_QUEUE = Queue("indexer", 
                 exchange=Exchange("indexer", type="direct"), routing_key="indexer",auto_delete=False,queue_arguments={"x-queue-type":"quorum"}),
             WEKO_PERMISSION_SUPER_ROLE_USER=[
@@ -287,7 +285,7 @@ def write_token_user_2(app, client, users):
 
 
 @pytest.fixture()
-def fake_schemas(app, api, es, tmpdir):
+def fake_schemas(app, api, search, tmpdir):
     """Fake schema."""
     schemas = tmpdir.mkdir('schemas')
     empty_schema = '{"title": "Empty"}'
@@ -305,8 +303,8 @@ def fake_schemas(app, api, es, tmpdir):
 
 
 @pytest.yield_fixture()
-def es(app):
-    """Elasticsearch fixture."""
+def search(app):
+    """Search fixture."""
     try:
         # current_search_client.indices.delete(index="test-*")
         list(current_search.create())
@@ -331,7 +329,7 @@ def location(app):
 
 
 @pytest.fixture()
-def deposit(app, es, users, location):
+def deposit(app, search, users, location):
     """New deposit with files."""
     record = {
         'title': 'fuu'

@@ -32,7 +32,7 @@ def xml_record(*args, **kwargs):
 def json_search(pid_fetcher, search_result, **kwargs):
     """Test serializer."""
     return current_app.response_class(
-        json.dumps([{"test": "test"}, search_result["hits"]["total"]]),
+        json.dumps([{"test": "test"}, search_result["hits"]["total"]["value"]]),
         content_type="application/json",
     )
 
@@ -65,7 +65,7 @@ def xml_search(*args, **kwargs):
     indirect=["app"],
     scope="function",
 )
-def test_default_serializer(app, db, es, indexed_records):
+def test_default_serializer(app, db, open_search, indexed_records):
     """Test default serializer."""
     # Create records
     accept_json = [("Accept", "application/json")]
@@ -123,7 +123,7 @@ def test_default_serializer(app, db, es, indexed_records):
     indirect=["app"],
     scope="function",
 )
-def test_serializer_aliases(app, db, es, indexed_records):
+def test_serializer_aliases(app, db, open_search, indexed_records):
     """Test serializers aliases."""
     with app.test_client() as client:
         res = client.get("/records/")

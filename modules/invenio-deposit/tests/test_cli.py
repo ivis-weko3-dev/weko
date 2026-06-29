@@ -8,19 +8,17 @@
 
 """Test CLI."""
 
-from __future__ import absolute_import, print_function
-
 import uuid
 
 from click.testing import CliRunner
 from flask import current_app
 from flask.cli import with_appcontext
+from invenio_db import db
 from invenio_deposit import cli
 from invenio_indexer.api import RecordIndexer
 from invenio_pidstore import current_pidstore
 from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
-from invenio_db import db
 from invenio_records import Record
 # from invenio_search import current_search, current_search_client
 

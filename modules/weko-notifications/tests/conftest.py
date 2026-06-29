@@ -11,20 +11,15 @@ See https://pytest-invenio.readthedocs.io/ for documentation on which test
 fixtures are available.
 """
 
-from __future__ import absolute_import, print_function
-
 import os
+import pytest
 import shutil
 import tempfile
 
-import pytest
 from flask import Flask
-from flask_babelex import Babel
+from flask_babel import Babel
 from flask_mail import Mail
 from flask_menu import Menu
-from sqlalchemy_utils.functions import create_database, database_exists
-from werkzeug.local import LocalProxy
-
 
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionUsers, ActionRoles
@@ -43,6 +38,7 @@ from invenio_pidstore import InvenioPIDStore
 from invenio_records import InvenioRecords
 from invenio_records_ui import InvenioRecordsUI
 from invenio_search import InvenioSearch, current_search_client
+from sqlalchemy_utils.functions import create_database, database_exists
 
 from weko_index_tree import WekoIndexTree
 from weko_index_tree.models import Index
@@ -55,11 +51,13 @@ from weko_schema_ui import WekoSchemaUI
 from weko_theme import WekoTheme
 from weko_user_profiles import WekoUserProfiles
 from weko_user_profiles.models import UserProfile
-from weko_user_profiles.config import USERPROFILES_LANGUAGE_DEFAULT, USERPROFILES_TIMEZONE_DEFAULT
+from weko_user_profiles.config import (
+    USERPROFILES_LANGUAGE_DEFAULT, USERPROFILES_TIMEZONE_DEFAULT)
 from weko_workflow import WekoWorkflow
 
 from weko_notifications import WekoNotifications
 from weko_notifications.views import blueprint_api as weko_notifications_api_blueprint
+from werkzeug.local import LocalProxy
 
 from .helpers import json_data
 

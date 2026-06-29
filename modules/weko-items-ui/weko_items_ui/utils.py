@@ -20,34 +20,27 @@
 
 """Module of weko-items-ui utils.."""
 
+import bagit
 import calendar
 import copy
 import csv
 import json
 import os
+import pytz
 import re
 import shutil
 import tempfile
 import traceback
 import unicodedata
-import pytz
+
 from collections import OrderedDict, Counter
 from datetime import date, datetime, timedelta, timezone
-from io import StringIO
-
-import bagit
-from sqlalchemy.exc import SQLAlchemyError
-from invenio_search.engine import search
-from invenio_search.utils import build_alias_name
-from flask import abort, current_app, flash, redirect, request, send_file, url_for, Flask
+from flask import (
+    abort, current_app, flash, redirect, request, send_file, url_for, Flask
+) 
 from flask_babel import gettext as _
 from flask_login import current_user
-from sqlalchemy import MetaData, Table
-from sqlalchemy.sql import text
-from jsonschema import SchemaError, ValidationError
-from werkzeug.exceptions import HTTPException
-
-from invenio_accounts.models import Role, userrole
+from invenio_accounts.models import Role, userrole, User
 from invenio_db import db
 from invenio_i18n.ext import current_i18n
 from invenio_indexer.api import RecordIndexer
@@ -56,9 +49,15 @@ from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_records.api import RecordBase
-from invenio_accounts.models import User
 from invenio_search import RecordsSearch
+from invenio_search.engine import search
+from invenio_search.utils import build_alias_name
 from invenio_stats.utils import QueryRankingHelper
+from io import StringIO
+from jsonschema import SchemaError, ValidationError
+from sqlalchemy import MetaData, Table
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql import text
 from weko_admin.models import AdminSettings
 from weko_authors.api import WekoAuthors
 from weko_deposit.api import WekoDeposit, WekoRecord
@@ -69,7 +68,10 @@ from weko_index_tree.utils import (
 )
 from weko_notifications.models import NotificationsUserSettings
 from weko_notifications.utils import _get_params_for_registrant
-from weko_records.api import FeedbackMailList, JsonldMapping, RequestMailList, ItemTypes, Mapping, ItemApplication
+from weko_records.api import (
+    FeedbackMailList, JsonldMapping, RequestMailList, 
+    ItemTypes, Mapping, ItemApplication
+)
 from weko_records.serializers.utils import get_item_type_name
 from weko_records.utils import replace_fqdn_of_file_metadata
 from weko_records_ui.errors import AvailableFilesNotFoundRESTError
@@ -94,6 +96,8 @@ from weko_workflow.models import (
     Activity, FlowAction, FlowActionRole, FlowDefine, ActionStatusPolicy as ASP
 )
 from weko_workflow.utils import IdentifierHandle
+from werkzeug.exceptions import HTTPException
+
 
 def check_display_shared_user(user_id):
     role_ids = current_app.config['WEKO_ITEMS_UI_SHARED_USER_ROLE_ID_LIST']
@@ -412,25 +416,25 @@ def find_hidden_items(item_id_list, idx_paths=None, check_creator_permission=Fal
     return hidden_list
 
 
-def get_permission_record(rank_type, es_data, display_rank, has_permission_indexes):
+def get_permission_record(rank_type, search_data, display_rank, has_permission_indexes):
     """
     Find items that should be visible by the current user.
 
     parameter:
         rank_type: Ranking Type. e.g. 'most_reviewed_items' or 'most_downloaded_items' or 'created_most_items_user' or 'most_searched_keywords' or 'new_items'
-        es_data: List of ranking data.
+        search_data: List of ranking data.
         display_rank: Number of ranking display.
         has_permission_indexes: List of can be view by the current user.
     return: List of ranking data that the user can access.
     """
 
-    if not es_data:
+    if not search_data:
         return []
 
     result = []
     roles = get_user_roles()
     date_list = []
-    for data in es_data:
+    for data in search_data:
         if len(result) == display_rank:
             break
 
@@ -2704,8 +2708,8 @@ def write_rocrate(item_types_data, export_path, list_item_role):
         for data in item_types_data.values()
         for recid in data['recids']
     ]
-    # Get item title and extraction file list from ElasticSearch
-    metadata_dict = _get_metadata_dict_in_es(all_record_ids)
+    # Get item title and extraction file list from OpenSearch
+    metadata_dict = _get_metadata_dict_in_search(all_record_ids)
 
     for item_type_id, item_type_data in item_types_data.items():
         mappings = JsonldMapping.get_by_itemtype_id(item_type_id)
@@ -2762,8 +2766,8 @@ def write_rocrate(item_types_data, export_path, list_item_role):
     shutil.copyfile(src_readme_path, readme_path)
 
 
-def _get_metadata_dict_in_es(record_ids):
-    """Get item title and extraction file list from ElasticSearch.
+def _get_metadata_dict_in_search(record_ids):
+    """Get item title and extraction file list from OpenSearch.
 
     Args:
         record_ids (list[str]): List of record IDs to fetch metadata for.
@@ -2774,7 +2778,7 @@ def _get_metadata_dict_in_es(record_ids):
     """
     metadata_dict = {}
     try:
-        # Get metadata from ElasticSearch
+        # Get metadata from OpenSearch
         search = (
             RecordsSearch(index=current_app.config["SEARCH_UI_SEARCH_INDEX"])
             .filter("terms", control_number=record_ids)
@@ -3905,7 +3909,7 @@ def get_ranking(settings):
             must_not=json.dumps([{"wildcard": {"item_id": "*.*"}}]),
         )
 
-        current_app.logger.debug("finished getting most_downloaded_items data from ES")
+        current_app.logger.debug("finished getting most_downloaded_items data from Search")
         rankings['most_downloaded_items'] = get_permission_record('most_downloaded_items', result, settings.display_rank, has_permission_indexes)
 
     # created_most_items_user
@@ -3921,7 +3925,7 @@ def get_ranking(settings):
             must_not=json.dumps([{"wildcard": {"pid_value": "*.*"}}])
         )
 
-        current_app.logger.debug("finished getting created_most_items_user data from ES")
+        current_app.logger.debug("finished getting created_most_items_user data from Search")
         ranking_data = []
         for s in result:
             ranking_data.append(parse_ranking_results(
@@ -3949,7 +3953,7 @@ def get_ranking(settings):
             must_not=json.dumps(must_not)
         )
 
-        current_app.logger.debug("finished getting most_searched_keywords data from ES")
+        current_app.logger.debug("finished getting most_searched_keywords data from Search")
         ranking_data = []
         for s in result:
             ranking_data.append(parse_ranking_results(
@@ -3978,7 +3982,7 @@ def get_ranking(settings):
             must_not=json.dumps([{"wildcard": {"control_number": "*.*"}}])
         )
 
-        current_app.logger.debug("finished getting new_items data from ES")
+        current_app.logger.debug("finished getting new_items data from Search")
         rankings['new_items'] = get_permission_record('new_items', result, settings.display_rank, has_permission_indexes)
 
     return rankings
@@ -5096,11 +5100,11 @@ def check_item_is_being_edit(
                 latest_pid.object_uuid, latest_workflow.action_status))
             return str(latest_workflow.activity_id)
 
-    pv = PIDVersioning(child=recid)
+    parent_pid = PIDNodeVersioning(pid=recid).parents.one_or_none()
+    pv = PIDNodeVersioning(pid=parent_pid)
     versions_uuid = [
         record.object_uuid
-        for record in PIDVersioning(parent=pv.parent, child=recid)
-        .get_children(pid_status=PIDStatus.REGISTERED)
+        for record in pv.get_children(pid_status=PIDStatus.REGISTERED)
         .filter(PIDRelation.relation_type == 2)
         .order_by(PIDRelation.index.desc())
         .all()

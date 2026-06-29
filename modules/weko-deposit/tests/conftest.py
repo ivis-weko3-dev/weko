@@ -20,44 +20,39 @@
 
 """Pytest configuration."""
 
-import os
+import copy
 import json
+import os
+import pytest
 import shutil
 import tempfile
-import copy
-import uuid
-from unittest.mock import patch, MagicMock
 import time
-from datetime import datetime
+import uuid
 
-import pytest
+from datetime import datetime
 from flask import Flask
 from flask_menu import Menu
 from flask_babel import Babel
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import User, Role
-from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts.testutils import create_test_user
 from invenio_access import InvenioAccess
-from invenio_access.models import ActionUsers
+from invenio_access.models import ActionRoles, ActionUsers
 from invenio_admin import InvenioAdmin
 from invenio_assets import InvenioAssets
-from invenio_db import InvenioDB, db as db_
 from invenio_cache import InvenioCache
 from invenio_communities.models import Community
-from weko_authors.models import Authors
-from weko_user_profiles.models import UserProfile
+from invenio_db import InvenioDB, db as db_
 from invenio_deposit import InvenioDeposit
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.views import blueprint as invenio_files_rest_blueprint
 from invenio_files_rest.models import Bucket, Location, ObjectVersion
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus, Redirect
 from invenio_i18n import InvenioI18N
-from weko_index_tree.api import Indexes
-from weko_index_tree.models import Index
 from invenio_indexer import InvenioIndexer
 from invenio_jsonschemas import InvenioJSONSchemas
 from invenio_pidrelations import InvenioPIDRelations
+from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore import InvenioPIDStore
 from invenio_records import InvenioRecords
 from invenio_records_rest import InvenioRecordsREST
@@ -66,31 +61,17 @@ from invenio_search import InvenioSearch
 from invenio_search.engine import search
 from invenio_search_ui import InvenioSearchUI
 from invenio_stats.config import SEARCH_INDEX_PREFIX as index_prefix
-from six import BytesIO
+
+from io import BytesIO
 from simplekv.memory.redisstore import RedisStore
 from sqlalchemy_utils.functions import create_database, database_exists, drop_database
+from tests.helpers import json_data, create_record
+from unittest.mock import patch, MagicMock
+
 from weko_admin import WekoAdmin
 from weko_admin.models import AdminSettings
-from weko_items_ui import WekoItemsUI
-from weko_records import WekoRecords
-from weko_redis.redis import RedisConnection
-from weko_search_ui import WekoSearchUI
-from weko_search_ui.config import WEKO_SEARCH_MAX_RESULT
-from weko_index_tree import WekoIndexTree, WekoIndexTreeREST
-from weko_theme import WekoTheme
-from weko_groups import WekoGroups
-from invenio_pidrelations.models import PIDRelation
-from weko_logging.audit import WekoLoggingUserActivity
-from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
-from weko_records.api import ItemsMetadata, WekoRecord
-from weko_schema_ui.models import OAIServerSchema
-from weko_schema_ui.config import WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,WEKO_SCHEMA_DDI_SCHEMA_NAME
+from weko_authors.models import Authors
 from weko_deposit import WekoDeposit, WekoDepositREST
-from weko_records.utils import get_options_and_order_list
-from weko_user_profiles.models import UserProfile
-from weko_user_profiles.config import USERPROFILES_LANGUAGE_DEFAULT, \
-    USERPROFILES_TIMEZONE_DEFAULT
-from weko_workflow.models import Action, ActionStatus,Activity, WorkFlow,FlowAction,FlowDefine
 from weko_deposit.api import WekoRecord,_FormatSysBibliographicInformation
 from weko_deposit.views import blueprint
 from weko_deposit.storage import WekoFileStorage
@@ -104,11 +85,31 @@ from weko_deposit.config import (
     WEKO_DEPOSIT_BIBLIOGRAPHIC_INFO_SYS_KEY as _WEKO_DEPOSIT_BIBLIOGRAPHIC_INFO_SYS_KEY,
     WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES as _WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES,
 )
+from weko_groups import WekoGroups
+from weko_index_tree import WekoIndexTree, WekoIndexTreeREST
+from weko_index_tree.api import Indexes
+from weko_index_tree.models import Index
+from weko_items_ui import WekoItemsUI
+from weko_logging.audit import WekoLoggingUserActivity
+from weko_records import WekoRecords
+from weko_records.api import ItemsMetadata, WekoRecord
+from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
+from weko_records.utils import get_options_and_order_list
+from weko_redis.redis import RedisConnection
+from weko_schema_ui.models import OAIServerSchema
+from weko_schema_ui.config import (
+    WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,WEKO_SCHEMA_DDI_SCHEMA_NAME)
+from weko_search_ui import WekoSearchUI
+from weko_search_ui.config import WEKO_SEARCH_MAX_RESULT
+from weko_theme import WekoTheme
+from weko_user_profiles.models import UserProfile
+from weko_user_profiles.config import USERPROFILES_LANGUAGE_DEFAULT, \
+    USERPROFILES_TIMEZONE_DEFAULT
+from weko_workflow.models import Action, ActionStatus,Activity, WorkFlow,FlowAction,FlowDefine
 from weko_index_tree.config import (
     WEKO_INDEX_TREE_REST_ENDPOINTS as _WEKO_INDEX_TREE_REST_ENDPOINTS,
 )
 
-from tests.helpers import json_data, create_record
 # from weko_deposit.config import DEPOSIT_RECORDS_API, WEKO_DEPOSIT_ITEMS_CACHE_PREFIX
 
 @pytest.yield_fixture()
@@ -166,8 +167,6 @@ def base_app(instance_path):
         ACCOUNTS_JWT_ENABLE=False,
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko-item-v1.0.0".format("test"),
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
-        INDEXER_DEFAULT_DOC_TYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         WEKO_BUCKET_QUOTA_SIZE=WEKO_BUCKET_QUOTA_SIZE,
         WEKO_MAX_FILE_SIZE=WEKO_BUCKET_QUOTA_SIZE,
@@ -202,12 +201,11 @@ def base_app(instance_path):
             'report part':'other',
             'conference object':'conference output',
         },
-        WEKO_AUTHORS_ES_INDEX_NAME="test-authors",
-        WEKO_AUTHORS_ES_DOC_TYPE="test-authors",
+        WEKO_AUTHORS_SEARCH_INDEX_NAME="test-authors",
         WEKO_MIMETYPE_WHITELIST_FOR_ES=_WEKO_MIMETYPE_WHITELIST_FOR_ES,
         WEKO_DEPOSIT_BIBLIOGRAPHIC_INFO_SYS_KEY=_WEKO_DEPOSIT_BIBLIOGRAPHIC_INFO_SYS_KEY,
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', 'opensearch'
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', 'opensearch'
         ),
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'
@@ -265,31 +263,31 @@ def app(base_app):
     with open("tests/data/mappings/item-v1.0.0.json", "r") as f:
         mapping = json.load(f)
 
-    search_hosts = base_app.config["SEARCH_ELASTIC_HOSTS"]
+    search_hosts = base_app.config["SEARCH_OPENSEARCH_HOSTS"]
     search_client_config = base_app.config["SEARCH_CLIENT_CONFIG"]
-    es = search.client.OpenSearch(
+    open_search = search.OpenSearch(
         hosts=[{'host': search_hosts, 'port': 9200}],
         http_auth=search_client_config['http_auth'],
         use_ssl=search_client_config['use_ssl'],
         verify_certs=search_client_config['verify_certs'],
     )
 
-    es.indices.create(
+    open_search.indices.create(
         index=base_app.config["INDEXER_DEFAULT_INDEX"], body=mapping, ignore=[400, 404]
     )
-    es.indices.put_alias(
+    open_search.indices.put_alias(
         index=base_app.config["INDEXER_DEFAULT_INDEX"],
         name=base_app.config["SEARCH_UI_SEARCH_INDEX"],
         ignore=[400, 404],
     )
     with base_app.app_context():
         yield base_app
-    es.indices.delete_alias(
+    open_search.indices.delete_alias(
         index=base_app.config["INDEXER_DEFAULT_INDEX"],
         name=base_app.config["SEARCH_UI_SEARCH_INDEX"],
         ignore=[400, 404],
     )
-    es.indices.delete(index=base_app.config["INDEXER_DEFAULT_INDEX"], ignore=[400, 404])
+    open_search.indices.delete(index=base_app.config["INDEXER_DEFAULT_INDEX"], ignore=[400, 404])
 
 @pytest.yield_fixture()
 def i18n_app(app):
@@ -731,10 +729,10 @@ def db_itemtype2(app, db):
         "item_type_mapping": item_type_mapping,
     }
 @pytest.fixture()
-def es_records(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records(app, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     item_metadata = {}
     db.session.begin_nested()
@@ -760,7 +758,7 @@ def es_records(app, db, db_index, location, db_itemtype,db_oaischema):
                 hdl = PersistentIdentifier.create('hdl', "https://hdl.handle.net/0000/{}".format((str(i)).zfill(10)),object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
 
             record = WekoRecord.create(record_data, id_=rec_uuid)
-            # from six import BytesIO
+            # from io import BytesIO
             from invenio_files_rest.models import Bucket
             from invenio_records_files.models import RecordsBuckets
             import base64
@@ -785,10 +783,10 @@ def es_records(app, db, db_index, location, db_itemtype,db_oaischema):
 
 
 @pytest.fixture()
-def es_records_1(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_1(app, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         for i in range(1, 10):
@@ -813,7 +811,7 @@ def es_records_1(app, db, db_index, location, db_itemtype,db_oaischema):
                 hdl = PersistentIdentifier.create('hdl', "https://hdl.handle.net/0000/{}".format((str(i)).zfill(10)),object_type='rec', object_uuid=rec_uuid,status=PIDStatus.RESERVED)
 
             record = WekoRecord.create(record_data, id_=rec_uuid)
-            # from six import BytesIO
+            # from io import BytesIO
             from invenio_files_rest.models import Bucket
             from invenio_records_files.models import RecordsBuckets
             import base64
@@ -839,10 +837,10 @@ def es_records_1(app, db, db_index, location, db_itemtype,db_oaischema):
 
 
 @pytest.fixture()
-def es_records_2(app, db, db_index, location, db_itemtype2,db_oaischema):
+def search_records_2(app, db, db_index, location, db_itemtype2,db_oaischema):
 
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         for i in range(11, 20):
@@ -888,7 +886,7 @@ def es_records_2(app, db, db_index, location, db_itemtype2,db_oaischema):
                 hdl = PersistentIdentifier.create('hdl', "https://hdl.handle.net/0000/{}".format((str(i)).zfill(10)),object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
 
             record = WekoRecord.create(record_data, id_=rec_uuid)
-            # from six import BytesIO
+            # from io import BytesIO
             from invenio_files_rest.models import Bucket
             from invenio_records_files.models import RecordsBuckets
             import base64
@@ -911,10 +909,10 @@ def es_records_2(app, db, db_index, location, db_itemtype2,db_oaischema):
     return indexer, results
 
 @pytest.fixture()
-def es_records_3(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_3(app, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         for i in range(1, 2):
@@ -927,7 +925,7 @@ def es_records_3(app, db, db_index, location, db_itemtype,db_oaischema):
             parent = None
             doi = None
             record = WekoRecord.create(record_data, id_=rec_uuid)
-            # from six import BytesIO
+            # from io import BytesIO
             from invenio_files_rest.models import Bucket
             from invenio_records_files.models import RecordsBuckets
             import base64
@@ -954,10 +952,10 @@ def es_records_3(app, db, db_index, location, db_itemtype,db_oaischema):
 
 
 @pytest.fixture()
-def es_records_4(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_4(app, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         for i in range(1, 2):
@@ -971,7 +969,7 @@ def es_records_4(app, db, db_index, location, db_itemtype,db_oaischema):
             doi = None
 
             record = WekoRecord.create(record_data, id_=rec_uuid)
-            # from six import BytesIO
+            # from io import BytesIO
             from invenio_files_rest.models import Bucket
             from invenio_records_files.models import RecordsBuckets
             import base64
@@ -992,10 +990,10 @@ def es_records_4(app, db, db_index, location, db_itemtype,db_oaischema):
 
 
 @pytest.fixture()
-def es_records_5(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_5(app, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
 
     with app.test_request_context():
@@ -1064,7 +1062,7 @@ def es_records_5(app, db, db_index, location, db_itemtype,db_oaischema):
                 hdl = PersistentIdentifier.create('hdl', "https://hdl.handle.net/0000/{}".format((str(i)).zfill(10)),object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
 
             record = WekoRecord.create(record_data, id_=rec_uuid)
-            # from six import BytesIO
+            # from io import BytesIO
             from invenio_files_rest.models import Bucket
             from invenio_records_files.models import RecordsBuckets
             import base64
@@ -1089,10 +1087,10 @@ def es_records_5(app, db, db_index, location, db_itemtype,db_oaischema):
 
 
 @pytest.fixture()
-def es_records_6(app, db, db_index, location, db_itemtype2, db_oaischema):
+def search_records_6(app, db, db_index, location, db_itemtype2, db_oaischema):
 
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         for i in range(31, 40):
@@ -1173,7 +1171,7 @@ def es_records_6(app, db, db_index, location, db_itemtype2, db_oaischema):
                 hdl = PersistentIdentifier.create('hdl', "https://hdl.handle.net/0000/{}".format((str(i)).zfill(10)),object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
 
             record = WekoRecord.create(record_data, id_=rec_uuid)
-            # from six import BytesIO
+            # from io import BytesIO
             from invenio_files_rest.models import Bucket
             from invenio_records_files.models import RecordsBuckets
             import base64
@@ -1206,10 +1204,10 @@ def es_records_6(app, db, db_index, location, db_itemtype2, db_oaischema):
 
 
 @pytest.fixture()
-def es_records_7(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_7(app, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         for i in range(1, 2):
@@ -1223,7 +1221,7 @@ def es_records_7(app, db, db_index, location, db_itemtype,db_oaischema):
             doi = None
 
             record = WekoRecord.create(record_data, id_=rec_uuid)
-            # from six import BytesIO
+            # from io import BytesIO
             from invenio_files_rest.models import Bucket
             from invenio_records_files.models import RecordsBuckets
             import base64
@@ -1246,10 +1244,10 @@ def es_records_7(app, db, db_index, location, db_itemtype,db_oaischema):
 
 
 @pytest.fixture()
-def es_records_8(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_8(app, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         for i in range(1, 10):
@@ -1277,10 +1275,10 @@ def es_records_8(app, db, db_index, location, db_itemtype,db_oaischema):
     return indexer, results
 
 @pytest.fixture()
-def es_records_with_draft(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_with_draft(app, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         results = []
@@ -1365,19 +1363,19 @@ def db_oaischema(app, db):
 
 from invenio_search import current_search_client
 @pytest.fixture()
-def esindex(app):
+def search_index(app):
     current_search_client.indices.delete(index='test-*', ignore=[400, 404])
     with open("tests/mock_module/mapping/os-v2/authors/test_authors.json","r") as f:
         mapping = json.load(f)
     with app.test_request_context():
-        current_search_client.indices.create(app.config["WEKO_AUTHORS_ES_INDEX_NAME"],body=mapping)
+        current_search_client.indices.create(app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"],body=mapping)
 
 
     yield current_search_client
 
 
 @pytest.fixture()
-def authors(app,db,esindex):
+def authors(app,db,search_index):
     datas = json_data("data/author.json")
     returns = []
     for data in datas:
@@ -1386,13 +1384,13 @@ def authors(app,db,esindex):
             is_deleted=False,
             json=data
         ))
-        es_id = data["id"]
-        es_data = json.loads(json.dumps(data))
-        es_data["id"]=""
+        search_id = data["id"]
+        search_data = json.loads(json.dumps(data))
+        search_data["id"]=""
         current_search_client.index(
-            index=app.config["WEKO_AUTHORS_ES_INDEX_NAME"],
-            id=es_id,
-            body=es_data,
+            index=app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"],
+            id=search_id,
+            body=search_data,
             refresh='true')
 
     db.session.add_all(returns)

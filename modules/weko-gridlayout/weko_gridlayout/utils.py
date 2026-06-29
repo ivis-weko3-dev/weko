@@ -20,18 +20,16 @@
 
 """Utilities for convert response json."""
 import copy
-import pickle
 import gzip
 import json
+import pickle
+import redis
 import xml.etree.ElementTree as Et
+
 from datetime import datetime
-from io import SEEK_END, SEEK_SET, BytesIO
 from uuid import UUID
 from xml.etree.ElementTree import tostring
 
-import redis
-from redis import sentinel
-from invenio_search.engine import search
 from flask import Markup, Response, abort, current_app, jsonify, request
 from flask_babel import gettext as _
 from invenio_cache import current_cache
@@ -40,7 +38,10 @@ from invenio_files_rest.errors import FileInstanceAlreadySetError, \
     FilesException, UnexpectedFileSizeError
 from invenio_files_rest.models import Bucket, Location, ObjectVersion
 from invenio_search import RecordsSearch
+from invenio_search.engine import search
 from invenio_search.utils import build_alias_name
+from io import SEEK_END, SEEK_SET, BytesIO
+from redis import sentinel
 from simplekv.memory.redisstore import RedisStore
 from sqlalchemy import asc
 from sqlalchemy.orm.exc import MultipleResultsFound
@@ -779,7 +780,7 @@ def get_rss_data_source(source, keyword):
         return ''
 
 
-def get_elasticsearch_result_by_date(start_date, end_date, query_with_publish_status=False):
+def get_search_result_by_date(start_date, end_date, query_with_publish_status=False):
     """Get data from search engine.
 
     Arguments:

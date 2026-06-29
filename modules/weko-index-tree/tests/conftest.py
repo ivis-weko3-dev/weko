@@ -20,22 +20,20 @@
 
 """Pytest configuration."""
 import os
-from os.path import dirname, exists, join
+import pytest
 import shutil
 import tempfile
 import json
 import uuid
-from datetime import date, datetime, timedelta
-from kombu import Exchange, Queue
 
-import pytest
-from mock import Mock, patch
+from datetime import date, datetime, timedelta
 from flask import Flask
 from flask_babel import Babel, lazy_gettext as _
 from flask_celeryext import FlaskCeleryExt
 from flask_menu import Menu
-from werkzeug.local import LocalProxy
-from .helpers import create_record, json_data, fill_oauth2_headers
+from kombu import Exchange, Queue
+from mock import Mock, patch
+from os.path import dirname, exists, join
 
 from invenio_deposit.config import (
     DEPOSIT_DEFAULT_STORAGE_CLASS,
@@ -49,50 +47,49 @@ from invenio_stats.contrib.event_builders import (
     build_record_unique_id,
     file_download_event_builder
 )
+from invenio_access import InvenioAccess
+from invenio_access.models import ActionUsers, ActionRoles
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import User, Role
 from invenio_accounts.testutils import create_test_user, login_user_via_session
-from invenio_access.models import ActionUsers
-from invenio_access import InvenioAccess
-from invenio_access.models import ActionUsers, ActionRoles
+from invenio_admin import InvenioAdmin
 from invenio_assets import InvenioAssets
 from invenio_cache import InvenioCache
+from invenio_communities.models import Community
 from invenio_db import InvenioDB
 from invenio_db import db as db_
-from invenio_files_rest.models import Location
-from invenio_i18n import InvenioI18N
+from invenio_db.utils import drop_alembic_version_table
+from invenio_deposit.api import Deposit
+from invenio_files_rest.models import Location, Bucket
+from invenio_files_rest.permissions import (
+    bucket_listmultiparts_all, bucket_read_all, bucket_read_versions_all,
+    bucket_update_all, location_update_all, multipart_delete_all,
+    multipart_read_all, object_delete_all, object_delete_version_all,
+    object_read_all, object_read_version_all
+)
 from invenio_indexer import InvenioIndexer
+from invenio_i18n import InvenioI18N
 from invenio_jsonschemas import InvenioJSONSchemas
 from invenio_mail import InvenioMail
+from invenio_oaiharvester.models import HarvestSettings
 from invenio_oaiserver import InvenioOAIServer
 from invenio_oaiserver.models import OAISet
 from invenio_oauth2server import InvenioOAuth2Server, InvenioOAuth2ServerREST
 from invenio_oauth2server.models import Client, Token
 from invenio_pidrelations import InvenioPIDRelations
+from invenio_pidstore import InvenioPIDStore, current_pidstore
+from invenio_queues.proxies import current_queues
 from invenio_records import InvenioRecords
-from invenio_search import InvenioSearch
+from invenio_records.models import RecordMetadata
+from invenio_records_rest.utils import PIDConverter
+from invenio_search import (
+    InvenioSearch, RecordsSearch, current_search_client, current_search
+)
 from invenio_search_ui import InvenioSearchUI
+from invenio_stats import InvenioStats
+
 from sqlalchemy_utils.functions import create_database, database_exists, drop_database
 from simplekv.memory.redisstore import RedisStore
-from invenio_oaiharvester.models import HarvestSettings
-from invenio_stats import InvenioStats
-from invenio_admin import InvenioAdmin
-from invenio_search import RecordsSearch
-from invenio_pidstore import InvenioPIDStore, current_pidstore
-from invenio_records_rest.utils import PIDConverter
-from invenio_records.models import RecordMetadata
-from invenio_deposit.api import Deposit
-from invenio_communities.models import Community
-from invenio_search import current_search_client, current_search
-from invenio_queues.proxies import current_queues
-from invenio_files_rest.permissions import bucket_listmultiparts_all, \
-    bucket_read_all, bucket_read_versions_all, bucket_update_all, \
-    location_update_all, multipart_delete_all, multipart_read_all, \
-    object_delete_all, object_delete_version_all, object_read_all, \
-    object_read_version_all
-from invenio_files_rest.models import Bucket
-from invenio_db.utils import drop_alembic_version_table
-
 from weko_admin.models import AdminLangSettings
 from weko_schema_ui.models import OAIServerSchema
 from weko_index_tree.api import Indexes
@@ -101,10 +98,13 @@ from weko_logging.audit import WekoLoggingUserActivity
 from weko_records.api import ItemTypes
 from weko_records.models import ItemTypeName, ItemType
 from weko_records_ui.models import PDFCoverPageSettings
-from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER, WEKO_PERMISSION_ROLE_COMMUNITY, EMAIL_DISPLAY_FLG
+from weko_records_ui.config import (
+    WEKO_PERMISSION_SUPER_ROLE_USER, WEKO_PERMISSION_ROLE_COMMUNITY,
+    EMAIL_DISPLAY_FLG)
 from weko_groups import WekoGroups
 from weko_workflow import WekoWorkflow
-from weko_workflow.models import Activity, ActionStatus, Action, WorkFlow, FlowDefine, FlowAction
+from weko_workflow.models import (
+    Activity, ActionStatus, Action, WorkFlow, FlowDefine, FlowAction)
 from weko_index_tree.models import Index
 from weko_index_tree.views import blueprint_api
 from weko_index_tree.rest import create_blueprint
@@ -112,6 +112,8 @@ from weko_index_tree.scopes import create_index_scope
 from weko_search_ui import WekoSearchUI
 from weko_redis.redis import RedisConnection
 from weko_admin.models import SessionLifetime
+from werkzeug.local import LocalProxy
+from .helpers import create_record, json_data, fill_oauth2_headers
 
 
 @pytest.yield_fixture()
@@ -146,7 +148,6 @@ def base_app(instance_path):
         DEPOSIT_DEFAULT_JSONSCHEMA=DEPOSIT_DEFAULT_JSONSCHEMA,
         SERVER_NAME='TEST_SERVER',
         LOGIN_DISABLED=False,
-        INDEXER_DEFAULT_DOCTYPE='item-v1.0.0',
         INDEXER_FILE_DOC_TYPE='content',
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format(
             'test'
@@ -157,8 +158,8 @@ def base_app(instance_path):
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         # SQLALCHEMY_DATABASE_URI=os.environ.get(
         #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-                    'SEARCH_ELASTIC_HOSTS', 'opensearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                    'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'
         ),
@@ -177,7 +178,7 @@ def base_app(instance_path):
         DEPOSIT_DEFAULT_STORAGE_CLASS=DEPOSIT_DEFAULT_STORAGE_CLASS,
         # SEARCH_UI_SEARCH_INDEX=SEARCH_UI_SEARCH_INDEX,
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        # SEARCH_ELASTIC_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
+        # SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
         SEARCH_INDEX_PREFIX="{}-".format('test'),
         # SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         SEARCH_CLIENT_CONFIG={"http_auth":(os.environ.get('INVENIO_OPENSEARCH_USER', 'invenio'),os.environ.get('INVENIO_OPENSEARCH_PASS', 'openpass123!')),"use_ssl":True, "verify_certs":False},
@@ -1000,8 +1001,8 @@ def without_oaiset_signals(app):
 
 
 @pytest.fixture()
-def es(app):
-    """Provide elasticsearch access, create and clean indices.
+def open_search(app):
+    """Provide opensearch access, create and clean indices.
 
     Don't create template so that the test or another fixture can modify the
     enabled events.
@@ -1031,12 +1032,12 @@ def es(app):
 
 
 @pytest.fixture()
-def esindex(app, es, db_records):
+def search_index(app, open_search, db_records):
 
     for depid, recid, parent, doi, record, item in db_records:
-        es.client.index(index='test-weko-item-v1.0.0', doc_type='item-v1.0.0', id=record.id, body=record,refresh='true')
+        open_search.client.index(index='test-weko-item-v1.0.0', id=record.id, body=record,refresh='true')
 
-    yield es
+    yield open_search
 
 
 @pytest.fixture()
@@ -1472,7 +1473,7 @@ def generate_events(
 
 
 @pytest.yield_fixture()
-def generate_request(app, es, mock_user_ctx, request):
+def generate_request(app, open_search, mock_user_ctx, request):
     """Parametrized pre indexed sample events."""
     generate_events(app=app, **request.param)
     yield

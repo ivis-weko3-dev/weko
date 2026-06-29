@@ -9,15 +9,14 @@
 """Module tests."""
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_tasks.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 
-from __future__ import absolute_import, print_function
-
-from invenio_records.api import Record
 import pytest
-from mock import patch
 
+from datetime import datetime,timedelta
 from invenio_communities.models import InclusionRequest
 from invenio_communities.tasks import delete_expired_requests
-from datetime import datetime,timedelta
+from invenio_records.api import Record
+from mock import patch
+
 
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_tasks.py::test_community_delete_task -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 def test_community_delete_task(app, db, communities):

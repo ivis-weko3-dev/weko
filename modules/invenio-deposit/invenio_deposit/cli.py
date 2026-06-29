@@ -8,15 +8,13 @@
 
 """Click command-line interface for record management."""
 
-from __future__ import absolute_import, print_function
-
+import click
 import sys
 
-import click
 from flask import current_app
 from flask.cli import with_appcontext
-from invenio_pidstore import current_pidstore
 from invenio_indexer.api import RecordIndexer
+from invenio_pidstore import current_pidstore
 from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_pidstore.models import PersistentIdentifier
 
@@ -126,7 +124,7 @@ def reindex(recid):
 @click.option(
     '--raise-on-exception', type=bool,default=True,
     help='if False then don’t propagate exceptions from call to bulk and just report the items that failed as failed.')
-@click.option('--chunk-size',type=int,default=500,help='number of docs in one chunk sent to es (default: 500)')
+@click.option('--chunk-size',type=int,default=500,help='number of docs in one chunk sent to search (default: 500)')
 @click.option(
     '--max-chunk-bytes',type=int,default=104857600,
     help='the maximum size of the request in bytes (default: 100MB)')

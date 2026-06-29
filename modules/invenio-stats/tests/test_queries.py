@@ -8,16 +8,14 @@
 
 """Query tests."""
 
+import copy
 import datetime
-
 import pytest
 import json
-import copy
-from mock import patch, MagicMock
 
+from invenio_search.engine import dsl
 from invenio_stats.aggregations import filter_robots
 from invenio_stats.errors import InvalidRequestInputError
-from invenio_search.engine import dsl
 from invenio_stats.queries import (
     ESQuery,
     ESDateHistogramQuery,
@@ -26,6 +24,7 @@ from invenio_stats.queries import (
     ESWekoTermsQuery,
     ESWekoRankingQuery
 )
+from mock import patch, MagicMock
 
 
 class MockFunc:
@@ -49,11 +48,11 @@ def test_query(app):
             assert query.run()
         
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_queries.py::test_set_filter_event_type -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-stats/.tox/c1/tmp    
-def test_set_filter_event_type(app,es):
+def test_set_filter_event_type(app, open_search):
     """Test the set_filter_event_type method."""
     with app.app_context():
         query_instance = ESQuery("test_query", "test_index", event_type="test_event")
-        search_query = dsl.Search(using=es, index="test_index")
+        search_query = dsl.Search(using=open_search, index="test_index")
         filtered_query = query_instance.set_filter_event_type(search_query)
 
         assert "'term': {'event_type': 'test_event'}" in str(filtered_query.to_dict()) 
@@ -197,14 +196,14 @@ def test_date_histogram_query(i18n_app, queries_config):
                           (["tests/data/ESTermsQuery_execute03.json"],
                            16,
                            "tests/data/ESTermsQuery_result03.json")])
-def test_terms_query(app,mock_es_execute, event_queues,
+def test_terms_query(app,mock_search_execute, event_queues,
                      aggregated_file_download_events, mock_execute, config_num, res_file):
     """Test that the terms query returns the correct total count."""
     query_configs = register_queries()
     terms_query = ESTermsQuery(query_name='test_total_count',
                                **query_configs[config_num]['query_config'])
 
-    with patch("invenio_stats.queries.Search.execute", side_effect=[mock_es_execute(data) for data in mock_execute]):
+    with patch("invenio_stats.queries.Search.execute", side_effect=[mock_search_execute(data) for data in mock_execute]):
         results = terms_query.run(bucket_id='B0000000000000000000000000000001',
                                   start_date=datetime.datetime(2017, 1, 1),
                                   end_date=datetime.datetime(2017, 1, 7))
@@ -243,7 +242,7 @@ def test_terms_query2(i18n_app, queries_config):
         query_name='test_total_count',
         **terms_config
     )
-    assert query.build_query(None, None, task_name='test').to_dict() == {'query': {'bool': {'filter': [{'term': {'task_name': 'test'}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'task_id': {'terms': {'field': 'task_id', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'task_name': {'terms': {'field': 'task_name', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'start_time': {'terms': {'field': 'start_time', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'end_time': {'terms': {'field': 'end_time', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'total_records': {'terms': {'field': 'total_records', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'task_state': {'terms': {'field': 'task_state', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}}}}}}}}}}}}}}, 'from': 0, 'size': 0}
+    assert query.build_query(None, None, task_name='test').to_dict() == {'query': {'bool': {'filter': [{'term': {'task_name': 'test'}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'task_id': {'terms': {'field': 'task_id', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'task_name': {'terms': {'field': 'task_name', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'start_time': {'terms': {'field': 'start_time', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'end_time': {'terms': {'field': 'end_time', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'total_records': {'terms': {'field': 'total_records', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'task_state': {'terms': {'field': 'task_state', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}}}}}}}}}}}}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
     #53539 - case 5
     test_config = copy.deepcopy(terms_config)
@@ -341,10 +340,10 @@ def test_terms_query2(i18n_app, queries_config):
         query_name='test_total_count',
         **terms_config
     )
-    assert query.build_query(None, None).to_dict() == {'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'index_list': {'terms': {'field': 'index_list'}}}, {'userrole': {'terms': {'field': 'userrole'}}}, {'site_license_flag': {'terms': {'field': 'site_license_flag'}}}, {'count': {'terms': {'field': 'count'}}}]}}}, 'from': 0, 'size': 0}
+    assert query.build_query(None, None).to_dict() == {'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'index_list': {'terms': {'field': 'index_list'}}}, {'userrole': {'terms': {'field': 'userrole'}}}, {'site_license_flag': {'terms': {'field': 'site_license_flag'}}}, {'count': {'terms': {'field': 'count'}}}]}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
     #53539 - case 20
-    assert query.build_query(None, None, after_key='test_key').to_dict() == {'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'index_list': {'terms': {'field': 'index_list'}}}, {'userrole': {'terms': {'field': 'userrole'}}}, {'site_license_flag': {'terms': {'field': 'site_license_flag'}}}, {'count': {'terms': {'field': 'count'}}}], 'after': 'test_key'}}}, 'from': 0, 'size': 0}
+    assert query.build_query(None, None, after_key='test_key').to_dict() == {'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'index_list': {'terms': {'field': 'index_list'}}}, {'userrole': {'terms': {'field': 'userrole'}}}, {'site_license_flag': {'terms': {'field': 'site_license_flag'}}}, {'count': {'terms': {'field': 'count'}}}], 'after': 'test_key'}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
     #53539 - case 22
     terms_config['copy_fields'] = {'file_key': 'file_key'}
@@ -352,12 +351,12 @@ def test_terms_query2(i18n_app, queries_config):
         query_name='test_total_count',
         **terms_config
     )
-    assert query.build_query(None, None).to_dict() == {'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'index_list': {'terms': {'field': 'index_list'}}}, {'userrole': {'terms': {'field': 'userrole'}}}, {'site_license_flag': {'terms': {'field': 'site_license_flag'}}}, {'count': {'terms': {'field': 'count'}}}]}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0}
+    assert query.build_query(None, None).to_dict() == {'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'index_list': {'terms': {'field': 'index_list'}}}, {'userrole': {'terms': {'field': 'userrole'}}}, {'site_license_flag': {'terms': {'field': 'site_license_flag'}}}, {'count': {'terms': {'field': 'count'}}}]}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
     #53539 - case 32
     app.config['STATS_WEKO_DEFAULT_TIMEZONE'] = MockFunc
     app.config['BABEL_DEFAULT_TIMEZONE'] = 'Asia/Tokyo'
-    assert query.build_query(None, datetime.datetime(2023, 1, 1)).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'lte': '2023-01-01T00:00:00', 'time_zone': 'Asia/Tokyo'}}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'index_list': {'terms': {'field': 'index_list'}}}, {'userrole': {'terms': {'field': 'userrole'}}}, {'site_license_flag': {'terms': {'field': 'site_license_flag'}}}, {'count': {'terms': {'field': 'count'}}}]}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0}
+    assert query.build_query(None, datetime.datetime(2023, 1, 1)).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'lte': '2023-01-01T00:00:00', 'time_zone': 'Asia/Tokyo'}}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'index_list': {'terms': {'field': 'index_list'}}}, {'userrole': {'terms': {'field': 'userrole'}}}, {'site_license_flag': {'terms': {'field': 'site_license_flag'}}}, {'count': {'terms': {'field': 'count'}}}]}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_queries.py::test_weko_file_stats_query -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 def test_weko_file_stats_query(i18n_app, queries_config):
@@ -373,7 +372,7 @@ def test_weko_file_stats_query(i18n_app, queries_config):
         query_name='test_total_count',
         **test_config
     )
-    assert query.build_query(None, None, bucket_id='test_bucket', file_key='test_file_key', root_file_id='test_file_id').to_dict() == {'query': {'bool': {'should': [{'bool': {'filter': [{'term': {'bucket_id': {'value': 'test_bucket', 'boost': 1}}}, {'term': {'file_key': {'value': 'test_file_key', 'boost': 1}}}, {'bool': {'must_not': [{'exists': {'field': 'root_file_id'}}]}}]}}, {'bool': {'filter': [{'term': {'root_file_id': {'value': 'test_file_id', 'boost': 1}}}]}}], 'adjust_pure_negative': True, 'boost': 1}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'country': {'terms': {'field': 'country', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}}}}}
+    assert query.build_query(None, None, bucket_id='test_bucket', file_key='test_file_key', root_file_id='test_file_id').to_dict() == {'query': {'bool': {'should': [{'bool': {'filter': [{'term': {'bucket_id': {'value': 'test_bucket', 'boost': 1}}}, {'term': {'file_key': {'value': 'test_file_key', 'boost': 1}}}, {'bool': {'must_not': [{'exists': {'field': 'root_file_id'}}]}}]}}, {'bool': {'filter': [{'term': {'root_file_id': {'value': 'test_file_id', 'boost': 1}}}]}}], 'adjust_pure_negative': True, 'boost': 1}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'country': {'terms': {'field': 'country', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}}}},'track_total_hits': True}
     
     #53539 - case 16
     test_config.pop('main_query')
@@ -383,7 +382,7 @@ def test_weko_file_stats_query(i18n_app, queries_config):
         **test_config,
         query_modifiers=[filter_robots]
     )
-    assert query.build_query(datetime.datetime(2023, 1, 1), None).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'gte': '2023-01-01T00:00:00', 'time_zone': 'Asia/Tokyo'}}}, {'term': {'is_robot': False}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'file_key': {'terms': {'field': 'file_key', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'user_id': {'terms': {'field': 'user_id', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}}}}}}, 'from': 0, 'size': 0}
+    assert query.build_query(datetime.datetime(2023, 1, 1), None).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'gte': '2023-01-01T00:00:00', 'time_zone': 'Asia/Tokyo'}}}, {'term': {'is_robot': False}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'file_key': {'terms': {'field': 'file_key', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'user_id': {'terms': {'field': 'user_id', 'size': 6000}, 'aggs': {'value': {'sum': {'field': 'count'}}}}}}}, 'from': 0, 'size': 0,'track_total_hits': True}
     
     #53539 - case 1
     test_config.pop('aggregated_fields')
@@ -402,15 +401,15 @@ def test_weko_file_stats_query(i18n_app, queries_config):
         **test_config
     )
     #53539 - case 2, 14, 17
-    assert query.build_query(None, datetime.datetime(2023, 1, 1)).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'lte': '2023-01-01T00:00:00', 'time_zone': str(i18n_app.config["STATS_WEKO_DEFAULT_TIMEZONE"]())}}},{'term': {'event_type': event_type}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'count': {'terms': {'field': 'count'}}}]}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0}
+    assert query.build_query(None, datetime.datetime(2023, 1, 1)).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'lte': '2023-01-01T00:00:00', 'time_zone': str(i18n_app.config["STATS_WEKO_DEFAULT_TIMEZONE"]())}}},{'term': {'event_type': event_type}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'count': {'terms': {'field': 'count'}}}]}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0,'track_total_hits': True}
     
     #53539 - case 3, 15
-    assert query.build_query(None, None, after_key='test_key').to_dict() == {'query': {'bool': {'filter': [{'term': {'event_type': event_type}}]}},'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'count': {'terms': {'field': 'count'}}}], 'after': 'test_key'}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0}
+    assert query.build_query(None, None, after_key='test_key').to_dict() == {'query': {'bool': {'filter': [{'term': {'event_type': event_type}}]}},'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'count': {'terms': {'field': 'count'}}}], 'after': 'test_key'}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
     #53539 - case 31
     app.config['STATS_WEKO_DEFAULT_TIMEZONE'] = MockFunc
     app.config['BABEL_DEFAULT_TIMEZONE'] = 'Asia/Tokyo'
-    assert query.build_query(None, datetime.datetime(2023, 1, 1)).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'lte': '2023-01-01T00:00:00', 'time_zone': 'Asia/Tokyo'}}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'count': {'terms': {'field': 'count'}}}]}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0}
+    assert query.build_query(None, datetime.datetime(2023, 1, 1)).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'lte': '2023-01-01T00:00:00', 'time_zone': 'Asia/Tokyo'}}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'count': {'terms': {'field': 'count'}}}]}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
 
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_queries.py::test_weko_terms_query -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
@@ -433,11 +432,11 @@ def test_weko_terms_query(i18n_app, queries_config):
         query_modifiers=[filter_robots]
     )
     #53539 - case 24, 27
-    assert query.build_query(None, None).to_dict() == {'query': {'bool': {'filter': [{'term': {'is_robot': False}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0}
+    assert query.build_query(None, None).to_dict() == {'query': {'bool': {'filter': [{'term': {'is_robot': False}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
     #53539 - case 12
     assert query.build_query(datetime.datetime(2023, 1, 1), None).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'gte': '2023-01-01T00:00:00', 'time_zone': str(
-                i18n_app.config["STATS_WEKO_DEFAULT_TIMEZONE"]())}}},{'term': {'event_type': event_type}}, {'term': {'is_robot': False}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0}
+                i18n_app.config["STATS_WEKO_DEFAULT_TIMEZONE"]())}}},{'term': {'event_type': event_type}}, {'term': {'is_robot': False}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
     test_config = copy.deepcopy(weko_terms_config)
     test_config['required_filters'] = {'required1': 'required1', 'required2': 'required2'}
@@ -446,11 +445,11 @@ def test_weko_terms_query(i18n_app, queries_config):
         **test_config
     )
     #53539 - case 25
-    assert query.build_query(None, datetime.datetime(2023, 1, 1), required1='v1', agg_filter={'agg': 'agg1'}).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'lte': '2023-01-01T00:00:00', 'time_zone': 'Asia/Tokyo'}}}, {'term': {'required1': 'v1'}}, {'terms': {'agg': 'agg1'}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'search_key': {'terms': {'field': 'search_key'}}}, {'count': {'terms': {'field': 'count'}}}]}}}, 'from': 0, 'size': 0}
+    assert query.build_query(None, datetime.datetime(2023, 1, 1), required1='v1', agg_filter={'agg': 'agg1'}).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'lte': '2023-01-01T00:00:00', 'time_zone': 'Asia/Tokyo'}}}, {'term': {'required1': 'v1'}}, {'terms': {'agg': 'agg1'}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'search_key': {'terms': {'field': 'search_key'}}}, {'count': {'terms': {'field': 'count'}}}]}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
     #53539 - case 13
     assert query.build_query(None, datetime.datetime(2023, 1, 1), after_key='test_key', required1='v1', agg_filter={'agg': 'agg1'}).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'lte': '2023-01-01T00:00:00', 'time_zone': str(
-                i18n_app.config["STATS_WEKO_DEFAULT_TIMEZONE"]())}}},{'term': {'event_type': event_type}}, {'term': {'required1': 'v1'}}, {'terms': {'agg': 'agg1'}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'search_key': {'terms': {'field': 'search_key'}}}, {'count': {'terms': {'field': 'count'}}}], 'after': 'test_key'}}}, 'from': 0, 'size': 0}
+                i18n_app.config["STATS_WEKO_DEFAULT_TIMEZONE"]())}}},{'term': {'event_type': event_type}}, {'term': {'required1': 'v1'}}, {'terms': {'agg': 'agg1'}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'search_key': {'terms': {'field': 'search_key'}}}, {'count': {'terms': {'field': 'count'}}}], 'after': 'test_key'}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
     #53539 - case 26, 28
     test_config = copy.deepcopy(weko_terms_config)
@@ -461,12 +460,12 @@ def test_weko_terms_query(i18n_app, queries_config):
         **test_config,
         query_modifiers=[filter_robots]
     )
-    assert query.build_query(None, None).to_dict() == {'query': {'bool': {'filter': [{'term': {'is_robot': False}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'fieldA': {'terms': {'field': 'fieldA', 'size': 6000, 'order': {'_count': 'desc'}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'fieldB': {'terms': {'field': 'fieldB', 'size': 6000, 'order': {'_count': 'desc'}}, 'aggs': {'value': {'sum': {'field': 'count'}}}}}}}, 'from': 0, 'size': 0}
+    assert query.build_query(None, None).to_dict() == {'query': {'bool': {'filter': [{'term': {'is_robot': False}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'fieldA': {'terms': {'field': 'fieldA', 'size': 6000, 'order': {'_count': 'desc'}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'fieldB': {'terms': {'field': 'fieldB', 'size': 6000, 'order': {'_count': 'desc'}}, 'aggs': {'value': {'sum': {'field': 'count'}}}}}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
     #53539 - case 34
     app.config['STATS_WEKO_DEFAULT_TIMEZONE'] = MockFunc
     app.config['BABEL_DEFAULT_TIMEZONE'] = 'Asia/Tokyo'
-    assert query.build_query(None, datetime.datetime(2023, 1, 1)).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'lte': '2023-01-01T00:00:00', 'time_zone': 'Asia/Tokyo'}}}, {'term': {'is_robot': False}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'fieldA': {'terms': {'field': 'fieldA', 'size': 6000, 'order': {'_count': 'desc'}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'fieldB': {'terms': {'field': 'fieldB', 'size': 6000, 'order': {'_count': 'desc'}}, 'aggs': {'value': {'sum': {'field': 'count'}}}}}}}, 'from': 0, 'size': 0}
+    assert query.build_query(None, datetime.datetime(2023, 1, 1)).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'lte': '2023-01-01T00:00:00', 'time_zone': 'Asia/Tokyo'}}}, {'term': {'is_robot': False}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'fieldA': {'terms': {'field': 'fieldA', 'size': 6000, 'order': {'_count': 'desc'}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'fieldB': {'terms': {'field': 'fieldB', 'size': 6000, 'order': {'_count': 'desc'}}, 'aggs': {'value': {'sum': {'field': 'count'}}}}}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_queries.py::test_weko_ranking_query -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 def test_weko_ranking_query(app):
@@ -480,16 +479,16 @@ def test_weko_ranking_query(app):
         **test_config
     )
     #53539 - case 29
-    assert query.build_query(event_type='test', must_not=json.dumps([{"term": {"deleted": True}}])).to_dict() == {'query': {'bool': {'must': [{'range': {'timestamp': {'gte': '', 'lte': '', 'time_zone': 'Asia/Tokyo'}}}], 'must_not': [{'term': {'deleted': True}}]}}, 'aggs': {'my_buckets': {'terms': {'field': '', 'size': '', 'order': {'my_sum': 'desc'}}, 'aggs': {'my_sum': {'sum': {'field': ''}}}}}, 'size': 0}
+    assert query.build_query(event_type='test', must_not=json.dumps([{"term": {"deleted": True}}])).to_dict() == {'query': {'bool': {'must': [{'range': {'timestamp': {'gte': '', 'lte': '', 'time_zone': 'Asia/Tokyo'}}}], 'must_not': [{'term': {'deleted': True}}]}}, 'aggs': {'my_buckets': {'terms': {'field': '', 'size': '', 'order': {'my_sum': 'desc'}}, 'aggs': {'my_sum': {'sum': {'field': ''}}}}}, 'size': 0,'track_total_hits': True}
     #53539 - case 30
-    assert query.build_query(event_type='test').to_dict() == {'query': {'bool': {'must': [{'range': {'timestamp': {'gte': '', 'lte': '', 'time_zone': 'Asia/Tokyo'}}}]}}, 'aggs': {'my_buckets': {'terms': {'field': '', 'size': '', 'order': {'my_sum': 'desc'}}, 'aggs': {'my_sum': {'sum': {'field': ''}}}}}, 'size': 0}
+    assert query.build_query(event_type='test').to_dict() == {'query': {'bool': {'must': [{'range': {'timestamp': {'gte': '', 'lte': '', 'time_zone': 'Asia/Tokyo'}}}]}}, 'aggs': {'my_buckets': {'terms': {'field': '', 'size': '', 'order': {'my_sum': 'desc'}}, 'aggs': {'my_sum': {'sum': {'field': ''}}}}}, 'size': 0,'track_total_hits': True}
     #53539 - case 35
     app.config['STATS_WEKO_DEFAULT_TIMEZONE'] = MockFunc
     app.config['BABEL_DEFAULT_TIMEZONE'] = 'Asia/Tokyo'
-    assert query.build_query(event_type='test').to_dict() == {'query': {'bool': {'must': [{'range': {'timestamp': {'gte': '', 'lte': '', 'time_zone': 'Asia/Tokyo'}}}]}}, 'aggs': {'my_buckets': {'terms': {'field': '', 'size': '', 'order': {'my_sum': 'desc'}}, 'aggs': {'my_sum': {'sum': {'field': ''}}}}}, 'size': 0}
+    assert query.build_query(event_type='test').to_dict() == {'query': {'bool': {'must': [{'range': {'timestamp': {'gte': '', 'lte': '', 'time_zone': 'Asia/Tokyo'}}}]}}, 'aggs': {'my_buckets': {'terms': {'field': '', 'size': '', 'order': {'my_sum': 'desc'}}, 'aggs': {'my_sum': {'sum': {'field': ''}}}}}, 'size': 0,'track_total_hits': True}
 
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_queries.py::test_ESWekoFileRankingQuery -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
-def test_ESWekoFileRankingQuery(app, es):
+def test_ESWekoFileRankingQuery(app, open_search):
     import json
     from invenio_stats.proxies import current_stats
     with app.app_context():
@@ -508,10 +507,10 @@ def test_ESWekoFileRankingQuery(app, es):
 
         def register(i):
             with open(f"tests/data/test_events/event_download{i:02}.json","r") as f:
-                es.index(index=index, id=f"{i}", body=json.load(f), refresh=True)
+                open_search.index(index=index, id=f"{i}", body=json.load(f), refresh=True)
 
         def delete(i):
-            es.delete(index=index, id=f"{i}", refresh="true")
+            open_search.delete(index=index, id=f"{i}", refresh="true")
 
         # 19 Exist result
         item_id = 1
@@ -544,7 +543,7 @@ def test_ESWekoFileRankingQuery(app, es):
         assert res['end_date'] == '2024-01-31T23:59:59'
         
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_queries.py::test_ESWekoRankingQuery -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
-def test_ESWekoRankingQuery(app, es):
+def test_ESWekoRankingQuery(app, open_search):
     from invenio_stats.proxies import current_stats
     with app.app_context():
         index = "test-events-stats-index"
@@ -563,7 +562,7 @@ def test_ESWekoRankingQuery(app, es):
         
         def register(i):
             with open(f"tests/data/test_events/event_download{i:02}.json","r") as f:
-                es.index(index=index, id=f"{i}", body=json.load(f), refresh="true")
+                open_search.index(index=index, id=f"{i}", body=json.load(f), refresh="true")
         
         register(1)
         params = { 'item_id': "1", 'root_file_id': "root_file_id_01", 'agg_size': "10", 'new_items': "True", 'group_field':"file_id",'count_field':"size" }
@@ -572,4 +571,4 @@ def test_ESWekoRankingQuery(app, es):
         assert 'buckets' in result["aggregations"]['my_buckets']
         assert len(result["aggregations"]['my_buckets']['buckets']) > 0
         assert result['aggregations']['my_buckets']['buckets'][0]['my_sum']['value'] == 100
-        es.delete(index=index, id="1", refresh="true")
+        open_search.delete(index=index, id="1", refresh="true")

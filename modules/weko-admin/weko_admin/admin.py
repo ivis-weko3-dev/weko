@@ -22,18 +22,17 @@
 
 import copy
 import hashlib
+import ipaddress
 import json
 import os
 import re
 import sys
 import traceback
 import unicodedata
-import ipaddress
-from datetime import datetime, timedelta
 
+from datetime import datetime, timedelta
 from flask import abort, current_app, flash, jsonify, make_response, \
     redirect, render_template, request, url_for
-from markupsafe import Markup
 from flask_admin import BaseView, expose
 from flask_admin.contrib.sqla import ModelView
 from flask_admin.contrib.sqla.fields import QuerySelectField
@@ -43,13 +42,16 @@ from flask_babel import gettext as _
 from flask_login import current_user
 from flask_mail import Attachment
 from flask_wtf import FlaskForm,Form
-from sqlalchemy.exc import SQLAlchemyError
-from invenio_communities.models import Community
 from invenio_accounts.models import User
+from invenio_communities.models import Community
 from invenio_db import db
 from invenio_files_rest.storage.pyfs import remove_dir_with_file
 from invenio_mail.api import send_mail
+from invenio_oauth2server.models import Client
+from markupsafe import Markup
+from sqlalchemy.exc import SQLAlchemyError
 from weko_index_tree.models import IndexStyle
+from weko_items_autofill.config import WEKO_ITEMS_AUTOFILL_API_LIST
 from weko_records.api import ItemTypes, SiteLicense, ItemTypeNames, JsonldMapping
 from weko_records.models import SiteLicenseInfo, ItemTypeJsonldMapping
 from weko_records_ui.utils import check_items_settings
@@ -60,9 +62,6 @@ from weko_swordserver.api import SwordClient
 from weko_workflow.api import WorkFlow, WorkActivity
 from wtforms.fields import StringField
 from wtforms.validators import ValidationError
-from weko_items_autofill.config import WEKO_ITEMS_AUTOFILL_API_LIST
-from invenio_oauth2server.models import Client
-from invenio_accounts.models import User
 
 from .config import WEKO_PIDSTORE_IDENTIFIER_TEMPLATE_CREATOR, \
     WEKO_PIDSTORE_IDENTIFIER_TEMPLATE_EDITOR, WEKO_ADMIN_SWORD_API_JSONLD_TEMPLATE, \
@@ -71,13 +70,14 @@ from .models import AdminSettings, FacetSearchSetting, Identifier, \
     LogAnalysisRestrictedCrawlerList, LogAnalysisRestrictedIpAddress, \
     RankingSettings, SearchManagement, StatisticsEmail
 from .permissions import admin_permission_factory ,superuser_access
-from .utils import get_facet_search, get_item_mapping_list, \
-    get_response_json, get_restricted_access, get_search_setting, get_detail_search_list
+from .utils import (
+    get_facet_search, get_item_mapping_list, get_response_json,
+    get_restricted_access, get_search_setting, get_detail_search_list,
+    package_reports, str_to_bool)
 from .utils import get_user_report_data as get_user_report
-from .utils import package_reports, str_to_bool
 from .tasks import is_reindex_running ,reindex
 
-class ReindexElasticSearchView(BaseView):
+class ReindexSearchView(BaseView):
 
     @expose('/', methods=['GET'])
     @superuser_access.require(http_exception=403)
@@ -112,15 +112,15 @@ class ReindexElasticSearchView(BaseView):
         Processing when "Executing Button" is pressed
 
         Args:
-        is_db_to_es : boolean (GET paramater)
+        is_db_to_search : boolean (GET paramater)
             if True,  index Documents from DB data
-            if False, index Documents from ES data itself
+            if False, index Documents from OS data itself
 
         Returns:
             responce json text and responce code
 
         Todo:
-        if you change this codes or operating, please keep in mind Todo of the method "elasticsearch_reindex"
+        if you change this codes or operating, please keep in mind Todo of the method "search_reindex"
         in .utils.py .
         """
 
@@ -135,9 +135,9 @@ class ReindexElasticSearchView(BaseView):
             if is_executing:
                 return jsonify({"error" : _('executing...')}) , 400
 
-            is_db_to_es=request.args.get('is_db_to_es') == 'true'
+            is_db_to_search=request.args.get('is_db_to_search') == 'true'
             # execute in celery task
-            res = reindex.apply_async(args=(is_db_to_es,))
+            res = reindex.apply_async(args=(is_db_to_search,))
             res_output = res.get() #wait until celery task finish
             current_app.logger.info(res_output)
             return jsonify({"responce" : _('completed')}), 200
@@ -480,7 +480,7 @@ class ReportView(BaseView):
             if aggs_results and aggs_results.get(
                     'aggregations', {}).get('aggs_public'):
 
-                total_hits = aggs_results['hits']['total']
+                total_hits = aggs_results["hits"]["total"]["value"]
                 if isinstance(total_hits, dict):
                     total = total_hits['value']
                 else:
@@ -2637,12 +2637,12 @@ facet_search_adminview = dict(
     endpoint='facet-search'
 )
 
-reindex_elasticsearch_adminview = {
-    'view_class': ReindexElasticSearchView,
+reindex_search_adminview = {
+    'view_class': ReindexSearchView,
     'kwargs': {
         'category': _('Maintenance'),
-        'name': _('ElasticSearch Index'),
-        'endpoint': 'reindex_es'
+        'name': _('Search Index'),
+        'endpoint': 'reindex_search'
     }
 }
 
@@ -2709,7 +2709,7 @@ __all__ = (
     'communities_page_adminview',
     'identifier_adminview',
     'facet_search_adminview',
-    'reindex_elasticsearch_adminview',
+    'reindex_search_adminview',
     'profile_settings_adminview',
     'sword_api_settings_adminview',
     'sword_api_settings_jsonld_adminview',

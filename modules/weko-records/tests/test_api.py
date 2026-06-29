@@ -20,25 +20,26 @@
 
 """Module tests."""
 
-from re import T
-import uuid
 import pytest
-from datetime import datetime, timedelta
-from unittest import TestCase
-from unittest.mock import patch, MagicMock
+import uuid
 
-from elasticsearch import helpers
+from datetime import datetime, timedelta
 from flask_login.utils import login_user
+from invenio_pidstore.models import PersistentIdentifier
+from invenio_records.errors import MissingModelError
+from invenio_search import search
 from jsonschema.validators import Draft4Validator
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
+from re import T
+from unittest import TestCase
+from unittest.mock import patch, MagicMock
 
-from invenio_records.errors import MissingModelError
-from invenio_pidstore.models import PersistentIdentifier
-from weko_records.api import FeedbackMailList, RequestMailList, ItemApplication, FilesMetadata, ItemLink, \
-    ItemsMetadata, ItemTypeEditHistory, ItemTypeNames, ItemTypeProps, \
-    ItemTypes, Mapping, JsonldMapping, SiteLicense, RecordBase, WekoRecord
+from weko_records.api import (
+    FeedbackMailList, RequestMailList, ItemApplication, FilesMetadata, ItemLink,
+    ItemsMetadata, ItemTypeEditHistory, ItemTypeNames, ItemTypeProps,
+    ItemTypes, Mapping, JsonldMapping, SiteLicense, RecordBase, WekoRecord)
 from weko_records.models import ItemReference, ItemTypeJsonldMapping, ItemTypeName, ItemTypeProperty, ItemType
 
 # class RecordBase(dict):
@@ -486,9 +487,9 @@ def test_itemtypes_update_item_type(app, db, location):
 #     def __update_metadata(cls, item_type_id, item_type_name, old_render, new_render):
 #     def __get_records_by_item_type_name(cls, item_type_name):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_api.py::test__get_records_by_item_type_name -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
-def test__get_records_by_item_type_name(app, esindex):
+def test__get_records_by_item_type_name(app, search_index):
     item_type_name = "test_item_type"
-    def _generate_es_data(num, start_datetime=datetime.now()):
+    def _generate_search_data(num, start_datetime=datetime.now()):
         for i in range(num):
             doc = {
                 "_index": "test-weko-item-v1.0.0",
@@ -514,7 +515,7 @@ def test__get_records_by_item_type_name(app, esindex):
             yield doc
 
     generate_data_num = 20002
-    helpers.bulk(esindex, _generate_es_data(generate_data_num), refresh='true')
+    search.helpers.bulk(search_index, _generate_search_data(generate_data_num), refresh='true')
 
     # result over 10000
     assert len(ItemTypes._ItemTypes__get_records_by_item_type_name(item_type_name)) == int(generate_data_num/2)

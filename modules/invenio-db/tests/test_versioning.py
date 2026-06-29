@@ -9,15 +9,15 @@
 
 """Versioning tests for Invenio-DB"""
 
-from unittest.mock import patch
-
 import pytest
-from sqlalchemy_continuum import VersioningManager, remove_versioning
-from test_db import _mock_entry_points
 
 from invenio_db import InvenioDB
+from sqlalchemy_continuum import VersioningManager, remove_versioning
+from unittest.mock import patch
+from test_db import _mock_entry_points
 
-#@patch('pkg_resources.iter_entry_points', _mock_entry_points)
+
+#@patch('set(importlib_metadata.entry_points', _mock_entry_points)
 def test_disabled_versioning(db, app,mock_entry_points):
     """Test SQLAlchemy-Continuum with disabled versioning."""
     InvenioDB(app, entry_point_group='invenio_db.models_a')

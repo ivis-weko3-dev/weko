@@ -9,18 +9,30 @@
 """Pytest configuration."""
 
 import os
+import pytest
 import shutil
 import tempfile
-from datetime import datetime
 
-import pytest
+from datetime import datetime
 from flask import Blueprint, Flask
 from flask_admin import Admin
+from flask_babel import Babel
 from flask_celeryext import FlaskCeleryExt
+from invenio_communities.models import Community
+from invenio_access import InvenioAccess
+from invenio_access.models import ActionUsers,ActionRoles
+from invenio_accounts import InvenioAccounts
+from invenio_accounts.models import User, Role
+from invenio_accounts.testutils import create_test_user
 from invenio_db import InvenioDB
 from invenio_db import db as db_
-from six import StringIO
-from flask_babel import Babel
+from invenio_i18n import InvenioI18N
+
+from invenio_mail import InvenioMail, config
+from invenio_mail.admin import mail_adminview, mail_templates_adminview
+from invenio_mail.models import (
+    MailConfig, MailTemplates, MailTemplateGenres, MailTemplateUsers, MailType)
+from io import StringIO
 
 from sqlalchemy_utils.functions import create_database, database_exists, \
     drop_database
@@ -28,17 +40,6 @@ from sqlalchemy_utils.functions import create_database, database_exists, \
 from weko_admin.config import WEKO_ADMIN_RESTRICTED_ACCESS_SETTINGS
 from weko_admin.models import AdminSettings
 from weko_index_tree.models import Index
-from invenio_communities.models import Community
-from invenio_access import InvenioAccess
-from invenio_access.models import ActionUsers,ActionRoles
-from invenio_accounts import InvenioAccounts
-from invenio_accounts.models import User, Role
-from invenio_accounts.testutils import create_test_user
-from invenio_i18n import InvenioI18N
-
-from invenio_mail import InvenioMail, config
-from invenio_mail.admin import mail_adminview, mail_templates_adminview
-from invenio_mail.models import MailConfig, MailTemplates, MailTemplateGenres, MailTemplateUsers, MailType
 
 
 @pytest.yield_fixture()

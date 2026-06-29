@@ -11,17 +11,14 @@ See https://pytest-invenio.readthedocs.io/ for documentation on which test
 fixtures are available.
 """
 
-from __future__ import absolute_import, print_function
-
+import copy
+import json
+import os
+import pytest
 import shutil
 import tempfile
-import os
-from os.path import dirname, join
-import json
-import copy
 import uuid
 
-import pytest
 from flask import Flask, current_app
 from flask_babel import Babel
 from flask_menu import Menu
@@ -43,6 +40,7 @@ from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus,RecordIdentifier
 from invenio_i18n import InvenioI18N
 from invenio_records_ui import InvenioRecordsUI
+from os.path import dirname, join
 from sqlalchemy_utils.functions import create_database, database_exists, drop_database
 
 from weko_admin import WekoAdmin
@@ -316,7 +314,6 @@ def location(app, db):
 def records(app, db, location):
     current_app.config.update(
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
     )
 

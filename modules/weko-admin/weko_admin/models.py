@@ -20,9 +20,9 @@
 
 """Database models for weko-admin."""
 
-from datetime import datetime
 import traceback
 
+from datetime import datetime
 from flask import current_app, escape, request
 from invenio_db import db
 from sqlalchemy import Sequence, asc
@@ -1840,7 +1840,7 @@ class FacetSearchSetting(db.Model):
     """Japanese name of facet search."""
 
     mapping = db.Column(db.String(255), nullable=False)
-    """Base on this mapping to search columns in ES."""
+    """Base on this mapping to search columns in Search."""
 
     aggregations = db.Column(
         db.JSON().with_variant(

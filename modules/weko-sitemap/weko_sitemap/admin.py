@@ -7,23 +7,21 @@
 
 """Module of weko-sitemap."""
 
-from __future__ import absolute_import, print_function
-
+from celery.result import AsyncResult
+from celery.app.control import Inspect
 from datetime import datetime
 from urllib.parse import urlparse
 
-from celery.result import AsyncResult
-from celery.app.control import Inspect
 from flask import abort, current_app, jsonify, render_template, request, \
     session, url_for
 from flask_admin import BaseView, expose
 from flask_babel import gettext as _
 from flask_login import current_user
 from flask_wtf import FlaskForm,Form
+from weko_accounts.utils import get_remote_addr
 from weko_admin.api import validate_csrf_header
 from wtforms import ValidationError
 
-from weko_accounts.utils import get_remote_addr
 
 
 

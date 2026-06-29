@@ -1,7 +1,3 @@
-//require([
-//  "jquery",
-//  "bootstrap"
-//], function () {
 import "bootstrap";
 import $ from "jquery";
 /*
@@ -67,7 +63,7 @@ $('.btn-begin').on('click', function () {
     $('.btn-begin').prop('disabled', true);
     const loadingMessage = document.getElementById('new_activity_msg');
     if (loadingMessage) {
-      loadingMessage.classList.remove('collapse');
+        loadingMessage.classList.remove('collapse');
     }
 
     let post_uri = $('#post_uri').text();
@@ -97,15 +93,15 @@ $('.btn-begin').on('click', function () {
                         if (0 == data.code) {
                             document.location.href = data.data.redirect;
                         } else {
-                          loadingMessage.classList.remove('alert-success');
-                          loadingMessage.classList.add('alert-danger');
-                          loadingMessage.textContent = 'failed to create activity. Please reload the page and try again.';
+                            loadingMessage.classList.remove('alert-success');
+                            loadingMessage.classList.add('alert-danger');
+                            loadingMessage.textContent = 'failed to create activity. Please reload the page and try again.';
                         }
                     },
                     error: function (jqXHE, status) {
-                      loadingMessage.classList.remove('alert-success');
-                      loadingMessage.classList.add('alert-danger');
-                      loadingMessage.textContent = jqXHE.responseJSON.msg;
+                        loadingMessage.classList.remove('alert-success');
+                        loadingMessage.classList.add('alert-danger');
+                        loadingMessage.textContent = jqXHE.responseJSON.msg;
                     }
                 });
             } else {
@@ -121,9 +117,9 @@ $('.btn-begin').on('click', function () {
             }
         },
         error: function (jqXHE, status) {
-          loadingMessage.classList.remove('alert-success');
-          loadingMessage.classList.add('alert-danger');
-          loadingMessage.textContent = jqXHE.responseJSON.msg;
+            loadingMessage.classList.remove('alert-success');
+            loadingMessage.classList.add('alert-danger');
+            loadingMessage.textContent = jqXHE.responseJSON.msg;
         }
     })
 });
@@ -278,9 +274,9 @@ function nextAction() {
     let community_id = $('#community_id').text();
     let post_data = {
         commond: $('#input-comment').val(),
-      action_version: act_ver,
-      community: community_id,
-      temporary_save: 0,
+        action_version: act_ver,
+        community: community_id,
+        temporary_save: 0,
     };
     $.ajax({
         url: uri_apo,

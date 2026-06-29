@@ -21,12 +21,12 @@
 {%- extends admin_base_template %}
 
 {% block css %}
-{{ super() }}
-{{ webpack['theme-css-buttons.css']}}
-{{ webpack['theme-scss-bootstrap.css']}}
-<link href="/assets/css/weko_admin/quill.snow.css" rel="stylesheet">
-<link href="/assets/css/weko_admin/language.css" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='dist/css/theme-css-color.css') }}">
+  {{ super() }}
+  {{ webpack["theme-css-buttons.css"] }}
+  {{ webpack["theme-scss-bootstrap.css"] }}
+  {{ webpack["admin_css_weko_admin_quill_snow_css.css"] }}
+  {{ webpack["admin_css_language_css.css"] }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='dist/css/theme-css-color.css') }}">
 {% endblock %}
 
 {%- block javascript %}

@@ -8,8 +8,6 @@
 
 """Module of invenio-resourcesyncserver."""
 
-from __future__ import absolute_import, print_function
-
 from .ext import InvenioResourceSyncServer
 from .version import __version__
 

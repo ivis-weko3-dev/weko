@@ -20,29 +20,30 @@
 
 """Module tests."""
 import copy
-from datetime import datetime
 import json
 import os
-from unittest import mock
+import pytest
+import redis
 import unittest
 import uuid
-import pytest
-from unittest.mock import patch, MagicMock
-import redis
-from invenio_search.engine import search
-from sqlalchemy.exc import SQLAlchemyError
+
+from datetime import datetime
 from flask import url_for, current_app
+from invenio_search.engine import search
+from invenio_accounts.testutils import login_user_via_session
 from invenio_files_rest.app import Flask
 from invenio_records.api import Record
 from invenio_records_rest.utils import deny_all
 from invenio_pidstore.models import PersistentIdentifier
-from weko_deposit.api import WekoDeposit, WekoRecord
-from invenio_accounts.testutils import login_user_via_session
 from invenio_pidstore.models import PIDStatus
 from invenio_pidstore.errors import PIDDoesNotExistError, PIDInvalidAction
+from sqlalchemy.exc import SQLAlchemyError
+from unittest import mock
+from unittest.mock import patch, MagicMock
+from weko_deposit import config
+from weko_deposit.api import WekoDeposit, WekoRecord
 
 from weko_deposit.config import _PID, WEKO_DEPOSIT_REST_ENDPOINTS
-from weko_deposit import config
 from weko_deposit.logger import weko_logger
 from weko_deposit.rest import ItemResource, create_blueprint
 from weko_records.errors import WekoRecordsError
@@ -245,13 +246,13 @@ def test_depid_item_put_acl_users(client, users, deposit, index, status_code):
 
 # def put(self, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_put_upgrade_record_is_not_none_and_dot_0_in_pid_value -vv -s --cov-branch --cov-report=html --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp --full-trace
-def test_put_upgrade_record_is_not_none_and_dot_0_in_pid_value(client, users, deposit, db,location,  es_records,db_itemtype,db_actions):
+def test_put_upgrade_record_is_not_none_and_dot_0_in_pid_value(client, users, deposit, db,location,  search_records,db_itemtype,db_actions):
     login_user_via_session(client=client, email=users[2]['email'])
     pid_value_with_0 = "{}.0".format(deposit)
     kwargs = {
         'pid_value': pid_value_with_0
     }
-    rec_uuid = es_records[1][0]["rec_uuid"]
+    rec_uuid = search_records[1][0]["rec_uuid"]
     recid = PersistentIdentifier.create(
         pid_type="recid",
         pid_value=pid_value_with_0,
@@ -284,11 +285,11 @@ def test_put_upgrade_record_is_not_none_and_dot_0_in_pid_value(client, users, de
 
 #    def put(self, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_put_wf_activity_is_not_none -vv -s --cov-branch --cov-report=html --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp --full-trace
-def test_put_wf_activity_is_not_none(client, users, db,location,  es_records,db_itemtype,db_actions):
+def test_put_wf_activity_is_not_none(client, users, db,location,  search_records,db_itemtype,db_actions):
     login_user_via_session(client=client, email=users[2]['email'])
     kwargs = {
         #'pid_value': deposit
-        'pid_value': es_records[1][0]["deposit"].pid.pid_value
+        'pid_value': search_records[1][0]["deposit"].pid.pid_value
     }
     url = url_for('weko_deposit_rest.depid_item',
                 pid_value=kwargs['pid_value'])
@@ -344,7 +345,7 @@ def test_put_wf_activity_is_not_none(client, users, db,location,  es_records,db_
                     activity_confirm_term_of_use=True,
                     title='test', shared_user_id=-1, extra_info={},
                     action_order=1,
-                    item_id=str(es_records[1][0]["deposit"].pid.object_uuid),
+                    item_id=str(search_records[1][0]["deposit"].pid.object_uuid),
                     )
     with db.session.begin_nested():
         db.session.add(item_id_activity)
@@ -364,12 +365,12 @@ def test_put_wf_activity_is_not_none(client, users, db,location,  es_records,db_
 
 #    def put(self, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_depid_item_put -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-def test_depid_item_put(client, users,es_records,db,mocker):
+def test_depid_item_put(client, users,search_records,db,mocker):
     mocker.patch("weko_deposit.rest.db.session.remove")
     login_user_via_session(client=client, email=users[2]['email'])
     kwargs = {
         #'pid_value': deposit
-        'pid_value': es_records[1][0]["deposit"].pid.pid_value
+        'pid_value': search_records[1][0]["deposit"].pid.pid_value
     }
     url = url_for('weko_deposit_rest.depid_item',
                 pid_value=kwargs['pid_value'])
@@ -425,20 +426,20 @@ def test_depid_item_put(client, users,es_records,db,mocker):
     from weko_records.api import ItemsMetadata, WekoRecord
     from weko_deposit.api import WekoDeposit as aWekoDeposit
     rec_uuid = uuid.uuid4()
-    recid = PersistentIdentifier.create("recid",str(es_records[1][1]["deposit"].pid.pid_value)+".0",object_type='rec',object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
-    depid = PersistentIdentifier.create('depid',str(es_records[1][1]["deposit"].pid.pid_value)+".0",object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
+    recid = PersistentIdentifier.create("recid",str(search_records[1][1]["deposit"].pid.pid_value)+".0",object_type='rec',object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
+    depid = PersistentIdentifier.create('depid',str(search_records[1][1]["deposit"].pid.pid_value)+".0",object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
     rel = PIDRelation.create(recid,depid,1)
     db.session.add(rel)
-    rel = PIDRelation.create(es_records[1][1]["parent"],recid,0,0)
-    es_records[1][1]["record_data"]["_deposit"]["id"]=str(es_records[1][1]["deposit"].pid.pid_value)+".0"
-    record = WekoRecord.create(es_records[1][1]["record_data"],id_=rec_uuid)
+    rel = PIDRelation.create(search_records[1][1]["parent"],recid,0,0)
+    search_records[1][1]["record_data"]["_deposit"]["id"]=str(search_records[1][1]["deposit"].pid.pid_value)+".0"
+    record = WekoRecord.create(search_records[1][1]["record_data"],id_=rec_uuid)
     deposit = aWekoDeposit(record, record.model)
     deposit.commit()
-    item = ItemsMetadata.create(es_records[1][1]["item_data"], id_=rec_uuid)
+    item = ItemsMetadata.create(search_records[1][1]["item_data"], id_=rec_uuid)
     db.session.commit()
     kwargs = {
         #'pid_value': deposit
-        'pid_value': str(es_records[1][1]["deposit"].pid.pid_value)
+        'pid_value': str(search_records[1][1]["deposit"].pid.pid_value)
     }
     url = url_for('weko_deposit_rest.depid_item',
                 pid_value=kwargs['pid_value'])
@@ -485,8 +486,8 @@ def test_depid_item_put(client, users,es_records,db,mocker):
             assert res.status_code == 400
             assert "Failed to register item!" in res.data.decode("utf-8")
 
-        # ElasticsearchException
-        with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=search.OpenSearchException("test_es_error")):
+        # OpenSearchException
+        with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=search.OpenSearchException("test_search_error")):
             res = client.put(url, data=json.dumps(input),
                         content_type='application/json')
             assert res.status_code == 400
@@ -607,12 +608,12 @@ def test_put(app, client, records):
 
 # def __sanitize_string(s):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_sanitize_string -vv -s --cov-branch --cov-report=html --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp --full-trace > /code/log/deposit_test1.log 2>&1
-def test_sanitize_string(client, users,es_records):
+def test_sanitize_string(client, users,search_records):
     # sanitized string contains irregular control characters
     login_user_via_session(client=client, email=users[2]['email'])
     kwargs = {
         #'pid_value': deposit
-        'pid_value': es_records[1][0]["deposit"].pid.pid_value
+        'pid_value': search_records[1][0]["deposit"].pid.pid_value
     }
     url = url_for('weko_deposit_rest.depid_item',
                 pid_value=kwargs['pid_value'])

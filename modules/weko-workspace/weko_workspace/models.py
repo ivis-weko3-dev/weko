@@ -20,7 +20,7 @@
 
 """WEKO3 module docstring."""
 
-from flask_babelex import gettext as _
+from flask_babel import gettext as _
 from invenio_db import db
 from sqlalchemy.dialects import postgresql
 from sqlalchemy_utils.types import JSONType

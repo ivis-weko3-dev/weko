@@ -1,8 +1,8 @@
 
-from invenio_communities.serializers.schemas.community import CommunitySchemaV1
-from weko_index_tree.models import Index
-from invenio_communities.views.api import blueprint
 from invenio_communities.models import Community
+from invenio_communities.serializers.schemas.community import CommunitySchemaV1
+from invenio_communities.views.api import blueprint
+from weko_index_tree.models import Index
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_serializers_schema_community.py::test_CommunitySchemaV1 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 def test_CommunitySchemaV1(app,db, users):
     index = Index()
@@ -55,7 +55,7 @@ def test_CommunitySchemaV1(app,db, users):
         assert len(result["hits"]["hits"]) == 2
         assert [res["title"] for res in result["hits"]["hits"]] == ["Title2","Title3"]
         assert [res["logo_url"] for res in result["hits"]["hits"]] == ["https://inveniosoftware.org/api/files/00000000-0000-0000-0000-000000000000/comm2/logo.png","https://inveniosoftware.org/api/files/00000000-0000-0000-0000-000000000000/comm3/logo.jpg"]
-        assert result["hits"]["total"] == 2
+        assert result["hits"]["total"]["value"] == 2
         assert "links" in result
         assert result["links"] == {"self":"http://test_server/api/communities/?page=1","next":"http://test_server/api/communities/?page=2"}
 
@@ -70,5 +70,5 @@ def test_CommunitySchemaV1(app,db, users):
         result = result.data
         assert len(result["hits"]["hits"]) == 2
         assert [res["title"] for res in result["hits"]["hits"]] == ["Title2","Title3"]
-        assert result["hits"]["total"] == 2
+        assert result["hits"]["total"]["value"] == 2
         assert "links" not in result

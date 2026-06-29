@@ -26,14 +26,11 @@
 import pytest
 from mock import patch
 
-from wtforms import StringField, SelectField, HiddenField
-from wtforms.validators import StopValidation,ValidationError
-
 from flask import Blueprint, current_app,Flask
 from flask_login.utils import login_user, logout_user
 from flask_wtf import FlaskForm
 
-
+from tests.helpers import login,logout
 from weko_user_profiles.models import UserProfile
 from weko_user_profiles.forms import (
     VerificationForm,
@@ -50,8 +47,9 @@ from weko_user_profiles.forms import (
     EmailProfileForm,
     validate_digits
 )
+from wtforms import StringField, SelectField, HiddenField
+from wtforms.validators import StopValidation,ValidationError
 
-from tests.helpers import login,logout
 
 # def test_register_form_factory_no_csrf(app):
 #     """Test CSRF token is not in reg. form and not in profile inner form."""
@@ -154,7 +152,7 @@ form_test_blueprint = Blueprint(
 
 @form_test_blueprint.route("/profile_form",methods=["POST"])
 def profile_form():
-    form = ProfileForm(csrf_enabled=False)
+    form = ProfileForm(meta={"csrf": False})
 
     if form.validate_on_submit():
         return "OK"

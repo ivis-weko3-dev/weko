@@ -8,12 +8,11 @@
 
 """Query processing classes."""
 
+import dateutil.parser
 import json
+import pickle
 
 from datetime import datetime
-
-import pickle
-import dateutil.parser
 from flask import current_app
 from invenio_search import current_search_client
 from invenio_search.engine import dsl
@@ -470,7 +469,7 @@ class TermsQuery(Query):
 
 
 class WekoFileStatsQuery(TermsQuery):
-    """Weko ES Query for File Stats."""
+    """Weko Search Query for File Stats."""
 
     def __init__(self, main_fields=None, main_query=None, *args, **kwargs):
         """Constructor.
@@ -484,7 +483,7 @@ class WekoFileStatsQuery(TermsQuery):
         self.main_query = main_query or {}
 
     def build_query(self, start_date, end_date, **kwargs):
-        """Build the elasticsearch query."""
+        """Build the search query."""
         agg_query = dsl.Search(
             using=self.client,
             index=self.index)[0:0]
@@ -556,10 +555,10 @@ class WekoFileStatsQuery(TermsQuery):
 
 
 class WekoTermsQuery(TermsQuery):
-    """Weko ES Terms Query."""
+    """Weko Search Terms Query."""
 
     def build_query(self, start_date, end_date, **kwargs):
-        """Build the elasticsearch query with."""
+        """Build the search query with."""
         agg_query = dsl.Search(
             using=self.client,
             index=self.index)[0:0]
@@ -646,7 +645,7 @@ class WekoTermsQuery(TermsQuery):
 
 
 class WekoRankingQuery(TermsQuery):
-    """Weko ES Query for Ranking Page."""
+    """Weko Search Query for Ranking Page."""
 
     def __init__(self, main_fields=None, main_query=None, *args, **kwargs):
         """Constructor.
@@ -707,7 +706,7 @@ class WekoRankingQuery(TermsQuery):
 
 
 class WekoFileRankingQuery(TermsQuery):
-    """Weko ES Query for File Download Ranking."""
+    """Weko Search Query for File Download Ranking."""
 
     def __init__(self, main_fields=None, main_query=None, *args, **kwargs):
         """Constructor.
@@ -721,7 +720,7 @@ class WekoFileRankingQuery(TermsQuery):
         self.main_query = main_query or {}
 
     def build_query(self, start_date, end_date, **kwargs):
-        """Build the elasticsearch query."""
+        """Build the search query."""
         agg_query = dsl.Search(
             using=self.client,
             index=self.index)[0:0]

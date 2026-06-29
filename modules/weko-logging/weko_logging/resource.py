@@ -78,9 +78,9 @@ WEKO_COMMON_MESSAGE = {
         'msgstr': "Unexpected error.",
         'loglevel': 'ERROR',
     },
-    'WEKO_COMMON_ERROR_ELASTICSEARCH': {
+    'WEKO_COMMON_ERROR_SEARCH': {
         'msgid': 'WEKO_COMMON_E_0005',
-        'msgstr': "ERROR in Elasticsearch.",
+        'msgstr': "ERROR in Search.",
         'loglevel': 'ERROR',
     },
     'WEKO_COMMON_ERROR_REDIS': {

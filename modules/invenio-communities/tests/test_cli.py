@@ -9,14 +9,11 @@
 
 """Module tests."""
 
-from __future__ import absolute_import, print_function
-
-from unittest.mock import patch
 from click.testing import CliRunner
-from invenio_records.api import Record
-
-from invenio_communities.models import InclusionRequest, Community
 from invenio_communities.cli import addlogo, init,request,remove
+from invenio_communities.models import InclusionRequest, Community
+from invenio_records.api import Record
+from unittest.mock import patch
 
 # .tox/c1/bin/pytest --cov=invenio_communities tests/no_test_cli.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 

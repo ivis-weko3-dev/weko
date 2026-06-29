@@ -8,17 +8,14 @@
 
 """Module tests."""
 
-from __future__ import absolute_import, print_function
-
 import hashlib
 import json
 
 from flask import url_for
 from flask_security import login_user, url_for_security
 from invenio_db import db
-from six import BytesIO
-
 from invenio_deposit.api import Deposit
+from io import BytesIO
 
 
 def test_created_by_population(api, users, location):

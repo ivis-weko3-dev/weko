@@ -9,15 +9,14 @@
 """Deposit module receivers."""
 
 from flask import current_app
-from sqlalchemy.exc import SQLAlchemyError
 from invenio_pidstore.models import PIDStatus
 from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_records.models import RecordMetadata
-from weko_records.api import RequestMailList
-from weko_records.api import FeedbackMailList
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm.exc import NoResultFound
+from weko_records.api import RequestMailList, FeedbackMailList
 from weko_records.errors import WekoRecordsError
 from weko_records.utils import json_loader
-from sqlalchemy.orm.exc import NoResultFound
 
 from .api import WekoDeposit
 from .errors import WekoDepositError
@@ -25,9 +24,9 @@ from .logger import weko_logger
 from .pidstore import get_record_without_version
 
 def append_file_content(sender, json={}, record=None, index=None, **kwargs):
-    """Append file content to record for ES.
+    """Append file content to record for Search.
 
-    Append file content to record before reindexing Elasticsearch.
+    Append file content to record before reindexing Search.
 
     Args:
         sender (object): The current Flask application. Not used.
@@ -82,7 +81,7 @@ def append_file_content(sender, json={}, record=None, index=None, **kwargs):
         dep.jrc['_oai'] = im.get('_oai')
         dep.jrc['relation_version_is_last'] = True \
             if pid == get_record_without_version(pid) else False
-        dep._convert_jpcoar_data_to_es()
+        dep._convert_jpcoar_data_to_search()
         im.pop('recid')
         if record_metadata.status != PIDStatus.DELETED:
             weko_logger(key='WEKO_COMMON_IF_ENTER',

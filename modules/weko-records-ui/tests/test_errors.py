@@ -1,13 +1,14 @@
-from mock import patch
-from unittest.mock import MagicMock
 import pytest
 import io
+
 from flask import Flask, json, jsonify, session, url_for
+from flask_babel import get_locale
 from flask_security.utils import login_user
 from invenio_accounts.testutils import login_user_via_session
+from mock import patch
+from unittest.mock import MagicMock
 
 from weko_records_ui.errors import InvalidWorkflowError
-from flask_babelex import get_locale
 
 class MockLocale():
     def __init__(self, return_value):

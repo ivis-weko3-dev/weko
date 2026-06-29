@@ -6,25 +6,24 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 """Storage tests."""
 
-from __future__ import absolute_import, print_function
-
 import errno
-import os
 import io
+import os
+import pytest
 import shutil
 import tempfile
-from io import BytesIO
 
-import pytest
+
 from invenio_files_rest.errors import FileSizeError, StorageError, \
     UnexpectedFileSizeError
 from invenio_files_rest.models import Location
 from invenio_files_rest.limiters import FileSizeLimit
 from invenio_files_rest.storage import PyFSFileStorage
-from s3fs import S3File, S3FileSystem
-from unittest.mock import MagicMock, patch
 from invenio_s3 import S3FSFileStorage, config, s3fs_storage_factory
 from invenio_s3.storage import set_blocksize
+from io import BytesIO
+from s3fs import S3File, S3FileSystem
+from unittest.mock import MagicMock, patch
 
 
 def test_factory(location, file_instance_mock):

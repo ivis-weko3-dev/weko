@@ -1,8 +1,11 @@
 import click
-from flask.cli import with_appcontext
-from datetime import datetime
 import re
+
+from datetime import datetime
+from flask.cli import with_appcontext
 from .api import AuthorIndexer
+
+
 def abort_if_false(ctx, param, value):
     """Abort command is value is False."""
     if not value:
@@ -81,7 +84,7 @@ import os
 @click.option(
     '--raise-on-exception', type=bool,default=True,
     help='if False then don’t propagate exceptions from call to bulk and just report the items that failed as failed.')
-@click.option('--chunk-size',type=int,default=500,help='number of docs in one chunk sent to es (default: 500)')
+@click.option('--chunk-size',type=int,default=500,help='number of docs in one chunk sent to search (default: 500)')
 @click.option('--max-chunk-bytes',type=int,default=104857600,help='the maximum size of the request in bytes (default: 100MB)')
 @click.option('--max-retries',type=int,default=0,help='maximum number of times a document will be retired when 429 is received, set to 0 (default) for no retries on 429')
 @click.option('--initial_backoff',type=int,default=2,help='number of secconds we should wait before the first retry.')

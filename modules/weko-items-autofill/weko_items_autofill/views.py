@@ -7,7 +7,6 @@
 
 """Module of weko-items-autofill."""
 
-from __future__ import absolute_import, print_function
 import traceback
 
 from flask import Blueprint, current_app, jsonify, render_template, request
@@ -18,8 +17,10 @@ from weko_accounts.utils import login_required_customize
 from weko_admin.utils import get_current_api_certification
 from weko_items_ui.signals import cris_researchmap_linkage_request
 
-from .utils import get_cinii_record_data, get_crossref_record_data, get_doi_record_data, \
-    get_researchmapid_record_data, get_title_pubdate_path, get_wekoid_record_data, get_workflow_journal
+from .utils import (
+    get_cinii_record_data, get_crossref_record_data, get_doi_record_data, 
+    get_researchmapid_record_data, get_title_pubdate_path, 
+    get_wekoid_record_data, get_workflow_journal)
 
 blueprint = Blueprint(
     "weko_items_autofill",

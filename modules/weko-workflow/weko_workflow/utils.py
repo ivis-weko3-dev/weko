@@ -23,36 +23,29 @@
 import base64
 import json
 import os
+import pytz
 import re
+import sys
+import traceback
+
+from celery import current_app as current_celery_app
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime, timedelta
-import sys
-from typing import List, NoReturn, Optional, Tuple, Union, cast
-import traceback
-from urllib.parse import urljoin
-
-import pytz
-from celery import current_app as current_celery_app
 from flask import current_app, request, session
 from flask_babel import gettext as _
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_security import current_user
-from passlib.handlers.oracle import oracle10
-from redis.exceptions import ResponseError
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm.exc import NoResultFound
-from werkzeug.utils import import_string
-
 from invenio_accounts.models import Role, User, userrole
 from invenio_cache import current_cache
 from invenio_db import db
 from invenio_files_rest.models import Bucket, ObjectVersion
-from invenio_i18n.ext import current_i18n
 from invenio_indexer.api import RecordIndexer
+from invenio_i18n.ext import current_i18n
 from invenio_mail.admin import MailSettingView
-from invenio_mail.models import MailConfig, MailTemplates, MailType, MailTemplateUsers
+from invenio_mail.models import (
+    MailConfig, MailTemplates, MailType, MailTemplateUsers)
 from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
 from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore.models import PersistentIdentifier, \
@@ -60,14 +53,22 @@ from invenio_pidstore.models import PersistentIdentifier, \
 from invenio_pidstore.resolver import Resolver
 from invenio_records.models import RecordMetadata
 from invenio_records_files.models import RecordsBuckets
+from passlib.handlers.oracle import oracle10
+from redis.exceptions import ResponseError
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm.exc import NoResultFound
+from typing import List, NoReturn, Optional, Tuple, Union, cast
+from urllib.parse import urljoin
+
 from weko_admin.models import AdminSettings, Identifier, SiteInfo
 from weko_admin.utils import get_restricted_access
 from weko_deposit.api import WekoDeposit, WekoRecord
 from weko_deposit.pidstore import get_record_without_version
 from weko_handle.api import Handle
 from weko_logging.activity_logger import UserActivityLogger
-from weko_records.api import FeedbackMailList, RequestMailList, ItemsMetadata, ItemTypeNames, \
-    ItemTypes, Mapping, ItemApplication
+from weko_records.api import (
+    FeedbackMailList, RequestMailList, ItemsMetadata, ItemTypeNames,
+    ItemTypes, Mapping, ItemApplication)
 from weko_records.models import ItemMetadata, ItemType, ItemReference
 from weko_records.serializers.utils import get_full_mapping, get_item_type_name
 from weko_records_ui.models import FilePermission
@@ -83,11 +84,14 @@ from weko_workflow.config import IDENTIFIER_GRANT_LIST, \
     IDENTIFIER_GRANT_SUFFIX_METHOD, \
     WEKO_WORKFLOW_USAGE_APPLICATION_ITEM_TYPES_LIST, \
     WEKO_WORKFLOW_USAGE_REPORT_ITEM_TYPES_LIST
+from werkzeug.utils import import_string
 
 from .api import Flow, GetCommunity, UpdateItem, WorkActivity, \
     WorkActivityHistory, WorkFlow
-from .config import DOI_VALIDATION_INFO, DOI_VALIDATION_INFO_CROSSREF, DOI_VALIDATION_INFO_DATACITE, IDENTIFIER_GRANT_SELECT_DICT, \
-    WEKO_SERVER_CNRI_HOST_LINK, WEKO_STR_TRUE
+from .config import (
+    DOI_VALIDATION_INFO, DOI_VALIDATION_INFO_CROSSREF,
+    DOI_VALIDATION_INFO_DATACITE, IDENTIFIER_GRANT_SELECT_DICT,
+    WEKO_SERVER_CNRI_HOST_LINK, WEKO_STR_TRUE)
 from .errors import InvalidParameterValueError
 from .models import Action as _Action
 from .models import ActionStatusPolicy, Activity, ActivityStatusPolicy, \
@@ -4675,8 +4679,9 @@ def validate_action_role_user(activity_id, action_id, action_order):
                                              action_order)
 
     cur_user = current_user.get_id()
-    cur_role = db.session.query(Role).join(userrole).filter_by(
-        user_id=cur_user).all()
+    cur_role = db.session.query(Role).join(
+        userrole, userrole.c.role_id == Role.id).filter_by(
+            user_id=cur_user).all()
     cur_role_id = [role.id for role in cur_role]
 
     is_set = False

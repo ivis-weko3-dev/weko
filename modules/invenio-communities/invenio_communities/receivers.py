@@ -8,8 +8,6 @@
 
 """Community module receivers."""
 
-from __future__ import absolute_import, print_function
-
 from flask import current_app
 from invenio_db import db
 
@@ -25,7 +23,7 @@ def new_request(sender, request=None, notify=True, **kwargs):
 
 def inject_provisional_community(sender, json=None, record=None, index=None,
                                  **kwargs):
-    """Inject 'provisional_communities' key to ES index."""
+    """Inject 'provisional_communities' key to Search index."""
     if index and not index.startswith(
             current_app.config['COMMUNITIES_INDEX_PREFIX']):
         return

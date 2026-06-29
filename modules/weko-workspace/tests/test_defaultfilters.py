@@ -20,7 +20,7 @@
 
 """Module tests."""
 import pytest
-from flask_babelex import gettext as _
+from flask_babel import gettext as _
 from weko_workspace.defaultfilters import merge_default_filters
 from weko_workspace.config import WEKO_WORKSPACE_DEFAULT_FILTERS as DEFAULT_FILTERS
 

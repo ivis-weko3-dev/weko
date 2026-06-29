@@ -4,14 +4,20 @@
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::xxxx -vv --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 
 
-import pytest
-import unittest
-from mock import MagicMock, patch, PropertyMock
-from invenio_pidstore.errors import PIDDoesNotExistError
+import copy
 import json
 import os
-from flask import session, url_for,current_app
+import pytest
+import unittest
 
+from flask import session, url_for,current_app
+from flask_babel import Babel
+from invenio_i18n.ext import InvenioI18N, current_i18n
+from invenio_i18n.babel import set_locale
+from invenio_pidstore.errors import PIDDoesNotExistError
+
+from mock import MagicMock, patch, PropertyMock
+from unittest.mock import patch, Mock, MagicMock
 from weko_records.api import ItemTypes
 from weko_search_ui.utils import (
     check_permission,
@@ -33,8 +39,6 @@ from weko_search_ui.utils import (
     defaultify,
     handle_get_all_sub_id_and_name
 )
-from invenio_i18n.ext import InvenioI18N, current_i18n
-from invenio_i18n.babel import set_locale
 from weko_search_ui.config import (
     WEKO_REPO_USER,
     WEKO_SYS_USER,
@@ -43,11 +47,8 @@ from weko_search_ui.config import (
     ACCESS_RIGHT_TYPE_URI,
     RESOURCE_TYPE_URI
 )
-
-from unittest.mock import patch, Mock, MagicMock
 from weko_search_ui import WekoSearchUI
-from flask_babelex import Babel
-import copy
+
 
 FIXTURE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data")
 
@@ -674,7 +675,7 @@ def test_handle_get_all_sub_id_and_name(app,items,root_id,root_name,form,ids,nam
 # def cancel_export_all():
 # def get_export_status():
 # def handle_check_item_is_locked(item):
-# def handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata):
+# def handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata):
 # def check_index_access_permissions(func):
 # def handle_check_file_metadata(list_record, data_path):
 # def handle_check_file_path(

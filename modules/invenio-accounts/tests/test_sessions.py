@@ -9,20 +9,20 @@
 """Test backend sessions."""
 
 import datetime
-import time
+import flask
 import flask_security
 import pytest
-import flask
+import time
+
 from flask import current_app, session
 from flask_security import url_for_security
-from invenio_db import db
-from simplekv.memory.redisstore import RedisStore
-from werkzeug.local import LocalProxy
-from mock import patch
-
 from invenio_accounts import testutils
 from invenio_accounts.models import SessionActivity
 from invenio_accounts.sessions import delete_session, add_session
+from invenio_db import db
+from mock import patch
+from simplekv.memory.redisstore import RedisStore
+from werkzeug.local import LocalProxy
 
 _sessionstore = LocalProxy(
     lambda: current_app.extensions["invenio-accounts"].sessionstore
@@ -307,7 +307,7 @@ def test_add_session(app):
 
             # Create a test request context
             with app.test_request_context():
-                session['user_id'] = user.id
+                session['_user_id'] = user.id
                 session.sid_s = 'test_sid_s'  # Mock session ID
                 # Mock request.get_json to return specific data
                 with patch('flask.request.get_json', return_value={'jao': '相うえおIdP'}):
@@ -332,7 +332,7 @@ def test_add_session_no_org(app):
 
             # Create a test request context
             with app.test_request_context():
-                session['user_id'] = user.id
+                session['_user_id'] = user.id
                 session.sid_s = 'test_sid_s'  # Mock session ID
                 # Mock request.get_json to return specific data
                 with patch('flask.request.get_json', return_value={}):

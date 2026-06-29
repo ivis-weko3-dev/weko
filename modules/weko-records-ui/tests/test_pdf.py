@@ -2,14 +2,14 @@ import pytest
 import uuid
 import copy
 import json
-from mock import MagicMock, patch
-from six import BytesIO
 
 from invenio_files_rest.models import Bucket, Location, ObjectVersion
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
-from invenio_pidrelations.contrib.versioning import PIDVersioning
-from invenio_pidrelations.contrib.records import RecordDraft
+from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
+from invenio_pidrelations.contrib.draft import PIDNodeDraft
 from invenio_records_files.models import RecordsBuckets
+from io import BytesIO
+from mock import MagicMock, patch
 
 from weko_deposit.api import WekoIndexer, WekoRecord
 from weko_deposit.api import WekoDeposit as aWekoDeposit
@@ -164,11 +164,12 @@ def make_record(indexer, id, publisher, subjects, creator,affiliation, lang_lang
         status=PIDStatus.REGISTERED,
     )
 
-    h1 = PIDVersioning(parent=parent)
+    parent_pid = PIDNodeVersioning(pid=parent).parents.one_or_none()
+    h1 = PIDNodeVersioning(pid=parent_pid)
     h1.insert_child(child=recid)
     h1.insert_child(child=recid_v1)
-    RecordDraft.link(recid, depid)
-    RecordDraft.link(recid_v1, depid_v1)
+    PIDNodeDraft(pid=recid).insert_child(depid)
+    PIDNodeDraft(pid=recid_v1).insert_child(depid_v1)
 
     if id % 2 == 1:
         doi = PersistentIdentifier.create(
@@ -187,7 +188,7 @@ def make_record(indexer, id, publisher, subjects, creator,affiliation, lang_lang
         )
 
     record = WekoRecord.create(record_data, id_=rec_uuid)
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket = Bucket.create()
@@ -229,7 +230,7 @@ def make_record(indexer, id, publisher, subjects, creator,affiliation, lang_lang
     item = ItemsMetadata.create(item_data, id_=rec_uuid, item_type_id=1)
 
     record_v1 = WekoRecord.create(record_data, id_=rec_uuid2)
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket_v1 = Bucket.create()
@@ -277,7 +278,7 @@ def make_record(indexer, id, publisher, subjects, creator,affiliation, lang_lang
 #     def get_url(pid_value):
 #     def get_oa_policy(activity_id):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_pdf.py::test_make_combined_pdf -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_make_combined_pdf(app, db, esindex, location, pdfcoverpagesetting, mocker):
+def test_make_combined_pdf(app, db, search_index, location, pdfcoverpagesetting, mocker):
     temp_path = "tests/data"
     mocker.patch("weko_records_ui.pdf.tempfile.gettempdir", return_value=temp_path)
     import shutil, os
@@ -309,7 +310,7 @@ def test_make_combined_pdf(app, db, esindex, location, pdfcoverpagesetting, mock
         db.session.add(itemtype_mapping)
     db.session.commit()
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     records = []
     records.append(make_record(indexer, 1, {"val": "test_publisher", "lang": "en"}, [{"val": "test_subject", "lang": "en"}, {"val": "テスト主題", "lang": "ja"}], {"val": "test, taro", "lang": "en"}, {"val": "test_affiliation", "lang": "en"}, ["eng"]))
     records.append(make_record(indexer, 2, {"val": "test_publisher", "lang": ""  }, [{"val": "test_subject", "lang": "en"}, {"val": "テスト主題", "lang": "ja"}], {"val": "test, taro", "lang": ""  }, {"val": "test_affiliation", "lang": ""  }, ["jpn", "eng"]))

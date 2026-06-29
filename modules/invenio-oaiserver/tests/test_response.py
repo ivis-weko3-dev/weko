@@ -9,33 +9,14 @@
 """test cases."""
 import pytest
 import uuid
+
 from datetime import timedelta, datetime
-from mock import patch
 from flask import current_app
-from flask_babelex import Babel
-from werkzeug.utils import cached_property
-from sqlalchemy.orm.exc import NoResultFound
-from lxml import etree
-from lxml.etree import Element, SubElement
+from flask_babel import Babel
 
-from invenio_records.models import RecordMetadata
-from invenio_pidstore.errors import PIDDoesNotExistError
-from invenio_pidstore.models import PersistentIdentifier,PIDStatus
-from invenio_pidrelations.models import PIDRelation
 
-from weko_index_tree.models import Index
-from weko_records.api import ItemTypes, Mapping
-from weko_records.models import ItemTypeName
-from weko_deposit.api import WekoRecord
-from weko_records.models import ItemMetadata, ItemTypeMapping
 
-from invenio_oaiserver.models import Identify, OAISet
-from invenio_oaiserver.utils import HARVEST_PRIVATE, OUTPUT_HARVEST, PRIVATE_INDEX, datetime_to_datestamp
-
-from invenio_pidstore import current_pidstore
-from invenio_records import Record
 from invenio_oaiserver.provider import OAIIDProvider
-
 from invenio_oaiserver.response import (
     NS_DC, NS_OAIDC, NS_OAIPMH,NS_JPCOAR,
     is_private_index,
@@ -59,6 +40,25 @@ from invenio_oaiserver.response import (
     identify,
     is_draft_workflow
 )
+from invenio_oaiserver.models import Identify, OAISet
+from invenio_oaiserver.utils import HARVEST_PRIVATE, OUTPUT_HARVEST, PRIVATE_INDEX, datetime_to_datestamp
+from invenio_pidstore import current_pidstore
+from invenio_pidstore.errors import PIDDoesNotExistError
+from invenio_pidstore.models import PersistentIdentifier,PIDStatus
+from invenio_pidrelations.models import PIDRelation
+from invenio_records import Record
+from invenio_records.models import RecordMetadata
+from lxml import etree
+from lxml.etree import Element, SubElement
+from mock import patch
+from sqlalchemy.orm.exc import NoResultFound
+
+from weko_index_tree.models import Index
+from weko_records.api import ItemTypes, Mapping
+from weko_records.models import ItemTypeName
+from weko_deposit.api import WekoRecord
+from weko_records.models import ItemMetadata, ItemTypeMapping
+from werkzeug.utils import cached_property
 
 
 NAMESPACES = {'x': NS_OAIPMH, 'y': NS_OAIDC, 'z': NS_DC}
@@ -612,7 +612,7 @@ def test_listidentifiers(es_app,records,item_type,mock_execute,db,mocker):
             per_page = 100
             def __init__(self,dummy):
                 self.data = dummy
-                self.total = self.data["hits"]["total"]
+                self.total = self.data["hits"]["total"]["value"]
             @cached_property
             def has_next(self):
                 return self.page * self.per_page <= self.total
@@ -957,7 +957,7 @@ def test_listrecords(es_app,records,item_type,mock_execute,db,mocker):
             per_page = 100
             def __init__(self,dummy):
                 self.data = dummy
-                self.total = self.data["hits"]["total"]
+                self.total = self.data["hits"]["total"]["value"]
             @cached_property
             def has_next(self):
                 return self.page * self.per_page <= self.total
@@ -2081,7 +2081,7 @@ def test_issue34851_listrecords(es_app, records, item_type, mock_execute,db,mock
             per_page = 100
             def __init__(self,dummy):
                 self.data = dummy
-                self.total = self.data["hits"]["total"]
+                self.total = self.data["hits"]["total"]["value"]
             @cached_property
             def has_next(self):
                 return self.page * self.per_page <= self.total
@@ -2204,7 +2204,7 @@ def test_issue34851_listidentifiers(es_app, records, item_type, mock_execute,db,
             per_page = 100
             def __init__(self,dummy):
                 self.data = dummy
-                self.total = self.data["hits"]["total"]
+                self.total = self.data["hits"]["total"]["value"]
             @cached_property
             def has_next(self):
                 return self.page * self.per_page <= self.total

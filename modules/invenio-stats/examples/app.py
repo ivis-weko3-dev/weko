@@ -11,7 +11,7 @@
 
 SPHINX-START
 
-This example requires that you have a search server (ES/OS) running
+This example requires that you have a search server (SEARCH) running
 on localost:9200.
 WARNING: This will remove all data from your search server.
 

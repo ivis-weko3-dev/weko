@@ -9,12 +9,10 @@
 
 """Module tests."""
 
-from __future__ import absolute_import, print_function
-
 import os
+import pkg_resources
 import time
 
-import pkg_resources
 from flask_mail import Attachment
 
 from invenio_mail.tasks import send_email

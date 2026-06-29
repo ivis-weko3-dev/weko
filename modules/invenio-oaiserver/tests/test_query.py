@@ -1,15 +1,9 @@
 
 import pytest
-from mock import patch
 import uuid
-from flask import current_app
-from datetime import datetime
 
-from invenio_pidstore.models import PersistentIdentifier, PIDStatus
-from invenio_records.models import RecordMetadata
-from invenio_search import current_search_client
-from inveion_search.engine import dsl
-from weko_index_tree.models import Index
+from datetime import datetime
+from flask import current_app
 
 from invenio_oaiserver import current_oaiserver
 from invenio_oaiserver.query import (
@@ -17,6 +11,14 @@ from invenio_oaiserver.query import (
     get_affected_records,
     get_records
 )
+from invenio_pidstore.models import PersistentIdentifier, PIDStatus
+from invenio_records.models import RecordMetadata
+from invenio_search import current_search_client
+from inveion_search.engine import dsl
+
+from mock import patch
+from weko_index_tree.models import Index
+
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 
 #def query_string_parser(search_pattern):
@@ -104,20 +106,18 @@ def test_get_records(es_app,db, mock_execute):
 
     db.session.commit()
 
-    es_info = dict(id=str(rec_uuid1),
-                       index=current_app.config['INDEXER_DEFAULT_INDEX'],
-                       doc_type=current_app.config['INDEXER_DEFAULT_DOCTYPE'])
+    search_info = dict(id=str(rec_uuid1),
+                       index=current_app.config['INDEXER_DEFAULT_INDEX'])
     body = dict(version=1,
                 version_type="external_gte",
                 body=rec_data1)
-    current_search_client.index(**{**es_info,**body})
-    es_info = dict(id=str(rec_uuid2),
-                       index=current_app.config['INDEXER_DEFAULT_INDEX'],
-                       doc_type=current_app.config['INDEXER_DEFAULT_DOCTYPE'])
+    current_search_client.index(**{**search_info,**body})
+    search_info = dict(id=str(rec_uuid2),
+                       index=current_app.config['INDEXER_DEFAULT_INDEX'])
     body = dict(version=1,
                 version_type='external_gte',
                 body=rec_data2)
-    current_search_client.index(**{**es_info,**body})
+    current_search_client.index(**{**search_info,**body})
 
     # not scroll_id, ":" not in set
     data = {
@@ -182,7 +182,6 @@ def test_get_records(es_app,db, mock_execute):
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py::test_get_records_with_set -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_get_records_with_set(es_app,db, users):
-    from elasticsearch import Elasticsearch
     from invenio_communities.models import Community
     indexes = list()
     ids = [123,456,789]
@@ -240,17 +239,16 @@ def test_get_records_with_set(es_app,db, users):
     db.session.add(rec3)
     db.session.commit()
     
-    es_info = dict(index=current_app.config['INDEXER_DEFAULT_INDEX'],
-                    doc_type=current_app.config['INDEXER_DEFAULT_DOCTYPE'],
+    search_info = dict(index=current_app.config['INDEXER_DEFAULT_INDEX'],
                     version=1,
                     version_type="external_gte",
                     refresh="wait_for")
     body1 = dict(id=str(rec_uuid1), body=rec_data1)
     body2 = dict(id=str(rec_uuid2), body=rec_data2)
     body3 = dict(id=str(rec_uuid3), body=rec_data3)
-    current_search_client.index(**es_info,**body1)
-    current_search_client.index(**es_info,**body2)
-    current_search_client.index(**es_info,**body3)
+    current_search_client.index(**search_info,**body1)
+    current_search_client.index(**search_info,**body2)
+    current_search_client.index(**search_info,**body3)
     
     comm1 = Community.create(community_id="test_comm", role_id=users[0]["id"],
                             id_user=users[0]["id"], title="test community",

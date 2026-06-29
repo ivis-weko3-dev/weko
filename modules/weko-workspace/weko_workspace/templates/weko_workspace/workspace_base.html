@@ -21,13 +21,13 @@
 <html {% if html_css_classes %} class="{{ html_css_classes|join(' ') }}" {% endif %}
   lang="{{ current_i18n.locale.language|safe }}" dir="{{ current_i18n.locale.text_direction }}">
   {%- block css %}
-  {% assets "weko_theme_css" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
-  {% assets "weko_theme_css_bootstrap" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
-  {% assets "weko_theme_css_buttons" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
-  {% assets "weko_theme_css_widget" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
-  {% assets "weko_admin_quill_css" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
+  {{ webpack["theme-css.scss"] }}
+  {{ webpack["theme-scss-bootstrap.scss"] }}
+  {{ webpack["theme-css-buttons.css"] }}
+  {{ webpack["theme-css-widget.css"] }}
+  {{ webpack["admin_css_weko_admin_quill_snow_css.css"] }}
 
-  {% assets "workspace_css" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
+  {{ webpack["workspace_style_css.css"] }}
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   {%- endblock css %}
@@ -38,11 +38,11 @@
   <script src="{{ url_for('static', filename='js/react/react-dom.production.min.js') }}" crossorigin></script>
 
   <script type="text/javascript">
-    window.workspaceItemList = {{ workspaceItemList | tojson | safe }};
-    window.defaultconditions = {{ defaultconditions | tojson | safe }};
+    window.workspaceItemList = "{{ workspaceItemList | tojson | safe }}";
+    window.defaultconditions = "{{ defaultconditions | tojson | safe }}";
   </script>
 
-  {%- assets "workspace_item_list_js" %}<script src="{{ ASSET_URL }}"></script>{% endassets %}
+  {{ webpack["workspace_item_list_js.js"] }}
   <script type="text/javascript" src="static/js/weko_workspace/WorkspaceExport.js"></script>
 
   {%- endblock js %}

@@ -8,26 +8,15 @@
 
 """Invenio module that adds support for communities."""
 
-from __future__ import absolute_import, print_function
-
 import copy
-from functools import wraps
-
 import bleach
 import humanize
+
 from flask import Blueprint, abort, current_app, flash, jsonify, redirect, \
     render_template, request, url_for
 from flask_babel import gettext as _
 from flask_login import current_user, login_required
-from invenio_db import db
-from invenio_indexer.api import RecordIndexer
-from invenio_pidstore.resolver import Resolver
-from invenio_records.api import Record
-from weko_admin.utils import get_search_setting
-from weko_index_tree.models import IndexStyle
-from weko_search_ui.api import SearchSetting, get_search_detail_keyword
-from weko_admin.models import AdminSettings
-from invenio_i18n.ext import current_i18n
+from functools import wraps
 
 from invenio_communities.forms import CommunityForm, DeleteCommunityForm, \
     EditCommunityForm, RecaptchaCommunityForm, SearchForm
@@ -35,6 +24,16 @@ from invenio_communities.models import Community, FeaturedCommunity
 from invenio_communities.proxies import current_permission_factory
 from invenio_communities.utils import Pagination, get_user_role_ids, \
     render_template_to_string
+from invenio_db import db
+from invenio_indexer.api import RecordIndexer
+from invenio_i18n.ext import current_i18n
+from invenio_pidstore.resolver import Resolver
+from invenio_records.api import Record
+
+from weko_admin.models import AdminSettings
+from weko_admin.utils import get_search_setting
+from weko_index_tree.models import IndexStyle
+from weko_search_ui.api import SearchSetting, get_search_detail_keyword
 
 blueprint = Blueprint(
     'invenio_communities',

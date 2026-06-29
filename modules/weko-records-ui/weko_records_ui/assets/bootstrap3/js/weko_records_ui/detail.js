@@ -1,12 +1,3 @@
-// require([
-//   "jquery",
-//   "bootstrap",
-//   "typeahead.js",
-//   "bloodhound",
-//   "node_modules/angular/angular",
-
-//   // "node_modules/invenio-csl-js/dist/invenio-csl-js",
-// ], function (typeahead, Bloodhound) {
 import $ from "jquery";
 import angular from "angular";
 import "bootstrap";

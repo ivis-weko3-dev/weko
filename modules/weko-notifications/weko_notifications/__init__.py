@@ -7,8 +7,6 @@
 
 """Module of weko-notifications."""
 
-from __future__ import absolute_import, print_function
-
 from .client import NotificationClient
 from .ext import WekoNotifications
 from .notifications import Notification

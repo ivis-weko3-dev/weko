@@ -11,49 +11,50 @@ See https://pytest-invenio.readthedocs.io/ for documentation on which test
 fixtures are available.
 """
 
-from __future__ import absolute_import, print_function
-
-import os
 import json
+import io
+import os
+import pytest
 import shutil
 import tempfile
-import pytest
-import io
-from PIL import Image
-from uuid import UUID
-from mock import patch, MagicMock
+
 from flask import Flask
 from flask_admin import Admin
 from flask_babel import Babel
-from sqlalchemy_utils.functions import create_database, database_exists
 from datetime import datetime, timedelta
-from tests.helpers import create_record, json_data
 
-from invenio_cache import InvenioCache
-from invenio_accounts import InvenioAccounts
-from invenio_accounts.testutils import create_test_user, login_user_via_session
+from invenio_access import InvenioAccess
 from invenio_access.models import ActionUsers
+from invenio_accounts import InvenioAccounts
+from invenio_accounts.models import User, Role
+from invenio_accounts.testutils import create_test_user, login_user_via_session
+from invenio_cache import InvenioCache
+from invenio_communities.models import Community
+from invenio_db import InvenioDB, db as db_
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import ObjectVersion,Bucket, Location
-from invenio_access import InvenioAccess
-from invenio_db import InvenioDB, db as db_
-from invenio_accounts.models import User, Role
-from invenio_communities.models import Community
 from invenio_search import InvenioSearch, current_search, current_search_client
 from invenio_stats import InvenioStats
+from PIL import Image
+from sqlalchemy_utils.functions import create_database, database_exists
+from tests.helpers import create_record, json_data
+from uuid import UUID
+from mock import patch, MagicMock
 
-from weko_redis.redis import RedisConnection
+from weko_gridlayout import WekoGridLayout
+from weko_gridlayout.views import blueprint, blueprint_api
+from weko_gridlayout.services import WidgetItemServices
+from weko_gridlayout.admin import widget_adminview, WidgetSettingView
+from weko_gridlayout.models import (
+    WidgetType, WidgetItem,WidgetMultiLangData,
+    WidgetDesignSetting,WidgetDesignPage)
+from weko_index_tree.models import Index
 from weko_records.models import ItemTypeProperty
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
 from weko_records.api import Mapping
 from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER
-from weko_index_tree.models import Index
-from weko_gridlayout import WekoGridLayout
+from weko_redis.redis import RedisConnection
 #from weko_admin import WekoAdmin
-from weko_gridlayout.views import blueprint, blueprint_api
-from weko_gridlayout.services import WidgetItemServices
-from weko_gridlayout.admin import widget_adminview, WidgetSettingView
-from weko_gridlayout.models import WidgetType, WidgetItem,WidgetMultiLangData,WidgetDesignSetting,WidgetDesignPage
 from weko_admin.models import AdminLangSettings
 from invenio_i18n import InvenioI18N
 from babel import Locale
@@ -102,8 +103,8 @@ def base_app(instance_path):
         WEKO_GRIDLAYOUT_ADMIN_WIDGET_DESIGN = 'weko_gridlayout/admin/widget_design.html',
         SERVER_NAME="TEST_SERVER",
         SEARCH_INDEX_PREFIX='test-',
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', 'elasticsearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         INDEXER_DEFAULT_DOC_TYPE='testrecord',
         SEARCH_UI_SEARCH_INDEX='test-weko',
         SECRET_KEY='SECRET_KEY',

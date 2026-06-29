@@ -20,36 +20,33 @@
 
 """Module of weko-workspace utils."""
 
-from functools import wraps
-from datetime import datetime,timezone
 import traceback
-from elasticsearch_dsl.query import Q
-from elasticsearch.exceptions import TransportError
-from invenio_cache import current_cache
-from invenio_search import RecordsSearch
-from jsonschema import validate, ValidationError
+
+from copy import deepcopy
+from datetime import datetime,timezone
+from functools import wraps
 from flask import current_app
-from flask_babelex import gettext as _
+from flask_babel import gettext as _
 from flask_security import current_user
+from invenio_cache import current_cache
 from invenio_db import db
 from invenio_pidstore.models import PersistentIdentifier
+from invenio_search import RecordsSearch
+from invenio_search.engine import search, dsl
+from jsonschema import validate, ValidationError
+from lxml import etree
 from sqlalchemy.exc import SQLAlchemyError
+from weko_admin.utils import StatisticMail
 from weko_schema_ui.models import PublishStatus
 from weko_user_profiles.models import UserProfile
 from weko_records.models import OaStatus
-from weko_admin.utils import StatisticMail
-
-from .models import WorkspaceDefaultConditions, WorkspaceStatusManagement
-
-
-from copy import deepcopy
-from flask_babelex import gettext as _
 from weko_records.api import (
     ItemTypes,
     Mapping,
 )
+
+from .models import WorkspaceDefaultConditions, WorkspaceStatusManagement
 from .api import CiNiiURL, JALCURL, DATACITEURL, JamasURL
-from lxml import etree
 
 def is_update_cache():
     """Return True if Autofill Api has been updated.
@@ -130,7 +127,7 @@ def get_workspace_filterCon():
 
 
 # 2.1.2.2 ESからアイテム一覧取得処理
-def get_es_itemlist():
+def get_search_itemlist():
     """
     Fetches records data from an external API.
 
@@ -145,12 +142,11 @@ def get_es_itemlist():
     try:
         size = 10000
         search_index = current_app.config["WEKO_WORKSPACE_ITEM_SEARCH_INDEX"]
-        search_type = current_app.config["WEKO_WORKSPACE_ITEM_SEARCH_TYPE"]
-        search_obj = RecordsSearch(index=search_index, doc_type=search_type)
+        search_obj = RecordsSearch(index=search_index)
         search = search_obj.with_preference_param().params(version=True)
 
         # Set the search query
-        publish_status_match = Q("terms", publish_status=[
+        publish_status_match = dsl.Q("terms", publish_status=[
             PublishStatus.PUBLIC.value, PublishStatus.PRIVATE.value
         ])
         user_id = (
@@ -158,16 +154,16 @@ def get_es_itemlist():
             if current_user and current_user.is_authenticated
             else None
         )
-        creator_user_match = Q("match", weko_creator_id=user_id)
-        shared_users_match = Q("terms", weko_shared_ids=[user_id])
+        creator_user_match = dsl.Q("match", weko_creator_id=user_id)
+        shared_users_match = dsl.Q("terms", weko_shared_ids=[user_id])
         shuld = []
-        shuld.append(Q("bool", must=[publish_status_match, creator_user_match]))
-        shuld.append(Q("bool", must=[publish_status_match, shared_users_match]))
+        shuld.append(dsl.Q("bool", must=[publish_status_match, creator_user_match]))
+        shuld.append(dsl.Q("bool", must=[publish_status_match, shared_users_match]))
         must = []
-        must.append(Q("bool", should=shuld))
-        must.append(Q("bool", must=Q("match", relation_version_is_last="true")))
-        search = search.filter(Q("bool", must=must))
-        search = search.query(Q("bool", must=Q("match_all")))
+        must.append(dsl.Q("bool", should=shuld))
+        must.append(dsl.Q("bool", must=dsl.Q("match", relation_version_is_last="true")))
+        search = search.filter(dsl.Q("bool", must=must))
+        search = search.query(dsl.Q("bool", must=dsl.Q("match_all")))
 
         # Set size / Exclude content field from the source
         src = {
@@ -194,9 +190,9 @@ def get_es_itemlist():
             current_app.logger.debug(f"[workspace] search result: {page}")
         return records
 
-    except TransportError as e:
+    except search.TransportError as e:
         traceback.print_exc()
-        current_app.logger.error(f"Failed to get workflow item list from ES: {e} / {search.to_dict()}")
+        current_app.logger.error(f"Failed to get workflow item list from search: {e} / {search.to_dict()}")
         return None
     except Exception as e:
         traceback.print_exc()

@@ -20,9 +20,9 @@
   {{ webpack['records_ui_js_dependecies.js']}}
 
   {{ super() }}
-  {% assets "weko_theme_js_treeview" %}<script src="{{ ASSET_URL }}"></script>{% endassets %}
-  <script src="{{ url_for('static', filename='js/weko_records_ui/request_mail.js')}}"></script>
-  <script src="{{ url_for('static', filename='js/weko_theme/sidebar.js')}}"></script>
+  {{ webpack["theme-js-treeview.js"]}}
+  {{ webpack['records_ui_request_mail_js.js']}}
+  {{ webpack['theme-js-sidebar.js']}}
   <script src="{{ url_for('static', filename='js/weko_theme/inline.bundle.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/weko_theme/polyfills.bundle.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/weko_theme/main.bundle.js') }}" defer></script>

@@ -25,19 +25,18 @@ import json
 import traceback
 import mimetypes
 import os
+import pytest
 import shutil
 import tempfile
 import time
 import uuid
+
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from os.path import dirname, exists, join
 from unittest.mock import patch
 
-import pytest
 from click.testing import CliRunner
-from opensearchpy import OpenSearch
-from opensearchpy.client.ingest import IngestClient
 from flask import Blueprint, Flask
 from flask_assets import assets
 from flask_babel import Babel
@@ -85,17 +84,23 @@ from invenio_search_ui import InvenioSearchUI
 from invenio_stats import InvenioStats
 from invenio_stats.config import SEARCH_INDEX_PREFIX as index_prefix
 from invenio_theme import InvenioTheme
+from io import BytesIO
+from opensearchpy import OpenSearch
+from opensearchpy.client.ingest import IngestClient
 from simplekv.memory.redisstore import RedisStore
-from six import BytesIO
-from sqlalchemy_utils.functions import create_database, database_exists, drop_database
+from sqlalchemy_utils.functions import (
+    create_database, database_exists, drop_database)
+
 from weko_admin import WekoAdmin
 from weko_admin.models import AdminSettings, RankingSettings, SessionLifetime
 from weko_deposit import WekoDeposit, WekoDepositREST
 from weko_deposit.api import WekoDeposit as aWekoDeposit
-from weko_deposit.api import WekoIndexer, WekoRecord, _FormatSysBibliographicInformation
+from weko_deposit.api import (
+    WekoIndexer, WekoRecord, _FormatSysBibliographicInformation)
 from weko_deposit.config import _PID
 from weko_deposit.config import DEPOSIT_REST_ENDPOINTS
-from weko_deposit.config import DEPOSIT_REST_ENDPOINTS as _DEPOSIT_REST_ENDPOINTS
+from weko_deposit.config import (
+    DEPOSIT_REST_ENDPOINTS as _DEPOSIT_REST_ENDPOINTS)
 from weko_deposit.config import WEKO_BUCKET_QUOTA_SIZE
 from weko_deposit.config import WEKO_DEPOSIT_REST_ENDPOINTS
 from weko_deposit.config import (
@@ -251,10 +256,8 @@ def base_app(instance_path):
         WEKO_SCHEMA_UI_ADMIN_UPLOAD="weko_schema_ui/admin/upload.html",
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko-item-v1.0.0".format("test"),
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
-        INDEXER_DEFAULT_DOC_TYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
-        SEARCH_ELASTIC_HOSTS=os.environ.get('SEARCH_ELASTIC_HOSTS', 'opensearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get('SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SEARCH_CLIENT_CONFIG={
             "http_auth":(os.environ.get('INVENIO_OPENSEARCH_USER', 'invenio'),os.environ.get('INVENIO_OPENSEARCH_PASS', 'openpass123!')),
             "use_ssl":True,
@@ -730,7 +733,7 @@ def client(app):
 
 
 @pytest.fixture()
-def esindex(app):
+def search_index(app):
     current_search_client.indices.delete(index="test-*")
     # print(app.config["INDEXER_DEFAULT_INDEX"])
     with open("tests/data/mappings/v6/weko/item-v1.0.0.json", "r") as f:
@@ -743,12 +746,12 @@ def esindex(app):
             index=app.config["INDEXER_DEFAULT_INDEX"], name="test-weko"
         )
 
-        es = OpenSearch(
-            [app.config['SEARCH_ELASTIC_HOSTS']],
+        open_search = OpenSearch(
+            [app.config['SEARCH_OPENSEARCH_HOSTS']],
             scheme="http",
             port=9200
         )
-        p = IngestClient(es)
+        p = IngestClient(open_search)
         p.put_pipeline(id='item-file-pipeline', body={
             'description': "Index contents of each file.",
             'processors' : [
@@ -908,9 +911,9 @@ def itemtypes(app, db):
 
 
 @pytest.fixture()
-def records(app, db, esindex, indextree, location, itemtypes, db_oaischema):
+def records(app, db, search_index, indextree, location, itemtypes, db_oaischema):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         i = 1
@@ -937,8 +940,8 @@ def records(app, db, esindex, indextree, location, itemtypes, db_oaischema):
         il = ItemLink(str(i))
         il.bulk_update([{"src_item_pid": str(i), "dst_item_pid": "1", "sele_id": "isCitedBy"}])
 
-    # es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
-    # print(es.cat.indices())
+    # open_search = OpenSearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
+    # print(open_search.cat.indices())
     return indexer, results
 
 
@@ -2192,7 +2195,7 @@ def make_record(db, indexer, i, filepath, filename, mimetype):
     # print(record_data)
     record = WekoRecord.create(record_data, id_=rec_uuid)
     # print(current_search_client.indices.get_mapping(index="test-weko"))
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket = Bucket.create()
@@ -2235,7 +2238,7 @@ def make_record(db, indexer, i, filepath, filename, mimetype):
     item = ItemsMetadata.create(item_data, id_=rec_uuid, item_type_id=1)
 
     record_v1 = WekoRecord.create(record_data, id_=rec_uuid2)
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket_v1 = Bucket.create()

@@ -1,18 +1,16 @@
 import csv
+import json
+import pytest
 import uuid
-from mock import patch
+
 from datetime import datetime, timedelta
 from flask import current_app, Markup
 from io import StringIO
-import pytest
-import json
 
 from invenio_indexer.api import RecordIndexer
 from invenio_cache import current_cache
-
-from weko_index_tree.api import Indexes
-from weko_records.api import ItemTypes, SiteLicense,ItemsMetadata
-from weko_user_profiles import UserProfile
+from mock import patch
+from tests.helpers import json_data
 
 from weko_admin.config import WEKO_ADMIN_MANAGEMENT_OPTIONS, WEKO_ADMIN_RESTRICTED_ACCESS_SETTINGS
 from weko_admin.models import AdminLangSettings, FeedbackMailHistory, FeedbackMailFailed, SiteInfo
@@ -62,8 +60,9 @@ from weko_admin.utils import (
     overwrite_the_memory_config_with_db,
     get_detail_search_list
 )
-
-from tests.helpers import json_data
+from weko_index_tree.api import Indexes
+from weko_records.api import ItemTypes, SiteLicense,ItemsMetadata
+from weko_user_profiles import UserProfile
 
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
 
@@ -1004,7 +1003,7 @@ class MockClient:
     def __init__(self,author_data):
         self.data = author_data
 
-    def search(self,index=None,doc_type=None,body=None):
+    def search(self,index=None,body=None):
         if index == "test_weko-authors":
             return {
                 "hits":{

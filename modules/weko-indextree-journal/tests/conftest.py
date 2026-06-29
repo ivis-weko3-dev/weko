@@ -12,29 +12,28 @@ See https://pytest-invenio.readthedocs.io/ for documentation on which test
 fixtures are available.
 """
 
-from __future__ import absolute_import, print_function
-
 import os, sys
-from os.path import dirname, exists, join
 import json
+import pytest
 import shutil
 import tempfile
+
 from datetime import date, datetime, timedelta
-import pytest
 from flask import Flask
 from flask_babel import Babel
-from sqlalchemy_utils.functions import create_database, database_exists
 
-from invenio_accounts import InvenioAccounts
-from invenio_accounts.testutils import create_test_user
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionUsers, ActionRoles
+from invenio_accounts import InvenioAccounts
+from invenio_accounts.testutils import create_test_user
 from invenio_accounts.models import Role, User
 from invenio_admin import InvenioAdmin
 from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_i18n import InvenioI18N
 from invenio_oaiserver import InvenioOAIServer
+from os.path import dirname, exists, join
+from sqlalchemy_utils.functions import create_database, database_exists
 from weko_records import WekoRecords
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
 from weko_index_tree.models import Index
@@ -94,8 +93,6 @@ def base_app(request,instance_path):
         OAUTH2_CACHE_TYPE="simple",
         ACCOUNTS_JWT_ENABLE=False,
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
-        INDEXER_DEFAULT_DOC_TYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         WEKO_INDEX_TREE_STYLE_OPTIONS={
             "id": "weko",
@@ -104,7 +101,7 @@ def base_app(request,instance_path):
         WEKO_INDEX_TREE_UPATED=True,
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English")],
         SERVER_NAME="TEST_SERVER",
-        SEARCH_ELASTIC_HOSTS="opensearch",
+        SEARCH_OPENSEARCH_HOSTS="opensearch",
         SEARCH_INDEX_PREFIX="test-",
         WEKO_PERMISSION_ROLE_USER=[
             "System Administrator",

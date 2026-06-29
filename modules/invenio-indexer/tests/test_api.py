@@ -8,28 +8,32 @@
 
 """Test API."""
 
-import types
 import json
-import uuid
-from unittest.mock import MagicMock, patch
-
 import pytz
 import pytest
+import types
+import uuid
+
 from celery.messaging import establish_connection
 from invenio_db import db
+from invenio_indexer.api import (
+    BulkRecordIndexer,
+    RecordIndexer, 
+    BulkBaseException, 
+    BulkConnectionTimeout, 
+    BulkConnectionError, 
+    BulkException
+)
+from invenio_indexer.signals import before_record_index
 from invenio_records.api import Record
-from invenio_search.engine import dsl
+from invenio_search.engine import dsl, search
 from jsonresolver import JSONResolver
 from jsonresolver.contrib.jsonref import json_loader_factory
-from kombu.compat import Consumer
 from kombu import Exchange, Queue
+from kombu.compat import Consumer
 
 from mock import MagicMock, patch
-from unittest.mock import call
-from invenio_indexer.api import BulkRecordIndexer, RecordIndexer, BulkBaseException, BulkConnectionTimeout, BulkConnectionError, BulkException
-from invenio_indexer.signals import before_record_index
-from elasticsearch import ConnectionError, ConnectionTimeout
-from elasticsearch.helpers import BulkIndexError
+from unittest.mock import MagicMock, patch, call
 class DummyRecord:
     def __init__(self, id, version_id, revision_id, created=None, updated=None):
         self.id = id
@@ -212,7 +216,7 @@ def test_process_bulk_queue(app, queue):
         es_bulk_kwargs = {"chunk_size": 500}
         # bulk処理でエラーが起きなかった
         RecordIndexer().bulk_index(_values)
-        with patch('weko_deposit.utils.update_pdf_contents_es', lambda ids: None):
+        with patch('weko_deposit.utils.update_pdf_contents_search', lambda ids: None):
             with patch('invenio_indexer.api.RecordIndexer.reindex_bulk', return_value=(10, 0)):
                 assert RecordIndexer().process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs) == (10, 0)
 
@@ -244,7 +248,7 @@ def test_process_bulk_queue(app, queue):
             errors = [
                 {"index": {"_id": str(records[9].id), "error": {"type": "ConnectionError", "reason": "ConnectionError_reason"}}}
             ]
-            es_conn_error = ConnectionError("ConnectionError!", {}, {})
+            es_conn_error = search.ConnectionError("ConnectionError!", {}, {})
             with patch('invenio_indexer.api.RecordIndexer.reindex_bulk', side_effect=DummyBulkConnectionError(success=8, failed=1, errors=errors, original_exception=es_conn_error)):
                 with patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*10):
                     with patch('invenio_indexer.api.click.secho') as mock_secho:
@@ -262,7 +266,7 @@ def test_process_bulk_queue(app, queue):
             errors = [
                 {"index": {"_id": str(records[9].id), "error": {"type": "ConnectionTimeout", "reason": "ConnectionTimeout_reason"}}}
             ]
-            es_conn_error = ConnectionTimeout("ConnectionTimeout!", {}, {})
+            es_conn_error = search.ConnectionTimeout("ConnectionTimeout!", {}, {})
             def mock_reindex_bulk_ct(client, actions, **kwargs):
                 indexer.latest_item_id = 9
                 raise DummyBulkConnectionTimeout(success=8, failed=1, errors=errors, original_exception=es_conn_error)
@@ -283,7 +287,7 @@ def test_process_bulk_queue(app, queue):
             errors = [
                 {"index": {"_id": str(records[9].id), "error": {"type": "Exception", "reason": "Exception_reason"}}}
             ]
-            es_conn_error = Exception("Exception!", {}, {})
+            es_conn_error = search.Exception("Exception!", {}, {})
             def mock_reindex_bulk_ct(client, actions, **kwargs):
                 indexer.latest_item_id = 9
                 raise DummyBulkException(success=8, failed=1, errors=errors, original_exception=es_conn_error)
@@ -330,7 +334,7 @@ def test_process_bulk_queue(app, queue):
 
             # ConnectionError (when errors is an empty list)
             errors = []
-            es_conn_error = ConnectionError("ConnectionError!", {}, {})
+            es_conn_error = search.ConnectionError("ConnectionError!", {}, {})
             with patch('invenio_indexer.api.RecordIndexer.reindex_bulk', side_effect=DummyBulkConnectionError(success=10, failed=0, errors=errors, original_exception=es_conn_error)):
                 with patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*10):
                     indexer = RecordIndexer()
@@ -341,7 +345,7 @@ def test_process_bulk_queue(app, queue):
 
             # ConnectionTimeout (when errors is an empty list)
             errors = []
-            es_conn_error = ConnectionTimeout("ConnectionTimeout!", {}, {})
+            es_conn_error = search.ConnectionTimeout("ConnectionTimeout!", {}, {})
             def mock_reindex_bulk_ct_empty(client, actions, **kwargs):
                 indexer.latest_item_id = 9
                 raise DummyBulkConnectionTimeout(success=10, failed=0, errors=errors, original_exception=es_conn_error)
@@ -397,7 +401,7 @@ def test_process_bulk_queue_for_error_loop(app):
 
         with patch('invenio_indexer.api.RecordIndexer.reindex_bulk', side_effect=mock_reindex_bulk), \
              patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*4), \
-             patch('weko_deposit.utils.update_pdf_contents_es', lambda ids: None), \
+             patch('weko_deposit.utils.update_pdf_contents_search', lambda ids: None), \
              patch('click.secho') as mock_secho:
             result = indexer.process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs)
             assert result[0] == 2
@@ -406,7 +410,7 @@ def test_process_bulk_queue_for_error_loop(app):
             assert any("id1" in str(c) and "ConnectionError" in str(c) for c in mock_secho.call_args_list)
             assert any("id2" in str(c) and "Timeout" in str(c) for c in mock_secho.call_args_list)
 
-class DummyBulkIndexError(BulkIndexError):
+class DummyBulkIndexError(search.helpers.BulkIndexError):
     def __init__(self, errors):
         super().__init__(errors)
     @property
@@ -487,20 +491,20 @@ def test_reindex_bulk():
                 yield False, {'index': {'_id': f'id{i}', 'errors': {'type': 'version_conflict'}}}
             else:
                 yield True, {'index': {'_id': f'id{i}'}}
-        raise BulkIndexError([
+        raise search.helpers.BulkIndexError([
             {'index': {'_id': 'id3', 'errors': {'type': 'version_conflict'}}},
             {'index': {'_id': 'id5', 'errors': {'type': 'version_conflict'}}}
         ])
 
     with patch('invenio_indexer.api.streaming_bulk', streaming_bulk_version_conflict):
 
-        with pytest.raises(BulkIndexError) as be:
+        with pytest.raises(search.helpers.BulkIndexError) as be:
             indexer.reindex_bulk(client, actions, stats_only=True, chunk_size=500)
         errors = be.value.args[0]
         assert len(errors) == 2
 
     with patch('invenio_indexer.api.streaming_bulk', streaming_bulk_version_conflict):
-        with pytest.raises(BulkIndexError) as be:
+        with pytest.raises(search.helpers.BulkIndexError) as be:
             indexer.reindex_bulk(client, actions, stats_only=False, chunk_size=500)
         errors = be.value.args[0]
         assert len(errors) == 2
@@ -509,7 +513,7 @@ def test_reindex_bulk():
     def streaming_bulk_cte_error(*args, **kwargs):
         for i in range(10):
             if i == 5:
-                raise ConnectionTimeout("streaming_bulk error", {}, {})
+                raise search.ConnectionTimeout("streaming_bulk error", {}, {})
             yield True, {'index': {'_id': f'id{i}'}}
 
     with patch('invenio_indexer.api.streaming_bulk', streaming_bulk_cte_error):
@@ -527,7 +531,7 @@ def test_reindex_bulk():
     def streaming_bulk_ce_error(*args, **kwargs):
         for i in range(10):
             if i == 2:
-                raise ConnectionError("streaming_bulk error", {}, {})
+                raise search.ConnectionError("streaming_bulk error", {}, {})
             yield True, {'index': {'_id': f'id{i}'}}
 
     with patch('invenio_indexer.api.streaming_bulk', streaming_bulk_ce_error):
@@ -848,7 +852,7 @@ def test__index_action_cases(monkeypatch, body, expected_file, has_content, vers
         monkeypatch.setattr('invenio_indexer.api.Record', types.SimpleNamespace(get_record=lambda rid: dummy_record))
         # Setup dummy WekoIndexer
         class DummyWekoIndexer:
-            def get_es_index(self): return None
+            def get_search_index(self): return None
             def get_metadata_by_item_id(self, rid, is_ignore=True): return {'_version': es_version, 'found': True}
         sys.modules['weko_deposit.api'] = types.SimpleNamespace(WekoIndexer=DummyWekoIndexer)
         # Setup dummy DB session
@@ -875,7 +879,7 @@ def test__index_action_cases(monkeypatch, body, expected_file, has_content, vers
         indexer = RecordIndexer(search_client=None)
         indexer.count = 0
         indexer.record_to_index = lambda record: ('idx', 'doc')
-        indexer._prepare_record = lambda record, index, doc_type, arguments, with_deleted=None: body.copy()
+        indexer._prepare_record = lambda record, index, arguments, with_deleted=None: body.copy()
         return indexer, committed, called
 
     payload = {'id': 'rid'}

@@ -234,10 +234,10 @@ WEKO_DEPOSIT_BIBLIOGRAPHIC_INFO_SYS_KEY = [
 ]
 """Bibliographic information sys key."""
 
-WEKO_DEPOSIT_ES_PARSING_ERROR_PROCESS_ENABLE = True
+WEKO_DEPOSIT_SEARCH_PARSING_ERROR_PROCESS_ENABLE = True
 """Allow reindex data when catching parsing error from search engine."""
 
-WEKO_DEPOSIT_ES_PARSING_ERROR_KEYWORD = 'ElasticsearchParseException'
+WEKO_DEPOSIT_SEARCH_PARSING_ERROR_KEYWORD = 'SearchParseException'
 """Parsing error's Keyword in search engine exception info."""
 
 from invenio_pidrelations.config import RelationType

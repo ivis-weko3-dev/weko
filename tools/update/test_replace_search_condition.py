@@ -1,37 +1,42 @@
-from flask import Flask
-import tempfile
-import shutil
-import pytest
 import os
+import pytest
+import shutil
 import sys
-from flask_babelex import Babel
-from invenio_i18n import InvenioI18N
+import tempfile
+
+from datetime import datetime
+from flask import Flask
+from flask_babel import Babel
 from invenio_access import InvenioAccess
 from invenio_accounts import InvenioAccounts
 from invenio_db import InvenioDB
 from invenio_db import db as db_
-from weko_records.config import WEKO_ITEMTYPE_EXCLUDED_KEYS
-from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER, WEKO_PERMISSION_ROLE_COMMUNITY, EMAIL_DISPLAY_FLG
 from invenio_indexer import InvenioIndexer
+from invenio_i18n import InvenioI18N
 from invenio_jsonschemas import InvenioJSONSchemas
 from invenio_pidrelations import InvenioPIDRelations
 from invenio_pidstore import InvenioPIDStore
 from invenio_records import InvenioRecords, Record
+from invenio_records.models import RecordMetadata
+from invenio_records_rest.errors import PIDResolveRESTError
 from invenio_search import InvenioSearch
+from invenio_search.engine import search
+from mock import patch, MagicMock
+from sqlalchemy_utils.functions import create_database, database_exists
+from sqlalchemy.orm.exc import NoResultFound
+from weko_records.config import WEKO_ITEMTYPE_EXCLUDED_KEYS
+from weko_records_ui.config import (
+    WEKO_PERMISSION_SUPER_ROLE_USER, 
+    WEKO_PERMISSION_ROLE_COMMUNITY,
+    EMAIL_DISPLAY_FLG
+)
 from weko_deposit.api import WekoDeposit
 from weko_search_ui import WekoSearchUI
 from weko_records_ui import WekoRecordsUI
 from weko_records import WekoRecords
 from weko_records.api import ItemTypes, Mapping
 from weko_itemtypes_ui import WekoItemtypesUI
-from invenio_records.models import RecordMetadata
-from sqlalchemy_utils.functions import create_database, database_exists
-from mock import patch, MagicMock
-from elasticsearch.exceptions import TransportError
-from invenio_records_rest.errors import PIDResolveRESTError
 from werkzeug.exceptions import InternalServerError
-from sqlalchemy.orm.exc import NoResultFound
-from datetime import datetime
 
 @pytest.yield_fixture()
 def instance_path():
@@ -56,8 +61,8 @@ def base_app(instance_path):
         #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                            'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', 'elasticsearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         TESTING=True,
         JSONSCHEMAS_HOST='inveniosoftware.org',
@@ -65,7 +70,6 @@ def base_app(instance_path):
         WEKO_ITEMTYPE_EXCLUDED_KEYS=WEKO_ITEMTYPE_EXCLUDED_KEYS,
         INDEX_IMG='indextree/36466818-image.jpg',
         SEARCH_UI_SEARCH_INDEX='tenant1',
-        INDEXER_DEFAULT_DOCTYPE='item-v1.0.0',
         INDEXER_FILE_DOC_TYPE='content',
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English")],
         WEKO_PERMISSION_SUPER_ROLE_USER=WEKO_PERMISSION_SUPER_ROLE_USER,
@@ -336,7 +340,7 @@ def test_update_records_metadata(app,db,metadata_records):
     assert len(metadata_records) == 6
     from replace_search_condition import update_records_metadata
     with patch("replace_search_condition.get_meta_records",return_value=metadata_records):
-        with patch("replace_search_condition.update_record_metadata",side_effect = [MagicMock(), PIDResolveRESTError(), InternalServerError(), NoResultFound(), KeyError(), TransportError('', '')]):
+        with patch("replace_search_condition.update_record_metadata",side_effect = [MagicMock(), PIDResolveRESTError(), InternalServerError(), NoResultFound(), KeyError(), search.TransportError('', '')]):
             update_records_metadata()
 
 

@@ -8,8 +8,6 @@
 
 """Invenio module that adds support for communities."""
 
-from __future__ import absolute_import, print_function
-
 from invenio_indexer.signals import before_record_index
 from sqlalchemy.event import listen
 from werkzeug.utils import cached_property

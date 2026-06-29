@@ -12,22 +12,18 @@
 import uuid
 import os
 import pytest
+
 from mock import patch
 from flask import Flask
-from sqlalchemy_utils.functions import create_database, database_exists
 from invenio_cache import InvenioCache, current_cache
 from invenio_db import db as db_
 from invenio_db import InvenioDB
-from invenio_records.api import Record
-from invenio_records.models import RecordMetadata
-from invenio_search import current_search, current_search_client
 
 
 from invenio_oaiserver import current_oaiserver, InvenioOAIServer
 from invenio_oaiserver.models import OAISet
 from invenio_oaiserver.query import OAINoRecordsMatchError, get_records
 from invenio_oaiserver.receivers import after_update_oai_set
-
 from invenio_oaiserver.percolator import (
     _create_percolator_mapping,
     _percolate_query,
@@ -37,6 +33,10 @@ from invenio_oaiserver.percolator import (
     _build_cache,
     get_record_sets
 )
+from invenio_records.api import Record
+from invenio_records.models import RecordMetadata
+from invenio_search import current_search, current_search_client
+from sqlalchemy_utils.functions import create_database, database_exists
 
 from .helpers import create_record, run_after_insert_oai_set
 
@@ -117,12 +117,12 @@ def test_create_percolator_mapping(es_app):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_percolate_query -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_percolate_query(es_app):
     current_search_client.indices.put_mapping(
-        index="test-weko-item-v1.0.0", doc_type="item-v1.0.0",
+        index="test-weko-item-v1.0.0", 
         body={
             'properties': {'query': {'type': 'percolator'}}
         }, ignore=[400, 404])
     current_search_client.index(
-        index="test-weko-item-v1.0.0", doc_type="item-v1.0.0",
+        index="test-weko-item-v1.0.0",
         id="oaiset-1",body={
             "query":{'query_string': {'query': 'test_pettern'}}
         }
@@ -133,7 +133,7 @@ def test_percolate_query(es_app):
         result = _percolate_query("test-weko-item-v1.0.0","item_v1.0.0","item_v1.0.0",{})
         assert result == None
     
-    def mock_percolate(index=None,doc_type=None,allow_no_indices=True,ignore_unavailable=True,body={}):
+    def mock_percolate(index=None,allow_no_indices=True,ignore_unavailable=True,body={}):
         return {"matches":[]}
     with patch("invenio_oaiserver.percolator.ES_VERSION",[2]):
         setattr(current_search_client,"percolate",mock_percolate)
@@ -171,7 +171,8 @@ def test_new_percolator(es_app,db,without_oaiset_signals,mocker):
         spec='test',
         name='test_name',
         description='some test description',
-        search_pattern="test_pettern")
+        search_pattern="test_pettern",
+        system_created=False)
 
     db.session.add(oai)
     db.session.commit()

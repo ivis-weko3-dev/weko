@@ -11,12 +11,10 @@ See https://pytest-invenio.readthedocs.io/ for documentation on which test
 fixtures are available.
 """
 
-from __future__ import absolute_import, print_function
-
+import pytest
 import shutil
 import tempfile
 
-import pytest
 from flask import Flask
 from flask_babel import Babel
 

@@ -19,31 +19,27 @@
 # MA 02111-1307, USA.
 
 """Weko Authors API."""
-import json
-from copy import deepcopy
-import uuid
-
-from flask import current_app, json
-from flask_security import current_user
-from invenio_db import db
-from invenio_indexer.api import RecordIndexer
-from sqlalchemy.sql.functions import func
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.dialects.postgresql import JSONB
-from time import sleep
-from invenio_communities.models import Community
 import click
-from invenio_search import current_search_client
-from elasticsearch.helpers import bulk
-from elasticsearch.helpers import BulkIndexError
-from elasticsearch.exceptions import ConnectionTimeout, ConnectionError
+import json
+import uuid
 import traceback
 
+from copy import deepcopy
+from flask import current_app, json
+from flask_security import current_user
+from invenio_communities.models import Community
+from invenio_db import db
+from invenio_indexer.api import RecordIndexer
+from invenio_search import current_search_client
+from invenio_search.engine import search
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.functions import func
+from time import sleep
 from .models import (
     Authors, AuthorsPrefixSettings, AuthorsAffiliationSettings,
     AuthorCommunityRelations
 )
-
 
 class WekoAuthors(object):
     """Weko Authors API for import/export."""
@@ -52,7 +48,7 @@ class WekoAuthors(object):
     def create(cls, data):
         """Create new author."""
         session = db.session
-        config_index = current_app.config['WEKO_AUTHORS_ES_INDEX_NAME']
+        config_index = current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME']
 
         new_id = Authors.get_sequence(session)
         data["pk_id"] = str(new_id)
@@ -67,12 +63,12 @@ class WekoAuthors(object):
             }
         )
 
-        es_id = str(uuid.uuid4())
-        es_data = json.loads(json.dumps(data))
-        es_data["communityIds"] = community_ids
+        search_id = str(uuid.uuid4())
+        search_data = json.loads(json.dumps(data))
+        search_data["communityIds"] = community_ids
         try:
             with session.begin_nested():
-                data['id'] = es_id
+                data['id'] = search_id
                 author = Authors(id=new_id, json=data)
                 session.add(author)
                 session.flush()
@@ -84,16 +80,16 @@ class WekoAuthors(object):
         else:
             RecordIndexer().client.index(
                 index=config_index,
-                id=es_id,
-                body=es_data
+                id=search_id,
+                body=search_data
             )
 
     @classmethod
     def update(cls, author_id, data, force_change=False):
         """Update author."""
-        def update_es_data(data, es_id):
-            """Update author data in ES."""
-            es_author = RecordIndexer().client.search(
+        def update_search_data(data, search_id):
+            """Update author data in Search."""
+            search_author = RecordIndexer().client.search(
                 index=config_index,
                 body={
                     "query": {
@@ -106,27 +102,27 @@ class WekoAuthors(object):
                 }
             )
             exist_flg = False
-            if len(es_author['hits']['hits']) > 0:
-                if es_author['hits']['hits'][0].get('_id') == es_id:
+            if len(search_author['hits']['hits']) > 0:
+                if search_author['hits']['hits'][0].get('_id') == search_id:
                     exist_flg = True
 
             if exist_flg:
                 RecordIndexer().client.update(
                     index=config_index,
-                    id=es_id,
+                    id=search_id,
                     body={'doc': data}
                 )
                 return False
             else:
                 RecordIndexer().client.index(
                     index=config_index,
-                    id=es_id,
+                    id=search_id,
                     body=data
                 )
                 return True
 
-        es_id = None
-        config_index = current_app.config['WEKO_AUTHORS_ES_INDEX_NAME']
+        search_id = None
+        config_index = current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME']
 
         from weko_logging.activity_logger import UserActivityLogger
         try:
@@ -138,10 +134,10 @@ class WekoAuthors(object):
                     data['is_deleted'] = author.is_deleted
                 community_ids = data.pop("communityIds", [])
                 author.update_communities(community_ids)
-                es_id = author.json["id"] if author.json.get("id") else str(uuid.uuid4())
-                es_data = json.loads(json.dumps(data))
-                es_data["communityIds"] = community_ids
-                data['id'] = es_id
+                search_id = author.json["id"] if author.json.get("id") else str(uuid.uuid4())
+                search_data = json.loads(json.dumps(data))
+                search_data["communityIds"] = community_ids
+                data['id'] = search_id
                 author.json = data
                 db.session.merge(author)
 
@@ -154,7 +150,7 @@ class WekoAuthors(object):
                 operation="AUTHOR_UPDATE", target_key=author_id)
             raise
         else:
-            update_es_data(es_data, es_id)
+            update_search_data(search_data, search_id)
         from weko_deposit.tasks import update_items_by_authorInfo
         if not current_user:
             user_id = None
@@ -637,9 +633,8 @@ class AuthorIndexer():
         self.client = search_client or current_search_client
 
     def author_to_index(self):
-        index = current_app.config['WEKO_AUTHORS_ES_INDEX_NAME']
-        doc_type = current_app.config['WEKO_AUTHORS_ES_DOC_TYPE']
-        return index, doc_type
+        index = current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME']
+        return index
 
     def bulk_process_authors(self,es_bulk_kwargs, uuids = [],start_date=None,end_date=None,with_deleted=True):
         success = 0
@@ -648,6 +643,7 @@ class AuthorIndexer():
         req_timeout = current_app.config['INDEXER_BULK_REQUEST_TIMEOUT']
         self.count = 0
         try:
+            bulk = search.helpers.bulk
             _success, _fail = bulk(
                 self.client,
                 self.generate_actions(uuids, start_date, end_date, with_deleted),
@@ -667,7 +663,7 @@ class AuthorIndexer():
             current_app.logger.error(e)
             current_app.logger.error(traceback.format_exc())
             db.session.rollback()
-        except BulkIndexError as e:
+        except search.helpers.BulkIndexError as e:
             _fail = len(e.errors)
             _success = self.count - _fail
             _unprocessed = len(uuids) - self.count
@@ -677,12 +673,12 @@ class AuthorIndexer():
             unprocesses += _unprocessed
             for error in e.errors:
                 click.secho("{}, {}".format(error['index']['_id'],error['index']['error']['type']),fg='red')
-        except ConnectionTimeout as ce:
+        except search.ConnectionTimeout as ce:
             click.secho("Error: {}".format(ce),fg="red")
             click.secho("INDEXER_BULK_REQUEST_TIMEOUT: {} sec".format(req_timeout),fg="red")
             click.secho("Please change value of INDEXER_BULK_REQUEST_TIMEOUT and retry it.",fg="red")
             click.secho("processing: {}".format(self.count),fg="red")
-        except ConnectionError as ce:
+        except search.ConnectionError as ce:
             click.secho("Connection error occurred: {}".format(ce),fg='red')
         except Exception as e:
             current_app.logger.error(e)
@@ -694,7 +690,7 @@ class AuthorIndexer():
 
 
     def generate_actions(self,uuids=[],start_date=None, end_date=None,with_deleted=True):
-        index, doc_type = self.author_to_index()
+        index = self.author_to_index()
         filters = []
         if len(uuids) > 0:
             authors = []
@@ -722,7 +718,6 @@ class AuthorIndexer():
             action = {
                 "_op_type": "index",
                 "_index": index,
-                "_type": doc_type,
                 "_id": str(author.json['id']),
                 "_source": body
             }

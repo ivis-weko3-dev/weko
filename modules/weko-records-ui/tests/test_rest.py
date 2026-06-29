@@ -21,26 +21,24 @@
 """Module tests."""
 import copy
 import json
-from unittest.mock import patch
-from flask import Blueprint, Response, json, url_for,current_app
 import pytest
-from pytest import fail
 
-from unittest.mock import MagicMock
-from redis import RedisError
-from sqlalchemy.exc import SQLAlchemyError
-from werkzeug.http import generate_etag
-
+from flask import Blueprint, Response, json, url_for,current_app
 from invenio_deposit.utils import check_oauth2_scope_write, \
-    check_oauth2_scope_write_elasticsearch
+    check_oauth2_scope_write_search
 from invenio_records_rest.utils import check_search
+from pytest import fail
+from redis import RedisError
+from unittest.mock import MagicMock, patch
 from sqlalchemy.exc import SQLAlchemyError
-from weko_records_ui.errors import AvailableFilesNotFoundRESTError, FilesNotFoundRESTError, InvalidRequestError
+from weko_records_ui.errors import (
+    AvailableFilesNotFoundRESTError, FilesNotFoundRESTError, InvalidRequestError)
 from weko_records_ui.rest import (
     create_error_handlers,
     create_blueprint,
     WekoRecordsCitesResource,
 )
+from werkzeug.http import generate_etag
 
 
 blueprint = Blueprint(
@@ -83,9 +81,9 @@ endpoints = {
         'create_permission_factory_imp': check_oauth2_scope_write,
         'read_permission_factory_imp': check_search,
         'update_permission_factory_imp':
-            check_oauth2_scope_write_elasticsearch,
+            check_oauth2_scope_write_search,
         'delete_permission_factory_imp':
-            check_oauth2_scope_write_elasticsearch,
+            check_oauth2_scope_write_search,
         'max_result_window': 10000,
         'cites_route': 1,
         'item_route': '/<string:version>/records/<int:pid_value>/detail',

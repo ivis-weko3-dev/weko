@@ -11,16 +11,13 @@ See https://pytest-invenio.readthedocs.io/ for documentation on which test
 fixtures are available.
 """
 
-from __future__ import absolute_import, print_function
-
 import os
+import pytest
 import shutil
 import tempfile
 
-import pytest
 from flask import Flask
 from flask_babel import Babel
-from sqlalchemy_utils.functions import create_database, database_exists
 
 from invenio_i18n import InvenioI18N
 
@@ -35,19 +32,20 @@ from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_files_rest.models import Location
 from invenio_oauth2server import InvenioOAuth2Server
+from sqlalchemy_utils.functions import create_database, database_exists
+from tests.helpers import json_data, create_record
 
+from weko_admin.models import ApiCertificate
+from weko_index_tree.models import Index
+from weko_items_autofill import WekoItemsAutofill
+from weko_items_ui.config import WEKO_ITEMS_UI_CRIS_LINKAGE_RESEARCHMAP_MAPPINGS,WEKO_ITEMS_UI_CRIS_LINKAGE_RESEARCHMAP_TYPE_MAPPINGS
 from weko_search_ui.config import INDEXER_FILE_DOC_TYPE
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
 from weko_records_ui import WekoRecordsUI
-from weko_index_tree.models import Index
 from weko_workflow.models import ActionStatus, Action
 
-from weko_admin.models import ApiCertificate
 
-from weko_items_autofill import WekoItemsAutofill
-from weko_items_ui.config import WEKO_ITEMS_UI_CRIS_LINKAGE_RESEARCHMAP_MAPPINGS,WEKO_ITEMS_UI_CRIS_LINKAGE_RESEARCHMAP_TYPE_MAPPINGS
 
-from tests.helpers import json_data, create_record
 
 @pytest.fixture()
 def celery_config():
@@ -99,7 +97,6 @@ def base_app(instance_path):
         CACHE_REDIS_DB='0',
         CACHE_REDIS_HOST="redis",
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        # INDEXER_DEFAULT_DOCTYPE=INDEXER_DEFAULT_DOCTYPE,
         INDEXER_FILE_DOC_TYPE=INDEXER_FILE_DOC_TYPE,
         WEKO_PERMISSION_SUPER_ROLE_USER=[
             "System Administrator",

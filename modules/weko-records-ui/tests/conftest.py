@@ -22,23 +22,15 @@
 
 import copy
 import json
-from os.path import join
 import os
+import pytest
 import re
 import shutil
 import tempfile
 import uuid
+
 from datetime import datetime, timezone, timedelta
 from collections import OrderedDict
-from unittest.mock import patch
-from kombu import Exchange, Queue
-from sqlalchemy.sql import func
-from invenio_mail import InvenioMail
-
-import pytest
-# from elasticsearch import Elasticsearch
-from opensearchpy import OpenSearch
-from invenio_search.engine import search,dsl
 from flask import Flask
 from flask_babel import Babel
 from invenio_access import InvenioAccess
@@ -56,15 +48,20 @@ from invenio_deposit import InvenioDeposit
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Bucket, Location, ObjectVersion
 from invenio_files_rest.views import blueprint as invenio_files_rest_blueprint
-from invenio_i18n import InvenioI18N
 from invenio_indexer import InvenioIndexer
+from invenio_i18n import InvenioI18N
 from invenio_jsonschemas import InvenioJSONSchemas
+from invenio_mail import InvenioMail
 from invenio_oaiserver import InvenioOAIServer
-from invenio_oaiserver.views.server import blueprint as invenio_oaiserver_blueprint
+from invenio_oaiserver.views.server import (
+    blueprint as invenio_oaiserver_blueprint
+)
 from invenio_oaiserver.models import Identify
 from invenio_oauth2server import InvenioOAuth2Server, InvenioOAuth2ServerREST
 from invenio_oauth2server.models import Client, Token
-from invenio_oauth2server.views import settings_blueprint as oauth2server_settings_blueprint
+from invenio_oauth2server.views import (
+    settings_blueprint as oauth2server_settings_blueprint
+)
 from invenio_pidrelations import InvenioPIDRelations
 from invenio_pidrelations.models import PIDRelation
 from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
@@ -78,20 +75,28 @@ from invenio_records_rest.utils import PIDConverter
 from invenio_records_ui import InvenioRecordsUI
 from invenio_rest import InvenioREST
 from invenio_search import InvenioSearch, current_search_client
+from invenio_search.engine import search,dsl
 from invenio_search_ui import InvenioSearchUI
 from invenio_theme import InvenioTheme
-from six import BytesIO
+
+from kombu import Exchange, Queue
+from opensearchpy import OpenSearch
+from os.path import join
+from io import BytesIO
+from sqlalchemy.sql import func
 from sqlalchemy_utils.functions import create_database, database_exists
-from weko_admin import WekoAdmin
-from weko_admin.models import SessionLifetime
-from weko_admin.models import AdminSettings
+from tests.helpers import fill_oauth2_headers
+from unittest.mock import patch
+
 from weko_accounts import WekoAccounts
+from weko_admin import WekoAdmin
+from weko_admin.models import SessionLifetime, AdminSettings
 from weko_deposit import WekoDeposit, WekoDepositREST
 from weko_deposit.api import WekoDeposit as aWekoDeposit
 from weko_deposit.api import WekoIndexer, WekoRecord
-from weko_deposit.config import _PID
-from weko_deposit.config import DEPOSIT_REST_ENDPOINTS
-from weko_deposit.config import WEKO_BUCKET_QUOTA_SIZE
+from weko_deposit.config import (
+    _PID, DEPOSIT_REST_ENDPOINTS, WEKO_BUCKET_QUOTA_SIZE
+)
 from weko_groups import WekoGroups
 from weko_index_tree import WekoIndexTree, WekoIndexTreeREST
 from weko_index_tree.api import Indexes
@@ -100,29 +105,23 @@ from weko_index_tree.config import (
 )
 from weko_index_tree.models import Index, IndexStyle
 from weko_items_ui import WekoItemsUI
-from weko_items_ui.config import WEKO_ITEMS_UI_MS_MIME_TYPE,WEKO_ITEMS_UI_FILE_SISE_PREVIEW_LIMIT
+from weko_items_ui.config import (
+    WEKO_ITEMS_UI_MS_MIME_TYPE, WEKO_ITEMS_UI_FILE_SISE_PREVIEW_LIMIT
+)
 from weko_items_ui.scopes import item_read_scope
 from weko_logging.audit import WekoLoggingUserActivity
 from weko_records import WekoRecords
 from weko_records.api import ItemsMetadata, FilesMetadata
-from weko_records_ui.ext import WekoRecordsREST
-from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName, SiteLicenseInfo, SiteLicenseIpAddress, RequestMailList
-from weko_records_ui.config import WEKO_ADMIN_PDFCOVERPAGE_TEMPLATE,RECORDS_UI_ENDPOINTS,WEKO_RECORDS_UI_SECRET_KEY,WEKO_RECORDS_UI_ONETIME_DOWNLOAD_PATTERN
-from weko_records_ui.models import FileSecretDownload, PDFCoverPageSettings,FileOnetimeDownload, FilePermission, RocrateMapping
-from weko_records_ui.utils import create_download_url
-from weko_user_profiles.models import UserProfile
-
-from weko_schema_ui.config import (
-    WEKO_SCHEMA_DDI_SCHEMA_NAME,
-    WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
+from weko_records.models import (
+    ItemType, ItemTypeMapping, ItemTypeName, SiteLicenseInfo, 
+    SiteLicenseIpAddress, RequestMailList
 )
-from weko_schema_ui import WekoSchemaUI
-from weko_schema_ui.models import OAIServerSchema
-from werkzeug.local import LocalProxy
-
 from weko_records_ui import WekoRecordsUI, WekoRecordsCitesREST
-from weko_records_ui.views import blueprint as weko_records_ui_blueprint
 from weko_records_ui.config import (
+    WEKO_ADMIN_PDFCOVERPAGE_TEMPLATE,
+    RECORDS_UI_ENDPOINTS,
+    WEKO_RECORDS_UI_SECRET_KEY,
+    WEKO_RECORDS_UI_ONETIME_DOWNLOAD_PATTERN,
     WEKO_RECORDS_UI_GOOGLE_SCHOLAR_OUTPUT_RESOURCE_TYPE,
     URL_OA_POLICY_HEIGHT,
     FOOTER_HEIGHT,
@@ -142,9 +141,24 @@ from weko_records_ui.config import (
     ITEM_ACTION,
     FILE_OPEN_STATUS
 )
+from weko_records_ui.ext import WekoRecordsREST
+from weko_records_ui.models import (
+    FileSecretDownload, PDFCoverPageSettings,FileOnetimeDownload, 
+    FilePermission, RocrateMapping
+)
+from weko_records_ui.utils import create_download_url
+from weko_records_ui.views import blueprint as weko_records_ui_blueprint
+
+from weko_schema_ui import WekoSchemaUI
+from weko_schema_ui.config import (
+    WEKO_SCHEMA_DDI_SCHEMA_NAME,
+    WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
+)
+from weko_schema_ui.models import OAIServerSchema
 from weko_search_ui import WekoSearchUI
 from weko_search_ui.config import WEKO_SEARCH_MAX_RESULT
 from weko_theme import WekoTheme
+from weko_user_profiles.models import UserProfile
 from weko_workflow.models import (
     Action,
     ActionStatus,
@@ -158,9 +172,7 @@ from weko_workflow.config import WEKO_WORKFLOW_DATE_FORMAT
 from weko_workflow.scopes import activity_scope
 from weko_workflow.views import workflow_blueprint as weko_workflow_blueprint
 from werkzeug.utils import secure_filename
-
-from tests.helpers import fill_oauth2_headers
-
+from werkzeug.local import LocalProxy
 
 
 @pytest.yield_fixture()
@@ -221,8 +233,6 @@ def base_app(instance_path):
         OAUTH2_CACHE_TYPE="simple",
         ACCOUNTS_JWT_ENABLE=False,
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
-        INDEXER_DEFAULT_DOC_TYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         WEKO_BUCKET_QUOTA_SIZE=WEKO_BUCKET_QUOTA_SIZE,
         WEKO_MAX_FILE_SIZE=WEKO_BUCKET_QUOTA_SIZE,
@@ -239,8 +249,8 @@ def base_app(instance_path):
         SERVER_NAME="test_server",
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'),
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-                    'SEARCH_ELASTIC_HOSTS', 'opensearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                    'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         SEARCH_INDEX_PREFIX="test-",
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME=WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
@@ -300,8 +310,8 @@ def base_app(instance_path):
         FILE_OPEN_STATUS = FILE_OPEN_STATUS,
         WEKO_RECORDS_UI_RESTRICTED_API = False
     )
-    #with ESTestServer(timeout=30) as server:
-    client = Elasticsearch(['localhost:9200'])
+    #with SearchTestServer(timeout=30) as server:
+    client = search.OpenSearch(['localhost:9200'])
     InvenioSearch(app_, client=client)
     Babel(app_)
     InvenioAccounts(app_)
@@ -365,7 +375,7 @@ def app(base_app):
         yield base_app
 
 @pytest.fixture()
-def esindex(app):
+def search_index(app):
     current_search_client.indices.delete(index='test-*')
     with open("tests/data/mappings/item-v1.0.0.json","r") as f:
         mapping = json.load(f)
@@ -835,9 +845,9 @@ def db_sessionlifetime(app, db):
 
 
 @pytest.fixture()
-def records(app, db, esindex, indextree, location, itemtypes, oaischema):
+def records(app, db, search_index, indextree, location, itemtypes, oaischema):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     # with app.test_request_context():
     i = 1
@@ -1915,8 +1925,6 @@ def make_record(db, indexer, i, filepath, filename, mimetype, shared_ids, file_h
     h1.insert_child(child_pid=recid_v1)
     PIDNodeDraft(pid=recid).insert_child(depid)
     PIDNodeDraft(pid=recid_v1).insert_child(depid_v1)
-    # RecordDraft.link(recid, depid)
-    # RecordDraft.link(recid_v1, depid_v1)
 
     if i % 2 == 1:
         doi = PersistentIdentifier.create(
@@ -1935,7 +1943,7 @@ def make_record(db, indexer, i, filepath, filename, mimetype, shared_ids, file_h
         )
 
     record = WekoRecord.create(record_data, id_=rec_uuid)
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket = Bucket.create()
@@ -1977,7 +1985,7 @@ def make_record(db, indexer, i, filepath, filename, mimetype, shared_ids, file_h
     item = ItemsMetadata.create(item_data, id_=rec_uuid, item_type_id=1)
 
     record_v1 = WekoRecord.create(record_data, id_=rec_uuid2)
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket_v1 = Bucket.create()
@@ -2720,8 +2728,6 @@ def make_record_v2(db, indexer, i, files, thumbnail=None):
     h1.insert_child(child_pid=recid_v1)
     PIDNodeDraft(pid=recid).insert_child(depid)
     PIDNodeDraft(pid=recid_v1).insert_child(depid_v1)
-    # RecordDraft.link(recid, depid)
-    # RecordDraft.link(recid_v1, depid_v1)
 
     if i % 2 == 1:
         doi = PersistentIdentifier.create(
@@ -3834,8 +3840,6 @@ def make_record_restricted(db, indexer, i, filepath, filename, mimetype ,userId 
     h1.insert_child(child_pid=recid_v1)
     PIDNodeDraft(pid=recid).insert_child(depid)
     PIDNodeDraft(pid=recid_v1).insert_child(depid_v1)
-    # RecordDraft.link(recid, depid)
-    # RecordDraft.link(recid_v1, depid_v1)
 
     if i % 2 == 1:
         doi = PersistentIdentifier.create(
@@ -3854,7 +3858,7 @@ def make_record_restricted(db, indexer, i, filepath, filename, mimetype ,userId 
         )
 
     record = WekoRecord.create(record_data, id_=rec_uuid)
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket = Bucket.create()
@@ -3898,7 +3902,7 @@ def make_record_restricted(db, indexer, i, filepath, filename, mimetype ,userId 
     item = ItemsMetadata.create(item_data, id_=rec_uuid, item_type_id=1)
 
     record_v1 = WekoRecord.create(record_data, id_=rec_uuid2)
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket_v1 = Bucket.create()
@@ -4959,11 +4963,12 @@ def make_record_restricted_open_login(db, indexer, i, filepath, filename, mimety
         status=PIDStatus.REGISTERED,
     )
 
-    h1 = PIDVersioning(parent=parent)
+    parent_pid = PIDNodeVersioning(pid=parent).parents.one_or_none()
+    h1 = PIDNodeVersioning(pid=parent_pid)
     h1.insert_child(child=recid)
     h1.insert_child(child=recid_v1)
-    RecordDraft.link(recid, depid)
-    RecordDraft.link(recid_v1, depid_v1)
+    PIDNodeDraft(pid=recid).insert_child(depid)
+    PIDNodeDraft(pid=recid_v1).insert_child(depid_v1)
 
     if i % 2 == 1:
         doi = PersistentIdentifier.create(
@@ -4982,7 +4987,7 @@ def make_record_restricted_open_login(db, indexer, i, filepath, filename, mimety
         )
 
     record = WekoRecord.create(record_data, id_=rec_uuid)
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket = Bucket.create()
@@ -5025,7 +5030,7 @@ def make_record_restricted_open_login(db, indexer, i, filepath, filename, mimety
     item = ItemsMetadata.create(item_data, id_=rec_uuid, item_type_id=1)
 
     record_v1 = WekoRecord.create(record_data, id_=rec_uuid2)
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket_v1 = Bucket.create()

@@ -1,30 +1,22 @@
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 
+import bagit
 import copy
 import json
 import os
+import pytest
 import re
+import redis
 import tempfile
 import time
 import unittest
 import uuid
 import zipfile
+
 from datetime import datetime, timedelta
-import redis
-import bagit
-from io import StringIO
-
-import pytest
-from unittest.mock import MagicMock, patch, mock_open
-
 from flask import current_app, make_response, request
 from flask_login import current_user
-from werkzeug.exceptions import BadRequest, Forbidden, NotFound
-from opensearchpy import helpers, OpenSearchException, NotFoundError
-from opensearch_dsl import Search
-from sqlalchemy.exc import SQLAlchemyError
 from mock import MagicMock, patch
-
 from invenio_accounts.testutils import login_user_via_session
 from invenio_db import db as iv_db
 from invenio_files_rest.models import FileInstance,Location
@@ -33,6 +25,11 @@ from invenio_i18n.babel import set_locale
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus, Redirect
 from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore.errors import PIDDoesNotExistError
+from io import StringIO
+from opensearchpy import helpers, OpenSearchException, NotFoundError
+from opensearch_dsl import Search
+from sqlalchemy.exc import SQLAlchemyError
+from unittest.mock import MagicMock, patch, mock_open
 
 from weko_admin.config import WEKO_ADMIN_MANAGEMENT_OPTIONS
 from weko_admin.api import TempDirInfo
@@ -41,12 +38,6 @@ from weko_authors.models import AuthorsPrefixSettings, AuthorsAffiliationSetting
 from weko_records.api import ItemsMetadata, JsonldMapping, WekoRecord
 from weko_records.models import ItemType
 from weko_redis.redis import RedisConnection
-from weko_schema_ui.config import WEKO_SCHEMA_RELATION_TYPE
-from weko_workflow.errors import WekoWorkflowException
-from weko_workflow.headless.activity import HeadlessActivity
-from weko_workflow.models import Activity, WorkFlow
-
-
 from weko_search_ui.config import (
     ACCESS_RIGHT_TYPE_URI,
     RESOURCE_TYPE_URI,
@@ -140,7 +131,7 @@ from weko_search_ui.utils import (
     handle_get_all_id_in_item_type,
     handle_get_all_sub_id_and_name,
     handle_item_title,
-    handle_remove_es_metadata,
+    handle_remove_search_metadata,
     handle_save_bagit,
     handle_set_change_identifier_flag,
     handle_shared_ids,
@@ -163,7 +154,7 @@ from weko_search_ui.utils import (
     register_item_metadata,
     register_item_update_publish_status,
     represents_int,
-    send_item_created_event_to_es,
+    send_item_created_event_to_search,
     set_nested_item,
     unpackage_import_file,
     up_load_file,
@@ -178,7 +169,11 @@ from weko_search_ui.utils import (
     get_priority,
     get_record_ids
 )
-
+from weko_schema_ui.config import WEKO_SCHEMA_RELATION_TYPE
+from weko_workflow.errors import WekoWorkflowException
+from weko_workflow.headless.activity import HeadlessActivity
+from weko_workflow.models import Activity, WorkFlow
+from werkzeug.exceptions import BadRequest, Forbidden, NotFound
 
 from .helpers import json_data
 
@@ -248,14 +243,14 @@ def clear_test_data():
 
 # def execute_search_with_pagination(search_instance, get_all=False, size=None):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_execute_search_with_pagination -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_execute_search_with_pagination(i18n_app, indices, users, db_records, mocker, esindex):
+def test_execute_search_with_pagination(i18n_app, indices, users, db_records, mocker, search_index):
     i18n_app.config['WEKO_SEARCH_TYPE_INDEX'] = 'index'
     i18n_app.config['OAISERVER_ES_MAX_CLAUSE_COUNT'] = 1
     i18n_app.config['WEKO_ADMIN_MANAGEMENT_OPTIONS'] = WEKO_ADMIN_MANAGEMENT_OPTIONS
 
     mocker.patch("weko_search_ui.query.search_permission",side_effect=MockSearchPerm)
 
-    def _generate_es_data(num, start_datetime=datetime.now()):
+    def _generate_search_data(num, start_datetime=datetime.now()):
         for i in range(num):
             doc = {
                 "_index": i18n_app.config.get("INDEXER_DEFAULT_INDEX", "test-weko-item-v1.0.0"),
@@ -278,9 +273,9 @@ def test_execute_search_with_pagination(i18n_app, indices, users, db_records, mo
     generate_data_num = 20005
     preset_records_num = len(db_records)
     expected_data_num = generate_data_num + preset_records_num
-    helpers.bulk(esindex, _generate_es_data(generate_data_num), refresh='true')
+    helpers.bulk(search_index, _generate_search_data(generate_data_num), refresh='true')
     i18n_app.config['RECORDS_REST_SORT_OPTIONS'] = {"test-weko":{"controlnumber":{"title":"ID","fields": ["control_number"],"default_order": "asc","order": 2}}}
-    search = Search(using=esindex, index=i18n_app.config.get("INDEXER_DEFAULT_INDEX", "test-weko-item-v1.0.0"))
+    search = Search(using=search_index, index=i18n_app.config.get("INDEXER_DEFAULT_INDEX", "test-weko-item-v1.0.0"))
     search._sort.append( {"_created": {"order": "asc", "unmapped_type": "long"}})
 
     with i18n_app.test_request_context(query_string={"sort": "control_number", "q": "66"}):
@@ -300,7 +295,7 @@ def test_execute_search_with_pagination(i18n_app, indices, users, db_records, mo
 # def execute_search_with_pagination(search_instance, get_all=False, size=None):
 # def get_tree_items(index_tree_id): ERROR ~ AttributeError: '_AppCtxGlobals' object has no attribute 'identity'
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_get_tree_items -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_get_tree_items(i18n_app, indices, users, mocker, esindex):
+def test_get_tree_items(i18n_app, indices, users, mocker, search_index):
     i18n_app.config['WEKO_SEARCH_TYPE_INDEX'] = 'index'
     i18n_app.config['OAISERVER_ES_MAX_CLAUSE_COUNT'] = 1
     i18n_app.config['WEKO_ADMIN_MANAGEMENT_OPTIONS'] = WEKO_ADMIN_MANAGEMENT_OPTIONS
@@ -349,7 +344,7 @@ def test_delete_records(i18n_app, db_activity):
                 return_value=db_activity["record"],
             ):
                 with patch(
-                    "weko_deposit.api.WekoIndexer.update_es_data",
+                    "weko_deposit.api.WekoIndexer.update_search_data",
                     return_value=db_activity["record"],
                 ):
                     with patch(
@@ -1275,8 +1270,8 @@ def find_and_update_location_size():
                 loc.size = row[1]
 """
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_register_item_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_register_item_metadata(i18n_app, es_item_file_pipeline, deposit, es_records, mocker):
-    item = es_records["results"][0]["item"]
+def test_register_item_metadata(i18n_app, es_item_file_pipeline, deposit, search_records, mocker):
+    item = search_records["results"][0]["item"]
     root_path = os.path.dirname(os.path.abspath(__file__))
     item["$schema"] = "/items/jsonschema/1000"
     item["item_type_id"] = 1000
@@ -1286,8 +1281,8 @@ def test_register_item_metadata(i18n_app, es_item_file_pipeline, deposit, es_rec
 
 
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_register_item_metadata2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_register_item_metadata2(i18n_app, es_item_file_pipeline, deposit, es_records, db_index, es, db, mocker):
-    item = es_records["results"][0]["item"]
+def test_register_item_metadata2(i18n_app, es_item_file_pipeline, deposit, search_records, db_index, open_search, db, mocker):
+    item = search_records["results"][0]["item"]
     item["item_type_id"] = 1000
     item["$schema"] = "/items/jsonschema/1000"
     item["metadata"]["item_1617605131499"] = item["metadata"]["item_1617605131499"][0]["attribute_value_mlt"]
@@ -1311,8 +1306,8 @@ def test_register_item_metadata2(i18n_app, es_item_file_pipeline, deposit, es_re
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_register_item_metadata3 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 # @pytest.mark.parametrize('order_if', [1,2])
 @pytest.mark.parametrize('order_if', [1,2,3,4])
-def test_register_item_metadata3(i18n_app, es_item_file_pipeline, deposit, es_records2, db_index, es, db, mocker, order_if):
-    item = es_records2["results"][0]["item"]
+def test_register_item_metadata3(i18n_app, es_item_file_pipeline, deposit, search_records2, db_index, open_search, db, mocker, order_if):
+    item = search_records2["results"][0]["item"]
     item["item_type_id"] = 1000
     item["$schema"] = "/items/jsonschema/1000"
     root_path = os.path.dirname(os.path.abspath(__file__))
@@ -1369,7 +1364,7 @@ def test_register_item_metadata3(i18n_app, es_item_file_pipeline, deposit, es_re
 
 # def update_publish_status(item_id, status):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_update_publish_status -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_update_publish_status(i18n_app, es_item_file_pipeline, es_records):
+def test_update_publish_status(i18n_app, es_item_file_pipeline, search_records):
     item_id = 1
     status = None
 
@@ -1379,8 +1374,8 @@ def test_update_publish_status(i18n_app, es_item_file_pipeline, es_records):
 
 # def handle_workflow(item: dict):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_handle_workflow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_handle_workflow(i18n_app, es_item_file_pipeline, es_records, db):
-    item = es_records["results"][0]["item"]
+def test_handle_workflow(i18n_app, es_item_file_pipeline, search_records, db):
+    item = search_records["results"][0]["item"]
 
     with patch(
         "weko_workflow.api.WorkActivity.get_workflow_activity_by_item_id",
@@ -1439,14 +1434,14 @@ def test_create_flow_define(i18n_app, db_workflow):
     assert not create_flow_define()
 
 
-# def send_item_created_event_to_es(item, request_info): *** ERR
-# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_send_item_created_event_to_es -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_send_item_created_event_to_es(
-    i18n_app, es_item_file_pipeline, es_records, client_request_args, users, es
+# def send_item_created_event_to_search(item, request_info): *** ERR
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_send_item_created_event_to_search -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_send_item_created_event_to_search(
+    i18n_app, es_item_file_pipeline, search_records, client_request_args, users, open_search
 ):
-    # with patch("weko_search_ui.utils.send_item_created_event_to_es._push_item_to_elasticsearch", return_value=""):
-    # with patch("weko_search_ui.utils._push_item_to_elasticsearch", return_value=""):
-    item = es_records["results"][0]["item"]
+    # with patch("weko_search_ui.utils.send_item_created_event_to_search._push_item_to_search", return_value=""):
+    # with patch("weko_search_ui.utils._push_item_to_search", return_value=""):
+    item = search_records["results"][0]["item"]
     request_info = {
         "remote_addr": request.remote_addr,
         "referrer": request.referrer,
@@ -1454,19 +1449,19 @@ def test_send_item_created_event_to_es(
         "user_id": 1,
     }
 
-    send_item_created_event_to_es(item, request_info)
+    send_item_created_event_to_search(item, request_info)
 
 
-# def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False): ERROR = TypeError: handle_remove_es_metadata() missing 2 required positional arguments: 'bef_metadata' and 'bef_las...
+# def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False): ERROR = TypeError: handle_remove_search_metadata() missing 2 required positional arguments: 'bef_metadata' and 'bef_las...
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_import_items_to_system -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_import_items_to_system(i18n_app, db, es_item_file_pipeline, es_records, app, mocker):
-    item = es_records["results"][0]["item"]
+def test_import_items_to_system(i18n_app, db, es_item_file_pipeline, search_records, app, mocker):
+    item = search_records["results"][0]["item"]
     db.session.commit()
     with patch("weko_search_ui.utils.register_item_metadata", return_value={}), \
             patch("weko_search_ui.utils.register_item_doi", return_value={}), \
             patch("weko_search_ui.utils.register_item_update_publish_status", return_value={}), \
             patch("weko_search_ui.utils.create_deposit", return_value=item["id"]), \
-            patch("weko_search_ui.utils.send_item_created_event_to_es", return_value=item["id"]), \
+            patch("weko_search_ui.utils.send_item_created_event_to_search", return_value=item["id"]), \
             patch("weko_workflow.utils.get_cache_data", return_value=["sample"]):
 
 
@@ -1480,12 +1475,12 @@ def test_import_items_to_system(i18n_app, db, es_item_file_pipeline, es_records,
             assert import_items_to_system(item).get("success") == False
             mock_error_logger.assert_called()
 
-        # ElasticsearchException
-        with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = ElasticsearchException({"error_id": "sample"})), \
+        # OpenSearchException
+        with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = search.OpenSearchException({"error_id": "sample"})), \
                 patch("weko_workflow.utils.UserActivityLogger.error") as mock_error_logger:
             assert import_items_to_system(item).get("success") == False
             mock_error_logger.assert_called()
-        with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = ElasticsearchException()), \
+        with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = search.OpenSearchException()), \
                 patch("weko_workflow.utils.UserActivityLogger.error") as mock_error_logger:
             assert import_items_to_system(item).get("success") == False
             mock_error_logger.assert_called()
@@ -1512,7 +1507,7 @@ def test_import_items_to_system(i18n_app, db, es_item_file_pipeline, es_records,
             patch("weko_search_ui.utils.register_item_doi", return_value={}), \
             patch("weko_search_ui.utils.register_item_update_publish_status", return_value={}), \
             patch("weko_search_ui.utils.create_deposit", return_value=item["id"]), \
-            patch("weko_search_ui.utils.send_item_created_event_to_es", return_value=item["id"]):
+            patch("weko_search_ui.utils.send_item_created_event_to_search", return_value=item["id"]):
         with patch("weko_search_ui.utils.get_cache_data", return_value=["sample"]):
             request_info = {
                 "remote_addr": None,
@@ -1533,14 +1528,14 @@ def test_import_items_to_system(i18n_app, db, es_item_file_pipeline, es_records,
         assert import_items_to_system(item).get("success") == False
 
 
-    item = es_records["results"][0]
+    item = search_records["results"][0]
     item['item']['researchmap_linkage'] = "researchmap"
 
     with patch("weko_search_ui.utils.register_item_metadata", return_value={}), \
             patch("weko_search_ui.utils.register_item_doi", return_value={}), \
             patch("weko_search_ui.utils.register_item_update_publish_status", return_value={}), \
             patch("weko_search_ui.utils.create_deposit", return_value=item["deposit"]):
-        with patch("weko_search_ui.utils.send_item_created_event_to_es", return_value=item["item"]["id"]):
+        with patch("weko_search_ui.utils.send_item_created_event_to_search", return_value=item["item"]["id"]):
             with patch("weko_workflow.utils.get_cache_data", return_value=True):
                 with patch("weko_search_ui.utils.call_external_system") as mock_external:
                     item["item"]["status"] = "edited"
@@ -1566,10 +1561,10 @@ def test_import_items_to_system(i18n_app, db, es_item_file_pipeline, es_records,
 
 # def import_items_to_activity(item, request_info):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_import_items_to_activity -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_import_items_to_activity(i18n_app, es_item_file_pipeline, es_records, db_workflow, mocker):
+def test_import_items_to_activity(i18n_app, es_item_file_pipeline, search_records, db_workflow, mocker):
     mock_auto = mocker.patch("weko_workflow.headless.HeadlessActivity.auto", return_value=("test/A-TEST-1", "end_action", "2000001"))
 
-    item = es_records["results"][0]["item"]
+    item = search_records["results"][0]["item"]
     item["id"] = "2000001"
     item["root_path"] = tempfile.gettempdir()
     item["file_path"] = ["hello.txt"]
@@ -1621,7 +1616,7 @@ def test_import_items_to_activity(i18n_app, es_item_file_pipeline, es_records, d
 
 # def delete_items_with_activity(item_id, request_info):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_delete_items_with_activity -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_delete_items_with_activity(i18n_app, es_item_file_pipeline, es_records, db_workflow, mocker):
+def test_delete_items_with_activity(i18n_app, es_item_file_pipeline, search_records, db_workflow, mocker):
     request_info = {
         "user_id": 1,
         "shared_ids": None,
@@ -1659,8 +1654,8 @@ def test_delete_items_with_activity(i18n_app, es_item_file_pipeline, es_records,
 
 
 # def handle_item_title(list_record):
-def test_handle_item_title(i18n_app, db_itemtype, es_item_file_pipeline, es_records):
-    list_record = [es_records["results"][0]["item"]]
+def test_handle_item_title(i18n_app, db_itemtype, es_item_file_pipeline, search_records):
+    list_record = [search_records["results"][0]["item"]]
     list_record[0]["item_type_id"] = db_itemtype["item_type"].id
 
     # Doesn't return any value
@@ -1741,7 +1736,7 @@ def test_handle_check_and_prepare_index_tree2(i18n_app, record_with_metadata, in
 # def handle_check_and_prepare_feedback_mail(list_record):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_handle_check_and_prepare_feedback_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_handle_check_and_prepare_feedback_mail(i18n_app, record_with_metadata, es_authors_index):
-    i18n_app.config["WEKO_AUTHORS_ES_INDEX_NAME"] = "test-authors"
+    i18n_app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"] = "test-authors"
     list_record = [record_with_metadata[0]]
 
     # Doesn't return any value
@@ -1763,7 +1758,7 @@ def test_handle_check_and_prepare_feedback_mail(i18n_app, record_with_metadata, 
 # def handle_check_and_prepare_request_mail(list_record):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_handle_check_and_prepare_request_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_handle_check_and_prepare_request_mail(i18n_app, record_with_metadata, es_authors_index):
-    i18n_app.config["WEKO_AUTHORS_ES_INDEX_NAME"] = "test-authors"
+    i18n_app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"] = "test-authors"
     list_record = [record_with_metadata[0]]
 
     # Doesn't return any value
@@ -1901,8 +1896,8 @@ def test_handle_check_cnri_2(i18n_app):
 
 
 # def handle_check_doi_indexes(list_record):
-def test_handle_check_doi_indexes(i18n_app, es_item_file_pipeline, es_records):
-    list_record = [es_records["results"][0]["item"]]
+def test_handle_check_doi_indexes(i18n_app, es_item_file_pipeline, search_records):
+    list_record = [search_records["results"][0]["item"]]
 
     # Doesn't return any value
     assert not handle_check_doi_indexes(list_record)
@@ -1910,8 +1905,8 @@ def test_handle_check_doi_indexes(i18n_app, es_item_file_pipeline, es_records):
 
 # def handle_check_doi_ra(list_record):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_handle_check_doi_ra -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_handle_check_doi_ra(app, db, es_item_file_pipeline, es_records,identifier, mocker):
-    # list_record = [es_records['results'][0]['item']]
+def test_handle_check_doi_ra(app, db, es_item_file_pipeline, search_records,identifier, mocker):
+    # list_record = [search_records['results'][0]['item']]
     item = MagicMock()
 
     # Doesn't return any value
@@ -2618,8 +2613,8 @@ def test_handle_check_operation_flags(tmpdir):
     assert len(os.listdir(tmp_dir)) == 6
 
 # def register_item_handle(item):
-def test_register_item_handle(i18n_app, es_item_file_pipeline, es_records):
-    item = es_records["results"][0]["item"]
+def test_register_item_handle(i18n_app, es_item_file_pipeline, search_records):
+    item = search_records["results"][0]["item"]
 
     assert not register_item_handle(item)
 
@@ -2890,9 +2885,9 @@ def test_register_item_doi(i18n_app, db_activity, identifier, mocker):
 
 # def register_item_update_publish_status(item, status):
 def test_register_item_update_publish_status(
-    i18n_app, es_item_file_pipeline, es_records
+    i18n_app, es_item_file_pipeline, search_records
 ):
-    item = es_records["results"][0]["item"]
+    item = search_records["results"][0]["item"]
     # item = db_activity['item']
     status = 0
 
@@ -2905,7 +2900,7 @@ def test_register_item_update_publish_status(
 def test_handle_doi_required_check(
     i18n_app,
     es_item_file_pipeline,
-    es_records,
+    search_records,
     record_with_metadata,
     db_itemtype,
     item_type,
@@ -4520,9 +4515,9 @@ def test_handle_check_item_is_locked(i18n_app, db_activity):
             pass
 
 
-# def handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata):
-def test_handle_remove_es_metadata(i18n_app, es_item_file_pipeline, es_records):
-    item = es_records["results"][0]["item"]
+# def handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata):
+def test_handle_remove_search_metadata(i18n_app, es_item_file_pipeline, search_records):
+    item = search_records["results"][0]["item"]
     bef_metadata = {}
     bef_metadata["_id"] = 9
     bef_metadata["_version"] = -1
@@ -4534,15 +4529,15 @@ def test_handle_remove_es_metadata(i18n_app, es_item_file_pipeline, es_records):
     bef_last_ver_metadata["_source"] = {"control_number": 8888}
 
     # Doesn't return any value
-    assert not handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+    assert not handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
 
     # Doesn't return any value
     item["status"] = "new"
-    assert not handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+    assert not handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
 
     # Doesn't return any value
     item["status"] = "upgrade"
-    assert not handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+    assert not handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
 
 
 # def check_index_access_permissions(func):
@@ -5008,7 +5003,7 @@ def test_function_issue34535(db,db_index,db_itemtype,location,db_oaischema,mocke
     mocker.patch("invenio_records.api.before_record_update.send")
     # register item
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     record_data = {"_oai":{"id":"oai:weko3.example.org:00000004","sets":[]},"path":["1"],"owner":1,"recid":"4","title":["test item in br"],"pubdate":{"attribute_name":"PubDate","attribute_value":"2022-11-21"},"_buckets":{"deposit":"0796e490-6dcf-4e7d-b241-d7201c3de83a"},"_deposit":{"id":"4","pid":{"type":"depid","value":"4","revision_id":0},"owner":1,"owners":[1],"status":"published","created_by":1},"item_title":"test item in br","author_link":[],"item_type_id":"1000","publish_date":"2022-11-21","publish_status":"0","weko_shared_ids":[],"item_1617186331708":{"attribute_name":"Title","attribute_value_mlt":[{"subitem_1551255647225":"test item in br","subitem_1551255648112":"ja"}]},"item_1617186626617":{"attribute_name":"Description","attribute_value_mlt":[{"subitem_description":"this is line1.\nthis is line2.","subitem_description_type":"Abstract","subitem_description_language":"en"}]},"item_1617258105262":{"attribute_name":"Resource Type","attribute_value_mlt":[{"resourceuri":"http://purl.org/coar/resource_type/c_5794","resourcetype":"conference paper"}]},"relation_version_is_last":True}
     item_data = {"id":"4","pid":{"type":"depid","value":"4","revision_id":0},"lang":"ja","path":[1],"owner":1,"title":"test item in br","owners":[1],"status":"published","$schema":"https://192.168.56.103/items/jsonschema/1000","pubdate":"2022-11-21","edit_mode":"keep","created_by":1,"owners_ext":{"email":"wekosoftware@nii.ac.jp","username":"","displayname":""},"deleted_items":["item_1617605131499"],"shared_user_ids":[],"weko_shared_ids":[],"item_1617186331708":[{"subitem_1551255647225":"test item in br","subitem_1551255648112":"ja"}],"item_1617186626617":[{"subitem_description":"this is line1.\nthis is line2.","subitem_description_type":"Abstract","subitem_description_language":"en"}],"item_1617258105262":{"resourceuri":"http://purl.org/coar/resource_type/c_5794","resourcetype":"conference paper"}}
     rec_uuid = uuid.uuid4()

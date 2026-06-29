@@ -8,8 +8,6 @@
 
 """Errors."""
 
-from __future__ import absolute_import, print_function
-
 from invenio_rest.errors import RESTException
 
 

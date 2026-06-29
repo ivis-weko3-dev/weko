@@ -24,8 +24,8 @@ import logging
 import os
 from datetime import datetime
 
-from elasticsearch.exceptions import TransportError
 from flask import current_app
+from invenio_search.engine import search
 from sqlalchemy import create_engine
 from weko_deposit.api import WekoDeposit
 
@@ -64,10 +64,10 @@ def get_deleted_meta_records():
 
     return records
 
-def update_elasticsearch_index():
-    """Update elasticsearch index: _source.path to empty ."""
+def update_search_index():
+    """Update search index: _source.path to empty ."""
     current_app.logger.info('-' * 60)
-    current_app.logger.info(' STARTED update elasticsearch index: _source.path.')
+    current_app.logger.info(' STARTED update search index: _source.path.')
     current_app.logger.info('-' * 60)
 
     deleted_records = get_deleted_meta_records()
@@ -86,14 +86,14 @@ def update_elasticsearch_index():
         deposit = WekoDeposit(rec.json, rec)
         deposit['path'] = []
         try:
-            deposit.indexer.update_es_data(deposit, update_revision=False)
+            deposit.indexer.update_search_data(deposit, update_revision=False)
             ok_count += 1
-        except TransportError as ex:
+        except search.TransportError as ex:
             current_app.logger.info(' ERROR-TransportError: {}.'.format(ex))
             transport_error += 1
             continue
 
-    current_app.logger.info(' FINISHED update elasticsearch index: _source.path')
+    current_app.logger.info(' FINISHED update search index: _source.path')
     current_app.logger.info(' total:{} / ok:{} / error:{}'.format(rec_totals, ok_count, transport_error))
 
 

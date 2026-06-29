@@ -23,27 +23,27 @@
 import codecs
 import json
 import os
-import tempfile
-from datetime import datetime, timedelta, timezone
-import traceback
-from urllib.parse import urlencode
 import pickle
 import sys
+import tempfile
+import traceback
 
-from flask import Response, abort, current_app, jsonify, make_response, request
 from blinker import Namespace
 from celery import chord
+from datetime import datetime, timedelta, timezone
+from flask import Response, abort, current_app, jsonify, make_response, request
 from flask_admin import BaseView, expose
 from flask_babel import gettext as _
 from flask_login import current_user
 from flask_wtf import FlaskForm
-from weko_admin.api import validate_csrf_header
 from invenio_db import db
 from invenio_files_rest.models import FileInstance
 from invenio_i18n.ext import current_i18n
-from weko_admin.api import TempDirInfo
+from urllib.parse import urlencode
+from weko_admin.api import TempDirInfo, validate_csrf_header
 from weko_admin.models import AdminSettings
 from weko_admin.utils import get_redis_cache, reset_redis_cache
+from weko_deposit.api import WekoRecord
 from weko_index_tree.api import Indexes
 from weko_index_tree.models import IndexStyle
 from weko_index_tree.utils import (
@@ -55,7 +55,6 @@ from weko_logging.activity_logger import UserActivityLogger
 from weko_records.api import ItemTypes, JsonldMapping
 from weko_workflow.api import WorkFlow
 from weko_records_ui.external import call_external_system
-from weko_deposit.api import WekoRecord
 
 from weko_search_ui.api import get_search_detail_keyword
 from weko_search_ui.tasks import import_item
@@ -251,9 +250,9 @@ class ItemManagementCustomSort(BaseView):
 
                 result = Indexes.set_item_sort_custom(index_id, item_sort)
 
-            # update es
+            # update search
             # fp = Indexes.get_self_path(index_id)
-            # Indexes.update_item_sort_custom_es(fp.path, sort_data)
+            # Indexes.update_item_sort_custom_search(fp.path, sort_data)
 
             if result:
                 jfy = {"status": 200, "message": "Data is successfully updated."}

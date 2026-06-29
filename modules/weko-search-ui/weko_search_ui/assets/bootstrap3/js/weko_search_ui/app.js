@@ -294,7 +294,7 @@ function searchResCtrl($scope, $rootScope, $http, $location) {
             sub.custom_sort = data[x].metadata.custom_sort;
             custom_sort_list.push(sub);
         }
-        var post_data = { "q_id": $rootScope.index_id_q, "sort": custom_sort_list, "es_data": data }
+        var post_data = { "q_id": $rootScope.index_id_q, "sort": custom_sort_list, "search_data": data }
 
         // request api
         $http({

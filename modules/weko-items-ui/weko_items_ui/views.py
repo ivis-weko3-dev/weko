@@ -24,6 +24,7 @@ import json
 import requests
 import sys
 import traceback
+
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 
@@ -35,8 +36,7 @@ from flask_babel import gettext as _
 from flask_login import login_required
 from flask_security import current_user
 from flask_wtf import FlaskForm
-from sqlalchemy.exc import SQLAlchemyError, StatementError
-from werkzeug.utils import import_string
+
 from webassets.exceptions import BuildError
 from werkzeug.exceptions import BadRequest
 
@@ -48,7 +48,9 @@ from invenio_pidstore.resolver import Resolver
 from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_records_ui.signals import record_viewed
 from requests.adapters import HTTPAdapter
+from sqlalchemy.exc import SQLAlchemyError, StatementError
 from urllib3 import Retry
+
 from weko_accounts.utils import login_required_customize
 from weko_admin.models import AdminSettings, RankingSettings
 from weko_deposit.api import WekoRecord
@@ -63,11 +65,13 @@ from weko_records_ui.ipaddr import check_site_license_permission
 from weko_records_ui.permissions import check_file_download_permission
 from weko_redis.redis import RedisConnection
 from weko_schema_ui.models import PublishStatus
+from weko_theme.config import WEKO_THEME_DEFAULT_COMMUNITY
 from weko_workflow.api import GetCommunity, WorkActivity, WorkFlow as WorkFlows
 from weko_workflow.utils import (
     check_an_item_is_locked, get_record_by_root_ver, get_thumbnails,
     prepare_edit_workflow, set_files_display_type, prepare_delete_workflow
 )
+from werkzeug.utils import import_string
 
 from .permissions import item_permission
 from .utils import (
@@ -85,7 +89,6 @@ from .utils import (
     set_scheme_by_author_table
 )
 from .config import WEKO_ITEMS_UI_FORM_TEMPLATE,WEKO_ITEMS_UI_ERROR_TEMPLATE
-from weko_theme.config import WEKO_THEME_DEFAULT_COMMUNITY
 
 
 blueprint = Blueprint(
@@ -1292,7 +1295,8 @@ def prepare_delete_item(id=None, community=None, shared_user_ids=[]):
                          [str(uid) for uid in deposit.get('weko_shared_ids', [])]
         user_id = str(current_user.get_id())
         work_activity = WorkActivity()
-        latest_pid = PIDVersioning(child=recid).last_child
+        parent_pid = PIDNodeVersioning(pid=recid).parents.one_or_none()
+        latest_pid = PIDNodeVersioning(pid=parent_pid).last_child
 
         # ! Check User's Permissions
         if user_id not in authenticators and not get_user_roles(is_super_role=True)[0]:

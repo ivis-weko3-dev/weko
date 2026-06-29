@@ -8,8 +8,6 @@
 
 """Forms for communities."""
 
-from __future__ import absolute_import, print_function
-
 import re
 
 from flask_babel import gettext as _

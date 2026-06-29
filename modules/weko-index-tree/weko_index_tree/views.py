@@ -22,6 +22,7 @@
 
 import json
 import time
+
 from datetime import date, timedelta
 from operator import itemgetter
 
@@ -37,7 +38,7 @@ from .config import WEKO_INDEX_TREE_RSS_COUNT_LIMIT, \
     WEKO_INDEX_TREE_RSS_DEFAULT_LANG, WEKO_INDEX_TREE_RSS_DEFAULT_PAGE, \
     WEKO_INDEX_TREE_RSS_DEFAULT_TERM, WEKO_INDEX_TREE_STATE_PREFIX
 from .scopes import create_index_scope
-from .utils import generate_path, get_elasticsearch_records_data_by_indexes
+from .utils import generate_path, get_search_records_data_by_indexes
 
 blueprint = Blueprint(
     'weko_index_tree',
@@ -86,18 +87,18 @@ def get_rss_data():
     current_date = date.today()
     end_date = current_date.strftime("%Y-%m-%d")
     start_date = (current_date - timedelta(days=term)).strftime("%Y-%m-%d")
-    records_data = get_elasticsearch_records_data_by_indexes(idx_tree_ids,
-                                                             start_date,
-                                                             end_date)
+    records_data = get_search_records_data_by_indexes(idx_tree_ids,
+                                                      start_date,
+                                                      end_date)
 
     hits = records_data.get('hits')
-    es_data = hits.get('hits')
-    item_id_list = list(map(itemgetter('_id'), es_data))
+    search_data = hits.get('hits')
+    item_id_list = list(map(itemgetter('_id'), search_data))
     idx_tree_full_ids = generate_path(Indexes.get_recursive_tree(index_id))
     hidden_items = find_hidden_items(item_id_list, idx_tree_full_ids, True)
 
     rss_data = []
-    for es_item in es_data:
+    for es_item in search_data:
         if es_item['_id'] in hidden_items:
             continue
         rss_data.append(es_item)

@@ -8,15 +8,13 @@
 
 """Test utility functions."""
 
+import datetime
+import json
 import pytest
 import uuid
-import json
+
 
 from invenio_stats.models import StatsEvents, StatsAggregation, StatsBookmark
-
-from sqlalchemy.exc import UnsupportedCompilationError
-from mock import patch, MagicMock
-import datetime
 from invenio_stats.utils import (
     get_anonymization_salt,
     get_geoip,
@@ -39,6 +37,8 @@ from invenio_stats.utils import (
     QueryRankingHelper,
     StatsCliUtil,
     )
+from mock import patch, MagicMock
+from sqlalchemy.exc import UnsupportedCompilationError
 
 # def get_anonymization_salt(ts):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_utils.py::test_get_anonymization_salt -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
@@ -419,7 +419,7 @@ def test_query_search_report_helper_error(app):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_utils.py::test_query_common_reports_helper -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 @patch("weko_index_tree.utils.get_descendant_index_names")
 @patch("invenio_communities.models.Community")
-def test_query_common_reports_helper(mock_Community, mock_get_descendant_index_names, app, es):
+def test_query_common_reports_helper(mock_Community, mock_get_descendant_index_names, app, open_search):
     # get
     with app.app_context():
         _res = {
@@ -525,7 +525,7 @@ def test_query_common_reports_helper_error(app):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_utils.py::test_query_record_view_per_index_report_helper -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 @patch("weko_index_tree.utils.get_descendant_index_names")
 @patch("invenio_communities.models.Community")
-def test_query_record_view_per_index_report_helper(mock_Community, mock_get_descendant_index_names, app, es):
+def test_query_record_view_per_index_report_helper(mock_Community, mock_get_descendant_index_names, app, open_search):
     with app.app_context():
         mock_Community.query.get.return_value = MagicMock(root_node_id=1)
         mock_get_descendant_index_names.return_value = ['index1']
@@ -589,7 +589,7 @@ def test_query_record_view_per_index_report_helper_error(app):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_utils.py::test_query_record_view_report_helper -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 @patch("weko_index_tree.utils.get_descendant_index_names")
 @patch("invenio_communities.models.Community")
-def test_query_record_view_report_helper(mock_Community, mock_get_descendant_index_names, app, es, db, records):
+def test_query_record_view_report_helper(mock_Community, mock_get_descendant_index_names, app, open_search, db, records):
     mock_Community.query.get.return_value = MagicMock(root_node_id=1)
     mock_get_descendant_index_names.return_value = ['index1']
     _id1 = str(uuid.uuid4())
@@ -677,7 +677,7 @@ def test_query_record_view_report_helper_error(app, db):
 @patch("weko_index_tree.utils.get_item_ids_in_index")
 @patch("weko_index_tree.utils.get_descendant_index_names")
 @patch("invenio_communities.models.Community")
-def test_query_item_reg_report_helper(mock_Community, mock_get_descendant_index_names, mock_get_item_ids_in_index, app, db, event_queues,es):
+def test_query_item_reg_report_helper(mock_Community, mock_get_descendant_index_names, mock_get_item_ids_in_index, app, db, event_queues, open_search):
     mock_Community.query.get.return_value = MagicMock(root_node_id=1)
     mock_get_descendant_index_names.return_value = ['test_index-/-index1']
     mock_get_item_ids_in_index.return_value = ['item1', 'item2']
@@ -790,7 +790,6 @@ def test_query_item_reg_report_helper(mock_Community, mock_get_descendant_index_
 
     current_search_client.create(
         index="test-stats-record-view",
-        doc_type="record-view-day-aggregation",
         id=1,
         body={
           "timestamp" : "2022-09-15T01:00:00",
@@ -983,13 +982,13 @@ def test_query_ranking_helper_error(app, db):
 #     def __init__(
 #     def delete_data(self, bookmark: bool = False) -> NoReturn:
 #     def restore_data(self, bookmark: bool = False) -> NoReturn:
-#     def __prepare_es_indexes(
-#     def __build_es_data(self, data_list: list) -> Generator:
+#     def __prepare_search_indexes(
+#     def __build_search_data(self, data_list: list) -> Generator:
 #     def __get_data_from_db_by_stats_type(self, data_model, bookmark):
 #     def __get_stats_data_from_db(
 #     def __show_message(self, index_name, success, failed):
-#     def __cli_restore_es_data_from_db(
-#     def __cli_delete_es_index(self, _index: str, doc_type: str) -> NoReturn:
+#     def __cli_restore_search_data_from_db(
+#     def __cli_delete_search_index(self, _index: str, doc_type: str) -> NoReturn:
 #         def _delete_actions():
 #     def __parse_date(
 #         def _parse_day():

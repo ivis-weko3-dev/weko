@@ -19,8 +19,6 @@
 
 """OAI harvest config."""
 
-from __future__ import absolute_import, print_function
-
 OAIHARVESTER_DEFAULT_NAMESPACE_MAP = {
     "OAI-PMH": "http://www.openarchives.org/OAI/2.0/",
 }

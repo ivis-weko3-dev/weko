@@ -1,12 +1,9 @@
+import json
+import pytest
 import sys
 import uuid
-import pytest
-import json
-from mock import patch
 
-from weko_workflow.models import Activity
-from sqlalchemy.exc import OperationalError, SQLAlchemyError
-from elasticsearch import ConnectionError
+
 from demo.fix_metadata_53602 import (
     parse_args,
     get_item_type_info,
@@ -21,6 +18,10 @@ from demo.fix_metadata_53602 import (
     change_jpcoar_holding_agent_metadata,
     change_jpcoar_catalog_metadata
 )
+from invenio_search.engine import search
+from mock import patch
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
+from weko_workflow.models import Activity
 
 
 def run_parse_args(monkeypatch, argv):
@@ -620,15 +621,15 @@ def test_main(monkeypatch, capsys, app, db, item_data):
     })
     with patch("weko_records.api.ItemTypes.get_by_id", return_value=dummy):
         monkeypatch.setattr(sys, "argv", ["fix_metadata_53602.py", "--id", str(item_data[1])])
-        with patch("weko_deposit.api.WekoIndexer.get_es_index", return_value=True), \
-             patch("weko_deposit.api.WekoIndexer.upload_metadata", side_effect=ConnectionError("", "", "")):
+        with patch("weko_deposit.api.WekoIndexer.get_search_index", return_value=True), \
+             patch("weko_deposit.api.WekoIndexer.upload_metadata", side_effect=search.ConnectionError("", "", "")):
             # case 76
             main()
         result = capsys.readouterr()
         assert "Error updating Item UUID=" in result.err
 
         monkeypatch.setattr(sys, "argv", ["fix_metadata_53602.py", "--end-date", "2025"])
-        with patch("weko_deposit.api.WekoIndexer.get_es_index", return_value=True), \
+        with patch("weko_deposit.api.WekoIndexer.get_search_index", return_value=True), \
              patch("weko_deposit.api.WekoIndexer.upload_metadata", return_value=True):
             # case 34, 35
             main()

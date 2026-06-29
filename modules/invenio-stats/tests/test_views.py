@@ -11,10 +11,10 @@ import json
 import uuid
 import pytest
 
+from flask import url_for
 from invenio_accounts.testutils import login_user_via_session
 from invenio_stats import current_stats
 from invenio_stats.views import QueryFileStatsCount, dbsession_clean
-from flask import url_for
 
 from mock import patch
 
@@ -67,7 +67,7 @@ def test_stats_query_resource_contributor(client, db, query_entrypoints,
     assert resp.status_code==403
 
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_views.py::test_stats_query_resource_admin -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
-def test_stats_query_resource_admin(client, db, es, query_entrypoints,
+def test_stats_query_resource_admin(client, db, open_search, query_entrypoints,
                               role_users, custom_permission_factory,
                               sample_histogram_query_data):
     headers = [("Content-Type", "application/json"),
@@ -139,7 +139,7 @@ class MockPIDNodeVersioning:
 
 # class QueryRecordViewCount(WekoQuery):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_views.py::test_query_record_view_count -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
-def test_query_record_view_count(client_1, db, es, records):
+def test_query_record_view_count(client_1, db, open_search, records):
     client = client_1
     _uuid = str(records[0][0].object_uuid)
 

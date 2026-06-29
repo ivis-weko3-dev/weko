@@ -22,18 +22,15 @@
 import copy
 import json
 import os
+import pytest
+import requests
 import shutil
 import tempfile
 import uuid
 import xml.etree.ElementTree as ET
 import xmltodict
+
 from datetime import date, datetime, timedelta
-from os.path import join
-from time import sleep
-import pytest
-import requests
-from opensearchpy import OpenSearch
-from opensearchpy.exceptions import RequestError
 from flask import Flask, url_for
 from flask.cli import ScriptInfo
 from flask_babel import Babel
@@ -41,18 +38,6 @@ from flask_babel import lazy_gettext as _
 from flask_celeryext import FlaskCeleryExt
 from flask_login import LoginManager, current_user, login_user
 from flask_menu import Menu
-from unittest.mock import Mock, patch, MagicMock
-from pytest_mock import mocker
-from simplekv.memory.redisstore import RedisStore
-from six import BytesIO
-from sqlalchemy import event
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session
-from sqlalchemy_utils.functions import create_database, database_exists, drop_database
-from werkzeug.local import LocalProxy
-from invenio_records.api import Record
-from .helpers import create_record, create_record2, json_data, bagify
-
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts import InvenioAccounts
@@ -95,7 +80,7 @@ from invenio_i18n import InvenioI18N
 from invenio_indexer import InvenioIndexer
 from invenio_jsonschemas import InvenioJSONSchemas
 from invenio_mail import InvenioMail
-from invenio_oaiharvester.models import HarvestSettings
+from invenio_oaiharvester.models import OAIHarvestConfig, HarvestSettings
 from invenio_oaiserver import InvenioOAIServer
 from invenio_oaiserver.models import Identify, OAISet
 from invenio_pidrelations import InvenioPIDRelations
@@ -107,6 +92,7 @@ from invenio_pidstore.models import PersistentIdentifier, PIDStatus, RecordIdent
 from invenio_pidstore.providers.recordid import RecordIdProvider
 from invenio_queues.proxies import current_queues
 from invenio_records import InvenioRecords
+from invenio_records.api import Record
 from invenio_records.models import RecordMetadata
 from invenio_records_files.models import RecordsBuckets
 from invenio_records_rest import InvenioRecordsREST, config
@@ -114,6 +100,8 @@ from invenio_records_rest.config import RECORDS_REST_SORT_OPTIONS
 from invenio_records_rest.facets import terms_filter
 from invenio_records_rest.utils import PIDConverter
 from invenio_records_rest.views import create_blueprint_from_app
+from invenio_records_ui import InvenioRecordsUI
+from invenio_records_ui.config import RECORDS_UI_ENDPOINTS
 from invenio_rest import InvenioREST
 from invenio_search import InvenioSearch, RecordsSearch, current_search, current_search_client
 from invenio_stats import InvenioStats
@@ -125,8 +113,18 @@ from invenio_stats.contrib.event_builders import (
     build_record_unique_id,
     file_download_event_builder,
 )
-from invenio_records_ui import InvenioRecordsUI
-from invenio_records_ui.config import RECORDS_UI_ENDPOINTS
+from io import BytesIO
+from opensearchpy import OpenSearch
+from opensearchpy.exceptions import RequestError
+from os.path import join
+from pytest_mock import mocker
+from simplekv.memory.redisstore import RedisStore
+from time import sleep
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session
+from sqlalchemy_utils.functions import create_database, database_exists, drop_database
+from unittest.mock import Mock, patch, MagicMock
 
 from weko_admin import WekoAdmin
 from weko_admin.config import WEKO_ADMIN_DEFAULT_ITEM_EXPORT_SETTINGS, WEKO_ADMIN_MANAGEMENT_OPTIONS
@@ -166,17 +164,9 @@ from weko_search_ui import WekoSearchREST, WekoSearchUI
 from weko_search_ui.config import SEARCH_UI_SEARCH_INDEX, WEKO_SEARCH_TYPE_DICT, WEKO_SEARCH_UI_BASE_TEMPLATE, WEKO_SEARCH_KEYWORDS_DICT, CHILD_INDEX_THUMBNAIL_WIDTH, CHILD_INDEX_THUMBNAIL_HEIGHT, ROCRATE_METADATA_FILE, SWORD_METADATA_FILE
 from weko_search_ui.rest import create_blueprint
 from weko_search_ui.views import blueprint_api
-
-
-from invenio_oaiharvester.models import OAIHarvestConfig, HarvestSettings
-
-
-
-
+from werkzeug.local import LocalProxy
+from .helpers import create_record, create_record2, json_data, bagify
 # from moto import mock_s3
-
-
-
 
 
 FIXTURE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data")
@@ -197,10 +187,10 @@ class TestSearch(RecordsSearch):
         self._extra.update(**{"_source": {"excludes": ["_access"]}})
 
 
-# class MockEs():
+# class MockSearch():
 #     def __init__(self,**keywargs):
 #         self.indices = self.MockIndices()
-#         self.es = Elasticsearch()
+#         self.open_search = OpenSearch()
 #         self.cluster = self.MockCluster()
 #     def index(self, id="",version="",version_type="",index="",doc_type="",body="",**arguments):
 #         pass
@@ -208,7 +198,7 @@ class TestSearch(RecordsSearch):
 #         return Response(response=json.dumps({}),status=500)
 #     @property
 #     def transport(self):
-#         return self.es.transport
+#         return self.open_search.transport
 #     class MockIndices():
 #         def __init__(self,**keywargs):
 #             self.mapping = dict()
@@ -289,7 +279,6 @@ def base_app(instance_path, search_class, request):
         DEPOSIT_DEFAULT_JSONSCHEMA=DEPOSIT_DEFAULT_JSONSCHEMA,
         SERVER_NAME="TEST_SERVER",
         LOGIN_DISABLED=False,
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME = 'jpcoar_v1_mapping',
         WEKO_SCHEMA_JPCOAR_V2_SCHEMA_NAME = 'jpcoar_mapping',
         WEKO_SCHEMA_DDI_SCHEMA_NAME = "ddi_mapping",
@@ -302,7 +291,7 @@ def base_app(instance_path, search_class, request):
         #     "SQLALCHEMY_DATABASE_URI", "sqlite:///test.db"
         # ),
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI','postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
-        SEARCH_ELASTIC_HOSTS=os.environ.get("SEARCH_ELASTIC_HOSTS", "opensearch"),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch"),
         SEARCH_HOSTS=os.environ.get("SEARCH_HOST", "opensearch"),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         JSONSCHEMAS_HOST="inveniosoftware.org",
@@ -326,7 +315,7 @@ def base_app(instance_path, search_class, request):
         SEARCH_UI_SEARCH_INDEX="test-weko",
         CHILD_INDEX_THUMBNAIL_WIDTH = CHILD_INDEX_THUMBNAIL_WIDTH,
         CHILD_INDEX_THUMBNAIL_HEIGHT = CHILD_INDEX_THUMBNAIL_HEIGHT,
-        # SEARCH_ELASTIC_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
+        # SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
         SEARCH_INDEX_PREFIX="{}-".format("test"),
         SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         OAISERVER_ID_PREFIX="oai:inveniosoftware.org:recid/",
@@ -384,8 +373,7 @@ def base_app(instance_path, search_class, request):
         WEKO_ADMIN_CACHE_TEMP_DIR_INFO_KEY_DEFAULT="cache::temp_dir_info",
         WEKO_ITEMS_UI_EXPORT_TMP_PREFIX="weko_export_",
         WEKO_SEARCH_UI_IMPORT_TMP_PREFIX="weko_import_",
-        WEKO_AUTHORS_ES_INDEX_NAME="{}-authors".format(index_prefix),
-        WEKO_AUTHORS_ES_DOC_TYPE="author-v1.0.0",
+        WEKO_AUTHORS_SEARCH_INDEX_NAME="{}-authors".format(index_prefix),
         WEKO_HANDLE_ALLOW_REGISTER_CNRI=False,
         WEKO_PERMISSION_ROLE_USER=[
             "System Administrator",
@@ -754,7 +742,7 @@ def base_app(instance_path, search_class, request):
     # WekoTheme(app_)
     # InvenioCommunities(app_)
 
-    # search = InvenioSearch(app_, client=MockEs())
+    # search = InvenioSearch(app_, client=MockSearch())
     # search.register_mappings(search_class.Meta.index, 'mock_module.mappings')
     InvenioRecordsREST(app_)
     app_.register_blueprint(create_blueprint_from_app(app_))
@@ -1153,7 +1141,7 @@ def indices2(app, db):
 
 
 @pytest.fixture()
-def esindex(app, db_records):
+def search_index(app, db_records):
     current_search_client.indices.delete(index="test-*")
     with open("tests/data/item-v1.0.0.json", "r") as f:
         mapping = json.load(f)
@@ -1174,7 +1162,6 @@ def esindex(app, db_records):
     for depid, recid, parent, doi, record, item in db_records:
         current_search_client.index(
             index="test-weko-item-v1.0.0",
-            doc_type="item-v1.0.0",
             id=record.id,
             body=record,
             refresh="true",
@@ -1830,8 +1817,8 @@ def create_file_instance(db):
 
 
 @pytest.yield_fixture()
-def es(app):
-    """Provide elasticsearch access, create and clean indices.
+def open_search(app):
+    """Provide OpenSearch access, create and clean indices.
 
     Don't create template so that the test or another fixture can modify the
     enabled events.
@@ -1894,7 +1881,7 @@ def generate_events(
 
 
 @pytest.yield_fixture()
-def generate_request(app, es, mock_user_ctx, request):
+def generate_request(app, open_search, mock_user_ctx, request):
     """Parametrized pre indexed sample events."""
     generate_events(app=app, **request.param)
     yield
@@ -2418,8 +2405,8 @@ def item_render():
 
 
 @pytest.yield_fixture()
-def es(app):
-    """Elasticsearch fixture."""
+def open_search(app):
+    """OpenSearch fixture."""
     try:
         list(current_search.create())
     # except RequestError:
@@ -2432,7 +2419,7 @@ def es(app):
 
 
 @pytest.fixture()
-def deposit(app, es, users, location, db):
+def deposit(app, open_search, users, location, db):
     """New deposit with files."""
     record = {"title": "fuu"}
     with app.test_request_context():
@@ -2497,9 +2484,9 @@ def db_index(client, users):
 
 
 @pytest.fixture()
-def es_records(app, db, db_index, location, db_itemtype, db_oaischema):
+def search_records(app, db, db_index, location, db_itemtype, db_oaischema):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         for i in range(1, 10):
@@ -2676,7 +2663,7 @@ def es_records(app, db, db_index, location, db_itemtype, db_oaischema):
                 )
 
             record = WekoRecord.create(record_data, id_=rec_uuid)
-            # from six import BytesIO
+            # from io import BytesIO
             import base64
 
             from invenio_files_rest.models import Bucket
@@ -2731,14 +2718,14 @@ def es_records(app, db, db_index, location, db_itemtype, db_oaischema):
             )
 
     sleep(3)
-    es = OpenSearch("http://{}:9200".format(app.config["SEARCH_HOSTS"]))
-    # print(es.cat.indices())
+    open_search = OpenSearch("http://{}:9200".format(app.config["SEARCH_HOSTS"]))
+    # print(open_search.cat.indices())
     return {"indexer": indexer, "results": results}
 
 @pytest.fixture()
-def es_records2(app, db, db_index, location, db_itemtype, db_oaischema):
+def search_records2(app, db, db_index, location, db_itemtype, db_oaischema):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         for i in range(1, 10):
@@ -2903,7 +2890,7 @@ def es_records2(app, db, db_index, location, db_itemtype, db_oaischema):
                 )
 
             record = WekoRecord.create(record_data, id_=rec_uuid)
-            # from six import BytesIO
+            # from io import BytesIO
             import base64
 
             from invenio_files_rest.models import Bucket
@@ -2958,8 +2945,8 @@ def es_records2(app, db, db_index, location, db_itemtype, db_oaischema):
             )
 
     sleep(3)
-    es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
-    # print(es.cat.indices())
+    open_search = OpenSearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
+    # print(open_search.cat.indices())
     return {"indexer": indexer, "results": results}
 
 @pytest.fixture()
@@ -3018,7 +3005,7 @@ def indextree(app, client, users):
 @pytest.fixture()
 def doi_records(app, db, identifier, indextree, location, db_itemtype, db_oaischema):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         i = 1
@@ -3067,7 +3054,7 @@ def doi_records(app, db, identifier, indextree, location, db_itemtype, db_oaisch
 
 
 @pytest.fixture()
-def es_item_file_pipeline(es):
+def search_item_file_pipeline(open_search):
     from opensearchpy.client.ingest import IngestClient
 
     p = IngestClient(current_search_client)
@@ -3172,8 +3159,8 @@ def record_indexer_receiver(app, json=None, record=None, index=None,
 
 
 @pytest.yield_fixture()
-def es(app):
-    """Elasticsearch fixture."""
+def open_search(app):
+    """OpenSearch fixture."""
     try:
         current_search_client.indices.delete(index="test-*")
         list(current_search.create())
@@ -3186,7 +3173,7 @@ def es(app):
 
 
 @pytest.yield_fixture()
-def indexer(app, es):
+def indexer(app, open_search):
     """Create a record indexer."""
     InvenioIndexer(app)
     before_record_index.connect(record_indexer_receiver, sender=app)
@@ -4218,7 +4205,7 @@ def make_record(db, indexer, i, filepath, filename, mimetype, doi_prefix=None):
         )
 
     record = WekoRecord.create(record_data, id_=rec_uuid)
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket = Bucket.create()
@@ -4259,7 +4246,7 @@ def make_record(db, indexer, i, filepath, filename, mimetype, doi_prefix=None):
     item = ItemsMetadata.create(item_data, id_=rec_uuid, item_type_id=1)
 
     record_v1 = WekoRecord.create(record_data, id_=rec_uuid2)
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket_v1 = Bucket.create()
@@ -4365,7 +4352,7 @@ def make_itemtype(app,db):
 @pytest.fixture()
 def create_export_all_data(db):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     filepath = "tests/data/helloworld.pdf"
     filename = "helloworld.pdf"
     mimetype = "application/pdf"

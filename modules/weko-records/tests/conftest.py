@@ -20,30 +20,25 @@
 
 """Pytest configuration."""
 
-from datetime import datetime, timedelta
 import os
 import sys
 import shutil
 import uuid
 import json
-import tempfile
-from invenio_accounts.utils import jwt_create_token
-from invenio_oauth2server.ext import InvenioOAuth2Server, InvenioOAuth2ServerREST
-from invenio_oauth2server.models import Client, Token
-from mock import patch
-
 import pytest
-from invenio_search.engine import dsl
-# from elasticsearch_dsl import response, Search
-from sqlalchemy_utils.functions import create_database, database_exists
+import tempfile
+
+from datetime import datetime, timedelta
 from flask import Flask
 from flask_babel import Babel
 from flask_menu import Menu
+from mock import patch
 
 from invenio_i18n import InvenioI18N
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts import InvenioAccounts
+from invenio_accounts.utils import jwt_create_token
 from invenio_accounts.models import Role, User
 from invenio_accounts.testutils import create_test_user
 from invenio_admin import InvenioAdmin
@@ -53,22 +48,28 @@ from invenio_db import db as db_
 from invenio_files_rest.models import Location
 from invenio_indexer import InvenioIndexer
 from invenio_jsonschemas import InvenioJSONSchemas
+from invenio_oauth2server.ext import InvenioOAuth2Server, InvenioOAuth2ServerREST
+from invenio_oauth2server.models import Client, Token
 from invenio_pidrelations import InvenioPIDRelations
 from invenio_pidstore import InvenioPIDStore
 from invenio_records import InvenioRecords
 from invenio_search import InvenioSearch, current_search_client
+from invenio_search.engine import dsl
+from sqlalchemy_utils.functions import create_database, database_exists
+from tests.helpers import json_data, create_record
 
 from weko_accounts import WekoAccounts
 from weko_admin.models import AdminSettings
 from weko_deposit import WekoDeposit
-from weko_itemtypes_ui import WekoItemtypesUI
 from weko_index_tree.api import Indexes
 from weko_index_tree.models import Index
+from weko_itemtypes_ui import WekoItemtypesUI
 from weko_logging.audit import WekoLoggingUserActivity
 from weko_search_ui import WekoSearchUI
 from weko_records_ui import WekoRecordsUI
-from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER, WEKO_PERMISSION_ROLE_COMMUNITY, EMAIL_DISPLAY_FLG
-
+from weko_records_ui.config import (
+    WEKO_PERMISSION_SUPER_ROLE_USER, WEKO_PERMISSION_ROLE_COMMUNITY, 
+    EMAIL_DISPLAY_FLG)
 from weko_records import WekoRecords
 from weko_records.api import ItemTypes, Mapping
 from weko_records.config import WEKO_ITEMTYPE_EXCLUDED_KEYS
@@ -78,8 +79,6 @@ from weko_records.models import (
     ItemTypeMapping, ItemTypeProperty, OaStatus, FeedbackMailList,
     ItemTypeJsonldMapping
 )
-
-from tests.helpers import json_data, create_record
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -107,8 +106,8 @@ def base_app(instance_path):
         #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                            'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', 'elasticsearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         TESTING=True,
         JSONSCHEMAS_HOST='inveniosoftware.org',
@@ -116,7 +115,6 @@ def base_app(instance_path):
         WEKO_ITEMTYPE_EXCLUDED_KEYS=WEKO_ITEMTYPE_EXCLUDED_KEYS,
         INDEX_IMG='indextree/36466818-image.jpg',
         SEARCH_UI_SEARCH_INDEX='test-weko',
-        INDEXER_DEFAULT_DOCTYPE='item-v1.0.0',
         INDEXER_FILE_DOC_TYPE='content',
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format('test'),
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English")],
@@ -567,7 +565,7 @@ def db_index(app, db):
 
 
 @pytest.fixture()
-def esindex(app):
+def search_index(app):
     current_search_client.indices.delete(index="test-*")
     with open("tests/data/item-v1.0.0.json", "r") as f:
         mapping = json.load(f)

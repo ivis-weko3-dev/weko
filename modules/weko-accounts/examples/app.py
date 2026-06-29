@@ -72,7 +72,7 @@ SPHINX-END
 import os
 
 from flask import Flask, current_app
-from flask_babelex import Babel
+from flask_babel import Babel
 from flask_menu import Menu
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.views import blueprint as blueprint_accounts

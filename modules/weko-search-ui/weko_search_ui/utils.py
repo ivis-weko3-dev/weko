@@ -20,45 +20,37 @@
 
 """Weko Search-UI admin."""
 
-import csv
-import mimetypes
+import bagit
 import chardet
+import csv
+import gc
+import mimetypes
+import io
 import json
 import math
 import os
+import pickle
+import pytz
 import re
+import redis
 import shutil
 import sys
-import pytz
-import bagit
 import tempfile
 import traceback
+import urllib.parse
 import uuid
 import xml.etree.ElementTree as ET
 import zipfile
-import chardet
-import urllib.parse
-import gc
+
+from celery import chain
+from celery.result import AsyncResult
 from collections import Callable, OrderedDict, defaultdict
 from collections.abc import Callable
 from datetime import datetime, timezone, timedelta
-from functools import partial, reduce, wraps
-import io
-from io import StringIO
-from operator import getitem
-from time import sleep
-import pickle
-
-import redis
-from celery import chain
-from celery.result import AsyncResult
-from opensearchpy.exceptions import ConnectionError, OpenSearchException
-from invenio_search.engine import search
-from jsonschema import Draft4Validator
 from flask import abort, current_app, request, send_file
 from flask_babel import gettext as _
 from flask_login import current_user
-
+from functools import partial, reduce, wraps
 from invenio_db import db
 from invenio_files_rest.models import FileInstance, Location, ObjectVersion
 from invenio_files_rest.proxies import current_files_rest
@@ -71,8 +63,15 @@ from invenio_records.api import Record
 from invenio_records.models import RecordMetadata
 from invenio_search import RecordsSearch
 from invenio_search.utils import build_alias_name
+from invenio_search.engine import search
+from io import StringIO
+from jsonschema import Draft4Validator
+from opensearchpy.exceptions import ConnectionError, OpenSearchException
+from operator import getitem
 from sqlalchemy import func as _func
 from sqlalchemy.exc import SQLAlchemyError
+from time import sleep
+
 from weko_admin.models import AdminSettings, SessionLifetime
 from weko_admin.utils import get_redis_cache, reset_redis_cache, get_restricted_access
 from weko_admin.api import TempDirInfo
@@ -88,8 +87,12 @@ from weko_index_tree.utils import (
 )
 from weko_index_tree.models import Index
 from weko_indextree_journal.api import Journals
+from weko_items_ui.signals import cris_researchmap_linkage_request
 from weko_logging.activity_logger import UserActivityLogger
-from weko_records.api import FeedbackMailList, JsonldMapping, RequestMailList, ItemTypes, ItemLink, ItemApplication
+from weko_records.api import (
+    FeedbackMailList, JsonldMapping, RequestMailList, ItemTypes,
+    ItemLink, ItemApplication
+)
 from weko_records.models import ItemMetadata, ItemReference
 from weko_records.serializers.utils import get_mapping
 from weko_records_ui.external import call_external_system
@@ -150,7 +153,6 @@ from .config import (
     ROCRATE_METADATA_FILE
 )
 from .query import item_path_search_factory
-from weko_items_ui.signals import cris_researchmap_linkage_request
 
 class DefaultOrderedDict(OrderedDict):
     """Default Dictionary that remembers insertion order."""
@@ -298,8 +300,8 @@ def delete_records(index_tree_id, ignore_items):
                 if not del_flag:
                     # Do update the path on record
                     record.update({"path": paths})
-                    # Update to ES
-                    indexer.update_es_data(record, update_revision=False)
+                    # Update to search engine
+                    indexer.update_search_data(record, update_revision=False)
                     record.commit()
                 elif del_flag and removed_path is not None:
                     from weko_records_ui.utils import soft_delete
@@ -2060,7 +2062,7 @@ def update_publish_status(item_id, status):
     record["publish_status"] = status
     record.commit()
     indexer = WekoIndexer()
-    indexer.update_es_data(record, update_revision=False, field='publish_status')
+    indexer.update_search_data(record, update_revision=False, field='publish_status')
 
 
 def handle_workflow(item: dict):
@@ -2132,8 +2134,8 @@ def create_flow_define():
             the_flow.upt_flow_action(flow.flow_id, flow_actions)
 
 
-def send_item_created_event_to_es(item, request_info):
-    """Send item_created event to ES."""
+def send_item_created_event_to_search(item, request_info):
+    """Send item_created event to search."""
     with current_app.test_request_context():
         item_created.send(
             current_app._get_current_object(),
@@ -2191,7 +2193,7 @@ def import_items_to_system(
                 record_pid = item_id.pid
             else:
                 handle_check_item_is_locked(item)
-                # cache ES data for rollback
+                # cache search data for rollback
                 pid = PersistentIdentifier.query.filter_by(
                     pid_type="recid", pid_value=item["id"]
                 ).first()
@@ -2219,8 +2221,8 @@ def import_items_to_system(
                 )
                 register_item_update_publish_status(item, str(status_number))
                 if item.get("status") == "new":
-                    # Send item_created event to ES.
-                    send_item_created_event_to_es(item, request_info)
+                    # Send item_created event to search.
+                    send_item_created_event_to_search(item, request_info)
             db.session.commit()
             new_record = WekoRecord.get_record_by_pid(record_pid.pid_value)
             new_link_list = ItemReference.get_src_references(
@@ -2270,7 +2272,7 @@ def import_items_to_system(
                 bef_last_ver_metadata = WekoIndexer().get_metadata_by_item_id(
                     PIDNodeVersioning(pid=parent_pid).last_child.object_uuid
                 )
-                handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+                handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
             db.session.rollback()
             current_app.logger.error("item id: %s update error." % item["id"])
             traceback.print_exc(file=sys.stdout)
@@ -2320,7 +2322,7 @@ def import_items_to_system(
                 bef_last_ver_metadata = WekoIndexer().get_metadata_by_item_id(
                     PIDNodeVersioning(pid=parent_pid).last_child.object_uuid
                 )
-                handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+                handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
             db.session.rollback()
             current_app.logger.error("item id: %s update error." % item["id"])
             traceback.print_exc(file=sys.stdout)
@@ -2346,7 +2348,7 @@ def import_items_to_system(
                 bef_last_ver_metadata = WekoIndexer().get_metadata_by_item_id(
                     PIDNodeVersioning(pid=parent_pid).last_child.object_uuid
                 )
-                handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+                handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
             db.session.rollback()
             current_app.logger.error("item id: %s update error." % item["id"])
             traceback.print_exc(file=sys.stdout)
@@ -2380,7 +2382,7 @@ def import_items_to_system(
                 bef_last_ver_metadata = WekoIndexer().get_metadata_by_item_id(
                     PIDNodeVersioning(pid=parent_pid).last_child.object_uuid
                 )
-                handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+                handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
             db.session.rollback()
             current_app.logger.error("item id: %s update error." % item["id"])
             traceback.print_exc(file=sys.stdout)
@@ -5354,8 +5356,8 @@ def handle_check_item_is_locked(item):
         raise Exception({"error_id": error_id})
 
 
-def handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata):
-    """Remove es metadata.
+def handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata):
+    """Remove search metadata.
 
     :argument
         item - {dict} Item metadata.
@@ -5366,7 +5368,7 @@ def handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata):
         indexer = WekoIndexer()
         pid = WekoRecord.get_record_by_pid(item_id).pid_recid
         if status == "new":
-            # delete temp data in ES
+            # delete temp data in search
             pid_lastest = WekoRecord.get_record_by_pid(item_id + ".1").pid_recid
             indexer.delete_by_id(pid_lastest.object_uuid)
             indexer.delete_by_id(pid.object_uuid)
@@ -5377,7 +5379,7 @@ def handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata):
                 PIDNodeVersioning(pid=parent_pid).last_child.object_uuid
             )
 
-            # revert to previous data in ES
+            # revert to previous data in search
             if bef_metadata["_version"] < aft_metadata["_version"]:
                 indexer.upload_metadata(
                     bef_metadata["_source"], bef_metadata["_id"], 0, True
@@ -5394,7 +5396,7 @@ def handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata):
                     True,
                 )
 
-            # delete new version in ES
+            # delete new version in search
             if (
                 status == "upgrade"
                 and bef_last_ver_metadata["_source"]["control_number"]

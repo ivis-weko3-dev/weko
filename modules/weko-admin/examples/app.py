@@ -58,7 +58,7 @@ import os
 
 import pkg_resources
 from flask import Flask, redirect, url_for
-from flask_babelex import Babel
+from flask_babel import Babel
 from flask_menu import Menu
 from invenio_access import InvenioAccess
 from invenio_accounts import InvenioAccounts
@@ -68,9 +68,9 @@ from invenio_admin.views import blueprint as blueprint_admin_ui
 from invenio_db import InvenioDB
 from invenio_i18n import InvenioI18N
 from invenio_mail import InvenioMail
+from weko_admin import WekoAdmin
 from wtforms.i18n import messages_path
 
-from weko_admin import WekoAdmin
 
 # Create Flask application
 try:

@@ -1,19 +1,21 @@
+import datetime
 import os
 import pytest
-import datetime
-from unittest.mock import MagicMock, patch
+
 
 from flask import url_for, request, abort
 from flask_limiter.errors import RateLimitExceeded
+from invenio_accounts.testutils import login_user_via_session
+from invenio_files_rest.models import Location
+from unittest.mock import MagicMock, patch
 from sword3common.lib.seamless import SeamlessException
 from werkzeug.datastructures import FileStorage
 
-from invenio_accounts.testutils import login_user_via_session
-from invenio_files_rest.models import Location
 from weko_workflow.errors import WekoWorkflowException
-
 from weko_swordserver.errors import *
-from weko_swordserver.views import _get_status_workflow_document, blueprint, _get_status_document, _create_error_document
+from weko_swordserver.views import (
+    _get_status_workflow_document, blueprint, _get_status_document,
+    _create_error_document)
 
 from .helpers import calculate_hash
 
@@ -44,7 +46,7 @@ def test_get_service_document(client,users,tokens):
 
 # def post_service_document():
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_post_service_document -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test_post_service_document(app,client,db,users,make_crate,esindex,location,index,make_zip,tokens,item_type,doi_identifier,mocker,sword_mapping,sword_client):
+def test_post_service_document(app,client,db,users,make_crate,search_index,location,index,make_zip,tokens,item_type,doi_identifier,mocker,sword_mapping,sword_client):
     def update_location_size():
         loc = db.session.query(Location).filter(
                     Location.id == 1).one()
@@ -356,8 +358,8 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 # def put_object(recid):
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_put_object -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
 def test_put_object(
-    app, client, db, users, make_crate, esindex, location, index, make_zip,
-    tokens, item_type, doi_identifier, mocker, sword_mapping, sword_client, es_records
+    app, client, db, users, make_crate, search_index, location, index, make_zip,
+    tokens, item_type, doi_identifier, mocker, sword_mapping, sword_client, search_records
 ):
     def update_location_size():
         loc = db.session.query(Location).filter(
@@ -964,7 +966,7 @@ def test__get_status_workflow_document(app, records):
 
 # def delete_item(recid):
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_delete_item -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test_delete_item(app, client, db, tokens, sword_client, users,es_records, mocker):
+def test_delete_item(app, client, db, tokens, sword_client, users,search_records, mocker):
     mocker.patch("weko_swordserver.views._get_status_document", side_effect=lambda id:{"recid": id})
     mocker.patch("weko_swordserver.views.dbsession_clean")
     mocker.patch("weko_items_ui.utils.send_mail_item_deleted")

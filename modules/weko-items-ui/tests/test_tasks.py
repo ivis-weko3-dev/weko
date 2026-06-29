@@ -2,7 +2,10 @@ import pytest
 from mock import MagicMock, patch ,sentinel
 from invenio_pidstore.models import PersistentIdentifier
 from weko_items_ui.models import CRIS_Institutions, CRISLinkageResult
-from weko_items_ui.tasks import build_achievement, build_one_data, bulk_post_item_to_researchmap, get_achievement_type, get_merge_mode, process_researchmap_queue ,get_item,is_public, register_linkage_result,get_authors
+from weko_items_ui.tasks import (
+    build_achievement, build_one_data, bulk_post_item_to_researchmap,
+     get_achievement_type, get_merge_mode, process_researchmap_queue,
+     get_item,is_public, register_linkage_result,get_authors)
 from weko_records.api import Mapping
 from weko_records.models import ItemMetadata, ItemTypeMapping
 from weko_records.utils import json_loader
@@ -70,7 +73,7 @@ def test_get_achievement_type(app):
     assert get_achievement_type({"type" : ["hoge"]}) == None
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_tasks.py::test_build_achievement -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_items-ui/.tox/c1/tmp
-def test_build_achievement(app, db_records_researchmap, es):
+def test_build_achievement(app, db_records_researchmap, open_search):
     recid = PersistentIdentifier.get_by_object(pid_type='recid', object_type='rec', object_uuid=db_records_researchmap[0]) 
     record,item = get_item(db_records_researchmap[0])
     # mapping = Mapping.get_record(item.item_type_id)

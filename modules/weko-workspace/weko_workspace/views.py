@@ -21,38 +21,57 @@
 """Blueprint for weko-workspace."""
 
 import copy
-from datetime import datetime, timedelta,timezone
 import json
 import os
 import shutil
 import tempfile
 import traceback
 
+from datetime import datetime, timedelta,timezone
 from flask import (
     Blueprint,
     current_app,
     jsonify,
     render_template,
     request,
+    session
 )
-from flask_babelex import gettext as _
+from flask_babel import gettext as _
 from flask_login import current_user, login_required
 from flask_menu import register_menu
-from weko_admin.api import TempDirInfo
-from weko_records.api import FeedbackMailList, ItemLink
+from flask_wtf import FlaskForm
 from invenio_db import db
 from invenio_i18n.ext import current_i18n
 from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_pidstore.models import PersistentIdentifier
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import text
-from flask import session
-from weko_records.utils import selected_value_by_language
 
+from weko_accounts.utils import login_required_customize
+from weko_admin.api import TempDirInfo
+from weko_admin.models import AdminSettings
+from weko_index_tree.models import Index
+from weko_items_ui.utils import is_schema_include_key
+from weko_records.api import FeedbackMailList, ItemLink, ItemTypes, ItemTypeNames
+from weko_records.serializers.utils import get_item_type_name, get_mapping
+from weko_records.utils import selected_value_by_language
+from weko_search_ui.utils import (
+    get_data_by_property, handle_check_exist_record, 
+    handle_check_file_metadata, handle_item_title,
+    handle_check_date, handle_check_id, handle_check_and_prepare_index_tree,
+    handle_check_and_prepare_publish_status, import_items_to_activity,
+    import_items_to_system
+)
+from weko_user_profiles.views import get_user_profile_info
+from weko_workflow.utils import is_show_autofill_metadata
+from weko_workflow.api import WorkFlow
+
+from .defaultfilters import merge_default_filters
+from .models import WorkspaceDefaultConditions
 from .utils import (
     extract_metadata_info,
     get_accessCnt_downloadCnt,
-    get_es_itemlist,
+    get_search_itemlist,
     get_item_status,
     get_userNm_affiliation,
     get_workspace_status_management,
@@ -60,34 +79,12 @@ from .utils import (
     update_workspace_status,
     get_workspace_filterCon,
     changeLang,
-    changeMsg
+    changeMsg,
+    get_datacite_record_data,
+    get_jalc_record_data,
+    get_cinii_record_data,
+    get_jamas_record_data
 )
-from .models import WorkspaceDefaultConditions
-
-from weko_admin.models import AdminSettings
-from weko_workflow.api import WorkFlow
-from weko_items_ui.utils import is_schema_include_key
-from flask_wtf import FlaskForm
-from weko_workflow.utils import is_show_autofill_metadata
-
-from weko_user_profiles.views import get_user_profile_info
-from weko_accounts.utils import login_required_customize
-from weko_index_tree.models import Index
-from flask_login import current_user
-from weko_search_ui.utils import (
-    get_data_by_property, handle_check_exist_record, handle_check_file_metadata, handle_item_title,
-    handle_check_date, handle_check_id, handle_check_and_prepare_index_tree,
-    handle_check_and_prepare_publish_status, import_items_to_activity,
-    import_items_to_system
-)
-from weko_records.api import ItemTypeNames
-
-
-from .utils import get_datacite_record_data, get_jalc_record_data, \
-    get_cinii_record_data, get_jamas_record_data
-from weko_records.serializers.utils import get_item_type_name, get_mapping
-from weko_records.api import ItemTypes
-from .defaultfilters import merge_default_filters
 
 workspace_blueprint = Blueprint(
     "weko_workspace",
@@ -138,7 +135,7 @@ def get_workspace_itemlist():
         jsonCondition, isnotNone = get_workspace_filterCon()
 
     # 2,ESからアイテム一覧取得処理
-    recordsData = get_es_itemlist()
+    recordsData = get_search_itemlist()
     # 7,ユーザー名と所属情報取得処理
     userNm = get_userNm_affiliation()
 

@@ -11,19 +11,16 @@
 See https://pytest-invenio.readthedocs.io/ for documentation on which test
 fixtures are available.
 """
-
-from __future__ import absolute_import, print_function
-
-from os.path import join
-import shutil
-import tempfile
-import os
 import datetime
 import json
+import os
+import pytest
+import tempfile
+import shutil
 import uuid
+
 from datetime import datetime as dt
 
-import pytest
 from flask import Flask
 from flask_babel import Babel
 from flask_menu import Menu
@@ -51,21 +48,21 @@ from invenio_pidrelations import InvenioPIDRelations
 from invenio_pidstore import InvenioPIDStore
 from invenio_records import InvenioRecords
 from invenio_records_rest import InvenioRecordsREST
+from invenio_resourcesyncclient import INVENIOResourceSyncClient
+from invenio_resourcesyncclient.views import blueprint
+from invenio_resourcesyncclient.models import ResyncIndexes, ResyncLogs
 from invenio_search import InvenioSearch, current_search_client
+from os.path import join
 from weko_admin import WekoAdmin
 from weko_admin.models import SessionLifetime
-from weko_index_tree.models import Index
 from weko_deposit import WekoDeposit
+from weko_index_tree.models import Index
 from weko_records import WekoRecords
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
 from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER
 from weko_search_ui import WekoSearchUI
 from weko_schema_ui.models import OAIServerSchema
 
-
-from invenio_resourcesyncclient import INVENIOResourceSyncClient
-from invenio_resourcesyncclient.views import blueprint
-from invenio_resourcesyncclient.models import ResyncIndexes, ResyncLogs
 
 @pytest.fixture(scope='module')
 def celery_config():
@@ -121,14 +118,13 @@ def base_app(instance_path):
         WEKO_MAX_FILE_SIZE=50 * 1024 * 1024 * 1024,
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-                    'SEARCH_ELASTIC_HOSTS', 'opensearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                    'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'
         ),
         SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         SEARCH_INDEX_PREFIX="test-",
-        INDEXER_DEFAULT_DOCTYPE='item-v1.0.0',
         INDEXER_FILE_DOC_TYPE='content',
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME='jpcoar_v1_mapping',
         WEKO_SCHEMA_DDI_SCHEMA_NAME='ddi_mapping',
@@ -189,7 +185,7 @@ def db(app):
 
 
 @pytest.fixture()
-def esindex(app):
+def search_index(app):
     current_search_client.indices.delete(index='test-*')
     with open("tests/data/item-v1.0.0.json","r") as f:
         mapping = json.load(f)
