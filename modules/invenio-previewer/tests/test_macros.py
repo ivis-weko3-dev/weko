@@ -13,8 +13,8 @@ import zipfile
 from flask import render_template_string, url_for
 from invenio_db import db
 from invenio_files_rest.models import ObjectVersion
+from io import BytesIO, b
 from mock import patch
-from six import BytesIO, b
 
 
 def create_file(record, filename, stream):

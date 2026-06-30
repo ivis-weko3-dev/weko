@@ -21,7 +21,7 @@
 """Configuration for weko-search-ui."""
 
 import pickle
-from flask_babelex import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from invenio_records_rest.config import RECORDS_REST_ENDPOINTS
 from invenio_search import RecordsSearch
@@ -466,7 +466,7 @@ WEKO_SEARCH_TYPE_KEYWORD = "keyword"
 WEKO_SEARCH_TYPE_INDEX = "index"
 
 WEKO_SEARCH_MAX_RESULT = 10000
-"""Maximum total number of records retrieved from a ES query."""
+"""Maximum total number of records retrieved from a search query."""
 
 WEKO_SEARCH_MAX_FEEDBACK_MAIL = 10000
 """Maximum number of feedback mail could be send."""

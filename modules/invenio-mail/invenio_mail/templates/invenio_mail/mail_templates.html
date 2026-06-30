@@ -25,15 +25,17 @@
 
 {% block css %}
   {{ super() }}
-  {% assets "weko_theme_css_buttons" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
-  {% assets "weko_admin_css" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
+  {{ webpack["theme-css-buttons.css"] }}
+  {{ webpack["admin_css_css.css"] }}
 {% endblock %}
 
 {%- block javascript %}
   {{ super() }}
-  {% assets "invenio_mail_template" %}<script type="text/babel" src="{{ ASSET_URL }}"></script>{% endassets %}
-  {% assets "weko_admin_statistics_reactjs_lib" %}<script type="text/javascript" src="{{ ASSET_URL }}"></script>{% endassets %}
-  {% assets "weko_admin_react_bootstrap_js" %}<script type="text/javascript" src="{{ ASSET_URL }}"></script>{% endassets %}
+  {{ webpack["invenio_mail_template_js.js"] }}
+  <script src="{{ url_for('static', filename='js/weko_admin/react.production.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/weko_admin/react-dom.production.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/weko_admin/browser.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/weko_admin/react-bootstrap.min.js') }}"></script>
 {%- endblock javascript %}
 
 {%- block body %}
@@ -45,7 +47,7 @@
     <div class="panel-title">
       <h4>
         Mail Template
-        <a class="glyphicon glyphicon-info-sign pull-right" onclick="window.open('{{url_for('mailtemplates.help')}}', '_blank', 'location=no,toolbar=no,scrollbars=yes,resizable=no,top=500,left=500,width=400,height=400')"></a>
+        <a class="glyphicon glyphicon-info-sign pull-right" onclick="window.open('{{url_for(\'mailtemplates.help\')}}', '_blank', 'location=no,toolbar=no,scrollbars=yes,resizable=no,top=500,left=500,width=400,height=400')"></a>
       <h4>
     </div>
   </div>

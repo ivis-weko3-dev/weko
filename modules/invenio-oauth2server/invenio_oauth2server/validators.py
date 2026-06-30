@@ -14,7 +14,7 @@ from oauthlib.oauth2.rfc6749.errors import (
     InsecureTransportError,
     InvalidRedirectURIError,
 )
-from six.moves.urllib_parse import urlparse
+from urllib_parse import urlparse
 from wtforms.validators import URL
 
 from .errors import ScopeDoesNotExists

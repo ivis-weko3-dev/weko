@@ -7,8 +7,6 @@
 
 """Module of weko-bulkupdate."""
 
-from __future__ import absolute_import, print_function
-
 from .ext import WekoBulkupdate
 from .version import __version__
 

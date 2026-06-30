@@ -8,10 +8,10 @@
 
 """Invenio module for previewing files."""
 
-from time import sleep
 import pkg_resources
 from flask import current_app
 from pkg_resources import DistributionNotFound, get_distribution
+from time import sleep
 from werkzeug.utils import cached_property, import_string
 
 from . import config
@@ -91,7 +91,7 @@ class _InvenioPreviewerState(object):
 
     def load_entry_point_group(self, entry_point_group):
         """Load previewers from an entry point group."""
-        for ep in pkg_resources.iter_entry_points(group=entry_point_group):
+        for ep in set(importlib_metadata.entry_points(group=entry_point_group)):
             self.register_previewer(ep.name, ep.load())
 
     def iter_previewers(self, previewers=None):

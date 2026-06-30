@@ -87,66 +87,66 @@
                             "buckets": [
                                 {
                                     "doc_count": 1,
-                                    "key":"open access"
+                                    "key": "open access"
                                 }
                             ],
-                            "doc_count_error_upper_bound":0,
-                            "sum_other_doc_count":0
+                            "doc_count_error_upper_bound": 0,
+                            "sum_other_doc_count": 0
                         },
                         "Data Language": {
                             "buckets": [
                                 {
-                                    "doc_count":1,
-                                    "key":"jpn"
+                                    "doc_count": 1,
+                                    "key": "jpn"
                                 }
                             ],
-                            "doc_count_error_upper_bound":0,
-                            "sum_other_doc_count":0
+                            "doc_count_error_upper_bound": 0,
+                            "sum_other_doc_count": 0
                         },
-                        "Data Type":{
-                            "Data Type":{
+                        "Data Type": {
+                            "Data Type": {
                                 "buckets": [],
-                                "doc_count_error_upper_bound":0,
-                                "sum_other_doc_count":0
+                                "doc_count_error_upper_bound": 0,
+                                "sum_other_doc_count": 0
                             },
-                            "doc_count":0
+                            "doc_count": 0
                         },
-                        "Distributor":{
-                            "Distributor":{
-                                "buckets":[],
-                                "doc_count_error_upper_bound":0,
-                                "sum_other_doc_count":0
+                        "Distributor": {
+                            "Distributor": {
+                                "buckets": [],
+                                "doc_count_error_upper_bound": 0,
+                                "sum_other_doc_count": 0
                             },
-                            "doc_count":0
+                            "doc_count": 0
                         },
-                        "Location":{
-                            "buckets":[],
-                            "doc_count_error_upper_bound":0,
-                            "sum_other_doc_count":0
+                        "Location": {
+                            "buckets": [],
+                            "doc_count_error_upper_bound": 0,
+                            "sum_other_doc_count": 0
                         },
-                        "Temporal":{
-                            "buckets":[],
-                            "doc_count_error_upper_bound":0,
-                            "sum_other_doc_count":0
+                        "Temporal": {
+                            "buckets": [],
+                            "doc_count_error_upper_bound": 0,
+                            "sum_other_doc_count": 0
                         },
-                        "Topic":{
-                            "buckets":[],
-                            "doc_count_error_upper_bound":0,
-                            "sum_other_doc_count":0
+                        "Topic": {
+                            "buckets": [],
+                            "doc_count_error_upper_bound": 0,
+                            "sum_other_doc_count": 0
                         },
-                        "comment":"",
-                        "date_range":{
-                            "pub_cnt":1,
-                            "un_pub_cnt":0
+                        "comment": "",
+                        "date_range": {
+                            "pub_cnt": 1,
+                            "un_pub_cnt": 0
                         },
-                        "display_format":"1",
-                        "doc_count":1,
-                        "key":"1557820086539",
-                        "name":"Faculty of Humanities and Social Sciences",
-                        "no_available":{
-                            "doc_count":0
+                        "display_format": "1",
+                        "doc_count": 1,
+                        "key": "1557820086539",
+                        "name": "Faculty of Humanities and Social Sciences",
+                        "no_available": {
+                            "doc_count": 0
                         },
-                        "rss_status":false
+                        "rss_status": false
                     }
                 ]
             ],
@@ -926,7 +926,7 @@
                         }
                     ],
                     "feedback_mail_list": [],
-                    "heading":"",
+                    "heading": "",
                     "itemtype": "デフォルトアイテムタイプ（フル）",
                     "language": [
                         "jpn"
@@ -1727,7 +1727,7 @@
                         }
                     ],
                     "feedback_mail_list": [],
-                    "heading":"",
+                    "heading": "",
                     "itemtype": "デフォルトアイテムタイプ（フル）",
                     "language": [
                         "jpn"
@@ -2528,7 +2528,7 @@
                         }
                     ],
                     "feedback_mail_list": [],
-                    "heading":"",
+                    "heading": "",
                     "itemtype": "デフォルトアイテムタイプ（フル）",
                     "language": [
                         "jpn"
@@ -2560,7 +2560,10 @@
                 "updated": "2022-05-24T08:32:26.405052+00:00"
             }
         ],
-        "total": 3
+        "total": {
+            "value": 3,
+            "relation": "eq"
+        }
     },
     "links": {}
 }

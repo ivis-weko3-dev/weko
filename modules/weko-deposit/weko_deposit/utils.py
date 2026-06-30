@@ -18,18 +18,19 @@
 # Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
 # MA 02111-1307, USA.
 
+import gc
+import os
+import pypdfium2
+import subprocess
 import traceback
-from sqlalchemy.orm.exc import NoResultFound
+
 from flask import current_app
+from sqlalchemy.orm.exc import NoResultFound
 from .tasks import extract_pdf_and_update_file_contents
 from .api import WekoDeposit
-import pypdfium2
-import os
-import subprocess
-import gc
 
-def update_pdf_contents_es(record_ids):
-    """register the contents of the record PDF file in elasticsearch
+def update_pdf_contents_search(record_ids):
+    """register the contents of the record PDF file in search
     Args:
         record_ids (list): List of record uuids
     """

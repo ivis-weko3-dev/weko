@@ -8,9 +8,6 @@
 
 """Module tests."""
 
-from __future__ import absolute_import, print_function
-
-
 def test_version():
     """Test version import."""
     from invenio_iiif import __version__

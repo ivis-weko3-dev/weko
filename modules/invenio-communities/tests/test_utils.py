@@ -9,22 +9,22 @@
 
 """Utility functions tests."""
 
-from __future__ import absolute_import, print_function
-
-import pytest
 import os
+import pytest
+from invenio_communities.models import InclusionRequest, Community
+from invenio_communities.utils import (
+    render_template_to_string, Pagination, save_and_validate_logo,
+    initialize_communities_bucket, format_request_email_templ, 
+    send_community_request_email, get_user_role_ids, delete_empty, 
+    get_repository_id_by_item_id)
+from invenio_files_rest.errors import FilesException
+from invenio_files_rest.models import Location, Bucket, ObjectVersion
+from invenio_records.api import Record
 from mock import patch
 from PIL import Image, ImageFilter
-from invenio_records.api import Record
-from invenio_files_rest.models import Location, Bucket, ObjectVersion
-
-from invenio_files_rest.errors import FilesException
 from sqlalchemy.orm.exc import NoResultFound
 from weko_index_tree.models import Index
 
-from invenio_communities.models import InclusionRequest, Community
-from invenio_communities.utils import render_template_to_string,Pagination,save_and_validate_logo,\
-    initialize_communities_bucket,format_request_email_templ,send_community_request_email,get_user_role_ids,delete_empty,get_repository_id_by_item_id
 
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_utils.py::test_Pagination -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 def test_Pagination():

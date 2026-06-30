@@ -7,8 +7,6 @@
 
 """Module of weko-sitemap."""
 
-from __future__ import absolute_import, print_function
-
 from .ext import WekoSitemap
 from .version import __version__
 

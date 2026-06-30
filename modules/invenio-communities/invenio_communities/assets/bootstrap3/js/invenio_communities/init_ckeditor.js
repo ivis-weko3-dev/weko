@@ -23,48 +23,48 @@
 
 'use strict'
 
-require([
-  "node_modules/ckeditor/ckeditor",
-  ], function() {
+import $ from "jquery";
+import NodeModule from "node_modules/ckeditor/ckeditor";
 
-  var CKEDITOR_BASEPATH = '/ckeditor/';
+var CKEDITOR_BASEPATH = '/ckeditor/';
 
-  function init_ckeditor(selector, type) {
-      if(type=="simple"){
-          CKEDITOR.replace( selector, {
-              toolbar: [
-                  ['PasteText','PasteFromWord'],
-                  ['Bold','Italic','Strike','-','Subscript','Superscript',],
-                  ['NumberedList','BulletedList', 'Blockquote'],
-                  ['Undo','Redo','-','Find','Replace','-', 'RemoveFormat'],
-                  ['Mathjax', 'SpecialChar', 'ScientificChar'],
-                  ['Source'], ['Maximize'],
-              ],
-              extraPlugins: 'scientificchar,mathjax,blockquote',
-              disableNativeSpellChecker: false,
-              removePlugins: 'elementspath',
-              removeButtons: ''
-          });
-      } else {
-          CKEDITOR.replace( selector, {
-              toolbar: [
-                  ['PasteText','PasteFromWord'],
-                  ['Bold','Italic','Strike','-','Subscript','Superscript',],
-                  ['NumberedList','BulletedList', 'Blockquote', 'Table', '-', 'Link', 'Anchor'],
-                  ['Undo','Redo','-','Find','Replace','-', 'RemoveFormat'],
-                  ['Mathjax', 'SpecialChar', 'ScientificChar'],
-                  ['Styles', 'Format'], ['Source'], ['Maximize'],
-              ],
-              extraPlugins: 'scientificchar,mathjax,blockquote',
-              disableNativeSpellChecker: false,
-              removePlugins: 'elementspath',
-              removeButtons: ''
-          });
-      }
-  }
+function init_ckeditor(selector, type) {
+    if (type == "simple") {
+        CKEDITOR.replace(selector, {
+            toolbar: [
+                ['PasteText', 'PasteFromWord'],
+                ['Bold', 'Italic', 'Strike', '-', 'Subscript', 'Superscript',],
+                ['NumberedList', 'BulletedList', 'Blockquote'],
+                ['Undo', 'Redo', '-', 'Find', 'Replace', '-', 'RemoveFormat'],
+                ['Mathjax', 'SpecialChar', 'ScientificChar'],
+                ['Source'], ['Maximize'],
+            ],
+            extraPlugins: 'scientificchar,mathjax,blockquote',
+            disableNativeSpellChecker: false,
+            removePlugins: 'elementspath',
+            removeButtons: ''
+        });
+    } else {
+        CKEDITOR.replace(selector, {
+            toolbar: [
+                ['PasteText', 'PasteFromWord'],
+                ['Bold', 'Italic', 'Strike', '-', 'Subscript', 'Superscript',],
+                ['NumberedList', 'BulletedList', 'Blockquote', 'Table', '-', 'Link', 'Anchor'],
+                ['Undo', 'Redo', '-', 'Find', 'Replace', '-', 'RemoveFormat'],
+                ['Mathjax', 'SpecialChar', 'ScientificChar'],
+                ['Styles', 'Format'], ['Source'], ['Maximize'],
+            ],
+            extraPlugins: 'scientificchar,mathjax,blockquote',
+            disableNativeSpellChecker: false,
+            removePlugins: 'elementspath',
+            removeButtons: ''
+        });
+    }
+}
 
-  if ( $('#page').length )
+if ($('#page').length)
     init_ckeditor("page", 'advanced');
-  if ( $('#description').length )
+if ($('#description').length)
     init_ckeditor("description", 'simple');
-  });
+
+export default init_ckeditor;

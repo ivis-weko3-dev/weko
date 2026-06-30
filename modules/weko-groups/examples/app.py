@@ -59,7 +59,7 @@ SPHINX-END
 import os
 
 from flask import Flask, current_app
-from flask_babelex import Babel
+from flask_babel import Babel
 from flask_breadcrumbs import Breadcrumbs
 from flask_menu import Menu
 from flask_security.utils import encrypt_password

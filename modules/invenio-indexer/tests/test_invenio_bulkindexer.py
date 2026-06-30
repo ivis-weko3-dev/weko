@@ -8,18 +8,16 @@
 
 """Module tests."""
 
-from __future__ import absolute_import, print_function
-
 import uuid
-
 import pytz
+
 from flask import Flask
 from invenio_db import db
+from invenio_indexer import InvenioIndexer
+from invenio_indexer.api import RecordIndexer
 from invenio_records import Record
 from mock import MagicMock
 
-from invenio_indexer import InvenioIndexer
-from invenio_indexer.api import RecordIndexer
 
 _global_magic_hook = MagicMock()
 """Iternal importable magic hook instance."""
@@ -64,7 +62,6 @@ def test_hook_initialization(base_app):
         args = (app, )
         kwargs = dict(
             index=app.config['INDEXER_DEFAULT_INDEX'],
-            doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],
             arguments={},
             record=record,
             json={
@@ -80,7 +77,6 @@ def test_hook_initialization(base_app):
             version=0,
             version_type='force',
             index=app.config['INDEXER_DEFAULT_INDEX'],
-            doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],
             body={
                 'title': 'Test',
                 '_created': pytz.utc.localize(record.created).isoformat(),

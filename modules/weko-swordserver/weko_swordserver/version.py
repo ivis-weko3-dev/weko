@@ -11,6 +11,4 @@ This file is imported by ``weko_swordserver.__init__``,
 and parsed by ``setup.py``.
 """
 
-from __future__ import absolute_import, print_function
-
 __version__ = '1.1.0.dev20240214'

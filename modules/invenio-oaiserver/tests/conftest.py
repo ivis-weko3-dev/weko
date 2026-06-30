@@ -8,46 +8,46 @@
 
 """Pytest configuration."""
 
+import json
 import os
+import pytest
 import shutil
 import tempfile
 
-import pytest
-import json
-from os.path import join, dirname
-from unittest.mock import patch
+
 from flask import Flask
 from flask_celeryext import FlaskCeleryExt
 from flask_babel import Babel
 from sqlalchemy_utils.functions import create_database, database_exists
-from elasticsearch_dsl import response, Search
 
 from invenio_access import InvenioAccess
+from invenio_access.models import ActionUsers,ActionRoles
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import User, Role
 from invenio_accounts.testutils import create_test_user
-from invenio_access.models import ActionUsers,ActionRoles
 from invenio_communities.config import COMMUNITIES_OAI_FORMAT
 from invenio_communities.models import Community
 from invenio_db import InvenioDB
 from invenio_db import db as db_
-from invenio_i18n import InvenioI18N
 from invenio_indexer import InvenioIndexer
+from invenio_i18n import InvenioI18N
 from invenio_jsonschemas import InvenioJSONSchemas
+from invenio_oaiserver import InvenioOAIServer
+from invenio_oaiserver.models import Identify, OAISet
+from invenio_oaiserver.views.server import blueprint
+from invenio_oaiserver.provider import OAIIDProvider
 from invenio_pidstore import InvenioPIDStore
 from invenio_records import InvenioRecords
 from invenio_search import InvenioSearch
 from invenio_search.engine import search, dsl
+from os.path import join, dirname
+from unittest.mock import patch
 
 from weko_records.api import ItemTypes
 from weko_records.models import ItemTypeName
 from weko_records_ui.config import WEKO_RECORDS_UI_LICENSE_DICT
 from weko_index_tree.models import Index
 
-from invenio_oaiserver import InvenioOAIServer
-from invenio_oaiserver.models import Identify, OAISet
-from invenio_oaiserver.views.server import blueprint
-from invenio_oaiserver.provider import OAIIDProvider
 from .helpers import load_records, remove_records, create_record_oai
 
 
@@ -97,12 +97,11 @@ def base_app(instance_path):
             }
         },
         WEKO_RECORDS_UI_LICENSE_DICT=WEKO_RECORDS_UI_LICENSE_DICT,
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-                'SEARCH_ELASTIC_HOSTS', 'opensearch'),
+       SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'
         ),
@@ -283,32 +282,32 @@ def users(app, db):
     ]
 
 @pytest.fixture()
-def es_app(app):
+def search_app(app):
     with open(join(dirname(__file__),"data/mappings/item-v1.0.0.json"),"r") as f:
     #with open(join(dirname(__file__),"data/v6/records/record-v1.0.0.json"),"r") as f:
         mapping = json.load(f)
-    es = search.cilent.Opensearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
+    open_search = search.Opensearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
 
-    es.indices.create(
+    open_search.indices.create(
         index=app.config["INDEXER_DEFAULT_INDEX"],
         body=mapping, ignore=[400, 404]
     )
 
-    es.indices.put_alias(
+    open_search.indices.put_alias(
         index=app.config["INDEXER_DEFAULT_INDEX"],
         name=app.config["SEARCH_UI_SEARCH_INDEX"],
         ignore=[400, 404],
     )
-    InvenioSearch(app, client=es)
+    InvenioSearch(app, client=open_search)
     #search.register_mappings("items", "tests.data")
     yield app
 
-    es.indices.delete_alias(
+    open_search.indices.delete_alias(
         index=app.config["INDEXER_DEFAULT_INDEX"],
         name=app.config["SEARCH_UI_SEARCH_INDEX"],
         ignore=[400, 404],
     )
-    es.indices.delete(
+    open_search.indices.delete(
         index=app.config["INDEXER_DEFAULT_INDEX"],
         ignore=[400, 404])
 

@@ -1,40 +1,47 @@
-import copy
-import pytest
-import uuid
-import json
-from os.path import dirname, join
-from unittest.mock import patch, MagicMock, Mock
-
-import datetime
 import base64
+import copy
+import datetime
 import flask
+import json
+import pytest
 import pytz
-from werkzeug.datastructures import MultiDict
+import uuid
+
+from datetime import timedelta
 from flask import current_app,session
 from flask_babel import gettext as _
+from flask_login.utils import login_user
+from invenio_accounts.models import User
+from invenio_cache import current_cache
+from invenio_files_rest.models import Bucket
+from invenio_mail.models import MailConfig, MailTemplateUsers
+from invenio_records_files.models import RecordsBuckets
+from invenio_pidstore.models import (
+    PersistentIdentifier, PIDStatus, RecordIdentifier, PIDDoesNotExistError)
+from os.path import dirname, join
+from redis.exceptions import ResponseError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
-from redis.exceptions import ResponseError
+from unittest.mock import patch, MagicMock, Mock
+
+from weko_admin.models import SiteInfo, Identifier
 from weko_deposit.pidstore import get_record_without_version
 from weko_deposit.api import WekoRecord, WekoDeposit
-from invenio_accounts.models import User
-from invenio_records_files.models import RecordsBuckets
-from invenio_files_rest.models import Bucket
-from invenio_cache import current_cache
-from invenio_pidstore.models import PersistentIdentifier, PIDStatus, RecordIdentifier, PIDDoesNotExistError
-from flask_login.utils import login_user
-from .helpers import json_data, create_activity
-from invenio_mail.models import MailConfig, MailTemplateUsers
-from weko_admin.models import SiteInfo, Identifier
-from weko_records.models import FeedbackMailList, ItemApplication, ItemType, RequestMailList
+from weko_records.models import (
+    FeedbackMailList, ItemApplication, ItemType, RequestMailList)
 from weko_records_ui.models import FilePermission,FileOnetimeDownload
 from weko_records_ui.utils import get_list_licence
 from weko_user_profiles import UserProfile
 from weko_records.api import ItemTypes, ItemsMetadata, Mapping
-from weko_user_profiles.config import WEKO_USERPROFILES_POSITION_LIST,WEKO_USERPROFILES_INSTITUTE_POSITION_LIST
-from weko_workflow.models import Activity, ActivityHistory, FlowActionRole, GuestActivity
-from weko_workflow.config import WEKO_WORKFLOW_FILTER_PARAMS,IDENTIFIER_GRANT_LIST
+from weko_user_profiles.config import (
+    WEKO_USERPROFILES_POSITION_LIST,WEKO_USERPROFILES_INSTITUTE_POSITION_LIST)
+from weko_workflow.api import (
+    GetCommunity, UpdateItem, WorkActivity, WorkActivityHistory, WorkFlow)
+from weko_workflow.config import (
+    WEKO_WORKFLOW_FILTER_PARAMS,IDENTIFIER_GRANT_LIST)
 from weko_workflow.errors import InvalidParameterValueError
+from weko_workflow.models import (
+    Activity, ActivityHistory, FlowActionRole, GuestActivity, ActionIdentifier)
 from weko_workflow.utils import (
     filter_all_condition,
     filter_condition,
@@ -160,9 +167,8 @@ from weko_workflow.utils import (
     check_activity_settings,
     reset_flow_action_roles_restricted_access
 )
-from weko_workflow.api import GetCommunity, UpdateItem, WorkActivity, WorkActivityHistory, WorkFlow
-from weko_workflow.models import Activity,ActionIdentifier
-from datetime import timedelta
+from werkzeug.datastructures import MultiDict
+from .helpers import json_data, create_activity
 
 # def get_current_language():
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_get_current_language -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
@@ -1785,11 +1791,11 @@ def test_handle_finish_workflow(workflow, db_records, mocker, db_itemtype2):
     deposit = db_records[2][6]
     current_pid = db_records[2][0]
     recid = MagicMock(spec=RecordIdentifier, recid=current_pid.pid_value)
-    with patch('weko_deposit.api.WekoIndexer.update_es_data'):
+    with patch('weko_deposit.api.WekoIndexer.update_search_data'):
         result = handle_finish_workflow(deposit,current_pid,recid)
     assert result
 
-    with patch('weko_deposit.api.WekoIndexer.update_es_data'):
+    with patch('weko_deposit.api.WekoIndexer.update_search_data'):
         with patch("weko_workflow.utils.RequestMailList.update") as update_request:
             result = handle_finish_workflow(deposit,current_pid,recid)
             assert result
@@ -4120,7 +4126,7 @@ def test___init_activity_detail_data_for_guest(app, db, users, db_register_full_
         mocker.patch("weko_workflow.utils.get_activity_display_info",return_value=display_info)
         mocker.patch("weko_workflow.utils.get_approval_keys",return_value=[])
         community_id=""
-        session['user_id'] = '1'
+        session['_user_id'] = '1'
         session["guest_email"] = "guest@test.org"
         user_profile = {
             "results":{

@@ -94,7 +94,7 @@ def test_bibtexfields(app,db,db_oaischema):
 #     def __get_identifier(identifier_type, identifier_types_data):
 
 # .tox/c1/bin/pytest --cov=weko_schema_ui tests/test_WekoBibTexSerializer.py::test_wekobibtexserializer -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-schema-ui/.tox/c1/tmp
-def test_wekobibtexserializer(app, records, db_oaischema, itemtypes, esindex):
+def test_wekobibtexserializer(app, records, db_oaischema, itemtypes, search_index):
     from weko_schema_ui.serializers.WekoBibTexSerializer import WekoBibTexSerializer
     from weko_schema_ui.serializers.wekoxml import WekoXMLSerializer
 

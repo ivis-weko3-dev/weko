@@ -24,70 +24,57 @@
 
 """Pytest configuration."""
 
-from __future__ import absolute_import, print_function
-
-import os
+import copy
 import json
+import os
+import pytest
 import shutil
 import tempfile
 import uuid
-from datetime import datetime
-from os.path import join
-from mock import patch
-import copy
 
-import pytest
+from datetime import datetime
+
 from flask import Flask
 from flask.cli import ScriptInfo
 from flask_celeryext import FlaskCeleryExt
-from invenio_accounts import InvenioAccounts
-from invenio_accounts.models import User
-from invenio_accounts.testutils import create_test_user
-from invenio_db import InvenioDB, db
-from invenio_files_rest.models import Location
-from invenio_i18n import InvenioI18N
-from invenio_jsonschemas import InvenioJSONSchemas
-from invenio_pidrelations import InvenioPIDRelations
-from invenio_records import InvenioRecords
-from sqlalchemy_utils.functions import create_database, database_exists
-from weko_index_tree.models import Index
-from weko_search_ui import WekoSearchUI
-from weko_theme import WekoTheme
-from invenio_access import InvenioAccess
-from invenio_access.models import ActionUsers, ActionRoles
+
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import User, Role
 from invenio_accounts.testutils import create_test_user
+from invenio_access import InvenioAccess
+from invenio_access.models import ActionUsers, ActionRoles
 from invenio_cache import InvenioCache
-from invenio_deposit import InvenioDeposit
 from invenio_db import InvenioDB
 from invenio_db import db as db_
+from invenio_deposit import InvenioDeposit
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location
 from invenio_i18n import InvenioI18N
 from invenio_jsonschemas import InvenioJSONSchemas
+from invenio_oaiharvester import InvenioOAIHarvester
+from invenio_oaiharvester.models import OAIHarvestConfig, HarvestSettings
 from invenio_pidstore import InvenioPIDStore
+from invenio_pidstore.models import (
+    PersistentIdentifier, PIDStatus, RecordIdentifier
+)
 from invenio_pidrelations import InvenioPIDRelations
+from invenio_pidrelations.models import PIDRelation
 from invenio_records import InvenioRecords
 from invenio_records_rest import InvenioRecordsREST
 from invenio_search import InvenioSearch, current_search_client
+
+from mock import patch
+from os.path import join
 from sqlalchemy_utils.functions import create_database, database_exists
-from invenio_pidstore.models import PersistentIdentifier, PIDStatus, RecordIdentifier
-from invenio_pidrelations.models import PIDRelation
-from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
+from weko_deposit import WekoDeposit
 from weko_index_tree.models import Index
+from weko_records import WekoRecords
+from weko_records.api import ItemsMetadata
+from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
+from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER
 from weko_search_ui import WekoSearchUI
 from weko_schema_ui.models import OAIServerSchema
 from weko_theme import WekoTheme
-from weko_deposit import WekoDeposit
-from weko_records import WekoRecords
-from weko_records.api import ItemsMetadata
-from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER
-
-
-from invenio_oaiharvester import InvenioOAIHarvester
-from invenio_oaiharvester.models import OAIHarvestConfig, HarvestSettings
-
 
 
 @pytest.yield_fixture()
@@ -122,11 +109,10 @@ def base_app(instance_path):
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
         SERVER_NAME="TEST_SERVER",
-        SEARCH_ELASTIC_HOSTS="opensearch",
+        SEARCH_OPENSEARCH_HOSTS="opensearch",
         SEARCH_HOSTS=os.environ.get('SEARCH_HOST', 'opensearch'),
         SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         SEARCH_INDEX_PREFIX="test-",
-        INDEXER_DEFAULT_DOCTYPE='item-v1.0.0',
         INDEXER_FILE_DOC_TYPE='content',
         WEKO_BUCKET_QUOTA_SIZE=50 * 1024 * 1024 * 1024,
         WEKO_MAX_FILE_SIZE=50 * 1024 * 1024 * 1024,
@@ -186,7 +172,7 @@ def db(app):
 
 
 @pytest.fixture()
-def esindex(app):
+def search_index(app):
     current_search_client.indices.delete(index='test-*')
     with open("tests/data/item-v1.0.0.json","r") as f:
         mapping = json.load(f)

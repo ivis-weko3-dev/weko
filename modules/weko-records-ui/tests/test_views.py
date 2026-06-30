@@ -1,21 +1,20 @@
 import copy
+import io
+import pytest
+import uuid
+
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
-import uuid
-import pytest
-import io
 from flask import Flask, json, jsonify, session, url_for ,make_response, current_app
 from flask_security.utils import login_user
-from flask_babelex import gettext as _
+from flask_babel import gettext as _
 from invenio_accounts.testutils import login_user_via_session
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from io import BytesIO
-from unittest.mock import patch
-from lxml import etree
-from weko_deposit.api import WekoRecord
-from werkzeug.datastructures import FileStorage
-from werkzeug.exceptions import NotFound, Forbidden
 from jinja2.exceptions import TemplatesNotFound
+from lxml import etree
+from unittest.mock import patch
+from weko_deposit.api import WekoRecord
 from weko_index_tree.models import IndexStyle
 from weko_workflow.models import (
     WorkFlow,
@@ -49,6 +48,8 @@ from weko_records_ui.views import (
     get_bucket_list,
 )
 from weko_records_ui.utils import create_download_url
+from werkzeug.datastructures import FileStorage
+from werkzeug.exceptions import NotFound, Forbidden
 from .helpers import login
 
 
@@ -127,7 +128,7 @@ def test_publish(client, records, users, communities, mocker):
     mock_commit = mocker.patch("weko_records_ui.views.db.session.commit")
     mock_commit2 = mocker.patch("invenio_records.api.Record.commit")
 
-    mock_update_es_data = mocker.patch("weko_deposit.api.WekoIndexer.update_es_data")
+    mock_update_search_data = mocker.patch("weko_deposit.api.WekoIndexer.update_search_data")
 
     # Test Case 1: community id exists
     mock_request = mocker.patch("weko_records_ui.views.request")
@@ -577,7 +578,7 @@ def test_default_view_method(app, records, itemtypes, indexstyle, users, db):
                             return values[arg]
                         pid_ver = MagicMock
                         pid_ver.exists = False
-                        with patch('weko_records_ui.views.PIDVersioning', return_value=pid_ver):
+                        with patch('weko_records_ui.views.PIDNodeVersioning', return_value=pid_ver):
                             with pytest.raises(NotFound):  # 404
                                 assert default_view_method(recid, record, 'helloworld.pdf')
 
@@ -588,7 +589,7 @@ def test_default_view_method(app, records, itemtypes, indexstyle, users, db):
                         mock.object_uuid = uuid.uuid4()
                         pid_ver.children = [mock]
                         pid_ver.get_children = lambda ordered, pid_status: [mock]
-                        with patch('weko_records_ui.views.PIDVersioning', return_value=pid_ver):
+                        with patch('weko_records_ui.views.PIDNodeVersioning', return_value=pid_ver):
                             with patch('weko_records_ui.views.WekoRecord.get_record', return_value={'_deposit': {'status': 'draft'}}):
                                 assert default_view_method(recid, record, 'helloworld.pdf').status_code == 200
 
@@ -658,7 +659,7 @@ def test_default_view_method(app, records, itemtypes, indexstyle, users, db):
                             #     default_view_method(recid, record ,'helloworld.pdf')
                             pid_ver = MagicMock
                             pid_ver.exists = False
-                            with patch('weko_records_ui.views.PIDVersioning',return_value=pid_ver):
+                            with patch('weko_records_ui.views.PIDNodeVersioning',return_value=pid_ver):
                                 with pytest.raises(NotFound) : #404
                                     assert default_view_method(recid, record ,'helloworld.pdf')
 
@@ -669,7 +670,7 @@ def test_default_view_method(app, records, itemtypes, indexstyle, users, db):
                             mock.object_uuid = uuid.uuid4()
                             pid_ver.children = [mock]
                             pid_ver.get_children = lambda ordered,pid_status : [mock]
-                            with patch('weko_records_ui.views.PIDVersioning',return_value=pid_ver):
+                            with patch('weko_records_ui.views.PIDNodeVersioning',return_value=pid_ver):
                                 with patch('weko_records_ui.views.WekoRecord.get_record',return_value={'_deposit':{'status':'draft'}}):
                                     assert default_view_method(recid, record ,'helloworld.pdf').status_code == 200
 
@@ -1610,7 +1611,7 @@ def test_publish(app, client, records):
     record_1_a = copy.deepcopy(record)
     record_1_b = copy.deepcopy(record)
     record_1_c = copy.deepcopy(record)
-    with patch("weko_records_ui.views.PIDVersioning", mock_pid):
+    with patch("weko_records_ui.views.PIDNodeVersioning", mock_pid):
         with patch("weko_records_ui.views.url_for", return_value=""):
             with patch("weko_records_ui.views.call_external_system") as mock_external:
                 with patch("weko_records_ui.views.WekoRecord.commit"):

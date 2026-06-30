@@ -8,16 +8,15 @@
 
 """Module tests."""
 
-from unittest.mock import patch
-
 import pytest
+
 from conftest import MOCK_MQ_EXCHANGE, mock_iter_entry_points_factory
 from flask import Flask
-from pkg_resources import EntryPoint
-
 from invenio_queues import InvenioQueues, current_queues
 from invenio_queues.errors import DuplicateQueueError
 from invenio_queues.queue import Queue
+from pkg_resources import EntryPoint
+from unittest.mock import patch
 
 
 def test_version():
@@ -53,7 +52,7 @@ def test_duplicate_queue(app):
 
         entrypoints = mock_iter_entry_points_factory(data)
 
-        with patch("pkg_resources.iter_entry_points", entrypoints):
+        with patch("set(importlib_metadata.entry_points", entrypoints):
             with pytest.raises(DuplicateQueueError):
                 current_queues.queues()
 

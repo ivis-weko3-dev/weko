@@ -8,7 +8,6 @@
 import pytest
 from io import BytesIO
 from hashlib import sha256,sha512
-from zipfile import ZipFile
 from unittest.mock import MagicMock, patch
 from weko_accounts.models import ShibbolethUser
 from weko_admin.models import AdminSettings
@@ -22,10 +21,11 @@ from weko_swordserver.utils import (
     delete_item_directly,
     notify_about_item,
 )
-from .helpers import json_data
 from weko_swordserver.errors import ErrorType, WekoSwordserverException
 from weko_swordserver.models import SwordClientModel
 from weko_search_ui.mapper import JsonLdMapper
+from zipfile import ZipFile
+from .helpers import json_data
 
 
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_utils.py -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
@@ -541,7 +541,7 @@ def test_delete_item_directly(
 
     latest_pid = MagicMock()
     latest_pid.object_uuid = "uuid"
-    pid_versioning_mock = mocker.patch("weko_swordserver.utils.PIDVersioning")
+    pid_versioning_mock = mocker.patch("weko_swordserver.utils.PIDNodeVersioning")
     pid_versioning_mock.return_value.last_child = latest_pid
 
     work_activity_mock = mocker.patch("weko_swordserver.utils.WorkActivity")

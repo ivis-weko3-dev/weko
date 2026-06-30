@@ -1,20 +1,35 @@
 
 import json
+import logging
 import pytest
-from mock import patch, MagicMock, call, mock_open, call
+
+from celery import states
 from datetime import datetime,  timedelta, timezone
 from flask import Flask, current_app
-from celery import states
-
-import logging
+from invenio_cache import current_cache
+from invenio_search.engine import search
 from logging import INFO
+from mock import patch, MagicMock, call, mock_open, call
 from _pytest.logging import LogCaptureFixture
 from sqlalchemy.exc import SQLAlchemyError
-from elasticsearch import ElasticsearchException
 
-from invenio_cache import current_cache
-from weko_authors.tasks import export_all,import_author,check_is_import_available,import_id_prefix,import_affiliation_id,import_author_over_max,import_authors_from_temp_files,import_authors_for_over_max,write_result_temp_file,update_summary,prepare_display_status,prepare_success_msg,check_task_end,check_is_import_available,check_tmp_file_time_for_author,update_cache_data, \
-import_authors_from_temp_files, import_authors_for_over_max
+from weko_authors.tasks import (
+    export_all,
+    import_author,
+    check_is_import_available,
+    import_id_prefix,
+    import_affiliation_id,
+    import_author_over_max,
+    import_authors_from_temp_files,
+    import_authors_for_over_max,
+    write_result_temp_file,
+    update_summary,
+    prepare_display_status,
+    prepare_success_msg,
+    check_task_end,
+    check_tmp_file_time_for_author,
+    update_cache_data
+)
 from weko_workflow.utils import get_cache_data, delete_cache_data
 
 # from .config import WEKO_AUTHORS_IMPORT_CACHE_RESULT_OVER_MAX_FILE_PATH_KEY
@@ -71,10 +86,10 @@ def test_02_import_author(app, caplog: LogCaptureFixture):
 # def import_author(author):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_tasks.py::test_03_import_author -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 def test_03_import_author(app, caplog: LogCaptureFixture):
-    with patch("weko_authors.tasks.import_author_to_system",side_effect=ElasticsearchException("ElasticsearchException")):
+    with patch("weko_authors.tasks.import_author_to_system",side_effect=search.OpenSearchException("OpenSearchException")):
         result = import_author({"status":"", "weko_id":""}, True)
     info_logs = [record for record in caplog.record_tuples if record[1] == logging.ERROR]
-    expected = [('testapp', logging.ERROR, 'ElasticsearchException')] * 6
+    expected = [('testapp', logging.ERROR, 'OpenSearchException')] * 6
     assert info_logs == expected
     assert result["status"] == "FAILURE"
 

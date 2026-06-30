@@ -8,8 +8,6 @@
 
 """Implementention of various utility functions."""
 
-from __future__ import absolute_import, print_function
-
 from flask import request
 from invenio_oauth2server import require_api_auth, require_oauth_scopes
 
@@ -76,7 +74,7 @@ def check_oauth2_scope(can_method, *myscopes):
     return check
 
 
-def can_elasticsearch(record):
+def can_search(record):
     """Check if a given record is indexed.
 
     :param record: A record object.
@@ -93,8 +91,8 @@ check_oauth2_scope_write = check_oauth2_scope(lambda x: True, write_scope.id)
 The scope :class:`invenio_deposit.scopes.write_scope` is checked.
 """
 
-check_oauth2_scope_write_elasticsearch = check_oauth2_scope(
-    can_elasticsearch, write_scope.id)
+check_oauth2_scope_write_search = check_oauth2_scope(
+    can_search, write_scope.id)
 """Permission factory that check oauth2 scope and if the record is indexed.
 
 The scope :class:`invenio_deposit.scopes.write_scope` is checked.

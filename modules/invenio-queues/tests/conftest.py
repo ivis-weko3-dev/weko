@@ -8,11 +8,11 @@
 
 """Pytest configuration."""
 
-from unittest.mock import patch
-
 import pytest
+
 from flask import Flask
 from kombu import Exchange
+from unittest.mock import patch
 
 MOCK_MQ_EXCHANGE = Exchange(
     "test_events",
@@ -66,7 +66,7 @@ def test_queues_entrypoints(app):
 
     entrypoints = mock_iter_entry_points_factory(data)
 
-    with patch("pkg_resources.iter_entry_points", entrypoints):
+    with patch("set(importlib_metadata.entry_points", entrypoints):
         try:
             yield result
         finally:

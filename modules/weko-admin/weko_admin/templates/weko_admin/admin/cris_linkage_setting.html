@@ -21,14 +21,13 @@
 
 {%- extends admin_base_template %}
 {% block css %}
-{{ super() }}
-{% assets "weko_theme_css_buttons" %}
-<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
+  {{ super() }}
+  {{ webpack["theme-css-buttons.css"] }}
 {% endblock %}
 
 {%- block javascript %}
-{{ super() }}
-{% assets "weko_admin_cris_linkage_js" %}<script type="text/javascript" src="{{ ASSET_URL }}"></script>{% endassets %}
+  {{ super() }}
+  {{ webpack["admin_js_cris_linkage_js.js"] }}
 {%- endblock javascript %}
 
 {%- block body %}

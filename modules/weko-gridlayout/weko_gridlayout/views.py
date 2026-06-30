@@ -6,21 +6,19 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 
 """Module of weko-gridlayout."""
-from __future__ import absolute_import, print_function
 
 import json
 from datetime import date, timedelta
 
-import six
 from flask import Blueprint, abort, current_app, jsonify, render_template, \
     request
 from flask_babel import gettext as _
 from flask_login import current_user, login_required
 from invenio_cache import current_cache, current_cache_ext
+from invenio_db import db
 from invenio_stats.utils import QueryCommonReportsHelper
 from sqlalchemy.orm.exc import NoResultFound
 from werkzeug.exceptions import NotFound
-from invenio_db import db
 
 from .api import WidgetItems
 from .config import WEKO_GRIDLAYOUT_ACCESS_COUNTER_TYPE
@@ -28,7 +26,7 @@ from .models import WidgetDesignPage
 from .services import WidgetDataLoaderServices, WidgetDesignPageServices, \
     WidgetDesignServices, WidgetItemServices
 from .utils import WidgetBucket, get_default_language, \
-    get_elasticsearch_result_by_date, get_system_language, \
+    get_search_result_by_date, get_system_language, \
     get_widget_design_setting, get_widget_type_list, validate_upload_file
 
 blueprint = Blueprint(
@@ -393,7 +391,7 @@ def get_rss_data():
     current_date = date.today()
     end_date = current_date.strftime("%Y-%m-%d")
     start_date = (current_date - timedelta(days=term)).strftime("%Y-%m-%d")
-    rd = get_elasticsearch_result_by_date(start_date, end_date)
+    rd = get_search_result_by_date(start_date, end_date)
     return WidgetDataLoaderServices.get_arrivals_rss(rd, term, count)
 
 
@@ -492,7 +490,7 @@ def _add_url_rule(url_or_urls):
     old = current_app._got_first_request
     # This is bit of cheating to overcome @flask.app.setupmethod decorator.
     current_app._got_first_request = False
-    if isinstance(url_or_urls, six.string_types):
+    if isinstance(url_or_urls, str):
         url_or_urls = [url_or_urls]
     map(lambda url:
         current_app.add_url_rule(url, 'weko_gridlayout.view_widget_page',

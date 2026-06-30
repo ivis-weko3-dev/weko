@@ -21,16 +21,16 @@
 
 """Groups Settings Blueprint."""
 
+import bleach
 from flask import Blueprint, flash, jsonify, redirect, render_template, \
     request, url_for, current_app
-import bleach
 from flask_babel import gettext as _
 from flask_login import current_user, login_required
 from invenio_accounts.models import User
 from invenio_admin.proxies import current_admin
-from six.moves.urllib.parse import urlparse
-from sqlalchemy.exc import IntegrityError
 from invenio_db import db
+from sqlalchemy.exc import IntegrityError
+from urllib.parse import urlparse
 
 from .forms import GroupForm, NewMemberForm
 from .models import Group, Membership

@@ -213,14 +213,14 @@ def test_reindex_DBtoES(i18n_app,admin_settings,reindex_settings):
                         assert 'completed' == reindex(True)
 
 def test_reindex_raise(i18n_app,admin_settings):
-    with patch("weko_admin.tasks.elasticsearch_reindex" , side_effect=BaseException("test_error")):
+    with patch("weko_admin.tasks.search_reindex" , side_effect=BaseException("test_error")):
         try :
             reindex(True)
 
             assert False , "expected Exception raised but"
         except BaseException as ex:
             assert "test_error" in ex.args
-            admin_setting = AdminSettings.get('elastic_reindex_settings',False)
+            admin_setting = AdminSettings.get('search_reindex_settings',False)
             assert True == admin_setting.get('has_errored')
 
 

@@ -1,24 +1,23 @@
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_rest.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 
 import json
+import pytest
+import urllib.parse
 import uuid
-from mock import patch
 from flask import Blueprint, Response
-
+from flask_oauthlib.provider import OAuth2Provider
 from invenio_deposit.utils import check_oauth2_scope_write, \
-    check_oauth2_scope_write_elasticsearch
+    check_oauth2_scope_write_search
+from invenio_oauth2server.views.server import login_oauth2_user
 from invenio_records_rest.utils import check_search
+from mock import patch
+
+from mock import MagicMock
+from sqlalchemy.exc import SQLAlchemyError
 from weko_authors.rest import (
     create_blueprint, AuthorDBManagementAPI
 )
-
-import urllib.parse
-from flask_oauthlib.provider import OAuth2Provider
-from invenio_oauth2server.views.server import login_oauth2_user
-from mock import MagicMock
 from weko_index_tree.api import Indexes
-import pytest
-from sqlalchemy.exc import SQLAlchemyError
 
 blueprint = Blueprint(
     'invenio_records_rest',
@@ -50,9 +49,9 @@ endpoints = {
         'create_permission_factory_imp': check_oauth2_scope_write,
         'read_permission_factory_imp': check_search,
         'update_permission_factory_imp':
-            check_oauth2_scope_write_elasticsearch,
+            check_oauth2_scope_write_search,
         'delete_permission_factory_imp':
-            check_oauth2_scope_write_elasticsearch,
+            check_oauth2_scope_write_search,
         'max_result_window': 10000,
         'cites_route': 1,
     },
@@ -89,10 +88,10 @@ def test_Authors(app):
 
 class TestAuthorDBManagementAPI:
     @pytest.mark.parametrize('base_app',[dict(
-        is_es=True
+        is_search=True
     )],indirect=['base_app'])
     # .tox/c1/bin/pytest --cov=weko_authors tests/test_rest.py::TestAuthorDBManagementAPI::test_get_v1 -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_index_tree/.tox/c1/tmp --full-trace | tee log.log
-    def test_get_v1(self, app, esindex, client_api, auth_headers_noroleuser, auth_headers_sysadmin, auth_headers_sysadmin_without_scope, author_records_for_test, authors_affiliation_settings, authors_prefix_settings, community):
+    def test_get_v1(self, app, search_index, client_api, auth_headers_noroleuser, auth_headers_sysadmin, auth_headers_sysadmin_without_scope, author_records_for_test, authors_affiliation_settings, authors_prefix_settings, community):
         """
         著者DB検索API - 著者情報取得
         - 正常系: 検索パラメータごとに正しくデータが取得できるか確認
@@ -178,7 +177,7 @@ class TestAuthorDBManagementAPI:
 
     # .tox/c1/bin/pytest --cov=weko_authors tests/test_rest.py::TestAuthorDBManagementAPI::test_post_v1 -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_index_tree/.tox/c1/tmp --full-trace | tee log.log
     @pytest.mark.parametrize('base_app',[dict(
-        is_es=True
+        is_search=True
     )],indirect=['base_app'])
     def test_post_v1(self, app, client_api, auth_headers_noroleuser, auth_headers_sysadmin, author_records_for_test, authors_affiliation_settings, authors_prefix_settings, auth_headers_bad_content_type, community):
         """
@@ -350,7 +349,7 @@ class TestAuthorDBManagementAPI:
 
 
     @pytest.mark.parametrize('base_app',[dict(
-        is_es=True
+        is_search=True
     )],indirect=['base_app'])
     # .tox/c1/bin/pytest --cov=weko_authors tests/test_rest.py::TestAuthorDBManagementAPI::test_put_v1 -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_index_tree/.tox/c1/tmp --full-trace | tee log.log
     def test_put_v1(self, app, client_api, auth_headers_noroleuser, auth_headers_sysadmin, author_records_for_test, authors_affiliation_settings, authors_prefix_settings, auth_headers_bad_content_type, community):
@@ -370,14 +369,14 @@ class TestAuthorDBManagementAPI:
             author_data = self.valid_update_data()
             del author_data["author"]["emailInfo"]
             self.run_put_author(app, client_api, auth_headers_sysadmin, author_data, 1, 200, "Author successfully updated.")
-            es_id = author_records_for_test["1"]
-            self.run_put_author(app, client_api, auth_headers_sysadmin, {"author": self.valid_update_data().get("author")}, es_id, 200, "Author successfully updated.")
-            self.run_put_author(app, client_api, auth_headers_sysadmin, {"force_change": True, "author": self.valid_update_data().get("author")}, es_id, 200, "Author successfully updated.")
-            self.run_put_author(app, client_api, auth_headers_sysadmin, {"author": self.valid_update_data().get("author")}, es_id, 200, "Author successfully updated.")
-            self.run_put_author(app, client_api, auth_headers_sysadmin, self.valid_update_data_with_community(["community1"]), es_id, 200, "Author successfully updated.")
-            self.run_put_author(app, client_api, auth_headers_sysadmin, self.valid_update_data_with_community(["community1", "community2", "community3"]), es_id, 200, "Author successfully updated.")
-            self.run_put_author(app, client_api, auth_headers_sysadmin, self.valid_update_data_with_community(["community1", "community1"]), es_id, 200, "Author successfully updated.")
-            self.run_put_author(app, client_api, auth_headers_sysadmin, self.valid_update_data_with_community([]), es_id, 200, "Author successfully updated.")
+            search_id = author_records_for_test["1"]
+            self.run_put_author(app, client_api, auth_headers_sysadmin, {"author": self.valid_update_data().get("author")}, search_id, 200, "Author successfully updated.")
+            self.run_put_author(app, client_api, auth_headers_sysadmin, {"force_change": True, "author": self.valid_update_data().get("author")}, search_id, 200, "Author successfully updated.")
+            self.run_put_author(app, client_api, auth_headers_sysadmin, {"author": self.valid_update_data().get("author")}, search_id, 200, "Author successfully updated.")
+            self.run_put_author(app, client_api, auth_headers_sysadmin, self.valid_update_data_with_community(["community1"]), search_id, 200, "Author successfully updated.")
+            self.run_put_author(app, client_api, auth_headers_sysadmin, self.valid_update_data_with_community(["community1", "community2", "community3"]), search_id, 200, "Author successfully updated.")
+            self.run_put_author(app, client_api, auth_headers_sysadmin, self.valid_update_data_with_community(["community1", "community1"]), search_id, 200, "Author successfully updated.")
+            self.run_put_author(app, client_api, auth_headers_sysadmin, self.valid_update_data_with_community([]), search_id, 200, "Author successfully updated.")
 
             # 認証なしのリクエストが拒否されることを確認
             self.run_put_author_unauthorized(app, client_api)
@@ -512,7 +511,7 @@ class TestAuthorDBManagementAPI:
         return data
 
     @pytest.mark.parametrize('base_app',[dict(
-        is_es=True
+        is_search=True
     )],indirect=['base_app'])
     # .tox/c1/bin/pytest --cov=weko_authors tests/test_rest.py::TestAuthorDBManagementAPI::test_delete_v1 -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_index_tree/.tox/c1/tmp --full-trace | tee log.log
     def test_delete_v1(self, app, client_api, auth_headers_sysadmin, auth_headers_noroleuser,author_records_for_test):

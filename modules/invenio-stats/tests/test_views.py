@@ -11,10 +11,10 @@ import json
 import uuid
 import pytest
 
+from flask import url_for
 from invenio_accounts.testutils import login_user_via_session
 from invenio_stats import current_stats
 from invenio_stats.views import QueryFileStatsCount, dbsession_clean
-from flask import url_for
 
 from mock import patch
 
@@ -67,7 +67,7 @@ def test_stats_query_resource_contributor(client, db, query_entrypoints,
     assert resp.status_code==403
 
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_views.py::test_stats_query_resource_admin -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
-def test_stats_query_resource_admin(client, db, es, query_entrypoints,
+def test_stats_query_resource_admin(client, db, open_search, query_entrypoints,
                               role_users, custom_permission_factory,
                               sample_histogram_query_data):
     headers = [("Content-Type", "application/json"),
@@ -112,7 +112,7 @@ def test_stats_query_resource_error(client, db, query_entrypoints,
         data=json.dumps(sample_histogram_query_data))
     assert resp.status_code==200
 
-    with patch("invenio_stats.queries.ESDateHistogramQuery.run", side_effect=ValueError("test key error")):
+    with patch("invenio_stats.queries.SearchDateHistogramQuery.run", side_effect=ValueError("test key error")):
         resp = client.post(
             url_for("invenio_stats.stat_query"),
             headers=headers,
@@ -139,7 +139,7 @@ class MockPIDNodeVersioning:
 
 # class QueryRecordViewCount(WekoQuery):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_views.py::test_query_record_view_count -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
-def test_query_record_view_count(client_1, db, es, records):
+def test_query_record_view_count(client_1, db, open_search, records):
     client = client_1
     _uuid = str(records[0][0].object_uuid)
 
@@ -178,7 +178,7 @@ def test_query_record_view_count(client_1, db, es, records):
 
     with patch("invenio_stats.views.PIDNodeVersioning", 
               side_effect=MockPIDNodeVersioning) as mock_versioning:
-        with patch("invenio_stats.queries.ESTermsQuery.run", 
+        with patch("invenio_stats.queries.SearchTermsQuery.run", 
                   return_value=_res_data):
             res = client.get(
                 url_for("invenio_stats.get_record_view_count", record_id=_uuid))
@@ -243,7 +243,7 @@ def test_query_file_stats_count(client_1, db):
             }
         ]
     }
-    with patch("invenio_stats.queries.ESWekoFileStatsQuery.run", return_value=_res_data):
+    with patch("invenio_stats.queries.SearchWekoFileStatsQuery.run", return_value=_res_data):
         res = client.get(
             url_for("invenio_stats.get_file_stats_count", bucket_id=_uuid, file_key="test.pdf"))
         assert res.status_code==200
@@ -258,7 +258,7 @@ def test_query_file_stats_count(client_1, db):
             }
         ]
     }
-    with patch("invenio_stats.queries.ESWekoFileStatsQuery.run", return_value=_res_data):
+    with patch("invenio_stats.queries.SearchWekoFileStatsQuery.run", return_value=_res_data):
         res = client.get(
             url_for("invenio_stats.get_file_stats_count", bucket_id=_uuid, file_key="test.pdf"))
         assert res.status_code==200
@@ -429,7 +429,7 @@ def test_query_celery_task_report(client, role_users, id, status_code):
                 }
             ]
         }
-        with patch("invenio_stats.queries.ESTermsQuery.run", return_value=_res_data):
+        with patch("invenio_stats.queries.SearchTermsQuery.run", return_value=_res_data):
             res = client.get(
                 url_for("invenio_stats.get_celery_task_report", task_name="harvest"))
             assert res.status_code==status_code

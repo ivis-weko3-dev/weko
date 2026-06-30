@@ -23,13 +23,13 @@
 import json
 import re
 import sys
-from datetime import datetime
-from functools import partial
 
-from invenio_search.engine import dsl
+from datetime import datetime
 from flask import current_app, request
 from flask_security import current_user
 from flask_babel import get_timezone
+from functools import partial
+from invenio_search.engine import dsl
 from invenio_communities.models import Community
 from invenio_records_rest.errors import InvalidQueryRESTError
 from weko_index_tree.api import Indexes
@@ -636,27 +636,27 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
 
             if not weko_search_fix_accessrights:
                 if len(accessrights_list) == 1:
-                    return Q('term', accessRights=accessrights_list[0])
+                    return dsl.Q('term', accessRights=accessrights_list[0])
                 else:
-                    return Q('terms', accessRights=accessrights_list)
+                    return dsl.Q('terms', accessRights=accessrights_list)
 
             now = datetime.now().isoformat()
 
             def open_access_query(now):
                 """Query for open access."""
-                return Q(
+                return dsl.Q(
                     'bool',
                     should=[
-                        Q('term', accessRights='open access'),
-                        Q('bool', must=[
-                            Q('term', accessRights='embargoed access'),
-                            Q('nested', path='content', query=Q('exists', field='content.accessrole.raw')),
-                            Q('bool', must_not=[
-                                Q('nested', path='content', query=Q('bool', must_not=[
-                                    Q('term', **{'content.accessrole.raw': 'open_access'}),
-                                    Q('bool', must=[
-                                        Q('term', **{'content.accessrole.raw': 'open_date'}),
-                                        Q('range', **{'content.date.dateValue.raw': {'lte': now}})
+                        dsl.Q('term', accessRights='open access'),
+                        dsl.Q('bool', must=[
+                            dsl.Q('term', accessRights='embargoed access'),
+                            dsl.Q('nested', path='content', query=dsl.Q('exists', field='content.accessrole.raw')),
+                            dsl.Q('bool', must_not=[
+                                dsl.Q('nested', path='content', query=dsl.Q('bool', must_not=[
+                                    dsl.Q('term', **{'content.accessrole.raw': 'open_access'}),
+                                    dsl.Q('bool', must=[
+                                        dsl.Q('term', **{'content.accessrole.raw': 'open_date'}),
+                                        dsl.Q('range', **{'content.date.dateValue.raw': {'lte': now}})
                                     ])
                                 ]))
                             ])
@@ -666,59 +666,59 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
 
             def embargoed_access_query(now):
                 """Query for embargoed access."""
-                return Q(
+                return dsl.Q(
                     'bool',
                     must=[
-                        Q('term', accessRights='embargoed access'),
-                        Q('bool', should=[
-                            Q('nested', path='content', query=Q('bool', must=[
-                                Q('term', **{'content.accessrole.raw': 'open_date'}),
-                                Q('range', **{'content.date.dateValue.raw': {'gt': now}})
+                        dsl.Q('term', accessRights='embargoed access'),
+                        dsl.Q('bool', should=[
+                            dsl.Q('nested', path='content', query=dsl.Q('bool', must=[
+                                dsl.Q('term', **{'content.accessrole.raw': 'open_date'}),
+                                dsl.Q('range', **{'content.date.dateValue.raw': {'gt': now}})
                             ])),
-                            Q('bool', must=[
-                                Q('nested', path='content', query=Q('term', **{'content.accessrole.raw': 'open_no'}))
+                            dsl.Q('bool', must=[
+                                dsl.Q('nested', path='content', query=dsl.Q('term', **{'content.accessrole.raw': 'open_no'}))
                             ], must_not=[
-                                Q('nested', path='content', query=Q('term', **{'content.accessrole.raw': 'open_login'}))
+                                dsl.Q('nested', path='content', query=dsl.Q('term', **{'content.accessrole.raw': 'open_login'}))
                             ]),
-                            Q('bool', must_not=[
-                                Q('nested', path='content', query=Q('exists', field='content.accessrole.raw'))
+                            dsl.Q('bool', must_not=[
+                                dsl.Q('nested', path='content', query=dsl.Q('exists', field='content.accessrole.raw'))
                             ])
                         ])
                     ],
                     must_not=[
-                        Q('nested', path='content', query=Q('term', **{'content.accessrole.raw': 'open_restricted'})),
+                        dsl.Q('nested', path='content', query=dsl.Q('term', **{'content.accessrole.raw': 'open_restricted'})),
                     ]
                 )
 
             def restricted_access_query(now):
                 """Query for restricted access."""
-                return Q(
+                return dsl.Q(
                     'bool',
                     should=[
-                        Q('term', accessRights='restricted access'),
-                        Q('bool', must=[
-                            Q('term', accessRights='embargoed access'),
-                            Q(
+                        dsl.Q('term', accessRights='restricted access'),
+                        dsl.Q('bool', must=[
+                            dsl.Q('term', accessRights='embargoed access'),
+                            dsl.Q(
                                 'nested', path='content',
-                                query=Q('term', **{'content.accessrole.raw': 'open_login'})
+                                query=dsl.Q('term', **{'content.accessrole.raw': 'open_login'})
                             ),
-                            Q('bool', must_not=[
-                                Q('nested', path='content', query=Q('bool', must=[
-                                    Q('term', **{'content.accessrole.raw': 'open_date'}),
-                                    Q('range', **{'content.date.dateValue.raw': {'gt': now}})
+                            dsl.Q('bool', must_not=[
+                                dsl.Q('nested', path='content', query=dsl.Q('bool', must=[
+                                    dsl.Q('term', **{'content.accessrole.raw': 'open_date'}),
+                                    dsl.Q('range', **{'content.date.dateValue.raw': {'gt': now}})
                                 ]))
                             ])
                         ]),
-                        Q('bool', must=[
-                            Q('term', accessRights='embargoed access'),
-                            Q('nested', path='content', query=Q('term', **{'content.accessrole.raw': 'open_restricted'}))
+                        dsl.Q('bool', must=[
+                            dsl.Q('term', accessRights='embargoed access'),
+                            dsl.Q('nested', path='content', query=dsl.Q('term', **{'content.accessrole.raw': 'open_restricted'}))
                         ])
                     ]
                 )
 
             def metadata_only_query():
                 """Query for metadata only access."""
-                return Q('term', accessRights='metadata only access')
+                return dsl.Q('term', accessRights='metadata only access')
 
             queries = []
             for accessright in accessrights_list:
@@ -734,7 +734,7 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
             queries = [q for q in queries if q is not None]
             if len(queries) == 1:
                 return queries[0]
-            return Q('bool', should=queries, minimum_should_match=1)
+            return dsl.Q('bool', should=queries, minimum_should_match=1)
 
         params = request.values.to_dict()
         if additional_params:
@@ -954,7 +954,7 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
     if request.values.get("format"):
         qs = request.values.get("keyword")
     else:
-        # Escape special characters for avoiding ES search errors
+        # Escape special characters for avoiding search errors
         qs = (
             request.values.get("q", "")
             .replace("\\", r"\\")

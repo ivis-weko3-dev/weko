@@ -10,8 +10,9 @@
 
 import click
 import copy
-import uuid
 import itertools
+import uuid
+
 from celery.messaging import establish_connection
 from flask import current_app
 from flask.cli import with_appcontext
@@ -66,7 +67,7 @@ def resultcallback(group):
 @click.option(
     '--raise-on-exception', type=bool,default=True,
     help='if False then don’t propagate exceptions from call to bulk and just report the items that failed as failed.')
-@click.option('--chunk-size',type=int,default=500,help='number of docs in one chunk sent to es (default: 500)')
+@click.option('--chunk-size',type=int,default=500,help='number of docs in one chunk sent to search (default: 500)')
 @click.option('--max-chunk-bytes',type=int,default=104857600,help='the maximum size of the request in bytes (default: 100MB)')
 @click.option(
     '--max-retries',type=int,default=0,

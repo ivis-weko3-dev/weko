@@ -21,18 +21,20 @@
 """Module tests."""
 import io
 import pytest
+
 from datetime import datetime
 from flask import url_for, json, jsonify, Response
-from flask_babelex import gettext as _
+from flask_babel import gettext as _
 from invenio_accounts.testutils import login_user_via_session as login
+from invenio_search.engine import search
 from sqlalchemy.exc import SQLAlchemyError
 from unittest.mock import MagicMock, Mock, patch
 
+from weko_workspace.ext import WekoWorkspace
+from weko_workspace.models import WorkspaceDefaultConditions
 from weko_workspace.views import (
     dbsession_clean
 )
-from weko_workspace.models import WorkspaceDefaultConditions
-from weko_workspace.ext import WekoWorkspace
 
 # ===========================def __init__(self, app=None):():=====================================
 # .tox/c1/bin/pytest tests/test_views.py::test_ext_class_init -vv -s --cov-branch --cov=weko_workspace --cov-report=term --basetemp=/code/modules/weko-workspace/tests/.tox/c1/tmp
@@ -348,7 +350,7 @@ def test_update_workspace_status_management(
             0,
             "GET",
             {
-                "es_data": [
+                "search_data": [
                     {
                         "_id": "7b6fbcb1-affc-4740-8a18-e8b34a7a0409",
                         "_source": {
@@ -379,7 +381,7 @@ def test_update_workspace_status_management(
             0,
             "GET",
             {
-                "es_data": [
+                "search_data": [
                     {
                         "_id": "7b6fbcb1-affc-4740-8a18-e8b34a7a0409",
                         "_source": {
@@ -524,7 +526,7 @@ def test_update_workspace_status_management(
             0,
             "GET",
             {
-                "es_data": [
+                "search_data": [
                     {
                         "_id": "7b6fbcb1-affc-4740-8a18-e8b34a7a0409",
                         "_source": {
@@ -653,7 +655,7 @@ def test_update_workspace_status_management(
             0,
             "POST",
             {
-                "es_data": [
+                "search_data": [
                     {
                         "_id": "7b6fbcb1-affc-4740-8a18-e8b34a7a0409",
                         "_source": {
@@ -702,7 +704,7 @@ def test_update_workspace_status_management(
             0,
             "GET",
             {
-                "es_data":[],
+                "search_data":[],
                 "filter_con": None,
                 "status_data": (False, False),
                 "access_data": (0, 0),
@@ -720,12 +722,12 @@ def test_get_workspace_itemlist(
     login(client=client, email=users[users_index]["email"])
 
     # 依存関数のモック設定
-    # 注意：get_es_itemlist は weko_workspace.views でインポートされているため、views の名前空間を対象にする
+    # 注意：get_search_itemlist は weko_workspace.views でインポートされているため、views の名前空間を対象にする
     def mock_render_template(*args, **kwargs):
         return Response(json.dumps(kwargs), mimetype="application/json")
     expected_recid = MagicMock()
-    expected_recid.pid_value = mock_setup["es_data"][0]["_id"] if mock_setup["es_data"] else None
-    with patch("weko_workspace.views.get_es_itemlist") as mock_es, \
+    expected_recid.pid_value = mock_setup["search_data"][0]["_id"] if mock_setup["search_data"] else None
+    with patch("weko_workspace.views.get_search_itemlist") as mock_search, \
          patch("weko_workspace.views.render_template",side_effect=mock_render_template) as mock_render, \
          patch("weko_workspace.views.PersistentIdentifier.get_by_object",return_value = expected_recid),\
          patch("weko_workspace.views.ItemLink.get_item_link_info",return_value=[]), \
@@ -736,22 +738,22 @@ def test_get_workspace_itemlist(
          patch("weko_workspace.views.get_userNm_affiliation",return_value = ("Test User", "Test Affiliation")), \
          patch("weko_workspace.views.FeedbackMailList.get_feedback_mail_list",return_value = {users[users_index]["email"]: True}), \
          patch("weko_workspace.views.merge_default_filters",return_value = post_data if post_data else {}):
-        mock_es.return_value = mock_setup["es_data"]
+        mock_search.return_value = mock_setup["search_data"]
         # モックが正しく設定されているか確認
-        assert mock_es.return_value == mock_setup["es_data"]
+        assert mock_search.return_value == mock_setup["search_data"]
 
         # URLを生成
         url = url_for("weko_workspace.get_workspace_itemlist")
         if method == "GET":
-            # print("GET mock_es.return_value : ", mock_es.return_value)
+            # print("GET mock_search.return_value : ", mock_search.return_value)
             res = client.get(url)
         else:  # POST
-            # print("POST mock_es.return_value : ", mock_es.return_value)
+            # print("POST mock_search.return_value : ", mock_search.return_value)
             with patch("weko_workspace.views.get_workspace_filterCon",return_value =(post_data,True)):
                 res = client.post(url, json=post_data)
 
         # モックが呼び出されたことを確認
-        assert mock_es.called, "mock_es was not called, check patch path!"
+        assert mock_search.called, "mock_search was not called, check patch path!"
 
         # レスポンスのステータスコードを確認
         assert res.status_code == 200
@@ -769,8 +771,8 @@ def test_get_workspace_itemlist(
         # プロジェクトが存在する場合、一部のフィールドを検証
         if expected_items_count > 0:
             item = workspaceItemList[0]
-            assert item["recid"] == mock_setup["es_data"][0]["_id"]
-            assert (item["title"] == mock_setup["es_data"][0]["_source"]["title"][0])
+            assert item["recid"] == mock_setup["search_data"][0]["_id"]
+            assert (item["title"] == mock_setup["search_data"][0]["_source"]["title"][0])
             assert item["favoriteSts"] == mock_setup["status_data"][0]
             assert item["readSts"] == mock_setup["status_data"][1]
             assert item["accessCnt"] == mock_setup["access_data"][0]
@@ -1372,11 +1374,10 @@ def test_itemregister_save(db,users,location, workflow, app, client,mocker,witho
     }
 
     with patch("weko_admin.admin.AdminSettings.get", return_value=settings_obj):
-        from elasticsearch import ElasticsearchException
 
         with patch("weko_search_ui.utils.import_items_to_system", return_value={"success": False, "recid": 1}):
             with patch("weko_search_ui.utils.register_item_metadata"):
-                with patch("weko_search_ui.utils.register_item_doi",MagicMock(side_effect=ElasticsearchException())):
+                with patch("weko_search_ui.utils.register_item_doi",MagicMock(side_effect=search.OpenSearchException())):
                     with patch("weko_search_ui.utils.register_item_update_publish_status",side_effect=submeta2):
                         with patch("weko_search_ui.utils.register_item_doi"):
                             with patch("weko_search_ui.utils.register_item_doi"):

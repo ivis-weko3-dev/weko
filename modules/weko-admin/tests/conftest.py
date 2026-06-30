@@ -20,32 +20,25 @@
 
 """Pytest for weko admin configuration."""
 
+import json
 import os
+import pytest
 import shutil
 import tempfile
 import uuid
-import json
-from datetime import datetime, timedelta
-from opensearchpy import OpenSearch
-from invenio_accounts.utils import jwt_create_token
-from invenio_indexer import InvenioIndexer
-import pytest
-from invenio_indexer.api import RecordIndexer
-from invenio_records import Record
 
+from datetime import datetime, timedelta
 from flask import Flask
 from flask_babel import Babel
 from flask_mail import Mail
 from flask_menu import Menu
 from flask.cli import ScriptInfo
 from flask_celeryext import FlaskCeleryExt
-from sqlalchemy_utils.functions import create_database, database_exists, \
-    drop_database
-from simplekv.memory.redisstore import RedisStore
 
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import User, Role
 from invenio_accounts.testutils import create_test_user
+from invenio_accounts.utils import jwt_create_token
 from invenio_access.models import ActionUsers, ActionRoles
 from invenio_access import InvenioAccess
 from invenio_admin import InvenioAdmin
@@ -55,35 +48,24 @@ from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import FileInstance, Location
+from invenio_indexer import InvenioIndexer
+from invenio_indexer.api import RecordIndexer
 from invenio_i18n import InvenioI18N
 from invenio_mail.models import MailConfig
 from invenio_oaiserver.ext import InvenioOAIServer
+from invenio_oauth2server import InvenioOAuth2Server
 from invenio_oauth2server.models import Client, Token
 from invenio_pidrelations import InvenioPIDRelations
 from invenio_pidstore import InvenioPIDStore
 from invenio_pidstore.models import PersistentIdentifier
-from invenio_oauth2server import InvenioOAuth2Server
+from invenio_records import Record
 from invenio_records.ext import InvenioRecords
 from invenio_records.models import RecordMetadata
 from invenio_search import RecordsSearch,InvenioSearch,current_search_client
-from invenio_oauth2server import InvenioOAuth2Server
-
-from weko_authors import WekoAuthors
-from weko_authors.models import Authors
-from weko_index_tree import WekoIndexTree
-from weko_index_tree.models import Index, IndexStyle
-from weko_items_ui.config import WEKO_ITEMS_UI_CRIS_LINKAGE_RESEARCHMAP_MERGE_MODE_DEFAULT
-from weko_records_ui import WekoRecordsUI
-from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER
-from weko_records import WekoRecords
-from weko_records.models import SiteLicenseInfo, SiteLicenseIpAddress,ItemType,ItemTypeName,ItemTypeJsonldMapping
-from weko_redis.redis import RedisConnection
-from weko_schema_ui import WekoSchemaUI
-from weko_search_ui import WekoSearchUI
-from weko_swordserver.models import SwordClientModel
-from weko_theme import WekoTheme
-from weko_workflow import WekoWorkflow
-from weko_workflow.models import Action, ActionStatus,FlowDefine,FlowAction,WorkFlow,Activity,ActivityAction
+from opensearchpy import OpenSearch
+from sqlalchemy_utils.functions import create_database, database_exists, \
+    drop_database
+from simplekv.memory.redisstore import RedisStore
 
 from weko_admin import WekoAdmin
 from weko_admin.models import SessionLifetime,SiteInfo,SearchManagement,\
@@ -93,6 +75,22 @@ from weko_admin.models import SessionLifetime,SiteInfo,SearchManagement,\
         LogAnalysisRestrictedCrawlerList,StatisticsEmail,RankingSettings, Identifier
 from weko_admin.views import blueprint_api
 from weko_admin.config import WEKO_ADMIN_COMMUNITY_ACCESS_LIST,WEKO_ADMIN_REPOSITORY_ACCESS_LIST,WEKO_ADMIN_ACCESS_TABLE,WEKO_ADMIN_PERMISSION_ROLE_SYSTEM, WEKO_ADMIN_RESTRICTED_ACCESS_SETTINGS
+from weko_authors import WekoAuthors
+from weko_authors.models import Authors
+from weko_index_tree import WekoIndexTree
+from weko_index_tree.models import Index, IndexStyle
+from weko_items_ui.config import WEKO_ITEMS_UI_CRIS_LINKAGE_RESEARCHMAP_MERGE_MODE_DEFAULT
+from weko_records import WekoRecords
+from weko_records.models import SiteLicenseInfo, SiteLicenseIpAddress,ItemType,ItemTypeName,ItemTypeJsonldMapping
+from weko_records_ui import WekoRecordsUI
+from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER
+from weko_redis.redis import RedisConnection
+from weko_schema_ui import WekoSchemaUI
+from weko_swordserver.models import SwordClientModel
+from weko_theme import WekoTheme
+from weko_workflow import WekoWorkflow
+from weko_workflow.models import Action, ActionStatus,FlowDefine,FlowAction,WorkFlow,Activity,ActivityAction
+
 
 from .helpers import json_data, create_record
 
@@ -129,7 +127,7 @@ def cache_config():
 @pytest.fixture()
 def base_app(instance_path, cache_config,request ,search_class):
     """Flask application fixture."""
-    os.environ['INVENIO_ELASTICSEARCH_HOST']='elasticsearch_test'
+    os.environ['INVENIO_ELASTICSEARCH_HOST']='opensearch_test'
     app_ = Flask('test_weko_admin_app', instance_path=instance_path)
     app_.config.update(
         SERVER_NAME='test_server',
@@ -139,9 +137,9 @@ def base_app(instance_path, cache_config,request ,search_class):
         #      'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
-        #SEARCH_ELASTIC_HOSTS=os.environ.get(
-        #    'SEARCH_ELASTIC_HOSTS', None),
-        SEARCH_ELASTIC_HOSTS=os.environ.get("SEARCH_ELASTIC_HOSTS", "elasticsearch"),
+        #SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+        #    'SEARCH_OPENSEARCH_HOSTS', None),
+        SEARCH_OPENSEARCH_HOSTS = os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch")
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         SQLALCHEMY_ECHO=False,
         TEST_USER_EMAIL='test_user@example.com',
@@ -158,16 +156,14 @@ def base_app(instance_path, cache_config,request ,search_class):
         ACCOUNTS_SESSION_REDIS_DB_NO = 1,
         CACHE_TYPE="redis",
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        WEKO_AUTHORS_ES_INDEX_NAME="test_weko-authors",
+        WEKO_AUTHORS_SEARCH_INDEX_NAME="test_weko-authors",
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         THEME_SITEURL = 'https://localhost',
         CRAWLER_REDIS_DB=3,
         CRAWLER_REDIS_TTL=86400,
         WEKO_THEME_INSTANCE_DATA_DIR="data",
         SEARCH_INDEX_PREFIX="test-",
-        INDEXER_DEFAULT_DOC_TYPE="item-v1.0.0",
         WEKO_ADMIN_COMMUNITY_ACCESS_LIST =WEKO_ADMIN_COMMUNITY_ACCESS_LIST,
         WEKO_ADMIN_REPOSITORY_ACCESS_LIST = WEKO_ADMIN_REPOSITORY_ACCESS_LIST,
         WEKO_ADMIN_ACCESS_TABLE=WEKO_ADMIN_ACCESS_TABLE,
@@ -204,11 +200,11 @@ def base_app(instance_path, cache_config,request ,search_class):
     FlaskCeleryExt(app_)
     WekoSearchUI(app_)
     WekoSchemaUI(app_)
-    #search = InvenioSearch(app_, client=MockEs())
+    #search = InvenioSearch(app_, client=MockSearch())
     InvenioSearch(app_)
     #search.register_mappings(search_class.Meta.index, 'tests.mock_module.mappings')
     InvenioIndexer(app_)
-    InvenioRecords(app_, client=MockEs())
+    InvenioRecords(app_, client=MockSearch())
     InvenioOAIServer(app_)
     yield app_
 
@@ -318,7 +314,7 @@ def admin_db(admin_app):
 
 
 @pytest.fixture()
-def esindex(app):
+def search_index(app):
     current_search_client.indices.delete(index="test-*")
     with open("tests/data/item-v1.0.0.json","r") as f:
         mapping = json.load(f)
@@ -1154,21 +1150,21 @@ def i18n_app(app):
 def search_class():
     """Search class."""
     yield TestSearch
-class MockEs():
+class MockSearch():
     def __init__(self,**keywargs):
         self.indices = self.MockIndices()
-        self.es = OpenSearch()
+        self.open_search = OpenSearch()
         self.cluster = self.MockCluster()
-    def index(self, id="",version="",version_type="",index="",doc_type="",body="",**arguments):
+    def index(self, id="",version="",version_type="",index="",,body="",**arguments):
         return {"_shards":{"failed":0} }
-    # def delete(self,id="",index="",doc_type="",**kwargs):
+    # def delete(self,id="",index="",**kwargs):
     #     return Response(response=json.dumps({}),status=500)
-    def search(self,index="",doc_type="",body={},**kwargs):
-        return {"took":2,"timed_out":False,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":67,"max_score":1,"hits":[{"_index":"test-weko-item-v1.0.0","_type":"item-v1.0.0","_id":"oaiset-1669370353014","_score":1,"_source":{"query":{"query_string":{"query":"path:\"1669370353014\""}}}}]}}
+    def search(self,index="",body={},**kwargs):
+        return {"took":2,"timed_out":False,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total": {"value": 67, "relation": "eq"},"max_score":1,"hits":[{"_index":"test-weko-item-v1.0.0","_type":"item-v1.0.0","_id":"oaiset-1669370353014","_score":1,"_source":{"query":{"query_string":{"query":"path:\"1669370353014\""}}}}]}}
 
     @property
     def transport(self):
-        return self.es.transport
+        return self.open_search.transport
     class MockIndices():
         def __init__(self,**keywargs):
             self.mapping = dict()
@@ -1193,9 +1189,9 @@ class MockEs():
         #     pass
         # def delete_alias(self, index="", name="",ignore=""):
         #     pass
-        # def search(self,index="",doc_type="",body={},**kwargs):
+        # def search(self,index="",body={},**kwargs):
         #     pass
-        def put_mapping(self,index="",doc_type="", body={}, ignore=""):
+        def put_mapping(self,index="", body={}, ignore=""):
             pass
 
     class MockCluster():

@@ -25,13 +25,12 @@ import traceback
 import uuid
 
 from flask import Blueprint, current_app, request, Response, jsonify
-from marshmallow.exceptions import ValidationError
-from sqlalchemy.exc import SQLAlchemyError
-from werkzeug.exceptions import BadRequest, InternalServerError, NotFound
 from invenio_db import db
+from invenio_oauth2server import require_api_auth, require_oauth_scopes
 from invenio_rest import ContentNegotiatedMethodView
 from invenio_search import current_search_client
-from invenio_oauth2server import require_api_auth, require_oauth_scopes
+from marshmallow.exceptions import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
 
 from weko_accounts.utils import roles_required, limiter
 from weko_admin.config import (
@@ -42,6 +41,7 @@ from weko_authors.api import WekoAuthors
 from weko_authors.utils import (
     check_period_date, validate_community_ids, check_delete_author
 )
+from werkzeug.exceptions import BadRequest, InternalServerError, NotFound
 
 from .errors import (
     VersionNotFoundRESTError, InvalidDataRESTError, AuthorBaseRESTError,
@@ -301,9 +301,9 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
                 })
                 search_query["min_score"] = 100
 
-            search_index = current_app.config.get("WEKO_AUTHORS_ES_INDEX_NAME")
+            search_index = current_app.config.get("WEKO_AUTHORS_SEARCH_INDEX_NAME")
             search_results = current_search_client.search(index=search_index, body=search_query)
-            if search_results["hits"]["total"]> 0:
+            if search_results["hits"]["total"]["value"] > 0:
                 search_results = [author.get("_source", {}) for author in search_results.get("hits", {}).get("hits", [])]
             else:
                 search_results = {}
@@ -404,8 +404,8 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
 
             # Prepare response
             doc = current_search_client.get(
-                index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],
-                id=author_data["id"], doc_type="_doc"
+                index=current_app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"],
+                id=author_data["id"]
             )
             result = doc.get("_source", {})
 
@@ -486,7 +486,7 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
         """Handle PUT request for author update."""
         from weko_authors.models import Authors
 
-        search_index = current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"]
+        search_index = current_app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"]
         lang_options_list = [
                 "ja", "ja-Kana", "en", "fr", "it", "de", "es",
                 "zh-cn", "zh-tw", "ru", "la", "ms", "eo", "ar",
@@ -497,7 +497,7 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
             identifier = kwargs.get("identifier")
             id_info = self.parse_identifier(identifier)
             pk_id = id_info.get("pk_id")
-            es_id = id_info.get("es_id")
+            search_id = id_info.get("search_id")
 
             data = self.validate_request(request, AuthorUpdateRequestSchema)
 
@@ -514,30 +514,30 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
             )
 
             author_by_pk = None
-            author_by_es = None
+            author_by_search = None
 
             if pk_id:
                 author_by_pk = Authors.query.filter_by(id=pk_id).first()
 
-            if es_id:
+            if search_id:
                 search_results = current_search_client.search(
                     index=search_index,
-                    body={"query": {"term": {"_id": es_id}}},
+                    body={"query": {"term": {"_id": search_id}}},
                     size=1
                 )
-                if search_results["hits"]["total"] > 0:
-                    author_by_es = search_results["hits"]["hits"][0]["_source"]
+                if search_results["hits"]["total"]["value"] > 0:
+                    author_by_search = search_results["hits"]["hits"][0]["_source"]
 
-            if not author_by_pk and not author_by_es:
+            if not author_by_pk and not author_by_search:
                 current_app.logger.error("Specified author does not exist.")
                 raise AuthorNotFoundRESTError(
                     description="Specified author does not exist."
                 )
 
-            if author_by_pk and not es_id:
-                es_id = author_by_pk.json.get("id")
-            if author_by_es and not pk_id:
-                pk_id = author_by_es.get("pk_id")
+            if author_by_pk and not search_id:
+                search_id = author_by_pk.json.get("id")
+            if author_by_search and not pk_id:
+                pk_id = author_by_search.get("pk_id")
 
             community_ids = author_data.get("communityIds", [])
             if author_by_pk:
@@ -555,13 +555,13 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
             # scheme -> id
             author_data = self.process_authors_data_before(author_data)
 
-            # author_data['id'] = es_id
+            # author_data['id'] = search_id
             author_data['pk_id'] = pk_id
             author_data['gather_flg'] = 0
 
             WekoAuthors.update(pk_id,author_data,data.get("force_change",False))
 
-            doc = current_search_client.get(index=search_index, id=es_id, doc_type="_doc")
+            doc = current_search_client.get(index=search_index, id=search_id)
             result = doc.get("_source", {})
 
             # id -> scheme
@@ -682,42 +682,42 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
             identifier = kwargs.get("identifier")
             id_info = self.parse_identifier(identifier)
             pk_id = id_info.get("pk_id")
-            es_id = id_info.get("es_id")
+            search_id = id_info.get("search_id")
 
             author_by_pk = None
-            author_by_es = None
-            search_index = current_app.config.get("WEKO_AUTHORS_ES_INDEX_NAME")
+            author_by_search = None
+            search_index = current_app.config.get("WEKO_AUTHORS_SEARCH_INDEX_NAME")
 
             if pk_id:
                 author_by_pk = Authors.query.filter_by(id=pk_id).first()
 
-            if es_id:
+            if search_id:
                 search_results = current_search_client.search(
                     index=search_index,
-                    body={"query": {"term": {"_id": es_id}}},
+                    body={"query": {"term": {"_id": search_id}}},
                     size=1
                 )
-                if search_results["hits"]["total"]> 0:
-                    author_by_es = search_results["hits"]["hits"][0]["_source"]
+                if search_results["hits"]["total"]["value"] > 0:
+                    author_by_search = search_results["hits"]["hits"][0]["_source"]
 
-            if not author_by_pk and not author_by_es:
+            if not author_by_pk and not author_by_search:
                 current_app.logger.error("Specified author does not exist.")
                 raise AuthorNotFoundRESTError(
                     description="Specified author does not exist."
                 )
 
-            if author_by_pk and not es_id:
-                es_id = author_by_pk.json.get("id")
+            if author_by_pk and not search_id:
+                search_id = author_by_pk.json.get("id")
                 search_results = current_search_client.search(
                     index=search_index,
-                    body={"query": {"term": {"_id": es_id}}},
+                    body={"query": {"term": {"_id": search_id}}},
                     size=1
                 )
-                if search_results["hits"]["total"]> 0:
-                    author_by_es = search_results["hits"]["hits"][0]["_source"]
+                if search_results["hits"]["total"]["value"] > 0:
+                    author_by_search = search_results["hits"]["hits"][0]["_source"]
 
-            if author_by_es and not pk_id:
-                pk_id = author_by_es.get("pk_id")
+            if author_by_search and not pk_id:
+                pk_id = author_by_search.get("pk_id")
                 author_by_pk = Authors.query.filter_by(id=pk_id).first()
 
             check, message = check_delete_author(pk_id)
@@ -729,12 +729,11 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
                 author_by_pk.is_deleted = True
                 db.session.commit()
 
-            if author_by_es:
+            if author_by_search:
                 current_search_client.update(
                     index=search_index,
-                    id=es_id,
-                    body={"doc": {"is_deleted": True}},
-                    doc_type="_doc"
+                    id=search_id,
+                    body={"doc": {"is_deleted": True}}
                 )
             return self.make_response(200)
 
@@ -762,17 +761,17 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
             identifier (str): Identifier string (UUID or integer).
 
         Returns:
-            dict: {'pk_id': str or None, 'es_id': str or None}
+            dict: {'pk_id': str or None, 'search_id': str or None}
 
         Raises:
             InvalidDataRESTError: If the format is invalid.
         """
         try:
-            es_id = str(uuid.UUID(identifier))
-            return {"pk_id": None, "es_id": es_id}
+            search_id = str(uuid.UUID(identifier))
+            return {"pk_id": None, "search_id": search_id}
         except (ValueError, TypeError):
             if identifier.isdigit():
-                return {"pk_id": identifier, "es_id": None}
+                return {"pk_id": identifier, "search_id": None}
             else:
                 current_app.logger.error("Invalid identifier format.")
                 raise InvalidDataRESTError(

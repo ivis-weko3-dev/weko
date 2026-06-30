@@ -7,10 +7,8 @@
 
 """Module of weko-notifications."""
 
-from __future__ import absolute_import, print_function
-
 from flask import request
-from flask_babelex import gettext as _
+from flask_babel import gettext as _
 
 from . import config
 from .utils import inbox_url

@@ -1,6 +1,6 @@
 import $ from "jquery";
 import JSONSchemaEditor from './jsonschemaeditor.js'
-// require(["jquery", "bootstrap"],function() {});
+
 $(document).ready(function () {
   var checkboxTemplate = "/static/templates/weko_deposit/checkboxes.html";
   // Number of callbacks(requests) when rendering the page, When add a new callback,
@@ -135,8 +135,8 @@ $(document).ready(function () {
   function addInfo(message) {
     $('#infos').append(
       '<div id="alert-style" class="alert">' +
-        '<button type="button" class="close" data-dismiss="alert">&times;</button>' +
-        message +
+      '<button type="button" class="close" data-dismiss="alert">&times;</button>' +
+      message +
       '</div>'
     );
   };
@@ -144,8 +144,8 @@ $(document).ready(function () {
   function addError(message) {
     $('#errors').append(
       '<div class="alert alert-danger">' +
-        '<button type="button" class="close" data-dismiss="alert">&times;</button>' +
-        message +
+      '<button type="button" class="close" data-dismiss="alert">&times;</button>' +
+      message +
       '</div>'
     );
   };
@@ -155,14 +155,14 @@ $(document).ready(function () {
     $('#upt_version').attr('checked', true);
     $('#new_version').attr('checked', false);
     let itemname = $('#item-type-lists').find("option:selected").text();
-    itemname = itemname.substr(0,itemname.lastIndexOf('('));
+    itemname = itemname.substr(0, itemname.lastIndexOf('('));
     $('#itemtype_name').val(itemname);
-    url_update_schema = '/admin/itemtypes/'+$('#item-type-lists').val()+'/register';
-  }else{
+    url_update_schema = '/admin/itemtypes/' + $('#item-type-lists').val() + '/register';
+  } else {
     $(document).ready(function () {
-      for (let key in properties){
+      for (let key in properties) {
         var id_title = $.now(); // タイムスタンプ生成
-        new_meta_row('item_' + id_title, propertyOptions , false, key); // タイトル
+        new_meta_row('item_' + id_title, propertyOptions, false, key); // タイトル
       }
     });
     endLoading();
@@ -225,12 +225,12 @@ $(document).ready(function () {
     }
   });
 
-  function disabled_deleted_type(){
-      $('option.deleted_type').hide();
-      $('#btn_restore_itemtype_schema').prop('disabled', true);
-      $('div.metadata-content *').not("[id=btn_restore_itemtype_schema]").prop('disabled', false);
-      $('#chk_pubdate_0').attr('disabled', true);
-      $('#chk_pubdate_1').attr('disabled', true);
+  function disabled_deleted_type() {
+    $('option.deleted_type').hide();
+    $('#btn_restore_itemtype_schema').prop('disabled', true);
+    $('div.metadata-content *').not("[id=btn_restore_itemtype_schema]").prop('disabled', false);
+    $('#chk_pubdate_0').attr('disabled', true);
+    $('#chk_pubdate_1').attr('disabled', true);
   }
 
   $('#btn_create_itemtype_schema').on('click', function () {
@@ -251,7 +251,7 @@ $(document).ready(function () {
     $('#render_json').text(JSON.stringify(page_global, null, 4));
   });
 
-  function create_itemtype_schema(){
+  function create_itemtype_schema() {
     var titleItem = $('#txt_title_item_pubdate').val();
     var titleJa = $('#txt_title_ja_item_pubdate').val();
     var titleEn = $('#txt_title_en_item_pubdate').val();
@@ -540,9 +540,9 @@ $(document).ready(function () {
       //add by ryuu. end
       tmp.input_type = $('#select_input_type_' + row_id).val();
       tmp.input_value = "";
-      tmp.input_minItems = $('#minItems_'+row_id).val();
-      tmp.input_maxItems = $('#maxItems_'+row_id).val();
-      if ($('#is_fixed_field' + row_id).val() === 'true'){
+      tmp.input_minItems = $('#minItems_' + row_id).val();
+      tmp.input_maxItems = $('#maxItems_' + row_id).val();
+      if ($('#is_fixed_field' + row_id).val() === 'true') {
         tmp.is_fixed_field = true;
       }
       tmp.option = {}
@@ -658,11 +658,11 @@ $(document).ready(function () {
             templateUrl: "/static/templates/weko_deposit/datepicker.html"
           });
         }
-      } else if(tmp.input_type == 'checkboxes') {
-        tmp.input_value = $("#schema_"+row_id).find(".select-value-setting").val();
+      } else if (tmp.input_type == 'checkboxes') {
+        tmp.input_value = $("#schema_" + row_id).find(".select-value-setting").val();
         let enum_tmp = []
         let titleMap_tmp = []
-        $.each(tmp.input_value.split('|'), function(i,v){
+        $.each(tmp.input_value.split('|'), function (i, v) {
           enum_tmp.push(v);
           titleMap_tmp.push({ value: v, name: v });
         })
@@ -740,11 +740,11 @@ $(document).ready(function () {
             type: "fieldset"
           });
         }
-      } else if(tmp.input_type == 'radios' || tmp.input_type == 'select') {
-        tmp.input_value = $("#schema_"+row_id).find(".select-value-setting").val();
+      } else if (tmp.input_type == 'radios' || tmp.input_type == 'select') {
+        tmp.input_value = $("#schema_" + row_id).find(".select-value-setting").val();
         let enum_tmp = []
         let titleMap_tmp = []
-        $.each(tmp.input_value.split('|'), function(i,v){
+        $.each(tmp.input_value.split('|'), function (i, v) {
           enum_tmp.push(v);
           titleMap_tmp.push({ value: v, name: v });
         })
@@ -814,8 +814,8 @@ $(document).ready(function () {
             type: "fieldset"
           });
         }
-      } else if(tmp && tmp.input_type.indexOf('cus_') != -1) {
-        let editor = page_json_editor['schema_'+row_id];
+      } else if (tmp && tmp.input_type.indexOf('cus_') != -1) {
+        let editor = page_json_editor['schema_' + row_id];
         page_global.schemaeditor.schema[row_id] = JSON.parse(JSON.stringify(editor.getValue()));
         removeEnumForCheckboxes(page_global.schemaeditor.schema[row_id].properties);
         if (tmp.option.multiple) {
@@ -910,40 +910,40 @@ $(document).ready(function () {
   }
 
   // add new meta table row
-  $('#btn_new_itemtype_meta').on('click', function(){
+  $('#btn_new_itemtype_meta').on('click', function () {
     let uniqueId = 'item_' + $.now();
     new_meta_row(uniqueId, propertyOptions);
-    setTimeout(function() {
+    setTimeout(function () {
       let $select = $('#select_input_type_' + uniqueId);
       // 固定プロパティの存在チェック
       let fixedProperties = [];
-      for (let key in properties){
+      for (let key in properties) {
         fixedProperties.push("cus_" + key);
       }
       let hasFixedProperties = false;
-  
+
       // src_render.meta_list から固定プロパティが存在するか確認
       if (src_render.meta_list) {
-        $.each(src_render.meta_list, function(key, meta) {
+        $.each(src_render.meta_list, function (key, meta) {
           if (meta.is_fixed_field && fixedProperties.includes(meta.input_type)) {
             hasFixedProperties = true;
             return false; // ループを終了
-          } 
+          }
         });
       }
       // 固定プロパティが登録済み、または新規作成時の時は固定プロパティが選択できないようにする
       if (hasFixedProperties || $('#item-type-lists').val().length === 0) {
-        for(let optionValue of fixedProperties){
+        for (let optionValue of fixedProperties) {
           $select.find('option[value=' + optionValue + ']').hide();
         }
       }
     }, 100);
   });
-  $('.btn-link-item').click(function() {
+  $('.btn-link-item').click(function () {
     $(this).closest('td').find('.text-title-JaEn').toggleClass('hide');
   });
 
-  function new_meta_row(row_id, option_list, isDisableChangeInputType=false, key=null) {
+  function new_meta_row(row_id, option_list, isDisableChangeInputType = false, key = null) {
     let isDisable = isDisableChangeInputType ? 'disabled' : '';
     let is_fixed_field = false;
     let fixed_option;
@@ -952,74 +952,74 @@ $(document).ready(function () {
       fixed_option = properties[key].fixed_option;
     }
     var row_template = '<tr id="tr_' + row_id + '">'
-        + '<td><input type="text" class="form-control" id="txt_title_' + row_id + '" value="">'
-        + '  <div class="hide" id="text_title_JaEn_' + row_id + '">'
-        +'     <p>' + "Japanese" + '：</p>'
-        +'     <input type="text" class="form-control" id="txt_title_ja_' + row_id + '" value="">'
-        +'     <p>' + "English" + '：</p>'
-        +'     <input type="text" class="form-control" id="txt_title_en_' + row_id + '" value="">'
-        + '  </div>'
-        +'   <button type="button" class="btn btn-link" id="btn_link_' + row_id + '">' + "Localization Settings" + '</button>'
-        +'</td>'
-        + '<td><div class="form-inline"><div class="form-group">'
-        + '  <label class="sr-only" for="select_input_type_'+row_id+'">select_input_type</label>'
-        + '  <select class="form-control change_input_type" id="select_input_type_' + row_id + '" metaid="' + row_id + '" '+isDisable+'>'
-        + option_list
-        + '  </select>'
-        + '  </div></div>'
-        + '  <div class="hide" id="arr_size_' + row_id + '">'
-        + '    <div class="panel panel-default"><div class="panel-body">'
-        + '    <form class="form-inline">'
-        + '      <div class="form-group">'
-        + '        <label for="minItems_'+row_id+'">minItems</label>'
-        + '        <input type="number" class="form-control" id="minItems_'+row_id+'" placeholder="" value="1">'
-        + '      </div>'
-        + '      <div class="form-group">'
-        + '        <label for="maxItems_'+row_id+'">maxItems</label>'
-        + '        <input type="number" class="form-control" id="maxItems_'+row_id+'" placeholder="" value="9999">'
-        + '      </div>'
-        + '    </form>'
-        + '    </div></div>'
-        + '  </div>'
-        + '  <div id="schema_' + row_id + '"></div>'
-        + '</td>'
-        + '<td>'
-        + '  <div class="checkbox" id="chk_prev_' + row_id + '_0">'
-        + '   <label><input type="checkbox" id="chk_' + row_id + '_0" value="required">' + "Required" + '</label>'
-        + '  </div>'
-        + '  <div class="checkbox" id="chk_prev_' + row_id + '_1">'
-        + '    <label><input type="checkbox" id="chk_' + row_id + '_1" value="multiple">' + "Allow Multiple" + '</label>'
-        + '  </div>'
-        + '  <div class="checkbox" id="chk_prev_' + row_id + '_2">'
-        + '    <label><input type="checkbox" id="chk_' + row_id + '_2" value="showlist">' +  "Show List" + '</label>'
-        + '  </div>'
-        + '  <div class="checkbox" id="chk_prev_' + row_id + '_3">'
-        + '    <label><input type="checkbox" id="chk_' + row_id + '_3" value="crtf">' + "Specify Newline" + '</label>'
-        + '  </div>'
-        + '  <div class="checkbox" id="chk_prev_' + row_id + '_4">'
-        + '    <label><input type="checkbox" id="chk_' + row_id + '_4" value="hidden">' + "Hide" + '</label>'
-        + '  </div>'
-        + '  <div class="checkbox" id="chk_prev_' + row_id + '_5">'
-        + '    <label><input type="checkbox" id="chk_' + row_id + '_5" value="displayoneline">' + "Display on one line" + '</label>'
-        + '  </div>'
-        + '  <input type="hidden" id="is_fixed_field' + row_id + '" value="' + !!is_fixed_field + '" >'
-        + '</td>'
-        + '<td>'
-        + '  <textarea type="button" class="form-control" rows="5" id="edit_notes_' + row_id + '">' + "" + '</textarea>'
-        + '</td>'
-        + '<td>'
-        + '  <div class="btn-group-vertical" role="group" aria-label="' + "Replace" + '">'
-        + '    <button type="button" class="btn btn-default sortable_up" id="btn_up_' + row_id + '" metaid="' + row_id + '">↑</button>'
-        + '    <button type="button" class="btn btn-default sortable_down" id="btn_down_' + row_id + '" metaid="' + row_id + '">↓</button>'
-        + '  </div>'
-        + '</td>'
-        + '<td>'
-        + (!is_fixed_field?
-          '  <button type="button" class="btn btn-danger" id="btn_del_' + row_id + '"><span class="glyphicon glyphicon-remove"></span></button>'
-          : ''
-        )
-        + '</td>'
-        + '</tr>';
+      + '<td><input type="text" class="form-control" id="txt_title_' + row_id + '" value="">'
+      + '  <div class="hide" id="text_title_JaEn_' + row_id + '">'
+      + '     <p>' + "Japanese" + '：</p>'
+      + '     <input type="text" class="form-control" id="txt_title_ja_' + row_id + '" value="">'
+      + '     <p>' + "English" + '：</p>'
+      + '     <input type="text" class="form-control" id="txt_title_en_' + row_id + '" value="">'
+      + '  </div>'
+      + '   <button type="button" class="btn btn-link" id="btn_link_' + row_id + '">' + "Localization Settings" + '</button>'
+      + '</td>'
+      + '<td><div class="form-inline"><div class="form-group">'
+      + '  <label class="sr-only" for="select_input_type_' + row_id + '">select_input_type</label>'
+      + '  <select class="form-control change_input_type" id="select_input_type_' + row_id + '" metaid="' + row_id + '" ' + isDisable + '>'
+      + option_list
+      + '  </select>'
+      + '  </div></div>'
+      + '  <div class="hide" id="arr_size_' + row_id + '">'
+      + '    <div class="panel panel-default"><div class="panel-body">'
+      + '    <form class="form-inline">'
+      + '      <div class="form-group">'
+      + '        <label for="minItems_' + row_id + '">minItems</label>'
+      + '        <input type="number" class="form-control" id="minItems_' + row_id + '" placeholder="" value="1">'
+      + '      </div>'
+      + '      <div class="form-group">'
+      + '        <label for="maxItems_' + row_id + '">maxItems</label>'
+      + '        <input type="number" class="form-control" id="maxItems_' + row_id + '" placeholder="" value="9999">'
+      + '      </div>'
+      + '    </form>'
+      + '    </div></div>'
+      + '  </div>'
+      + '  <div id="schema_' + row_id + '"></div>'
+      + '</td>'
+      + '<td>'
+      + '  <div class="checkbox" id="chk_prev_' + row_id + '_0">'
+      + '   <label><input type="checkbox" id="chk_' + row_id + '_0" value="required">' + "Required" + '</label>'
+      + '  </div>'
+      + '  <div class="checkbox" id="chk_prev_' + row_id + '_1">'
+      + '    <label><input type="checkbox" id="chk_' + row_id + '_1" value="multiple">' + "Allow Multiple" + '</label>'
+      + '  </div>'
+      + '  <div class="checkbox" id="chk_prev_' + row_id + '_2">'
+      + '    <label><input type="checkbox" id="chk_' + row_id + '_2" value="showlist">' + "Show List" + '</label>'
+      + '  </div>'
+      + '  <div class="checkbox" id="chk_prev_' + row_id + '_3">'
+      + '    <label><input type="checkbox" id="chk_' + row_id + '_3" value="crtf">' + "Specify Newline" + '</label>'
+      + '  </div>'
+      + '  <div class="checkbox" id="chk_prev_' + row_id + '_4">'
+      + '    <label><input type="checkbox" id="chk_' + row_id + '_4" value="hidden">' + "Hide" + '</label>'
+      + '  </div>'
+      + '  <div class="checkbox" id="chk_prev_' + row_id + '_5">'
+      + '    <label><input type="checkbox" id="chk_' + row_id + '_5" value="displayoneline">' + "Display on one line" + '</label>'
+      + '  </div>'
+      + '  <input type="hidden" id="is_fixed_field' + row_id + '" value="' + !!is_fixed_field + '" >'
+      + '</td>'
+      + '<td>'
+      + '  <textarea type="button" class="form-control" rows="5" id="edit_notes_' + row_id + '">' + "" + '</textarea>'
+      + '</td>'
+      + '<td>'
+      + '  <div class="btn-group-vertical" role="group" aria-label="' + "Replace" + '">'
+      + '    <button type="button" class="btn btn-default sortable_up" id="btn_up_' + row_id + '" metaid="' + row_id + '">↑</button>'
+      + '    <button type="button" class="btn btn-default sortable_down" id="btn_down_' + row_id + '" metaid="' + row_id + '">↓</button>'
+      + '  </div>'
+      + '</td>'
+      + '<td>'
+      + (!is_fixed_field ?
+        '  <button type="button" class="btn btn-danger" id="btn_del_' + row_id + '"><span class="glyphicon glyphicon-remove"></span></button>'
+        : ''
+      )
+      + '</td>'
+      + '</tr>';
     $('#tbody_itemtype').append(row_template);
     page_global.table_row.push(row_id);
     initSortedBtn();
@@ -1071,7 +1071,7 @@ $(document).ready(function () {
       }
     });
 
-    setTimeout(function() {
+    setTimeout(function () {
       // `uiFixedProperties` の値を取得
       const uiFixedPropertiesString = $('#uiFixedProperties').val();
       let properties;
@@ -1085,19 +1085,19 @@ $(document).ready(function () {
         let prop = properties[key];
         $('#select_input_type_' + row_id).prop('disabled', true);
         $('#select_input_type_' + row_id).val('cus_' + key).trigger('change');
-    
-        let idTitle = `chk_item_${row_id.replace('item_','')}`;
-        $(`#${idTitle}_0`).prop('checked', prop.fixed_option.required|| false).prop('disabled', prop.fixed_option.required !== undefined);
-        $(`#${idTitle}_1`).prop('checked', prop.fixed_option.multiple|| false).prop('disabled', prop.fixed_option.multiple !== undefined);
-        $(`#${idTitle}_2`).prop('checked', prop.fixed_option.showlist|| false).prop('disabled', prop.fixed_option.showlist !== undefined);
-        $(`#${idTitle}_3`).prop('checked', prop.fixed_option.crtf|| false).prop('disabled', prop.fixed_option.crtf !== undefined);
-        $(`#${idTitle}_4`).prop('checked', prop.fixed_option.hidden|| false).prop('disabled', prop.fixed_option.hidden !== undefined);
-        $(`#${idTitle}_5`).prop('checked', prop.fixed_option.oneline|| false).prop('disabled', prop.fixed_option.oneline !== undefined);
-        if(prop.fixed_option.multiple) {
+
+        let idTitle = `chk_item_${row_id.replace('item_', '')}`;
+        $(`#${idTitle}_0`).prop('checked', prop.fixed_option.required || false).prop('disabled', prop.fixed_option.required !== undefined);
+        $(`#${idTitle}_1`).prop('checked', prop.fixed_option.multiple || false).prop('disabled', prop.fixed_option.multiple !== undefined);
+        $(`#${idTitle}_2`).prop('checked', prop.fixed_option.showlist || false).prop('disabled', prop.fixed_option.showlist !== undefined);
+        $(`#${idTitle}_3`).prop('checked', prop.fixed_option.crtf || false).prop('disabled', prop.fixed_option.crtf !== undefined);
+        $(`#${idTitle}_4`).prop('checked', prop.fixed_option.hidden || false).prop('disabled', prop.fixed_option.hidden !== undefined);
+        $(`#${idTitle}_5`).prop('checked', prop.fixed_option.oneline || false).prop('disabled', prop.fixed_option.oneline !== undefined);
+        if (prop.fixed_option.multiple) {
           $('#arr_size_' + row_id).removeClass('hide');
         }
       }
-    }, 100); 
+    }, 100);
   }
 
   $('#tbody_itemtype').on('click', '.sortable_up', function () {
@@ -1188,8 +1188,8 @@ $(document).ready(function () {
       let product = properties_obj[$(this).val().substr(4)].schema;
       let product_forms = properties_obj[$(this).val().substr(4)].forms;
       isFile = properties_obj[$(this).val().substr(4)].is_file;
-      for(let key in product.properties) {
-        if(isFile || product.properties[key]["isHide"] ==true){
+      for (let key in product.properties) {
+        if (isFile || product.properties[key]["isHide"] == true) {
           product.properties[key]["showListDisable"] = true
           product.properties[key]["specifyNLDisable"] = true
           product.properties[key]["nonDisplayDisable"] = true
@@ -1349,8 +1349,8 @@ $(document).ready(function () {
       properties_obj = data;
 
       let defProps = data.defaults;
-      Object.keys(defProps).forEach(function(row_id){
-         property_default[defProps[row_id].value] = defProps[row_id].name
+      Object.keys(defProps).forEach(function (row_id) {
+        property_default[defProps[row_id].value] = defProps[row_id].name
       })
       let isSelected = true;
       Object.keys(defProps).forEach(function (key) {
@@ -1463,10 +1463,10 @@ $(document).ready(function () {
         $('#maxItems_' + row_id).val(data.meta_list[row_id].input_maxItems);
         requiredCheckbox.attr('checked', data.meta_list[row_id].option.required);
         multipleCheckbox.attr('checked', data.meta_list[row_id].option.multiple);
-        $('#chk_'+row_id+'_2').attr('checked', data.meta_list[row_id].option.showlist);
-        $('#chk_'+row_id+'_3').attr('checked', data.meta_list[row_id].option.crtf);
-        $('#chk_'+row_id+'_4').attr('checked', data.meta_list[row_id].option.hidden);
-        $('#chk_'+row_id+'_5').attr('checked', data.meta_list[row_id].option.oneline);
+        $('#chk_' + row_id + '_2').attr('checked', data.meta_list[row_id].option.showlist);
+        $('#chk_' + row_id + '_3').attr('checked', data.meta_list[row_id].option.crtf);
+        $('#chk_' + row_id + '_4').attr('checked', data.meta_list[row_id].option.hidden);
+        $('#chk_' + row_id + '_5').attr('checked', data.meta_list[row_id].option.oneline);
         $('#is_fixed_field' + row_id).val(data.meta_list[row_id].is_fixed_field);
         // Add the notes for the row here
         if (row_id in data.edit_notes) {
@@ -1496,7 +1496,7 @@ $(document).ready(function () {
           $('#chk_' + row_id + '_4').prop('disabled', fixedOptions.hidden !== undefined);
           $('#chk_' + row_id + '_5').prop('disabled', fixedOptions.oneline !== undefined);
         }
-        if(data.meta_list[row_id].option.multiple) {
+        if (data.meta_list[row_id].option.multiple) {
           $('#arr_size_' + row_id).removeClass('hide');
         }
 
@@ -1527,8 +1527,8 @@ $(document).ready(function () {
             itemTypeSchema);
           // Set disable attribute for child in case parent is set Hide
           let isFile = properties_obj[data.meta_list[row_id].input_type.substr(4)].is_file;
-          for(let key in properties_obj[data.meta_list[row_id].input_type.substr(4)].schema.properties){
-            if(isFile || properties_obj[data.meta_list[row_id].input_type.substr(4)].schema.properties[key]["isHide"] ==true){
+          for (let key in properties_obj[data.meta_list[row_id].input_type.substr(4)].schema.properties) {
+            if (isFile || properties_obj[data.meta_list[row_id].input_type.substr(4)].schema.properties[key]["isHide"] == true) {
               properties_obj[data.meta_list[row_id].input_type.substr(4)].schema.properties[key]["showListDisable"] = true
               properties_obj[data.meta_list[row_id].input_type.substr(4)].schema.properties[key]["specifyNLDisable"] = true
               properties_obj[data.meta_list[row_id].input_type.substr(4)].schema.properties[key]["nonDisplayDisable"] = true
@@ -1543,7 +1543,7 @@ $(document).ready(function () {
             if (listSubItem && listSubItem.length > 0 && listSubItem[0] in data.meta_list) {
               var temp_prop = properties_obj[data.meta_list[listSubItem[0]].input_type.substr(4)].schema.properties;
               for (var idx = 1; idx < listSubItem.length; idx++) {
-                if ( temp_prop && listSubItem[idx] in temp_prop) {
+                if (temp_prop && listSubItem[idx] in temp_prop) {
                   let _item = temp_prop[listSubItem[idx]]
                   if (_item && _item.items) {
                     temp_prop = _item.items.properties;
@@ -1574,8 +1574,8 @@ $(document).ready(function () {
       //Show message changed properties.
       if (changedProperties.length > 0) {
         let message = '<div class="alert alert-info alert-dismissable">' +
-        '<button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>' +
-        '<p>' + changedProperties.join('</p><p>') + '</p></div>';
+          '<button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>' +
+          '<p>' + changedProperties.join('</p><p>') + '</p></div>';
         $('section.content-header').prepend(message);
       }
       if ($('input[type=radio][name=item_type]:checked').val() === 'deleted') {
@@ -1607,10 +1607,10 @@ $(document).ready(function () {
     var is_belonging_item = selected_item_type.hasClass("belonging_item");
     if (is_harvesting_type) {
       addError($("#msg_for_harvesting").val());
-      window.scroll({top: 0, behavior: "smooth"});
+      window.scroll({ top: 0, behavior: "smooth" });
     } else if (is_belonging_item) {
       addError($("#msg_for_belonging_item").val());
-      window.scroll({top: 0, behavior: "smooth"});
+      window.scroll({ top: 0, behavior: "smooth" });
     } else {
       $("#item_type_delete_confirmation").modal("show");
     }
@@ -1639,11 +1639,11 @@ $(document).ready(function () {
           restore_itemtype.addClass("normal_type");
           $('#itemtype_name').val('');
           addInfo(data.msg);
-          window.scroll({top: 0, behavior: "smooth"});
+          window.scroll({ top: 0, behavior: "smooth" });
         },
         function (errmsg) {
           addError(errmsg);
-          window.scroll({top: 0, behavior: "smooth"});
+          window.scroll({ top: 0, behavior: "smooth" });
         });
     }
   });
@@ -1691,7 +1691,7 @@ $(document).ready(function () {
   function get_form_system() {
     let result = new Array()
     let list_key = Object.keys(meta_system_info)
-    for(let i = 0; i< list_key.length; ++i){
+    for (let i = 0; i < list_key.length; ++i) {
       let row_id = list_key[i]
       let item = new Object()
       if (meta_system_info[row_id].input_type.indexOf('cus_') != -1) {
@@ -2034,9 +2034,9 @@ $(document).ready(function () {
     //Set TitleMap for form.
     let _enum, editAble;
     editAble = property.hasOwnProperty('editAble') && property['editAble'];
-    if(property.hasOwnProperty('enum')&& property['enum']){
+    if (property.hasOwnProperty('enum') && property['enum']) {
       _enum = property['enum'];
-    } else if(property.hasOwnProperty('currentEnum')&& property['currentEnum']){
+    } else if (property.hasOwnProperty('currentEnum') && property['currentEnum']) {
       _enum = property['currentEnum'];
     }
     //Trim space for value of enum in item type schema.
@@ -2153,12 +2153,12 @@ $(document).ready(function () {
       let tmp_pubdate = {
         title: data.meta_fix.pubdate.title,
         title_i18n: {
-            ja: data.meta_fix.pubdate.title_i18n.ja,
-            en: data.meta_fix.pubdate.title_i18n.en
+          ja: data.meta_fix.pubdate.title_i18n.ja,
+          en: data.meta_fix.pubdate.title_i18n.en
         }
       };
-      if(options) {
-        $('#txt_title_item_pubdate').val(tmp_pubdate.title);    
+      if (options) {
+        $('#txt_title_item_pubdate').val(tmp_pubdate.title);
         $('#txt_title_ja_item_pubdate').val(tmp_pubdate.title_i18n.ja);
         $('#txt_title_en_item_pubdate').val(tmp_pubdate.title_i18n.en);
         $('#chk_pubdate_2').prop('checked', options.showlist);

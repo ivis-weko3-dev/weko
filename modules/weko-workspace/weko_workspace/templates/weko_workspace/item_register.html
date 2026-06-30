@@ -22,32 +22,31 @@
 
 
   {%- block css %}
-    {% assets "invenio_deposit_css" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
-    {% assets "weko_items_authors_search_css" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
-    {% assets "weko_items_ui_indextree_css" %}
-    <link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
+    {{ webpack["deposit_css_css.css"] }}
+    {{ webpack["items_ui_css_items_author_search.css"] }}
+    {{ webpack["items_ui_css_indextree_style.css"] }}
     {{ super() }}
-    <link href="/static/css/weko_workspace/style.css" rel="stylesheet">
-    <link href="/static/css/weko_admin/styles.css" rel="stylesheet">
-    {% assets "weko_records_ui_css" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
+    {{ webpack["workspace_style_css.css"] }}
+    {{ webpack["admin_css_css.css"] }}
+    {{ webpack["records_ui_css_style.css"] }}
   {%- endblock css %}
 
   {%- block javascript %}
   <script src="{{ url_for('static', filename='js/react/react.production.min.js') }}" crossorigin></script>
   <script src="{{ url_for('static', filename='js/react/react-dom.production.min.js') }}" crossorigin></script>
   <script src="{{ url_for('static', filename='js/babel-cores/browser.min.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/axios/axios.min.js') }}"></script>
+  {{ webpack["theme-js-axios.js"] }}
 
-    {% assets "invenio_deposit_dependencies_js" %}<script src="{{ ASSET_URL }}"></script>{% endassets %}
-    {% assets "weko_admin_react_bootstrap_js" %}<script type="text/javascript" src="{{ ASSET_URL }}"></script>{% endassets %}
+    {{ webpack["deposit_js_dependencies.js"] }}
+    <script src="{{ url_for('static', filename='js/weko_admin/react-bootstrap.min.js') }}"></script>
     {{ super() }}
-    {% assets "invenio_deposit_js" %}<script src="{{ ASSET_URL }}"></script>{% endassets %}
-
-    <script src="{{ url_for('static', filename='js/weko_workspace/workspace_register.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/weko_items_ui/oapolicy.js') }}"></script>
-    <!-- {% assets "weko_items_authors_search_js" %}<script src="{{ ASSET_URL }}"></script>{% endassets %} -->
-    {% assets "weko_items_ui_js_dependencies" %}<script src="{{ ASSET_URL }}"></script>{% endassets %}
-    {% assets "weko_theme_js_widget" %}<script src="{{ ASSET_URL }}"></script>{% endassets %}
+    {{ webpack["deposit_js_js.js"] }}
+    {{ webpack["workspace_register_js.js"] }}
+    {{ webpack["items_ui_oapolicy_js.js"] }}
+    <script src="{{ url_for('static', filename='js/weko_items_ui/inline.bundle.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/weko_items_ui/polyfills.bundle.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/weko_items_ui/main.bundle.js') }}"></script>
+    {{ webpack["theme-widget.js"] }}
   {%- endblock javascript %}
  
   {%- block page_header %}

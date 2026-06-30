@@ -1,20 +1,24 @@
-from datetime import datetime, timedelta
 import argparse
-import uuid
-import sys
 import json
+import sys
+import uuid
 
-from sqlalchemy.orm.attributes import flag_modified
+from datetime import datetime, timedelta
 from invenio_db import db
 from invenio_records.models import RecordMetadata
-from weko_records.models import ItemMetadata
-from weko_records.api import ItemTypes
-from weko_workflow.models import Activity, WorkFlow, Action, ActivityStatusPolicy
+from invenio_search.engine import search
+from sqlalchemy.orm.attributes import flag_modified
 from weko_deposit.api import WekoIndexer
+from weko_records.api import ItemTypes
+from weko_records.models import ItemMetadata
+from weko_workflow.models import (
+    Activity, WorkFlow, Action, ActivityStatusPolicy
+)
 
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
-from elasticsearch import ConnectionError
 from flask import current_app
+
+
 def parse_args():
     # 初期値
     startDate = ""
@@ -285,7 +289,7 @@ def main(startDate=None,endDate=None,recordId=None,itemTypeId=None, from_cmd=Fal
                     if change_flag:
                         # # ES更新処理
                         # indexer = WekoIndexer()
-                        # indexer.get_es_index()
+                        # indexer.get_search_index()
                         # indexer.upload_metadata(rec.json, uuid, rec.version_id)
                         # DB保存
                         flag_modified(item, "json")
@@ -294,7 +298,7 @@ def main(startDate=None,endDate=None,recordId=None,itemTypeId=None, from_cmd=Fal
                         current_app.logger.info(f"[FIX] records_metadata:{rec.id}")
                         db.session.commit()
 
-            except (OperationalError, SQLAlchemyError, ConnectionError) as e:
+            except (OperationalError, SQLAlchemyError, search.ConnectionError) as e:
                 import traceback
                 current_app.logger.error(f"Error updating Item UUID={uuid}: {e}")
                 current_app.logger.error(traceback.format_exc())

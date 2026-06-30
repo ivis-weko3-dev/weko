@@ -12,10 +12,10 @@
 from unittest.mock import patch
 
 import pytest
-from six import BytesIO
 
 from invenio_previewer import current_previewer
 from invenio_previewer.utils import detect_encoding
+from io import BytesIO
 
 
 def test_default_file_reader(testapp, record_with_file):

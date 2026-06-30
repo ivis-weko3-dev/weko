@@ -22,26 +22,26 @@
 # .tox/c1/bin/pytest --cov=weko_index_tree tests/test_api.py -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-index-tree/.tox/c1/tmp
 
 
-import pytest
 import copy
 import os
-from datetime import datetime
-from mock import patch, Mock, MagicMock
-from types import SimpleNamespace
+import pytest
 
-from redis.exceptions import RedisError
-from opensearchpy.exceptions import NotFoundError
+from datetime import datetime
+from flask import current_app
 from invenio_access.models import Role
 from invenio_communities.models import Community
 from invenio_accounts.testutils import login_user_via_view, login_user_via_session
 from invenio_i18n.ext import current_i18n
+from mock import patch, Mock, MagicMock
+from redis.exceptions import RedisError
+from opensearchpy.exceptions import NotFoundError
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from flask import current_app
+from types import SimpleNamespace
 from weko_deposit.api import WekoDeposit
+from weko_groups.api import Group
 from weko_index_tree.api import Indexes
 from weko_index_tree.models import Index
 from weko_index_tree import WekoIndexTree
-from weko_groups.api import Group
 
 
 # class Indexes(object):
@@ -585,7 +585,7 @@ def test_Indexes_recs_query(i18n_app, db):
 #     def is_public_state_and_not_in_future(cls, ids):
 #         def _query(_id):
 #     def set_item_sort_custom(cls, index_id, sort_json={}):
-#     def update_item_sort_custom_es(cls, index_path, sort_json=[]):
+#     def update_item_sort_custom_search(cls, index_path, sort_json=[]):
 #     def get_item_sort(cls, index_id):
 #     def have_children(cls, index_id):
 #     def get_coverpage_state(cls, indexes: list):
@@ -1155,8 +1155,8 @@ def test_indexes_get_index_tree(i18n_app, db, redis_connect, users, db_records, 
         res = Indexes.have_children(100, with_deleted=True)
         assert res==True
 
-        # update_item_sort_custom_es
-        res = Indexes.update_item_sort_custom_es("33", [{"1": "1", "2": "2"}])
+        # update_item_sort_custom_search
+        res = Indexes.update_item_sort_custom_search("33", [{"1": "1", "2": "2"}])
         assert res==None
 
 # .tox/c1/bin/pytest --cov=weko_index_tree tests/test_api.py::test_get_index_with_role_group -v -s -vv --cov-branch --cov-report=html --cov-config=tox.ini --basetemp=/code/modules/weko-index-tree/.tox/c1/tmp

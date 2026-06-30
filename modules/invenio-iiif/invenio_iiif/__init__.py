@@ -179,8 +179,6 @@ The result will be
 ``/iiif-demov2/<bucket_id>:<version_id>:img.png/full/full/0/default.png``
 """
 
-from __future__ import absolute_import, print_function
-
 from .ext import InvenioIIIF, InvenioIIIFAPI
 from .version import __version__
 

@@ -11,20 +11,18 @@ See https://pytest-invenio.readthedocs.io/ for documentation on which test
 fixtures are available.
 """
 
-from __future__ import absolute_import, print_function
-
 import json
-from os.path import dirname, exists, join
+import os
+import pytest
 import shutil
 import tempfile
-import os
 
-import pytest
 from flask import Flask
 from flask_babel import Babel
-from sqlalchemy_utils.functions import create_database, database_exists
 from invenio_db import InvenioDB
 from invenio_db import db as db_
+from os.path import dirname, exists, join
+from sqlalchemy_utils.functions import create_database, database_exists
 
 from weko_handle import WekoHandle
 from weko_handle.views import blueprint
@@ -74,8 +72,6 @@ def base_app(instance_path):
         OAUTH2_CACHE_TYPE="simple",
         ACCOUNTS_JWT_ENABLE=False,
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
-        INDEXER_DEFAULT_DOC_TYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         WEKO_INDEX_TREE_STYLE_OPTIONS={
             "id": "weko",
@@ -84,7 +80,7 @@ def base_app(instance_path):
         WEKO_INDEX_TREE_UPATED=True,
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English")],
         SERVER_NAME="TEST_SERVER",
-        SEARCH_ELASTIC_HOSTS=os.environ.get("SEARCH_ELASTIC_HOSTS", "elasticsearch"),
+        SEARCH_OPENSEARCH_HOSTS = os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch")
         SEARCH_INDEX_PREFIX="test-",
         WEKO_PERMISSION_ROLE_USER=[
             "System Administrator",

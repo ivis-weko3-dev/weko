@@ -1,12 +1,11 @@
 
 import os
 
-from elasticsearch import Elasticsearch, helpers
-
 from invenio_db import db
 from invenio_files_rest.models import ObjectVersion
+from invenio_search.engine import search
 
-es = Elasticsearch(
+open_search = search.OpenSearch(
         "http://" + os.environ.get("INVENIO_ELASTICSEARCH_HOST", "localhost") + ":9200"
     )
 
@@ -16,8 +15,8 @@ def add_root_file_id(index):
     updated = []
     # root_file_id が null または "" となっている文書を探す
     _query = '{"query":{"bool":{"should":[{"bool":{"must_not":{"exists":{"field":"root_file_id"}}}},{"bool":{"must":[{"exists":{"field":"root_file_id"}}],"must_not":[{"wildcard":{"root_file_id":"*"}}]}}]}}}'
-    results = helpers.scan(
-            es,
+    results = search.helpers.scan(
+            open_search,
             index=index,
             preserve_order=True,
             query=_query,
@@ -57,7 +56,7 @@ def add_root_file_id(index):
                 errors.append(id)
     if len(_bulk)>0:
         try:
-            res = helpers.bulk(es, _bulk)
+            res = search.helpers.bulk(open_search, _bulk)
             print("update: {}".format(updated))
             print("result: {}".format(res))
         except Exception as e:

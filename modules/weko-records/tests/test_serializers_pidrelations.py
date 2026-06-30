@@ -1,9 +1,10 @@
 import pytest
-from mock import patch, MagicMock
-from tests.helpers import json_data
 
 from invenio_records_rest.schemas.json import RecordSchemaJSONV1
 from invenio_pidstore.models import PersistentIdentifier
+from mock import patch, MagicMock
+from tests.helpers import json_data
+
 from weko_records.serializers.pidrelations import (
     serialize_related_identifiers, 
     preprocess_related_identifiers)
@@ -30,7 +31,7 @@ def test_serialize_related_identifiers(app, db, records):
     data2.exists = exists
     data2.children = [data0]
 
-    with patch("weko_records.serializers.pidrelations.PIDVersioning", return_value=data2):
+    with patch("weko_records.serializers.pidrelations.PIDNodeVersioning", return_value=data2):
         with patch("weko_records.serializers.pidrelations.WekoDeposit.get_record", return_value=data1):
             assert serialize_related_identifiers(records[0][0]) != None
 
@@ -62,7 +63,7 @@ def test_preprocess_related_identifiers(app, db, records):
     data1 = MagicMock()
     data1.exists = exists
 
-    with patch("weko_records.serializers.pidrelations.PIDVersioning", return_value=data1):
+    with patch("weko_records.serializers.pidrelations.PIDNodeVersioning", return_value=data1):
         with patch("weko_records.serializers.pidrelations.PersistentIdentifier.get", return_value=pid):
             with patch("weko_records.serializers.pidrelations.serialize_related_identifiers", return_value="rels"):
                 assert preprocess_related_identifiers(pid, record, result) != None

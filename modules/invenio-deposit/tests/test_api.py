@@ -7,25 +7,22 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 
 """Test the API."""
-
-from __future__ import absolute_import, print_function
+import pytest
+import uuid
 
 from copy import deepcopy
-
-import uuid
-import pytest
-from mock import patch
+from flask_login.utils import login_user, logout_user
 from invenio_db import db
+from invenio_deposit.api import Deposit
+from invenio_deposit.errors import MergeConflict
 from invenio_pidstore.errors import PIDInvalidAction
 from invenio_records.errors import MissingModelError
 from jsonschema.exceptions import RefResolutionError
-from six import BytesIO
+from mock import patch
+from io import BytesIO
 from sqlalchemy.orm.exc import NoResultFound
 
-from invenio_deposit.api import Deposit
-from invenio_deposit.errors import MergeConflict
 
-from flask_login.utils import login_user, logout_user
 
 def test_schemas(app, fake_schemas, location):
     """Test schema URL transformations."""

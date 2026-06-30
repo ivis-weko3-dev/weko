@@ -97,7 +97,7 @@ def test_create_filter_dsl_accessrights():
     app.config['WEKO_SEARCH_FIX_ACCESSRIGHTS'] = True
     # Definition of new_accessRights
     definitions = {
-        "accessRights": lambda values: Q('terms', accessRights=values),
+        "accessRights": lambda values: dsl.Q('terms', accessRights=values),
         "new_accessRights": {
             "filters": {
                 "filters": {
@@ -137,12 +137,12 @@ def test_create_filter_dsl_accessrights():
         assert args == kwargs
 
     definitions = {
-        "other": lambda values: Q('terms', other=values),
+        "other": lambda values: dsl.Q('terms', other=values),
     }
     with app.test_request_context('?other=open'):
         kwargs = MultiDict()
         filters, args = _create_filter_dsl(kwargs, definitions)
-        assert filters == [Q('terms', other=['open'])]
+        assert filters == [dsl.Q('terms', other=['open'])]
         assert args.getlist('other') == ['open']
 
 def test_post_filter(app):

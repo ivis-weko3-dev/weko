@@ -9,24 +9,24 @@
 
 """Pytest configuration."""
 
+import invenio_db
+import pytest
 import os
 import sys
 import shutil
 import tempfile
-from unittest.mock import patch
 from flask import Flask
 from flask_babel import Babel
 from flask.cli import ScriptInfo
-# from os.path import dirname, join
-from pkg_resources import EntryPoint
-from werkzeug.utils import import_string
-from sqlalchemy_utils.functions import create_database, database_exists
-
-import pytest
-
-import invenio_db
 from invenio_db import shared
 from invenio_db.utils import alembic_test_context
+# from os.path import dirname, join
+from unittest.mock import patch
+from pkg_resources import EntryPoint
+from sqlalchemy_utils.functions import create_database, database_exists
+from werkzeug.utils import import_string
+
+
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -116,7 +116,7 @@ def _mock_entry_points(name):
 
 @pytest.yield_fixture()
 def mock_entry_points():
-    with patch("pkg_resources.iter_entry_points",_mock_entry_points):
+    with patch("set(importlib_metadata.entry_points",_mock_entry_points):
         yield
 
     modules = ["demo", "demo.child", "demo.parent", "demo.versioned_a","demo.versioned_b"]

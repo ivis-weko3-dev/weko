@@ -10,8 +10,6 @@
 # TODO: This is an example file. Remove it if you do not need it, including
 # the templates and static folders as well as the test case.
 
-from __future__ import absolute_import, print_function
-
 from flask import Blueprint, current_app, jsonify, render_template, request
 from flask_babel import gettext as _
 from invenio_db import db

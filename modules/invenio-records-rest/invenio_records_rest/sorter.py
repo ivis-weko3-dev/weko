@@ -19,7 +19,6 @@ https://www.elastic.co/guide/en/elasticsearch/reference/7.0/search-request-sort.
 """
 
 import pickle
-import six
 from flask import current_app, request
 from invenio_i18n.ext import current_i18n
 
@@ -151,8 +150,7 @@ def default_sorter_factory(search, index):
 
     # Get default sorting if sort is not specified.
     if not urlfield:
-        # cast to six.text_type to handle unicodes in Python 2
-        has_query = request.values.get("q", type=six.text_type)
+        has_query = request.values.get("q", type=str)
         if current_app.config.get("RECORDS_REST_DEFAULT_SORT"):
             urlfield = (
                 current_app.config["RECORDS_REST_DEFAULT_SORT"]

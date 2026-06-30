@@ -1,19 +1,21 @@
 
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_storage.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-from io import TextIOWrapper
 import logging
-from unittest import mock
-from unittest.mock import MagicMock, patch
-from invenio_files_rest.errors import StorageError
-from weko_deposit.errors import WekoDepositError, WekoDepositStorageError
-from weko_deposit.storage import WekoFileStorage,make_path,pyfs_storage_factory
-from weko_deposit.api import WekoFileObject
-from invenio_files_rest.models import Bucket, ObjectVersion
-from invenio_records_files.api import FileObject
 import hashlib
 import base64
 import pytest
-from six import BytesIO
+
+from invenio_files_rest.errors import StorageError
+from invenio_files_rest.models import Bucket, ObjectVersion
+from invenio_records_files.api import FileObject
+from io import TextIOWrapper, BytesIO
+from unittest import mock
+from unittest.mock import MagicMock, patch
+from weko_deposit.api import WekoFileObject
+from weko_deposit.errors import WekoDepositError, WekoDepositStorageError
+from weko_deposit.storage import WekoFileStorage,make_path,pyfs_storage_factory
+
+
 # class WekoFileStorage(PyFSFileStorage):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_storage.py::TestWekoFileStorage -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
 

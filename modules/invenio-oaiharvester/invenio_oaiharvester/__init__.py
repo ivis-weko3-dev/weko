@@ -79,8 +79,6 @@ Here we are using the `-n, --name` parameter to specify which configured
 OAI-PMH source to query, using the ``name`` property.
 """
 
-from __future__ import absolute_import, print_function
-
 from .api import get_records, list_records
 from .ext import InvenioOAIHarvester
 from .version import __version__

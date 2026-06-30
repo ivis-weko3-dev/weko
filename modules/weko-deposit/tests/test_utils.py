@@ -19,16 +19,19 @@
 # MA 02111-1307, USA.
 
 import os
+import pytest
 import types
 
-import pytest
+
 from sqlalchemy.orm.exc import NoResultFound
 from unittest.mock import patch, MagicMock
 
-from weko_deposit.utils import update_pdf_contents_es, extract_text_from_pdf, extract_text_with_tika
+from weko_deposit.api import WekoDeposit
+from weko_deposit.utils import (
+    update_pdf_contents_search, extract_text_from_pdf, extract_text_with_tika)
 
-# .tox/c1/bin/pytest --cov=weko_deposit tests/test_utils.py::test_update_pdf_contents_es_with_index_api -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-def test_update_pdf_contents_es(app, mocker):
+# .tox/c1/bin/pytest --cov=weko_deposit tests/test_utils.py::test_update_pdf_contents_search_with_index_api -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+def test_update_pdf_contents_search(app, mocker):
     record_ids = ['id1', 'id2']
     # Normal case: get_pdf_info and apply_async are called
     class DummyDep:
@@ -37,14 +40,14 @@ def test_update_pdf_contents_es(app, mocker):
     dummy_deps = [DummyDep(rid) for rid in record_ids]
     with patch("weko_deposit.utils.WekoDeposit.get_records", return_value=dummy_deps):
         with patch("weko_deposit.utils.extract_pdf_and_update_file_contents.apply_async") as mock_task:
-            update_pdf_contents_es(record_ids)
+            update_pdf_contents_search(record_ids)
             # apply_async is called for each record
             for i, call in enumerate(mock_task.call_args_list):
                 args, _ = call
                 assert args[0] == ({'file': 'info'}, record_ids[i])
 
-# .tox/c1/bin/pytest --cov=weko_deposit tests/test_utils.py::test_update_pdf_contents_es_with_index_api_noresult -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-def test_update_pdf_contents_es_noresult(app, mocker):
+# .tox/c1/bin/pytest --cov=weko_deposit tests/test_utils.py::test_update_pdf_contents_search_with_index_api_noresult -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+def test_update_pdf_contents_search_noresult(app, mocker):
     record_ids = ['id1']
     # When NoResultFound occurs: logger.error and traceback.print_exc are called
     class DummyDep:
@@ -55,7 +58,7 @@ def test_update_pdf_contents_es_noresult(app, mocker):
     with patch("weko_deposit.utils.WekoDeposit.get_records", return_value=[DummyDep('id1')]):
         with patch("weko_deposit.utils.current_app", types.SimpleNamespace(logger=dummy_logger)):
             with patch("weko_deposit.utils.traceback", types.SimpleNamespace(print_exc=dummy_trace.print_exc)):
-                update_pdf_contents_es(record_ids)
+                update_pdf_contents_search(record_ids)
                 assert hasattr(dummy_logger, 'logged')
                 assert hasattr(dummy_trace, 'called')
 

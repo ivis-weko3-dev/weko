@@ -1,11 +1,11 @@
 import $ from "jquery";
 import JSONSchemaEditor from './jsonschemaeditor'
-// require(["jquery", "bootstrap"], function() {});
+
 $(document).ready(function () {
   let initschema = {
-        type: "object",
-        properties: {},
-        required: []
+    type: "object",
+    properties: {},
+    required: []
   }
   let url_update_schema = '/admin/itemtypes/properties';
   let element = document.getElementById('new_option');
@@ -13,7 +13,7 @@ $(document).ready(function () {
     startval: initschema,
     editor: true
   });
-  $('#previews').on('click', function(){
+  $('#previews').on('click', function () {
     let schema = editor.getValue();
     let forms = editor.exportForm();
     removeCurrentEnum(schema.properties);
@@ -21,9 +21,9 @@ $(document).ready(function () {
     $('#form1_json').val(JSON.stringify(forms.form, null, 4));
     $('#form2_json').val(JSON.stringify(forms.forms, null, 4));
   });
-  $('#sending').on('click', function(){
+  $('#sending').on('click', function () {
     let prop_name = $('#property_name').val();
-    if(prop_name.length == 0) {
+    if (prop_name.length == 0) {
       $('#property_name').focus();
       $('#property_name').parent().addClass('has-error');
       return;
@@ -39,7 +39,7 @@ $(document).ready(function () {
   });
 
   function removeCurrentEnum(properties) {
-    Object.keys(properties).forEach(function(key) {
+    Object.keys(properties).forEach(function (key) {
       let subItem = properties[key];
       if (subItem.hasOwnProperty('currentEnum')) {
         delete subItem['currentEnum'];
@@ -47,7 +47,7 @@ $(document).ready(function () {
     })
   }
 
-  function send(url, data){
+  function send(url, data) {
     $.ajax({
       method: 'POST',
       url: url,
@@ -55,21 +55,21 @@ $(document).ready(function () {
       contentType: 'application/json',
       dataType: 'json',
       data: JSON.stringify(data),
-      success: function(data,textStatus){
+      success: function (data, textStatus) {
         $('.modal-body').text(data.msg);
         $('#myModal').modal('show');
       },
-      error: function(textStatus,errorThrown){
+      error: function (textStatus, errorThrown) {
         $('.modal-body').text('Error: ' + JSON.stringify(textStatus));
         $('#myModal').modal('show');
       }
     });
   }
 
-  $('#item-type-lists').on('change', function(){
-    if($('#item-type-lists').val().length > 0) {
+  $('#item-type-lists').on('change', function () {
+    if ($('#item-type-lists').val().length > 0) {
       let url = '/admin/itemtypes/properties/' + $('#item-type-lists').val();
-      $.get(url, function(data, status){
+      $.get(url, function (data, status) {
         url_update_schema = '/admin/itemtypes/properties/' + data.id;
         $('#property_name').val(data.name);
         $('#schema_json').val(JSON.stringify(data.schema, null, 4));
@@ -94,9 +94,9 @@ $(document).ready(function () {
   });
 
   // create from json data
-  $('#rebuild').on('click', function(){
+  $('#rebuild').on('click', function () {
     let schema_json_val = $('#schema_json').val();
-    if(schema_json_val.length > 0) {
+    if (schema_json_val.length > 0) {
       let schema_json = null;
       schema_json = JSON.parse(schema_json_val);
       editor.setValue({

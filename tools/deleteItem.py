@@ -2,18 +2,16 @@ import os
 import sys
 import traceback
 
-from elasticsearch.exceptions import NotFoundError as NotFoundError_es
 from flask import current_app
 from invenio_db import db
 from invenio_files_rest.models import Bucket, FileInstance, ObjectVersion
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_records_files.api import FileObject, Record
 from invenio_records_files.models import RecordsBuckets
+from invenio_search.engine import search
 from sqlalchemy.exc import SQLAlchemyError
 from weko_deposit.api import WekoRecord
 from weko_records.models import ItemMetadata, ItemReference
-
-from elasticsearch import Elasticsearch, helpers
 
 
 def deleteItem(id):
@@ -39,7 +37,7 @@ def deleteItem(id):
 
     current_app.logger.debug(itemid_list)
 
-    es = Elasticsearch(
+    open_search = search.OpenSearch(
         "http://"+os.environ.get('INVENIO_ELASTICSEARCH_HOST', 'localhost')+":9200")
     query = '{"query":{"bool":{"should":['
     for i in itemid_list:
@@ -51,27 +49,27 @@ def deleteItem(id):
     current_app.logger.debug('query: {0}'.format(query))
 
     try:
-        result = es.delete_by_query(index=os.environ.get(
+        result = open_search.delete_by_query(index=os.environ.get(
             'SEARCH_INDEX_PREFIX', 'tenant1')+"-stats-item-create", body=query, conflicts='proceed')
-    except NotFoundError_es:
+    except search.NotFoundError:
         current_app.logger.error(traceback.format_exc())
 
     try:
-        result = es.delete_by_query(index=os.environ.get(
+        result = open_search.delete_by_query(index=os.environ.get(
             'SEARCH_INDEX_PREFIX', 'tenant1')+"-events-stats-item-create", body=query, conflicts='proceed')
-    except NotFoundError_es:
+    except search.NotFoundError:
         current_app.logger.error(traceback.format_exc())
 
     try:
-        result = es.delete_by_query(index=os.environ.get(
+        result = open_search.delete_by_query(index=os.environ.get(
             'SEARCH_INDEX_PREFIX', 'tenant1')+"-stats-record-view", body=query, conflicts='proceed')
-    except NotFoundError_es:
+    except search.NotFoundError:
         current_app.logger.error(traceback.format_exc())
 
     try:
-        result = es.delete_by_query(index=os.environ.get(
+        result = open_search.delete_by_query(index=os.environ.get(
             'SEARCH_INDEX_PREFIX', 'tenant1')+"-events-stats-record-view", body=query, conflicts='proceed')
-    except NotFoundError_es:
+    except search.NotFoundError:
         current_app.logger.error(traceback.format_exc())
 
     query = '{"query":{"bool":{"should":['
@@ -83,9 +81,9 @@ def deleteItem(id):
     query = query + ']}}}'
 
     try:
-        result = es.delete_by_query(index=os.environ.get(
+        result = open_search.delete_by_query(index=os.environ.get(
             'SEARCH_INDEX_PREFIX', 'tenant1')+"-weko", body=query, conflicts='proceed')
-    except NotFoundError_es:
+    except search.NotFoundError:
         current_app.logger.error(traceback.format_exc())
 
     for uid in object_uuid_list:

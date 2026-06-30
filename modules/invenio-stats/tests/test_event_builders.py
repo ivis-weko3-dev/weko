@@ -1,10 +1,6 @@
 import pytest
 import tempfile
 from datetime import datetime
-from six import BytesIO
-from mock import patch
-
-from werkzeug.datastructures import ImmutableMultiDict
 
 from invenio_files_rest.models import Bucket, Location, ObjectVersion
 from invenio_stats.contrib.event_builders import (
@@ -28,6 +24,9 @@ from invenio_stats.contrib.event_builders import (
     build_search_detail_condition,
     item_create_event_builder
 )
+from io import BytesIO
+from mock import patch
+from werkzeug.datastructures import ImmutableMultiDict
 
 CONTRIBUTOR = 0
 

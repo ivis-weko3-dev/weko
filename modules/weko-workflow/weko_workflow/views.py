@@ -6,31 +6,19 @@ import re
 import shutil
 import sys
 import traceback
+
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime
-from functools import wraps
-from typing import List
-from urllib.parse import urljoin
-
-from weko_admin.models import AdminSettings
-from weko_items_ui.signals import cris_researchmap_linkage_request
-from weko_items_ui.models import CRIS_Institutions, CRISLinkageResult
-from weko_workflow.schema.marshmallow import ActionSchema, \
-    ActivitySchema, GetRequestMailListSchema, ResponseMessageSchema, CancelSchema, PasswdSchema, LockSchema,\
-    ResponseLockSchema, LockedValueSchema, GetFeedbackMailListSchema, SaveActivityResponseSchema,\
-    SaveActivitySchema, CheckApprovalSchema,ResponseUnlockSchema, GetItemApplicationSchema
-from weko_workflow.schema.utils import get_schema_action, type_null_check
-from marshmallow.exceptions import ValidationError
-
-from flask import Response, Blueprint, abort, current_app, has_request_context, \
-    jsonify, make_response, render_template, request, session, url_for, redirect
+from flask import (
+    Response, Blueprint, abort, current_app, has_request_context,
+    jsonify, make_response, render_template, request, session, url_for, redirect)
 from flask_babel import gettext as _
 from flask_login import current_user, login_required
 from flask_security import url_for_security
 from flask_security.utils import hash_password
-from weko_admin.api import validate_csrf_header
 from flask_wtf import FlaskForm
+from functools import wraps
 from invenio_accounts.models import Role, User, userrole
 from invenio_db import db
 from invenio_files_rest.utils import remove_file_cancel_action
@@ -41,13 +29,16 @@ from invenio_pidstore.resolver import Resolver
 from invenio_pidstore.errors import PIDDoesNotExistError,PIDDeletedError
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_rest import ContentNegotiatedMethodView
+from marshmallow.exceptions import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
-from weko_redis import RedisConnection
+from typing import List
+from urllib.parse import urljoin
+
 from weko_accounts.models import User
 from weko_accounts.utils import login_required_customize
+from weko_admin.api import validate_csrf_header
 from weko_admin.models import AdminSettings
 from weko_authors.models import Authors
-from weko_admin.models import AdminSettings
 from weko_deposit.api import WekoDeposit, WekoRecord
 from weko_deposit.links import base_factory
 from weko_deposit.pidstore import get_record_identifier, \
@@ -55,19 +46,30 @@ from weko_deposit.pidstore import get_record_identifier, \
 from weko_deposit.signals import item_created
 from weko_index_tree.utils import get_user_roles
 from weko_items_ui.api import item_login
-from weko_items_ui.utils import check_item_is_being_edit, get_workflow_by_item_type_id, \
-    get_current_user
+from weko_items_ui.models import CRIS_Institutions, CRISLinkageResult
+from weko_items_ui.signals import cris_researchmap_linkage_request
+from weko_items_ui.utils import (
+    check_item_is_being_edit, get_workflow_by_item_type_id, get_current_user)
 from weko_logging.activity_logger import UserActivityLogger
-from weko_records.api import FeedbackMailList, RequestMailList, ItemLink, ItemTypes, ItemApplication
+from weko_records.api import (
+    FeedbackMailList, RequestMailList, ItemLink, ItemTypes, ItemApplication)
 from weko_records.models import ItemMetadata
 from weko_records.serializers.utils import get_item_type_name
 from weko_records_ui.models import FilePermission
 from weko_records_ui.permissions import has_comadmin_permission
+from weko_redis import RedisConnection
 from weko_search_ui.utils import check_tsv_import_items, import_items_to_system
 from weko_user_profiles.config import \
     WEKO_USERPROFILES_INSTITUTE_POSITION_LIST, \
     WEKO_USERPROFILES_POSITION_LIST
 from weko_user_profiles.models import UserProfile
+from weko_workflow.schema.marshmallow import (
+    ActionSchema, ActivitySchema, GetRequestMailListSchema,
+    ResponseMessageSchema, CancelSchema, PasswdSchema, LockSchema,
+    ResponseLockSchema, LockedValueSchema, GetFeedbackMailListSchema,
+    SaveActivityResponseSchema, SaveActivitySchema, CheckApprovalSchema,
+    ResponseUnlockSchema, GetItemApplicationSchema)
+from weko_workflow.schema.utils import get_schema_action, type_null_check
 from werkzeug.utils import import_string
 
 from .api import Action, Flow, GetCommunity, WorkActivity, \
@@ -83,27 +85,29 @@ from .models import ActionStatusPolicy, Activity, ActivityAction, \
 from .models import Action as _Action
 from .romeo import search_romeo_issn, search_romeo_jtitles
 from .scopes import activity_scope
-from .utils import IdentifierHandle, auto_fill_title, \
-    check_authority_by_admin, check_continue, check_doi_validation_not_pass, \
-    check_existed_doi, is_terms_of_use_only, \
-    delete_cache_data, delete_guest_activity, filter_all_condition, \
-    get_account_info, get_actionid, get_activity_display_info, \
-    get_application_and_approved_date, get_approval_keys, get_cache_data, \
-    get_files_and_thumbnail, get_identifier_setting, get_main_record_detail, \
-    get_pid_and_record, get_pid_value_by_activity_detail, \
-    get_record_by_root_ver, get_thumbnails, get_usage_data, \
-    get_workflow_item_type_names, grant_access_rights_to_all_open_restricted_files, handle_finish_workflow, \
-    init_activity_for_guest_user, is_enable_item_name_link, \
-    is_hidden_pubdate, is_show_autofill_metadata, \
-    is_usage_application_item_type, prepare_data_for_guest_activity, \
-    prepare_doi_link_workflow, process_send_approval_mails, \
-    process_send_notification_mail, process_send_reminder_mail, register_hdl, \
-    save_activity_data, saving_doi_pidstore, \
-    send_usage_application_mail_for_guest_user, set_files_display_type, \
-    update_approval_date, update_cache_data, validate_guest_activity_expired, \
-    validate_guest_activity_token, get_contributors, make_activitylog_tsv, validate_action_role_user, \
-    delete_lock_activity_cache, delete_user_lock_activity_cache, \
+from .utils import (
+    IdentifierHandle, auto_fill_title,
+    check_authority_by_admin, check_continue, check_doi_validation_not_pass,
+    check_existed_doi, is_terms_of_use_only, delete_cache_data,
+    delete_guest_activity, filter_all_condition, get_account_info,
+    get_actionid, get_activity_display_info, get_application_and_approved_date,
+    get_approval_keys, get_cache_data, get_files_and_thumbnail,
+    get_identifier_setting, get_main_record_detail, get_pid_and_record,
+    get_pid_value_by_activity_detail, get_record_by_root_ver,
+    get_thumbnails, get_usage_data, get_workflow_item_type_names,
+    grant_access_rights_to_all_open_restricted_files, handle_finish_workflow,
+    init_activity_for_guest_user, is_enable_item_name_link, is_hidden_pubdate,
+    is_show_autofill_metadata, is_usage_application_item_type,
+    prepare_data_for_guest_activity, prepare_doi_link_workflow,
+    process_send_approval_mails, process_send_notification_mail,
+    process_send_reminder_mail, register_hdl, save_activity_data,
+    saving_doi_pidstore, send_usage_application_mail_for_guest_user,
+    set_files_display_type, update_approval_date, update_cache_data,
+    validate_guest_activity_expired, validate_guest_activity_token,
+    get_contributors, make_activitylog_tsv, validate_action_role_user,
+    delete_lock_activity_cache, delete_user_lock_activity_cache,
     check_an_item_is_locked, prepare_edit_workflow
+)
 
 workflow_blueprint = Blueprint(
     'weko_workflow',
@@ -2021,7 +2025,7 @@ def next_action(activity_id='0', action_id=0, json_data=None):
             else:
                 work_activity.notify_about_activity(activity_id, "registered")
 
-            # Call signal to push item data to ES.
+            # Call signal to push item data to search.
             try:
                 if '.' not in current_pid.pid_value and has_request_context():
                     user_id = activity_detail.activity_login_user if \
@@ -4027,7 +4031,8 @@ def edit_item_direct_after_login(pid_value):
                      [str(shared_id) for shared_id in deposit.get('weko_shared_ids', [])]
     user_id = str(get_current_user())
     activity = WorkActivity()
-    latest_pid = PIDVersioning(child=recid).last_child
+    parent_pid = PIDNodeVersioning(pid=recid).parents.one_or_none()
+    latest_pid = PIDNodeVersioning(pid=parent_pid).last_child
 
     # ! Check User's Permissions
     if user_id not in authenticators and not get_user_roles(is_super_role=False)[0]:

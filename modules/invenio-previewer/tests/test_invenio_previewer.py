@@ -11,10 +11,9 @@
 import importlib
 
 from flask import Flask
+from invenio_previewer import InvenioPreviewer
 from unittest.mock import patch
 from pkg_resources import EntryPoint
-
-from invenio_previewer import InvenioPreviewer
 
 
 class MockEntryPoint(EntryPoint):
@@ -59,7 +58,7 @@ def test_init():
     assert "invenio-previewer" in app.extensions
 
 
-@patch("pkg_resources.iter_entry_points", _mock_entry_points)
+@patch("set(importlib_metadata.entry_points", _mock_entry_points)
 def test_entrypoint_previewer():
     """Test the entry points."""
     app = Flask("testapp")

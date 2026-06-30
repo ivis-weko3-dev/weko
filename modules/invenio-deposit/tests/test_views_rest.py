@@ -9,24 +9,24 @@
 
 """Test deposit workflow."""
 
-from __future__ import absolute_import, print_function
-
 import json
-from time import sleep
-from mock import patch
-
 import pytest
+
+
 from flask import url_for
 from flask_security import url_for_security
-from invenio_accounts.testutils import login_user_via_view, login_user_via_session
+from invenio_accounts.testutils import (
+    login_user_via_view, login_user_via_session)
 from invenio_db import db
-from invenio_search import current_search
-from six import BytesIO
-
 from invenio_deposit.api import Deposit
+from invenio_search import current_search
+from mock import patch
+from io import BytesIO
+from time import sleep
 
 
-def test_publish_merge_conflict(api, es, users, location, deposit,
+
+def test_publish_merge_conflict(api, open_search, users, location, deposit,
                                 json_headers, fake_schemas):
     """Test publish with merge conflicts."""
     with api.test_request_context():
@@ -81,7 +81,7 @@ def test_publish_merge_conflict(api, es, users, location, deposit,
     # user that not have permissions
     (dict(email='test@inveniosoftware.org', password='tester2'), 403),
 ])
-def test_edit_deposit_users(api, es, users, location, deposit,
+def test_edit_deposit_users(api, open_search, users, location, deposit,
                             json_headers, user_info, status):
     """Test edit deposit by the owner."""
     deposit_id = deposit['_deposit']['id']
@@ -99,7 +99,7 @@ def test_edit_deposit_users(api, es, users, location, deposit,
             assert res.status_code == status
 
 
-def test_edit_deposit_by_good_oauth2_token(api, es, users, location,
+def test_edit_deposit_by_good_oauth2_token(api, open_search, users, location,
                                            deposit, write_token_user_1,
                                            oauth2_headers_user_1):
     """Test edit deposit with a correct oauth2 token."""
@@ -116,7 +116,7 @@ def test_edit_deposit_by_good_oauth2_token(api, es, users, location,
             assert res.status_code == 200
 
 
-def test_edit_deposit_by_bad_oauth2_token(api, es, users, location,
+def test_edit_deposit_by_bad_oauth2_token(api, open_search, users, location,
                                           deposit, write_token_user_2,
                                           oauth2_headers_user_2):
     """Test edit deposit with a wrong oauth2 token."""
@@ -141,7 +141,7 @@ def test_edit_deposit_by_bad_oauth2_token(api, es, users, location,
     # user that not have permissions
     (dict(email='test@inveniosoftware.org', password='tester2'), 403),
 ])
-def test_delete_deposit_users(api, es, users, location, deposit,
+def test_delete_deposit_users(api, open_search, users, location, deposit,
                               json_headers, user_info, status):
     """Test delete deposit by users."""
     deposit_id = deposit['_deposit']['id']
@@ -159,7 +159,7 @@ def test_delete_deposit_users(api, es, users, location, deposit,
             assert res.status_code == status
 
 # .tox/c1/bin/pytest --cov=invenio_deposit tests/test_views_rest.py::test_links_html_link_missing -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-deposit/.tox/c1/tmp
-def test_links_html_link_missing(api, es, location, fake_schemas,
+def test_links_html_link_missing(api, open_search, location, fake_schemas,
                                  users, json_headers):
     """Test if the html key from links is missing."""
     api.config['DEPOSIT_UI_ENDPOINT'] = None
@@ -180,7 +180,7 @@ def test_links_html_link_missing(api, es, location, fake_schemas,
             assert data == {'message': "You don't have the permission to access the requested resource. It is either read-protected or not readable by the server.", 'status': 403}
 
 
-def test_delete_deposit_by_good_oauth2_token(api, es, users, location,
+def test_delete_deposit_by_good_oauth2_token(api, open_search, users, location,
                                              deposit, write_token_user_1,
                                              oauth2_headers_user_1):
     """Test delete deposit with a good oauth2 token."""
@@ -197,7 +197,7 @@ def test_delete_deposit_by_good_oauth2_token(api, es, users, location,
             assert res.status_code == 204
 
 
-def test_delete_deposit_by_bad_oauth2_token(api, es, users, location,
+def test_delete_deposit_by_bad_oauth2_token(api, open_search, users, location,
                                             deposit, write_token_user_2,
                                             oauth2_headers_user_2):
     """Test delete deposit with a bad oauth2 token."""
@@ -214,7 +214,7 @@ def test_delete_deposit_by_bad_oauth2_token(api, es, users, location,
             assert res.status_code == 403
 
 # .tox/c1/bin/pytest --cov=invenio_deposit tests/test_views_rest.py::test_deposition_file_operations -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-deposit/.tox/c1/tmp
-def test_deposition_file_operations(api, es, location, users,
+def test_deposition_file_operations(api, open_search, location, users,
                                     write_token_user_1, pdf_file, pdf_file2,
                                     pdf_file2_samename, oauth2_headers_user_1):
     """Test deposit file operations."""
@@ -411,7 +411,7 @@ def test_deposition_file_operations(api, es, location, users,
             # assert res.status_code == 410
 
 # .tox/c1/bin/pytest --cov=invenio_deposit tests/test_views_rest.py::test_simple_rest_flow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-deposit/.tox/c1/tmp
-def test_simple_rest_flow(app, test_client, api, es, location, fake_schemas, users,
+def test_simple_rest_flow(app, test_client, api, open_search, location, fake_schemas, users,
                           json_headers):
     """Test simple flow using REST API."""
     api.config['RECORDS_REST_ENDPOINTS']['recid'][

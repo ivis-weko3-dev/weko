@@ -23,7 +23,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    {% assets "weko_theme_css_bootstrap" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
+    {{ webpack["theme-scss-bootstrap.scss"] }}
   </head>
   <body>
     {%- if data -%}

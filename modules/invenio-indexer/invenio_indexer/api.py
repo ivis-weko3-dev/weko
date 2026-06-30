@@ -9,27 +9,27 @@
 """API for indexing of records."""
 
 import copy
-import traceback
 import click
+import datetime
 import json
-import warnings
-from contextlib import contextmanager
 import pytz
+import math
+import traceback
+import warnings
+
 from celery import current_app as current_celery_app
-from invenio_db import db
-from sqlalchemy.exc import SQLAlchemyError
-from elasticsearch.helpers import streaming_bulk
+from contextlib import contextmanager
 from flask import current_app
-from invenio_records.api import Record
+from invenio_db import db
 from invenio_pidstore.errors import PIDDoesNotExistError
+from invenio_records.api import Record
 from invenio_search import current_search_client
 from invenio_search.engine import dsl, search
 from invenio_search.utils import build_alias_name
 from kombu import Producer as KombuProducer
 from kombu.compat import Consumer
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
-import datetime
-import math
 
 from .proxies import current_record_to_index
 from .signals import before_record_index
@@ -285,7 +285,7 @@ class RecordIndexer(object):
 
         Args:
             es_bulk_kwargs (dict, optional): Additional keyword arguments passed to
-                elasticsearch.helpers.bulk. Defaults to None.
+                search.helpers.bulk. Defaults to None.
             with_deleted (bool, optional): If True, include deleted records in the indexing process. Defaults to False.
 
         Returns:
@@ -297,7 +297,7 @@ class RecordIndexer(object):
             BulkConnectionTimeout: If a connection timeout occurs during bulk indexing.
             BulkException: For other exceptions during bulk indexing.
         """
-        from weko_deposit.utils import update_pdf_contents_es # avoid circular import
+        from weko_deposit.utils import update_pdf_contents_search # avoid circular import
         import socket
         import re
         
@@ -386,7 +386,7 @@ class RecordIndexer(object):
                             expand_action_callback=search.helpers.expand_action,
                         )
                         # Read files for items that were successfully reindexed
-                        update_pdf_contents_es(self.success_ids)
+                        update_pdf_contents_search(self.success_ids)
 
                         if isinstance(_fail, list):
                             for error in _fail:
@@ -422,7 +422,7 @@ class RecordIndexer(object):
                             click.secho("[ERROR] {}, type:{}, reason:{}".format(
                                 error['index']['_id'], error['index']['error'].get('type', ''), error_reason
                             ), fg='red')
-                        update_pdf_contents_es(self.success_ids)
+                        update_pdf_contents_search(self.success_ids)
                         self.completed_chunk_count += math.ceil(messages_count / es_bulk_kwargs["chunk_size"])
                         
                         # If raise_on_error is True, terminate the process when an error occurs
@@ -459,7 +459,7 @@ class RecordIndexer(object):
                         success += _success_num
                         fail += _fail_num
                         unprocessed += messages_count - (_success_num + _fail_num) if messages_count > (_success_num + _fail_num) else 0
-                        update_pdf_contents_es(self.success_ids)
+                        update_pdf_contents_search(self.success_ids)
                         self.completed_chunk_count += math.ceil(messages_count / es_bulk_kwargs["chunk_size"])
 
                         # If raise_on_error is True, terminate the process when an error occurs
@@ -492,7 +492,7 @@ class RecordIndexer(object):
                         success += _success_num
                         fail += _fail_num
                         unprocessed += messages_count - (_success_num + _fail_num) if messages_count > (_success_num + _fail_num) else 0
-                        update_pdf_contents_es(self.success_ids)
+                        update_pdf_contents_search(self.success_ids)
                         self.completed_chunk_count += math.ceil(messages_count / es_bulk_kwargs["chunk_size"])
 
                         # If raise_on_error is True, terminate the process when an error occurs
@@ -530,7 +530,7 @@ class RecordIndexer(object):
                         success += _success_num
                         fail += _fail_num
                         unprocessed += messages_count - (_success_num + _fail_num) if messages_count > (_success_num + _fail_num) else 0
-                        update_pdf_contents_es(self.success_ids)
+                        update_pdf_contents_search(self.success_ids)
                         self.completed_chunk_count += math.ceil(messages_count / es_bulk_kwargs["chunk_size"])
                         self.completed_record_count += self.count
         if unprocessed == 0:
@@ -584,7 +584,7 @@ class RecordIndexer(object):
             message_iterator (iterator): Iterator yielding messages from a queue.
 
         Returns:
-            iterator: Yields bulk action dictionaries for Elasticsearch.
+            iterator: Yields bulk action dictionaries for Search.
 
         Raises:
             NoResultFound: If the record is not found in the database.
@@ -642,7 +642,7 @@ class RecordIndexer(object):
 
     def _index_action(self, payload, with_deleted=False):
         """
-        Create a bulk index action for Elasticsearch.
+        Create a bulk index action for Search.
 
         Args:
             id (str): Record identifier.
@@ -650,7 +650,7 @@ class RecordIndexer(object):
             with_deleted (bool, optional): If True, include deleted records in the indexing process. Default is False.
 
         Returns:
-            dict: Dictionary defining an Elasticsearch bulk 'index' action.
+            dict: Dictionary defining a Search bulk 'index' action.
 
         Raises:
             Exception: If the record cannot be retrieved or processed.
@@ -660,9 +660,9 @@ class RecordIndexer(object):
         self.count += 1
         click.secho(f"Indexing ID:{record_id}, Count:{self.completed_record_count+self.count}", fg='green')
         record = Record.get_record(record_id)
-        # Synchronize the DB version_id with the Elasticsearch version_id
+        # Synchronize the DB version_id with the Search version_id
         indexer = WekoIndexer()
-        indexer.get_es_index()
+        indexer.get_search_index()
         res = indexer.get_metadata_by_item_id(record_id, is_ignore=True)
         if res["found"] is True:
             es_version = res.get('_version')
@@ -670,10 +670,10 @@ class RecordIndexer(object):
                 record.model.version_id = es_version
 
         self.latest_item_id = record_id
-        index, doc_type = self.record_to_index(record)
+        index = self.record_to_index(record)
 
         arguments = {}
-        body = self._prepare_record(record, index, doc_type, arguments, with_deleted=with_deleted)
+        body = self._prepare_record(record, index, arguments, with_deleted=with_deleted)
 
         body_size = len(json.dumps(body))
         max_body_size = current_app.config['INDEXER_MAX_BODY_SIZE']
@@ -686,7 +686,6 @@ class RecordIndexer(object):
         action = {
             '_op_type': 'index',
             '_index': index,
-            '_type': doc_type,
             '_id': str(record.id),
             '_version': record.model.version_id,
             '_version_type': self._version_type,
@@ -698,7 +697,7 @@ class RecordIndexer(object):
         return action
 
     @staticmethod
-    def _prepare_record(record, index, doc_type, arguments=None, **kwargs):
+    def _prepare_record(record, index, arguments=None, **kwargs):
         """Prepare record data for indexing.
 
         Invenio-Records is evolving and preparing the search engine source
@@ -755,10 +754,10 @@ class RecordIndexer(object):
         Wrapper function for streaming_bulk, providing the same behavior as bulk.
 
         Args:
-            client (Elasticsearch): Elasticsearch client instance.
+            client (Search): Search client instance.
             actions (iterator): Iterator containing bulk actions to be processed.
             stats_only (bool, optional): If True, returns only the number of successful and failed operations. If False, returns the number of successful operations and a list of error responses. Default is False.
-            *args: Additional arguments to pass to Elasticsearch.
+            *args: Additional arguments to pass to Search.
             **kwargs: Extra parameters.
 
         Returns:
@@ -786,7 +785,7 @@ class RecordIndexer(object):
                 streaming_bulk_kwargs["ignore_status"] = ignore_status
             item_count = 0
             log_list = []
-            for ok, item in streaming_bulk(
+            for ok, item in search.helpers.streaming_bulk(
                 client,
                 actions,
                 *args,

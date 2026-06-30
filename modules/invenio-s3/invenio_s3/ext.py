@@ -5,12 +5,9 @@
 # Invenio-S3 is free software; you can redistribute it and/or modify it
 # under the terms of the MIT License; see LICENSE file for more details.
 """S3 file storage support for Invenio."""
-
-from __future__ import absolute_import, print_function
-
+import boto3
 import warnings
 
-import boto3
 from flask import current_app
 from invenio_files_rest.models import Location
 from werkzeug.utils import cached_property

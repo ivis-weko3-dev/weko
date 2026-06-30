@@ -33,8 +33,8 @@ from invenio_records_files.api import Record
 from invenio_records_ui import InvenioRecordsUI
 from invenio_records_ui.views import create_blueprint_from_app
 from invenio_db import db as db_
+from io import BytesIO
 from sqlalchemy_utils.functions import create_database, database_exists
-from six import BytesIO
 
 from invenio_previewer import InvenioPreviewer
 

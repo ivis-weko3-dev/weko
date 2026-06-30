@@ -8,54 +8,52 @@
 
 """Pytest configuration."""
 
-from __future__ import absolute_import, print_function
-
 import os
 import shutil
 import tempfile
 import json
-from os.path import dirname, exists, join
 import pytest
+import copy
+import uuid
+
+from os.path import dirname, exists, join
 from flask import Flask
+from flask.cli import ScriptInfo
 from flask_babel import Babel
 from flask_celeryext import FlaskCeleryExt
-from flask.cli import ScriptInfo
 from flask_menu import Menu
-from invenio_i18n import InvenioI18N
 from invenio_access import InvenioAccess
-from invenio_accounts import InvenioAccounts
-from invenio_admin import InvenioAdmin
 from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts import InvenioAccounts
+from invenio_admin import InvenioAdmin
 from invenio_accounts.models import Role, User
 from invenio_accounts.testutils import create_test_user
 from invenio_assets import InvenioAssets
 from invenio_cache import InvenioCache
+from invenio_communities import InvenioCommunities
+from invenio_communities.models import Community
+from invenio_communities.views.api import blueprint as api_blueprint
+from invenio_communities.views.ui import Blueprint
 from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_deposit import InvenioDeposit
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location, Bucket
 from invenio_indexer import InvenioIndexer
+from invenio_i18n import InvenioI18N
 from invenio_mail import InvenioMail
 from invenio_oaiserver import InvenioOAIServer
-from invenio_records import InvenioRecords
-from invenio_search import InvenioSearch
-from sqlalchemy_utils.functions import create_database, database_exists, \
-    drop_database
-from weko_index_tree.models import Index
-
-import copy
-import uuid
 from invenio_pidstore.models import PersistentIdentifier,PIDStatus,RecordIdentifier
 from invenio_pidrelations.models import PIDRelation
+from invenio_records import InvenioRecords
+from invenio_search import InvenioSearch
+from mock import patch
+from sqlalchemy_utils.functions import create_database, database_exists, \
+    drop_database
+
+from weko_index_tree.models import Index
 from weko_records.api import ItemsMetadata
 
-from invenio_communities import InvenioCommunities
-from invenio_communities.models import Community
-from invenio_communities.views.api import blueprint as api_blueprint
-from invenio_communities.views.ui import Blueprint
-from mock import patch
 
 @pytest.yield_fixture()
 def instance_path():
@@ -81,8 +79,8 @@ def base_app(instance_path, request):
         #     'sqlite:///test.db'),
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', None),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', None),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         OAISERVER_REGISTER_RECORD_SIGNALS=True,
         OAISERVER_REGISTER_SET_SIGNALS=False,
@@ -91,7 +89,6 @@ def base_app(instance_path, request):
         THEME_SITEURL='https://inveniosoftware.org',
         MAIL_SUPPRESS_SEND=True,
         SEARCH_INDEX_PREFIX="test-",
-        INDEXER_DEFAULT_DOCTYPE='item-v1.0.0',
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
     )

@@ -24,16 +24,14 @@
 
 """Weko CSL-JSON schema."""
 
-from __future__ import absolute_import, print_function
-
 import re
-from datetime import datetime
+import weko_records.config as config
 
+from datetime import datetime
 from invenio_formatter.filters.datetime import from_isodate
 from invenio_i18n.ext import current_i18n
 from marshmallow import Schema, fields, missing, ValidationError
 
-import weko_records.config as config
 from weko_records.serializers.utils import get_attribute_schema
 
 

@@ -8,26 +8,31 @@
 
 
 """Pytest configuration."""
+import json
 import os
+import pytest
 import shutil
 import subprocess
 import tempfile
-import json
 import uuid
-from os.path import join
-from datetime import date, datetime, timedelta
 
-from invenio_search_ui.ext import InvenioSearchUI
-import pytest
-from mock import Mock, patch
+from datetime import date, datetime, timedelta
 from flask import Flask
 from flask_babel import Babel, lazy_gettext as _
 from flask_celeryext import FlaskCeleryExt
 from flask_menu import Menu
 from flask_login import current_user, login_user, LoginManager
-from werkzeug.local import LocalProxy
-from tests.helpers import create_record, json_data
-
+from invenio_accounts import InvenioAccounts
+from invenio_accounts.models import User, Role
+from invenio_accounts.testutils import create_test_user, login_user_via_session
+from invenio_access.models import ActionUsers
+from invenio_access import InvenioAccess
+from invenio_access.models import ActionUsers, ActionRoles
+from invenio_admin import InvenioAdmin
+from invenio_assets import InvenioAssets
+from invenio_cache import InvenioCache
+from invenio_communities.models import Community
+from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
 from invenio_deposit.config import (
     DEPOSIT_DEFAULT_STORAGE_CLASS,
     DEPOSIT_RECORDS_UI_ENDPOINTS,
@@ -35,54 +40,50 @@ from invenio_deposit.config import (
     DEPOSIT_DEFAULT_JSONSCHEMA,
     DEPOSIT_JSONSCHEMAS_PREFIX,
 )
-from invenio_stats.contrib.event_builders import (
-    build_file_unique_id,
-    build_record_unique_id,
-    file_download_event_builder
-)
-from invenio_accounts import InvenioAccounts
-from invenio_accounts.models import User, Role
-from invenio_accounts.testutils import create_test_user, login_user_via_session
-from invenio_access.models import ActionUsers
-from invenio_access import InvenioAccess
-from invenio_access.models import ActionUsers, ActionRoles
-from invenio_assets import InvenioAssets
-from invenio_cache import InvenioCache
 from invenio_db import InvenioDB
 from invenio_db import db as db_
-from invenio_files_rest.models import Location
-from invenio_i18n import InvenioI18N
-from invenio_indexer import InvenioIndexer
-from invenio_jsonschemas import InvenioJSONSchemas
-from invenio_mail import InvenioMail
-from invenio_oaiserver import InvenioOAIServer
-from invenio_oaiserver.models import OAISet
-from invenio_pidrelations import InvenioPIDRelations
-from invenio_records import InvenioRecords
-from invenio_search import InvenioSearch
-from sqlalchemy_utils.functions import create_database, database_exists, drop_database
-from simplekv.memory.redisstore import RedisStore
-from invenio_oaiharvester.models import HarvestSettings
-from invenio_stats import InvenioStats
-from invenio_admin import InvenioAdmin
-from invenio_search import RecordsSearch
-from invenio_pidstore import InvenioPIDStore, current_pidstore
-from invenio_records_rest.utils import PIDConverter
-from invenio_records.models import RecordMetadata
+from invenio_db.utils import drop_alembic_version_table
 from invenio_deposit.api import Deposit
-from invenio_communities.models import Community
-from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
-from invenio_search import current_search_client, current_search
-from invenio_queues.proxies import current_queues
+from invenio_files_rest.models import Location, Bucket
 from invenio_files_rest.permissions import bucket_listmultiparts_all, \
     bucket_read_all, bucket_read_versions_all, bucket_update_all, \
     location_update_all, multipart_delete_all, multipart_read_all, \
     object_delete_all, object_delete_version_all, object_read_all, \
     object_read_version_all
-from invenio_files_rest.models import Bucket
-from invenio_db.utils import drop_alembic_version_table
+from invenio_i18n import InvenioI18N
+from invenio_indexer import InvenioIndexer
+from invenio_jsonschemas import InvenioJSONSchemas
+from invenio_mail import InvenioMail
+from invenio_oaiharvester.models import HarvestSettings
+from invenio_oaiserver import InvenioOAIServer
+from invenio_oaiserver.models import OAISet
+from invenio_pidrelations import InvenioPIDRelations
+from invenio_pidstore import InvenioPIDStore, current_pidstore
+from invenio_queues.proxies import current_queues
+from invenio_records import InvenioRecords
+from invenio_records.models import RecordMetadata
 from invenio_records_rest.config import RECORDS_REST_SORT_OPTIONS
+from invenio_records_rest.utils import PIDConverter
+from invenio_search import InvenioSearch, RecordsSearch
+from invenio_search_ui.ext import InvenioSearchUI
+from invenio_stats import InvenioStats
+from invenio_stats.contrib.event_builders import (
+    build_file_unique_id,
+    build_record_unique_id,
+    file_download_event_builder
+)
+from invenio_search import current_search_client, current_search
 from invenio_theme import InvenioTheme
+
+from mock import Mock, patch
+from os.path import join
+from simplekv.memory.redisstore import RedisStore
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session
+from sqlalchemy_utils.functions import (
+    create_database, database_exists, drop_database)
+from tests.helpers import create_record, json_data
 
 from weko_admin.ext import WekoAdmin
 from weko_items_ui.ext import WekoItemsUI
@@ -93,7 +94,9 @@ from weko_records.api import ItemTypes
 from weko_records.config import WEKO_ITEMTYPE_EXCLUDED_KEYS
 from weko_records.models import ItemTypeName, ItemType
 from weko_records_ui.models import PDFCoverPageSettings
-from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER, WEKO_PERMISSION_ROLE_COMMUNITY, EMAIL_DISPLAY_FLG
+from weko_records_ui.config import (
+    WEKO_PERMISSION_SUPER_ROLE_USER, WEKO_PERMISSION_ROLE_COMMUNITY,
+    EMAIL_DISPLAY_FLG)
 from weko_groups import WekoGroups
 from weko_gridlayout.views import blueprint as weko_gridlayout_blueprint
 from weko_logging.audit import WekoLoggingUserActivity
@@ -108,11 +111,10 @@ from weko_search_ui import WekoSearchUI, WekoSearchREST
 from weko_search_ui.config import SEARCH_UI_SEARCH_INDEX
 from weko_redis.redis import RedisConnection
 from weko_admin.models import SessionLifetime
-from weko_admin.config import WEKO_ADMIN_MANAGEMENT_OPTIONS, WEKO_ADMIN_DEFAULT_ITEM_EXPORT_SETTINGS
+from weko_admin.config import (
+    WEKO_ADMIN_MANAGEMENT_OPTIONS, WEKO_ADMIN_DEFAULT_ITEM_EXPORT_SETTINGS)
+from werkzeug.local import LocalProxy
 
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session
-from sqlalchemy import event
 
 
 @pytest.yield_fixture(scope='session')
@@ -149,7 +151,6 @@ def base_app(instance_path):
         DEPOSIT_DEFAULT_JSONSCHEMA=DEPOSIT_DEFAULT_JSONSCHEMA,
         SERVER_NAME='TEST_SERVER',
         LOGIN_DISABLED=False,
-        INDEXER_DEFAULT_DOCTYPE='item-v1.0.0',
         INDEXER_FILE_DOC_TYPE='content',
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format(
             'test'
@@ -159,8 +160,8 @@ def base_app(instance_path):
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         # SQLALCHEMY_DATABASE_URI=os.environ.get(
         #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', 'opensearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         JSONSCHEMAS_HOST='inveniosoftware.org',
         ACCOUNTS_USERINFO_HEADERS=True,
@@ -176,7 +177,7 @@ def base_app(instance_path):
         RECORDS_REST_SORT_OPTIONS=RECORDS_REST_SORT_OPTIONS,
         # SEARCH_UI_SEARCH_INDEX=SEARCH_UI_SEARCH_INDEX,
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        # SEARCH_ELASTIC_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
+        # SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
         SEARCH_INDEX_PREFIX="{}-".format('test'),
         SEARCH_CLIENT_CONFIG=dict(timeout=120, max_retries=10),
         OAISERVER_ID_PREFIX="oai:inveniosoftware.org:recid/",
@@ -557,7 +558,7 @@ def client_api(app):
 
 
 @pytest.yield_fixture()
-def client_request_args(app, esindex):
+def client_request_args(app, search_index):
     try:
         app.register_blueprint(create_blueprint(app, app.config['WEKO_INDEX_TREE_REST_ENDPOINTS']))
     except AssertionError:
@@ -763,7 +764,7 @@ def indices(app, db):
 
 
 @pytest.fixture()
-def esindex(app,db_records):
+def search_index(app,db_records):
     with open("tests/data/mappings/item-v1.0.0.json","r") as f:
         mapping = json.load(f)
 
@@ -779,7 +780,7 @@ def esindex(app,db_records):
         # print(current_search_client.indices.get_alias())
 
     for depid, recid, parent, doi, record, item in db_records:
-        search.client.index(index='test-weko-item-v1.0.0', doc_type='item-v1.0.0', id=record.id, body=record,refresh='true')
+        search.client.index(index='test-weko-item-v1.0.0', id=record.id, body=record,refresh='true')
 
 
     yield search
@@ -1135,7 +1136,7 @@ def count_json_data():
             db.session.add(index)
         dummy_data = {
             "hits": {
-                "total": 3,
+                "total": {"value": 3, "relation": "eq"},
                 "hits": [
                     {
                         "_source": {
@@ -1194,7 +1195,7 @@ def count_json_data():
 
         dummy_data = {
             "hits": {
-                "total": 1,
+                "total": {"value": 1, "relation": "eq"},
                 "hits": [
                     {
                         "_source": {
@@ -1319,7 +1320,7 @@ def mock_user_ctx(mock_users):
 
 
 @pytest.yield_fixture()
-def es(app):
+def open_search(app):
     """Provide opencsearch access, create and clean indices.
 
     Don't create template so that the test or another fixture can modify the
@@ -1388,7 +1389,7 @@ def generate_events(
 
 
 @pytest.yield_fixture()
-def generate_request(app, es, mock_user_ctx, request):
+def generate_request(app, open_search, mock_user_ctx, request):
     """Parametrized pre indexed sample events."""
     generate_events(app=app, **request.param)
     yield

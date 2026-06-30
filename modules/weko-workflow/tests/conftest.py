@@ -2,94 +2,110 @@
 """Pytest configuration."""
 
 import copy
-import os, sys
-import shutil
-import tempfile
 import json
-from unittest.mock import patch
-import uuid
-from datetime import datetime, timedelta
-from six import BytesIO
-from mock import patch
-
+import os
 import pytest
+import shutil
+import sys
+import tempfile
+import uuid
+
+from datetime import datetime, timedelta
 from flask import Flask, url_for, Response
 from flask_babel import Babel, lazy_gettext as _
 from flask_menu import Menu
 from flask_oauthlib.provider import OAuth2Provider
-from opensearchpy import OpenSearch
 from invenio_assets import InvenioAssets
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionUsers,ActionRoles
 from invenio_accounts.testutils import create_test_user
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import User, Role
-from invenio_deposit import InvenioDeposit
-from invenio_i18n import InvenioI18N
 from invenio_cache import InvenioCache
-from invenio_admin import InvenioAdmin
-from invenio_db import InvenioDB, db as db_
-from invenio_pidrelations.contrib.versioning import PIDVersioning
-from invenio_pidrelations.contrib.records import RecordDraft
-from invenio_pidstore.models import PersistentIdentifier, PIDStatus
-from invenio_stats import InvenioStats
-from invenio_search import RecordsSearch,InvenioSearch
 from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
 from invenio_communities.models import Community
+from invenio_deposit import InvenioDeposit
+from invenio_i18n import InvenioI18N
 from invenio_jsonschemas import InvenioJSONSchemas
-from invenio_mail.models import MailTemplates, MailTemplateGenres, MailTemplateUsers, MailType
-from invenio_oauth2server import InvenioOAuth2Server, InvenioOAuth2ServerREST
-from invenio_oauth2server.models import Client, Token
-from invenio_oauth2server.views import settings_blueprint as oauth2server_settings_blueprint
-from invenio_records_ui import InvenioRecordsUI
-from invenio_rest import InvenioREST
-from weko_deposit.api import WekoIndexer, WekoRecord
-from weko_deposit.api import WekoDeposit as WekoDepositAPI
-from weko_search_ui.config import WEKO_SYS_USER
-from weko_records_ui import WekoRecordsUI
-from weko_admin import WekoAdmin
-from weko_admin.models import SessionLifetime,Identifier
-from weko_records.models import ItemTypeName, ItemType,FeedbackMailList,ItemTypeMapping,ItemTypeProperty
-from weko_records.api import ItemsMetadata, Mapping
-from weko_records.config import WEKO_RECORDS_REFERENCE_SUPPLEMENT
-from weko_records_ui.models import FilePermission
-from weko_user_profiles import WekoUserProfiles
-from weko_index_tree.models import Index
-from weko_logging.audit import WekoLoggingUserActivity
-from weko_workflow import WekoWorkflow
-from weko_search_ui import WekoSearchUI
-from weko_workflow.models import ActionStatusPolicy, Activity, ActionStatus, Action, ActivityAction, WorkFlow, FlowDefine, FlowAction, ActionFeedbackMail, ActivityRequestMail, ActionIdentifier,FlowActionRole, ActivityHistory,GuestActivity, WorkflowRole
-from weko_workflow.utils import MappingData, generate_guest_activity_token_value
-from weko_workflow.views import workflow_blueprint as weko_workflow_blueprint
-from weko_workflow.config import WEKO_WORKFLOW_ACTION_START,WEKO_WORKFLOW_ACTION_END,WEKO_WORKFLOW_ACTION_ITEM_REGISTRATION,WEKO_WORKFLOW_REQUEST_MAIL_ID,WEKO_WORKFLOW_ACTION_APPROVAL,WEKO_WORKFLOW_ACTION_ITEM_LINK,WEKO_WORKFLOW_ACTION_OA_POLICY_CONFIRMATION,WEKO_WORKFLOW_ACTION_IDENTIFIER_GRANT,WEKO_WORKFLOW_ACTION_ITEM_REGISTRATION_USAGE_APPLICATION,WEKO_WORKFLOW_ACTION_GUARANTOR,WEKO_WORKFLOW_ACTION_ADVISOR,WEKO_WORKFLOW_ACTION_ADMINISTRATOR,WEKO_WORKFLOW_REST_ENDPOINTS,WEKO_WORKFLOW_APPROVAL_PREVIEW,WEKO_WORKFLOW_ACTIVITYLOG_XLS_COLUMNS, DOI_VALIDATION_INFO, DOI_VALIDATION_INFO_CROSSREF, DOI_VALIDATION_INFO_DATACITE, DOI_VALIDATION_INFO_JALC, IDENTIFIER_GRANT_SELECT_DICT
-from weko_workflow.ext import WekoWorkflowREST
-from weko_workflow.scopes import activity_scope
-from weko_theme.config import THEME_INSTITUTION_NAME
-from sqlalchemy_utils.functions import create_database, database_exists, \
-    drop_database
-from .helpers import json_data, create_record, fill_oauth2_headers, create_activity, create_flow
+from invenio_mail.models import (
+    MailTemplates, MailTemplateGenres, MailTemplateUsers, MailType)
+from invenio_admin import InvenioAdmin
+from invenio_db import InvenioDB, db as db_
 from invenio_files_rest.models import Location, Bucket,ObjectVersion
 from invenio_files_rest import InvenioFilesREST
 from invenio_records import InvenioRecords
 from invenio_oauth2server import InvenioOAuth2Server
+from invenio_records_ui import InvenioRecordsUI
+from invenio_rest import InvenioREST
 from invenio_pidrelations import InvenioPIDRelations
 from invenio_pidstore import InvenioPIDStore
-from weko_index_tree.api import Indexes
-from weko_index_tree.models import Index
-from weko_schema_ui.config import WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,WEKO_SCHEMA_DDI_SCHEMA_NAME
-from weko_index_tree.config import WEKO_INDEX_TREE_DEFAULT_DISPLAY_NUMBER
-from weko_user_profiles.models import UserProfile
-from weko_authors.models import Authors
+from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
+from invenio_pidrelations.contrib.draft import PIDNodeDraft
+from invenio_pidstore.models import PersistentIdentifier, PIDStatus
+from invenio_search import RecordsSearch,InvenioSearch
+from invenio_stats import InvenioStats
+from invenio_oauth2server import InvenioOAuth2Server, InvenioOAuth2ServerREST
+from invenio_oauth2server.models import Client, Token
+from invenio_oauth2server.views import settings_blueprint as oauth2server_settings_blueprint
 from invenio_records_files.api import RecordsBuckets
-from weko_redis.redis import RedisConnection
-from weko_items_ui import WekoItemsUI
-from weko_admin.models import SiteInfo
+from io import BytesIO
+from mock import patch
+from opensearchpy import OpenSearch
+from unittest.mock import patch
+
 from weko_admin import WekoAdmin
+from weko_admin.models import SessionLifetime,Identifier, SiteInfo, AdminSettings
+from weko_authors.models import Authors
 from weko_deposit import WekoDeposit
-from weko_admin.models import AdminSettings
+from weko_deposit.api import WekoIndexer, WekoRecord
+from weko_deposit.api import WekoDeposit as WekoDepositAPI
+from weko_index_tree.api import Indexes
+from weko_index_tree.config import WEKO_INDEX_TREE_DEFAULT_DISPLAY_NUMBER
+from weko_index_tree.models import Index
+from weko_items_ui import WekoItemsUI
 from weko_notifications import WekoNotifications
 from weko_notifications.models import NotificationsUserSettings
 from weko_logging.audit import WekoLoggingUserActivity
+from weko_schema_ui.config import (
+    WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,WEKO_SCHEMA_DDI_SCHEMA_NAME)
+from weko_search_ui import WekoSearchUI
+from weko_search_ui.config import WEKO_SYS_USER
+from weko_theme.config import THEME_INSTITUTION_NAME
+from weko_records.models import (
+    ItemTypeName, ItemType,FeedbackMailList,ItemTypeMapping,ItemTypeProperty)
+from weko_records.api import ItemsMetadata, Mapping
+from weko_records.config import WEKO_RECORDS_REFERENCE_SUPPLEMENT
+from weko_records_ui import WekoRecordsUI
+from weko_records_ui.models import FilePermission
+from weko_redis.redis import RedisConnection
+from weko_user_profiles import WekoUserProfiles
+from weko_user_profiles.models import UserProfile
+from weko_workflow import WekoWorkflow
+from weko_workflow.config import (
+    WEKO_WORKFLOW_ACTION_START, WEKO_WORKFLOW_ACTION_END,
+    WEKO_WORKFLOW_ACTION_ITEM_REGISTRATION, WEKO_WORKFLOW_REQUEST_MAIL_ID,
+    WEKO_WORKFLOW_ACTION_APPROVAL, WEKO_WORKFLOW_ACTION_ITEM_LINK,
+    WEKO_WORKFLOW_ACTION_OA_POLICY_CONFIRMATION, 
+    WEKO_WORKFLOW_ACTION_IDENTIFIER_GRANT, 
+    WEKO_WORKFLOW_ACTION_ITEM_REGISTRATION_USAGE_APPLICATION,
+    WEKO_WORKFLOW_ACTION_GUARANTOR, WEKO_WORKFLOW_ACTION_ADVISOR,
+    WEKO_WORKFLOW_ACTION_ADMINISTRATOR, WEKO_WORKFLOW_REST_ENDPOINTS,
+    WEKO_WORKFLOW_APPROVAL_PREVIEW,WEKO_WORKFLOW_ACTIVITYLOG_XLS_COLUMNS,
+    DOI_VALIDATION_INFO, DOI_VALIDATION_INFO_CROSSREF,
+    DOI_VALIDATION_INFO_DATACITE, DOI_VALIDATION_INFO_JALC,
+    IDENTIFIER_GRANT_SELECT_DICT)
+from weko_workflow.ext import WekoWorkflowREST
+from weko_workflow.models import (
+    ActionStatusPolicy, Activity, ActionStatus, Action, ActivityAction,
+    WorkFlow, FlowDefine, FlowAction, ActionFeedbackMail, ActivityRequestMail,
+    ActionIdentifier,FlowActionRole, ActivityHistory,GuestActivity, WorkflowRole)
+from weko_workflow.scopes import activity_scope
+from weko_workflow.utils import MappingData, generate_guest_activity_token_value
+from weko_workflow.views import workflow_blueprint as weko_workflow_blueprint
+from sqlalchemy_utils.functions import create_database, database_exists, \
+    drop_database
+from .helpers import (
+    json_data, create_record, fill_oauth2_headers, create_activity, create_flow)
 
 sys.path.append(os.path.dirname(__file__))
 # @event.listens_for(Engine, "connect")
@@ -132,14 +148,14 @@ def db_session(db_session):
     with patch.object(db_session, "remove", lambda: None):
         yield db_session
 
-class MockEs():
+class MockSearch():
     def __init__(self,**keywargs):
         self.indices = self.MockIndices()
-        self.es = OpenSearch()
+        self.open_search = OpenSearch()
         self.cluster = self.MockCluster()
-    def index(self, id="",version="",version_type="",index="",doc_type="",body="",**arguments):
+    def index(self, id="",version="",version_type="",index="",body="",**arguments):
         pass
-    def delete(self,id="",index="",doc_type="",**kwargs):
+    def delete(self,id="",index="",**kwargs):
         return Response(response=json.dumps({}),status=500)
     def exists(self,**arguments):
         pass
@@ -147,7 +163,7 @@ class MockEs():
         return {"result": "updated"}
     @property
     def transport(self):
-        return self.es.transport
+        return self.open_search.transport
     class MockIndices():
         def __init__(self,**keywargs):
             self.mapping = dict()
@@ -173,7 +189,7 @@ class MockEs():
         def delete_alias(self, index="", name="",ignore=""):
             pass
 
-        # def search(self,index="",doc_type="",body={},**kwargs):
+        # def search(self,index="",body={},**kwargs):
         #     pass
     class MockCluster():
         def __init__(self,**kwargs):
@@ -482,7 +498,6 @@ def base_app(instance_path, search_class, cache_config):
         WEKO_BUCKET_QUOTA_SIZE=50 * 1024 * 1024 * 1024,
         WEKO_MAX_FILE_SIZE=50 * 1024 * 1024 * 1024,
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         INDEXER_DEFAULT_DOC_TYPE='testrecord',
         INDEXER_DEFAULT_INDEX=search_class.Meta.index,
@@ -601,7 +616,7 @@ def base_app(instance_path, search_class, cache_config):
         InvenioOAuth2Server(app_)
         InvenioOAuth2ServerREST(app_)
         WekoRecordsUI(app_)
-        search = InvenioSearch(app_, client=MockEs())
+        search = InvenioSearch(app_, client=MockSearch())
         search.register_mappings(search_class.Meta.index, 'mock_module.mappings')
         # InvenioCommunities(app_)
         # WekoAdmin(app_)
@@ -624,7 +639,7 @@ def base_app(instance_path, search_class, cache_config):
         WekoWorkflowREST(app_)
         app_.register_blueprint(oauth2server_settings_blueprint)
 
-    return app_
+        return app_
 
 
 @pytest.yield_fixture()
@@ -6004,7 +6019,7 @@ def indextree(client, users, app):
 @pytest.fixture()
 def records_restricted(app, db, db_register_for_application_api_workflow, users, location, item_type, indextree):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
 
     wf1 :WorkFlow = db_register_for_application_api_workflow.get("workflow_workflow1")
@@ -6145,14 +6160,15 @@ def make_record_restricted(db, indexer, id, index_id, item_type_id, userId):
         status=PIDStatus.REGISTERED,
     )
 
-    h1 = PIDVersioning(parent=parent)
+    parent_id = PIDNodeVersioning(pid=parent).parents.one_or_none()
+    h1 = PIDNodeVersioning(pid=parent_id)
     h1.insert_child(child=recid)
     h1.insert_child(child=recid_v1)
-    RecordDraft.link(recid, depid)
-    RecordDraft.link(recid_v1, depid_v1)
+    PIDNodeDraft(pid=recid).insert_child(depid)
+    PIDNodeDraft(pid=recid_v1).insert_child(depid_v1)
 
     record = WekoRecord.create(record_data, id_=rec_uuid)
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket = Bucket.create()
@@ -6165,7 +6181,7 @@ def make_record_restricted(db, indexer, id, index_id, item_type_id, userId):
     item = ItemsMetadata.create(item_data, id_=rec_uuid, item_type_id=item_type_id)
 
     record_v1 = WekoRecord.create(record_data, id_=rec_uuid2)
-    # from six import BytesIO
+    # from io import BytesIO
     import base64
 
     bucket_v1 = Bucket.create()

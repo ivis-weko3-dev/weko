@@ -24,16 +24,17 @@
 import json
 import pytest
 import uuid
-from flask import url_for
-from unittest.mock import patch, MagicMock
+
+from flask import url_for, current_app
+from invenio_accounts.testutils import login_user_via_session
+from invenio_communities.models import Community
 from invenio_search.engine import search
 from invenio_indexer.api import RecordIndexer
 
-from invenio_accounts.testutils import login_user_via_session
-from invenio_communities.models import Community
 from invenio_search import current_search_client
-from flask import current_app
-from weko_authors.models import Authors, AuthorsPrefixSettings, AuthorsAffiliationSettings
+from unittest.mock import patch, MagicMock
+from weko_authors.models import (
+    Authors, AuthorsPrefixSettings, AuthorsAffiliationSettings)
 from weko_authors.views import dbsession_clean
 
 def assert_role(response,is_permission,status_code=403):
@@ -50,7 +51,7 @@ class MockIndexer():
         def __init__(self):
             pass
 
-        def search(self, index=None, doc_type=None, body=None):
+        def search(self, index=None, body=None):
             return {"hits": {"hits": [
                         {"_source":{
                             "authorNameInfo": "",
@@ -60,10 +61,10 @@ class MockIndexer():
                         }}
                     ]}}
 
-        def index(self, index=None, doc_type=None, body=None):
+        def index(self, index=None, body=None):
             return {}
 
-        def get(self, index=None, doc_type=None, id=None, body=None):
+        def get(self, index=None, id=None, body=None):
             return {"_source": {"authorNameInfo": {},
                                 "authorIdInfo": {},
                                 "emailInfo": {},
@@ -71,7 +72,7 @@ class MockIndexer():
                                 }
                     }
 
-        def update(self, index=None, doc_type=None, id=None, body=None):
+        def update(self, index=None, id=None, body=None):
             return {"_source": {"authorNameInfo": "", "authorIdInfo": "",
                                 "emailInfo": ""}}
 
@@ -351,9 +352,9 @@ def test_delete_author_acl_users(client, users, index, is_permission):
 
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_views.py::test_delete_author -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 @pytest.mark.parametrize('base_app',[dict(
-    is_es=True
+    is_search=True
 )],indirect=['base_app'])
-def test_delete_author(client, db,users, esindex, create_author):
+def test_delete_author(client, db,users, search_index, create_author):
     """
     Test of delete author data.
     :param client: The flask client.
@@ -371,30 +372,30 @@ def test_delete_author(client, db,users, esindex, create_author):
     patch("weko_authors.views.get_count_item_link", return_value=0)
 
     id = 1
-    es_id = create_author(json.loads(json.dumps(test_data)), id)
+    search_id = create_author(json.loads(json.dumps(test_data)), id)
 
-    input = {"pk_id": str(id),"Id":es_id}
+    input = {"pk_id": str(id),"Id":search_id}
     res = client.post(url,json=input)
     assert res.status_code == 200
     result = Authors.query.filter_by(id=id).one()
     assert result.is_deleted == True
-    res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],id=es_id)
+    res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"],id=search_id)
     assert res["_source"]["is_deleted"] == "true"
 
     id = 2
-    es_id = create_author(json.loads(json.dumps(test_data)), id)
+    search_id = create_author(json.loads(json.dumps(test_data)), id)
 
     with patch("weko_authors.views.db.session.merge",side_effect=Exception("test_error")):
-        input = {"pk_id": str(id),"Id":es_id}
+        input = {"pk_id": str(id),"Id":search_id}
         res = client.post(url,json=input)
         assert res.status_code == 500
         result = Authors.query.filter_by(id=id).one()
         assert result.is_deleted == False
-        res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_ES_INDEX_NAME"],id=es_id)
+        res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"],id=search_id)
         assert res["_source"]["is_deleted"] == "false"
 
     # author is linked to items
-    input = {"pk_id": str(id),"Id":es_id}
+    input = {"pk_id": str(id),"Id":search_id}
     with patch("weko_authors.views.get_count_item_link", retutn_value=1):
         res = client.post(url, json=input)
         assert res.status_code == 500
@@ -406,7 +407,7 @@ def test_delete_author(client, db,users, esindex, create_author):
     assert get_json(res) == {"msg": "Header Error"}
 
     # check_delete_author failed
-    input = {"pk_id": str(id),"Id":es_id}
+    input = {"pk_id": str(id),"Id":search_id}
     with patch("weko_authors.views.check_delete_author", return_value=(False,"test_error")):
         res = client.post(url, json=input)
         assert res.status_code == 403
@@ -464,7 +465,7 @@ def test_get(client, users):
         "test-authors":{"hits":{"hits":[
             {"_source":{"authorIdInfo":[{"authorId":"test_id"}], 'pk_id':'xxx'}}, # author_id_info is false
         ]}},
-        "test-weko":{"hits":{"total":1}}
+        "test-weko":{"hits":{"total": {"value": 1, "relation": "eq"}}}
     }
     record_indexer = RecordIndexer()
     record_indexer.client=MockClient(data)
@@ -485,7 +486,7 @@ def test_get(client, users):
         "test-authors":{"hits":{"hits":[
             {"_source":{"authorIdInfo":[{"authorId":"test_id"}], 'pk_id':'xxx'}}, # author_id_info is false
         ]}},
-        "test-weko":{"hits":{"total":1}}
+        "test-weko":{"hits":{"total": {"value": 1, "relation": "eq"}}}
     }
     record_indexer = RecordIndexer()
     record_indexer.client=MockClient(data)
@@ -506,7 +507,7 @@ def test_get(client, users):
         "test-authors":{"hits":{"hits":[
             {"_source":{"authorIdInfo":[{"authorId":"test_id"}], 'pk_id':'xxx'}}, # author_id_info is false
         ]}},
-        "test-weko":{"hits":{"total":1}}
+        "test-weko":{"hits":{"total": {"value": 1, "relation": "eq"}}}
     }
     record_indexer = RecordIndexer()
     record_indexer.client=MockClient(data)
@@ -527,7 +528,7 @@ def test_get(client, users):
         "test-authors":{"hits":{"hits":[
             {"_source":{"authorIdInfo":[{"authorId":"test_id"}], 'pk_id':'xxx'}}, # author_id_info is false
         ]}},
-        "test-weko":{"hits":{"total":1}}
+        "test-weko":{"hits":{"total": {"value": 1, "relation": "eq"}}}
     }
     record_indexer = RecordIndexer()
     record_indexer.client=MockClient(data)
@@ -548,7 +549,7 @@ def test_get(client, users):
         "test-authors":{"hits":{"hits":[
             {"_source":{"authorIdInfo":[{"authorId":"test_id"}], 'pk_id':'xxx'}}, # author_id_info is false
         ]}},
-        "test-weko":{"hits":{"total":1}}
+        "test-weko":{"hits":{"total": {"value": 1, "relation": "eq"}}}
     }
     record_indexer = RecordIndexer()
     record_indexer.client=MockClient(data)

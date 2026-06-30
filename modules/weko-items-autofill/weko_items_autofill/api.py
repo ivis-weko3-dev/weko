@@ -22,7 +22,7 @@
 import traceback
 import requests
 from flask import current_app
-from flask_babelex import gettext as _
+from flask_babel import gettext as _
 
 from . import config
 

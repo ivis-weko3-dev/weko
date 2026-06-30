@@ -19,8 +19,6 @@
 
 """CLI tool to harvest records from an OAI-PMH repository."""
 
-from __future__ import absolute_import, print_function
-
 import click
 from flask.cli import with_appcontext
 from invenio_db import db

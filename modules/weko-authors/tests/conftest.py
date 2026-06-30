@@ -7,57 +7,58 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 
 """Pytest configuration."""
+
+import json
 import os,sys
+import pytest
 import shutil
 import tempfile
-import json
 import uuid
-from os.path import dirname, join
+import weko_authors.mappings.v2
 
+
+
+from celery import Celery
 from datetime import datetime
-# from elasticsearch import Elasticsearch
-from opensearchpy import OpenSearch
-from sqlalchemy import inspect
-
-import pytest
 from flask import Flask, url_for, Response
 from flask.cli import ScriptInfo
 from flask_babel import Babel
-from sqlalchemy_utils.functions import create_database, database_exists
+from flask_menu import Menu
 
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionUsers,ActionRoles
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import User, Role
 from invenio_accounts.testutils import create_test_user, login_user_via_session
-
 from invenio_admin import InvenioAdmin
 from invenio_assets import InvenioAssets
 from invenio_cache import InvenioCache
 from invenio_communities.models import Community
 # from invenio_db import InvenioDB, db as db_
 from invenio_db import InvenioDB
-from invenio_oauth2server import InvenioOAuth2Server, InvenioOAuth2ServerREST
 from invenio_db import db as db_
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location, FileInstance, Bucket
 from invenio_indexer import InvenioIndexer
-from invenio_search import InvenioSearch,RecordsSearch, current_search_client
-from weko_authors.config import WEKO_AUTHORS_REST_ENDPOINTS
-from weko_search_ui import WekoSearchUI
-from weko_index_tree.models import Index
-from flask_menu import Menu
 from invenio_i18n import InvenioI18N
-from celery import Celery
+from invenio_oauth2server import InvenioOAuth2Server, InvenioOAuth2ServerREST
+from invenio_search import InvenioSearch,RecordsSearch, current_search_client
 
-from weko_authors.views import blueprint_api
-from weko_authors.rest import create_blueprint
-from weko_authors import WekoAuthors
-from weko_authors.models import Authors, AuthorsPrefixSettings, AuthorsAffiliationSettings
+from opensearchpy import OpenSearch
+from os.path import dirname, join
+from sqlalchemy import inspect
+from sqlalchemy_utils.functions import create_database, database_exists
+
 from weko_accounts import WekoAccounts
-from weko_theme import WekoTheme
-import weko_authors.mappings.v2
+from weko_authors import WekoAuthors
+from weko_authors.config import WEKO_AUTHORS_REST_ENDPOINTS
+from weko_authors.rest import create_blueprint
+from weko_authors.models import Authors, AuthorsPrefixSettings, AuthorsAffiliationSettings
+from weko_authors.views import blueprint_api
+from weko_index_tree.models import Index
 from weko_logging.audit import WekoLoggingUserActivity
+from weko_search_ui import WekoSearchUI
+from weko_theme import WekoTheme
 
 
 sys.path.append(os.path.dirname(__file__))
@@ -90,12 +91,12 @@ def instance_path():
     shutil.rmtree(path)
 
 
-class MockEs():
+class MockSearch():
     def __init__(self, base_app,**keywargs):
-        search_hosts = base_app.config["SEARCH_ELASTIC_HOSTS"]
+        search_hosts = base_app.config["SEARCH_OPENSEARCH_HOSTS"]
         search_client_config = base_app.config["SEARCH_CLIENT_CONFIG"]
         self.indices = self.MockIndices()
-        self.es = OpenSearch(
+        self.open_search = OpenSearch(
             hosts=[{'host': search_hosts, 'port': 9200}],
             http_auth=search_client_config['http_auth'],
             use_ssl=search_client_config['use_ssl'],
@@ -108,7 +109,7 @@ class MockEs():
         return Response(response=json.dumps({}),status=500)
     @property
     def transport(self):
-        return self.es.transport
+        return self.open_search.transport
     class MockIndices():
         def __init__(self,**keywargs):
             self.mapping = dict()
@@ -147,7 +148,7 @@ def make_celery(app):
 
 @pytest.fixture()
 def base_app(instance_path,search_class):
-    """Flask application fixture for ES."""
+    """Flask application fixture for Search."""
     app_ = Flask('testapp', instance_path=instance_path)
     app_.config.update(
         WEKO_ADMIN_ENABLE_LOGIN_INSTRUCTIONS = False,
@@ -162,7 +163,7 @@ def base_app(instance_path,search_class):
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         INDEX_IMG='indextree/36466818-image.jpg',
         SEARCH_UI_SEARCH_INDEX='test-weko',
-        WEKO_AUTHORS_ES_INDEX_NAME='test-authors',
+        WEKO_AUTHORS_SEARCH_INDEX_NAME='test-authors',
         WEKO_AUTHORS_AFFILIATION_IDENTIFIER_ITEM_OTHER=4,
         WEKO_AUTHORS_LIST_SCHEME_AFFILIATION=[
             'ISNI', 'GRID', 'Ringgold', 'kakenhi', 'Other'],
@@ -182,7 +183,7 @@ def base_app(instance_path,search_class):
         CACHE_REDIS_URL=os.environ.get("CACHE_REDIS_URL", "redis://redis:6379/0"),
         CACHE_REDIS_DB='0',
         CACHE_REDIS_HOST="redis",
-        SEARCH_ELASTIC_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
         SEARCH_INDEX_PREFIX="{}-".format('test'),
         SEARCH_CLIENT_CONFIG=dict(timeout=120, max_retries=10),
         WEKO_AUTHORS_EXPORT_TARGET_CACHE_KEY="weko_authors_export_target",
@@ -206,10 +207,10 @@ def base_app(instance_path,search_class):
     InvenioIndexer(app_)
     InvenioFilesREST(app_)
     if hasattr(request, 'param'):
-        if 'is_es' in request.param:
+        if 'is_search' in request.param:
             search = InvenioSearch(app_)
     else:
-        search = InvenioSearch(app_, client=MockEs())
+        search = InvenioSearch(app_, client=MockSearch())
         search.register_mappings(search_class.Meta.index, 'mock_module.mapping')
     WekoTheme(app_)
     WekoAuthors(app_)
@@ -234,7 +235,7 @@ def app(base_app):
 
 @pytest.fixture()
 def base_app2(instance_path,search_class):
-    """Flask application fixture for ES."""
+    """Flask application fixture for Search."""
     app_ = Flask('testapp', instance_path=instance_path)
     WEKO_AUTHORS_FILE_MAPPING_FOR_AFFILIATION ={
         "json_id": "affiliationInfo",
@@ -379,7 +380,7 @@ def base_app2(instance_path,search_class):
             'test'
         ),
         SEARCH_UI_SEARCH_INDEX='test-weko',
-        WEKO_AUTHORS_ES_INDEX_NAME='test-authors',
+        WEKO_AUTHORS_SEARCH_INDEX_NAME='test-authors',
         WEKO_AUTHORS_AFFILIATION_IDENTIFIER_ITEM_OTHER=4,
         WEKO_AUTHORS_LIST_SCHEME_AFFILIATION=[
             'ISNI', 'GRID', 'Ringgold', 'kakenhi', 'Other'],
@@ -406,7 +407,7 @@ def base_app2(instance_path,search_class):
         WEKO_AUTHORS_EXPORT_CACHE_URL_KEY= 'weko_authors_exported_url',
         WEKO_AUTHORS_EXPORT_CACHE_STOP_POINT_KEY= 'weko_authors_export_stop_point',
         WEKO_AUTHORS_IMPORT_CACHE_FORCE_CHANGE_MODE_KEY= 'authors_import_force_change',
-        SEARCH_ELASTIC_HOSTS=os.environ.get('SEARCH_ELASTIC_HOSTS', 'opensearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get('SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SEARCH_HOSTS=os.environ.get('SEARCH_HOST', 'opensearch'),
         SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
     )
@@ -458,13 +459,13 @@ def client(app):
         yield client
 
 @pytest.fixture()
-def esindex(app):
+def search_index(app):
     current_search_client.indices.delete(index='test-*')
     with open("tests/mock_module/mapping/v6/authors/author-v1.0.0.json","r") as f:
         mapping = json.load(f)
     with app.test_request_context():
         current_search_client.indices.create("test-authors-author-v1.0.0",body=mapping)
-        current_search_client.indices.put_alias(index="test-authors-author-v1.0.0", name=app.config["WEKO_AUTHORS_ES_INDEX_NAME"])
+        current_search_client.indices.put_alias(index="test-authors-author-v1.0.0", name=app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"])
 
     try:
         yield current_search_client
@@ -472,7 +473,7 @@ def esindex(app):
         current_search_client.indices.delete(index="test-*")
 
     # with app.test_request_context():
-    #     current_search_client.indices.delete_alias(index="test-authors-author-v1.0.0", name=app.config["WEKO_AUTHORS_ES_INDEX_NAME"])
+    #     current_search_client.indices.delete_alias(index="test-authors-author-v1.0.0", name=app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"])
     #     current_search_client.indices.delete(index="test-authors-author-v1.0.0", ignore=[400, 404])
 
 
@@ -611,23 +612,23 @@ def users(app, db):
 
 
 @pytest.fixture()
-def create_author(app, db, esindex):
+def create_author(app, db, search_index):
     def _create_author(data, next_id):
         data["pk_id"] = str(next_id)
-        es_data = json.loads(json.dumps(data))
-        es_id = uuid.uuid4()
-        data["id"] = str(es_id)
+        search_data = json.loads(json.dumps(data))
+        search_id = uuid.uuid4()
+        data["id"] = str(search_id)
         with db.session.begin_nested():
             author = Authors(id=next_id, json=data)
             db.session.add(author)
         db.session.commit()
 
         current_search_client.index(
-            index=app.config["WEKO_AUTHORS_ES_INDEX_NAME"],
-            id=es_id,
-            body=es_data,
+            index=app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"],
+            id=search_id,
+            body=search_data,
             refresh='true')
-        return es_id
+        return search_id
 
     # Return new author's id
     return _create_author
@@ -650,7 +651,7 @@ def json_data(filename):
 
 
 @pytest.fixture()
-def authors(app,db,esindex):
+def authors(app,db,search_index):
     datas = json_data("data/author.json")
     returns = list()
     for data in datas:
@@ -659,14 +660,13 @@ def authors(app,db,esindex):
             is_deleted=data.get("is_deleted", False),
             json=data
         ))
-        es_id = data["id"]
-        es_data = json.loads(json.dumps(data))
-        es_data["id"]=""
+        search_id = data["id"]
+        search_data = json.loads(json.dumps(data))
+        search_data["id"]=""
         current_search_client.index(
-            index=app.config["WEKO_AUTHORS_ES_INDEX_NAME"],
-            doc_type=app.config['WEKO_AUTHORS_ES_DOC_TYPE'],
-            id=es_id,
-            body=es_data,
+            index=app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"],
+            id=search_id,
+            body=search_data,
             refresh='true')
 
     db.session.add_all(returns)
@@ -674,7 +674,7 @@ def authors(app,db,esindex):
     return returns
 
 @pytest.fixture()
-def authors2(app,db,esindex):
+def authors2(app,db,search_index):
     datas = json_data("data/author2.json")
     returns = list()
     for data in datas:
@@ -683,13 +683,13 @@ def authors2(app,db,esindex):
             is_deleted=False,
             json=data
         ))
-        es_id = data["id"]
-        es_data = json.loads(json.dumps(data))
-        es_data["id"]=""
+        search_id = data["id"]
+        search_data = json.loads(json.dumps(data))
+        search_data["id"]=""
         current_search_client.index(
-            index=app.config["WEKO_AUTHORS_ES_INDEX_NAME"],
-            id=es_id,
-            body=es_data,
+            index=app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"],
+            id=search_id,
+            body=search_data,
             refresh='true')
 
     db.session.add_all(returns)
@@ -743,7 +743,7 @@ def file_instance(db):
 
 
 @pytest.fixture()
-def esindex2(app2):
+def search_index2(app2):
     index_name = app2.config["INDEXER_DEFAULT_INDEX"]
     alias_name = "test-author-alias"
 
@@ -901,7 +901,7 @@ def auth_headers_bad_content_type(client_api, json_headers, create_token_user_sy
 
 
 @pytest.fixture
-def author_records_for_test(app, esindex, db, community):
+def author_records_for_test(app, search_index, db, community):
     record_1_data = {
         "emailInfo": [{"email": "sample@xxx.co.jp"}],
         "authorIdInfo": [
@@ -967,15 +967,15 @@ def author_records_for_test(app, esindex, db, community):
     record_3 = WekoAuthors.create(record_3_data)
     record_3 = WekoAuthors.create(record_4_data)
 
-    esindex.indices.refresh(index=app.config['WEKO_AUTHORS_ES_INDEX_NAME'])
+    search_index.indices.refresh(index=app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'])
     result=[]
     for i in range(4):
-        search_results = esindex.search(
-            index=app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
+        search_results = search_index.search(
+            index=app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
             body={"query": {"term": {"pk_id": i+1}}},
             size=1
         )
-        if search_results["hits"]["total"] > 0:
+        if search_results["hits"]["total"]["value"] > 0:
 
             result.append(search_results["hits"]["hits"][0]["_id"])
 

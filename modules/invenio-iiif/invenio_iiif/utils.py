@@ -8,8 +8,6 @@
 
 """Utilities for IIIF."""
 
-from __future__ import absolute_import, print_function
-
 from urllib.parse import quote
 
 from flask import current_app

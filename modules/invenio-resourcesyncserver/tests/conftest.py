@@ -12,29 +12,22 @@ See https://pytest-invenio.readthedocs.io/ for documentation on which test
 fixtures are available.
 """
 
-from __future__ import absolute_import, print_function
-
+import copy
+import json
 import os
+import pytest
+import requests
 import shutil
 import tempfile
-import json
 import uuid
-import copy
-import requests
-from os.path import join
+
 from datetime import date, datetime, timedelta
-from time import sleep
-import pytest
-from unittest.mock import Mock, patch
 from flask import Flask, url_for
 from flask_babel import Babel, lazy_gettext as _
 from flask_celeryext import FlaskCeleryExt
 from flask_menu import Menu
 from flask_login import current_user, login_user, LoginManager
-from werkzeug.local import LocalProxy
-from tests.helpers import create_record, json_data
-from six import BytesIO
-from simplekv.memory.redisstore import RedisStore
+
 # from moto import mock_s3
 
 from invenio_deposit.config import (
@@ -56,64 +49,91 @@ from invenio_access.models import ActionUsers
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionUsers, ActionRoles
 from invenio_assets import InvenioAssets
+from invenio_admin import InvenioAdmin
 from invenio_cache import InvenioCache
 from invenio_communities import InvenioCommunities
+from invenio_communities.models import Community
+from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
 from invenio_db import InvenioDB
 from invenio_db import db as db_
+from invenio_db.utils import drop_alembic_version_table
+from invenio_deposit.api import Deposit
 from invenio_files_rest.models import Location
+from invenio_files_rest.permissions import bucket_listmultiparts_all, \
+from invenio_files_rest.models import Bucket, Location, ObjectVersion
 from invenio_i18n import InvenioI18N
 from invenio_indexer import InvenioIndexer
 from invenio_jsonschemas import InvenioJSONSchemas
 from invenio_mail import InvenioMail
-from invenio_oaiserver import InvenioOAIServer
-from invenio_oaiserver.models import OAISet
-from invenio_pidrelations import InvenioPIDRelations
-from invenio_records import InvenioRecords
-from invenio_search import InvenioSearch
-from invenio_stats.config import SEARCH_INDEX_PREFIX as index_prefix
 from invenio_oaiharvester.models import HarvestSettings
-from invenio_stats import InvenioStats
-from invenio_admin import InvenioAdmin
-from invenio_search import RecordsSearch
+from invenio_oaiserver import InvenioOAIServer
+from invenio_oaiserver.models import OAISet, Identify
+from invenio_pidrelations import InvenioPIDRelations
+from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore import InvenioPIDStore, current_pidstore
+from invenio_pidstore.models import PersistentIdentifier, PIDStatus, Redirect
+from invenio_pidstore.providers.recordid import RecordIdProvider
+from invenio_records import InvenioRecords
+from invenio_records_rest import InvenioRecordsREST, config
+from invenio_records_rest.facets import terms_filter
+from invenio_records_rest.views import create_blueprint_from_app
 from invenio_records_rest.utils import PIDConverter
+from invenio_records_rest.config import RECORDS_REST_SORT_OPTIONS
+from invenio_resourcesyncserver.ext import InvenioResourceSyncServer
+from invenio_resourcesyncserver.views import blueprint as resourcesyncserver_blueprint
+from invenio_rest import InvenioREST
+from invenio_search import InvenioSearch, RecordsSearch
+from invenio_stats import InvenioStats
+from invenio_stats.config import SEARCH_INDEX_PREFIX as index_prefix
 from invenio_records.models import RecordMetadata
-from invenio_deposit.api import Deposit
-from invenio_communities.models import Community
 from invenio_search import current_search_client, current_search
 from invenio_search.engine import search
 from invenio_queues.proxies import current_queues
-from invenio_files_rest.permissions import bucket_listmultiparts_all, \
     bucket_read_all, bucket_read_versions_all, bucket_update_all, \
     location_update_all, multipart_delete_all, multipart_read_all, \
     object_delete_all, object_delete_version_all, object_read_all, \
     object_read_version_all
-from invenio_files_rest.models import Bucket, Location, ObjectVersion
-from invenio_db.utils import drop_alembic_version_table
-from invenio_records_rest.config import RECORDS_REST_SORT_OPTIONS
-from invenio_pidstore.models import PersistentIdentifier, PIDStatus, Redirect
-from invenio_pidrelations.models import PIDRelation
-from invenio_oaiserver.models import Identify
-from invenio_pidstore.providers.recordid import RecordIdProvider
-from invenio_records_rest import InvenioRecordsREST, config
-from invenio_records_rest.facets import terms_filter
-from invenio_rest import InvenioREST
-from invenio_records_rest.views import create_blueprint_from_app
-from invenio_resourcesyncserver.ext import InvenioResourceSyncServer
-from invenio_resourcesyncserver.views import blueprint as resourcesyncserver_blueprint
 
+from io import BytesIO
+from os.path import join
+from simplekv.memory.redisstore import RedisStore
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session
+from sqlalchemy import event
+from sqlalchemy_utils.functions import create_database, database_exists, drop_database
+from tests.helpers import create_record, json_data
+from time import sleep
+from unittest.mock import Mock, patch
+
+from weko_admin import WekoAdmin
+from weko_admin.models import FacetSearchSetting, SessionLifetime
+from weko_admin.config import (
+    WEKO_ADMIN_MANAGEMENT_OPTIONS, WEKO_ADMIN_DEFAULT_ITEM_EXPORT_SETTINGS)
+from weko_deposit.api import WekoDeposit, WekoRecord, WekoIndexer
 from weko_deposit.config import WEKO_BUCKET_QUOTA_SIZE, WEKO_MAX_FILE_SIZE
-from weko_admin.models import FacetSearchSetting
-from weko_schema_ui.models import OAIServerSchema
+from weko_groups import WekoGroups
+from weko_index_tree import WekoIndexTree, WekoIndexTreeREST
 from weko_index_tree.api import Indexes
+from weko_index_tree.models import Index, IndexStyle
 from weko_records import WekoRecords
 from weko_records.api import ItemTypes, ItemsMetadata, WekoRecord, Mapping
 from weko_records.config import WEKO_ITEMTYPE_EXCLUDED_KEYS
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
 from weko_records_ui.models import PDFCoverPageSettings
-from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER, WEKO_PERMISSION_ROLE_COMMUNITY, EMAIL_DISPLAY_FLG,WEKO_RECORDS_UI_BULK_UPDATE_FIELDS
-from weko_groups import WekoGroups
-from weko_admin import WekoAdmin
+from weko_records_ui.config import (
+    WEKO_PERMISSION_SUPER_ROLE_USER, WEKO_PERMISSION_ROLE_COMMUNITY, 
+    EMAIL_DISPLAY_FLG,WEKO_RECORDS_UI_BULK_UPDATE_FIELDS)
+from weko_redis.redis import RedisConnection
+from weko_schema_ui.models import OAIServerSchema
+from weko_search_ui.views import blueprint_api
+from weko_search_ui.rest import create_blueprint
+from weko_search_ui import WekoSearchUI, WekoSearchREST
+from weko_search_ui.config import (
+    SEARCH_UI_SEARCH_INDEX, WEKO_SEARCH_TYPE_DICT,WEKO_SEARCH_UI_BASE_TEMPLATE)
+from weko_theme import WekoTheme
+from weko_theme.views import blueprint as weko_theme_blueprint
+from weko_theme.config import (
+    THEME_BODY_TEMPLATE,WEKO_THEME_ADMIN_ITEM_MANAGEMENT_INIT_TEMPLATE)
 from weko_workflow import WekoWorkflow
 from weko_workflow.models import (
     Action,
@@ -124,26 +144,8 @@ from weko_workflow.models import (
     FlowDefine,
     WorkFlow
 )
-from weko_theme import WekoTheme
-from weko_theme.views import blueprint as weko_theme_blueprint
-from weko_theme.config import THEME_BODY_TEMPLATE,WEKO_THEME_ADMIN_ITEM_MANAGEMENT_INIT_TEMPLATE
-from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
-from weko_index_tree.models import Index
-from weko_index_tree import WekoIndexTree, WekoIndexTreeREST
-from weko_search_ui.views import blueprint_api
-from weko_search_ui.rest import create_blueprint
-from weko_search_ui import WekoSearchUI, WekoSearchREST
-from weko_search_ui.config import SEARCH_UI_SEARCH_INDEX, WEKO_SEARCH_TYPE_DICT,WEKO_SEARCH_UI_BASE_TEMPLATE
-from weko_redis.redis import RedisConnection
-from weko_admin.models import SessionLifetime
-from weko_admin.config import WEKO_ADMIN_MANAGEMENT_OPTIONS, WEKO_ADMIN_DEFAULT_ITEM_EXPORT_SETTINGS
-from weko_index_tree.models import IndexStyle
-from weko_deposit.api import WekoDeposit, WekoRecord, WekoIndexer
+from werkzeug.local import LocalProxy
 
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session
-from sqlalchemy import event
-from sqlalchemy_utils.functions import create_database, database_exists, drop_database
 
 
 @pytest.fixture(scope='module')
@@ -226,7 +228,6 @@ def base_app(instance_path, request):
         DEPOSIT_DEFAULT_JSONSCHEMA=DEPOSIT_DEFAULT_JSONSCHEMA,
         SERVER_NAME='TEST_SERVER',
         LOGIN_DISABLED=False,
-        INDEXER_DEFAULT_DOCTYPE='item-v1.0.0',
         INDEXER_FILE_DOC_TYPE='content',
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format(
             'test'
@@ -235,8 +236,8 @@ def base_app(instance_path, request):
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
 
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-                    'SEARCH_ELASTIC_HOSTS', 'opensearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                    'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'
         ),
@@ -293,8 +294,7 @@ def base_app(instance_path, request):
         WEKO_ADMIN_CACHE_TEMP_DIR_INFO_KEY_DEFAULT = 'cache::temp_dir_info',
         WEKO_ITEMS_UI_EXPORT_TMP_PREFIX = 'weko_export_',
         WEKO_SEARCH_UI_IMPORT_TMP_PREFIX = 'weko_import_',
-        WEKO_AUTHORS_ES_INDEX_NAME = "{}-authors".format(index_prefix),
-        WEKO_AUTHORS_ES_DOC_TYPE = "author-v1.0.0",
+        WEKO_AUTHORS_SEARCH_INDEX_NAME = "{}-authors".format(index_prefix),
         WEKO_HANDLE_ALLOW_REGISTER_CNRI = True,
         WEKO_PERMISSION_ROLE_USER = ['System Administrator',
                              'Repository Administrator',
@@ -659,8 +659,8 @@ def db(app):
 
 
 @pytest.fixture()
-def es(app):
-    """Elasticsearch fixture."""
+def search(app):
+    """Search fixture."""
     try:
         current_search_client.indices.delete(index='test-*')
         list(current_search.create())
@@ -673,7 +673,7 @@ def es(app):
 
 
 @pytest.fixture()
-def esindex(app):
+def search_index(app):
     current_search_client.indices.delete(index="test-*")
     with open("tests/data/item-v1.0.0.json", "r") as f:
         mapping = json.load(f)
@@ -1020,9 +1020,9 @@ def db_index(client, users):
 
 
 @pytest.fixture()
-def es_records(app, db, db_index, location, db_itemtype, db_oaischema):
+def search_records(app, db, db_index, location, db_itemtype, db_oaischema):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         for i in range(1, 10):
@@ -1064,7 +1064,7 @@ def es_records(app, db, db_index, location, db_itemtype, db_oaischema):
             results.append({"depid":depid, "recid":recid, "parent": parent, "doi":doi, "hdl": hdl,"record":record, "record_data":record_data,"item":item , "item_data":item_data,"deposit": deposit})
 
     sleep(3)
-    es = search.client.OpenSearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
+    open_search = search.client.OpenSearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
     return {
         "indexer": indexer,
         "results": results

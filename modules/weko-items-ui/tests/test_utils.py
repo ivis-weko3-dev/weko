@@ -1,43 +1,30 @@
 import hashlib
 import json
 import os
-from datetime import datetime
-from io import StringIO
-from collections import OrderedDict
-from unittest.mock import MagicMock, Mock, mock_open, patch
 import copy
-import tempfile
-
+import pytest
 import pytz
 import shutil
-from dictdiffer import diff
-from six import BytesIO
-from sqlalchemy.exc import SQLAlchemyError
-from invenio_search.engine import search
+import tempfile
 
-import pytest
-from elasticsearch.exceptions import NotFoundError
+from collections import OrderedDict
+from datetime import datetime
+from dictdiffer import diff
 from flask import current_app
 from flask_security.utils import login_user
 from flask_login import current_user
-from weko_records_ui.errors import AvailableFilesNotFoundRESTError
-from weko_redis.redis import RedisConnection
-from invenio_pidstore.models import PersistentIdentifier, PIDStatus
-from jsonschema import SchemaError, ValidationError
-from werkzeug.exceptions import BadRequest
 from invenio_accounts.testutils import login_user_via_session
-from weko_deposit.api import WekoDeposit, WekoRecord
-from weko_records.api import ItemTypes
-from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
-from weko_workflow.api import WorkActivity
-from weko_admin.models import RankingSettings
-from weko_workflow.models import (
-    ActionStatusPolicy,
-    Activity,
-    ActivityAction,
-    FlowActionRole,
-)
+from invenio_indexer.api import RecordIndexer
+from invenio_pidstore.models import PersistentIdentifier, PIDStatus
+from invenio_search.engine import search
+from io import StringIO, BytesIO
+from jsonschema import SchemaError, ValidationError
 
+from sqlalchemy.exc import SQLAlchemyError
+from unittest.mock import MagicMock, Mock, mock_open, patch
+
+from weko_admin.models import RankingSettings
+from weko_deposit.api import WekoDeposit, WekoRecord
 from weko_items_ui.utils import (
     __sanitize_string,
     _custom_export_metadata,
@@ -51,7 +38,7 @@ from weko_items_ui.utils import (
     check_item_type_name,
     export_items,
     write_rocrate,
-    _get_metadata_dict_in_es,
+    _get_metadata_dict_in_search,
     find_hidden_items,
     get_permission_record,
     get_current_user,
@@ -137,7 +124,18 @@ from weko_items_ui.utils import (
     set_scheme_by_author_table
 )
 from weko_items_ui.config import WEKO_ITEMS_UI_DEFAULT_MAX_EXPORT_NUM,WEKO_ITEMS_UI_MAX_EXPORT_NUM_PER_ROLE
-from invenio_indexer.api import RecordIndexer
+from weko_records.api import ItemTypes
+from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
+from weko_records_ui.errors import AvailableFilesNotFoundRESTError
+from weko_redis.redis import RedisConnection
+from weko_workflow.api import WorkActivity
+from weko_workflow.models import (
+    ActionStatusPolicy,
+    Activity,
+    ActivityAction,
+    FlowActionRole,
+)
+from werkzeug.exceptions import BadRequest
 
 # def check_display_shared_user(user_id):
 #  .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_check_display_shared_user -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
@@ -376,7 +374,7 @@ def test_find_hidden_items(app, users, db_records):
 # def get_permission_record(index_info,
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_permission_record -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
 def test_get_permission_record(app, users, db_itemtype, db_records):
-    es_data = [
+    search_data = [
         {
             'key': '6',
             '_item_metadata': {
@@ -388,17 +386,17 @@ def test_get_permission_record(app, users, db_itemtype, db_records):
     ]
 
     with app.test_request_context():
-        res = get_permission_record('most_reviewed_items', es_data, 1, [1])
+        res = get_permission_record('most_reviewed_items', search_data, 1, [1])
         assert res == []
 
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
         with app.test_request_context():
-            res = get_permission_record('most_downloaded_items', es_data, 1, [1])
+            res = get_permission_record('most_downloaded_items', search_data, 1, [1])
             assert res == [{'rank': 1, 'key': '6', 'count': 1, 'title': 'title', 'url': '../records/6'}]
 
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
         with app.test_request_context():
-            res = get_permission_record('new_items', es_data, 1, [1])
+            res = get_permission_record('new_items', search_data, 1, [1])
             assert res == [{'date': '2022-09-02', 'key': '6', 'title': 'title', 'url': '../records/6'}]
 
 
@@ -427,7 +425,7 @@ def test_parse_ranking_new_items():
         "timed_out": False,
         "_shards": {"total": 1, "successful": 1, "skipped": 0, "failed": 0},
         "hits": {
-            "total": 2,
+            "total": {"value": 2, "relation": "eq"},
             "max_score": None,
             "hits": [
                 {
@@ -588,7 +586,7 @@ def test_parse_ranking_record():
         "timed_out": False,
         "_shards": {"total": 1, "successful": 1, "skipped": 0, "failed": 0},
         "hits": {
-            "total": 2,
+            "total": {"value": 2, "relation": "eq"},
             "max_score": None,
             "hits": [
                 {
@@ -8326,7 +8324,7 @@ def test_make_stats_file_issue36234(app, users,db_itemtype,db_records_file):
 
 # def get_list_file_by_record_id(recid):
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_list_file_by_record_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_list_file_by_record_id(db_records,users,esindex):
+def test_get_list_file_by_record_id(db_records,users,search_index):
     depid, recid, parent, doi, record, item = db_records[0]
     assert get_list_file_by_record_id(record.id) == []
 
@@ -8491,7 +8489,7 @@ def test_write_rocrate(app,client,db_itemtype,db_records,users,mocker):
 
     # ElasticSearchからのメタデータ取得をモック
     mock_metadata = {'1': ('テストタイトル', ['file1.txt', 'file2.txt'])}
-    mocker.patch("weko_items_ui.utils._get_metadata_dict_in_es", return_value=mock_metadata)
+    mocker.patch("weko_items_ui.utils._get_metadata_dict_in_search", return_value=mock_metadata)
 
     # JsonldMapping, JsonLdMapper, bagit, shutil.make_archive, shutil.rmtree, open, send_file などをモック
     mock_mapping = MagicMock()
@@ -8518,9 +8516,9 @@ def test_write_rocrate(app,client,db_itemtype,db_records,users,mocker):
     assert os.path.exists(export_path)
 
 
-# def _get_metadata_dict_in_es(record_ids):
-# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_metadata_dict_in_es_success -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_metadata_dict_in_es_success(app, mocker):
+# def _get_metadata_dict_in_search(record_ids):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_metadata_dict_in_search_success -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_metadata_dict_in_search_success(app, mocker):
     record_ids = ["1"]
     mock_search = MagicMock()
     mock_execute = MagicMock()
@@ -8550,7 +8548,7 @@ def test_get_metadata_dict_in_es_success(app, mocker):
     mock_current_app.config = {"SEARCH_UI_SEARCH_INDEX": "test-index"}
     mocker.patch("weko_items_ui.utils.current_app", mock_current_app)
 
-    result = _get_metadata_dict_in_es(record_ids)
+    result = _get_metadata_dict_in_search(record_ids)
     assert result == {
         "1": ("タイトル1", ["file1.txt"])
     }
@@ -8891,7 +8889,7 @@ def test_is_need_to_show_agreement_page(db_itemtype,users,id,result):
 
 # def update_index_tree_for_record(pid_value, index_tree_id):
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_update_index_tree_for_record -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_update_index_tree_for_record(app, db_itemtype, db_records, users, esindex,mocker):
+def test_update_index_tree_for_record(app, db_itemtype, db_records, users, search_index,mocker):
     depid, recid, parent, doi, record, item = db_records[0]
     record['$schema'] = "/items/jsonschema/1"
     redis_connection = RedisConnection()
@@ -9373,7 +9371,7 @@ def test_translate_schema_form(db_itemtype):
     assert list(_diff)==[]
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_WekoQueryRankingHelper_get -v -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_WekoQueryRankingHelper_get(app, users, db_records,esindex):
+def test_WekoQueryRankingHelper_get(app, users, db_records,search_index):
     data = {
         "aggregations": {
             "my_buckets": {
@@ -9394,7 +9392,7 @@ def test_WekoQueryRankingHelper_get(app, users, db_records,esindex):
             }
         }
     }
-    with patch("invenio_stats.queries.ESWekoRankingQuery.run", return_value=data):
+    with patch("invenio_stats.queries.SearchWekoRankingQuery.run", return_value=data):
         result = WekoQueryRankingHelper.get(
                 start_date="2023-08-19",
                 end_date="2023-09-01",
@@ -9419,7 +9417,7 @@ def test_WekoQueryRankingHelper_get(app, users, db_records,esindex):
         assert result == []
 
     # raise NotFoundError
-    with patch("invenio_stats.queries.ESWekoRankingQuery.run",side_effect=search.OpenSearchException.NotFoundError(404,"test_error")):
+    with patch("invenio_stats.queries.SearchWekoRankingQuery.run",side_effect=search.NotFoundError(404,"test_error")):
         result = WekoQueryRankingHelper.get(
             start_date="2023-08-19",
             end_date="2023-09-01",
@@ -9433,7 +9431,7 @@ def test_WekoQueryRankingHelper_get(app, users, db_records,esindex):
 
 # def get_ranking(settings):
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_ranking -v -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_ranking(app, users, db_records, db_ranking, esindex):
+def test_get_ranking(app, users, db_records, db_ranking, search_index):
     index_json = [
         {"children":[],"cid":1,"pid":0,"name":"Index(public_state = True,harvest_public_state = True)","id":"1"},
         {"children":[],"cid":2,"pid":0,"name":"Index(public_state = True,harvest_public_state = False)","id":"2"},
@@ -11194,7 +11192,7 @@ def test_get_file_download_data(app, client, records):
                 ]
             }
         }
-        with patch("invenio_stats.queries.ESWekoFileRankingQuery.run", return_value=return_value):
+        with patch("invenio_stats.queries.SearchWekoFileRankingQuery.run", return_value=return_value):
             res = get_file_download_data(record.id, record, filenames)
             assert res["ranking"][0]["download_total"] == 5
             assert res["ranking"][1]["download_total"] == 3
@@ -11222,13 +11220,13 @@ def test_get_file_download_data(app, client, records):
                 ]
             }
         }
-        with patch("invenio_stats.queries.ESWekoFileRankingQuery.run", return_value=return_value):
+        with patch("invenio_stats.queries.SearchWekoFileRankingQuery.run", return_value=return_value):
             res = get_file_download_data(record.id, record, filenames)
             assert len(res["ranking"]) == 1
             assert res["ranking"][0]["filename"] == "helloworld.pdf"
 
         # 14 Set date
-        with patch("invenio_stats.queries.ESWekoFileRankingQuery.run", return_value=return_value) as test_mock:
+        with patch("invenio_stats.queries.SearchWekoFileRankingQuery.run", return_value=return_value) as test_mock:
             res = get_file_download_data(record.id, record, filenames, "2024-01")
             assert test_mock.call_args[1]["start_date"] == "2024-01-01"
             assert test_mock.call_args[1]["end_date"] == "2024-01-31T23:59:59"
@@ -11255,19 +11253,19 @@ def test_get_file_download_data(app, client, records):
                 ]
             }
         }
-        with patch("invenio_stats.queries.ESWekoFileRankingQuery.run", return_value=return_value):
+        with patch("invenio_stats.queries.SearchWekoFileRankingQuery.run", return_value=return_value):
             res = get_file_download_data(record.id, record, filenames, size=1)
             assert len(res["ranking"]) == 1
             assert res["ranking"][0]["download_total"] == 5
 
         # 16 Exeption in running query
-        with patch("invenio_stats.queries.ESWekoFileRankingQuery.run", side_effect=Exception):
+        with patch("invenio_stats.queries.SearchWekoFileRankingQuery.run", side_effect=Exception):
             res = get_file_download_data(record.id, record, filenames)
             assert res["ranking"][0]["download_total"] \
                     == res["ranking"][1]["download_total"] \
                     == 0
 
-        with patch("invenio_stats.queries.ESWekoFileRankingQuery.run", return_value=Exception):
+        with patch("invenio_stats.queries.SearchWekoFileRankingQuery.run", return_value=Exception):
             res = get_file_download_data(record.id, record, filenames)
             assert res["ranking"][0]["download_total"] \
                     == res["ranking"][1]["download_total"] \

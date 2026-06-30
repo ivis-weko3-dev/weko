@@ -24,18 +24,16 @@ import copy
 import io
 import json
 import os
+import pytest
 import re
 import shutil
 import tempfile
 import time
 import uuid
+
 from datetime import datetime
-from os.path import dirname, exists, join
-from re import T
 from glob import glob
 from zipfile import ZipFile, ZIP_DEFLATED
-
-import pytest
 from click.testing import CliRunner
 from flask import Blueprint, Flask
 from flask_assets import assets
@@ -78,15 +76,18 @@ from invenio_pidstore.models import PersistentIdentifier, PIDStatus, Redirect
 from invenio_records import InvenioRecords
 from invenio_records_rest import InvenioRecordsREST
 from invenio_rest import InvenioREST
-from invenio_search import InvenioSearch, RecordsSearch, current_search, current_search_client
+from invenio_search import (
+    InvenioSearch, RecordsSearch, current_search, current_search_client)
 from invenio_stats import InvenioStats
 from invenio_theme import InvenioTheme
 from kombu import Exchange, Queue
-from unittest.mock import patch
+from os.path import dirname, exists, join
+from re import T
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from sqlalchemy_utils.functions import create_database, database_exists
+from unittest.mock import patch
 from weko_admin import WekoAdmin
 from weko_admin.config import WEKO_ADMIN_DEFAULT_ITEM_EXPORT_SETTINGS
 from weko_admin.models import RankingSettings, SessionLifetime, AdminSettings
@@ -182,7 +183,7 @@ def base_app(instance_path):
         REDIS_PORT="6379",
         WEKO_BUCKET_QUOTA_SIZE=50 * 1024 * 1024 * 1024,
         WEKO_MAX_FILE_SIZE=50 * 1024 * 1024 * 1024,
-        SEARCH_ELASTIC_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
         SEARCH_INDEX_PREFIX="{}-".format('test'),
         SEARCH_CLIENT_CONFIG=dict(timeout=120, max_retries=10),
         OAISERVER_ID_PREFIX="oai:inveniosoftware.org:recid/",
@@ -222,8 +223,6 @@ def base_app(instance_path):
         WEKO_USERPROFILES_GENERAL_ROLE=WEKO_USERPROFILES_GENERAL_ROLE,
         CACHE_REDIS_DB = 0,
         WEKO_DEPOSIT_ITEMS_CACHE_PREFIX=WEKO_DEPOSIT_ITEMS_CACHE_PREFIX,
-        # INDEXER_DEFAULT_DOCTYPE=INDEXER_DEFAULT_DOCTYPE,
-        # INDEXER_FILE_DOC_TYPE=INDEXER_FILE_DOC_TYPE,
         WEKO_INDEX_TREE_DEFAULT_DISPLAY_NUMBER=WEKO_INDEX_TREE_DEFAULT_DISPLAY_NUMBER,
         DEPOSIT_DEFAULT_JSONSCHEMA=DEPOSIT_DEFAULT_JSONSCHEMA,
         DEPOSIT_JSONSCHEMAS_PREFIX=DEPOSIT_JSONSCHEMAS_PREFIX,

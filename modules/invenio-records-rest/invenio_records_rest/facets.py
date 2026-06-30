@@ -13,12 +13,10 @@ information on how to specify aggregations and filters.
 """
 
 from flask import current_app, request
+from invenio_records_rest.utils import make_comma_list_a_list
 from invenio_rest.errors import FieldError, RESTValidationError
 from invenio_search.engine import dsl
-from six import text_type
 from werkzeug.datastructures import MultiDict
-
-from invenio_records_rest.utils import make_comma_list_a_list
 
 
 def nested_filter(field, subfield):
@@ -74,9 +72,9 @@ def terms_condition_filter(field, isAndFileter):
         if len(values) > 1 and isAndFileter:
             q_list = []
             for value in values:
-                q_list.append(Q('term', **{field: value}))
-            return Q('bool', **{'must': q_list})
-        return Q('terms', **{field: values})
+                q_list.append(dsl.Q('term', **{field: value}))
+            return dsl.Q('bool', **{'must': q_list})
+        return dsl.Q('terms', **{field: values})
     return inner
 
 
@@ -141,17 +139,17 @@ def _create_filter_dsl(urlkwargs, definitions):
     filters = []
     weko_search_fix_accessrights = current_app.config.get("WEKO_SEARCH_FIX_ACCESSRIGHTS", False)
     for name, filter_factory in definitions.items():
-        values = request.values.getlist(name, type=text_type)
+        values = request.values.getlist(name, type=str)
         if values:
             if name in ("Access", "accessRights") and "new_accessRights" in definitions and weko_search_fix_accessrights:
                 new_accessrights_filters = definitions["new_accessRights"]["filters"]["filters"]
                 access_rights_queries = []
                 for v in values:
                     if v in new_accessrights_filters:
-                        access_rights_queries.append(Q(new_accessrights_filters[v]))
+                        access_rights_queries.append(dsl.Q(new_accessrights_filters[v]))
                         urlkwargs.add(name, v)
                 if access_rights_queries:
-                    filters.append(Q('bool', should=access_rights_queries))
+                    filters.append(dsl.Q('bool', should=access_rights_queries))
             else:
                 filters.append(filter_factory(values))
                 for v in values:

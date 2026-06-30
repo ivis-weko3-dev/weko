@@ -9,7 +9,7 @@
 
 
 from flask import request, flash
-from flask_babelex import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from flask_login import current_user
 from flask_wtf import FlaskForm
 from wtforms import BooleanField, HiddenField

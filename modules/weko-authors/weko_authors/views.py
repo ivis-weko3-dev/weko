@@ -24,13 +24,16 @@ import re
 import sys
 import traceback
 import uuid
-from flask import Response, Blueprint, current_app, json, jsonify, make_response, request
+
+from flask import (
+    Response, Blueprint, current_app, json, jsonify, make_response, request)
 from flask_babel import gettext as _
 from flask_login import login_required
 from flask_security import current_user
 from invenio_communities.models import Community
 from invenio_db import db
 from invenio_indexer.api import RecordIndexer
+from weko_logging.activity_logger import UserActivityLogger
 from weko_schema_ui.models import PublishStatus
 
 from .config import WEKO_AUTHORS_IMPORT_KEY
@@ -44,7 +47,6 @@ from .utils import (
     get_managed_community, check_delete_author, check_delete_prefix,
     check_delete_affiliation
 )
-from weko_logging.activity_logger import UserActivityLogger
 
 blueprint = Blueprint(
     'weko_authors',
@@ -179,7 +181,7 @@ def delete_author():
         )
         RecordIndexer().client.update(
             id=json.loads(json.dumps(data))["Id"],
-            index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
+            index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
             body={'doc': {'is_deleted': 'true'}}
         )
 
@@ -234,7 +236,7 @@ def get():
     }
     indexer = RecordIndexer()
     result = indexer.client.search(
-        index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
+        index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
         body=body
     )
 
@@ -322,7 +324,7 @@ def getById():
 
     indexer = RecordIndexer()
     result = indexer.client.search(
-        index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
+        index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
         body=body
     )
     return json.dumps(result)
@@ -432,7 +434,7 @@ def mapping():
     author_id = data.get('id', '')
     indexer = RecordIndexer()
     result = indexer.client.get(
-        index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
+        index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
         id=author_id
     )
     _source = result.get('_source')
@@ -494,7 +496,7 @@ def gatherById():
     q = json.dumps(target_author_q).replace("@id", gatherTo)
     q = json.loads(q)
     res = indexer.client.search(
-        index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
+        index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
         body=q
     )
     target_data = res.get("hits").get("hits")[0].get("_source")

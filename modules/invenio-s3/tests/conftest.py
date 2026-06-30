@@ -5,15 +5,14 @@
 # Invenio-S3 is free software; you can redistribute it and/or modify it
 # under the terms of the MIT License; see LICENSE file for more details.
 """Pytest configuration."""
-from __future__ import absolute_import, print_function
 
+import boto3
+import copy
 import hashlib
 import os
+import pytest
 import shutil
 import tempfile
-import copy
-import boto3
-import pytest
 
 from flask import Flask, current_app
 from invenio_app.factory import create_api
@@ -22,17 +21,16 @@ from invenio_db import db as db_
 from invenio_db.utils import drop_alembic_version_table
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location
+from invenio_s3 import InvenioS3, S3FSFileStorage
 from moto import mock_s3
 from sqlalchemy_utils.functions import create_database, database_exists
-
-from invenio_s3 import InvenioS3, S3FSFileStorage
 
 from weko_deposit.config import (
     WEKO_BUCKET_QUOTA_SIZE,
     WEKO_DEPOSIT_REST_ENDPOINTS as _WEKO_DEPOSIT_REST_ENDPOINTS,
     _PID,
     DEPOSIT_REST_ENDPOINTS as _DEPOSIT_REST_ENDPOINTS,
-    WEKO_MIMETYPE_WHITELIST_FOR_ES as _WEKO_MIMETYPE_WHITELIST_FOR_ES,
+    WEKO_MIMETYPE_WHITELIST_FOR_SEARCH as _WEKO_MIMETYPE_WHITELIST_FOR_SEARCH,
     WEKO_DEPOSIT_BIBLIOGRAPHIC_INFO_SYS_KEY as _WEKO_DEPOSIT_BIBLIOGRAPHIC_INFO_SYS_KEY
 )
 from weko_indextree_journal.config import (
@@ -41,6 +39,8 @@ from weko_indextree_journal.config import (
 from weko_schema_ui.config import (
     WEKO_SCHEMA_REST_ENDPOINTS as _WEKO_SCHEMA_REST_ENDPOINTS,
 )
+
+
 @pytest.fixture(scope='module')
 def app_config(app_config):
     """Customize application configuration."""

@@ -8,20 +8,18 @@
 
 """Utils for communities."""
 
-from __future__ import absolute_import, print_function
-
 import os
-from io import SEEK_END, SEEK_SET
-from math import ceil
-from uuid import UUID
 
 from flask import current_app
 from flask_login import current_user
+from invenio_accounts.models import Role
 from invenio_db import db
 from invenio_files_rest.errors import FilesException
 from invenio_files_rest.models import Bucket, Location, ObjectVersion
 from invenio_records.api import Record
-from invenio_accounts.models import Role
+from io import SEEK_END, SEEK_SET
+from math import ceil
+from uuid import UUID
 
 
 class Pagination(object):

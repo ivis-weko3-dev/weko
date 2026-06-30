@@ -20,8 +20,9 @@
 
 """Service for widget modules."""
 import copy
-import pickle
 import json
+import pickle
+
 from datetime import date, datetime, timedelta
 from operator import itemgetter
 
@@ -45,7 +46,7 @@ from .models import WidgetDesignPage, WidgetDesignPageMultiLangData, \
 from .utils import build_data, build_multi_lang_data, build_rss_xml, \
     convert_data_to_design_pack, convert_data_to_edit_pack, \
     convert_widget_data_to_dict, delete_widget_cache, \
-    get_elasticsearch_result_by_date, update_general_item, \
+    get_search_result_by_date, update_general_item, \
     validate_main_widget_insertion
 
 
@@ -1200,13 +1201,13 @@ class WidgetDataLoaderServices:
         if not data or not data.get('hits'):
             return build_rss_xml(data=None, term=term, count=0, lang=lang)
         hits = data.get('hits')
-        es_data = [record for record in hits.get(
+        search_data = [record for record in hits.get(
             'hits', []) if record.get('_source').get('path')]
-        item_id_list = list(map(itemgetter('_id'), es_data))
+        item_id_list = list(map(itemgetter('_id'), search_data))
         hidden_items = find_hidden_items(item_id_list)
 
         rss_data = []
-        for es_item in es_data:
+        for es_item in search_data:
             if es_item['_id'] in hidden_items:
                 continue
             rss_data.append(es_item)

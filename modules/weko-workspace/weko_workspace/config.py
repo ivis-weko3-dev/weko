@@ -20,7 +20,7 @@
 
 """Configuration for weko-workspace."""
 
-from flask_babelex import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from invenio_stats.config import SEARCH_INDEX_PREFIX as index_prefix
 
 # Front-end variable definition

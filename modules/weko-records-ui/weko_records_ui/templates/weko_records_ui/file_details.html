@@ -30,8 +30,7 @@
 
 {%- block javascript %}
   {{ super() }}
-  {% assets "weko_theme_js_treeview" %}<script src="{{ ASSET_URL }}"></script>{% endassets %}
-  {% assets "weko_records_ui_bucket_js" %}<script src="{{ ASSET_URL }}"></script>{% endassets %}
+  {{ webpack['records_ui_bucket_js.js']}}
   <script src="{{ url_for('static', filename='js/weko_theme/inline.bundle.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/weko_theme/polyfills.bundle.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/weko_theme/main.bundle.js') }}" defer></script>

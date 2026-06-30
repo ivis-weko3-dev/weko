@@ -10,24 +10,19 @@
 """Pytest configuration."""
 
 import datetime
+import json
 import os
+import pytest
 import shutil
 import tempfile
 import uuid
+
 from contextlib import contextmanager
 from copy import deepcopy
-import json
-from mock import Mock, MagicMock, patch
-from six import BytesIO
-import pytest
-from flask import Flask
-from flask_babel import Babel
-from sqlalchemy_utils.functions import create_database, database_exists
-from kombu import Exchange, Queue
-from flask import appcontext_pushed, g
-from flask_celeryext import FlaskCeleryExt
+from flask import Flask, appcontext_pushed, g
 from flask.cli import ScriptInfo
-from .helpers import mock_date, json_data, create_record
+from flask_babel import Babel
+from flask_celeryext import FlaskCeleryExt
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts import InvenioAccounts, InvenioAccountsREST
@@ -50,19 +45,21 @@ from invenio_queues.proxies import current_queues
 from invenio_records import InvenioRecords
 from invenio_records_rest import InvenioRecordsREST
 from invenio_records.api import Record
-from invenio_search.engine import search, dsl
 from invenio_search import InvenioSearch, current_search, current_search_client
-from werkzeug.local import LocalProxy
-
+from invenio_search.engine import search, dsl
 from invenio_stats import InvenioStats, current_stats as _current_stats
-from invenio_stats.views import blueprint
+from invenio_stats.config import (
+    STATS_EVENTS, 
+    STATS_AGGREGATIONS, 
+    STATS_QUERIES,
+    STATS_WEKO_DEFAULT_TIMEZONE
+)
 from invenio_stats.contrib.registrations import register_queries
 from invenio_stats.contrib.config import (
     AGGREGATIONS_CONFIG,
     EVENTS_CONFIG,
     QUERIES_CONFIG,
 )
-from invenio_stats.config import STATS_EVENTS, STATS_AGGREGATIONS, STATS_QUERIES,STATS_WEKO_DEFAULT_TIMEZONE
 from invenio_stats.contrib.event_builders import (
     build_file_unique_id,
     build_record_unique_id,
@@ -71,7 +68,15 @@ from invenio_stats.contrib.event_builders import (
 from invenio_stats.processors import EventsIndexer, anonymize_user
 from invenio_stats.models import StatsEvents, StatsAggregation, StatsBookmark
 from invenio_stats.tasks import aggregate_events, process_events
+from invenio_stats.views import blueprint
+
+from kombu import Exchange, Queue
+from mock import Mock, MagicMock, patch
 from opensearchpy import OpenSearch
+from io import BytesIO
+from sqlalchemy_utils.functions import create_database, database_exists
+from werkzeug.local import LocalProxy
+from .helpers import mock_date, json_data, create_record
 
 
 def mock_iter_entry_points_factory(data, mocked_group):
@@ -119,7 +124,6 @@ def query_entrypoints(custom_permission_factory):
         query_class=CustomQuery,
         query_config=dict(
             index='stats-file-download',
-            doc_type='file-download-day-aggregation',
             copy_fields=dict(
                 bucket_id='bucket_id',
             ),
@@ -134,7 +138,6 @@ def query_entrypoints(custom_permission_factory):
         query_class=CustomQuery,
         query_config=dict(
             index='stats-file-download',
-            doc_type='file-download-day-aggregation',
             copy_fields=dict(
                 bucket_id='bucket_id',
             ),
@@ -265,8 +268,8 @@ def base_app(instance_path, mock_gethostbyaddr):
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko-item-v1.0.0".format("test"),
         I18N_LANGUAGES=[('en', 'English'), ('ja', 'Japanese')],
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', 'opensearch'
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', 'opensearch'
         ),
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'
@@ -511,8 +514,8 @@ def create_app(instance_path, entry_points):
 
 
 @pytest.fixture(scope="function")
-def es(app):
-    """Provide elasticsearch access, create and clean indices.
+def open_search(app):
+    """Provide search access, create and clean indices.
 
     Don't create template so that the test or another fixture can modify the
     enabled events.
@@ -569,14 +572,14 @@ def teardown_db(app):
             db_.drop_all()
 
 
-class MockEs():
+class MockSearch():
     def __init__(self, **keywargs):
         self.indices = self.MockIndices()
 
-        search_hosts = base_app.config["SEARCH_ELASTIC_HOSTS"]
+        search_hosts = base_app.config["SEARCH_OPENSEARCH_HOSTS"]
         search_client_config = base_app.config["SEARCH_CLIENT_CONFIG"]
 
-        self.es = OpenSearch(
+        self.open_search = OpenSearch(
             hosts=[{'host': search_hosts, 'port': 9200}],
             http_auth=search_client_config['http_auth'],
             use_ssl=search_client_config['use_ssl'],
@@ -585,7 +588,7 @@ class MockEs():
 
     @property
     def transport(self):
-        return self.es.transport
+        return self.open_search.transport
 
     class MockIndices():
         def __init__(self, **keywargs):
@@ -618,7 +621,7 @@ class MockEs():
         def flush(self, index):
             pass
 
-        def search(self, index, doc_type, body, **kwargs):
+        def search(self, index, body, **kwargs):
             pass
 
 
@@ -807,7 +810,7 @@ def mock_event_queue(app, mock_datetime, request_headers, objects, mock_user_ctx
 
 
 @pytest.fixture()
-def mock_es_execute():
+def mock_search_execute():
     def _dummy_response(data):
         if isinstance(data, str):
             with open(data, "r") as f:
@@ -898,14 +901,14 @@ def generate_file_events(
     for e in events:
         e = build_file_unique_id(e)
 
-    # register into elastisearch.
+    # register into search.
     event_type = "file-download"
     _current_stats.publish(event_type, events)
     process_events([event_type])
 
 
 @pytest.yield_fixture()
-def indexed_file_download_events(app, es, mock_user_ctx, request):
+def indexed_file_download_events(app, open_search, mock_user_ctx, request):
     """Parametrized pre indexed sample events."""
     generate_file_events(app=app, event_type="file-download", **request.param)
     current_search_client.indices.flush(index="test-*")
@@ -913,7 +916,7 @@ def indexed_file_download_events(app, es, mock_user_ctx, request):
 
 
 @pytest.fixture()
-def aggregated_file_download_events(app, es, mock_user_ctx, request):
+def aggregated_file_download_events(app, open_search, mock_user_ctx, request):
     with app.app_context():
         """Parametrized pre indexed sample events."""
         generate_file_events(
@@ -934,14 +937,14 @@ def aggregated_file_download_events(app, es, mock_user_ctx, request):
 
 
 @pytest.yield_fixture()
-def indexed_file_preview_events(app, es, mock_user_ctx, request):
+def indexed_file_preview_events(app, open_search, mock_user_ctx, request):
     """Parametrized pre indexed sample events."""
     generate_file_events(app=app, event_type="file-preview", **request.param)
     yield
 
 
 @pytest.fixture()
-def aggregated_file_preview_events(app, es, mock_user_ctx, request):
+def aggregated_file_preview_events(app, open_search, mock_user_ctx, request):
     """Parametrized pre indexed sample events."""
     list(current_search.put_templates(ignore=[400]))
     generate_file_events(app=app, event_type="file-preview", **request.param)
@@ -1100,38 +1103,38 @@ class CustomQuery:
 
 
 @pytest.fixture()
-def esindex(app,base_app):
+def search_index(app,base_app):
     from invenio_search import current_search_client as client
     index_name = app.config["INDEXER_DEFAULT_INDEX"]
     alias_name = "test-events-stats-file-download"
     with open("tests/data/mappings/item-v1.0.0.json", "r") as f:
 #     with open("tests/data/mappings/stats-file-download.json", "r") as f:
         mapping = json.load(f)
-    search_hosts = base_app.config["SEARCH_ELASTIC_HOSTS"]
+    search_hosts = base_app.config["SEARCH_OPENSEARCH_HOSTS"]
     search_client_config = base_app.config["SEARCH_CLIENT_CONFIG"]
-    es = OpenSearch(
+    open_search = OpenSearch(
         hosts=[{'host': search_hosts, 'port': 9200}],
         http_auth=search_client_config['http_auth'],
         use_ssl=search_client_config['use_ssl'],
         verify_certs=search_client_config['verify_certs'],
     )
-    es.indices.delete_alias(
+    open_search.indices.delete_alias(
         index=base_app.config["INDEXER_DEFAULT_INDEX"],
         name=base_app.config["SEARCH_UI_SEARCH_INDEX"],
         ignore=[400, 404],
     )
-    es.indices.delete(index=base_app.config["INDEXER_DEFAULT_INDEX"], ignore=[400, 404])
+    open_search.indices.delete(index=base_app.config["INDEXER_DEFAULT_INDEX"], ignore=[400, 404])
 
-    es.indices.create(
+    open_search.indices.create(
         index=base_app.config["INDEXER_DEFAULT_INDEX"], body=mapping, ignore=[400, 404]
     )
-    es.indices.put_alias(
+    open_search.indices.put_alias(
         index=base_app.config["INDEXER_DEFAULT_INDEX"],
         name=base_app.config["SEARCH_UI_SEARCH_INDEX"],
         ignore=[400, 404],
     )
     with base_app.app_context():
-        yield es
+        yield open_search
 
 @pytest.fixture()
 def i18n_app(app):

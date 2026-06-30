@@ -32,8 +32,6 @@ API:
         print rec.raw
 """
 
-from __future__ import absolute_import, print_function
-
 import datetime
 
 from flask import current_app, render_template

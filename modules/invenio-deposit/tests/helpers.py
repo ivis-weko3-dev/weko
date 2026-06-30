@@ -9,12 +9,10 @@
 
 """Pytest helpers."""
 
-from __future__ import absolute_import, print_function
-
 import binascii
 from copy import deepcopy
 
-from six import BytesIO
+from io import BytesIO
 
 
 def stringio_to_base64(stringio_obj):

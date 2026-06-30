@@ -25,13 +25,13 @@
 {%- block css %}
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
   {{ super() }}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/weko_theme/sidebar.css')}}">
+  {{ webpack['theme-css-sidebar.css'] }}
   {{ webpack['search-ui-css-weko-search-ui.css'] }}
 {%- endblock css %}
 
 {%- block javascript %}
   {{ super() }}
-  <script src="{{ url_for('static', filename='js/weko_theme/sidebar.js')}}"></script>
+  {{ webpack["theme-js-sidebar.js"] }}
   <script src="{{ url_for('static', filename='js/weko_theme/inline.bundle.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/weko_theme/polyfills.bundle.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/weko_theme/main.bundle.js') }}" defer></script>

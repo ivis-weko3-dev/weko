@@ -10,20 +10,18 @@
 
 """Pytest configuration."""
 
-from __future__ import absolute_import, print_function
-
+import invenio_oauth2server._compat  # noqa isort:skip
 import os
+import pytest
 import shutil
 import tempfile
-from unittest.mock import MagicMock
 
-import pytest
 from flask import Flask, url_for
 from flask.cli import ScriptInfo
 from flask.views import MethodView
 from flask_mail import Mail
 from flask_menu import Menu
-from .helpers import create_oauth_client, patch_request
+from unittest.mock import MagicMock
 from invenio_accounts import InvenioAccountsREST, InvenioAccountsUI
 from invenio_accounts.models import User
 from invenio_accounts.views.settings import (
@@ -31,15 +29,14 @@ from invenio_accounts.views.settings import (
 )
 from invenio_db import InvenioDB, db
 from invenio_i18n import InvenioI18N
-from six import get_method_self
-from sqlalchemy_utils.functions import create_database, database_exists, drop_database
-
 from invenio_oauth2server import InvenioOAuth2Server, InvenioOAuth2ServerREST
 from invenio_oauth2server.decorators import require_api_auth, require_oauth_scopes
 from invenio_oauth2server.models import Client, Scope, Token
 from invenio_oauth2server.views import server_blueprint, settings_blueprint
+from sqlalchemy_utils.functions import create_database, database_exists, drop_database
 
-import invenio_oauth2server._compat  # noqa isort:skip
+
+from .helpers import create_oauth_client, patch_request
 
 try:
     from werkzeug.middleware.dispatcher import DispatcherMiddleware
@@ -132,7 +129,7 @@ def app(request):
 @pytest.fixture()
 def api_app(app):
     """Retrieve the REST API application."""
-    return get_method_self(app.wsgi_app.mounts["/api"])
+    return getattr(app.wsgi_app.mounts["/api"], "__self__", None)
 
 
 @pytest.fixture()

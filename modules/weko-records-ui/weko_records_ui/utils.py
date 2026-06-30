@@ -20,29 +20,24 @@
 
 """Module of weko-records-ui utils."""
 
+import copy
+import csv
 import base64
+import json
 import hashlib
 import os
-import csv
-import json
 import re
-import six
 import datetime
+
 from datetime import datetime as dt, timezone
 from datetime import timedelta
 from decimal import Decimal
-from typing import List, Optional, Tuple
-from urllib.parse import quote
-from io import StringIO
-import copy
 
 from flask import abort, current_app, json, request
 from flask_babel import gettext as _
 from flask_babel import to_utc
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_babelex import gettext as _
-from flask_babelex import to_utc
 from flask_login import current_user
 from invenio_accounts.models import Role, User
 from invenio_cache import current_cache
@@ -55,8 +50,11 @@ from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records.models import RecordMetadata
 from invenio_records_ui.utils import obj_or_import_string
+from io import StringIO
 from lxml import etree
 from passlib.handlers.oracle import oracle10
+from typing import List, Optional, Tuple
+from urllib.parse import quote
 from weko_admin.models import AdminSettings
 from weko_admin.utils import UsageReport, get_restricted_access
 from weko_deposit.api import WekoDeposit, WekoRecord
@@ -306,7 +304,7 @@ def delete_version(recid):
                 id=pid.object_uuid).first()
         dep = WekoDeposit(rec.json, rec)
         dep['publish_status'] = PublishStatus.DELETE.value
-        dep.indexer.update_es_data(dep, update_revision=False, field='publish_status')
+        dep.indexer.update_search_data(dep, update_revision=False, field='publish_status')
         FeedbackMailList.delete(pid.object_uuid)
         dep.remove_feedback_mail()
         for f in dep.files:
@@ -490,7 +488,7 @@ def soft_delete(recid):
             dep = WekoDeposit(rec.json, rec)
             #dep['path'] = []
             dep['publish_status'] = PublishStatus.DELETE.value
-            dep.indexer.update_es_data(dep, update_revision=False, field='publish_status')
+            dep.indexer.update_search_data(dep, update_revision=False, field='publish_status')
             FeedbackMailList.delete(ver.object_uuid)
             dep.remove_feedback_mail()
             RequestMailList.delete(ver.object_uuid)
@@ -546,7 +544,7 @@ def restore(recid):
                     id=ver.object_uuid).first()
                 dep = WekoDeposit(rec.json, rec)
                 dep['publish_status'] = PublishStatus.PUBLIC.value
-                dep.indexer.update_es_data(dep, update_revision=False, field='publish_status')
+                dep.indexer.update_search_data(dep, update_revision=False, field='publish_status')
                 dep.commit()
             pids = PersistentIdentifier.query.filter_by(
                 object_uuid=ver.object_uuid)
@@ -2835,7 +2833,7 @@ def export_preprocess(pid, record, schema_type):
         serializer = obj_or_import_string(fmt['serializer'])
         data = serializer.serialize(pid, record)
 
-        if isinstance(data, six.binary_type):
+        if isinstance(data, bytes):
             data = data.decode('utf8')
 
         return data

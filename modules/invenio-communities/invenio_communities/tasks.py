@@ -8,16 +8,14 @@
 
 """OpenAIRE service integration for Invenio repositories."""
 
-from __future__ import absolute_import, print_function
-
+from celery import shared_task
 from datetime import datetime
 
-from celery import shared_task
 from flask import current_app
 from invenio_db import db
 
-from .models import Community, InclusionRequest
 from weko_handle.api import Handle
+from .models import Community, InclusionRequest
 
 
 # @shared_task(ignore_result=True)

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Pytest for weko-logging configuration."""
 
-from datetime import datetime
 import logging
 import shutil
 import tempfile
@@ -12,10 +11,10 @@ import shutil
 import tempfile
 import pytest
 
+from datetime import datetime
 from flask import Flask
-from flask_babelex import Babel
+from flask_babel import Babel
 from flask_menu import Menu
-from sqlalchemy_utils.functions import create_database, database_exists
 
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionUsers, ActionRoles
@@ -31,6 +30,7 @@ from invenio_db import db as db_
 from invenio_files_rest.ext import InvenioFilesREST
 from invenio_files_rest.models import Location
 from invenio_i18n import InvenioI18N
+from sqlalchemy_utils.functions import create_database, database_exists
 
 from weko_admin import WekoAdmin
 from weko_redis.redis import RedisConnection

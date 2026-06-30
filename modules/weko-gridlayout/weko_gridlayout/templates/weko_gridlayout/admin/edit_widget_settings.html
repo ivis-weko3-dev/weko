@@ -64,6 +64,6 @@
   {{ webpack['gridlayout_js_trumbowyg_js_plugin.js']}}
   <script type="text/javascript"
           src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  {% assets "weko_admin_date_picker_js" %}<script type="text/javascript" src="{{ ASSET_URL }}"></script>{% endassets %}
+  {{ webpack["admin_js_date_picker_js.js"]}}
 
 {%- endblock javascript %}

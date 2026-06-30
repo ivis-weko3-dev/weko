@@ -6,23 +6,21 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 
 """Module of weko-sitemap."""
-
-from __future__ import absolute_import, print_function
-
 import gzip
-from datetime import datetime
-from functools import wraps
-from io import BytesIO
 
+from datetime import datetime
 from flask import Blueprint, Response, current_app, render_template, url_for
 from flask_babel import format_datetime
 from flask_sitemap import Sitemap, sitemap_page_needed
+from functools import wraps
+from io import BytesIO
+
 from invenio_cache import current_cache
 from invenio_db import db
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records.models import RecordMetadata
-from weko_records.models import ItemMetadata
 from sqlalchemy import Float, Integer, cast, not_
+from weko_records.models import ItemMetadata
 
 from . import config
 

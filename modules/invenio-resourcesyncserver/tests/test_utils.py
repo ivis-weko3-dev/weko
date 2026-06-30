@@ -1,13 +1,13 @@
-import os
-import json
 import copy
+import datetime
+import json
+import os
 import pytest
 import unittest
-import datetime
-from unittest.mock import patch, MagicMock, Mock
+
 from flask import current_app, make_response, request
-from flask_login import current_user
 from flask_babel import Babel
+from flask_login import current_user
 
 from invenio_resourcesyncserver.api import ResourceListHandler, ChangeListHandler
 from invenio_resourcesyncserver.utils import (
@@ -20,6 +20,7 @@ from invenio_resourcesyncserver.utils import (
     get_timezone,
     get_pid
 )
+from unittest.mock import patch, MagicMock, Mock
 
 
 def sample_ResourceListHandler():
@@ -89,7 +90,7 @@ def test_render_well_know_resourcesync(i18n_app):
 
 
 # def query_record_changes(repository_id,
-def test_query_record_changes(i18n_app, db, search_result, indices, es):
+def test_query_record_changes(i18n_app, db, search_result, indices, open_search):
     test = sample_ResourceListHandler()
 
     # db.session.add(test)
@@ -176,6 +177,6 @@ def test_get_timezone(i18n_app):
 
 
 # def get_pid(pid):
-def test_get_pid(i18n_app, es_records):
+def test_get_pid(i18n_app, search_records):
     assert get_pid(1)
     assert not get_pid(11)

@@ -8,8 +8,6 @@
 
 """Invenio-Communities database models."""
 
-from __future__ import absolute_import, print_function
-
 import hashlib
 from datetime import datetime
 
@@ -18,11 +16,12 @@ from invenio_accounts.models import Role, User
 from invenio_db import db
 from invenio_records.api import Record
 from invenio_records.models import RecordMetadata
-from sqlalchemy import or_
+from sqlalchemy import or_, cast, String
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import FlushError
 from sqlalchemy_utils.models import Timestamp
-from sqlalchemy_utils.types import UUIDType
+from sqlalchemy_utils.types import UUIDType, JSONType
 from weko_index_tree.models import Index
 
 from .errors import CommunitiesError, InclusionRequestExistsError, \
@@ -30,9 +29,6 @@ from .errors import CommunitiesError, InclusionRequestExistsError, \
     InclusionRequestObsoleteError
 from .signals import inclusion_request_created
 from .utils import save_and_validate_logo
-from sqlalchemy.dialects import postgresql
-from sqlalchemy_utils.types import JSONType
-from sqlalchemy import cast, String
 
 class InclusionRequest(db.Model, Timestamp):
     """Association table for Community and Record models.

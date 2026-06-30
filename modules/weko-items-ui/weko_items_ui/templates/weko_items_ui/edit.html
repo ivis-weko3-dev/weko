@@ -43,7 +43,7 @@
   {{ webpack['js-dependencies.js']}}
   <script src="/assets/js/weko_admin/react-bootstrap.min.js"></script>
   {{ webpack['items_ui_js_feedback_maillist.js']}}
-  {% assets "weko_items_ui_request_maillist_js" %}<script type="text/babel" src="{{ ASSET_URL }}"></script>{% endassets %}
+  {{ webpack["items_ui_js_request_maillist.js"]}}
   {{ super() }}
   {{ webpack['deposit_js_js.js']}}
   {{ webpack['items_ui_js_app.js']}}

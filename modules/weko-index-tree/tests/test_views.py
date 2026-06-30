@@ -1,15 +1,16 @@
 import json
 import pytest
+
 from flask import current_app, make_response, request
 from flask_login import current_user
 from mock import patch
-from werkzeug.local import LocalProxy
 
 from invenio_accounts.testutils import login_user_via_session
-
 from invenio_oauth2server.models import Token
+
 from weko_index_tree.models import Index
 from weko_index_tree.views import set_expand, get_rss_data, create_index
+from werkzeug.local import LocalProxy
 
 
 user_results = [
@@ -32,7 +33,7 @@ def test_get_rss_data(app, i18n_app, indices, mock_user_ctx, client_request_args
             ]
         }
     }
-    with patch('weko_index_tree.views.get_elasticsearch_records_data_by_indexes', return_value=_data):
+    with patch('weko_index_tree.views.get_search_records_data_by_indexes', return_value=_data):
         with patch('weko_items_ui.utils.find_hidden_items', return_value=['1']):
             with patch('weko_gridlayout.utils.build_rss_xml', return_value='test'):
                 res = get_rss_data()

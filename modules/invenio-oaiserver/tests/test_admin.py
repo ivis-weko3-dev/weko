@@ -20,9 +20,9 @@ from invenio_oaiserver.models import OAISet, Identify
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_admin.py::test_admin -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 
-def test_admin(es_app, db,without_oaiset_signals):
+def test_admin(search_app, db,without_oaiset_signals):
     """Test Flask-Admin interace."""
-    admin = Admin(es_app, name="Test")
+    admin = Admin(search_app, name="Test")
 
     assert "model" in set_adminview
     assert "modelview" in set_adminview
@@ -45,7 +45,7 @@ def test_admin(es_app, db,without_oaiset_signals):
     assert isinstance(submenu_items["Sets"], menu.MenuView)
 
     # Create a test set.
-    with es_app.app_context():
+    with search_app.app_context():
         test_set = OAISet(
             id=1,
             spec="test",
@@ -57,12 +57,12 @@ def test_admin(es_app, db,without_oaiset_signals):
         db.session.add(test_set)
         db.session.commit()
 
-    with es_app.test_request_context():
+    with search_app.test_request_context():
         index_view_url = url_for("oaiset.index_view")
         delete_view_url = url_for("oaiset.delete_view")
         detail_view_url = url_for("oaiset.details_view", id=1)
 
-    with es_app.test_client() as client:
+    with search_app.test_client() as client:
         # List index view and check record is there.
         res = client.get(index_view_url)
         assert res.status_code == 200
@@ -77,9 +77,9 @@ def test_admin(es_app, db,without_oaiset_signals):
         assert 1 == OAISet.query.count()
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_admin.py::test_OAISetModelView -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_OAISetModelView(es_app, db,without_oaiset_signals):
+def test_OAISetModelView(search_app, db,without_oaiset_signals):
     
-    admin = Admin(es_app, name='Test')
+    admin = Admin(search_app, name='Test')
     
     copy_modelview = copy.deepcopy(set_adminview)
     model = copy_modelview.pop('model')
@@ -99,7 +99,7 @@ def test_OAISetModelView(es_app, db,without_oaiset_signals):
         "description":"sone new test description",
         "search_pattern":"new test search"
     }
-    with es_app.test_client() as client:
+    with search_app.test_client() as client:
         res = client.post(url,data=data)
         result = OAISet.query.filter_by(id=1).one()
         assert result.name == "new_test_name"

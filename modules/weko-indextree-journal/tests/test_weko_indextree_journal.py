@@ -8,8 +8,6 @@
 
 """Module tests."""
 
-from __future__ import absolute_import, print_function
-
 from flask import Flask
 
 from weko_indextree_journal import WekoIndextreeJournal, WekoIndextreeJournalREST

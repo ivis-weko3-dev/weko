@@ -8,11 +8,9 @@
 
 """Test package API."""
 
-from __future__ import absolute_import, print_function
-
+from invenio_mail.api import TemplatedMessage, send_mail
 from unittest.mock import patch
 from smtplib import SMTPServerDisconnected
-from invenio_mail.api import TemplatedMessage, send_mail
 
 # .tox/c1/bin/pytest --cov=invenio_mail tests/test_invenio_mail_api.py::test_TempatedMessage -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-mail/.tox/c1/tmp
 def test_TempatedMessage(app,email_params, email_ctx):

@@ -8,8 +8,6 @@
 
 """Background tasks to prepare cache with thumbnails."""
 
-from __future__ import absolute_import, print_function
-
 from celery import shared_task
 from flask_iiif.restful import IIIFImageAPI
 

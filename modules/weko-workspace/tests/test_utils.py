@@ -21,14 +21,14 @@
 """Module tests."""
 
 import json
-from datetime import datetime, timedelta, timezone
-
 import pytest
 import requests
-from elasticsearch.exceptions import TransportError
-from flask_babelex import gettext as _
+
+from datetime import datetime, timedelta, timezone
+from flask_babel import gettext as _
 from flask_login import login_user
 from invenio_cache.proxies import current_cache
+from invenio_search.engine import search
 from sqlalchemy.exc import SQLAlchemyError
 from unittest.mock import MagicMock, Mock, call, patch
 
@@ -90,7 +90,7 @@ from weko_workspace.utils import (
     get_specific_key_path,
     get_subschema,
     get_workspace_filterCon,
-    get_es_itemlist,
+    get_search_itemlist,
     get_workspace_status_management,
     get_accessCnt_downloadCnt,
     get_item_status,
@@ -155,8 +155,8 @@ def test_get_workspace_filterCon(users, users_index, mock_setup, expected_respon
             mock_filter.with_entities.assert_called_once_with(WorkspaceDefaultConditions.default_con)
 
 
-# ===========================def get_es_itemlist():=====================================
-# .tox/c1/bin/pytest tests/test_utils.py::test_get_es_itemlist -vv -s --cov-branch --cov=weko_workspace --cov-report=term --basetemp=/code/modules/weko-workspace/tests/.tox/c1/tmp
+# ===========================def get_search_itemlist():=====================================
+# .tox/c1/bin/pytest tests/test_utils.py::test_get_search_itemlist -vv -s --cov-branch --cov=weko_workspace --cov-report=term --basetemp=/code/modules/weko-workspace/tests/.tox/c1/tmp
 @pytest.mark.parametrize('mock_responses, mock_exception, expected_response', [
     (
         [
@@ -189,7 +189,7 @@ def test_get_workspace_filterCon(users, users_index, mock_setup, expected_respon
     ),
     (
         [],
-        TransportError(500, 'Server Error'),
+        search.TransportError(500, 'Server Error'),
         None
     ),
     (
@@ -198,7 +198,7 @@ def test_get_workspace_filterCon(users, users_index, mock_setup, expected_respon
         None
     )
 ])
-def test_get_es_itemlist(app, mock_responses, mock_exception, expected_response):
+def test_get_search_itemlist(app, mock_responses, mock_exception, expected_response):
     with patch('weko_workspace.utils.RecordsSearch') as mock_search_cls:
         mock_search = MagicMock()
         
@@ -229,7 +229,7 @@ def test_get_es_itemlist(app, mock_responses, mock_exception, expected_response)
         mock_search.query.return_value = mock_search
         mock_search.sort.return_value = mock_search
 
-        result = get_es_itemlist()
+        result = get_search_itemlist()
         assert result == expected_response
 
 

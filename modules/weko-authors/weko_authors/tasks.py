@@ -25,28 +25,28 @@ import gc, json, csv
 import sys
 import tempfile
 import traceback
-from datetime import datetime, timezone
-from time import sleep
 
 from celery import shared_task, states, group
-from celery.result import GroupResult
 from celery.app.control import Inspect
+from celery.result import GroupResult
+from datetime import datetime, timezone
 from flask import current_app
-from flask_babelex import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from invenio_cache import current_cache
-from weko_logging.activity_logger import UserActivityLogger
-from weko_workflow.utils import delete_cache_data, get_cache_data
-
+from invenio_search.engine import search
 from sqlalchemy.exc import SQLAlchemyError
-from elasticsearch import ElasticsearchException
+from time import sleep
 
 from weko_authors.config import WEKO_AUTHORS_IMPORT_CACHE_KEY
+from weko_logging.activity_logger import UserActivityLogger
+from weko_workflow.utils import delete_cache_data, get_cache_data
 
 from .utils import (
     export_authors, import_author_to_system, save_export_url, set_export_status,
     export_prefix, import_id_prefix_to_system, import_affiliation_id_to_system,
     get_check_base_name, handle_exception, update_cache_data
 )
+
 
 @shared_task
 def export_all(export_target, user_id):
@@ -96,7 +96,7 @@ def import_author(author, force_change_mode, request_info):
             except SQLAlchemyError as ex:
                 traceback.print_exc(file=sys.stdout)
                 handle_exception(ex, attempt, retrys, interval)
-            except ElasticsearchException as ex:
+            except search.OpenSearchException as ex:
                 traceback.print_exc(file=sys.stdout)
                 handle_exception(ex, attempt, retrys, interval)
             except TimeoutError as ex:

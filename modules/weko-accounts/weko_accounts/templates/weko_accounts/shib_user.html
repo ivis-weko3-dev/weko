@@ -28,7 +28,7 @@
       {%- endblock form_header %}
       {%- block form_outer %}
       <div class="row navbar-btn"><div class="col-sm-12">
-        <form action={{url_for("weko_accounts.shib_sp_login")}} method="POST">
+        <form action="{{url_for('weko_accounts.shib_sp_login')}}" method="POST">
           <div class="form-group form-group-lg has-feedback">
             <input autofocus="" class="form-control" id="shib_email" name="SHIB_ATTR_MAIL" placeholder="SHIB_ATTR_MAIL" type="text" value="">
             <i class="fa fa-envelope form-control-feedback" aria-hidden="true"></i>

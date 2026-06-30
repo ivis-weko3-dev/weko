@@ -8,8 +8,6 @@
 
 """Deposit listeners."""
 
-from __future__ import absolute_import, print_function
-
 from invenio_indexer.tasks import index_record
 
 

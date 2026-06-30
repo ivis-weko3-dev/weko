@@ -19,9 +19,6 @@
 
 """OAI harvester errors."""
 
-from __future__ import absolute_import, print_function
-
-
 class InvenioOAIHarvesterError(Exception):
     """Base exception for invenio-oaiharvester."""
 

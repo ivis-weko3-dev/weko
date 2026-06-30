@@ -9,16 +9,16 @@
 
 """Aggregation classes."""
 
-from functools import wraps
+import click
+import json
 
 from datetime import datetime
-import click
 from dateutil.parser import parse as dateutil_parse
 from flask import current_app
 from flask.cli import with_appcontext
-from werkzeug.local import LocalProxy
+from functools import wraps
 from invenio_db import db
-import json
+from werkzeug.local import LocalProxy
 
 from .proxies import current_stats
 from .tasks import aggregate_events, process_events
@@ -153,7 +153,7 @@ def _events_process(event_types=None, eager=False):
 )
 @with_appcontext
 def _events_delete(event_types, start_date, end_date, force, verbose):
-    """Delete event index(es) on search engine.
+    """Delete event index(open_search) on search engine.
 
     EVENT_TYPES: The event types.
     (event type value: celery-task|file-download|file-preview|record-view|
@@ -201,7 +201,7 @@ def _events_delete(event_types, start_date, end_date, force, verbose):
 )
 @with_appcontext
 def _events_restore(event_types, start_date, end_date, force, verbose):
-    """Restore event index(es) on search engine based on Database.
+    """Restore event index(open_search) on search engine based on Database.
 
     EVENT_TYPES: The event types.
     (event type value: celery-task|file-download|file-preview|record-view|

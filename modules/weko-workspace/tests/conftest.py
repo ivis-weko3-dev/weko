@@ -20,73 +20,106 @@
 
 """Pytest configuration."""
 
-import os, sys
+import base64
+import json
+import os
+import pytest
+import sys
 import shutil
 import tempfile
-import json
 import uuid
-from datetime import datetime
-from six import BytesIO
-import base64
-from mock import patch,Mock
 
-import pytest
+from datetime import datetime
 from flask import Flask, url_for, Response
-from flask_babelex import Babel, lazy_gettext as _
+from flask_babel import Babel, lazy_gettext as _
 from flask_menu import Menu
-from elasticsearch import Elasticsearch
-from invenio_assets import InvenioAssets
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionUsers,ActionRoles
-from invenio_accounts.testutils import create_test_user
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import User, Role
-from invenio_i18n import InvenioI18N
-from invenio_cache import InvenioCache
+from invenio_accounts.testutils import create_test_user
+from invenio_assets import InvenioAssets
 from invenio_admin import InvenioAdmin
-from invenio_db import InvenioDB, db as db_
-from invenio_stats import InvenioStats
-from invenio_search import RecordsSearch,InvenioSearch
-from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
+from invenio_cache import InvenioCache
+from invenio_communities.views.ui import (
+    blueprint as invenio_communities_blueprint
+)
 from invenio_communities.models import Community
-from invenio_jsonschemas import InvenioJSONSchemas
-from invenio_records_ui import InvenioRecordsUI
-from weko_search_ui.config import WEKO_SYS_USER
-from weko_records_ui import WekoRecordsUI
-from weko_admin import WekoAdmin
-from weko_user_profiles import WekoUserProfiles
-from weko_index_tree.models import Index
-from weko_workflow import WekoWorkflow
-from weko_workspace import WekoWorkspace
-from weko_search_ui import WekoSearchUI
-from weko_theme import WekoTheme
-from weko_workflow.models import WorkFlow, FlowDefine, FlowAction, Action, ActionStatus
-from weko_workflow.views import workflow_blueprint as weko_workflow_blueprint
-from weko_workspace.views import workspace_blueprint as weko_workspace_blueprint
-from weko_workflow.config import WEKO_WORKFLOW_ACTION_START,WEKO_WORKFLOW_ACTION_END,WEKO_WORKFLOW_ACTION_ITEM_REGISTRATION,WEKO_WORKFLOW_ACTION_APPROVAL,WEKO_WORKFLOW_ACTION_ITEM_LINK,WEKO_WORKFLOW_ACTION_OA_POLICY_CONFIRMATION,WEKO_WORKFLOW_ACTION_IDENTIFIER_GRANT,WEKO_WORKFLOW_ACTION_ITEM_REGISTRATION_USAGE_APPLICATION,WEKO_WORKFLOW_ACTION_GUARANTOR,WEKO_WORKFLOW_ACTION_ADVISOR,WEKO_WORKFLOW_ACTION_ADMINISTRATOR,WEKO_WORKFLOW_ACTIVITYLOG_XLS_COLUMNS, DOI_VALIDATION_INFO, DOI_VALIDATION_INFO_CROSSREF, DOI_VALIDATION_INFO_DATACITE, DOI_VALIDATION_INFO_JALC
-from sqlalchemy_utils.functions import create_database, database_exists
-from tests.helpers import json_data
+from invenio_db import InvenioDB, db as db_
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location
-from invenio_records import InvenioRecords
+from invenio_i18n import InvenioI18N
+from invenio_jsonschemas import InvenioJSONSchemas
 from invenio_oauth2server import InvenioOAuth2Server
 from invenio_pidrelations import InvenioPIDRelations
 from invenio_pidstore import InvenioPIDStore
-from weko_index_tree.models import Index
-from weko_schema_ui.config import WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,WEKO_SCHEMA_DDI_SCHEMA_NAME
-from weko_items_ui import WekoItemsUI
-from weko_admin import WekoAdmin
-from weko_deposit import WekoDeposit
-from weko_records.models import OaStatus, ItemTypeName, ItemType, ItemTypeMapping, ItemTypeProperty
-from weko_records.api import Mapping
-from weko_workspace.views import workspace_blueprint as weko_workspace_blueprint
-from weko_workspace.views import blueprint_itemapi as weko_workspace_blueprint_itemapi
+from invenio_records import InvenioRecords
+from invenio_records_ui import InvenioRecordsUI
+from invenio_stats import InvenioStats
+from invenio_search import RecordsSearch,InvenioSearch
+from invenio_search.engine import search
+from io import BytesIO
+from mock import patch,Mock
+from sqlalchemy_utils.functions import create_database, database_exists
+from tests.helpers import json_data
 
-from weko_workspace.models import WorkspaceDefaultConditions,WorkspaceStatusManagement
-from weko_workspace.config import WEKO_WORKSPACE_CINII_REQUIRED_ITEM,\
-    WEKO_WORKSPACE_JALC_REQUIRED_ITEM, WEKO_WORKSPACE_DATACITE_REQUIRED_ITEM,\
-    WEKO_WORKSPACE_OA_STATUS_MAPPING
+from weko_admin import WekoAdmin
+from weko_index_tree.models import Index
+from weko_items_ui import WekoItemsUI
+from weko_deposit import WekoDeposit
+from weko_records.models import (
+    OaStatus, ItemTypeName, ItemType, ItemTypeMapping, ItemTypeProperty
+)
+from weko_records.api import Mapping
+from weko_records_ui import WekoRecordsUI
 from weko_redis.redis import RedisConnection
+from weko_schema_ui.config import (
+    WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME, WEKO_SCHEMA_DDI_SCHEMA_NAME
+)
+from weko_search_ui import WekoSearchUI
+from weko_search_ui.config import WEKO_SYS_USER
+from weko_theme import WekoTheme
+from weko_user_profiles import WekoUserProfiles
+from weko_workflow import WekoWorkflow
+from weko_workflow.config import (
+    WEKO_WORKFLOW_ACTION_START,
+    WEKO_WORKFLOW_ACTION_END,
+    WEKO_WORKFLOW_ACTION_ITEM_REGISTRATION,
+    WEKO_WORKFLOW_ACTION_APPROVAL,
+    WEKO_WORKFLOW_ACTION_ITEM_LINK,
+    WEKO_WORKFLOW_ACTION_OA_POLICY_CONFIRMATION,
+    WEKO_WORKFLOW_ACTION_IDENTIFIER_GRANT,
+    WEKO_WORKFLOW_ACTION_ITEM_REGISTRATION_USAGE_APPLICATION,
+    WEKO_WORKFLOW_ACTION_GUARANTOR,
+    WEKO_WORKFLOW_ACTION_ADVISOR,
+    WEKO_WORKFLOW_ACTION_ADMINISTRATOR,
+    WEKO_WORKFLOW_ACTIVITYLOG_XLS_COLUMNS,
+    DOI_VALIDATION_INFO,
+    DOI_VALIDATION_INFO_CROSSREF,
+    DOI_VALIDATION_INFO_DATACITE,
+    DOI_VALIDATION_INFO_JALC
+)
+from weko_workflow.models import (
+    WorkFlow, FlowDefine, FlowAction, Action, ActionStatus
+)
+from weko_workflow.views import workflow_blueprint as weko_workflow_blueprint
+from weko_workspace import WekoWorkspace
+from weko_workspace.config import (
+    WEKO_WORKSPACE_CINII_REQUIRED_ITEM,
+    WEKO_WORKSPACE_JALC_REQUIRED_ITEM,
+    WEKO_WORKSPACE_DATACITE_REQUIRED_ITEM,
+    WEKO_WORKSPACE_OA_STATUS_MAPPING
+)
+from weko_workspace.models import (
+    WorkspaceDefaultConditions, WorkspaceStatusManagement
+)
+from weko_workspace.views import (
+    workspace_blueprint as weko_workspace_blueprint
+)
+from weko_workspace.views import (
+    blueprint_itemapi as weko_workspace_blueprint_itemapi
+)
+
 
 sys.path.append(os.path.dirname(__file__))
 class TestSearch(RecordsSearch):
@@ -115,18 +148,18 @@ def instance_path():
     yield path
     shutil.rmtree(path)
 
-class MockEs():
+class MockSearch():
     def __init__(self,**keywargs):
         self.indices = self.MockIndices()
-        self.es = Elasticsearch()
+        self.open_search = search.OpenSearch()
         self.cluster = self.MockCluster()
-    def index(self, id="",version="",version_type="",index="",doc_type="",body="",**arguments):
+    def index(self, id="",version="",version_type="",index="",body="",**arguments):
         pass
-    def delete(self,id="",index="",doc_type="",**kwargs):
+    def delete(self,id="",index="",**kwargs):
         return Response(response=json.dumps({}),status=500)
     @property
     def transport(self):
-        return self.es.transport
+        return self.open_search.transport
     class MockIndices():
         def __init__(self,**keywargs):
             self.mapping = dict()
@@ -437,7 +470,6 @@ def base_app(instance_path, search_class, cache_config):
         WEKO_BUCKET_QUOTA_SIZE=50 * 1024 * 1024 * 1024,
         WEKO_MAX_FILE_SIZE=50 * 1024 * 1024 * 1024,
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         INDEXER_DEFAULT_DOC_TYPE='testrecord',
         INDEXER_DEFAULT_INDEX=search_class.Meta.index,
@@ -512,7 +544,7 @@ def base_app(instance_path, search_class, cache_config):
     InvenioRecordsUI(app_)
     WekoTheme(app_)
     WekoRecordsUI(app_)
-    search = InvenioSearch(app_, client=MockEs())
+    search = InvenioSearch(app_, client=MockSearch())
     search.register_mappings(search_class.Meta.index, 'mock_module.mappings')
     WekoSearchUI(app_)
     WekoWorkflow(app_)

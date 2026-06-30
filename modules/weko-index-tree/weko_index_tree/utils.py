@@ -22,17 +22,13 @@
 import os
 import sys
 import traceback
-from datetime import date, datetime, time, timedelta, timezone
-from functools import wraps
-from operator import itemgetter
 
-from invenio_search.engine import search, dsl
+from datetime import date, datetime, time, timedelta, timezone
 from flask import Markup, current_app, session, json, Flask
-from flask_babel import get_locale
 from flask_babel import gettext as _
-from flask_babel import to_user_timezone, to_utc
+from flask_babel import to_user_timezone, to_utc, get_locale
 from flask_login import current_user
-from sqlalchemy import and_
+from functools import wraps
 from invenio_accounts.models import Role
 from invenio_cache import current_cache
 from invenio_communities.models import Community
@@ -40,8 +36,11 @@ from invenio_db import db
 from invenio_i18n.ext import current_i18n
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_search import RecordsSearch
+from invenio_search.engine import search, dsl
 from invenio_search.utils import build_alias_name
+from operator import itemgetter
 from simplekv.memory.redisstore import RedisStore
+from sqlalchemy import and_
 from weko_admin.utils import is_exists_key_in_redis
 from weko_groups.models import Group
 from weko_logging.activity_logger import UserActivityLogger
@@ -594,7 +593,7 @@ def get_admin_coverpage_setting():
     return avail == 'enable'
 
 
-def get_elasticsearch_records_data_by_indexes(index_ids, start_date, end_date):
+def get_search_records_data_by_indexes(index_ids, start_date, end_date):
     """Get data from search engine.
 
     Arguments:
@@ -711,7 +710,7 @@ def count_items(indexes_aggr):
 def recorrect_private_items_count(agp):
     """Re-correct private item count in case of unpublished items.
 
-    :param agp: aggregation returned from ES
+    :param agp: aggregation returned from Search
     :return:
     """
     for agg in agp:
@@ -729,14 +728,14 @@ def check_doi_in_index(index_id):
     @return:
     """
     try:
-        if check_doi_in_list_record_es(index_id):
+        if check_doi_in_list_record_search(index_id):
             return True
         return False
     except Exception:
         return True
 
 
-def get_record_in_es_of_index(index_id, recursively=True):
+def get_record_in_search_of_index(index_id, recursively=True):
     """Get all records belong to Index ID.
 
     @param index_id:
@@ -768,16 +767,16 @@ def get_record_in_es_of_index(index_id, recursively=True):
     return execute_search_with_pagination(search, max_result_size=-1)
 
 
-def check_doi_in_list_record_es(index_id):
+def check_doi_in_list_record_search(index_id):
     """Check doi in index.
 
     @param index_id:
     @return: True if the index do not update the index state to private.
 
     """
-    list_records_in_es = check_doi_in_index_and_child_index(index_id)
+    list_records_in_search = check_doi_in_index_and_child_index(index_id)
     list_path = []
-    for record in list_records_in_es:
+    for record in list_records_in_search:
         # If a record has only an index,
         # do not update the index state to private.
         if len(record.get('_source', {}).get('path', [])) <= 1:
@@ -817,8 +816,8 @@ def check_has_any_item_in_index_is_locked(index_id):
     """
     from weko_workflow.utils import check_an_item_is_locked
 
-    list_records_in_es = get_record_in_es_of_index(index_id)
-    for record in list_records_in_es:
+    list_records_in_search = get_record_in_search_of_index(index_id)
+    for record in list_records_in_search:
         item_id = record.get('_source', {}).get(
             '_item_metadata', {}).get('control_number')
         if check_an_item_is_locked(int(item_id)):
@@ -1210,7 +1209,7 @@ def get_editing_items_in_index(index_id, recursively=False):
     from weko_workflow.utils import bulk_check_an_item_is_locked
 
     result = []
-    records = get_record_in_es_of_index(index_id, recursively)
+    records = get_record_in_search_of_index(index_id, recursively)
     item_ids = [
         record.get('_source', {}).get('_item_metadata', {}).get('control_number')
         for record in records
@@ -1382,10 +1381,10 @@ def get_all_records_in_index(index_id):
     search = RecordsSearch(
         index=current_app.config['SEARCH_UI_SEARCH_INDEX']
     ).query(
-        Bool(filter=[
-            QueryString(query=query_string),
-            Q("terms", path=child_idx),
-            Q("terms", publish_status=[
+        dsl.Bool(filter=[
+            dsl.QueryString(query=query_string),
+            dsl.Q("terms", path=child_idx),
+            dsl.Q("terms", publish_status=[
                 PublishStatus.PUBLIC.value,
                 PublishStatus.PRIVATE.value
             ])

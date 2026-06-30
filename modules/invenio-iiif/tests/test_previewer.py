@@ -8,7 +8,6 @@
 
 """Test of image opener."""
 
-from __future__ import absolute_import, print_function
 from unittest.mock import patch
 
 from flask import make_response, current_app

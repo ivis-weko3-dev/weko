@@ -1,21 +1,22 @@
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
 import json
-from collections import OrderedDict
-import uuid
-import requests
-from unittest.mock import patch, MagicMock
-import responses
-
 import os
 import pytest
-from sqlalchemy.exc import SQLAlchemyError
+import requests
+import responses
+import uuid
+
+from collections import OrderedDict
+from unittest.mock import patch, MagicMock
+
 from flask import json, url_for, make_response
 from jinja2.exceptions import TemplateNotFound
 
 from invenio_accounts.testutils import login_user_via_session
+from invenio_communities.models import Community
 from invenio_oauth2server.provider import oauth2
 from invenio_pidstore.models import PersistentIdentifier
-from invenio_communities.models import Community
+from sqlalchemy.exc import SQLAlchemyError
 from weko_redis.redis import RedisConnection
 from weko_deposit.api import WekoDeposit, WekoRecord
 from weko_workflow.api import WorkActivity
@@ -20520,7 +20521,7 @@ def test_iframe_items_index_acl(app, client, users, id, status_code):
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_iframe_items_index_get_error -v -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_iframe_items_index_get_error(app, client, db_itemtype, users, db_records, db_workflow, esindex, mocker):
+def test_iframe_items_index_get_error(app, client, db_itemtype, users, db_records, db_workflow, search_index, mocker):
     login_user_via_session(client=client, email=users[0]["email"])
     mocker.patch("weko_items_ui.views.set_files_display_type")
     mocker.patch("weko_items_ui.views.get_thumbnails",return_value=[])
@@ -20552,7 +20553,7 @@ def test_iframe_items_index_get_error(app, client, db_itemtype, users, db_record
     assert res.status_code == 400
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_iframe_items_index_update_index_error -v -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_iframe_items_index_update_index_error(app, client, db_itemtype, users, db_records, db_workflow, esindex):
+def test_iframe_items_index_update_index_error(app, client, db_itemtype, users, db_records, db_workflow, search_index):
     login_user_via_session(client=client, email=users[0]["email"])
 
     url = url_for("weko_items_ui.iframe_items_index", pid_value=str(1), _external=True)
@@ -20576,7 +20577,7 @@ def test_iframe_items_index_update_index_error(app, client, db_itemtype, users, 
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_iframe_items_index_update_index -v -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_iframe_items_index_update_index(app, client, db_itemtype, users, db_records, db_workflow, esindex):
+def test_iframe_items_index_update_index(app, client, db_itemtype, users, db_records, db_workflow, search_index):
     login_user_via_session(client=client, email=users[0]["email"])
 
     url = url_for("weko_items_ui.iframe_items_index", pid_value=str(1), _external=True)
@@ -20601,7 +20602,7 @@ def test_iframe_items_index_update_index(app, client, db_itemtype, users, db_rec
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_iframe_items_index_get -v -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_iframe_items_index_get(app, client, db_itemtype, users, db_records, db_workflow, esindex):
+def test_iframe_items_index_get(app, client, db_itemtype, users, db_records, db_workflow, search_index):
     login_user_via_session(client=client, email=users[0]["email"])
 
     depid, recid, parent, doi, record, item = db_records[0]
@@ -20658,7 +20659,7 @@ def test_iframe_items_index_get(app, client, db_itemtype, users, db_records, db_
 
     # TODO POST, PUT
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_iframe_items_index_put_error -v -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_iframe_items_index_put_error(app, client, db_itemtype, users, db_records, db_workflow, esindex):
+def test_iframe_items_index_put_error(app, client, db_itemtype, users, db_records, db_workflow, search_index):
     login_user_via_session(client=client, email=users[0]["email"])
     headers = {'content-type': 'text/plain'}
 
@@ -20668,7 +20669,7 @@ def test_iframe_items_index_put_error(app, client, db_itemtype, users, db_record
         assert e.type==TemplateNotFound
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_iframe_items_index_put -v -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_iframe_items_index_put(app, client, db_itemtype, users, db_records, db_workflow, esindex):
+def test_iframe_items_index_put(app, client, db_itemtype, users, db_records, db_workflow, search_index):
     login_user_via_session(client=client, email=users[0]["email"])
     headers = {'content-type': 'application/json'}
 
@@ -20685,7 +20686,7 @@ def test_iframe_items_index_put(app, client, db_itemtype, users, db_records, db_
     assert res.status_code == 200
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_iframe_items_index_post -v -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_iframe_items_index_post(app, client, db_itemtype, users, db_records, db_workflow, esindex):
+def test_iframe_items_index_post(app, client, db_itemtype, users, db_records, db_workflow, search_index):
     login_user_via_session(client=client, email=users[0]["email"])
     headers = {'content-type': 'application/json'}
     depid, recid, parent, doi, record, item = db_records[0]
@@ -21207,7 +21208,7 @@ def test_prepare_edit_item_login(client_api, users, db_itemtype_15, mocker):
     mock_versioning = MagicMock()
     mock_versioning.object_uuid = str(uuid.uuid4())
     mock_versioning.last_child = mock_latest_pid
-    mocker.patch("weko_items_ui.views.PIDVersioning", return_value=mock_versioning)
+    mocker.patch("weko_items_ui.views.PIDNodeVersioning", return_value=mock_versioning)
     mock_user_roles = mocker.patch("weko_items_ui.views.get_user_roles")
     mock_user_roles.return_value = False, None
 
@@ -21407,8 +21408,8 @@ def test_prepare_delete_item_login(client_api, users, db_itemtype_15, mocker):
     mock_versioning = MagicMock()
     mock_versioning.object_uuid = str(uuid.uuid4())
     mock_versioning.last_child = mock_latest_pid
-    mocker.patch("weko_items_ui.views.PIDVersioning.__new__", return_value=mock_versioning)
-    mocker.patch("weko_items_ui.views.PIDVersioning.__init__")
+    mocker.patch("weko_items_ui.views.PIDNodeVersioning.__new__", return_value=mock_versioning)
+    mocker.patch("weko_items_ui.views.PIDNodeVersioning.__init__")
     mock_user_roles = mocker.patch("weko_items_ui.views.get_user_roles")
     mock_user_roles.return_value = False, None
 

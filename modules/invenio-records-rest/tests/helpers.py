@@ -17,7 +17,8 @@ from invenio_db import db
 from invenio_pidstore import current_pidstore
 from invenio_records import Record
 from jsonschema.exceptions import ValidationError
-from six.moves.urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse
+
 
 
 def get_json(response):

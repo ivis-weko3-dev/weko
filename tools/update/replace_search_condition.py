@@ -1,5 +1,5 @@
 """
-    The purpose of this batch program is to update existing Elasticsearch data
+    The purpose of this batch program is to update existing Search data
     to apply the latest advanced search settings.
 
     This program is intended to update only the target data that have been
@@ -12,23 +12,23 @@
     assumed to be modified to accommodate the change.
 
 """
+import logging
+import os
+import sys
 
-from sqlalchemy import create_engine
 from flask import current_app
-from elasticsearch.exceptions import TransportError
+from datetime import datetime
+from invenio_pidrelations.serializers.utils import serialize_relations
+from invenio_pidstore.models import PersistentIdentifier
 from invenio_records_rest.errors import PIDResolveRESTError
+from invenio_search.engine import search
+from jsonpath_ng.ext import parse
+from sqlalchemy import create_engine
+from sqlalchemy.orm.exc import NoResultFound
 from weko_deposit.api import WekoDeposit
 from weko_records.api import ItemsMetadata, FeedbackMailList
 from werkzeug.exceptions import InternalServerError
-from sqlalchemy.orm.exc import NoResultFound
-from jsonpath_ng.ext import parse
 from weko_records.utils import set_timestamp
-from invenio_pidrelations.serializers.utils import serialize_relations
-from invenio_pidstore.models import PersistentIdentifier
-from datetime import datetime
-import os
-import sys
-import logging
 
 # Get start time of batch program
 start_time = datetime.today()
@@ -122,7 +122,7 @@ def filter_records(records):
 
 
 def update_records_metadata():
-    """Update Elasticsearch information based on the contents of
+    """Update Search information based on the contents of
     records_metadata.
 
     Please refer to the function get_meta_records for the update target.
@@ -145,7 +145,7 @@ def update_records_metadata():
         data_count += 1
         deposit = WekoDeposit(rec.json, rec)
         try:
-            # Update Elasticsearch Metadata.
+            # Update Search Metadata.
             update_record_metadata(deposit, rec)
             ok_count += 1
         except PIDResolveRESTError as ex:
@@ -167,7 +167,7 @@ def update_records_metadata():
             batch_logger.warning(' ERROR ID:' + str(deposit.id))
             batch_logger.warning(' KeyError: {}.'.format(err))
             key_error += 1
-        except TransportError as ex:
+        except search.TransportError as ex:
             batch_logger.warning(' ERROR ID:' + str(deposit.id))
             batch_logger.warning(' ERROR-TransportError: {}.'.format(ex))
             transport_error += 1
@@ -184,7 +184,7 @@ def update_records_metadata():
 
 
 def update_record_metadata(deposit, record):
-    """Update Elasticsearch Metadata.
+    """Update Search Metadata.
 
     This function is based on WekoDeposit.commit() and does not update the DB.
 
@@ -219,7 +219,7 @@ def update_record_metadata(deposit, record):
                     deposit.jrc['_item_metadata']['_oai'].update(
                         dict(sets=setspec_list))
 
-    deposit.indexer.get_es_index()
+    deposit.indexer.get_search_index()
     deposit.indexer.upload_metadata(
                             deposit.jrc,
                             deposit.pid.object_uuid,

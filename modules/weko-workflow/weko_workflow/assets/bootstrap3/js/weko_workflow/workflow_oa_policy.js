@@ -1,9 +1,6 @@
-//require([
-//  "jquery",
-//  "bootstrap"
-//], function () {
 import "bootstrap";
 import $ from "jquery";
+
 $(document).ready(function () {
   var journalNames = {};
   var actionJournal = {};

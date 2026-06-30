@@ -11,32 +11,34 @@
 import copy
 import json
 import os
+import pytest
+import pytz
 import shutil
 import sys
 import tempfile
-from os.path import dirname, join
-import pytz
 import uuid
 
-import pytest
-from mock import patch
 
 from flask import Flask, g, url_for
 from flask_login import LoginManager, UserMixin
 from helpers import create_record
-from invenio_config import InvenioConfigDefault
 from invenio_access.models import ActionRoles
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.testutils import create_test_user
 from invenio_access import InvenioAccess
+from invenio_config import InvenioConfigDefault
 from invenio_db import InvenioDB
 from invenio_db import db as db_
-from invenio_i18n import InvenioI18N
 from invenio_indexer import InvenioIndexer
 from invenio_indexer.api import RecordIndexer
 from invenio_indexer.signals import before_record_index
+from invenio_i18n import InvenioI18N
 from invenio_pidstore import InvenioPIDStore
 from invenio_records import InvenioRecords
+from invenio_records_rest import InvenioRecordsREST, config
+from invenio_records_rest.facets import terms_filter
+from invenio_records_rest.utils import PIDConverter
+from invenio_records_rest.views import create_blueprint_from_app
 from invenio_rest import InvenioREST
 from invenio_search import (
     InvenioSearch,
@@ -44,11 +46,14 @@ from invenio_search import (
     current_search,
     current_search_client,
 )
+from invenio_search.engine import dsl
 from invenio_search.engine import search as search_engine
 from invenio_search.errors import IndexAlreadyExistsError
-from invenio_search.engine import dsl
+from mock import patch
+from os.path import dirname, join
 from sqlalchemy_utils.functions import create_database, database_exists
 from weko_admin.models import AdminSettings,FacetSearchSetting
+from weko_index_tree.models import Index
 from weko_records.models import ItemTypeName, ItemType, ItemTypeMapping
 from weko_redis.redis import RedisConnection
 from weko_records_ui.config import (
@@ -56,12 +61,7 @@ from weko_records_ui.config import (
     WEKO_PERMISSION_SUPER_ROLE_USER,
     WEKO_RECORDS_UI_LICENSE_DICT
 )
-from weko_index_tree.models import Index
 
-from invenio_records_rest import InvenioRecordsREST, config
-from invenio_records_rest.facets import terms_filter
-from invenio_records_rest.utils import PIDConverter
-from invenio_records_rest.views import create_blueprint_from_app
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -119,7 +119,7 @@ def app(request, search_class):
         endpoint=dict(
             search_class='conftest:TestSearch',
         )
-    def test_mytest(app, db, es):
+    def test_mytest(app, db, open_search):
         # ...
 
     This will parameterize the default 'recid' endpoint in
@@ -135,7 +135,7 @@ def app(request, search_class):
                 search_class='conftest:TestSearch',
             )
         )
-    def test_mytest(app, db, es):
+    def test_mytest(app, db, open_search):
         # ...
 
     This will fully parameterize RECORDS_REST_ENDPOINTS.
@@ -147,10 +147,9 @@ def app(request, search_class):
         PRESERVE_CONTEXT_ON_EXCEPTION=False,
         DEBUG=False,
         ACCOUNTS_JWT_ENABLE=False,
-        INDEXER_DEFAULT_DOC_TYPE="item-v1.0.0",
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-                    'SEARCH_ELASTIC_HOSTS', 'opensearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                    'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'
         ),
@@ -402,8 +401,8 @@ def record_data10(indexes):
 def register_record(id, indexer, index_path):
     record_data = record_data_with_itemtype(id, index_path)
     pid, record = create_record(record_data)
-    index, doc_type = indexer.record_to_index(record)
-    es_data = {
+    index = indexer.record_to_index(record)
+    search_data = {
         "title":record_data["title"],
         "control_number": str(id),
         "item_type":"test_item_type15",
@@ -417,8 +416,7 @@ def register_record(id, indexer, index_path):
         version=record.revision_id,
         version_type=indexer._version_type,
         index=index,
-        doc_type=doc_type,
-        body=es_data
+        body=search_data
     )
     return pid, record
 

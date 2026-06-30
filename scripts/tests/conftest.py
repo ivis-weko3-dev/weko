@@ -1443,26 +1443,24 @@ default_schema_funding = {
 	},
 }
 # conftest.py
-from __future__ import absolute_import, print_function
-
+import json
 import pytest
 import shutil
-import json
 import tempfile
 import uuid
+
 from flask import Flask
 
 from invenio_db import InvenioDB
-from invenio_records import InvenioRecords
-from invenio_search import InvenioSearch
-from weko_records import WekoRecords
-from weko_workflow import WekoWorkflow
-from weko_deposit import WekoDeposit
-
 from invenio_db import db as db_
-from sqlalchemy_utils.functions import create_database, database_exists
-from weko_records.models import ItemMetadata
+from invenio_records import InvenioRecords
 from invenio_records.models import RecordMetadata
+from invenio_search import InvenioSearch
+from sqlalchemy_utils.functions import create_database, database_exists
+from weko_deposit import WekoDeposit
+from weko_records import WekoRecords
+from weko_records.models import ItemMetadata
+from weko_workflow import WekoWorkflow
 from weko_workflow.models import (
     Activity,
     ActionStatus,
@@ -1492,7 +1490,6 @@ def base_app(instance_path):
     app_ = Flask("testapp", instance_path=instance_path)
 
     app_.config.update(
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         SEARCH_UI_SEARCH_INDEX="test-search-weko"
     #     CELERY_ALWAYS_EAGER=True,
@@ -1544,7 +1541,7 @@ def base_app(instance_path):
     #     WEKO_INDEX_TREE_REST_ENDPOINTS=WEKO_INDEX_TREE_REST_ENDPOINTS,
     #     I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English"),("da", "Danish")],
     #     SERVER_NAME="TEST_SERVER",
-    #     SEARCH_ELASTIC_HOSTS=os.environ.get("SEARCH_ELASTIC_HOSTS", "elasticsearch"),
+    #     SEARCH_OPENSEARCH_HOSTS = os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch")
     #     SEARCH_INDEX_PREFIX="test-",
     #     WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME=WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
     #     WEKO_SCHEMA_DDI_SCHEMA_NAME=WEKO_SCHEMA_DDI_SCHEMA_NAME,

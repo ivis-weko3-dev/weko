@@ -23,9 +23,9 @@
 
 {% block css %}
 {{ super() }}
-<link href="{{ url_for('static', filename='css/weko_admin/quill.snow.css') }}" rel="stylesheet">
-<link href="{{ url_for('static', filename='css/weko_admin/language.css') }}" rel="stylesheet">
-<link href="{{ url_for('static', filename='css/weko_admin/styles.css') }}" rel="stylesheet">
+{{ webpack["admin_css_weko_admin_quill_snow_css.css"] }}
+{{ webpack["admin_css_language_css.css"] }}
+{{ webpack["admin_css_css.css"] }}
 {% endblock %}
 
 {%- block page_body_tabs %}
@@ -35,7 +35,7 @@
 
 {%- block javascript %}
   {{ super() }}
-    <script src="{{ url_for('static', filename='js/weko_admin/sword_api_settings.js') }}"></script>
+  {{ webpack["admin_js_weko_admin_sword_api_settings_js.js"] }}  
 {%- endblock javascript %}
 
 {%- block body %}

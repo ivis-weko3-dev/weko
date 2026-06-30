@@ -7,17 +7,15 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 """Model functions tests."""
 
-from __future__ import absolute_import, print_function
-
 import os
 import pytest
 from datetime import datetime, timedelta
-from invenio_records.api import Record
-from unittest.mock import patch
-from invenio_oaiserver.models import OAISet
-
-from invenio_communities.models import Community,InclusionRequest
 from invenio_communities.errors import InclusionRequestExistsError,InclusionRequestObsoleteError,InclusionRequestExpiryTimeError
+from invenio_communities.models import Community,InclusionRequest
+from invenio_oaiserver.models import OAISet
+from invenio_records.api import Record
+
+from unittest.mock import patch
 
 
 @pytest.mark.parametrize('case_modifier', [

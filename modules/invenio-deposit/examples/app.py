@@ -12,7 +12,7 @@
 Installation proccess
 ---------------------
 
-Make sure that ``ElasticSearch`` and ``RabbitMQ`` servers are running.
+Make sure that ``Search`` and ``RabbitMQ`` servers are running.
 
 Run the demo:
 
@@ -39,25 +39,23 @@ To be able to uninstall the example app:
 
 """
 
-from __future__ import absolute_import, print_function
-
-import os
-from os.path import dirname, join
-
 import jinja2
+import os
+
 from flask import Flask, cli, current_app
-from flask_babelex import Babel
+from flask_babel import Babel
 from invenio_access import InvenioAccess
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.views import blueprint as accounts_blueprint
 from invenio_admin import InvenioAdmin
 from invenio_assets import InvenioAssets
+from invenio_deposit import InvenioDeposit, InvenioDepositREST
 from invenio_db import InvenioDB, db
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location
-from invenio_i18n import InvenioI18N
 from invenio_indexer import InvenioIndexer
 from invenio_indexer.api import RecordIndexer
+from invenio_i18n import InvenioI18N
 from invenio_jsonschemas import InvenioJSONSchemas
 from invenio_oauth2server import InvenioOAuth2Server, InvenioOAuth2ServerREST
 from invenio_oauth2server.views import server_blueprint, settings_blueprint
@@ -73,7 +71,7 @@ from invenio_search_ui import InvenioSearchUI
 from invenio_search_ui.bundles import js
 from invenio_theme import InvenioTheme
 
-from invenio_deposit import InvenioDeposit, InvenioDepositREST
+from os.path import dirname, join
 
 # Create Flask application
 app = Flask(__name__)

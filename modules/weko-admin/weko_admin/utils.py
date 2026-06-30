@@ -24,32 +24,31 @@ import csv
 import json
 import math
 import os
-import traceback
 import re
-import zipfile
-import copy
-from datetime import datetime, timedelta
-from io import BytesIO, StringIO
-from typing import Dict, Optional, Tuple, Union
-
 import requests
+import traceback
+import zipfile
+
+from datetime import datetime, timedelta
 from flask import current_app, request
-from requests.auth import HTTPBasicAuth
 from flask_babel import gettext as __
 from flask_babel import lazy_gettext as _
 from invenio_accounts.models import Role, userrole
 from invenio_db import db
-from invenio_i18n.ext import current_i18n
 from invenio_indexer.api import RecordIndexer
+from invenio_i18n.ext import current_i18n
 from invenio_mail.admin import MailSettingView
 from invenio_mail.models import MailConfig
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records.models import RecordMetadata
 from invenio_records_rest.facets import terms_filter, terms_condition_filter, range_filter
-from invenio_stats.views import QueryFileStatsCount, QueryRecordViewCount
 from invenio_search.utils import build_alias_name
+from invenio_stats.views import QueryFileStatsCount, QueryRecordViewCount
+from io import BytesIO, StringIO
 from jinja2 import Template
+from requests.auth import HTTPBasicAuth
 from sqlalchemy import func
+from typing import Dict, Optional, Tuple, Union
 from weko_authors.models import Authors
 from weko_schema_ui.models import PublishStatus
 
@@ -1065,7 +1064,7 @@ class FeedbackMail:
         }
         indexer = RecordIndexer()
         result = indexer.client.search(
-            index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
+            index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
             body=body
         )
 
@@ -2580,14 +2579,14 @@ def overwrite_the_memory_config_with_db(app, site_info):
                 site_info.google_tracking_id_user,
             )
 
-def elasticsearch_reindex( is_db_to_es ):
+def search_reindex( is_db_to_search ):
     """
-    reindex *-weko-item-* of elasticsearch index
+    reindex *-weko-item-* of search index
 
     Args:
-    is_db_to_es : boolean
+    is_db_to_search : boolean
         if True,  index Documents from DB data
-        if False, index Documents from ES data itself
+        if False, index Documents from OS data itself
 
     Returns:
         str : 'completed'
@@ -2605,8 +2604,8 @@ def elasticsearch_reindex( is_db_to_es ):
     """
     from invenio_oaiserver.percolator import _create_percolator_mapping
     # consts
-    elasticsearch_host = os.environ.get('INVENIO_ELASTICSEARCH_HOST') 
-    base_url = 'https://' + elasticsearch_host + ':9200/'
+    search_host = os.environ.get('INVENIO_ELASTICSEARCH_HOST') 
+    base_url = 'https://' + search_host + ':9200/'
     reindex_url = base_url + '_reindex?pretty&refresh=true&wait_for_completion=true'
     
     auth = HTTPBasicAuth(os.environ.get('INVENIO_OPENSEARCH_USER'), os.environ.get('INVENIO_OPENSEARCH_PASS'))
@@ -2820,16 +2819,16 @@ def elasticsearch_reindex( is_db_to_es ):
 
     # アイテムを再投入する。
     current_app.logger.info("START reindex")
-    if is_db_to_es :
-        current_app.logger.info("reindex es from db")
-        response = _elasticsearch_remake_item_index(index_name=indexNoPrefix)
+    if is_db_to_search :
+        current_app.logger.info("reindex search from db")
+        response = _search_remake_item_index(index_name=indexNoPrefix)
         current_app.logger.info(response) # array
 
         response = requests.post(url=base_url + "_refresh", **req_args)
         current_app.logger.info(response.text)
         assert response.status_code == 200 ,response.text
     else :
-        current_app.logger.info("reindex es from es")
+        current_app.logger.info("reindex search from search")
         # 一時保管用のインデックスから、新しく作成したインデックスに再インデックスを行う
         # reindex from tmpindex to index
         response = requests.post(url=reindex_url , headers=headers, json=json_data_to_dest, **req_args)
@@ -2877,7 +2876,7 @@ def elasticsearch_reindex( is_db_to_es ):
     
     return 'completed'
 
-def _elasticsearch_remake_item_index(index_name):
+def _search_remake_item_index(index_name):
     """ index Documents from DB (Private method) """
     from invenio_oaiserver.models import OAISet
     from invenio_oaiserver.percolator import _new_percolator

@@ -26,26 +26,27 @@ import subprocess
 import time
 import copy
 import tempfile
-from time import sleep
-from io import StringIO
-from distutils.util import strtobool
 
-from invenio_search.engine import search
+from amqp.exceptions import ConnectionError
 from celery import shared_task
 from celery.utils.log import get_task_logger
-from elasticsearch.exceptions import NotFoundError, ConflictError
+from distutils.util import strtobool
 from flask import current_app
 from fs.errors import ResourceNotFoundError
+from sqlalchemy.exc import SQLAlchemyError, DisconnectionError, TimeoutError
+from time import sleep
 
-from invenio_files_rest.proxies import current_files_rest
 from invenio_db import db
+from invenio_files_rest.proxies import current_files_rest
 from invenio_indexer.api import RecordIndexer
 from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_search import RecordsSearch
-from sqlalchemy.exc import SQLAlchemyError, DisconnectionError, TimeoutError
-from amqp.exceptions import ConnectionError
-from weko_authors.models import Authors, AuthorsPrefixSettings, AuthorsAffiliationSettings
+from invenio_search.engine import search
+from io import StringIO
+
+from weko_authors.models import (
+    Authors, AuthorsPrefixSettings, AuthorsAffiliationSettings)
 from weko_records.api import ItemsMetadata
 from weko_schema_ui.models import PublishStatus
 from weko_workflow.utils import delete_cache_data, update_cache_data
@@ -175,7 +176,7 @@ def update_items_by_authorInfo( user_id, target, origin_pkid_list=[], origin_id_
             weko_logger(key='WEKO_COMMON_IF_ENTER',
                         branch="update_gather_flg is not empty")
             process_counter[ORIGIN_LABEL] = get_origin_data(origin_pkid_list)
-            update_db_es_data(origin_pkid_list, origin_id_list)
+            update_db_search_data(origin_pkid_list, origin_id_list)
     except (DisconnectionError, TimeoutError, ConnectionError) as e:
         db.session.rollback()
         retry_count = update_items_by_authorInfo.request.retries
@@ -261,21 +262,21 @@ def _process(data_size, data_from, process_counter, target, origin_pkid_list, ke
         update_from_dict(query_q).execute().to_dict()
 
     record_ids = []
-    update_es_authorinfo = []
+    update_search_authorinfo = []
     for item in search['hits']['hits']:
         item_id = item['_source']['control_number']
         object_uuid, record_ids, author_link = \
             _update_author_data(item_id, record_ids, process_counter, target, origin_pkid_list, key_map, author_prefix, affiliation_id, force_change)
         if object_uuid:
-            update_es_authorinfo.append({
+            update_search_authorinfo.append({
                 'id': object_uuid, 'author_link': list(author_link)
             })
     db.session.commit()
-    # update record to ES
+    # update record to Search
     max_back_off_time = current_app.config['WEKO_DEPOSIT_MAX_BACK_OFF_TIME']
     if record_ids:
         # sleep(20)
-        current_app.logger.debug("Start updated records to ES. record_ids:{}".format(record_ids))
+        current_app.logger.debug("Start updated records to Search. record_ids:{}".format(record_ids))
         sleep_time = 2
         count = 1
         while True:
@@ -290,16 +291,16 @@ def _process(data_size, data_from, process_counter, target, origin_pkid_list, ke
                     es_bulk_kwargs={'raise_on_error': True})
                 break
             except Exception as e:
-                current_app.logger.error("Failed to update record to ES. method:process_bulk_queue err:{}".format(e))
+                current_app.logger.error("Failed to update record to Search. method:process_bulk_queue err:{}".format(e))
                 current_app.logger.error("retrys:{} sleep:{}s records_ids:{}".format(count, sleep_time, record_ids))
                 if sleep_time > max_back_off_time:
                     raise e
                 sleep(sleep_time)
                 count += 1
                 sleep_time *= 2
-        current_app.logger.debug("Updated records to ES. record_ids:{}".format(record_ids))
-    if update_es_authorinfo:
-        for d in update_es_authorinfo:
+        current_app.logger.debug("Updated records to Search. record_ids:{}".format(record_ids))
+    if update_search_authorinfo:
+        for d in update_search_authorinfo:
             sleep_time = 2
             count = 1
             while True:
@@ -308,20 +309,20 @@ def _process(data_size, data_from, process_counter, target, origin_pkid_list, ke
                     dep.update_author_link(d['author_link'])
                     break
                 except Exception as e:
-                    current_app.logger.error("Failed to update record to ES. method:update_author_link err:{}".format(e))
+                    current_app.logger.error("Failed to update record to Search. method:update_author_link err:{}".format(e))
                     current_app.logger.error("retrys:{} sleep{}".format(count, sleep_time))
                     if sleep_time > max_back_off_time:
                         raise e
                     sleep(sleep_time)
                     count += 1
                     sleep_time *= 2
-            current_app.logger.debug("Updated records to ES. record_ids:{}".format(d['id']))
+            current_app.logger.debug("Updated records to Search. record_ids:{}".format(d['id']))
 
-    data_total = search['hits']['total']
+    data_total = search["hits"]["total"]["value"]
     if data_total > data_size + data_from:
-        return len(update_es_authorinfo), True
+        return len(update_search_authorinfo), True
     else:
-        return len(update_es_authorinfo), False
+        return len(update_search_authorinfo), False
 
 def _update_author_data(item_id, record_ids, process_counter, target, origin_pkid_list, key_map, author_prefix, affiliation_id, force_change):
     temp_list = []
@@ -553,7 +554,7 @@ def get_origin_data(origin_pkid_list):
     author_data = Authors.query.filter(Authors.id.in_(origin_pkid_list)).all()
     return [a.json for a in author_data]
 
-def update_db_es_data(origin_pkid_list, origin_id_list):
+def update_db_search_data(origin_pkid_list, origin_id_list):
     """Update DB data.
 
 
@@ -578,7 +579,7 @@ def update_db_es_data(origin_pkid_list, origin_id_list):
             weko_logger(key='WEKO_COMMON_FOR_END')
         db.session.commit()
 
-        # update ES of Author
+        # update Search of Author
         update_author_q = {
             "query": {
                 "match": {
@@ -595,7 +596,7 @@ def update_db_es_data(origin_pkid_list, origin_id_list):
             q = json.dumps(update_author_q).replace("@id", t)
             q = json.loads(q)
             res = indexer.client.search(
-                index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
+                index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
                 body=q
             )
             for i, h in enumerate(res.get("hits").get("hits")):
@@ -607,7 +608,7 @@ def update_db_es_data(origin_pkid_list, origin_id_list):
                     }
                 }
                 indexer.client.update(
-                    index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
+                    index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
                     id=h.get("_id"),
                     body=body
                 )
@@ -616,7 +617,7 @@ def update_db_es_data(origin_pkid_list, origin_id_list):
         weko_logger(key='WEKO_COMMON_DB_SOME_ERROR', ex=ex)
         db.session.rollback()
     except search.OpenSearchException as ex:
-        weko_logger(key='WEKO_COMMON_ERROR_ELASTICSEARCH', ex=ex)
+        weko_logger(key='WEKO_COMMON_ERROR_SEARCH', ex=ex)
         db.session.rollback()
     except Exception as ex:
         weko_logger(key='WEKO_COMMON_ERROR_UNEXPECTED', ex=ex)
@@ -699,7 +700,7 @@ def make_stats_file(raw_stats):
 @shared_task(ignore_result=True)
 def extract_pdf_and_update_file_contents(
     files, record_uuid, retry_count=3, retry_delay=1):
-    """Extract text from pdf and update es document
+    """Extract text from pdf and update search document
     Args:
         files(dict): pdf_files uri and size,is_pdf flag. ex: {'test1.pdf': {'uri': '/var/tmp/data', 'size': 1252395,'is_pdf':True}"
         record_uuid(str): The id of the document to update.
@@ -745,11 +746,11 @@ def extract_pdf_and_update_file_contents(
             update_file_content(record_uuid, file_datas)
             success = True
             break
-        except ConflictError:
+        except search.ConflictError:
             current_app.logger.error(
                 f"Version conflict error occurred while updating file content. Retrying {attempt + 1}/{retry_count}")
             time.sleep(retry_delay)
-        except NotFoundError:
+        except search.NotFoundError:
             current_app.logger.error(
                 f"The document targeted for content update({record_uuid}) does not exist. Retrying {attempt + 1}/{retry_count}")
             time.sleep(retry_delay)
@@ -762,32 +763,31 @@ def extract_pdf_and_update_file_contents(
 
 
 def update_file_content(record_uuid, file_datas):
-    """Update the content of the es document
+    """Update the content of the search document
     Args:
         record_uuid (str): The id of the document to update.
         file_datas (dict): A dictionary of file names and contents.
 
     Raises:
-        ConflictError: Elasticsearch document version conflict error
+        ConflictError: Search document version conflict error
         NotFoundError: No document to update error
     """
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     res = indexer.get_metadata_by_item_id(record_uuid)
-    es_data = res.get("_source",{})
-    contents = es_data.get("content",[])
+    search_data = res.get("_source",{})
+    contents = search_data.get("content",[])
     for content in contents:
         if content.get("filename") not in list(file_datas.keys()):
             continue
         if content.get("attachment",{}):
             content["attachment"]["content"] = file_datas[content.get("filename")]
-    es_data["content"] = contents
+    search_data["content"] = contents
 
     indexer.client.index(
-        index=indexer.es_index,
+        index=indexer.search_index,
         id=str(record_uuid),
-        body=es_data,
+        body=search_data,
         version=res.get('_version'),
-        version_type = "external_gte",
-        doc_type=res.get("_type")
+        version_type = "external_gte"
     )

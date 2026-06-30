@@ -21,13 +21,12 @@
 """WEKO Search Serializer."""
 
 import pickle
-from datetime import datetime
-
 import pytz
+
+from datetime import datetime
 from flask import request
 from invenio_db import db
 from weko_index_tree.api import Index
-
 from weko_records.api import Mapping, ItemTypes
 from weko_records.models import ItemType, ItemTypeName, ItemTypeProperty
 
@@ -256,7 +255,7 @@ class OpenSearchDetailData:
         """Serialize a search result.
 
         :param pid_fetcher: Persistent identifier fetcher.
-        :param search_result: Elasticsearch search result.
+        :param search_result: Search result.
         :param output_type: Output type.
         :param links:Dictionary of links to add to response
         :param item_links_factory:

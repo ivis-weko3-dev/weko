@@ -9,33 +9,14 @@
 """test cases."""
 import pytest
 import uuid
+
 from datetime import timedelta, datetime
-from mock import patch
 from flask import current_app
-from flask_babelex import Babel
-from werkzeug.utils import cached_property
-from sqlalchemy.orm.exc import NoResultFound
-from lxml import etree
-from lxml.etree import Element, SubElement
+from flask_babel import Babel
 
-from invenio_records.models import RecordMetadata
-from invenio_pidstore.errors import PIDDoesNotExistError
-from invenio_pidstore.models import PersistentIdentifier,PIDStatus
-from invenio_pidrelations.models import PIDRelation
 
-from weko_index_tree.models import Index
-from weko_records.api import ItemTypes, Mapping
-from weko_records.models import ItemTypeName
-from weko_deposit.api import WekoRecord
-from weko_records.models import ItemMetadata, ItemTypeMapping
 
-from invenio_oaiserver.models import Identify, OAISet
-from invenio_oaiserver.utils import HARVEST_PRIVATE, OUTPUT_HARVEST, PRIVATE_INDEX, datetime_to_datestamp
-
-from invenio_pidstore import current_pidstore
-from invenio_records import Record
 from invenio_oaiserver.provider import OAIIDProvider
-
 from invenio_oaiserver.response import (
     NS_DC, NS_OAIDC, NS_OAIPMH,NS_JPCOAR,
     is_private_index,
@@ -59,6 +40,25 @@ from invenio_oaiserver.response import (
     identify,
     is_draft_workflow
 )
+from invenio_oaiserver.models import Identify, OAISet
+from invenio_oaiserver.utils import HARVEST_PRIVATE, OUTPUT_HARVEST, PRIVATE_INDEX, datetime_to_datestamp
+from invenio_pidstore import current_pidstore
+from invenio_pidstore.errors import PIDDoesNotExistError
+from invenio_pidstore.models import PersistentIdentifier,PIDStatus
+from invenio_pidrelations.models import PIDRelation
+from invenio_records import Record
+from invenio_records.models import RecordMetadata
+from lxml import etree
+from lxml.etree import Element, SubElement
+from mock import patch
+from sqlalchemy.orm.exc import NoResultFound
+
+from weko_index_tree.models import Index
+from weko_records.api import ItemTypes, Mapping
+from weko_records.models import ItemTypeName
+from weko_deposit.api import WekoRecord
+from weko_records.models import ItemMetadata, ItemTypeMapping
+from werkzeug.utils import cached_property
 
 
 NAMESPACES = {'x': NS_OAIPMH, 'y': NS_OAIDC, 'z': NS_DC}
@@ -474,7 +474,7 @@ def test_getrecord_future_item(app,records,item_type,mock_execute,db,mocker):
         mocker.patch("weko_schema_ui.schema.cache_schema",return_value=ns)
         dummy_data = {
             "hits": {
-                "total": 1,
+                "total": {"value": 1, "relation": "eq"},
                 "hits": [
                     {
                         "_source": {
@@ -500,8 +500,8 @@ def test_getrecord_future_item(app,records,item_type,mock_execute,db,mocker):
 
 # def listidentifiers(**kwargs):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_listidentifiers -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_listidentifiers(es_app,records,item_type,mock_execute,db,mocker):
-    with es_app.app_context():
+def test_listidentifiers(search_app,records,item_type,mock_execute,db,mocker):
+    with search_app.app_context():
         identify = Identify(
             outPutSetting=True
         )
@@ -552,7 +552,7 @@ def test_listidentifiers(es_app,records,item_type,mock_execute,db,mocker):
         )
         dummy_data={
             "hits":{
-                "total": 7,
+                "total": {"value": 7, "relation": "eq"},
                 "hits":[
                     {
                         "_source":{
@@ -612,7 +612,7 @@ def test_listidentifiers(es_app,records,item_type,mock_execute,db,mocker):
             per_page = 100
             def __init__(self,dummy):
                 self.data = dummy
-                self.total = self.data["hits"]["total"]
+                self.total = self.data["hits"]["total"]["value"]
             @cached_property
             def has_next(self):
                 return self.page * self.per_page <= self.total
@@ -813,7 +813,7 @@ def test_listidentifiers(es_app,records,item_type,mock_execute,db,mocker):
         # return Exception
         dummy_data={
             "hits":{
-                "total": 1,
+                "total": {"value": 1, "relation": "eq"},
                 "hits":[
                     {
                         "_source":{
@@ -845,8 +845,8 @@ def test_listidentifiers(es_app,records,item_type,mock_execute,db,mocker):
 
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_listrecords -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_listrecords(es_app,records,item_type,mock_execute,db,mocker):
-    with es_app.app_context():
+def test_listrecords(search_app,records,item_type,mock_execute,db,mocker):
+    with search_app.app_context():
         identify = Identify(
             outPutSetting=True
         )
@@ -897,7 +897,7 @@ def test_listrecords(es_app,records,item_type,mock_execute,db,mocker):
         )
         dummy_data={
             "hits":{
-                "total": 7,
+                "total": {"value": 7, "relation": "eq"},
                 "hits":[
                     {
                         "_source":{
@@ -957,7 +957,7 @@ def test_listrecords(es_app,records,item_type,mock_execute,db,mocker):
             per_page = 100
             def __init__(self,dummy):
                 self.data = dummy
-                self.total = self.data["hits"]["total"]
+                self.total = self.data["hits"]["total"]["value"]
             @cached_property
             def has_next(self):
                 return self.page * self.per_page <= self.total
@@ -1158,7 +1158,7 @@ def test_listrecords(es_app,records,item_type,mock_execute,db,mocker):
         # return Exception
         dummy_data={
             "hits":{
-                "total": 1,
+                "total": {"value": 1, "relation": "eq"},
                 "hits":[
                     {
                         "_source":{
@@ -1998,8 +1998,8 @@ def test_get_identifier(app,db):
         assert result == test
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_issue34851_listrecords -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_issue34851_listrecords(es_app, records, item_type, mock_execute,db,mocker):
-    with es_app.app_context():
+def test_issue34851_listrecords(search_app, records, item_type, mock_execute,db,mocker):
+    with search_app.app_context():
         identify = Identify(
             outPutSetting=True
         )
@@ -2050,7 +2050,7 @@ def test_issue34851_listrecords(es_app, records, item_type, mock_execute,db,mock
         )
         dummy_data={
             "hits":{
-                "total":4,
+                "total":{"value":4,"relation":"eq"},
                 "hits":[
                     {
                         "_source":{
@@ -2081,7 +2081,7 @@ def test_issue34851_listrecords(es_app, records, item_type, mock_execute,db,mock
             per_page = 100
             def __init__(self,dummy):
                 self.data = dummy
-                self.total = self.data["hits"]["total"]
+                self.total = self.data["hits"]["total"]["value"]
             @cached_property
             def has_next(self):
                 return self.page * self.per_page <= self.total
@@ -2121,8 +2121,8 @@ def test_issue34851_listrecords(es_app, records, item_type, mock_execute,db,mock
 
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_issue34851_listidentifiers -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_issue34851_listidentifiers(es_app, records, item_type, mock_execute,db,mocker):
-    with es_app.app_context():
+def test_issue34851_listidentifiers(search_app, records, item_type, mock_execute,db,mocker):
+    with search_app.app_context():
         identify = Identify(
             outPutSetting=True
         )
@@ -2173,7 +2173,7 @@ def test_issue34851_listidentifiers(es_app, records, item_type, mock_execute,db,
         )
         dummy_data={
             "hits":{
-                "total":4,
+                "total":{"value":4,"relation":"eq"},
                 "hits":[
                     {
                         "_source":{
@@ -2204,7 +2204,7 @@ def test_issue34851_listidentifiers(es_app, records, item_type, mock_execute,db,
             per_page = 100
             def __init__(self,dummy):
                 self.data = dummy
-                self.total = self.data["hits"]["total"]
+                self.total = self.data["hits"]["total"]["value"]
             @cached_property
             def has_next(self):
                 return self.page * self.per_page <= self.total

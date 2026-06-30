@@ -84,9 +84,9 @@ WEKO_DEPOSIT_MESSAGE = {
             "Path length must be at least {length} characters.",
         'loglevel': 'ERROR',
     },
-    'WEKO_DEPOSIT_FAILED_UPLOAD_FILE_CONTENT_TO_ELASTICSEARCH': {
+    'WEKO_DEPOSIT_FAILED_UPLOAD_FILE_CONTENT_TO_SEARCH': {
         'msgid': 'WEKO_DEPOSIT_E_0016',
-        'msgstr': "FAILED to upload file content to Elasticsearch. Uuid: {uuid}",
+        'msgstr': "FAILED to upload file content to Search. Uuid: {uuid}",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_STORAGE_FACTORY':{
@@ -99,9 +99,9 @@ WEKO_DEPOSIT_MESSAGE = {
         'msgstr': "FAILED to find file.",
         'loglevel': 'ERROR',
     },
-    'WEKO_DEPOSIT_FAILED_UPLOAD_FILE_METADATA_TO_ELASTICSEARCH': {
+    'WEKO_DEPOSIT_FAILED_UPLOAD_FILE_METADATA_TO_SEARCH': {
         'msgid': 'WEKO_DEPOSIT_E_0019',
-        'msgstr': "FAILED to upload file metadata to Elasticsearch. File id: {file_id}",
+        'msgstr': "FAILED to upload file metadata to Search. File id: {file_id}",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_CONVERT_ITEM_METADATA': {
@@ -199,7 +199,7 @@ WEKO_DEPOSIT_MESSAGE = {
     'WEKODEPOSIT_APPEND_FILE_CONTENT': {
         'msgid': 'WEKO_DEPOSIT_I_0015',
         'msgstr': "Append file content to record for reindexing "\
-            "Elasticsearch: {recid}",
+            "Search: {recid}",
         'loglevel': 'INFO',
     },
 }

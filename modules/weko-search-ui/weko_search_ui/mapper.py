@@ -8,26 +8,27 @@
 
 """Harvest records from an OAI-PMH repository."""
 
-import os
-import re
 import json
 import chardet
 import mimetypes
 from pypdfium2 import PdfiumError
 import itertools
-import xmltodict
+import os
+import re
 import traceback
+import xmltodict
+
 from datetime import date
 from difflib import SequenceMatcher as SeqMatcher
+from flask import current_app, url_for
+from flask_babel import lazy_gettext as _
 from functools import partial, reduce
+from invenio_pidstore.models import PersistentIdentifier
 from rocrate.rocrate import ROCrate
 from rocrate.model.contextentity import ContextEntity
 from urllib.parse import urlparse
 
-from flask import current_app, url_for
-from flask_babelex import lazy_gettext as _
 
-from invenio_pidstore.models import PersistentIdentifier
 from weko_records.api import (
     Mapping, ItemTypes, FeedbackMailList, RequestMailList, ItemLink
 )
@@ -1343,7 +1344,7 @@ class JsonLdMapper(JsonMapper):
         Returns:
             errors (list[str] | None): list of errors.
         """
-        from flask_babelex import gettext as _
+        from flask_babel import gettext as _
         errors = []
         item_map = self._create_item_map(detail=True)
         required_map = self.required_properties()
@@ -1573,7 +1574,7 @@ class JsonLdMapper(JsonMapper):
 
         missing_metadata = {}
 
-        from flask_babelex import gettext as _
+        from flask_babel import gettext as _
         for META_KEY, META_VALUE in metadata.items():
             if not isinstance(META_KEY, str):
                 continue
@@ -2031,9 +2032,9 @@ class JsonLdMapper(JsonMapper):
             mimetype = mimetypes.guess_type(filename)[0]
             file_size_limit = current_app.config['WEKO_DEPOSIT_FILESIZE_LIMIT']
             # List of text-based MIME types allowed for text extraction and processing.
-            text_mimetypes = current_app.config["WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES"]
+            text_mimetypes = current_app.config["WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_SEARCH"]
             # All mimetypes subject to text extraction (including text_mimetypes)
-            extract_mimetypes = current_app.config["WEKO_MIMETYPE_WHITELIST_FOR_ES"]
+            extract_mimetypes = current_app.config["WEKO_MIMETYPE_WHITELIST_FOR_SEARCH"]
             if mimetype not in extract_mimetypes:
                 return data
 

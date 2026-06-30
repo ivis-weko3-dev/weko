@@ -276,10 +276,10 @@ def test_identify_earliest_date(app, schema):
         assert earliestDatestamp[0].text == "2000-01-01T13:00:00Z"
 
 
-def test_getrecord_fail(es_app, db,identify):
+def test_getrecord_fail(search_app, db,identify):
     """Test GetRecord if record doesn't exist."""
-    with es_app.test_request_context():
-        with es_app.test_client() as c:
+    with search_app.test_request_context():
+        with search_app.test_client() as c:
             result = c.get(
                 "/oai?verb=GetRecord&identifier={0}&metadataPrefix=jpcoar_1.0".format(
                     "not-exist-pid"
@@ -313,9 +313,9 @@ def test_listmetadataformats(app):
     _listmetadataformats(app=app, query="/oai?verb=ListMetadataFormats")
 
 
-def test_listmetadataformats_record(es_app, db):
+def test_listmetadataformats_record(search_app, db):
     """Test ListMetadataFormats for a record."""
-    with es_app.test_request_context():
+    with search_app.test_request_context():
         with db.session.begin_nested():
             record_id = uuid.uuid4()
             data = {"title_statement": {"title": "Test0"}}
@@ -327,7 +327,7 @@ def test_listmetadataformats_record(es_app, db):
         db.session.commit()
 
     _listmetadataformats(
-        app=es_app,
+        app=search_app,
         query="/oai?verb=ListMetadataFormats&identifier={0}".format(pid_value),
     )
 

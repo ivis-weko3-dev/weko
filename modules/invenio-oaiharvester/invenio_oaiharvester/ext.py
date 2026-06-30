@@ -24,8 +24,6 @@
 
 """Invenio module for OAI-PMH metadata harvesting between repositories."""
 
-from __future__ import absolute_import, print_function
-
 from . import config
 from .cli import oaiharvester as oaiharvester_cmd
 from .views import blueprint

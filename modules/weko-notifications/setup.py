@@ -78,13 +78,6 @@ setup(
         # TODO: Edit these entry points to fit your needs.
         # 'invenio_access.actions': [],
         # 'invenio_admin.actions': [],
-        'invenio_assets.bundles': [
-            'weko_notifications_settings_css = '
-                'weko_notifications.bundles:notifications_settings_css',
-            'weko_notifications_settings_js = '
-                'weko_notifications.bundles:notifications_settings_js',
-            'weko_sw_js = weko_notifications.bundles:sw_js',
-        ],
         # 'invenio_base.api_apps': [],
         'invenio_base.api_blueprints': [
             'weko_notifications = weko_notifications.views:blueprint_api',
@@ -99,6 +92,9 @@ setup(
         ],
         # 'invenio_pidstore.minters': [],
         # 'invenio_records.jsonresolver': [],
+        "invenio_assets.webpack": [
+            "weko_notifications = weko_notifications.webpack:weko_notifications"
+        ]
     },
     extras_require=extras_require,
     install_requires=install_requires,

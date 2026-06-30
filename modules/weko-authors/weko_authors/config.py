@@ -370,7 +370,7 @@ WEKO_AUTHORS_IMPORT_TEMP_FILE_RETENTION_PERIOD = 60 * 60 * 24
 WEKO_AUTHORS_NUM_OF_PAGE = 25
 """Default number of author search results that display in one page."""
 
-WEKO_AUTHORS_ES_INDEX_NAME = "{}-authors".format(os.environ.get("SEARCH_INDEX_PREFIX", ""))
+WEKO_AUTHORS_SEARCH_INDEX_NAME = "{}-authors".format(os.environ.get("SEARCH_INDEX_PREFIX", ""))
 """Search engine index alias for author."""
 
 WEKO_AUTHORS_IMPORT_KEY = {

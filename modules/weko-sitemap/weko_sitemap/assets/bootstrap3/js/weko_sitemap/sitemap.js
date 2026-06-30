@@ -1,8 +1,3 @@
-//require([ // Must add requirejs to admin-side
-//  "jquery",
-//"bootstrap"
-//  ], function() {
-
 import $ from 'jquery';
 
 $(document).ready(function () {

@@ -24,7 +24,7 @@
     {% set termsDescription, workflow_id = record | get_item_usage_workflow %}
     {% set dummy_filename =  'recid/' + (record.recid|string) %}
     {% if workflow_id %}
-      {% if not session['user_id'] %}
+      {% if not session['_user_id'] %}
         {% set is_guest = True %}
         {% set href_url = url_for_security('login', next=request.path) %}
         {% set start_guest_wf = workflow_id is not none %}

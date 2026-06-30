@@ -8,21 +8,18 @@
 
 """Pytest configuration."""
 
-from __future__ import absolute_import, print_function
-
+import os
+import pytest
 import shutil
 import tempfile
-import os
-from os.path import dirname, getsize, join
 
-import pytest
+
 from flask import Flask, request
 from flask_babel import Babel
 from flask_mail import Mail
 from flask_menu import Menu
 from flask_iiif.restful import current_iiif
-from sqlalchemy_utils.functions import create_database, database_exists, \
-    drop_database
+
 
 from invenio_access import InvenioAccess
 from invenio_accounts import InvenioAccounts
@@ -30,11 +27,14 @@ from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Bucket, Location, ObjectVersion
-from invenio_i18n import InvenioI18N
 
 from invenio_iiif import InvenioIIIFAPI, InvenioIIIF
 from invenio_iiif.previewer import blueprint
+from invenio_i18n import InvenioI18N
 
+from os.path import dirname, getsize, join
+from sqlalchemy_utils.functions import create_database, database_exists, \
+    drop_database
 from tests.helpers import json_data, create_record
 
 @pytest.fixture()
@@ -65,8 +65,7 @@ def base_app(instance_path):
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                          'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         SEARCH_UI_SEARCH_INDEX="test-search-weko",
-        WEKO_AUTHORS_ES_INDEX_NAME="test-weko-authors",
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
+        WEKO_AUTHORS_SEARCH_INDEX_NAME="test-weko-authors",
         INDEXER_FILE_DOC_TYPE="content",
         PRESERVE_CONTEXT_ON_EXCEPTION = False,
         THEME_SITEURL = 'https://localhost',

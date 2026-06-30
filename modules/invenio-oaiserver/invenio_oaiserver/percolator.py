@@ -13,13 +13,10 @@ import json
 
 from flask import current_app
 from invenio_indexer.api import RecordIndexer
+from invenio_oaiserver.query import query_string_parser
 from invenio_search import current_search, current_search_client
 from invenio_search.engine import search
 from invenio_search.utils import build_index_name
-
-from flask import current_app
-
-from invenio_oaiserver.query import query_string_parser
 
 
 def _build_percolator_index_name(index):
@@ -33,7 +30,7 @@ def _create_percolator_mapping(index, mapping_path=None):
 
     .. note::
 
-        This is only needed from ElasticSearch v5 onwards, because percolators
+        This is only needed from Search v5 onwards, because percolators
         are now just a special type of field inside mappings.
     """
     percolator_index = _build_percolator_index_name(index)
@@ -62,7 +59,6 @@ def _new_percolator(spec, search_pattern):
                 _create_percolator_mapping(index, mapping_path)
                 current_search_client.index(
                     index=_build_percolator_index_name(index),
-                    # index=index, doc_type=percolator_doc_type,
                     id="oaiset-{}".format(spec),
                     body={"query": query},
                 )
@@ -78,7 +74,6 @@ def _delete_percolator(spec, search_pattern):
         # Skip indices/mappings not used by OAI-PMH
         current_search_client.delete(
             index=_build_percolator_index_name(index),
-            # index=index, doc_type=percolator_doc_type,
             id="oaiset-{}".format(spec),
             ignore=[404],
         )

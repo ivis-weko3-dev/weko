@@ -22,8 +22,8 @@
 
 import os
 import shutil
-from datetime import datetime, timedelta
 
+from datetime import datetime, timedelta
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from flask import current_app, render_template
@@ -33,15 +33,14 @@ from invenio_mail.api import send_mail
 from invenio_stats.utils import QueryCommonReportsHelper, \
     QueryFileReportsHelper, QueryRecordViewPerIndexReportHelper, \
     QueryRecordViewReportHelper, QuerySearchReportHelper
-
 from weko_admin.api import TempDirInfo
-
-from .models import AdminSettings, StatisticsEmail, FeedbackMailSetting
-from .utils import StatisticMail, get_user_report_data, package_reports ,elasticsearch_reindex
-from .views import manual_send_site_license_mail
 from weko_search_ui.tasks import check_celery_is_run
+
 from .config import WEKO_ADMIN_SETTINGS_ELASTIC_REINDEX_SETTINGS,\
     WEKO_ADMIN_SETTINGS_ELASTIC_REINDEX_SETTINGS_HAS_ERRORED
+from .models import AdminSettings, StatisticsEmail, FeedbackMailSetting
+from .utils import StatisticMail, get_user_report_data, package_reports, search_reindex
+from .views import manual_send_site_license_mail
 
 
 logger = get_task_logger(__name__)
@@ -52,30 +51,30 @@ logger = get_task_logger(__name__)
     ,bind=True
     ,acks_late=False
     ,ignore_results=False)
-def reindex(self, is_db_to_es ):
+def reindex(self, is_db_to_search ):
     """
-    Celery task to do elasticsearch_reindex
-    if error has occord in elasticsearch_reindex , update admin_settings
+    Celery task to do search_reindex
+    if error has occord in search_reindex , update admin_settings
 
     Args:
     self : any
         object assigned by "bind=True"
-    is_db_to_es : boolean
+    is_db_to_search : boolean
         if True,  index Documents from DB data
-        if False, index Documents from ES data itself
+        if False, index Documents from OS data itself
 
     Returns:
-        str : elasticsearch_reindex responce text
+        str : search_reindex responce text
 
     Raises:
-        raises error in elasticsearch_reindex
+        raises error in search_reindex
 
     Todo:
-        if you change this codes, please keep in mind Todo of the method "elasticsearch_reindex"
+        if you change this codes, please keep in mind Todo of the method "search_reindex"
         in .utils.py .
     """
     try:
-        return elasticsearch_reindex(is_db_to_es)
+        return search_reindex(is_db_to_search)
     except BaseException as ex:
         # set error in admin_settings
         AdminSettings.update(WEKO_ADMIN_SETTINGS_ELASTIC_REINDEX_SETTINGS
@@ -119,7 +118,7 @@ def is_reindex_running():
 
 @shared_task(ignore_results=True)
 def send_all_reports(report_type=None, year=None, month=None, repository_id=None):
-    """Query elasticsearch for each type of stats report."""
+    """Query search for each type of stats report."""
     # By default get the current month and year
     now = datetime.now()
     month = month or now.month

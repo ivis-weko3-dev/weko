@@ -19,7 +19,7 @@ def test_serialize_search_OpenSearchSerializer(app):
 
     pid_fetcher = {
         "hits": {
-            "total": "total",
+            "total": {"value": "total", "relation": "eq"},
             "hits": [{
                 "_source": {
                     "_item_metadata": "_item_metadata"

@@ -20,24 +20,21 @@
 
 """Pytest configuration."""
 
-from io import BytesIO
 import json
 import os
 import shutil
 import tempfile
 import uuid
 import pytest
-from datetime import datetime,timedelta
-from unittest.mock import patch
-from kombu import Exchange, Queue
-from mock import patch
+
+from celery.messaging import establish_connection
 from click.testing import CliRunner
+from datetime import datetime,timedelta
 from flask import Blueprint, Flask
 from flask_admin import Admin
 from flask_assets import assets
 from flask_babel import Babel
 from flask_menu import Menu
-from celery.messaging import establish_connection
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts import InvenioAccounts
@@ -65,8 +62,8 @@ from invenio_records_ui import InvenioRecordsUI
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.config import FILES_REST_STORAGE_CLASS_LIST
 from invenio_files_rest.models import Location
-from invenio_i18n import InvenioI18N
 from invenio_indexer import InvenioIndexer
+from invenio_i18n import InvenioI18N
 from invenio_jsonschemas import InvenioJSONSchemas
 from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore import InvenioPIDStore
@@ -75,10 +72,13 @@ from invenio_pidrelations.config import PIDRELATIONS_RELATION_TYPES
 from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
 from invenio_pidrelations.contrib.draft import PIDNodeDraft
 from invenio_records import InvenioRecords
-from weko_redis.redis import RedisConnection
 from invenio_search import InvenioSearch
 from invenio_stats import InvenioStats
+from io import BytesIO
+from kombu import Exchange, Queue
+from mock import patch
 from sqlalchemy_utils.functions import create_database, database_exists
+from unittest.mock import patch
 from weko_admin import WekoAdmin
 from weko_admin.config import WEKO_ADMIN_DEFAULT_ITEM_EXPORT_SETTINGS
 from weko_admin.models import SessionLifetime,RankingSettings,Identifier,AdminSettings
@@ -96,6 +96,7 @@ from weko_records import WekoRecords
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
 from weko_records.api import ItemsMetadata
 from weko_records_ui.config import WEKO_RECORDS_UI_LICENSE_DICT
+from weko_redis.redis import RedisConnection
 from weko_schema_ui.config import WEKO_SCHEMA_JPCOAR_V2_SCHEMA_NAME ,WEKO_SCHEMA_JPCOAR_V2_RESOURCE_TYPE_REPLACE,WEKO_SCHEMA_JPCOAR_V2_NAMEIDSCHEME_REPLACE
 from weko_schema_ui.models import OAIServerSchema
 from weko_search_ui import WekoSearchUI
@@ -204,7 +205,7 @@ def base_app(instance_path):
         WEKO_SCHEMA_JPCOAR_V2_SCHEMA_NAME=WEKO_SCHEMA_JPCOAR_V2_SCHEMA_NAME,
         WEKO_SCHEMA_JPCOAR_V2_RESOURCE_TYPE_REPLACE=WEKO_SCHEMA_JPCOAR_V2_RESOURCE_TYPE_REPLACE,
         WEKO_SCHEMA_JPCOAR_V2_NAMEIDSCHEME_REPLACE=WEKO_SCHEMA_JPCOAR_V2_NAMEIDSCHEME_REPLACE,
-        SEARCH_ELASTIC_HOSTS=os.environ.get('SEARCH_ELASTIC_HOSTS', 'opensearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get('SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SEARCH_HOSTS=os.environ.get('SEARCH_HOST', 'opensearch'),
         SEARCH_INDEX_PREFIX="{}-".format('test'),
         SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
@@ -245,7 +246,6 @@ def base_app(instance_path):
         WEKO_USERPROFILES_GENERAL_ROLE=WEKO_USERPROFILES_GENERAL_ROLE,
         CACHE_REDIS_DB = 2,
         WEKO_DEPOSIT_ITEMS_CACHE_PREFIX=WEKO_DEPOSIT_ITEMS_CACHE_PREFIX,
-        # INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         # INDEXER_FILE_DOC_TYPE="item-v1.0.0",
         WEKO_INDEX_TREE_DEFAULT_DISPLAY_NUMBER=WEKO_INDEX_TREE_DEFAULT_DISPLAY_NUMBER,
         DEPOSIT_DEFAULT_JSONSCHEMA=DEPOSIT_DEFAULT_JSONSCHEMA,
@@ -261,7 +261,7 @@ def base_app(instance_path):
                          ],
         WEKO_ADMIN_PERMISSION_ROLE_COMMUNITY = "Community Administrator",
         WEKO_ADMIN_PERMISSION_ROLE_REPO = "Repository Administrator",
-        WEKO_AUTHORS_ES_INDEX_NAME='test-authors',
+        WEKO_AUTHORS_SEARCH_INDEX_NAME='test-authors',
     )
 
     app_.config['WEKO_SEARCH_REST_ENDPOINTS']['recid']['search_index']='test-weko'
@@ -391,12 +391,12 @@ def tokens(app,users,db):
     return tokens
 
 @pytest.fixture()
-def esindex(app,db_records, es):
+def search_index(app,db_records, open_search):
     index_name = app.config["INDEXER_DEFAULT_INDEX"]
 
     for depid, recid, parent, doi, record, item in db_records:
-        es.index(index=index_name, id=record.id, body=record, refresh='true')
-    return es
+        open_search.index(index=index_name, id=record.id, body=record, refresh='true')
+    return open_search
 
 @pytest.fixture()
 def redis_connect(app):
@@ -409,7 +409,7 @@ def without_remove_session(app):
         yield
 
 @pytest.fixture()
-def es(app):
+def open_search(app):
     from invenio_search import current_search_client as client
     client.indices.delete(index="test-*")
     record_index_name = app.config["INDEXER_DEFAULT_INDEX"]
@@ -417,7 +417,7 @@ def es(app):
     author_index_name = "{}-authors-author-v1.0.0".format(
             'test'
         )
-    author_alias_name = app.config["WEKO_AUTHORS_ES_INDEX_NAME"]
+    author_alias_name = app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"]
     with open("tests/data/mappings/item-v1.0.0.json","r") as f:
         record_mapping = json.load(f)
     with open("tests/data/mappings/author-v1.0.0.json","r") as f:
@@ -22613,7 +22613,7 @@ def db_itemtype_15(app, db):
 @pytest.fixture()
 def records(db, es, instance_path):#, indextree, location, itemtypes, db_oaischema):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
 
     with db.session.begin_nested():
         Location.query.delete()
@@ -23405,8 +23405,8 @@ def make_record(db, indexer, i, files, thumbnail=None):
     h1 = PIDNodeVersioning(parent=parent)
     h1.insert_child(child=recid)
     h1.insert_child(child=recid_v1)
-    RecordDraft.link(recid, depid)
-    RecordDraft.link(recid_v1, depid_v1)
+    PIDNodeDraft(pid=recid).insert_child(depid)
+    PIDNodeDraft(pid=recid_v1).insert_child(depid_v1)
 
     if i % 2 == 1:
         doi = PersistentIdentifier.create(

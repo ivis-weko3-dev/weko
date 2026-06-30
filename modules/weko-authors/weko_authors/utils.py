@@ -21,41 +21,41 @@
 """Utils for weko-authors."""
 
 import base64
-import csv
-import os
 import chardet
+import copy
+import csv
+import datetime
 import io
+import json
+import math
+import os
 import re
 import sys
 import tempfile
 import traceback
-import copy
-import json
-import math
-import datetime
-from time import sleep
-from copy import deepcopy
-from functools import reduce
-from operator import getitem
-from sys import stdout
-from sqlalchemy.exc import SQLAlchemyError
-from redis.exceptions import RedisError
 
+from copy import deepcopy
 from flask import current_app
 from flask_babel import gettext as _
 from flask_security import current_user
+from functools import reduce
 from invenio_accounts.models import User
 from invenio_cache import current_cache
 from invenio_communities.models import Community
 from invenio_db import db
 from invenio_indexer.api import RecordIndexer
+from operator import getitem
+from redis.exceptions import RedisError
+from time import sleep
+from sys import stdout
+from sqlalchemy.exc import SQLAlchemyError
 
+from .api import WekoAuthors
+from .errors import AuthorsValidationError, AuthorsPermissionError
 from .contrib.validation import (
     validate_by_extend_validator, validate_external_author_identifier,
     validate_map, validate_required
 )
-from .api import WekoAuthors
-from .errors import AuthorsValidationError, AuthorsPermissionError
 from .models import AuthorsPrefixSettings, AuthorsAffiliationSettings, Authors
 
 def update_cache_data(key: str, value: str, timeout=None):
@@ -145,7 +145,7 @@ def check_email_existed(email: str):
 
     indexer = RecordIndexer()
     result = indexer.client.search(
-        index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
+        index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
         body=body
     )
 
@@ -1373,7 +1373,7 @@ def prepare_import_data(max_page_for_import_tab):
 def import_author_to_system(
     author, status, force_change_mode, request_info=None
 ):
-    """Import author to DB and ES.
+    """Import author to DB and Search.
 
     Args:
         author (dict): Author metadata from tsv/csv.
@@ -1549,7 +1549,7 @@ def count_authors():
 
     indexer = RecordIndexer()
     result = indexer.client.count(
-        index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
+        index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
         body={'query': query}
     )
 

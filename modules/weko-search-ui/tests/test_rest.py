@@ -1,19 +1,21 @@
 """
 /index/:post, get
 """
-import json, copy
+import copy
+import json 
 import pytest
-from mock import patch, MagicMock
-from unittest.mock import ANY
+
 from flask import Response, current_app
 from flask_babel import get_locale
-from tests.conftest import json_data
-
 from invenio_rest import ContentNegotiatedMethodView
 from invenio_search.engine import dsl, search
+from mock import patch, MagicMock
+from tests.conftest import json_data
+from unittest.mock import ANY
 
 from weko_records.api import ItemTypes
-from weko_search_ui.rest import create_blueprint, IndexSearchResource, get_heading_info
+from weko_search_ui.rest import (
+    create_blueprint, IndexSearchResource, get_heading_info)
 from weko_search_ui.query import default_search_factory
 
 def url(root, kwargs={}):
@@ -91,7 +93,7 @@ test_patterns = {
 }
 @pytest.mark.skip(reason="fixture not implemented")
 @pytest.mark.parametrize("params, facet_file, links, paths, rd_file, execute", test_patterns.values(), ids=test_patterns.keys())
-def test_IndexSearchResource_get(client_rest, users, item_type, db_records, facet_search_setting, index, mock_es_execute,
+def test_IndexSearchResource_get(client_rest, users, item_type, db_records, facet_search_setting, index, mock_search_execute,
                                  params, facet_file, links, paths, rd_file, execute):
     sname = current_app.config["SERVER_NAME"]
     facet = json_data("tests/data/search/"+facet_file)
@@ -99,7 +101,7 @@ def test_IndexSearchResource_get(client_rest, users, item_type, db_records, face
         links[l]="http://"+sname+"/index/"+links[l]
     with patch("weko_admin.utils.get_facet_search_query", return_value=facet):
         with patch("weko_search_ui.rest.Indexes.get_self_list",side_effect=paths):
-            with patch("invenio_search.api.RecordsSearch.execute", return_value=mock_es_execute("tests/data/search/"+execute)):
+            with patch("invenio_search.api.RecordsSearch.execute", return_value=mock_search_execute("tests/data/search/"+execute)):
                 res = client_rest.get(url("/index/",params))
                 result = json.loads(res.get_data(as_text=True))
                 rd = json_data("tests/data/search/"+rd_file)
@@ -208,7 +210,7 @@ def test_IndexSearchResource_get2(app,i18n_app, users, client_request_args):
                 def to_dict():
                     dict_1 = {
                         "hits": {
-                            "total": total_hit_count,
+                            "total": {"value": total_hit_count, "relation": "eq"},
                             "hits": [{
                                 "_source": {
                                     "title": [1],
@@ -241,7 +243,7 @@ def test_IndexSearchResource_get2(app,i18n_app, users, client_request_args):
 
                 data_3 = MagicMock()
                 data_3.hits = MagicMock()
-                data_3.hits.total = 30
+                data_3.hits.total.value = 30
                 data_3.to_dict = to_dict
 
                 return data_3
@@ -277,14 +279,14 @@ def test_IndexSearchResource_get2(app,i18n_app, users, client_request_args):
             with patch("weko_index_tree.api.Indexes.get_self_list", return_value=[return_data_1]):
                 assert isinstance(test.get(), tuple)
                 assert isinstance(test.get()[1], dict)
-                assert test.get()[1]["hits"]["total"] == total_hit_count
+                assert test.get()[1]["hits"]["total"]["value"] == total_hit_count
                 assert test.get()[2]["self"] == top_page
                 assert test.get()[2]["next"] == next_page
 
             with patch("weko_index_tree.api.Indexes.get_self_list", return_value=[return_data_2]):
                 assert isinstance(test.get(), tuple)
                 assert isinstance(test.get()[1], dict)
-                assert test.get()[1]["hits"]["total"] == total_hit_count
+                assert test.get()[1]["hits"]["total"]["value"] == total_hit_count
                 assert test.get()[2]["self"] == top_page
                 assert test.get()[2]["next"] == next_page
 
@@ -466,7 +468,7 @@ def test_IndexSearchResourceAPI(client_rest, db_register2, db_rocrate_mapping):
         res = client_rest.get(target_url)
         assert res.status_code == 200
 
-    modified_result= {"hits": {"hits":"", "total": ""} }
+    modified_result= {"hits": {"hits":"", "total": {"value": "", "relation": "eq"}} }
     with patch('invenio_search.api.RecordsSearch.execute', return_value=DummySearchResult(modified_result)):
         res = client_rest.get(target_url)
         assert res.status_code == 200
@@ -617,7 +619,7 @@ def test_IndexSearchResultList_error(client_rest, db_register2, db_rocrate_mappi
         res = client_rest.post(target_url, json=invalid_json)
         assert res.status_code == 400
 
-    with patch('invenio_search.api.RecordsSearch.execute', side_effect=ElasticsearchException()):
+    with patch('invenio_search.api.RecordsSearch.execute', side_effect=search.OpenSearchException()):
         res = client_rest.post(target_url, json=valid_json)
         assert res.status_code == 500
 

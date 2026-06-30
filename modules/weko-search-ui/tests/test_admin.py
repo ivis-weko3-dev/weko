@@ -1,19 +1,18 @@
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_admin.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 import codecs
-import io
 import csv
-import os
 import json
+import io
+import os
 import pytest
+
 from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock
-from flask_login import current_user
-from jinja2.exceptions import TemplateNotFound
 from flask import json, url_for,current_app, make_response, request
-
+from flask_login import current_user
 from invenio_accounts.testutils import login_user_via_session
+from jinja2.exceptions import TemplateNotFound
+from unittest.mock import patch, MagicMock
 
-from werkzeug.datastructures import FileStorage
 from weko_admin.api import TempDirInfo
 from weko_index_tree.models import Index
 from weko_records.models import ItemTypeJsonldMapping
@@ -25,12 +24,13 @@ from weko_search_ui.admin import (
     ItemBulkExport,
     ItemRocrateImportView
 )
+from werkzeug.datastructures import FileStorage
 
 
 # class ItemManagementBulkDelete(BaseView):
 #     def index(self):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_admin.py::test_ItemManagementBulkDelete_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_ItemManagementBulkDelete_index(i18n_app, es, users, indices, mocker):
+def test_ItemManagementBulkDelete_index(i18n_app, open_search, users, indices, mocker):
     i18n_app.config['WEKO_SEARCH_TYPE_INDEX'] = 'index'
     with i18n_app.test_client() as client:
         with patch("flask_login.utils._get_user", return_value=users[3]['obj']):

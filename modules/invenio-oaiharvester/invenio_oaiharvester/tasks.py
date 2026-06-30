@@ -19,19 +19,18 @@
 
 """Celery tasks used by Invenio-OAIHarvester."""
 
-from __future__ import absolute_import, print_function
-
+import dateutil
 import json
 import signal
 import traceback
+
 from ast import literal_eval as make_tuple
 from collections import OrderedDict
 from datetime import datetime
 
-import dateutil
 from celery import current_task, shared_task
-from celery.utils.log import get_task_logger
 from celery import current_app as current_celery_app
+from celery.utils.log import get_task_logger
 from flask import current_app
 from flask_babel import gettext as _
 from invenio_db import db
@@ -331,8 +330,8 @@ def process_item(record, harvesting, counter, request_info):
 
     if event == ItemEvents.CREATE:
         event_counter('created_items', counter)
-        from weko_search_ui.utils import send_item_created_event_to_es
-        send_item_created_event_to_es({"pid": dep.pid}, request_info)
+        from weko_search_ui.utils import send_item_created_event_to_search
+        send_item_created_event_to_search({"pid": dep.pid}, request_info)
     elif event == ItemEvents.UPDATE:
         event_counter('updated_items', counter)
     else: #event == ItemEvents.DELETE:

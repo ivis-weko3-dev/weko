@@ -19,8 +19,6 @@
 
 """OAI harvest database models."""
 
-from __future__ import absolute_import, print_function
-
 import datetime
 import enum
 

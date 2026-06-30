@@ -1,9 +1,6 @@
-//require([
-//  "jquery",
-//  "bootstrap"
-//], function () {
 import "bootstrap/dist/js/bootstrap.min.js";
 import $ from "jquery";
+
 $(document).ready(function () {
     setDatePickerFormSearch();
     autoFilterSearch();
@@ -47,18 +44,18 @@ $('#cancel_clear_activitylog').on('click', function () {
     $('#activitylog_clear_modal').fadeOut();
 });
 
-$(".activity-link").on("click", function(event){
-  $.ajax({
-    url:"/workflow/verify_deletion/"+$(this).text(),
-    method:"GET",
-    async:false,
-    success: function(data, status) {
-      if(data.is_deleted === true && data.for_delete === false){
-        alert($('#item_deleted_msg').text());
-        event.preventDefault();
-      }
-    }
-  });
+$(".activity-link").on("click", function (event) {
+    $.ajax({
+        url: "/workflow/verify_deletion/" + $(this).text(),
+        method: "GET",
+        async: false,
+        success: function (data, status) {
+            if (data.is_deleted === true && data.for_delete === false) {
+                alert($('#item_deleted_msg').text());
+                event.preventDefault();
+            }
+        }
+    });
 });
 
 function changeParamPages() {
@@ -250,12 +247,12 @@ function autoFilterSearch() {
                             if ($('#status_id').length != 1) {
                                 addFilterRow($('#status').text(), paramName, '');
                             }
-                          $("#" + paramValue).prop('checked', true);
+                            $("#" + paramValue).prop('checked', true);
                         } else if (paramName == 'action') {
-                          if ($('#action_id').length != 1) {
-                            addFilterRow($('#action').text(), paramName, '');
-                          }
-                          $("#" + paramValue).prop('checked', true);
+                            if ($('#action_id').length != 1) {
+                                addFilterRow($('#action').text(), paramName, '');
+                            }
+                            $("#" + paramValue).prop('checked', true);
                         } else {
                             addFilterRow($("#" + paramName).text(), paramName, paramValue);
                         }
@@ -277,19 +274,19 @@ function addFilterRow(filter, name, valueParam) {
             + '<label class="checkbox-inline"><input type="checkbox" name="status" value="doing" id="doing">' + $('#action_doing').val() + '</label>'
             + '<label class="checkbox-inline"><input type="checkbox" name="status" value="done" id="done">' + $('#action_done').val() + '</label>'
             + '<label class="checkbox-inline"><input type="checkbox" name="status" value="actioncancel" id="actioncancel">' + $('#action_cancel').val() + '</label>'
-          + '</div>';
+            + '</div>';
     } else if (name == 'action') {
-      if ($('#action_id').length == 1) return;
-      newRow = $('<div id="action_id" class="form-group">');
-      cols += '<div class="col-sm-7">'
-        + '<label class="checkbox-inline"><input type="checkbox" name="action" value="start" id="start">' + $('#action_start').val() + '</label>'
-        + '<label class="checkbox-inline"><input type="checkbox" name="action" value="itemregistration" id="itemregistration">' + $('#action_item_registration').val() + '</label>'
-        + '<label class="checkbox-inline"><input type="checkbox" name="action" value="itemlink" id="itemlink">' + $('#action_item_link').val() + '</label>'
-        + '<label class="checkbox-inline"><input type="checkbox" name="action" value="identifiergrant" id="identifiergrant">' + $('#action_identifier_grant').val() + '</label>'
-        + '<label class="checkbox-inline"><input type="checkbox" name="action" value="approval" id="approval">' + $('#action_approval').val() + '</label>'
-        + '<label class="checkbox-inline"><input type="checkbox" name="action" value="end" id="end">' + $('#action_end').val() + '</label>'
-        // + '<label class="checkbox-inline"><input type="checkbox" name="action" value="oapolicyconfirmation" id="oapolicyconfirmation">' + $('#action_oa_policy_confirmation').val() + '</label>'
-        + '</div>';
+        if ($('#action_id').length == 1) return;
+        newRow = $('<div id="action_id" class="form-group">');
+        cols += '<div class="col-sm-7">'
+            + '<label class="checkbox-inline"><input type="checkbox" name="action" value="start" id="start">' + $('#action_start').val() + '</label>'
+            + '<label class="checkbox-inline"><input type="checkbox" name="action" value="itemregistration" id="itemregistration">' + $('#action_item_registration').val() + '</label>'
+            + '<label class="checkbox-inline"><input type="checkbox" name="action" value="itemlink" id="itemlink">' + $('#action_item_link').val() + '</label>'
+            + '<label class="checkbox-inline"><input type="checkbox" name="action" value="identifiergrant" id="identifiergrant">' + $('#action_identifier_grant').val() + '</label>'
+            + '<label class="checkbox-inline"><input type="checkbox" name="action" value="approval" id="approval">' + $('#action_approval').val() + '</label>'
+            + '<label class="checkbox-inline"><input type="checkbox" name="action" value="end" id="end">' + $('#action_end').val() + '</label>'
+            // + '<label class="checkbox-inline"><input type="checkbox" name="action" value="oapolicyconfirmation" id="oapolicyconfirmation">' + $('#action_oa_policy_confirmation').val() + '</label>'
+            + '</div>';
     } else {
         newRow = $('<div class="form-group">');
         cols += '<div class="col-sm-7"><input type="text" name="' + name + '" class="form-control" value= "' + valueParam + '"></div>';

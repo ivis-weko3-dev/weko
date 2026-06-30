@@ -10,18 +10,18 @@
 
 """Invenio module that implements OAuth 2 server."""
 
+import importlib_metadata
 import os
+import oauthlib.common as oauthlib_commmon
 import warnings
 
-import importlib_metadata
-import oauthlib.common as oauthlib_commmon
-import six
 from flask import abort, request
 from flask_login import current_user
 from flask_menu import current_menu
 from invenio_i18n import lazy_gettext as _
-from invenio_theme.proxies import current_theme_icons
+from invenio_oauth2server._compat import monkey_patch_werkzeug  # noqa isort:skip
 from invenio_rest.csrf import csrf
+from invenio_theme.proxies import current_theme_icons
 from werkzeug.utils import cached_property, import_string
 from weko_redis.redis import RedisConnectionExtension
 
@@ -29,7 +29,6 @@ from . import config
 from .models import OAuthUserProxy, Scope
 from .provider import oauth2
 
-from invenio_oauth2server._compat import monkey_patch_werkzeug  # noqa isort:skip
 
 monkey_patch_werkzeug()  # noqa isort:skip
 from flask_oauthlib.contrib.oauth2 import bind_cache_grant  # noqa isort:skip
@@ -112,7 +111,7 @@ class _OAuth2ServerState(object):
         :returns: The imported object.
         """
         imp = self.app.config.get(value)
-        if isinstance(imp, six.string_types):
+        if isinstance(imp, str):
             return import_string(imp)
         elif imp:
             return imp

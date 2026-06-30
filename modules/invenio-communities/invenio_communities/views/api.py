@@ -8,18 +8,15 @@
 
 """Invenio module that adds API to communities."""
 
-from __future__ import absolute_import, print_function
-
 from flask import Blueprint, abort, current_app
-from invenio_rest import ContentNegotiatedMethodView
-from webargs import fields
-from webargs.flaskparser import use_kwargs
-
 from invenio_communities.links import default_links_item_factory, \
     default_links_pagination_factory
 from invenio_communities.models import Community
 from invenio_communities.serializers import community_response
 from invenio_db import db
+from invenio_rest import ContentNegotiatedMethodView
+from webargs import fields
+from webargs.flaskparser import use_kwargs
 
 blueprint = Blueprint(
     'invenio_communities_rest',

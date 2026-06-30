@@ -4,24 +4,25 @@ import copy
 import pytest
 import unittest
 import datetime
-from elasticsearch import helpers
-from unittest.mock import patch, MagicMock
+
 from flask import Flask
 from flask_login import current_user
 from flask_babel import Babel
-
 from invenio_resourcesyncserver.query import (
     get_items_by_index_tree,
     get_item_changes_by_index,
     item_path_search_factory,
     item_changes_search_factory
 )
+from invenio_search import current_search
+from invenio_search.engine import search
+from unittest.mock import patch, MagicMock, Mock
 
 
 # def get_items_by_index_tree(index_tree_id):
 # def get_item_changes_by_index(index_tree_id, date_from, date_until):
 # .tox/c1/bin/pytest --cov=invenio_resourcesyncserver tests/test_query.py::test_get_items_by_index_tree -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-resourcesyncserver/.tox/c1/tmp
-def test_get_items_by_index_tree(i18n_app, indices, esindex):
+def test_get_items_by_index_tree(i18n_app, indices, search_index):
     index_tree_id = 33
     date_from = (datetime.datetime.now() - datetime.timedelta(days=3)).isoformat()
     date_until = datetime.datetime.now().isoformat()
@@ -29,7 +30,7 @@ def test_get_items_by_index_tree(i18n_app, indices, esindex):
     assert get_items_by_index_tree(index_tree_id) == []
     assert get_item_changes_by_index(index_tree_id, date_from, date_until) == []
 
-    def _generate_es_data(num, start_datetime=datetime.datetime.now()):
+    def _generate_search_data(num, start_datetime=datetime.datetime.now()):
         for i in range(num):
             doc = {
                 "_index": i18n_app.config['INDEXER_DEFAULT_INDEX'],
@@ -51,7 +52,7 @@ def test_get_items_by_index_tree(i18n_app, indices, esindex):
             yield doc
 
     generate_data_num = 20002
-    helpers.bulk(esindex, _generate_es_data(generate_data_num), refresh='true')
+    search.helpers.bulk(search_index, _generate_search_data(generate_data_num), refresh='true')
 
     # result over 10000
     assert len(get_items_by_index_tree(66)) == generate_data_num

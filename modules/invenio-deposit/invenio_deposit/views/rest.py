@@ -8,14 +8,12 @@
 
 """Deposit actions."""
 
-from __future__ import absolute_import, print_function
-
 import json
 from copy import deepcopy
-from functools import partial
 
 from flask import Blueprint, abort, current_app, make_response, request, \
     url_for
+from functools import partial
 from invenio_db import db
 from invenio_oauth2server import require_api_auth, require_oauth_scopes
 from invenio_pidstore.errors import PIDInvalidAction
