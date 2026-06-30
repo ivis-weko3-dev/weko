@@ -787,10 +787,10 @@ class WekoFileRankingQuery(TermsQuery):
 
 
 # for backwards compatibility
-ESQuery = Query
-ESDateHistogramQuery = DateHistogramQuery
-ESTermsQuery = TermsQuery
-ESWekoFileStatsQuery = WekoFileStatsQuery
-ESWekoTermsQuery = WekoTermsQuery
-ESWekoRankingQuery = WekoRankingQuery
-ESWekoFileRankingQuery = WekoFileRankingQuery
+SearchQuery = Query
+SearchDateHistogramQuery = DateHistogramQuery
+SearchTermsQuery = TermsQuery
+SearchWekoFileStatsQuery = WekoFileStatsQuery
+SearchWekoTermsQuery = WekoTermsQuery
+SearchWekoRankingQuery = WekoRankingQuery
+SearchWekoFileRankingQuery = WekoFileRankingQuery

@@ -737,10 +737,10 @@ class QueryRecordViewPerIndexReportHelper(object):
                 "range", **{"timestamp": time_range}).filter(
                 "term", **{"is_restricted": False})
         if index_list:
-            nested_query = Q(
+            nested_query = dsl.Q(
                 "nested",
                 path=cls.nested_path,
-                query=Q("terms", **{cls.index_name_field: index_list})
+                query=dsl.Q("terms", **{cls.index_name_field: index_list})
             )
             agg_query = agg_query.filter(nested_query)
 

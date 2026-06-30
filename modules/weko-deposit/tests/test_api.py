@@ -3190,7 +3190,7 @@ class TestWekoRecord:
             mock_logger.reset_mock()
 
             app.config['BABEL_DEFAULT_LOCALE'] = 'ja'
-            # from flask_babelex import refresh; refresh()
+            # from flask_babel import refresh; refresh()
             with app.test_request_context():
                 assert record.get_titles == "タイトル"
 
@@ -3201,7 +3201,7 @@ class TestWekoRecord:
             mock_logger.reset_mock()
 
             app.config['BABEL_DEFAULT_LOCALE'] = 'fr'
-            # from flask_babelex import refresh; refresh()
+            # from flask_babel import refresh; refresh()
             with app.test_request_context():
                 assert record.get_titles=="title"
 

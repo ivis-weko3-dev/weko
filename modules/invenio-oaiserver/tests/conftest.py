@@ -282,7 +282,7 @@ def users(app, db):
     ]
 
 @pytest.fixture()
-def es_app(app):
+def search_app(app):
     with open(join(dirname(__file__),"data/mappings/item-v1.0.0.json"),"r") as f:
     #with open(join(dirname(__file__),"data/v6/records/record-v1.0.0.json"),"r") as f:
         mapping = json.load(f)

@@ -8,7 +8,10 @@
         "failed": 0
     },
     "hits": {
-        "total": 3,
+        "total": {
+            "value": 3,
+            "relation": "eq"
+        },
         "max_score": null,
         "hits": [
             {
@@ -18,8 +21,8 @@
                 "_version": 1,
                 "_score": null,
                 "_source": {
-                    "pageStart":1,
-                    "pageEnd":2,
+                    "pageStart": 1,
+                    "pageEnd": 2,
                     "date": [
                         {
                             "dateType": "Accepted",
@@ -681,7 +684,7 @@
                                     "accessrole": "open_date",
                                     "version_id": "6e3b5a33-ab7c-49e3-86e2-90d1cf7a9489",
                                     "displaytype": "simple",
-                                    "licensetype":"license_0"
+                                    "licensetype": "license_0"
                                 }
                             ]
                         },
@@ -797,8 +800,7 @@
                     "apc": [
                         "Paid"
                     ],
-                    "feedback_mail_list": [
-                    ],
+                    "feedback_mail_list": [],
                     "_created": "2022-05-24T08:28:07.807702+00:00",
                     "control_number": "1",
                     "weko_shared_ids": [],
@@ -1481,7 +1483,7 @@
                                     "accessrole": "open_date",
                                     "version_id": "6e3b5a33-ab7c-49e3-86e2-90d1cf7a9489",
                                     "displaytype": "simple",
-                                    "licensetype":"license_0"
+                                    "licensetype": "license_0"
                                 }
                             ]
                         },
@@ -1597,8 +1599,7 @@
                     "apc": [
                         "Paid"
                     ],
-                    "feedback_mail_list": [
-                    ],
+                    "feedback_mail_list": [],
                     "_created": "2022-05-24T08:28:07.807702+00:00",
                     "control_number": "2",
                     "weko_shared_ids": [],
@@ -2281,7 +2282,7 @@
                                     "accessrole": "open_date",
                                     "version_id": "6e3b5a33-ab7c-49e3-86e2-90d1cf7a9489",
                                     "displaytype": "simple",
-                                    "licensetype":"license_0"
+                                    "licensetype": "license_0"
                                 }
                             ]
                         },
@@ -2397,8 +2398,7 @@
                     "apc": [
                         "Paid"
                     ],
-                    "feedback_mail_list": [
-                    ],
+                    "feedback_mail_list": [],
                     "_created": "2022-05-24T08:28:07.807702+00:00",
                     "control_number": "3",
                     "weko_shared_ids": [],

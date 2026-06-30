@@ -17,12 +17,12 @@ from invenio_search.engine import dsl
 from invenio_stats.aggregations import filter_robots
 from invenio_stats.errors import InvalidRequestInputError
 from invenio_stats.queries import (
-    ESQuery,
-    ESDateHistogramQuery,
-    ESTermsQuery,
-    ESWekoFileStatsQuery,
-    ESWekoTermsQuery,
-    ESWekoRankingQuery
+    SearchQuery,
+    SearchDateHistogramQuery,
+    SearchTermsQuery,
+    SearchWekoFileStatsQuery,
+    SearchWekoTermsQuery,
+    SearchWekoRankingQuery
 )
 from mock import patch, MagicMock
 
@@ -31,11 +31,11 @@ class MockFunc:
     def __init__(self):
         raise AttributeError
 
-# class ESQuery(object):
+# class SearchQuery(object):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_queries.py::test_query -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 def test_query(app):
     with app.app_context():
-        query = ESQuery('test_name', 'test_type', 'test_index')
+        query = SearchQuery('test_name', 'test_type', 'test_index')
 
         # extract_date
         with pytest.raises(ValueError):
@@ -51,13 +51,13 @@ def test_query(app):
 def test_set_filter_event_type(app, open_search):
     """Test the set_filter_event_type method."""
     with app.app_context():
-        query_instance = ESQuery("test_query", "test_index", event_type="test_event")
+        query_instance = SearchQuery("test_query", "test_index", event_type="test_event")
         search_query = dsl.Search(using=open_search, index="test_index")
         filtered_query = query_instance.set_filter_event_type(search_query)
 
         assert "'term': {'event_type': 'test_event'}" in str(filtered_query.to_dict()) 
 
-# class ESDateHistogramQuery(ESQuery):
+# class SearchDateHistogramQuery(SearchQuery):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_queries.py::test_date_histogram_query -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 def test_date_histogram_query(i18n_app, queries_config):
     with i18n_app.app_context():
@@ -67,14 +67,14 @@ def test_date_histogram_query(i18n_app, queries_config):
         event_type=histogram_config['event_type']
         # __init__
         with pytest.raises(ValueError):
-            ESDateHistogramQuery(
+            SearchDateHistogramQuery(
                 name='test_total_count',
                 **histogram_config,
                 metric_fields={'value': ('test', '', {})}
             )
 
         # validate_arguments
-        query = ESDateHistogramQuery(
+        query = SearchDateHistogramQuery(
             name='test_total_count',
             **histogram_config
         )
@@ -85,7 +85,7 @@ def test_date_histogram_query(i18n_app, queries_config):
         assert not query.validate_arguments('year', None, None, bucket_id='test_id', file_key='test_key')
 
         # build_query
-        query = ESDateHistogramQuery(
+        query = SearchDateHistogramQuery(
             name='test_total_count',
             **histogram_config
         )
@@ -101,7 +101,7 @@ def test_date_histogram_query(i18n_app, queries_config):
         assert query.build_query('month', None, None, file_key=['key1', 'key2', 'key3', 'key4']).to_dict() == {'query': {'bool': {'filter': [{'bool': {'should': [{'terms': {'file_key': ['key1', 'key2', 'key3']}}, {'term': {'event_type': event_type}}, {'terms': {'file_key': ['key4']}}]}}]}}, 'aggs': {'histogram': {'date_histogram': {'field': 'timestamp', 'interval': 'month', 'time_zone': str(i18n_app.config["STATS_WEKO_DEFAULT_TIMEZONE"]())}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}}}, 'from': 0, 'size': 0}
 
         #53539 - case 10
-        query = ESDateHistogramQuery(
+        query = SearchDateHistogramQuery(
             name='test_total_count',
             **histogram_config,
             query_modifiers=[filter_robots]
@@ -111,7 +111,7 @@ def test_date_histogram_query(i18n_app, queries_config):
         #53539 - case 11
         test_config = copy.deepcopy(histogram_config)
         test_config.pop('copy_fields')
-        query = ESDateHistogramQuery(
+        query = SearchDateHistogramQuery(
             name='test_total_count',
             **test_config
         )
@@ -169,7 +169,7 @@ def test_date_histogram_query(i18n_app, queries_config):
         }
         test_config = copy.deepcopy(histogram_config)
         test_config['copy_fields']['test_value'] = lambda res, data: data['test_value']
-        query = ESDateHistogramQuery(
+        query = SearchDateHistogramQuery(
             name='test_total_count',
             **test_config
         )
@@ -177,7 +177,7 @@ def test_date_histogram_query(i18n_app, queries_config):
         assert query.process_query_result(_res1, 'month', datetime.date(2023, 1, 1), datetime.date(2023, 1, 2)) == {'interval': 'month', 'key_type': 'date', 'start_date': '2023-01-01', 'end_date': '2023-01-02', 'buckets': [{'key': 'key1', 'date': '2023-01-01', 'value': 1, 'bucket_id': 'bucket1', 'file_key': 'file1', 'test_value': 'value1'}]}
         assert query.process_query_result(_res2, 'month', None, None) == {'interval': 'month', 'key_type': 'date', 'start_date': None, 'end_date': None, 'buckets': [{'key': 'key1', 'date': '2023-01-01', 'value': 1}]}
 
-# class ESTermsQuery(ESQuery):
+# class SearchTermsQuery(SearchQuery):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_queries.py::test_terms_query -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 @pytest.mark.parametrize('aggregated_file_download_events',
                          [dict(file_number=1,
@@ -200,7 +200,7 @@ def test_terms_query(app,mock_search_execute, event_queues,
                      aggregated_file_download_events, mock_execute, config_num, res_file):
     """Test that the terms query returns the correct total count."""
     query_configs = register_queries()
-    terms_query = ESTermsQuery(query_name='test_total_count',
+    terms_query = SearchTermsQuery(query_name='test_total_count',
                                **query_configs[config_num]['query_config'])
 
     with patch("invenio_stats.queries.Search.execute", side_effect=[mock_search_execute(data) for data in mock_execute]):
@@ -220,7 +220,7 @@ def test_terms_query2(i18n_app, queries_config):
     event_type=terms_config['event_type']
 
     # validate_arguments
-    query = ESTermsQuery(
+    query = SearchTermsQuery(
         name='test_total_count',
         **terms_config
     )
@@ -230,7 +230,7 @@ def test_terms_query2(i18n_app, queries_config):
 
     # build_query
     #53539 - case 4, 21
-    query = ESTermsQuery(
+    query = SearchTermsQuery(
         name='test_total_count',
         **terms_config,
         query_modifiers=[filter_robots]
@@ -238,7 +238,7 @@ def test_terms_query2(i18n_app, queries_config):
     assert query.build_query(datetime.datetime(2023, 1, 1), None).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'gte': '2023-01-01T00:00:00', 'time_zone': str(i18n_app.config["STATS_WEKO_DEFAULT_TIMEZONE"]())}}}, {'term': {'event_type': event_type}}, {'term': {'is_robot': False}}]}}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'task_id': {'terms': {'field': 'task_id', 'size': 10000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'task_name': {'terms': {'field': 'task_name', 'size': 10000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'start_time': {'terms': {'field': 'start_time', 'size': 10000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'end_time': {'terms': {'field': 'end_time', 'size': 10000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'total_records': {'terms': {'field': 'total_records', 'size': 10000}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'task_state': {'terms': {'field': 'task_state', 'size': 10000}, 'aggs': {'value': {'sum': {'field': 'count'}}}}}}}}}}}}}}}, 'from': 0, 'size': 0,'track_total_hits': True}
 
     #53539 - case 23
-    query = ESTermsQuery(
+    query = SearchTermsQuery(
         query_name='test_total_count',
         **terms_config
     )
@@ -247,7 +247,7 @@ def test_terms_query2(i18n_app, queries_config):
     #53539 - case 5
     test_config = copy.deepcopy(terms_config)
     test_config.pop('aggregated_fields')
-    query = ESTermsQuery(
+    query = SearchTermsQuery(
         name='test_total_count',
         **test_config
     )
@@ -264,7 +264,7 @@ def test_terms_query2(i18n_app, queries_config):
         'test_value': lambda res, data: data['test_value']
     }
     test_config['group_fields'] = ['group', 'count']
-    query = ESTermsQuery(
+    query = SearchTermsQuery(
         name='test_total_count',
         **test_config
     )
@@ -272,7 +272,7 @@ def test_terms_query2(i18n_app, queries_config):
 
     test_config = copy.deepcopy(terms_config)
     test_config.pop('aggregated_fields')
-    query = ESTermsQuery(
+    query = SearchTermsQuery(
         name='test_total_count',
         **test_config
     )
@@ -287,7 +287,7 @@ def test_terms_query2(i18n_app, queries_config):
     event_type=terms_config['event_type']
     
     # validate_arguments
-    query = ESTermsQuery(
+    query = SearchTermsQuery(
         name='test_total_count',
         **terms_config
     )
@@ -296,7 +296,7 @@ def test_terms_query2(i18n_app, queries_config):
     assert not query.validate_arguments(None, None, task_name='task1')
 
     # build_query
-    query = ESTermsQuery(
+    query = SearchTermsQuery(
         name='test_total_count',
         **terms_config,
         query_modifiers=[filter_robots]
@@ -305,7 +305,7 @@ def test_terms_query2(i18n_app, queries_config):
 
     test_config = copy.deepcopy(terms_config)
     test_config.pop('aggregated_fields')
-    query = ESTermsQuery(
+    query = SearchTermsQuery(
         name='test_total_count',
         **test_config
     )
@@ -318,7 +318,7 @@ def test_terms_query2(i18n_app, queries_config):
         'test_value': lambda res, data: data['test_value']
     }
     test_config['group_fields'] = ['group', 'count']
-    query = ESTermsQuery(
+    query = SearchTermsQuery(
         name='test_total_count',
         **test_config
     )
@@ -326,7 +326,7 @@ def test_terms_query2(i18n_app, queries_config):
 
     test_config = copy.deepcopy(terms_config)
     test_config.pop('aggregated_fields')
-    query = ESTermsQuery(
+    query = SearchTermsQuery(
         name='test_total_count',
         **test_config
     )
@@ -336,7 +336,7 @@ def test_terms_query2(i18n_app, queries_config):
     config_num = 2        # query_name='get-file-download-report'
     query_configs = register_queries()
     terms_config = query_configs[config_num]['query_config']
-    query = ESTermsQuery(
+    query = SearchTermsQuery(
         query_name='test_total_count',
         **terms_config
     )
@@ -347,7 +347,7 @@ def test_terms_query2(i18n_app, queries_config):
 
     #53539 - case 22
     terms_config['copy_fields'] = {'file_key': 'file_key'}
-    query = ESTermsQuery(
+    query = SearchTermsQuery(
         query_name='test_total_count',
         **terms_config
     )
@@ -368,7 +368,7 @@ def test_weko_file_stats_query(i18n_app, queries_config):
     # build_query
     #53539 - case 18
     test_config = copy.deepcopy(filestats_config)
-    query = ESWekoFileStatsQuery(
+    query = SearchWekoFileStatsQuery(
         query_name='test_total_count',
         **test_config
     )
@@ -377,7 +377,7 @@ def test_weko_file_stats_query(i18n_app, queries_config):
     #53539 - case 16
     test_config.pop('main_query')
     test_config['aggregated_fields'] = ['file_key', 'user_id']
-    query = ESWekoFileStatsQuery(
+    query = SearchWekoFileStatsQuery(
         query_name='test_total_count',
         **test_config,
         query_modifiers=[filter_robots]
@@ -386,7 +386,7 @@ def test_weko_file_stats_query(i18n_app, queries_config):
     
     #53539 - case 1
     test_config.pop('aggregated_fields')
-    query = ESWekoFileStatsQuery(
+    query = SearchWekoFileStatsQuery(
         name='test_total_count',
         **test_config,
         query_modifiers=[filter_robots]
@@ -396,7 +396,7 @@ def test_weko_file_stats_query(i18n_app, queries_config):
 
     test_config['group_fields'] = ['file_key', 'count']
     test_config['copy_fields'] = {'file_key': 'file_key'}
-    query = ESWekoFileStatsQuery(
+    query = SearchWekoFileStatsQuery(
         name='test_total_count',
         **test_config
     )
@@ -426,7 +426,7 @@ def test_weko_terms_query(i18n_app, queries_config):
         'record_id': 'record_id',
         'test_value': lambda res, data: data['test_value']
     }
-    query = ESWekoTermsQuery(
+    query = SearchWekoTermsQuery(
         name='test_total_count',
         **test_config,
         query_modifiers=[filter_robots]
@@ -440,7 +440,7 @@ def test_weko_terms_query(i18n_app, queries_config):
 
     test_config = copy.deepcopy(weko_terms_config)
     test_config['required_filters'] = {'required1': 'required1', 'required2': 'required2'}
-    query = ESWekoTermsQuery(
+    query = SearchWekoTermsQuery(
         name='test_total_count',
         **test_config
     )
@@ -455,7 +455,7 @@ def test_weko_terms_query(i18n_app, queries_config):
     test_config = copy.deepcopy(weko_terms_config)
     test_config.pop('group_fields')
     test_config['aggregated_fields'] = ['fieldA', 'fieldB']
-    query = ESWekoTermsQuery(
+    query = SearchWekoTermsQuery(
         query_name='test_total_count',
         **test_config,
         query_modifiers=[filter_robots]
@@ -474,7 +474,7 @@ def test_weko_ranking_query(app):
     weko_ranking_config = query_configs[config_num]['query_config']
 
     test_config = copy.deepcopy(weko_ranking_config)
-    query = ESWekoRankingQuery(
+    query = SearchWekoRankingQuery(
         query_name='test_total_count',
         **test_config
     )

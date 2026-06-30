@@ -314,39 +314,39 @@ def range_query(_from=None, _until=None):
 
     # First should condition
 
-    must_not_embargoed = Q(
-        'bool', must_not=[Q('term', accessRights='embargoed access')]
+    must_not_embargoed = dsl.Q(
+        'bool', must_not=[dsl.Q('term', accessRights='embargoed access')]
     )
-    must_not_content_accessrole = Q(
+    must_not_content_accessrole = dsl.Q(
         'bool', must_not=[
-            Q(
+            dsl.Q(
                 'nested',
                 path='content',
-                query=Q('exists', field='content.accessrole.raw')
+                query=dsl.Q('exists', field='content.accessrole.raw')
             )
         ]
     )
-    must_not_open_access = Q(
+    must_not_open_access = dsl.Q(
         'nested',
         path='content',
-        query=Q(
+        query=dsl.Q(
             'bool',
             must_not=[
-                Q('term', **{'content.accessrole.raw': 'open_access'}),
-                Q(
+                dsl.Q('term', **{'content.accessrole.raw': 'open_access'}),
+                dsl.Q(
                     'bool',
                     must=[
-                        Q('term', **{'content.accessrole.raw': 'open_date'}),
-                        Q('range', **{'content.date.dateValue.raw': {'lte': now}})
+                        dsl.Q('term', **{'content.accessrole.raw': 'open_date'}),
+                        dsl.Q('range', **{'content.date.dateValue.raw': {'lte': now}})
                     ]
                 )
             ]
         )
     )
-    should1 = Q(
+    should1 = dsl.Q(
         'bool',
         must=[
-            Q(
+            dsl.Q(
                 'bool',
                 should=[
                     must_not_embargoed,
@@ -354,7 +354,7 @@ def range_query(_from=None, _until=None):
                     must_not_open_access
                 ]
             ),
-            Q(
+            dsl.Q(
                 'range',
                 **{
                     '_updated': {
@@ -367,18 +367,18 @@ def range_query(_from=None, _until=None):
     )
 
     # Second should condition
-    must_not_open_access2 = Q(
+    must_not_open_access2 = dsl.Q(
         'nested',
         path='content',
-        query=Q(
+        query=dsl.Q(
             'bool',
             must_not=[
-                Q('term', **{'content.accessrole.raw': 'open_access'}),
-                Q(
+                dsl.Q('term', **{'content.accessrole.raw': 'open_access'}),
+                dsl.Q(
                     'bool',
                     must=[
-                        Q('term', **{'content.accessrole.raw': 'open_date'}),
-                        Q('range', **{'content.date.dateValue.raw': {'lte': now}})
+                        dsl.Q('term', **{'content.accessrole.raw': 'open_date'}),
+                        dsl.Q('range', **{'content.date.dateValue.raw': {'lte': now}})
                     ]
                 )
             ]
@@ -389,61 +389,61 @@ def range_query(_from=None, _until=None):
     from_should = []
     if _from:
         from_should.append(
-            Q(
+            dsl.Q(
                 'nested',
                 path='content',
-                query=Q(
+                query=dsl.Q(
                     'bool',
                     must=[
-                        Q('term', **{'content.accessrole.raw': 'open_date'}),
-                        Q('range', **{'content.date.dateValue.raw': {'gte': from_date}})
+                        dsl.Q('term', **{'content.accessrole.raw': 'open_date'}),
+                        dsl.Q('range', **{'content.date.dateValue.raw': {'gte': from_date}})
                     ]
                 )
             )
         )
-        from_should.append(Q('range', **{'_updated': {'gte': _from}}))
+        from_should.append(dsl.Q('range', **{'_updated': {'gte': _from}}))
 
     # until condition
     until_must = []
     if _until:
         until_must.append(
-            Q(
+            dsl.Q(
                 'bool',
                 must_not=[
-                    Q(
+                    dsl.Q(
                         'nested',
                         path='content',
-                        query=Q(
+                        query=dsl.Q(
                             'bool',
                             must=[
-                                Q('term', **{'content.accessrole.raw': 'open_date'}),
-                                Q('range', **{'content.date.dateValue.raw': {'gt': until_date}})
+                                dsl.Q('term', **{'content.accessrole.raw': 'open_date'}),
+                                dsl.Q('range', **{'content.date.dateValue.raw': {'gt': until_date}})
                             ]
                         )
                     )
                 ]
             )
         )
-        until_must.append(Q('range', **{'_updated': {'lte': _until}}))
+        until_must.append(dsl.Q('range', **{'_updated': {'lte': _until}}))
 
     must2 = [
-        Q('term', accessRights='embargoed access'),
-        Q(
+        dsl.Q('term', accessRights='embargoed access'),
+        dsl.Q(
             'nested',
             path='content',
-            query=Q('exists', field='content.accessrole.raw')
+            query=dsl.Q('exists', field='content.accessrole.raw')
         ),
-        Q('bool', must_not=[must_not_open_access2])
+        dsl.Q('bool', must_not=[must_not_open_access2])
     ]
     if from_should:
-        must2.append(Q('bool', should=from_should))
+        must2.append(dsl.Q('bool', should=from_should))
     if until_must:
         must2.extend(until_must)
 
-    should2 = Q('bool', must=must2)
+    should2 = dsl.Q('bool', must=must2)
 
     # Overall should
-    return Q(
+    return dsl.Q(
         'bool',
         should=[should1, should2],
         minimum_should_match=1

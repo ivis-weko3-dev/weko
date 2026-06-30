@@ -154,16 +154,6 @@ setup(
         'invenio_celery.tasks': [
             'invenio_communities = invenio_communities.tasks',
         ],
-        'invenio_assets.bundles': [
-            'invenio_communities_js = invenio_communities.bundles:js',
-            'invenio_communities_js_tree = invenio_communities.bundles:js_tree',
-            'invenio_communities_js_tree_display = invenio_communities.bundles:js_tree_display',
-            'invenio_communities_css = invenio_communities.bundles:css',
-            'invenio_communities_css_tree = invenio_communities.bundles:css_tree',
-            'invenio_communities_css_tree_display = invenio_communities.bundles:css_tree_display',
-            'invenio_communities_trumbowyg_js = invenio_communities.bundles:js_trumbowyg',
-            'invenio_communities_trumbowyg_css = invenio_communities.bundles:css_trumbowyg',
-        ],
         'invenio_assets.webpack': [
             'invenio_communities = invenio_communities.webpack:invenio_communities',
         ]

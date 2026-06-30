@@ -23,7 +23,7 @@ from weko_index_tree.models import Index
 
 #def query_string_parser(search_pattern):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py::test_query_string_parser -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_query_string_parser(es_app):
+def test_query_string_parser(search_app):
     # current_oaiserver not have query_parse, config is str
     result = query_string_parser("test_path")
     assert type(result) == dsl.query.QueryString
@@ -48,7 +48,7 @@ def test_query_string_parser(es_app):
 
 #def get_affected_records(spec=None, search_pattern=None):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py::test_get_affected_records -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_get_affected_records(es_app):
+def test_get_affected_records(search_app):
     # raise StopIteration
     #with pytest.raises(StopIteration):
     result = get_affected_records(None,None)
@@ -74,7 +74,7 @@ def test_get_affected_records(es_app):
 #def get_records(**kwargs):
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py::test_get_records -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_get_records(es_app,db, mock_execute):
+def test_get_records(search_app,db, mock_execute):
     indexes = list()
     for i in range(11):
         indexes.append(
@@ -147,7 +147,7 @@ def test_get_records(es_app,db, mock_execute):
     }
     dummy_data={
         "hits":{
-            "total":1000,
+            "total": {"value": 1000, "relation": "eq"},
             "hits":[]
         }
     }
@@ -181,7 +181,7 @@ def test_get_records(es_app,db, mock_execute):
         assert result_items == test
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py::test_get_records_with_set -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_get_records_with_set(es_app,db, users):
+def test_get_records_with_set(search_app,db, users):
     from invenio_communities.models import Community
     indexes = list()
     ids = [123,456,789]
@@ -386,8 +386,8 @@ def test_range_query():
     (True, "2026-01-01", "2026-12-31", False, True, True),
 ])
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py::test_get_records_range_branch -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_get_records_range_branch(es_app, db, monkeypatch, fix_access, from_, until, expect_range, expect_rq, rangequery_none):
-    es_app.config['WEKO_SEARCH_FIX_ACCESSRIGHTS'] = fix_access
+def test_get_records_range_branch(search_app, db, monkeypatch, fix_access, from_, until, expect_range, expect_rq, rangequery_none):
+    search_app.config['WEKO_SEARCH_FIX_ACCESSRIGHTS'] = fix_access
 
     index = Index(
         id=30,
@@ -416,16 +416,15 @@ def test_get_records_range_branch(es_app, db, monkeypatch, fix_access, from_, un
     rec = RecordMetadata(id=rec_uuid, json=rec_data)
     db.session.add(rec)
     db.session.commit()
-    es_info = dict(
+    search_info = dict(
         id=str(rec_uuid),
-        index=es_app.config['INDEXER_DEFAULT_INDEX'],
-        doc_type=es_app.config['INDEXER_DEFAULT_DOCTYPE'],
+        index=search_app.config['INDEXER_DEFAULT_INDEX'],
         refresh="wait_for"
     )
     body = dict(version=1, version_type="external_gte", body=rec_data)
     from invenio_search import current_search_client
-    current_search_client.index(**{**es_info, **body})
-    current_search_client.indices.refresh(index=es_app.config['INDEXER_DEFAULT_INDEX'])
+    current_search_client.index(**{**search_info, **body})
+    current_search_client.indices.refresh(index=search_app.config['INDEXER_DEFAULT_INDEX'])
 
     called = {"filter": False, "rq": False}
     import invenio_oaiserver.query as query_mod
@@ -448,7 +447,7 @@ def test_get_records_range_branch(es_app, db, monkeypatch, fix_access, from_, un
             return orig_rq(_from, _until)
         monkeypatch.setattr(query_mod, "range_query", rq_spy)
 
-    with es_app.app_context():
+    with search_app.app_context():
         kwargs = {"set": "30"}
         if from_:
             kwargs["from_"] = from_

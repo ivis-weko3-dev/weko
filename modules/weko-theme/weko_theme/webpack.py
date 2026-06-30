@@ -22,7 +22,8 @@ weko_theme = WebpackThemeBundle(
                 "theme-js-treeview": "./js/weko_theme/treeview.js",
                 "theme-js-sidebar": "./js/weko_theme/sidebar.js",
                 "theme-css-sidebar": "./css/weko_theme/sidebar.css",
-                "theme-js-axios": "./js/axios/axios.min.js"
+                "theme-js-axios": "./js/axios/axios.min.js",
+                "theme-js-preview-widget": "./js/weko_theme/preview_widget.js"
             },
             dependencies={
                 "almond": "~0.3.1",

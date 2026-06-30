@@ -474,7 +474,7 @@ def test_getrecord_future_item(app,records,item_type,mock_execute,db,mocker):
         mocker.patch("weko_schema_ui.schema.cache_schema",return_value=ns)
         dummy_data = {
             "hits": {
-                "total": 1,
+                "total": {"value": 1, "relation": "eq"},
                 "hits": [
                     {
                         "_source": {
@@ -500,8 +500,8 @@ def test_getrecord_future_item(app,records,item_type,mock_execute,db,mocker):
 
 # def listidentifiers(**kwargs):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_listidentifiers -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_listidentifiers(es_app,records,item_type,mock_execute,db,mocker):
-    with es_app.app_context():
+def test_listidentifiers(search_app,records,item_type,mock_execute,db,mocker):
+    with search_app.app_context():
         identify = Identify(
             outPutSetting=True
         )
@@ -552,7 +552,7 @@ def test_listidentifiers(es_app,records,item_type,mock_execute,db,mocker):
         )
         dummy_data={
             "hits":{
-                "total": 7,
+                "total": {"value": 7, "relation": "eq"},
                 "hits":[
                     {
                         "_source":{
@@ -813,7 +813,7 @@ def test_listidentifiers(es_app,records,item_type,mock_execute,db,mocker):
         # return Exception
         dummy_data={
             "hits":{
-                "total": 1,
+                "total": {"value": 1, "relation": "eq"},
                 "hits":[
                     {
                         "_source":{
@@ -845,8 +845,8 @@ def test_listidentifiers(es_app,records,item_type,mock_execute,db,mocker):
 
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_listrecords -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_listrecords(es_app,records,item_type,mock_execute,db,mocker):
-    with es_app.app_context():
+def test_listrecords(search_app,records,item_type,mock_execute,db,mocker):
+    with search_app.app_context():
         identify = Identify(
             outPutSetting=True
         )
@@ -897,7 +897,7 @@ def test_listrecords(es_app,records,item_type,mock_execute,db,mocker):
         )
         dummy_data={
             "hits":{
-                "total": 7,
+                "total": {"value": 7, "relation": "eq"},
                 "hits":[
                     {
                         "_source":{
@@ -1158,7 +1158,7 @@ def test_listrecords(es_app,records,item_type,mock_execute,db,mocker):
         # return Exception
         dummy_data={
             "hits":{
-                "total": 1,
+                "total": {"value": 1, "relation": "eq"},
                 "hits":[
                     {
                         "_source":{
@@ -1998,8 +1998,8 @@ def test_get_identifier(app,db):
         assert result == test
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_issue34851_listrecords -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_issue34851_listrecords(es_app, records, item_type, mock_execute,db,mocker):
-    with es_app.app_context():
+def test_issue34851_listrecords(search_app, records, item_type, mock_execute,db,mocker):
+    with search_app.app_context():
         identify = Identify(
             outPutSetting=True
         )
@@ -2050,7 +2050,7 @@ def test_issue34851_listrecords(es_app, records, item_type, mock_execute,db,mock
         )
         dummy_data={
             "hits":{
-                "total":4,
+                "total":{"value":4,"relation":"eq"},
                 "hits":[
                     {
                         "_source":{
@@ -2121,8 +2121,8 @@ def test_issue34851_listrecords(es_app, records, item_type, mock_execute,db,mock
 
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_issue34851_listidentifiers -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_issue34851_listidentifiers(es_app, records, item_type, mock_execute,db,mocker):
-    with es_app.app_context():
+def test_issue34851_listidentifiers(search_app, records, item_type, mock_execute,db,mocker):
+    with search_app.app_context():
         identify = Identify(
             outPutSetting=True
         )
@@ -2173,7 +2173,7 @@ def test_issue34851_listidentifiers(es_app, records, item_type, mock_execute,db,
         )
         dummy_data={
             "hits":{
-                "total":4,
+                "total":{"value":4,"relation":"eq"},
                 "hits":[
                     {
                         "_source":{

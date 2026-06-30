@@ -1,17 +1,21 @@
 {
-    "aggregations": {"aggregations":[],
-    "path":{"buckets":[[{"comment":"",
-
-                        "date_range":{
-                            "pub_cnt":0,
-                            "un_pub_cnt":0
+    "aggregations": {
+        "aggregations": [],
+        "path": {
+            "buckets": [
+                [
+                    {
+                        "comment": "",
+                        "date_range": {
+                            "pub_cnt": 0,
+                            "un_pub_cnt": 0
                         },
-                        "display_format":"1",
-                        "doc_count":0,
-                        "img":"index image name",
-                        "key":"1557820086539",
-                        "name":"Faculty of Humanities and Social Sciences",
-                        "rss_status":false
+                        "display_format": "1",
+                        "doc_count": 0,
+                        "img": "index image name",
+                        "key": "1557820086539",
+                        "name": "Faculty of Humanities and Social Sciences",
+                        "rss_status": false
                     }
                 ]
             ],
@@ -791,7 +795,7 @@
                         }
                     ],
                     "feedback_mail_list": [],
-                    "heading":"",
+                    "heading": "",
                     "itemtype": "デフォルトアイテムタイプ（フル）",
                     "language": [
                         "jpn"
@@ -1585,7 +1589,9 @@
                             "1"
                         ]
                     },
-                    "custom_sort": {"1557820086539":"1"},
+                    "custom_sort": {
+                        "1557820086539": "1"
+                    },
                     "date": [
                         {
                             "dateType": "Accepted",
@@ -1593,7 +1599,7 @@
                         }
                     ],
                     "feedback_mail_list": [],
-                    "heading":"",
+                    "heading": "",
                     "itemtype": "デフォルトアイテムタイプ（フル）",
                     "language": [
                         "jpn"
@@ -2394,7 +2400,7 @@
                         }
                     ],
                     "feedback_mail_list": [],
-                    "heading":"",
+                    "heading": "",
                     "itemtype": "デフォルトアイテムタイプ（フル）",
                     "language": [
                         "jpn"
@@ -2426,7 +2432,10 @@
                 "updated": "2022-05-24T08:32:26.405052+00:00"
             }
         ],
-        "total": 3
+        "total": {
+            "value": 3,
+            "relation": "eq"
+        }
     },
     "links": {}
 }

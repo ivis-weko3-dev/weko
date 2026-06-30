@@ -3,7 +3,7 @@ import os
 import pytest
 
 
-from flask import url_for, request, abort
+from flask import url_for, request, abort, Flask
 from flask_limiter.errors import RateLimitExceeded
 from invenio_accounts.testutils import login_user_via_session
 from invenio_files_rest.models import Location
@@ -15,9 +15,10 @@ from weko_workflow.errors import WekoWorkflowException
 from weko_swordserver.errors import *
 from weko_swordserver.views import (
     _get_status_workflow_document, blueprint, _get_status_document,
-    _create_error_document)
+    _create_error_document, _get_file_info, _sort_links_for_status)
 
 from .helpers import calculate_hash
+
 
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
 
@@ -1239,10 +1240,6 @@ def test_status_workflow_document_files_info_none(app, mocker):
         file_links = [l for l in result["links"] if l.get("rel") and any("file" in r for r in l.get("rel"))]
         assert not file_links
 
-import os
-
-from flask import Flask
-from weko_swordserver.views import _get_file_info
 
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__get_file_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
 def test__get_file_info(app):
@@ -1302,8 +1299,6 @@ def test__get_file_info(app):
     # None have both url and label, so should be empty
     assert files_info == {}
 
-
-from weko_swordserver.views import _sort_links_for_status
 
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__sort_links_for_status -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
 def test__sort_links_for_status():

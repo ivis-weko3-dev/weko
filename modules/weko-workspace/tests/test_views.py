@@ -526,7 +526,7 @@ def test_update_workspace_status_management(
             0,
             "GET",
             {
-                "es_data": [
+                "search_data": [
                     {
                         "_id": "7b6fbcb1-affc-4740-8a18-e8b34a7a0409",
                         "_source": {

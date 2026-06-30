@@ -19,7 +19,7 @@
 # MA 02111-1307, USA.
 
 """Configuration for weko-items-ui."""
-from invenio_stats.queries import ESWekoRankingQuery
+from invenio_stats.queries import SearchWekoRankingQuery
 
 WEKO_WORKFLOW_BASE_TEMPLATE = 'weko_workflow/base.html'
 """Default base template for the demo page."""
@@ -214,7 +214,7 @@ WEKO_ITEMS_UI_SHARED_USER_ROLE_ID_LIST = [1,2,3]
 
 WEKO_ITEMS_UI_RANKING_QUERY = {
     'most_view_ranking': {
-        "cls": ESWekoRankingQuery,
+        "cls": SearchWekoRankingQuery,
         "params": dict(
             index='stats-index',
             main_fields=['start_date', 'end_date', 'group_field', 'agg_size', 'count_field'],

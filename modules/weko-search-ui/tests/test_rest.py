@@ -210,7 +210,7 @@ def test_IndexSearchResource_get2(app,i18n_app, users, client_request_args):
                 def to_dict():
                     dict_1 = {
                         "hits": {
-                            "total": total_hit_count,
+                            "total": {"value": total_hit_count, "relation": "eq"},
                             "hits": [{
                                 "_source": {
                                     "title": [1],
@@ -468,7 +468,7 @@ def test_IndexSearchResourceAPI(client_rest, db_register2, db_rocrate_mapping):
         res = client_rest.get(target_url)
         assert res.status_code == 200
 
-    modified_result= {"hits": {"hits":"", "total": ""} }
+    modified_result= {"hits": {"hits":"", "total": {"value": "", "relation": "eq"}} }
     with patch('invenio_search.api.RecordsSearch.execute', return_value=DummySearchResult(modified_result)):
         res = client_rest.get(target_url)
         assert res.status_code == 200

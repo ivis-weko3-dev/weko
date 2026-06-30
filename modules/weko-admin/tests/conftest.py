@@ -1160,7 +1160,7 @@ class MockSearch():
     # def delete(self,id="",index="",**kwargs):
     #     return Response(response=json.dumps({}),status=500)
     def search(self,index="",body={},**kwargs):
-        return {"took":2,"timed_out":False,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":67,"max_score":1,"hits":[{"_index":"test-weko-item-v1.0.0","_type":"item-v1.0.0","_id":"oaiset-1669370353014","_score":1,"_source":{"query":{"query_string":{"query":"path:\"1669370353014\""}}}}]}}
+        return {"took":2,"timed_out":False,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total": {"value": 67, "relation": "eq"},"max_score":1,"hits":[{"_index":"test-weko-item-v1.0.0","_type":"item-v1.0.0","_id":"oaiset-1669370353014","_score":1,"_source":{"query":{"query_string":{"query":"path:\"1669370353014\""}}}}]}}
 
     @property
     def transport(self):

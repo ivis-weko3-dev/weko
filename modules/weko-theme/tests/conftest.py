@@ -1136,7 +1136,7 @@ def count_json_data():
             db.session.add(index)
         dummy_data = {
             "hits": {
-                "total": 3,
+                "total": {"value": 3, "relation": "eq"},
                 "hits": [
                     {
                         "_source": {
@@ -1195,7 +1195,7 @@ def count_json_data():
 
         dummy_data = {
             "hits": {
-                "total": 1,
+                "total": {"value": 1, "relation": "eq"},
                 "hits": [
                     {
                         "_source": {

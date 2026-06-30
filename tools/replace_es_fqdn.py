@@ -4,7 +4,7 @@ import sys
 import time
 import traceback
 
-from elasticsearch import Elasticsearch
+from invenio_search.engine import search
 
 
 def replace_fqdn_in_source(source, ofqdn, nfqdn):
@@ -63,9 +63,9 @@ def replace_fqdn_in_source(source, ofqdn, nfqdn):
     return source
 
 
-def update_es_records(ofqdn, nfqdn, id_file_path=None):
+def update_search_records(ofqdn, nfqdn, id_file_path=None):
     """
-    Update Elasticsearch records.
+    Update Search records.
     If id_file_path is given, only update documents whose IDs are listed in the file.
     Otherwise, update all documents in the index.
 
@@ -78,7 +78,7 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
     INDEX_PREFIX = os.getenv("SEARCH_INDEX_PREFIX")
     PORT = 9200
     index_name = f"{INDEX_PREFIX}-weko-item-v1.0.0"
-    es = Elasticsearch(f"http://{HOST}:{PORT}")
+    open_search = search.OpenSearch(hosts=[{"host": HOST, "port": PORT}])
 
     if id_file_path:
         with open(id_file_path, "r") as f:
@@ -92,7 +92,7 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
 
     query = {"query": {"match_all": {}}}
 
-    if not es.indices.exists(index=index_name):
+    if not open_search.indices.exists(index=index_name):
         print(f"[ERROR] {index_name}: Index does not exist", flush=True)
         sys.exit(1)
 
@@ -100,7 +100,7 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
         if id_list is not None:
             result_count = len(id_list)
         else:
-            result_count = es.count(index=index_name, body=query)["count"]
+            result_count = open_search.count(index=index_name, body=query)["count"]
         print(f"[INFO] {index_name}: Total items: {result_count}", flush=True)
     except Exception as e:
         print(f"[ERROR] {index_name}: Failed to get count", flush=True)
@@ -116,7 +116,7 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
         if id_list is not None:
             for doc_id in id_list:
                 try:
-                    hit = es.get(index=index_name, doc_type="_doc", id=doc_id)
+                    hit = open_search.get(index=index_name, doc_type="_doc", id=doc_id)
                 except Exception as e:
                     print(
                         f"[ERROR] {index_name}: Failed to get document ID: {doc_id}",
@@ -132,9 +132,8 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
                 new_source = replace_fqdn_in_source(source, ofqdn, nfqdn)
 
                 try:
-                    es.index(
+                    open_search.index(
                         index=index_name,
-                        doc_type="_doc",
                         id=doc_id,
                         body=new_source,
                         version=version,
@@ -157,7 +156,7 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
                         flush=True,
                     )
         else:
-            scroll = es.search(
+            scroll = open_search.search(
                 index=index_name,
                 body=query,
                 params={"version": "true"},
@@ -175,9 +174,8 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
                     new_source = replace_fqdn_in_source(source, ofqdn, nfqdn)
 
                     try:
-                        es.index(
+                        open_search.index(
                             index=index_name,
-                            doc_type="_doc",
                             id=doc_id,
                             body=new_source,
                             version=version,
@@ -201,7 +199,7 @@ def update_es_records(ofqdn, nfqdn, id_file_path=None):
                             flush=True,
                         )
 
-                scroll = es.scroll(scroll_id=scroll_id, scroll="10m")
+                scroll = open_search.scroll(scroll_id=scroll_id, scroll="10m")
                 scroll_id = scroll["_scroll_id"]
                 hits = scroll["hits"]["hits"]
 
@@ -230,4 +228,4 @@ if __name__ == "__main__":
     ofqdn = sys.argv[1]
     nfqdn = sys.argv[2]
     id_file_path = sys.argv[3] if len(sys.argv) > 3 else None
-    update_es_records(ofqdn, nfqdn, id_file_path)
+    update_search_records(ofqdn, nfqdn, id_file_path)

@@ -5,7 +5,7 @@ from invenio_oaiserver.models import OAISet,oaiset_attribute_changed
 
 class TestOAISet:
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_models.py::TestOAISet::test_get_set_by_spec -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-    def test_get_set_by_spec(self,es_app,oaiset):
+    def test_get_set_by_spec(self,search_app,oaiset):
         result = OAISet.get_set_by_spec("test")
         assert result.name == "test_name"
         assert result.search_pattern == "test search"

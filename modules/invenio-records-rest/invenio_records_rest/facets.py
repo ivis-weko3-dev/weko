@@ -72,9 +72,9 @@ def terms_condition_filter(field, isAndFileter):
         if len(values) > 1 and isAndFileter:
             q_list = []
             for value in values:
-                q_list.append(Q('term', **{field: value}))
-            return Q('bool', **{'must': q_list})
-        return Q('terms', **{field: values})
+                q_list.append(dsl.Q('term', **{field: value}))
+            return dsl.Q('bool', **{'must': q_list})
+        return dsl.Q('terms', **{field: values})
     return inner
 
 
@@ -146,10 +146,10 @@ def _create_filter_dsl(urlkwargs, definitions):
                 access_rights_queries = []
                 for v in values:
                     if v in new_accessrights_filters:
-                        access_rights_queries.append(Q(new_accessrights_filters[v]))
+                        access_rights_queries.append(dsl.Q(new_accessrights_filters[v]))
                         urlkwargs.add(name, v)
                 if access_rights_queries:
-                    filters.append(Q('bool', should=access_rights_queries))
+                    filters.append(dsl.Q('bool', should=access_rights_queries))
             else:
                 filters.append(filter_factory(values))
                 for v in values:

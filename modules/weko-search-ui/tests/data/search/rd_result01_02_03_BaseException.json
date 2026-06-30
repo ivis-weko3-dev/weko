@@ -80,7 +80,9 @@
             }
         ],
         "path": {
-            "buckets": [[]],
+            "buckets": [
+                []
+            ],
             "doc_count_error_upper_bound": 0,
             "sum_other_doc_count": 0
         }
@@ -857,7 +859,7 @@
                         }
                     ],
                     "feedback_mail_list": [],
-                    "heading":"",
+                    "heading": "",
                     "itemtype": "デフォルトアイテムタイプ（フル）",
                     "language": [
                         "jpn"
@@ -1658,7 +1660,7 @@
                         }
                     ],
                     "feedback_mail_list": [],
-                    "heading":"",
+                    "heading": "",
                     "itemtype": "デフォルトアイテムタイプ（フル）",
                     "language": [
                         "jpn"
@@ -2459,7 +2461,7 @@
                         }
                     ],
                     "feedback_mail_list": [],
-                    "heading":"",
+                    "heading": "",
                     "itemtype": "デフォルトアイテムタイプ（フル）",
                     "language": [
                         "jpn"
@@ -2491,7 +2493,10 @@
                 "updated": "2022-05-24T08:32:26.405052+00:00"
             }
         ],
-        "total": 3
+        "total": {
+            "value": 1,
+            "relation": "eq"
+        }
     },
     "links": {}
 }

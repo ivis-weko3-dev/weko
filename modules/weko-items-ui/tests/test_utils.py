@@ -425,7 +425,7 @@ def test_parse_ranking_new_items():
         "timed_out": False,
         "_shards": {"total": 1, "successful": 1, "skipped": 0, "failed": 0},
         "hits": {
-            "total": 2,
+            "total": {"value": 2, "relation": "eq"},
             "max_score": None,
             "hits": [
                 {
@@ -586,7 +586,7 @@ def test_parse_ranking_record():
         "timed_out": False,
         "_shards": {"total": 1, "successful": 1, "skipped": 0, "failed": 0},
         "hits": {
-            "total": 2,
+            "total": {"value": 2, "relation": "eq"},
             "max_score": None,
             "hits": [
                 {
@@ -9392,7 +9392,7 @@ def test_WekoQueryRankingHelper_get(app, users, db_records,search_index):
             }
         }
     }
-    with patch("invenio_stats.queries.ESWekoRankingQuery.run", return_value=data):
+    with patch("invenio_stats.queries.SearchWekoRankingQuery.run", return_value=data):
         result = WekoQueryRankingHelper.get(
                 start_date="2023-08-19",
                 end_date="2023-09-01",
@@ -9417,7 +9417,7 @@ def test_WekoQueryRankingHelper_get(app, users, db_records,search_index):
         assert result == []
 
     # raise NotFoundError
-    with patch("invenio_stats.queries.ESWekoRankingQuery.run",side_effect=search.NotFoundError(404,"test_error")):
+    with patch("invenio_stats.queries.SearchWekoRankingQuery.run",side_effect=search.NotFoundError(404,"test_error")):
         result = WekoQueryRankingHelper.get(
             start_date="2023-08-19",
             end_date="2023-09-01",
@@ -11192,7 +11192,7 @@ def test_get_file_download_data(app, client, records):
                 ]
             }
         }
-        with patch("invenio_stats.queries.ESWekoFileRankingQuery.run", return_value=return_value):
+        with patch("invenio_stats.queries.SearchWekoFileRankingQuery.run", return_value=return_value):
             res = get_file_download_data(record.id, record, filenames)
             assert res["ranking"][0]["download_total"] == 5
             assert res["ranking"][1]["download_total"] == 3
@@ -11220,13 +11220,13 @@ def test_get_file_download_data(app, client, records):
                 ]
             }
         }
-        with patch("invenio_stats.queries.ESWekoFileRankingQuery.run", return_value=return_value):
+        with patch("invenio_stats.queries.SearchWekoFileRankingQuery.run", return_value=return_value):
             res = get_file_download_data(record.id, record, filenames)
             assert len(res["ranking"]) == 1
             assert res["ranking"][0]["filename"] == "helloworld.pdf"
 
         # 14 Set date
-        with patch("invenio_stats.queries.ESWekoFileRankingQuery.run", return_value=return_value) as test_mock:
+        with patch("invenio_stats.queries.SearchWekoFileRankingQuery.run", return_value=return_value) as test_mock:
             res = get_file_download_data(record.id, record, filenames, "2024-01")
             assert test_mock.call_args[1]["start_date"] == "2024-01-01"
             assert test_mock.call_args[1]["end_date"] == "2024-01-31T23:59:59"
@@ -11253,19 +11253,19 @@ def test_get_file_download_data(app, client, records):
                 ]
             }
         }
-        with patch("invenio_stats.queries.ESWekoFileRankingQuery.run", return_value=return_value):
+        with patch("invenio_stats.queries.SearchWekoFileRankingQuery.run", return_value=return_value):
             res = get_file_download_data(record.id, record, filenames, size=1)
             assert len(res["ranking"]) == 1
             assert res["ranking"][0]["download_total"] == 5
 
         # 16 Exeption in running query
-        with patch("invenio_stats.queries.ESWekoFileRankingQuery.run", side_effect=Exception):
+        with patch("invenio_stats.queries.SearchWekoFileRankingQuery.run", side_effect=Exception):
             res = get_file_download_data(record.id, record, filenames)
             assert res["ranking"][0]["download_total"] \
                     == res["ranking"][1]["download_total"] \
                     == 0
 
-        with patch("invenio_stats.queries.ESWekoFileRankingQuery.run", return_value=Exception):
+        with patch("invenio_stats.queries.SearchWekoFileRankingQuery.run", return_value=Exception):
             res = get_file_download_data(record.id, record, filenames)
             assert res["ranking"][0]["download_total"] \
                     == res["ranking"][1]["download_total"] \

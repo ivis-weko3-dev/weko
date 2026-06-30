@@ -97,7 +97,7 @@ def test_get_author_affiliation_obj(authors_affiliation_settings):
 # def check_email_existed(email: str):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_check_email_existed -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 def test_check_email_existed(app):
-    data={"hits":{"total":1,"hits":[{"_source":{"pk_id":1}}]}}
+    data={"hits":{"total": {"value": 1, "relation": "eq"},"hits":[{"_source":{"pk_id":1}}]}}
     mock_indexer = RecordIndexer()
     mock_indexer.client = MockClient()
     mock_indexer.client.return_value=data
@@ -105,7 +105,7 @@ def test_check_email_existed(app):
     result = check_email_existed("test@test.org")
     assert result == {"email":"test@test.org","author_id":1}
 
-    data = {"hits":{"total":0}}
+    data = {"hits":{"total": {"value": 0, "relation": "eq"}}}
     mock_indexer.client.return_value=data
     result = check_email_existed("test@test.org")
     assert result == {"email":"test@test.org","author_id":""}
@@ -1804,7 +1804,7 @@ def test_get_count_item_link(app):
     result = get_count_item_link(1)
     assert result == 0
 
-    record_indexer.client.return_data={"hits":{"total":10}}
+    record_indexer.client.return_data={"hits":{"total": {"value": 10, "relation": "eq"}}}
     result = get_count_item_link(1)
     assert result == 10
 

@@ -322,7 +322,7 @@ class TestWekoAuthors:
         }
         search_data = {
             "hits": {
-                "total": 0,
+                "total": {"value": 0, "relation": "eq"},
                 "hits": [],
             },
         }

@@ -465,7 +465,7 @@ def test_get(client, users):
         "test-authors":{"hits":{"hits":[
             {"_source":{"authorIdInfo":[{"authorId":"test_id"}], 'pk_id':'xxx'}}, # author_id_info is false
         ]}},
-        "test-weko":{"hits":{"total":1}}
+        "test-weko":{"hits":{"total": {"value": 1, "relation": "eq"}}}
     }
     record_indexer = RecordIndexer()
     record_indexer.client=MockClient(data)
@@ -486,7 +486,7 @@ def test_get(client, users):
         "test-authors":{"hits":{"hits":[
             {"_source":{"authorIdInfo":[{"authorId":"test_id"}], 'pk_id':'xxx'}}, # author_id_info is false
         ]}},
-        "test-weko":{"hits":{"total":1}}
+        "test-weko":{"hits":{"total": {"value": 1, "relation": "eq"}}}
     }
     record_indexer = RecordIndexer()
     record_indexer.client=MockClient(data)
@@ -507,7 +507,7 @@ def test_get(client, users):
         "test-authors":{"hits":{"hits":[
             {"_source":{"authorIdInfo":[{"authorId":"test_id"}], 'pk_id':'xxx'}}, # author_id_info is false
         ]}},
-        "test-weko":{"hits":{"total":1}}
+        "test-weko":{"hits":{"total": {"value": 1, "relation": "eq"}}}
     }
     record_indexer = RecordIndexer()
     record_indexer.client=MockClient(data)
@@ -528,7 +528,7 @@ def test_get(client, users):
         "test-authors":{"hits":{"hits":[
             {"_source":{"authorIdInfo":[{"authorId":"test_id"}], 'pk_id':'xxx'}}, # author_id_info is false
         ]}},
-        "test-weko":{"hits":{"total":1}}
+        "test-weko":{"hits":{"total": {"value": 1, "relation": "eq"}}}
     }
     record_indexer = RecordIndexer()
     record_indexer.client=MockClient(data)
@@ -549,7 +549,7 @@ def test_get(client, users):
         "test-authors":{"hits":{"hits":[
             {"_source":{"authorIdInfo":[{"authorId":"test_id"}], 'pk_id':'xxx'}}, # author_id_info is false
         ]}},
-        "test-weko":{"hits":{"total":1}}
+        "test-weko":{"hits":{"total": {"value": 1, "relation": "eq"}}}
     }
     record_indexer = RecordIndexer()
     record_indexer.client=MockClient(data)

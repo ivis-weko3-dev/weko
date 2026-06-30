@@ -335,7 +335,7 @@ class TestReportView:
                 "failed": 0
             },
             "hits": {
-                "total": 2,
+                "total": {"value": 2, "relation": "eq"},
                 "max_score": 0.0,
                 "hits": [
                 ]

@@ -379,22 +379,22 @@ def test_query_search_report_helper(app):
         assert res=={'name1': 3, 'name2': 2}
 
         # get
-        with patch('invenio_stats.queries.ESWekoTermsQuery.run', return_value=_raw_res1):
+        with patch('invenio_stats.queries.SearchWekoTermsQuery.run', return_value=_raw_res1):
             res = QuerySearchReportHelper.get(
                 year=2022, month=10, start_date='2022-10-01', end_date='2022-10-31')
             assert res=={'all': []}
 
-        with patch('invenio_stats.queries.ESWekoTermsQuery.run', return_value=_raw_res2):
+        with patch('invenio_stats.queries.SearchWekoTermsQuery.run', return_value=_raw_res2):
             res = QuerySearchReportHelper.get(
                 year=2022, month=10, start_date='2022-10-01', end_date='2022-10-31')
             assert res=={'all': [{'search_key': 'key2', 'count': 7}, {'search_key': 'key1', 'count': 4}]}
 
-        with patch('invenio_stats.queries.ESWekoTermsQuery.run', return_value=_raw_res2):
+        with patch('invenio_stats.queries.SearchWekoTermsQuery.run', return_value=_raw_res2):
             res = QuerySearchReportHelper.get(
                 year=2022, month=10, start_date='2022-10-01', end_date='2022-10-31', repository_id='com1')
             assert res=={'all': [{'search_key': 'key2', 'count': 7}, {'search_key': 'key1', 'count': 4}]}
 
-        with patch('invenio_stats.queries.ESWekoTermsQuery.run', return_value=_raw_res2):
+        with patch('invenio_stats.queries.SearchWekoTermsQuery.run', return_value=_raw_res2):
             res = QuerySearchReportHelper.get(
                 year=2022, month=10, start_date='2022-10-01', end_date='2022-10-31', repository_id='Root Index')
             assert res=={'all': [{'search_key': 'key2', 'count': 7}, {'search_key': 'key1', 'count': 4}]}
@@ -436,7 +436,7 @@ def test_query_common_reports_helper(mock_Community, mock_get_descendant_index_n
                 }
             ]
         }
-        with patch('invenio_stats.queries.ESTermsQuery.run', return_value=_res):
+        with patch('invenio_stats.queries.SearchTermsQuery.run', return_value=_res):
             res = QueryCommonReportsHelper.get(event='top_page_access', year=2022, month=10, start_date='2022-10-01', end_date='2022-10-10')
             assert res=={'date': '2022-10-01-2022-10-10', 'all': {'localhost': {'host': 'name2', 'ip': 'localhost', 'count': 2}}}
 
@@ -458,7 +458,7 @@ def test_query_common_reports_helper(mock_Community, mock_get_descendant_index_n
                 }
             ]
         }
-        with patch('invenio_stats.queries.ESDateHistogramQuery.run', return_value=_res):
+        with patch('invenio_stats.queries.SearchDateHistogramQuery.run', return_value=_res):
             res = QueryCommonReportsHelper.get(event='top_page_access', year=2022, month=-1)
             assert res=={'date': 'all', 'all': {'2024-01-01T00:00:00.000+09:00':{'count':56.0}}}
 
@@ -474,7 +474,7 @@ def test_query_common_reports_helper(mock_Community, mock_get_descendant_index_n
                 }
             ]
         }
-        with patch('invenio_stats.queries.ESTermsQuery.run', return_value=_res):
+        with patch('invenio_stats.queries.SearchTermsQuery.run', return_value=_res):
             res = QueryCommonReportsHelper.get(event='site_access', year=2022, month=10)
             assert res=={'date': '2022-10', 'site_license': [{'top_view': 2, 'search': 2, 'record_view': 2, 'file_download': 2, 'file_preview': 2}], 'other': [{'top_view': 1, 'search': 1, 'record_view': 1, 'file_download': 1, 'file_preview': 1}], 'institution_name': [{'name': 'name1', 'top_view': 2, 'search': 2, 'record_view': 2, 'file_download': 2, 'file_preview': 2}]}
 
@@ -498,7 +498,7 @@ def test_query_common_reports_helper(mock_Community, mock_get_descendant_index_n
                 }
             ]
         }
-        with patch('invenio_stats.queries.ESWekoTermsQuery.run', return_value=_res):
+        with patch('invenio_stats.queries.SearchWekoTermsQuery.run', return_value=_res):
             res = QueryCommonReportsHelper.get(event='item_create', year=2022, month=-1)
             assert res=={'date': 'all', 'all': [{'create_date': 1640995.2, 'pid_value': 'key1.1', 'record_name': ''}, {'create_date': 1640995.2, 'pid_value': 'key1.2', 'record_name': 'key1.2.1'}]}
 
@@ -700,7 +700,7 @@ def test_query_item_reg_report_helper(mock_Community, mock_get_descendant_index_
             },
         ]
     }
-    with patch('invenio_stats.queries.ESDateHistogramQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.SearchDateHistogramQuery.run', return_value=_res):
         res = QueryItemRegReportHelper.get(target_report='1', unit='Day', start_date='0', end_date='0')
         assert res=={'num_page': 1, 'page': 1, 'data': [{'count': 1, 'start_date': '2022-10-01', 'end_date': '2022-10-01'}]}
         res = QueryItemRegReportHelper.get(target_report='1', unit='Day', start_date='0', end_date='0', repository_id='com1')
@@ -724,7 +724,7 @@ def test_query_item_reg_report_helper(mock_Community, mock_get_descendant_index_
             },
         ]
     }
-    with patch('invenio_stats.queries.ESDateHistogramQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.SearchDateHistogramQuery.run', return_value=_res):
         res = QueryItemRegReportHelper.get(target_report='1', unit='Week', start_date='0', end_date='0')
         assert res=={'num_page': 1, 'page': 1, 'data': [{'count': 1, 'start_date': '2022-10-01', 'end_date': '2022-10-07', 'is_restricted': False}]}
         res = QueryItemRegReportHelper.get(target_report='1', unit='Week', start_date='0', end_date='0', repository_id='com1')
@@ -759,7 +759,7 @@ def test_query_item_reg_report_helper(mock_Community, mock_get_descendant_index_
             }
         ]
     }
-    with patch('invenio_stats.queries.ESDateHistogramQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.SearchDateHistogramQuery.run', return_value=_res):
         res = QueryItemRegReportHelper.get(target_report='1', unit='User', start_date='0', end_date='0')
         assert res=={'num_page': 0, 'page': 1, 'data': [{'user_id': '1', 'count': 5}, {'user_id': '2', 'count': 4}]}
         res = QueryItemRegReportHelper.get(target_report='1', unit='User', start_date='0', end_date='0', repository_id='com1')
@@ -782,7 +782,7 @@ def test_query_item_reg_report_helper(mock_Community, mock_get_descendant_index_
             },
         ]
     }
-    with patch('invenio_stats.queries.ESDateHistogramQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.SearchDateHistogramQuery.run', return_value=_res):
         res = QueryItemRegReportHelper.get(target_report='1', unit='Year', start_date='0', end_date='0')
         assert res=={'num_page': 1, 'page': 1, 'data': [{'count': 1, 'start_date': '2022-01-01', 'end_date': '2022-12-31', 'year': 2022, 'is_restricted': False}]}
         res = QueryItemRegReportHelper.get(target_report='1', unit='Year', start_date='0', end_date='0', repository_id='com1')
@@ -840,7 +840,7 @@ def test_query_item_reg_report_helper(mock_Community, mock_get_descendant_index_
             }
         ]
     }
-    with patch('invenio_stats.queries.ESTermsQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.SearchTermsQuery.run', return_value=_res):
         res = QueryItemRegReportHelper.get(target_report='3', unit='Item', start_date='0', end_date='0', ranking=True)
         assert res=={'num_page': 1, 'page': 1, 'data': [{'col1': '1', 'col2': 'name1', 'col3': 1}]}
         res = QueryItemRegReportHelper.get(target_report='3', unit='Item', start_date='0', end_date='0', ranking=True, repository_id='com1')
@@ -859,7 +859,7 @@ def test_query_item_reg_report_helper(mock_Community, mock_get_descendant_index_
             }
         ]
     }
-    with patch('invenio_stats.queries.ESTermsQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.SearchTermsQuery.run', return_value=_res):
         res = QueryItemRegReportHelper.get(target_report='3', unit='Host', start_date='0', end_date='0')
         assert res=={'num_page': 1, 'page': 1, 'data': [{'count': 1, 'start_date': '', 'end_date': '', 'domain': 'mayPC', 'ip': 'localhost'}]}
         res = QueryItemRegReportHelper.get(target_report='3', unit='Host', start_date='0', end_date='0', repository_id='com1')
@@ -963,7 +963,7 @@ def test_query_ranking_helper(app, db):
                 ]
             }
         }
-        with patch('invenio_stats.queries.ESWekoRankingQuery.run', return_value=_res):
+        with patch('invenio_stats.queries.SearchWekoRankingQuery.run', return_value=_res):
             res = QueryRankingHelper.get_new_items(must_not=json.dumps([{"wildcard": {"control_number": "*.*"}}]), start_date='2022-09-01', end_date='2022-09-15')
             assert res==[{'path': 'path1'}]
 
