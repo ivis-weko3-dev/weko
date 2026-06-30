@@ -2032,9 +2032,9 @@ class JsonLdMapper(JsonMapper):
             mimetype = mimetypes.guess_type(filename)[0]
             file_size_limit = current_app.config['WEKO_DEPOSIT_FILESIZE_LIMIT']
             # List of text-based MIME types allowed for text extraction and processing.
-            text_mimetypes = current_app.config["WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES"]
+            text_mimetypes = current_app.config["WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_SEARCH"]
             # All mimetypes subject to text extraction (including text_mimetypes)
-            extract_mimetypes = current_app.config["WEKO_MIMETYPE_WHITELIST_FOR_ES"]
+            extract_mimetypes = current_app.config["WEKO_MIMETYPE_WHITELIST_FOR_SEARCH"]
             if mimetype not in extract_mimetypes:
                 return data
 

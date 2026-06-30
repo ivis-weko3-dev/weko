@@ -131,7 +131,7 @@ def base_app(instance_path):
         },
         THEME_SITEURL="https://localhost",
         WEKO_ITEMS_UI_INDEX_PATH_SPLIT="///",
-        WEKO_MIMETYPE_WHITELIST_FOR_ES = [
+        WEKO_MIMETYPE_WHITELIST_FOR_SEARCH = [
             'text/plain',
             'application/msword',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

@@ -1825,7 +1825,7 @@ class WekoDeposit(Deposit):
 
             # Upload file metadata to OpenSearch
             try:
-                mimetypes = current_app.config["WEKO_MIMETYPE_WHITELIST_FOR_ES"]
+                mimetypes = current_app.config["WEKO_MIMETYPE_WHITELIST_FOR_SEARCH"]
                 content = lst.copy()
                 attachment = {}
                 mimetype = file.obj.mimetype
@@ -1841,7 +1841,7 @@ class WekoDeposit(Deposit):
                         with file.obj.file.storage().open(mode="rb") as fp:
                             data = ""
                             if mimetype in current_app.config[
-                                "WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES"
+                                "WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_SEARCH"
                             ]:
                                 data = fp.read(
                                     current_app.config["WEKO_DEPOSIT_FILESIZE_LIMIT"]
@@ -1888,9 +1888,9 @@ class WekoDeposit(Deposit):
                     if file.obj.key != filename:
                         continue
                     mimetype = file.obj.mimetype
-                    if mimetype not in current_app.config['WEKO_MIMETYPE_WHITELIST_FOR_ES']:
+                    if mimetype not in current_app.config['WEKO_MIMETYPE_WHITELIST_FOR_SEARCH']:
                         continue
-                    if mimetype not in current_app.config['WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES']:
+                    if mimetype not in current_app.config['WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_SEARCH']:
                         file_instance = file.obj.file
                         file_info = {
                             "uri": file_instance.uri,

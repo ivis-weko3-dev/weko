@@ -1611,8 +1611,8 @@ class TestWekoDeposit():
             patch("weko_workflow.utils.get_non_extract_files_by_recid", return_value=[]):
 
             # Configure app config mocks
-            app.config.WEKO_MIMETYPE_WHITELIST_FOR_ES = ["text/plain", "application/pdf"]
-            app.config.WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES = ["text/plain"]
+            app.config.WEKO_MIMETYPE_WHITELIST_FOR_SEARCH = ["text/plain", "application/pdf"]
+            app.config.WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_SEARCH = ["text/plain"]
             app.config.WEKO_DEPOSIT_FILESIZE_LIMIT = 1024
 
             # No file data
@@ -1658,7 +1658,7 @@ class TestWekoDeposit():
                 assert "content" in mock_self.jrc
                 assert mock_self.jrc["content"][0]["attachment"]["content"] == "Hello World"
 
-            # Text file extraction (success) mimType is not in the WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES
+            # Text file extraction (success) mimType is not in the WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_SEARCH
             mock_file = MagicMock()
             mock_file.obj = MagicMock()
             mock_file.obj.key = "test.txt"

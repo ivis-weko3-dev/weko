@@ -30,7 +30,7 @@ WEKO_BUCKET_QUOTA_SIZE = 50 * 1024 * 1024 * 1024  # 50 GB
 WEKO_MAX_FILE_SIZE = WEKO_BUCKET_QUOTA_SIZE
 """Maximum file size accepted."""
 
-WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES = [
+WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_SEARCH = [
     'text/plain',
     'text/csv',
     'text/html',
@@ -40,7 +40,7 @@ WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES = [
     'application/x-latex'
 ]
 
-WEKO_MIMETYPE_WHITELIST_FOR_ES = [
+WEKO_MIMETYPE_WHITELIST_FOR_SEARCH = [
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.oasis.opendocument.text',
@@ -51,7 +51,7 @@ WEKO_MIMETYPE_WHITELIST_FOR_ES = [
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     'application/vnd.oasis.opendocument.presentation',
     'application/pdf',
-] + WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_ES
+] + WEKO_DEPOSIT_TEXTMIMETYPE_WHITELIST_FOR_SEARCH
 
 
 
