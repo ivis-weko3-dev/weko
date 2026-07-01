@@ -14,7 +14,7 @@ from oauthlib.oauth2.rfc6749.errors import (
     InsecureTransportError,
     InvalidRedirectURIError,
 )
-from urllib_parse import urlparse
+from urllib.parse import urlparse
 from wtforms.validators import URL
 
 from .errors import ScopeDoesNotExists

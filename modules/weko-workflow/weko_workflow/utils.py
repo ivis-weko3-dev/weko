@@ -32,7 +32,7 @@ from celery import current_app as current_celery_app
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime, timedelta
-from flask import current_app, request, session
+from flask import current_app, request, session, Flask
 from flask_babel import gettext as _
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address

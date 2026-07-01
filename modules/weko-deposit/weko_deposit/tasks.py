@@ -32,7 +32,7 @@ from celery import shared_task
 from celery.utils.log import get_task_logger
 from distutils.util import strtobool
 from flask import current_app
-from fs.errors import ResourceNotFoundError
+from fs.errors import ResourceNotFound
 from sqlalchemy.exc import SQLAlchemyError, DisconnectionError, TimeoutError
 from time import sleep
 
@@ -735,7 +735,7 @@ def extract_pdf_and_update_file_contents(
                         data = extract_text_with_tika(tmp_filename,file_size_limit)
         except FileNotFoundError as ex:
             current_app.logger.error(ex)
-        except ResourceNotFoundError as ex:
+        except ResourceNotFound as ex:
             current_app.logger.error(ex)
         except Exception as ex:
             current_app.logger.error(ex)
