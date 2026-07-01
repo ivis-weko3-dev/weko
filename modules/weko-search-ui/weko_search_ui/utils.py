@@ -44,7 +44,7 @@ import zipfile
 
 from celery import chain
 from celery.result import AsyncResult
-from collections import Callable, OrderedDict, defaultdict
+from collections import OrderedDict, defaultdict
 from collections.abc import Callable
 from datetime import datetime, timezone, timedelta
 from flask import abort, current_app, request, send_file
