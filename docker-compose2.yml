@@ -309,7 +309,7 @@ services:
 
   postgresql:
     restart: "always"
-    image: postgres:14
+    image: postgres:17
 #    command: postgres -c log_destination=stderr -c log_statement=all -c log_connections=on -c log_disconnections=on
     environment:
       - POSTGRES_USER=invenio
@@ -323,7 +323,10 @@ services:
 
   pgpool:
     restart: "always"
-    image: pgpool/pgpool:4.2.2
+    image: pgpool/pgpool:4.6.7-pg17
+    build:
+      context: .
+      dockerfile: ./pgpool/Dockerfile
     environment:
       - PGPOOL_PARAMS_BACKEND_HOSTNAME0=postgresql
       - PGPOOL_PARAMS_BACKEND_PORT0=5432
@@ -342,10 +345,12 @@ services:
       - PGPOOL_MAX_POOL=2
     ports:
       - "25401:5432"
+    depends_on:
+      - "postgresql"
 
   redis:
     restart: "always"
-    image: redis:7.4.1
+    image: redis:8.0.6
     ports:
       - "26301:6379"
     deploy:
@@ -377,7 +382,7 @@ services:
 
   rabbitmq:
     restart: "always"
-    image: rabbitmq:4.0.2
+    image: rabbitmq:4.2.8
     ports:
       - "24301:4369"
       - "45601:25672"

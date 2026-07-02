@@ -12,7 +12,7 @@ weko_items_ui = WebpackThemeBundle(
                 "items_ui_js_app": "./js/weko_items_ui/app.js",
                 "items_ui_js_upload": "./js/weko_items_ui/upload.js",
                 "items_ui_js_feedback_maillist": "./js/weko_items_ui/feedback_maillist.js",
-                "items_ui_css_feedback_maillist": "./css/weko_items_ui/feedback.mail.css"
+                "items_ui_css_feedback_maillist": "./css/weko_items_ui/feedback.mail.css",
                 "items_ui_js_request_maillist": "./js/weko_items_ui/request_maillist.js",
                 "items_ui_no_file_approval_js": "./js/weko_items_ui/no_file_approval.js",
                 "items_ui_oapolicy_js": "./js/weko_items_ui/oapolicy.js",

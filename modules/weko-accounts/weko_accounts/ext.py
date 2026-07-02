@@ -20,6 +20,7 @@
 
 """Extensions for weko-accounts."""
 
+from invenio_base.signals import app_loaded
 from flask_babel import gettext as _
 from flask_login import user_logged_in, user_logged_out
 
@@ -103,7 +104,7 @@ class WekoAccounts(object):
                     app.config['SECURITY_LOGIN_USER_TEMPLATE'] = \
                         app.config[
                             'WEKO_ACCOUNTS_SECURITY_LOGIN_SHIB_USER_TEMPLATE']
-                        
+
 
     def _enable_logger_activity(self, app):
         """
@@ -123,15 +124,34 @@ class WekoAccounts(object):
         """
         from .utils import limiter
         limiter.init_app(app)
-    
+
     def init_login(self, app):
         """Initialize login context processor.
 
         Args:
             app (flask.Flask): The flask application.
         """
-        security = app.extensions['security']
-        security.login_context_processor(get_sp_info)
+        security = app.extensions.get('security')
+        if security:
+            security.login_context_processor(get_sp_info)
+            return
+
+        def _register_login_context(sender, app=None, **kwargs):
+            if app is not sender:
+                return
+
+            security = app.extensions.get('security') if app else None
+            if not security:
+                app.logger.warning(
+                    'WEKO-Accounts could not initialize login context: '
+                    'security extension is not available.'
+                )
+                return
+
+            security.login_context_processor(get_sp_info)
+            app_loaded.disconnect(_register_login_context)
+
+        app_loaded.connect(_register_login_context, weak=False)
 
 
 class WekoAccountsREST(object):

@@ -138,7 +138,7 @@ setup(
             'communities_page_adminview = weko_admin.admin:communities_page_adminview',
             'facet_search_adminview = weko_admin.admin:facet_search_adminview',
             'cris_linkage_adminview = weko_admin.admin:cris_linkage_adminview' ,
-            'reindex_elasticsearch_adminview = weko_admin.admin:reindex_elasticsearch_adminview',
+            'reindex_search_adminview = weko_admin.admin:reindex_search_adminview',
             #管理者画面に追加するプロフィール設定のビューを追加
             'profile_settings_adminview = weko_admin.admin:profile_settings_adminview',
         ],

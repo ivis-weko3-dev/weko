@@ -19,7 +19,7 @@
 # MA 02111-1307, USA.
 
 # Use Opensearch 2.
-FROM opensearchproject/opensearch:2
+FROM opensearchproject/opensearch:3.5.0
 WORKDIR /usr/share/opensearch
 ARG OPENSEARCH_S3_ACCESS_KEY
 ARG OPENSEARCH_S3_SECRET_KEY
