@@ -58,7 +58,6 @@ install_requires = [
     'Flask-Babel>=3.0.0',
     'invenio-previewer>=1.0.0a11',
     'pypdf>=4.3.1,<5.0.0',
-    'PyPDF2>=1.26.0',
     'invenio-pidrelations>=0.2.0',
     'invenio-records>=1.0.0b4',
 ]
