@@ -55,10 +55,10 @@ setup_requires = [
 ]
 
 install_requires = [
-    'Flask-BabelEx>=0.9.2',
+    'Flask-Babel>=3.0.0',
     'Flask-Menu>=0.4.0',
     'Flask-Breadcrumbs>=0.3.0',
-    'Flask-Security>=1.7.5',
+    'Flask-Security-Invenio>=3.3.2',
     'Flask-WTF>=0.13',
     'Flask>=0.11.1',
     'invenio-accounts>=1.0.0a15',
