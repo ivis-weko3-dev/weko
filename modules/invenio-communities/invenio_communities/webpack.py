@@ -20,6 +20,7 @@ invenio_communities = WebpackThemeBundle(
                 "angular": "~1.4.9",
                 "ckeditor": "~4.5.8",
                 "jquery": "~3.2.1",
+                "trumbowyg": "~2.25.1"
             }
         )
     }

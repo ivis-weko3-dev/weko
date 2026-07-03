@@ -30,7 +30,7 @@ weko_admin = WebpackThemeBundle(
                 "angular_js": "./node_modules/angular/angular.js",
                 "adminlte_js": "./js/weko_admin/admin-lte/app.js",
                 "admin_communities_setting_js": "./js/weko_admin/communities_setting.js",
-                "admin_communities_setting_css": "./css/weko_adminS/communities.setting.css",
+                "admin_communities_setting_css": "./css/weko_admin/communities.setting.css",
                 "admin_js_cris_linkage_js": "./js/weko_admin/cris_linkage.js",
                 "admin_js_weko_admin_jsonld_mapping_js": "./js/weko_admin/jsonld_mapping_setting.js",
                 "admin_js_profile_set_js": "./js/weko_admin/user-profile-settings.js",
