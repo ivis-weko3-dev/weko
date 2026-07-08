@@ -102,6 +102,12 @@ setup(
         'invenio_assets.webpack': [
             'weko_accounts = weko_accounts.webpack:weko_accounts',
         ],
+        'invenio_db.models': [
+            'weko_accounts = weko_accounts.models',
+        ],
+        'invenio_db.alembic': [
+            'weko_accounts = weko_accounts:alembic',
+        ],
     },
     extras_require=extras_require,
     install_requires=install_requires,
