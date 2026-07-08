@@ -23,6 +23,7 @@ client_idle_limit=${PGPOOL_CLIENT_IDLE_LIMIT:-300}
 connection_life_time=${PGPOOL_CONNECTION_LIFE_TIME:-10}
 num_init_children=${PGPOOL_NUM_INIT_CHILDREN:-2}
 max_pool=${PGPOOL_MAX_POOL:-2}
+pool_passwd_format=${PGPOOL_POOL_PASSWD_FORMAT:-text}
 
 mkdir -p /etc/pgpool2 /var/run/pgpool /var/log/pgpool
 
@@ -76,10 +77,33 @@ pg_md5_user_hash() {
   printf '%s:md5%s\n' "$user" "$user_hash"
 }
 
+pg_text_user_pass() {
+  local user="$1"
+  local pass="$2"
+  printf '%s:TEXT%s\n' "$user" "$pass"
+}
+
+emit_pool_passwd_entry() {
+  local user="$1"
+  local pass="$2"
+  case "${pool_passwd_format,,}" in
+    md5)
+      pg_md5_user_hash "$user" "$pass"
+      ;;
+    text)
+      pg_text_user_pass "$user" "$pass"
+      ;;
+    *)
+      echo "Unsupported PGPOOL_POOL_PASSWD_FORMAT: $pool_passwd_format" >&2
+      exit 1
+      ;;
+  esac
+}
+
 {
-  pg_md5_user_hash "$postgres_user" "$postgres_password"
+  emit_pool_passwd_entry "$postgres_user" "$postgres_password"
   if [[ "$sr_check_user" != "$postgres_user" ]]; then
-    pg_md5_user_hash "$sr_check_user" "$sr_check_password"
+    emit_pool_passwd_entry "$sr_check_user" "$sr_check_password"
   fi
 } > "$POOL_PASSWD"
 chmod 600 "$POOL_PASSWD"
