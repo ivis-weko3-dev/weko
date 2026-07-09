@@ -3426,6 +3426,7 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
         const parmalink = $("#parmalink").val();
         const achievement_type = $("#achievement_type").val();
         const achievement_id = $("#achievement_id").val();
+        const enable_item_achievement_link = $("#enable_item_achievement_link").val();
         if (autoFillID === 'Default') {
           $scope.enableAutofillButton();
           this.setAutoFillErrorMessage($("#autofill_error_id").val());
@@ -3441,9 +3442,10 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
           search_data: $.trim(value),
           item_type_id: itemTypeId,
           activity_id: $("#activity_id").text(),
-          parmalink,
-          achievement_type,
-          achievement_id
+          parmalink: parmalink,
+          achievement_type: achievement_type,
+          achievement_id: achievement_id,
+          enable_item_achievement_link: enable_item_achievement_link
         }
         this.setRecordDataFromApi(param);
       }
@@ -3488,6 +3490,14 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
         }
       }
 
+      $scope.set_autofill_warning_msg = function (data) {
+        data.forEach(function (d) {
+          if (!d.ok) {
+            $("#alerts").append(d.msg);
+          }
+        })
+      }
+
       // here
       $scope.setRecordDataFromApi = function (param) {
         let request = {
@@ -3510,6 +3520,15 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
               $scope.clearAllField();
               $scope.setRecordDataCallBack(data);
               $scope.resourceTypeSelect(data.resource_type);
+              $scope.set_autofill_warning_msg(data.type_data);
+              json_data = {
+                id: param.achievement_id,
+                permalink: param.parmalink,
+                type: param.api_type,
+                enable_item_achievement_link: param.enable_item_achievement_link
+              };
+              $("#autofill_status").text(JSON.stringify(json_data));
+
             } else {
               $scope.enableAutofillButton();
               $scope.setAutoFillErrorMessage($("#autofill_error_doi").val());
@@ -4998,7 +5017,11 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
               'activity_id': activityID,
               'files': $rootScope.filesVM.files,
               'endpoints': $rootScope.filesVM.invenioFilesEndpoints,
-              'cris_linkage' : {'researchmap' : $('#researchmap_chk').prop("checked")}
+              'cris_linkage' : {
+                'researchmap' : $('#researchmap_chk').prop("checked"),
+                'should_create_if_not_found' : $('#researchmap_new_chk').prop("checked")
+              },
+              'autofill_performance_id': $("#autofill_status").val()
             }
           );
         }

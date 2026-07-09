@@ -21,6 +21,7 @@
 """Utils for weko-authors."""
 
 import base64
+from collections import OrderedDict
 import csv
 import os
 import chardet
@@ -1815,3 +1816,24 @@ def check_delete_prefix(id):
 def check_delete_affiliation(id):
     """Check if the current user can delete the specified affiliation."""
     return check_delete_entity(AuthorsAffiliationSettings, _('Affiliation ID'), id)
+
+def get_name_identifiers(data, scheme, ids):
+    """Get name identifiers from data based on scheme and ids.
+
+    Args:
+        data (list): List of name identifier dictionaries.
+        scheme (str): The scheme to filter by.
+        ids (list): List of IDs to filter by.
+    """
+    if type(data) is list:
+        for item in data:
+            get_name_identifiers(item, scheme, ids)
+    elif type(data) is dict or type(data) is OrderedDict:
+        nameIdentifiers = data.get("nameIdentifiers", [])
+        if nameIdentifiers:
+            for item in nameIdentifiers:
+                if item.get("nameIdentifierScheme") and item.get("nameIdentifierScheme") == scheme:
+                    ids.append(item.get("nameIdentifier"))
+        else:
+            for key, value in data.items():
+                get_name_identifiers(value, scheme, ids)

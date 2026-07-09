@@ -6,7 +6,7 @@ from .models import CRISLinkageResult
 # make signal
 cris_researchmap_linkage_request = NamedSignal('cris_researchmap_linkage_request')
 
-def receiver(item_uuid , **kwargs):
+def receiver(item_uuid, should_create_if_not_found=False, **kwargs):
     # This is the function that enqueue into RabbitMQ
 
     # make Exchange
@@ -31,5 +31,10 @@ def receiver(item_uuid , **kwargs):
                 auto_declare=True,
             ) as producer:
 
-            producer.publish(dict(item_uuid=item_uuid), exchange=bound_exchange,routing_key='cris_researchmap_linkage' ,retry=True)
+            producer.publish(
+                dict(item_uuid=item_uuid, should_create_if_not_found=should_create_if_not_found),
+                exchange=bound_exchange,
+                routing_key='cris_researchmap_linkage',
+                retry=True
+            )
 

@@ -75,11 +75,10 @@ class SearchMetaForm extends React.Component {
                             {this.state.selectOptions}
                         </select>
                         &nbsp;&nbsp;
-                        <div>
-
-                            <div className="col-md-12">
+                        <div className="form-horizontal">
+                            <div className="col-md-12 form-group">
                                 <div className="col-md-4">
-                                    <label className="input-group-text" for="parmalink">
+                                    <label className="control-label" for="parmalink">
                                         {this.props.autofill_parmalink}
                                     </label>
                                 </div>
@@ -89,9 +88,9 @@ class SearchMetaForm extends React.Component {
                                         className="form-control ng-untouched ng-pristine ng-valid" />
                                 </div>
                             </div>
-                            <div className="col-md-12">
+                            <div className="col-md-12 form-group">
                                 <div className="col-md-4">
-                                    <label className="input-group-text" for="achievement_type">
+                                    <label className="control-label" for="achievement_type">
                                         {this.props.achievement_type}
                                     </label>
                                 </div>
@@ -108,9 +107,9 @@ class SearchMetaForm extends React.Component {
                                     &nbsp;&nbsp;
                                 </div>
                             </div>
-                            <div className="col-md-12">
+                            <div className="col-md-12 form-group">
                                 <div className="col-md-4">
-                                    <label className="input-group-text" for="achievement_id">
+                                    <label className="control-label" for="achievement_id">
                                         {this.props.achievement_id}
                                     </label>
                                 </div>
@@ -118,9 +117,27 @@ class SearchMetaForm extends React.Component {
                                     <input type="text" id="achievement_id" className="form-control ng-untouched ng-pristine ng-valid" />
                                 </div>
                             </div>
+                            <div className="col-md-12 form-group">
+                                <div className="col-md-4">
+                                    <label className="control-label" for="enable_item_achievement_link">
+                                        {this.props.enable_item_achievement_link}
+                                    </label>
+                                </div>
+                                <div className="col-md-8">
+                                    {this.props.cris_linkage_linked_ids.length > 0 ? (
+                                        <React.Fragment>
+                                            <input type="checkbox" id="enable_item_achievement_link" className="checkbox form-control ng-untouched ng-pristine ng-valid" disabled />
+                                            <span style={{color: "red", marginLeft: "10px"}}>{this.props.cris_linkage_linked_message}</span>
+                                        </React.Fragment>
+                                    ) : (
+                                        <input type="checkbox" id="enable_item_achievement_link" className="checkbox form-control ng-untouched ng-pristine ng-valid" />
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                        <input type="submit" id="autofill_item_button" value={this.props.getValue} className="btn btn-info" />
+                        <p className="text-center">
+                            <input type="submit" id="autofill_item_button" value={this.props.getValue} className="btn btn-info" />
+                        </p>
                     </div>
                     <br />
                     <div id="auto-fill-error-div">
@@ -143,16 +160,17 @@ class SearchMetaForm extends React.Component {
                             {this.props.selectMeta}
                         </label>
                         &nbsp;&nbsp;
-                  <select name="idType" id="autofill_id_type" value={this.state.idType.value}
+                        <select name="idType" id="autofill_id_type" value={this.state.idType.value}
                             onChange={this.handleChange} className="form-control">
                             {this.state.selectOptions}
                         </select>
                         &nbsp;&nbsp;
-                  <input name="itemId" type="text" id="autofill_item_id"
+                        <input name="itemId" type="text" id="autofill_item_id"
                             value={this.state.itemId} onChange={this.handleChange}
                             className="form-control ng-untouched ng-pristine ng-valid" />
-                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                  <input type="submit" id="autofill_item_button" value={this.props.getValue} className="btn btn-info" />
+                        <p className="text-center">
+                            <input type="submit" id="autofill_item_button" value={this.props.getValue} className="btn btn-info" />
+                        </p>
                     </div>
                     <br />
                     <div id="auto-fill-error-div">
@@ -171,6 +189,10 @@ $(function () {
     let getValue = $("#autofill_get_value").val();
     let achievement_type = $("#autofill_achievement_type").val();
     let achievement_id = $("#autofill_achievement_id").val();
+    let enable_item_achievement_link = $("#autofill_enable_item_achievement_link").val();
+    let cris_linkage_linked_ids = $("#cris_linkage_linked_ids").val();
+    let cris_linkage_linked_message_tmp = $("#cris_linkage_linked_message").val();
+    let cris_linkage_linked_message = cris_linkage_linked_message_tmp.replace("{achievement_id}", cris_linkage_linked_ids);
     
     const autofill_parmalink = $("#autofill_parmalink").val();
     const autofill_published_papers = $("#autofill_published_papers").val();
@@ -186,7 +208,10 @@ $(function () {
             selectMeta={selectMeta}
             getValue={getValue} 
             achievement_type={achievement_type}
-            achievement_id={achievement_id} 
+            achievement_id={achievement_id}
+            enable_item_achievement_link={enable_item_achievement_link}
+            cris_linkage_linked_ids={cris_linkage_linked_ids}
+            cris_linkage_linked_message={cris_linkage_linked_message}
             autofill_parmalink={autofill_parmalink}
             autofill_published_papers={autofill_published_papers}
             autofill_misc={autofill_misc}

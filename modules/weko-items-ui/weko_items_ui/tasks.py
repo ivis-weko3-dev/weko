@@ -16,8 +16,9 @@ from weko_admin.models import AdminSettings
 from celery.utils.log import get_task_logger
 from weko_authors.models import Authors
 from weko_deposit.api import WekoRecord
+from weko_deposit.pidstore import get_record_without_version
 from weko_index_tree.api import Indexes
-from weko_items_ui.models import CRIS_Institutions, CRISLinkageResult
+from weko_items_ui.models import CRIS_Institutions, CRISLinkageResult, LinkageItems
 from weko_records.api import ItemsMetadata, Mapping
 from weko_records.models import ItemTypeMapping
 from weko_records.utils import json_loader
@@ -51,11 +52,17 @@ def bulk_post_item_to_researchmap():
 
 
 def process_researchmap_queue(body , message):
-    """main process for regist to researchmap"""
+    """main process for regist to researchmap
+    
+    Args:
+        body (dict): The message body containing item_uuid and should_create_if_not_found.
+        message (kombu.Message): The original message object.
+    """
     
     # body in item_uuid
     current_app.logger.debug(body)
     item_uuid = body["item_uuid"]
+    should_create_if_not_found = body.get("should_create_if_not_found", False)
     recid = None
 
     with current_app.test_request_context():
@@ -78,8 +85,8 @@ def process_researchmap_queue(body , message):
 
             # 非公開は送付しない
             current_app.logger.debug("is_public")
-            if not is_public(record,pid_int):
-                register_linkage_result(pid_int,False ,item_uuid ,'非公開')
+            if not is_public(record, pid_int):
+                register_linkage_result(pid_int, False, item_uuid, '非公開')
                 return
 
             # 連携対象著者一覧取得
@@ -88,7 +95,7 @@ def process_researchmap_queue(body , message):
 
             # 連携対象なし
             if len(authors) == 0:
-                register_linkage_result(pid_int,False ,item_uuid ,'連携対象者無し')
+                register_linkage_result(pid_int, False, item_uuid, '連携対象者無し')
                 return 
 
             # 連携モード取得
@@ -99,37 +106,18 @@ def process_researchmap_queue(body , message):
             current_app.logger.debug("get_achievement_type")
             achievement_type = get_achievement_type(jrc)
             if not achievement_type:
-                register_linkage_result(pid_int,False ,item_uuid ,'連携形式対象外')
+                register_linkage_result(pid_int, False, item_uuid, '連携形式対象外')
                 return 
 
             # 業績情報生成
             current_app.logger.debug("build_achievement")
-            achievement_obj = build_achievement(record,item ,recid,mapping,jrc,achievement_type)
+            achievement_obj = build_achievement(record, item, recid, mapping, jrc, achievement_type)
 
-            jsons = []
-            for author in authors:
-                # 送信JSON作成
-                data  = build_one_data(achievement_obj,merge_mode,author ,achievement_type)
-                jsons.append(json.dumps(data))
-            
-            # 送信, 失敗時自動再送
-            sender = Researchmap()
-            current_app.logger.info(jsons)
-            response_txt = sender.post_data('\r\n'.join(jsons))
-            current_app.logger.error("rmap:{}".format(response_txt))
-            res :dict = json.loads(response_txt)
-            url :str = res.get("url" ,"")
+            # Update linkage status by authors
+            update_linkage_by_authors(item_uuid, authors)
 
-            # 結果取得（取得完了まで待機、失敗時自動リトライ）
-            result = sender.get_result(url)
-
-            # 結果の書き戻し
-            code = json.loads(result.splitlines()[0]).get('code')
-
-            # v2api.pdf p17
-            is_success = code == 200 or code == 201 or code == 204 or code == 304
-
-            register_linkage_result(pid_int,is_success ,item_uuid ,result)
+            # Send to researchmap
+            sync_item_to_researchmap(pid_int, item_uuid, achievement_obj, merge_mode, achievement_type, authors, should_create_if_not_found)
 
         except: 
             traceback.print_exc()
@@ -141,12 +129,118 @@ def process_researchmap_queue(body , message):
             pid_int :int= math.floor(float(recid.pid_value))
 
             # 結果の書き戻し
-            register_linkage_result(pid_int,False ,item_uuid ,traceback.format_exc())
+            register_linkage_result(pid_int, False, item_uuid, traceback.format_exc())
 
         finally:
             # キュー削除
             message.ack()
 
+def update_linkage_by_authors(item_id, authors):
+    """update linkage by authors
+    
+    Args:
+        item_id (UUID): The item ID.
+        authors (list): A list of author permalinks.
+    """
+    current_app.logger.debug("update_linkage_by_authors")
+    current_app.logger.debug(authors)
+
+    pid_without_ver = get_record_without_version(item_id)
+    linkages = LinkageItems.get_by_item_id(item_id=pid_without_ver.object_uuid, external_system=LinkageItems.ExternalSystem.RM)
+    permalinks = [author for author in authors]
+    for linkage in linkages:
+        if linkage.permalink not in permalinks:
+            linkage.update_status(LinkageItems.Status.DELETED)
+        else:
+            if linkage.status == LinkageItems.Status.DELETED:
+                linkage.update_status(LinkageItems.Status.REGISTERED)
+
+def sync_item_to_researchmap(pid_int, item_id, achievements_obj, merge_mode, achievement_type, authors, should_create_if_not_found):
+    """Send achievements to researchmap
+    
+    Args:
+        pid_int (int): The persistent identifier integer.
+        item_id (UUID): The item ID.
+        achievements_obj (dict): The achievements data to send.
+        merge_mode (str): The merge mode for the data.
+        achievement_type (str): The type of achievement.
+        authors (list): A list of author permalinks.
+        should_create_if_not_found (bool): Flag indicating whether to create if not found.
+    """
+
+    jsons = []
+    pid_without_ver = get_record_without_version(item_id)
+
+    # Get active linkage items
+    item_linkages = LinkageItems.get_items_by_permalink_itemid(
+        pid_without_ver.object_uuid, authors, LinkageItems.ExternalSystem.RM
+    )
+    linkage_targets = []
+    for item_linkage in item_linkages:
+        linkage_targets.append({
+            "permalink":item_linkage.permalink,
+            "external_item_id":item_linkage.external_item_id,
+            "model": item_linkage,
+        })
+    
+    # Build request data each by author
+    for author in authors:
+        data  = build_one_data(achievements_obj, merge_mode, author, achievement_type, linkage_targets)
+        jsons.append(json.dumps(data))
+
+    # Check the line number of each linkage target in the JSONs
+    for linkage_target in linkage_targets:
+        line = 0
+        for json in jsons:
+            if json.find(linkage_target["permalink"]) != -1:
+                linkage_target["line"] = line
+                break
+            line = line + 1
+
+    # Request to researchmap API
+    sender = Researchmap()
+    response_txt = sender.post_data('\r\n'.join(jsons))
+    current_app.logger.debug("rmap:{}".format(response_txt))
+    res :dict = json.loads(response_txt)
+    url :str = res.get("url" ,"")
+
+    # Get error result from researchmap
+    recalls = []
+    error_url = url + "&display_type=error"
+    error_result = sender.get_result(error_url)
+    for error in json.loads(error_result).get("errors",[]):
+        line = error.get("line")
+        error_code = error.get("code")
+        if line is not None and error_code == 404:
+            for linkage_target in linkage_targets:
+                if  linkage_target.get("line") == line:
+                    # Not found linkage_target in researchmap, update status to DELETED
+                    linkage_target["model"].update_status(LinkageItems.Status.DELETED)
+                    if should_create_if_not_found:
+                        recalls.append(linkage_target["permalink"])
+                    break
+
+    # Get success result from researchmap
+    success_url = url + "&display_type=success"
+    success_result = sender.get_result(success_url)
+    for success in json.loads(success_result).get("success",[]):
+        line = success.get("line")
+        achievement_id = success.get("id")
+        exists = False
+        for linkage_target in linkage_targets:
+            if line is not None and linkage_target.get("line") == line:
+                exists = True
+                break
+        if not exists:
+            LinkageItems.create(
+                pid_without_ver.object_uuid, achievement_id, LinkageItems.ExternalSystem.RM,
+                linkage_target["permalink"], LinkageItems.Status.REGISTERED
+            )
+            register_linkage_result(pid_int, True, item_id, failed_log='新規連携成功:{}'.format(achievement_id))
+
+    # Recuirsive call to sync_item_to_researchmap if recalls exist
+    if len(recalls) > 0:
+        sync_item_to_researchmap(pid_int, item_id, achievements_obj, merge_mode, achievement_type, recalls, should_create_if_not_found)
 
 def get_item(item_uuid):
     """アイテム取得"""
@@ -431,11 +525,21 @@ def build_achievement(record,item,recid,mapping,jrc, achievement_type):
     #         ,"publication_name": {"ja": "aaaaa", "en": "aaaaa"} }
 
 
-def build_one_data(achievement_obj:dict , merge_mode:str , author:str ,achievement_type:str):
-    """1著者分レコード作成"""
+def build_one_data(achievement_obj:dict , merge_mode:str , permalink:str ,achievement_type:str, linkage_targets:list=[]):
+    """Build one data for researchmap, creating a record for each author.
+    
+    Args:
+        achievement_obj (dict): The achievement data.
+        merge_mode (str): The merge mode for the data.
+        permalink (str): The permalink of the author.
+        achievement_type (str): The type of achievement.
+        linkage_targets (list, optional): A list of linkage targets. Defaults to [].
+    Returns:
+        dict: A dictionary containing the data for researchmap.
+    """
 
     # e.g.
-    # {"insert": {"type": "published_papers", "permalink": "M1cQhPtdmlrSRFo4"}
+    # {"insert": {"type": "published_papers", "permalink": "M1cQhPtdmlrSRFo4", "id": "123456789"}
     # ,"similar_merge": {"paper_title": {"ja": "ああああ", "en": "aaaaa"}
     #                   ,"publication_date":"2024-01-25"
     #                   ,"publication_name": {"ja": "ああああ", "en": "aaaaa"}}
@@ -444,14 +548,19 @@ def build_one_data(achievement_obj:dict , merge_mode:str , author:str ,achieveme
 
     ret = {}
     current_app.logger.info(merge_mode)
+    insert_info = {"type": achievement_type, "permalink": permalink}
+    for linkage_target in linkage_targets:
+        if linkage_target.get("permalink") == permalink:
+            insert_info.update({"id":linkage_target.get("external_item_id")})
+            break
     if merge_mode == 'merge':
-        ret = {"insert": {"type": achievement_type, "permalink": author} , "merge" :achievement_obj}
+        ret = {"insert": insert_info , "merge" :achievement_obj}
     elif merge_mode == 'force':
-        ret = {"insert": {"type": achievement_type, "permalink": author} , "force" :achievement_obj}
+        ret = {"insert": insert_info , "force" :achievement_obj}
     elif merge_mode == 'similar_merge_similar_data':
-        ret = {"insert": {"type": achievement_type ,"permalink": author} , "similar_merge" :achievement_obj ,"priority":"similar_data" }
+        ret = {"insert": insert_info , "similar_merge" :achievement_obj ,"priority":"similar_data" }
     elif merge_mode == 'similar_merge_input_data':
-        ret = {"insert": {"type": achievement_type, "permalink": author} , "similar_merge" :achievement_obj ,"priority":"input_data" }
+        ret = {"insert": insert_info , "similar_merge" :achievement_obj ,"priority":"input_data" }
     return ret
 
 def register_linkage_result(pid_int:int,result:bool,item_uuid:uuid, failed_log :str):

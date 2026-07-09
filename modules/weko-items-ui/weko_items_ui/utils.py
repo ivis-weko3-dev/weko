@@ -2255,6 +2255,9 @@ def make_stats_file(item_type_id, recids, list_item_role, export_path=""):
 
     ret.append('.researchmap_linkage')
     ret_label.append('.RESEAECHMAP_LINKAGE')
+    ret.append('.researchmap_linkage_create_if_missing')
+    
+    ret_label.append('.RESEARCHMAP_LINKAGE_CREATE_IF_MISSING')
 
     if can_export_item_application:
         records.get_item_application()
