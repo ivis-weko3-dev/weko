@@ -1,3 +1,8 @@
+import $ from "jquery";
+import moment from "moment";
+import React from "react";
+import ReactDOM from "react-dom";
+
 const list_label = "List";
 const create_label = "Create";
 const edit_label = "Edit";
@@ -94,7 +99,7 @@ class MainLayout extends React.Component {
                   className={`${item.tab_key === current_tab ? "active" : ""}`}
                   onClick={() => this.handleChangeTab(item.tab_key)}
                 >
-                  <a href="#">{item.tab_name}</a>
+                  <button>{item.tab_name}</button>
                 </li>
               );
             }
@@ -177,7 +182,7 @@ class ListResourceComponent extends React.Component {
   }
 
   handleDelete(item) {
-    const a = confirm("Are you sure to delete it ?");
+    const a = window.confirm("Are you sure to delete it ?");
     if (a) {
       fetch(urlDelete + "/" + item.id, {
         method: "POST",
@@ -231,18 +236,26 @@ class ListResourceComponent extends React.Component {
                         justifyContent: "space-around"
                       }}
                     >
-                      <a className="icon" title="Edit Resource">
+                      <button
+                        className="icon" title="Edit Resource">
                         <span
+                          role="button"
+                          tabIndex={0}
                           className="fa fa-pencil glyphicon glyphicon-pencil"
                           onClick={() => this.handleEdit(item)}
+                          onKeyDown={() => { }}
                         ></span>
-                      </a>
-                      <a className="icon" title="Delete Resource">
+                      </button>
+                      <button
+                        className="icon" title="Delete Resource">
                         <span
+                          role="button"
+                          tabIndex={0}
                           className="fa fa-trash glyphicon glyphicon-trash"
                           onClick={() => this.handleDelete(item)}
+                          onKeyDown={() => { }}
                         ></span>
-                      </a>
+                      </button>
                     </td>
                     <td>
                       {item.repository_name + " <ID:" + item.repository_id + ">"}
@@ -365,7 +378,7 @@ class CreateResourceComponent extends React.Component {
       <div className="create-resource">
         <div className="row form-group ">
           <div className="col-md-2 text-right">
-            <label>Status</label>
+            <label htmlFor="status_publish">Status</label>
           </div>
           <div className="col-md-10">
             <div className="col-md-10">
@@ -374,6 +387,7 @@ class CreateResourceComponent extends React.Component {
                   <input
                     checked={state.status === true}
                     type="radio"
+                    id="status_publish"
                     name="status"
                     value="Publish"
                     onChange={e => {
@@ -403,10 +417,11 @@ class CreateResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Repository</label>
+            <label htmlFor="repository">Repository</label>
           </div>
           <div className="col-md-10">
             <select
+              id="repository"
               className="form-control"
               onChange={e => {
                 const value = e.target.value;
@@ -424,7 +439,7 @@ class CreateResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Publish date</label>
+            <label htmlFor="publish_date_picker">Publish date</label>
           </div>
           <div className="col-md-10">
             <ComponentDatePicker
@@ -442,11 +457,12 @@ class CreateResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Max change list</label>
+            <label htmlFor="max_changes_list">Max change list</label>
           </div>
           <div className="col-md-10">
             <input
               type="number"
+              id="max_changes_list"
               className="form-control"
               value={state.max_changes_size}
               onChange={e => {
@@ -460,11 +476,12 @@ class CreateResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Interval by date</label>
+            <label htmlFor="interval_by_date">Interval by date</label>
           </div>
           <div className="col-md-10">
             <input
               type="number"
+              id="interval_by_date"
               className="form-control"
               value={state.interval_by_date}
               onChange={e => {
@@ -479,7 +496,7 @@ class CreateResourceComponent extends React.Component {
 
         <div className="row form-group">
           <div className="col-md-2 text-right">
-            <label>Change tracking state</label>
+            <label htmlFor="change_tracking_state">Change tracking state</label>
           </div>
           <div className="col-md-10">
             <div className="row">
@@ -489,6 +506,7 @@ class CreateResourceComponent extends React.Component {
                     <div className="col-md-2 flex" key={key}>
                       <input
                         type="checkbox"
+                        id="change_tracking_state"
                         //                          className="form-control"
                         checked={state.change_tracking_state.includes(item.value)}
                         onChange={e => {
@@ -514,11 +532,12 @@ class CreateResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Change dump manifest</label>
+            <label htmlFor="change_dump_manifest">Change dump manifest</label>
           </div>
           <div className="col-md-10">
             <input
               type="checkbox"
+              id="change_dump_manifest"
               checked={state.change_dump_manifest}
               onChange={e => {
                 const value = e.target.checked;
@@ -530,11 +549,12 @@ class CreateResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Change List uri</label>
+            <label htmlFor="change_list_uri">Change List uri</label>
           </div>
           <div className="col-md-10">
             <input
               type="text"
+              id="change_list_uri"
               className="form-control"
               disabled
               value={state.url_path && state.url_path + "/changelist.xml"}
@@ -544,11 +564,12 @@ class CreateResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Change Dump uri</label>
+            <label htmlFor="change_dump_uri">Change Dump uri</label>
           </div>
           <div className="col-md-10">
             <input
               type="text"
+              id="change_dump_uri"
               className="form-control"
               disabled
               value={state.url_path && state.url_path + "/changedump.xml"}
@@ -677,7 +698,7 @@ class EditResourceComponent extends React.Component {
       <div className="create-resource">
         <div className="row form-group">
           <div className="col-md-2 text-right">
-            <label>Status</label>
+            <label htmlFor="status_publish">Status</label>
           </div>
           <div className="col-md-10">
             <div className="row">
@@ -685,6 +706,7 @@ class EditResourceComponent extends React.Component {
                 <input
                   checked={state.status}
                   type="radio"
+                  id="status_publish"
                   name="status"
                   value="Publish"
                   onChange={e => {
@@ -715,10 +737,11 @@ class EditResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Repository</label>
+            <label htmlFor="repository">Repository</label>
           </div>
           <div className="col-md-10">
             <select
+              id="repository"
               className="form-control"
               onChange={e => {
                 const value = e.target.value;
@@ -735,7 +758,7 @@ class EditResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Publish date</label>
+            <label htmlFor="publish_date_picker">Publish date</label>
           </div>
           <div className="col-md-10">
             <ComponentDatePicker
@@ -753,11 +776,12 @@ class EditResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Max change list</label>
+            <label htmlFor="max_changes_list">Max change list</label>
           </div>
           <div className="col-md-10">
             <input
               type="number"
+              id="max_changes_list"
               className="form-control"
               value={state.max_changes_size}
               onChange={e => {
@@ -771,11 +795,12 @@ class EditResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Interval by date</label>
+            <label htmlFor="interval_by_date">Interval by date</label>
           </div>
           <div className="col-md-10">
             <input
               type="number"
+              id="interval_by_date"
               className="form-control"
               value={state.interval_by_date}
               onChange={e => {
@@ -791,7 +816,7 @@ class EditResourceComponent extends React.Component {
 
         <div className="row form-group">
           <div className="col-md-2 text-right">
-            <label>Change tracking state</label>
+            <label htmlFor="change_tracking_state">Change tracking state</label>
           </div>
           <div className="col-md-10">
             <div className="row">
@@ -801,6 +826,7 @@ class EditResourceComponent extends React.Component {
                     <div className="col-md-2 flex" key={key}>
                       <input
                         type="checkbox"
+                        id="change_tracking_state"
                         //                          className="form-control"
                         checked={state.change_tracking_state.includes(item.value)}
                         onChange={e => {
@@ -826,11 +852,12 @@ class EditResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Change Dump Manifest</label>
+            <label htmlFor="change_dump_manifest">Change Dump Manifest</label>
           </div>
           <div className="col-md-10">
             <input
               type="checkbox"
+              id="change_dump_manifest"
               onChange={e => {
                 const value = e.target.checked;
                 this.handleChangeState("change_dump_manifest", value);
@@ -842,11 +869,12 @@ class EditResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Change list uri</label>
+            <label htmlFor="change_list_uri">Change list uri</label>
           </div>
           <div className="col-md-10">
             <input
               type="text"
+              id="change_list_uri"
               className="form-control"
               disabled
               value={state.url_path && state.url_path + "/changelist.xml"}
@@ -856,11 +884,12 @@ class EditResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Change dump uri</label>
+            <label htmlFor="change_dump_uri">Change dump uri</label>
           </div>
           <div className="col-md-10">
             <input
               type="text"
+              id="change_dump_uri"
               className="form-control"
               disabled
               value={state.url_path && state.url_path + "/changedump.xml"}

@@ -41,7 +41,6 @@ let isRegenerate = false;
 let isClickMainContent = false;
 
 const PageBodyGrid = function () {
-    this.intervalId;
     this.init = function () {
         let options = {
             width: 12,
@@ -536,7 +535,7 @@ const PageBodyGrid = function () {
             current_language = "en";
         }
         var currentTime = new Date().getTime();
-        var current_path=location.pathname
+        var current_path = window.location.pathname
         var path_parts = current_path.split('/').filter(Boolean)
         var url = (
           current_path === "/" ||

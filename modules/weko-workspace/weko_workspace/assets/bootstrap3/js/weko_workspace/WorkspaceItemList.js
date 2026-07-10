@@ -1,3 +1,7 @@
+import $ from "jquery";
+import React from 'react';
+import ReactDOM from 'react-dom';
+
 // WorkspaceItemList.js
 document.addEventListener('DOMContentLoaded', function () {
   let workspaceItemList = window.workspaceItemList || [];
@@ -105,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // 個別チェックボックスの処理
   function handleItemCheckboxChange() {
     // const recid = this.closest('tr')?.querySelector('td:nth-child(2) strong a')?.href.split('/').pop();
-    const tr = checkbox.closest('tr');
+    const tr = this.closest('tr');
     const anchor = tr && tr.querySelector('td:nth-child(2) strong a');
     const recid = anchor ? anchor.href.split('/').pop() : null;
 
@@ -244,7 +248,7 @@ document.addEventListener('DOMContentLoaded', function () {
             padding: '5px',
             fontSize: '12px',
             overflowY: 'scroll',
-            maxHeight: '162px', 
+            maxHeight: '162px',
           },
         },
         suggestions.map(({ item, matchedField }) => React.createElement(
@@ -282,6 +286,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var filter = props.filter;
     var selectedOptions = props.selectedOptions;
     var onSelectionChange = props.onSelectionChange;
+    const [hoveredOption, setHoveredOption] = React.useState(null);
 
     function handleCheckboxChange(option) {
       var newSelection;
@@ -298,8 +303,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (filter.options.length === 0 && (filterKey === 'funder_name' || filterKey === 'award_title')) {
       return null;
     }
-    
-    const [hoveredOption, setHoveredOption] = React.useState(null);
+
     var checkboxes = filter.options.map(function(option) {
       const ctx = document.createElement('canvas').getContext('2d');
       ctx.font = window.getComputedStyle(document.body).font;
@@ -313,24 +317,24 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       const long_text = text_length + '...'
-      hover= hoveredOption === option;
+      let hover= hoveredOption === option;
       const text =
       ctx.measureText(option).width >= 140 &&(filterKey === 'funder_name' || filterKey === 'award_title')
         ? (hover ? option : long_text)
-        : option 
-      
+        : option
+
       window.addEventListener('scroll', () => {
         setHoveredOption();
      });
-     
-      if(document.querySelectorAll('.checkbox-group-exclude')!=null){ 
+
+      if(document.querySelectorAll('.checkbox-group-exclude')!=null){
           document.querySelectorAll('.checkbox-group-exclude').forEach(el => {
             el.addEventListener('scroll', () => {
               setHoveredOption();
           });
         });
       }
-      
+
       return React.createElement(
         'label',
         { key: option},
@@ -341,16 +345,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }),
         React.createElement(
         'span',{id: `e-${option}`,onMouseEnter: function(e) { if(ctx.measureText(option).width >= 140 &&(filterKey === 'funder_name' || filterKey === 'award_title'))
-            { 
+            {
               let place = e.target.getBoundingClientRect();
-              el=document.getElementById('tooltip-'+e.target.id.replace("e-",""))
-              el.style.top = (place.top -20) + 'px'; 
+              let el=document.getElementById('tooltip-'+e.target.id.replace("e-",""))
+              el.style.top = (place.top -20) + 'px';
               el.style.left = place.left + 'px';
               setHoveredOption(option);
             }
             else
             {setHoveredOption();}
-          }, 
+          },
           onMouseLeave: function() { setHoveredOption(); }},
         ctx.measureText(option).width >= 140 &&(filterKey === 'funder_name' || filterKey === 'award_title') ? long_text : option
       ),React.createElement(
@@ -369,7 +373,7 @@ document.addEventListener('DOMContentLoaded', function () {
           remindMsg
         )
       : null;
-    
+
     function getfilterclassName(){
       if(singleSelectFilters.includes(filterKey)) {
       return 'checkbox-group-single';
@@ -516,7 +520,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const handleReset = async (e) => {
         e.preventDefault();
-        if (confirm(confirmDeleteMsg)) {
+        if (window.confirm(confirmDeleteMsg)) {
           try {
             const data = await fetchJsonResponse('/workspace/reset_filters', 'DELETE');
             alert(data.message);
@@ -609,7 +613,7 @@ document.addEventListener('DOMContentLoaded', function () {
     );
   };
 
-  
+
 const handleReadToggle = async (itemRecid, isRead, type, setIsRead) => {
   try {
     const response = await fetch('/workspace/updateStatus', {
@@ -640,7 +644,7 @@ const ReadButton = ({ itemRecid, initialReadSts, type }) => {
       })
     );
   };
-  
+
 const Unread = ({ itemRecid, initialReadSts, type }) => {
     const [isRead2, setIsRead2] = React.useState(initialReadSts);
     const text = $('#unread').text();
@@ -651,7 +655,7 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
       text
     );
   };
-  
+
   // ボタンのマウント
   function mountButtons() {
     document.querySelectorAll('.favorite-mount-point').forEach((mountPoint) => {
@@ -760,7 +764,7 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = Math.min(startIndex + itemsPerPage, items.length);
     const currentItems = items.slice(startIndex, endIndex);
-    
+
     tbody.innerHTML += generateItemlabel();
     currentItems.forEach((item) => {
       tbody.innerHTML += generateItemRow(item);
@@ -886,7 +890,7 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
       return order === '1' ? (fieldA > fieldB ? 1 : -1) : (fieldA < fieldB ? 1 : -1);
     });
   }
-  
+
   function updateReadStatus(){
     document.querySelectorAll('a[data-item-title]').forEach(ta => {
       ta.addEventListener('click', async function(e){

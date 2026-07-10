@@ -1,3 +1,7 @@
+import $ from "jquery";
+import React from "react";
+import ReactDOM from "react-dom";
+
 const list_label = "List";
 const create_label = "Create";
 const edit_label = "Edit";
@@ -76,7 +80,7 @@ class MainLayout extends React.Component {
                   className={`${item.tab_key === current_tab ? "active" : ""}`}
                   onClick={() => this.handleChangeTab(item.tab_key)}
                 >
-                  <a href="#">{item.tab_name}</a>
+                  <button>{item.tab_name}</button>
                 </li>
               );
             }
@@ -159,7 +163,7 @@ class ListResourceComponent extends React.Component {
   }
 
   handleDelete(item) {
-    const a = confirm("Are you sure to delete it ?");
+    const a = window.confirm("Are you sure to delete it ?");
     if (a) {
       fetch(urlDelete + "/" + item.id, {
         method: "POST",
@@ -213,18 +217,24 @@ class ListResourceComponent extends React.Component {
                         justifyContent: "space-around"
                       }}
                     >
-                      <a className="icon" title="Edit Resource">
+                      <button className="icon" title="Edit Resource">
                         <span
+                          role="button"
+                          tabIndex={0}
                           className="fa fa-pencil glyphicon glyphicon-pencil"
                           onClick={() => this.handleEdit(item)}
+                          onKeyDown={() => { }}
                         ></span>
-                      </a>
-                      <a className="icon" title="Delete Resource">
+                      </button>
+                      <button className="icon" title="Delete Resource">
                         <span
+                          role="button"
+                          tabIndex={0}
                           className="fa fa-trash glyphicon glyphicon-trash"
                           onClick={() => this.handleDelete(item)}
+                          onKeyDown={() => { }}
                         ></span>
-                      </a>
+                      </button>
                     </td>
                     <td>
                       {item.repository_name + " <ID:" + item.repository_id + ">"}
@@ -345,7 +355,7 @@ class CreateResourceComponent extends React.Component {
       <div className="create-resource">
         <div className="row form-group ">
           <div className="col-md-2 text-right">
-            <label>Status</label>
+            <label htmlFor="status_publish">Status</label>
           </div>
           <div className="col-md-10">
             <div className="col-md-10">
@@ -354,6 +364,7 @@ class CreateResourceComponent extends React.Component {
                   <input
                     checked={state.status === true}
                     type="radio"
+                    id="status_publish"
                     name="status"
                     value="Publish"
                     onChange={e => {
@@ -385,10 +396,11 @@ class CreateResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Repository</label>
+            <label htmlFor="repository">Repository</label>
           </div>
           <div className="col-md-10">
             <select
+              id="repository"
               className="form-control"
               onChange={e => {
                 const value = e.target.value;
@@ -407,11 +419,12 @@ class CreateResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Resource Dump Manifest</label>
+            <label htmlFor="resource_dump_manifest">Resource Dump Manifest</label>
           </div>
           <div className="col-md-10">
             <input
               type="checkbox"
+              id="resource_dump_manifest"
               checked={state.resource_dump_manifest}
               onChange={e => {
                 const value = e.target.checked;
@@ -423,11 +436,12 @@ class CreateResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Resource List uri</label>
+            <label htmlFor="resource_list_uri">Resource List uri</label>
           </div>
           <div className="col-md-10">
             <input
               type="text"
+              id="resource_list_uri"
               className="form-control"
               disabled
               value={state.url_path && state.url_path + "/resourcelist.xml"}
@@ -437,11 +451,12 @@ class CreateResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Resource Dump uri</label>
+            <label htmlFor="resource_dump_uri">Resource Dump uri</label>
           </div>
           <div className="col-md-10">
             <input
               type="text"
+              id="resource_dump_uri"
               className="form-control"
               disabled
               value={state.url_path && state.url_path + "/resourcedump.xml"}
@@ -567,7 +582,7 @@ class EditResourceComponent extends React.Component {
       <div className="create-resource">
         <div className="row form-group">
           <div className="col-md-2 text-right">
-            <label>Status</label>
+            <label htmlFor="status_publish">Status</label>
           </div>
           <div className="col-md-10">
             <div className="row">
@@ -575,6 +590,7 @@ class EditResourceComponent extends React.Component {
                 <input
                   checked={state.status}
                   type="radio"
+                  id="status_publish"
                   name="status"
                   value="Publish"
                   onChange={e => {
@@ -605,10 +621,11 @@ class EditResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Repository</label>
+            <label htmlFor="repository">Repository</label>
           </div>
           <div className="col-md-10">
             <select
+              id="repository"
               className="form-control"
               onChange={e => {
                 const value = e.target.value;
@@ -625,11 +642,12 @@ class EditResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Resource Dump Manifest</label>
+            <label htmlFor="resource_dump_manifest">Resource Dump Manifest</label>
           </div>
           <div className="col-md-10">
             <input
               type="checkbox"
+              id="resource_dump_manifest"
               onChange={e => {
                 const value = e.target.checked;
                 this.handleChangeState("resource_dump_manifest", value);
@@ -641,11 +659,12 @@ class EditResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Resource List uri</label>
+            <label htmlFor="resource_list_uri">Resource List uri</label>
           </div>
           <div className="col-md-10">
             <input
               type="text"
+              id="resource_list_uri"
               className="form-control"
               disabled
               value={state.url_path && state.url_path + "/resourcelist.xml"}
@@ -655,11 +674,12 @@ class EditResourceComponent extends React.Component {
 
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Resource Dump uri</label>
+            <label htmlFor="resource_dump_uri">Resource Dump uri</label>
           </div>
           <div className="col-md-10">
             <input
               type="text"
+              id="resource_dump_uri"
               className="form-control"
               disabled
               value={state.url_path && state.url_path + "/resourcedump.xml"}

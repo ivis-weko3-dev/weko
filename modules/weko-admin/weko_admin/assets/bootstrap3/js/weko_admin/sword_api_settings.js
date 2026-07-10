@@ -1,3 +1,5 @@
+import $ from 'jquery';
+
 const Required_item = document.getElementById("Required_item").value;
 const Successfully_Changed = document.getElementById("Successfully_Changed").value;
 const Failed_Changed = document.getElementById("Failed_Changed").value;

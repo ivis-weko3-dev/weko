@@ -417,14 +417,14 @@ import $ from 'jquery';
 
             $scope.unescape_check_val = function(check_val, to, from=0){
                 for (var i=from; i<to; i++){
-                    item = check_val[i]
+                    let item = check_val[i]
                     if(typeof item.contents === "string"){
-                        ele = document.createElement("div")
+                        let ele = document.createElement("div")
                         ele.innerHTML = item.contents
                         item.contents = ele.textContent
                     }
                     if(typeof item.id === "string"){
-                        ele = document.createElement("div")
+                        let ele = document.createElement("div")
                         ele.innerHTML = item.id
                         item.id = ele.textContent
                     }

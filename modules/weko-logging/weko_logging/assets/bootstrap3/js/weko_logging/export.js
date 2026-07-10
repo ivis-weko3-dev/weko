@@ -1,3 +1,8 @@
+import $ from 'jquery';
+import React from 'react';
+import ReactDOM from 'react-dom';
+import * as ReactBootstrap from 'react-bootstrap';
+
 const export_logs_label = document.getElementById("export_logs").value;
 const download_url_label = document.getElementById("download_url").value;
 const status_label = document.getElementById("status").value;

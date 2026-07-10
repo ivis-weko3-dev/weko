@@ -10,7 +10,7 @@ $(document).ready(function () {
     $('#myModal').modal('show');
   });
   $('#tb_action_list').on('click', '.btn_setting_nortification_mail', function () {
-    row_no=$(this).data('old-action-order');
+    let row_no=$(this).data('old-action-order');
     $('#settingModal_'+ row_no).modal('show');
   });
   function isApproval(action) {
@@ -438,7 +438,7 @@ $(document).ready(function () {
         new_row = new_row.replaceAll('mail_setting_for_approval', 'hide');
         new_row = new_row.replaceAll('btn btn-primary pull-right btn_setting_nortification_mail', 'hide');
       }else{
-        action_order=1;
+        let action_order=1;
         $('#tb_action_list .action_order').each(function (index) {
           action_order++;
         });

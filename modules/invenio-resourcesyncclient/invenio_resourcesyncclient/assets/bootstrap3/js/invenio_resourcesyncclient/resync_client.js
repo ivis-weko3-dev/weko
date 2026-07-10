@@ -1,3 +1,9 @@
+import $ from "jquery";
+import React from "react";
+import ReactDOM from "react-dom";
+import confirm from "jquery-confirm";
+import moment from "moment";
+
 const LABELS = {};
 (function () {
   // Get all labels.
@@ -113,12 +119,13 @@ class MainLayout extends React.Component {
           {tabs.map((item, key) => {
             if (item.step <= current_step) {
               return (
-                <li
-                  role="presentation"
-                  className={`${item.tab_key === current_tab ? "active" : ""}`}
-                  onClick={() => this.handleChangeTab(item.tab_key)}
-                >
-                  <a href="#">{item.tab_name}</a>
+                <li className={`${item.tab_key === current_tab ? "active" : ""}`}>
+                  <span
+                    role="presentation"
+                    onClick={() => this.handleChangeTab(item.tab_key)}
+                  >
+                    <button>{item.tab_name}</button>
+                  </span>
                 </li>
               );
             }
@@ -275,24 +282,33 @@ class ListResyncComponent extends React.Component {
                         justifyContent: "space-around"
                       }}
                     >
-                      <a className="icon" title="View Detail Resync">
+                      <button className="icon" title="View Detail Resync">
                         <span
+                          role="button"
+                          tabIndex={0}
                           className="fa fa-eye glyphicon glyphicon-eye-open"
                           onClick={() => this.handleViewDetail(item)}
+                          onKeyDown={() => { }}
                         ></span>
-                      </a>
-                      <a className="icon" title="Edit Resync">
+                      </button>
+                      <button className="icon" title="Edit Resync">
                         <span
+                          role="button"
+                          tabIndex={0}
                           className="fa fa-pencil glyphicon glyphicon-pencil"
                           onClick={() => this.handleEdit(item)}
+                          onKeyDown={() => { }}
                         ></span>
-                      </a>
-                      <a className="icon" title="Delete Resync">
+                      </button>
+                      <button className="icon" title="Delete Resync">
                         <span
+                          role="button"
+                          tabIndex={0}
                           className="fa fa-trash glyphicon glyphicon-trash"
                           onClick={() => this.handleDelete(item)}
+                          onKeyDown={() => { }}
                         ></span>
-                      </a>
+                      </button>
                     </td>
                     <td>
                       {item.repository_name}
@@ -436,11 +452,15 @@ class CreateResyncComponent extends React.Component {
 //repository_name
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Repository name</label><span className="required">*</span>
+            <label htmlFor="repository_name">
+              Repository name
+            </label>
+            <span className="required">*</span>
           </div>
           <div className="col-md-10">
             <input
               type="text"
+              id="repository_name"
               className="form-control"
               value={state.repository_name}
               name="repository_name"
@@ -454,11 +474,15 @@ class CreateResyncComponent extends React.Component {
 //base_url
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Base Url</label><span className="required">*</span>
+            <label htmlFor="base_url">
+              Base Url
+            </label>
+            <span className="required">*</span>
           </div>
           <div className="col-md-10">
             <input
               type="text"
+              id="base_url"
               className="form-control"
               value={state.base_url}
               name="base_url"
@@ -473,7 +497,9 @@ class CreateResyncComponent extends React.Component {
 //status
         <div className="row form-group ">
           <div className="col-md-2 text-right">
-            <label>Status</label>
+            <label htmlFor="status">
+              Status
+            </label>
           </div>
           <div className="col-md-10">
             <div className="col-md-10">
@@ -485,6 +511,7 @@ class CreateResyncComponent extends React.Component {
                         <input
                           checked={state.status === status[item]}
                           type="radio"
+                          id="status"
                           name="status"
                           value={status[item]}
                           onChange={e => {
@@ -507,11 +534,14 @@ class CreateResyncComponent extends React.Component {
 
             <div className="row form-group flex-baseline">
               <div className="col-md-2 text-right">
-                <label>Interval By Day</label>
+                <label htmlFor="interval_by_day">
+                  Interval By Day
+                </label>
               </div>
               <div className="col-md-10">
                 <input
                   type="number"
+                  id="interval_by_day"
                   className="form-control"
                   value={state.interval_by_day}
                   name="interval_by_day"
@@ -529,7 +559,9 @@ class CreateResyncComponent extends React.Component {
 //from_date
           <div className="row form-group flex-baseline">
             <div className="col-md-2 text-right">
-              <label>From Date</label>
+              <label htmlFor="from_date">
+                From Date
+              </label>
             </div>
             <div className="col-md-10">
               <ComponentDatePicker
@@ -546,7 +578,9 @@ class CreateResyncComponent extends React.Component {
 //to_date
           <div className="row form-group flex-baseline">
             <div className="col-md-2 text-right">
-              <label>Until Date</label>
+              <label htmlFor="to_date">
+                Until Date
+              </label>
             </div>
             <div className="col-md-10">
               <ComponentDatePicker
@@ -564,10 +598,14 @@ class CreateResyncComponent extends React.Component {
 //index_id
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Target Index</label><span className="required">*</span>
+            <label htmlFor="target_index">
+              Target Index
+            </label>
+            <span className="required">*</span>
           </div>
           <div className="col-md-10">
             <select
+              id="target_index"
               className="form-control"
               onChange={e => {
                 const value = e.target.value;
@@ -585,10 +623,11 @@ class CreateResyncComponent extends React.Component {
 //resync_mode
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Resync Mode</label>
+            <label htmlFor="resync_mode">Resync Mode</label>
           </div>
           <div className="col-md-10">
             <select
+              id="resync_mode"
               className="form-control"
               name="resync_mode"
               onChange={e => {
@@ -606,10 +645,11 @@ class CreateResyncComponent extends React.Component {
 //saving_format
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
-            <label>Saving format</label>
+            <label htmlFor="saving_format">Saving format</label>
           </div>
           <div className="col-md-10">
             <select
+              id="saving_format"
               className="form-control"
               name="saving_format"
               onChange={e => {

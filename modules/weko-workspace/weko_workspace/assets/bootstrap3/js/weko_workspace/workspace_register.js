@@ -1,5 +1,10 @@
 import $ from 'jquery';
+import jQuery from 'jquery';
 import 'bootstrap';
+import angular from 'angular';
+import _ from 'lodash';
+
+import { widgetBodyGrid, DEFAULT_WIDGET_HEIGHT } from "../weko_theme/widget"
 
 $("#metaDataSelectCrossRef").prop('disabled', true);
 $("#metaDataSelectJalc").prop('disabled', true);
@@ -200,7 +205,7 @@ var CustomBSDatePicker = {
       CustomBSDatePicker.initAttributeForModel(model, val);
       if (reverse) {
         //Fill data from model to fields
-        str_code = "$(val).val(" + $(val).attr('ng-model') + ")";
+        let str_code = "$(val).val(" + $(val).attr('ng-model') + ")";
         try {
           eval(str_code);
         } catch (e) {
@@ -211,7 +216,7 @@ var CustomBSDatePicker = {
         }
       } else {
         //Fill data from fields to model
-        str_code = 'if ($(val).val().length != 0) {' + $(val).attr('ng-model') + '=$(val).val()}';
+        let str_code = 'if ($(val).val().length != 0) {' + $(val).attr('ng-model') + '=$(val).val()}';
         eval(str_code);
       }
     });
@@ -391,7 +396,7 @@ function autocomplete(inp, arr) {
 }
 
 
-get_autofill_data = function (keyword, data, mode) {
+let get_autofill_data = function (keyword, data, mode) {
   // If autofill, "keyword" = email or username, and username, email have to fill to "data"
   // If validate, keyword = username, data = email
   let param = {
@@ -458,7 +463,7 @@ function toObject(arr) {
 
 (function (angular) {
   function addAlert(message, class_style) {
-    id_alert = "";
+    let id_alert = "";
     if (typeof class_style === 'undefined') {
       class_style = 'alert-light'
       id_alert = 'alert-style'
@@ -537,8 +542,8 @@ function toObject(arr) {
 
 
       $scope.onReplaceFileContentChange = function (files, current_version_id) {
-        file = files[0];
-        idx_of_file = $rootScope.filesVM.files.map(f => f.version_id).indexOf(current_version_id);
+        let file = files[0];
+        let idx_of_file = $rootScope.filesVM.files.map(f => f.version_id).indexOf(current_version_id);
         if (idx_of_file !== -1) {
           $rootScope.filesVM.files[idx_of_file].hide = true;
           file.replace_version_id = current_version_id;
@@ -562,7 +567,7 @@ function toObject(arr) {
 
       $scope.onRemoveFileContent = function (file) {
         if (file.replace_version_id) {
-          idx_of_file = $rootScope.filesVM.files.map(f => f.version_id).indexOf(file.replace_version_id);
+          let idx_of_file = $rootScope.filesVM.files.map(f => f.version_id).indexOf(file.replace_version_id);
           $rootScope.filesVM.files[idx_of_file].hide = false;
           $rootScope.filesVM.files[idx_of_file].position = file.position;
         }
@@ -578,7 +583,7 @@ function toObject(arr) {
 
       $scope.resetFilesPosition = function (replace_position) {
         for (let idx = 0; idx < $rootScope.filesVM.files.length; idx++) {
-          file = $rootScope.filesVM.files[idx];
+          let file = $rootScope.filesVM.files[idx];
           if (!file.hide && file.position !== replace_position) {
             file.position = idx;
           }
@@ -650,7 +655,7 @@ function toObject(arr) {
         let form = "";
         $rootScope.recordsVM.invenioRecordsForm.forEach(function (recordForm) {
           if (recordForm.hasOwnProperty('items')) {
-            items = recordForm.items
+            let items = recordForm.items
             for (let i in items) {
               if (items[i].hasOwnProperty('key') && items[i].key.indexOf(sub_item_key) >= 0) {
                 form = recordForm
@@ -671,6 +676,9 @@ function toObject(arr) {
           let schemaMappingKey = $scope.scheme_identifier_mapping;
           let idMappingKey = $scope.identifier_mapping;
           let uriMappingKey = $scope.uri_identifier_mapping;
+          function checkFillCreatorIdentifierURI(nameIdentifierURI, nameIdentifier) {
+            return !!(nameIdentifierURI && nameIdentifierURI.search(/#+$/) > -1 && nameIdentifier);
+          }
           let isFillIdentifierURI = checkFillCreatorIdentifierURI(data_author[form[schemaMappingKey]]["url"], form[idMappingKey])
           if (form[schemaMappingKey] && isFillIdentifierURI) {
             form[uriMappingKey] = data_author[form[schemaMappingKey]]["url"].replace(/#+$/, form[idMappingKey]);
@@ -779,12 +787,12 @@ function toObject(arr) {
         var filekey = 'filename';
         $scope.searchFilemetaKey();
         $scope.filemeta_keys.forEach(function (filemeta_key) {
-          filemeta_schema = $rootScope.recordsVM.invenioRecordsSchema.properties[filemeta_key];
-          filemeta_form = $scope.getFormByKey(filemeta_key);
+          let filemeta_schema = $rootScope.recordsVM.invenioRecordsSchema.properties[filemeta_key];
+          let filemeta_form = $scope.getFormByKey(filemeta_key);
           if (filemeta_schema && filemeta_form && filemeta_schema.items.properties[filekey]) {
             filemeta_schema.items.properties[filekey]['enum'] = [];
             filemeta_schema.items.properties[filekey]['enum'].push(null);
-            filemeta_filename_form = get_subitem(filemeta_form.items, filekey);
+            let filemeta_filename_form = get_subitem(filemeta_form.items, filekey);
             filemeta_filename_form['titleMap'] = [];
             $rootScope.filesVM.files.forEach(function (file) {
               if (file.completed && !file.is_thumbnail) {
@@ -857,8 +865,8 @@ function toObject(arr) {
           }
 
           // Initialization groups list for billing file
-          groupsprice_schema = filemeta_schema.items.properties['groupsprice']
-          groupsprice_form = get_subitem(filemeta_form.items, 'groupsprice')
+          let groupsprice_schema = filemeta_schema.items.properties['groupsprice']
+          let groupsprice_form = get_subitem(filemeta_form.items, 'groupsprice')
           if (groupsprice_schema && groupsprice_form) {
             if (groupsprice_schema.hasOwnProperty('items')
               && groupsprice_schema.items.hasOwnProperty('properties')
@@ -1280,7 +1288,7 @@ function toObject(arr) {
 
       $scope.findTextByElementId = function (elementId, value) {
         var options = document.getElementById(elementId).options;
-        for (i = 0; i < options.length; i++) {
+        for (let i = 0; i < options.length; i++) {
           if (options[i].value === value) {
             return options[i].text
           }
@@ -1289,7 +1297,7 @@ function toObject(arr) {
 
       $scope.findValueByElementId = function (elementId, text) {
         var options = document.getElementById(elementId).options;
-        for (i = 0; i < options.length; i++) {
+        for (let i = 0; i < options.length; i++) {
           if (options[i].text === text) {
             return options[i].value
           }
@@ -1621,7 +1629,7 @@ function toObject(arr) {
           hasItem = val.hasOwnProperty("items");
           subProperties = hasItem ? val.items.properties : val.properties;
           if (subProperties) {
-            result = $scope.updateEnum(key, subVal, enumData);
+            let result = $scope.updateEnum(key, subVal, enumData);
           }
         }
       }
@@ -1644,7 +1652,7 @@ function toObject(arr) {
           hasItem = val.hasOwnProperty("items");
           subProperties = hasItem ? val.items : [];
           if (subProperties) {
-            result = $scope.updateTitleMap(key, subVal, enumData);
+            let result = $scope.updateTitleMap(key, subVal, enumData);
           }
         }
       }
@@ -1752,7 +1760,7 @@ function toObject(arr) {
               if ($rootScope.recordsVM.invenioRecordsForm[key].key == listLicenseTypeKey[ind]) {
                 containLicenseTypeForm = $rootScope.recordsVM.invenioRecordsForm[key];
                 if (containLicenseTypeForm && containLicenseTypeForm.items) {
-                  licenseTypeForm = get_subitem(containLicenseTypeForm.items, 'licensetype');
+                  let licenseTypeForm = get_subitem(containLicenseTypeForm.items, 'licensetype');
                   // Set title map by listLicenseObj above
                   licenseTypeForm['titleMap'] = listLicenseObj;
                 }
@@ -1948,9 +1956,9 @@ function toObject(arr) {
         }
 
         //In case save activity
-        hide_endpoints = $('#hide_endpoints').text()
+        let hide_endpoints = $('#hide_endpoints').text()
         if (hide_endpoints.length > 2) {
-          endpoints = JSON.parse($('#hide_endpoints').text());
+          let endpoints = JSON.parse($('#hide_endpoints').text());
           endpoints.html = '';
           if (endpoints.hasOwnProperty('bucket')) {
             $rootScope.$broadcast(
@@ -2123,7 +2131,7 @@ function toObject(arr) {
         let model = $rootScope.recordsVM.invenioRecordsModel;
         $scope.searchFilemetaKey();
         $scope.filemeta_keys.forEach(function (filemetaKey) {
-          f = model[filemetaKey].filter(f => f.version_id === replace_version_id)[0];
+          let f = model[filemetaKey].filter(f => f.version_id === replace_version_id)[0];
           f.filename = fileInfo.filename;
           f.version_id = fileInfo.version_id;
           f.filesize = fileInfo.filesize;
@@ -2194,7 +2202,7 @@ function toObject(arr) {
       $scope.fileNameSelect = function ($event, form, modelValue) {
         let filesObject = $scope.getFilesObject();
         //Check to disable「本文URL」element.
-        let curElement = event.target;
+        let curElement = window.event.target;
         let parForm = $(curElement).parents('.schema-form-section')[0];
         let curTextUrl = $(parForm).find('.file-text-url')[0];
         let disableFlag = !!filesObject[modelValue];
@@ -2262,7 +2270,7 @@ function toObject(arr) {
 
       // This is callback function - Please do NOT change function name
       $scope.changedVersionType = function ($event, modelValue) {
-        let curElement = event.target;
+        let curElement = window.event.target;
         let parForm = $(curElement).parents('.schema-form-fieldset ')[0];
         let dictionaries = {
           'AO': 'http://purl.org/coar/version/c_b1a7d7d4d402bcce',
@@ -2279,7 +2287,7 @@ function toObject(arr) {
 
       // This is callback function - Please do NOT change function name
       $scope.changedAccessRights = function ($event, modelValue) {
-        let curElement = event.target;
+        let curElement = window.event.target;
         let parForm = $(curElement).parents('.schema-form-fieldset ')[0];
         let dictionaries = {
           'embargoed access': 'http://purl.org/coar/access_right/c_f1cf',
@@ -2292,7 +2300,7 @@ function toObject(arr) {
 
       $scope.updateNumFiles = function () {
         if (!angular.isUndefined($rootScope.filesVM)) {
-          numOfReplace = $scope.listFileNeedRemoveAfterReplace.length;
+          let numOfReplace = $scope.listFileNeedRemoveAfterReplace.length;
           $scope.previousNumFiles = $rootScope.filesVM.files.length - numOfReplace;
         }
       }
@@ -2319,7 +2327,7 @@ function toObject(arr) {
         $rootScope.filesVM.files.forEach(function (file) {
           if (file.replace_version_id) {
             file.key = file.key.split('?replace_version_id=')[0];
-            files = $rootScope.filesVM.files.filter(f => f.version_id === file.replace_version_id);
+            let files = $rootScope.filesVM.files.filter(f => f.version_id === file.replace_version_id);
             if (files.length > 0) {
               $scope.listFileNeedRemoveAfterReplace.push(files[0]);
             }
@@ -2459,11 +2467,11 @@ function toObject(arr) {
       }
 
       $scope.getItemMetadataAPI = function (param_crossApi, param_api) {
-        res_crossref_data = this.setRecordDataFromCrossRefApi(param_crossApi);
-        res_cinii_data = this.setRecordDataFromCINIIApi(param_api);
-        res_jalc_data = this.setRecordDataFromJalcApi(param_api);
-        res_datacite_data = this.setRecordDataFromDataciteApi(param_api);
-        res_arXiv_data = this.setRecordDataFromarXivApi(param_api);
+        let res_crossref_data = this.setRecordDataFromCrossRefApi(param_crossApi);
+        let res_cinii_data = this.setRecordDataFromCINIIApi(param_api);
+        let res_jalc_data = this.setRecordDataFromJalcApi(param_api);
+        let res_datacite_data = this.setRecordDataFromDataciteApi(param_api);
+        let res_arXiv_data = this.setRecordDataFromarXivApi(param_api);
 
         Promise.all([res_crossref_data, res_cinii_data, res_jalc_data, res_datacite_data, res_arXiv_data]).then(function (responses) {
           $scope.checkBothDataEmpty();
@@ -3580,9 +3588,9 @@ function toObject(arr) {
 
       /* Filter list removed item */
       $scope.listRemovedItemKey = function (cleanObj) {
-        removedItemKeys = [];
-        originObj = $rootScope.recordsVM.invenioRecordsModel;
-        for (key in originObj) {
+        let removedItemKeys = [];
+        let originObj = $rootScope.recordsVM.invenioRecordsModel;
+        for (let key in originObj) {
           if (!(key in cleanObj)) {
             removedItemKeys.push(key);
           }
@@ -3779,7 +3787,7 @@ function toObject(arr) {
         // delete data
 
         if (modelArray) {
-          target = modelArray[item];
+          let target = modelArray[item];
           let flg = true;
           if (fileObjects[target.filename] != undefined) {
             if (fileObjects[target.filename] == target.version_id) {
