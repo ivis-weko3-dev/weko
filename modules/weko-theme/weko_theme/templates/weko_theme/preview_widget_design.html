@@ -41,7 +41,6 @@
 {%- block javascript %}
   {% include config.THEME_JAVASCRIPT_TEMPLATE %}
   {{ webpack["theme-js.js"] }}
-  {{ webpack["theme-js-treeview.js"] }}
   {{ webpack["theme-js-top-page.js"] }}
   {{ webpack["theme-search-detail.js"] }}
   {% assets "invenio_search_ui_search_js" %}<script src="{{ ASSET_URL }}"></script>{% endassets %}
@@ -49,6 +48,9 @@
   {{ webpack["search-ui-js-weko-search-ui.js"] }}
   {{ webpack["theme-js-preview-widget.js"] }}
   {{ webpack["theme-js-sidebar.js"] }}
+  <script src="{{ url_for('static', filename='js/weko_theme/inline.bundle.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/weko_theme/polyfills.bundle.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/weko_theme/main.bundle.js') }}" defer></script>
 {%- endblock javascript %}
 
 {%- block body %}

@@ -19,10 +19,8 @@ weko_theme = WebpackThemeBundle(
                 "theme-widget": "./js/weko_theme/widget_js.js",
                 "theme-angular": "./node_modules/angular/angular.js",
                 "theme-schema-form": "./node_modules/angular-schema-form/dist/schema-form.min.js",
-                "theme-js-treeview": "./js/weko_theme/treeview.js",
                 "theme-js-sidebar": "./js/weko_theme/sidebar.js",
                 "theme-css-sidebar": "./css/weko_theme/sidebar.css",
-                "theme-js-axios": "./js/axios/axios.min.js",
                 "theme-js-preview-widget": "./js/weko_theme/preview_widget.js"
             },
             dependencies={
