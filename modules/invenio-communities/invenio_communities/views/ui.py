@@ -12,6 +12,7 @@ import copy
 import bleach
 import humanize
 
+from bleach.css_sanitizer import CSSSanitizer
 from flask import Blueprint, abort, current_app, flash, jsonify, redirect, \
     render_template, request, url_for
 from flask_babel import gettext as _
@@ -51,7 +52,7 @@ def sanitize_html(value):
         value,
         tags=current_app.config['COMMUNITIES_ALLOWED_TAGS'],
         attributes=current_app.config['COMMUNITIES_ALLOWED_ATTRS'],
-        styles=current_app.config['COMMUNITIES_ALLOWED_STYLES'],
+        css_sanitizer=CSSSanitizer(allowed_css_properties=current_app.config['COMMUNITIES_ALLOWED_STYLES']),
         strip=True,
     ).strip()
 
