@@ -148,6 +148,7 @@ $('#application').change(function(){
 
 function changeRegistrationType(value) {
   const workflowMenu = document.getElementById('workflow');
+  const workflowOption = document.createElement('option');
   closeError();
 
   if (value === 'empty') {

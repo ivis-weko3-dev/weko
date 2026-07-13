@@ -927,7 +927,7 @@ function getWidgetDesignSetting() {
 /**
  * Build widget
  */
-function buildWidget() {
+export function buildWidget() {
     if (Array.isArray(widgetList) && widgetList.length) {
         widgetBodyGrid = new PageBodyGrid();
         widgetBodyGrid.init();
@@ -1109,7 +1109,7 @@ function createMainContentSensor() {
     });
 }
 
-function toggleWidgetUI() {
+export function toggleWidgetUI() {
     $("div#page_body").each(function () {
         $(this).css("display", "block");
     });

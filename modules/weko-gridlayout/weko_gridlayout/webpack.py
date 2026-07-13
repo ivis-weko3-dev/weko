@@ -18,8 +18,7 @@ weko_gridlayout = WebpackThemeBundle(
                 "gridlayout_js_katex_min_js": "./node_modules/katex/dist/katex.min.js",
                 "gridlayout_js_prop_types_js": "./js/weko_gridlayout/prop.types.js",
                 "gridlayout_js_react_quill_js": "./js/weko_gridlayout/react.quill.js",
-                "gridlayout_js_trumbowyg_js_plugin": "./js/weko_gridlayout/react-trumbowyg-js.js",
-                "gridlayout_js_date_picker_js": "./js/weko_gridlayout/bootstrap-datepicker.min.js",
+                "gridlayout_js_trumbowyg_js_plugin": "./js/weko_gridlayout/react-trumbowyg-js.js"
             },
             dependencies={
                 'react': '0.14.8',
