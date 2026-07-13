@@ -242,7 +242,7 @@ class Community(db.Model, Timestamp):
     """Community content policy."""
 
     group_id = db.Column(
-        db.Integer,
+        db.String(80),
         db.ForeignKey(Role.id),
         nullable=True
     )

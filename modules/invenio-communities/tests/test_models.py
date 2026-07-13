@@ -9,15 +9,14 @@
 
 import os
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from invenio_communities.errors import InclusionRequestExistsError,InclusionRequestObsoleteError,InclusionRequestExpiryTimeError
 from invenio_communities.models import Community,InclusionRequest
-from invenio_oaiserver.models import OAISet
 from invenio_records.api import Record
 
 from unittest.mock import patch
 
-
+# .tox/c1/bin/pytest --cov=invenio_communities tests/test_models.py::test_filter_community -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 @pytest.mark.parametrize('case_modifier', [
     (lambda x: x),
     (lambda x: x.upper()),
@@ -130,8 +129,8 @@ class TestInclusionRequest:
         assert e.value.community==comm
         assert e.value.record == record
 
-        # expires_at < datetime.utcnow
-        expires_at = datetime.utcnow() + timedelta(days=-10)
+        # expires_at < datetime.now(timezone.utc)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=-10)
         comm = communities[1]
         with pytest.raises(InclusionRequestExpiryTimeError) as e:
             increq = InclusionRequest.create(
@@ -202,7 +201,7 @@ class TestCommunity:
         assert result[0].id == comm.id
 
         # non matching group_id
-        comm.group_id = user.roles[0].id + 1
+        comm.group_id = users[1]["obj"].roles[0].id
         db.session.commit()
         result = Community.get_repositories_by_user(user)
         assert len(result) == 0
@@ -352,16 +351,16 @@ class TestCommunity:
         assert result == "http://test_server/oai?verb=ListRecords&metadataPrefix=oai_dc&set=user-comm1"
 #     def version_id(self):
 # class FeaturedCommunity(db.Model, Timestamp):
-#         db.DateTime, nullable=False, default=datetime.utcnow)
+#         db.DateTime, nullable=False, default=datetime.now(timezone.utc))
 #     @classmethod
 #     def get_featured_or_none(cls, start_date=None):
 
 from invenio_accounts.models import Role
-from flask import Flask
 from invenio_communities.models import Community
+from flask import Flask
 
 @pytest.fixture
-def app():
+def test_app():
     app = Flask(__name__)
     app.config['WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT'] = {
         'role_keyword': 'roles',
@@ -374,8 +373,8 @@ def app():
     return app
 
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_models.py::test_owner_display -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
-def test_owner_display(app):
-    with app.app_context():
+def test_owner_display(test_app):
+    with test_app.app_context():
         # If owner_name contains role_keyword and is mapped by role_mapping
         owner1 = Role(name="roles_repoadm")
         comm1 = Community()

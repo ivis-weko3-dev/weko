@@ -568,7 +568,8 @@ class CommunityModelView(ModelView):
     def can_create(self):
         """Check permission for creating."""
         role_ids = get_user_role_ids()
-        return  min(role_ids) <= \
+        numeric_role_ids = get_numeric_user_role_ids(role_ids)
+        return  min(numeric_role_ids, default=current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']+1) <= \
                 current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']
 
     def role_query_cond(self, role_ids):
@@ -591,11 +592,10 @@ class CommunityModelView(ModelView):
         """
         role_ids = get_user_role_ids()
         numeric_role_ids = get_numeric_user_role_ids(role_ids)
-        
-        if (min(numeric_role_ids) <=
+
+        if (min(numeric_role_ids, default=current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']+1) <=
                 current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']):
             return self.session.query(self.model).filter()
-
         return self.session.query(
             self.model).filter(self.role_query_cond(role_ids))
 
@@ -608,8 +608,9 @@ class CommunityModelView(ModelView):
         role_ids = get_user_role_ids()
         numeric_role_ids = get_numeric_user_role_ids(role_ids)
 
-        if (min(numeric_role_ids) <=
+        if (min(numeric_role_ids, default=current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']+1) <=
                 current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']):
+
             return self.session.query(func.count('*')).select_from(self.model)
 
         return self.session.query(
@@ -627,7 +628,7 @@ class CommunityModelView(ModelView):
         role_ids = get_user_role_ids()
         numeric_role_ids = get_numeric_user_role_ids(role_ids)
 
-        if (min(numeric_role_ids) <=
+        if (min(numeric_role_ids, default=current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']+1) <=
                 current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']):
             return super().edit_form(obj)
 
