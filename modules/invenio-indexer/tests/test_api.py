@@ -18,10 +18,10 @@ from celery.messaging import establish_connection
 from invenio_db import db
 from invenio_indexer.api import (
     BulkRecordIndexer,
-    RecordIndexer, 
-    BulkBaseException, 
-    BulkConnectionTimeout, 
-    BulkConnectionError, 
+    RecordIndexer,
+    BulkBaseException,
+    BulkConnectionTimeout,
+    BulkConnectionError,
     BulkException
 )
 from invenio_indexer.signals import before_record_index
@@ -126,6 +126,8 @@ def test_delete_action(app):
         assert action["_id"] == str(record.id)
 
 
+#  def _index_action(self, payload, with_deleted=False):
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_index_action -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_index_action(app):
     """Test index action."""
     with app.app_context():
@@ -137,7 +139,10 @@ def test_index_action(app):
             arguments["pipeline"] = "foobar"
 
         with before_record_index.connected_to(receiver):
-            action = RecordIndexer()._index_action(
+            indexer = RecordIndexer()
+            indexer.count = 0
+            indexer.completed_record_count = 0
+            action = indexer._index_action(
                 dict(
                     id=str(record.id),
                     op="index",
@@ -151,6 +156,7 @@ def test_index_action(app):
             assert action["pipeline"] == "foobar"
             assert "title" in action["_source"]
             assert "extra" in action["_source"]
+            assert indexer.count == 1
 
 
 def test_process_bulk_queue(app, queue):
@@ -924,7 +930,7 @@ def test__actionsiter_noresultfound(monkeypatch):
     indexer = RecordIndexer(search_client=None)
     from sqlalchemy.orm.exc import NoResultFound
     error_reason = "NoResultFound_reason"
-    
+
     # Make Record.get_record raise NoResultFound
     monkeypatch.setattr(
         'invenio_indexer.api.Record',

@@ -300,7 +300,7 @@ class RecordIndexer(object):
         from weko_deposit.utils import update_pdf_contents_search # avoid circular import
         import socket
         import re
-        
+
         # Update es_bulk_kwargs with default values for missing keys
         es_bulk_kwargs = es_bulk_kwargs or {}
         default_kwargs = {
@@ -424,7 +424,7 @@ class RecordIndexer(object):
                             ), fg='red')
                         update_pdf_contents_search(self.success_ids)
                         self.completed_chunk_count += math.ceil(messages_count / es_bulk_kwargs["chunk_size"])
-                        
+
                         # If raise_on_error is True, terminate the process when an error occurs
                         if es_bulk_kwargs.get("raise_on_error", True):
                             break
@@ -696,8 +696,11 @@ class RecordIndexer(object):
 
         return action
 
-    @staticmethod
-    def _prepare_record(record, index, arguments=None, **kwargs):
+    def _prepare_index(self, index):
+        """Prepare the index before an operation."""
+        return build_alias_name(index)
+
+    def _prepare_record(self, record, index, arguments=None, **kwargs):
         """Prepare record data for indexing.
 
         Invenio-Records is evolving and preparing the search engine source

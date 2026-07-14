@@ -25,7 +25,7 @@ from invenio_indexer.proxies import current_indexer_registry
 
 
 # .tox/c1/bin/pytest --cov=invenio_indexer tests/test_cli.py::test_run -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_run(script_info):
+def test_run(app):
     """Test run."""
     runner = app.test_cli_runner()
     res = runner.invoke(cli.run, [])
@@ -37,14 +37,14 @@ def test_run(script_info):
     assert "Starting 2 tasks" in res.output
 
     # stats_only オプションのテスト
-    runner = CliRunner()
-    res = runner.invoke(cli.run, ['--stats-only', 'False'], obj=script_info)
+    runner = app.test_cli_runner()
+    res = runner.invoke(cli.run, ['--stats-only', 'False'])
     print(res.output)
     assert 0 == res.exit_code
     assert 'Indexing records' in res.output
 
-    runner = CliRunner()
-    res = runner.invoke(cli.run, ['--stats-only', 'True'], obj=script_info)
+    runner = app.test_cli_runner()
+    res = runner.invoke(cli.run, ['--stats-only', 'True'])
     print(res.output)
     assert 0 == res.exit_code
     assert 'Indexing records' in res.output
@@ -87,20 +87,20 @@ def test_reindex(app):
 
         # Initialize queue
         res = runner.invoke(cli.queue, ["init", "purge"])
-        
+
         print(f"Command exit code: {res.exit_code}")
         print(f"Command output: {res.output}")
         print(f"Command exception: {res.exception}")
-        
+
         if res.exception:
             print(f"Exception traceback: {res.exc_info}")
-        
+
         assert res.exit_code == 0, f"Command failed with exit code {res.exit_code}"
         assert "Indexing queue has been initialized." in res.output
         assert "Indexing queue has been purged." in res.output
 
 
-        
+
         res = runner.invoke(cli.reindex, ["--yes-i-know", "-t", "recid"])
         assert 0 == res.exit_code
         res = runner.invoke(cli.run, [])
