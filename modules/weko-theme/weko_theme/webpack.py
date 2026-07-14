@@ -26,12 +26,16 @@ weko_theme = WebpackThemeBundle(
             dependencies={
                 "almond": "~0.3.1",
                 "angular": "~1.4.9",
+                "axios": "0.24.0",
+                'babel-core': '5.8.38',
                 "bootstrap": "~3.3.7",
                 "bootstrap-sass": "~3.3.5",
                 "font-awesome": "~4.4.0",
                 "jquery": "~2.1.3",
                 "lodash": "~3.10.1",
                 "mootools": "~1.5.1",
+                'react': '16.14.0',
+                'react-dom': '16.14.0'
             },
             aliases={
                 "../../theme.config$": "less/weko_theme/theme.config",
