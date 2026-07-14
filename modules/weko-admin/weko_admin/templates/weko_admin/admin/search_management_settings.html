@@ -31,8 +31,7 @@
   {{ super() }}
   {{ webpack['adminlte_js.js']}}
   {{ webpack['admin_js_search_management_js.js']}}
-  <script src="/assets/node_modules/jstree/dist/jstree.min.js"></script>
-  <script src="/assets/node_modules/ng-js-tree/dist/ngJsTree.min.js"></script>
+  {{ webpack['admin_js_weko_admin_ng_js_tree_js.js']}}
 {%- endblock javascript %}
 
 {%- block body %}

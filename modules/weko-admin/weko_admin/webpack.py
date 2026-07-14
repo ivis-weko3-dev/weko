@@ -21,6 +21,7 @@ weko_admin = WebpackThemeBundle(
                 "admin_js_admin_lte_js_dependecies": "./js/weko_admin/admin-lte-js-dependecies.js",
                 "admin_js_weko_admin_site_info_js": "./js/weko_admin/site_info.js",
                 "admin_css_weko_admin_site_info_css": "./css/weko_admin/site.info.css",
+                "admin_js_weko_admin_ng_js_tree_js": "./js/weko_admin/weko-admin-ng-js-tree-js.js",
                 "admin_js_weko_admin_restricted_access_js": "./js/weko_admin/restricted_access.js",
                 "admin_js_weko_admin_facet_search_js": "./js/weko_admin/facet_search_admin.js",
                 "admin_js_reindex_elasticsearch_js": "./js/weko_admin/reindex_elasticsearch.js",
