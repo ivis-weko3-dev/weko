@@ -29,8 +29,12 @@ def get_json(resp):
         ("location", 200),
     ],
 )
-def test_post_bucket(app, client, headers, dummy_location, permissions, user, expected):
+def test_post_bucket(
+    client, headers, dummy_location, permissions, user, expected, mocker
+):
     """Test post a bucket."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
     expected_keys = [
         "id",
         "links",
@@ -56,10 +60,13 @@ def test_post_bucket(app, client, headers, dummy_location, permissions, user, ex
                 assert key in resp_json
             assert Bucket.get(resp_json["id"])
 
+
 # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_location.py::test_post_fail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
-def test_post_fail(app, client, headers, dummy_location, permissions):
+def test_post_fail(client, headers, dummy_location, permissions, mocker):
     """Test post a bucket."""
-    params = [{}, {'location_name': dummy_location.name}]
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+    params = [{}, {"location_name": dummy_location.name}]
     login_user(client, permissions['location'])
     with patch("invenio_files_rest.views.db.session.commit", side_effect=Exception('')):
         for data in params:
@@ -70,6 +77,8 @@ def test_post_fail(app, client, headers, dummy_location, permissions):
             )
             assert resp.status_code == 200
 
+
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_location.py::test_get_location -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user, expected",
     [

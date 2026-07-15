@@ -111,8 +111,13 @@ def test_get_init_not_allowed(client, bucket, get_json):
     assert res.status_code == 405
 
 
-def test_post_invalid_partsizes(client, headers, bucket, get_json, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_post_invalid_partsizes -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_post_invalid_partsizes(
+    client, headers, bucket, get_json, admin_user, mocker
+):
     """Test invalid multipart init."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
     login_user(client, admin_user)
 
     # Part size too large
@@ -143,8 +148,12 @@ def test_post_invalid_partsizes(client, headers, bucket, get_json, admin_user):
     assert res.status_code == 400
 
 
-def test_post_size_limits(client, db, headers, bucket, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_post_size_limits -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_post_size_limits(client, db, headers, bucket, admin_user, mocker):
     """Test invalid multipart init."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     login_user(client, admin_user)
 
     bucket.quota_size = 100
@@ -172,8 +181,14 @@ def test_post_size_limits(client, db, headers, bucket, admin_user):
     assert res.status_code == 400
 
 
-def test_post_locked_bucket(client, db, headers, bucket, get_json, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_post_locked_bucket -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_post_locked_bucket(
+    client, db, headers, bucket, get_json, admin_user, mocker
+):
     """Test invalid multipart init."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     login_user(client, admin_user)
 
     bucket.locked = True
@@ -199,6 +214,7 @@ def test_post_locked_bucket(client, db, headers, bucket, get_json, admin_user):
     assert res.status_code == 404
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_post_invalidkey -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 def test_post_invalidkey(client, db, headers, bucket, admin_user):
     """Test invalid multipart init."""
     login_user(client, admin_user)
@@ -222,6 +238,7 @@ def test_post_invalidkey(client, db, headers, bucket, admin_user):
     assert res.status_code == 400
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_put -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user, expected",
     [
@@ -247,7 +264,12 @@ def test_put(
     """Test part upload."""
     login_user(client, permissions[user])
 
-    data = b"a" * multipart.chunk_size
+    # Get multipart object fields
+    multipart_upload_id = multipart.upload_id
+    chunk_size = multipart.chunk_size
+    multipart_file_uri = multipart.file.uri
+
+    data = b"a" * chunk_size
     res = client.put(
         multipart_url + "&partNumber={0}".format(1),
         input_stream=BytesIO(data),
@@ -258,12 +280,14 @@ def test_put(
         assert res.get_etag()[0] == get_sha256(data)
 
         # Assert content
-        with open(multipart.file.uri, "rb") as fp:
-            fp.seek(multipart.chunk_size)
-            content = fp.read(multipart.chunk_size)
+        with open(multipart_file_uri, "rb") as fp:
+            fp.seek(chunk_size)
+            content = fp.read(chunk_size)
         assert content == data
-        assert Part.count(multipart) == 1
-        assert Part.get_or_none(multipart, 1).checksum == get_sha256(data)
+        actual_multipart = db.session.query(MultipartObject) \
+            .filter_by(upload_id=multipart_upload_id).one()
+        assert Part.count(actual_multipart) == 1
+        assert Part.get_or_none(actual_multipart, 1).checksum == get_sha256(data)
 
 
 def test_put_not_found(
@@ -283,8 +307,13 @@ def test_put_not_found(
     assert res.status_code == 404
 
 
-def test_put_wrong_sizes(client, db, bucket, multipart, multipart_url, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_put_wrong_sizes -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_put_wrong_sizes(
+    client, db, bucket, multipart, multipart_url, admin_user, mocker
+):
     """Test invalid part sizes."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
     login_user(client, admin_user)
 
     cases = [
@@ -317,10 +346,14 @@ def test_put_ngfileupload(client, db, bucket, multipart, multipart_url, admin_us
     assert res.status_code == 200
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_put_invalid_part_number -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 def test_put_invalid_part_number(
-    client, db, bucket, multipart, multipart_url, admin_user
+    client, db, bucket, multipart, multipart_url, admin_user, mocker
 ):
     """Test invalid part number."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     login_user(client, admin_user)
 
     data = b"a" * multipart.chunk_size
@@ -348,10 +381,14 @@ def test_put_completed_multipart(
     assert res.status_code == 403
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_put_badstream -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 def test_put_badstream(
-    client, db, bucket, multipart, multipart_url, get_json, admin_user
+    client, db, bucket, multipart, multipart_url, get_json, admin_user, mocker
 ):
     """Test uploading to a completed multipart upload."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     login_user(client, admin_user)
 
     client.put(
@@ -405,17 +442,25 @@ def test_get(
         assert len(data["parts"]) == 3
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_get_empty -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 def test_get_empty(client, multipart, multipart_url, get_json, admin_user):
     """Test get parts when empty."""
     login_user(client, admin_user)
 
+    multipart_upload_id = multipart.upload_id
     data = get_json(client.get(multipart_url), code=200)
     assert len(data["parts"]) == 0
-    assert data["id"] == str(multipart.upload_id)
+    assert data["id"] == str(multipart_upload_id)
 
 
-def test_get_serialization(client, multipart, multipart_url, get_json, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_get_serialization -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_get_serialization(
+    client, multipart, multipart_url, get_json, admin_user, mocker
+):
     """Test get parts when empty."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     login_user(client, admin_user)
 
     client.put(
@@ -453,6 +498,7 @@ def test_get_serialization(client, multipart, multipart_url, get_json, admin_use
     for k in expected_keys:
         assert k in data
 
+
 # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_post_complete -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user, expected",
@@ -475,8 +521,12 @@ def test_post_complete(
     get_json,
     user,
     expected,
+    mocker,
 ):
     """Test complete multipart upload."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     login_user(client, permissions[user])
 
     # Mock celery task to emulate real usage.
@@ -502,7 +552,7 @@ def test_post_complete(
         if res.status_code == 200:
             data = get_json(res)
             assert data["completed"] is True
-            assert task.called_with(str(multipart.upload_id))
+            assert task.assert_called_with(str(multipart.upload_id))
             # Two whitespaces expected to have been sent to client before
             # JSON was sent.
             assert res.data.startswith(b"  {")
@@ -513,11 +563,16 @@ def test_post_complete(
             # Object exists
             assert client.get(data["links"]["object"]).status_code == 200
 
+
 # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_post_complete_fail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 def test_post_complete_fail(
-    client, headers, bucket, multipart, multipart_url, parts, get_json, admin_user
+    client, headers, bucket, multipart, multipart_url, parts, get_json,
+    admin_user, mocker
 ):
     """Test completing multipart when merge fails."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     login_user(client, admin_user)
 
     # Mock celery task to emulate real usage.
@@ -543,10 +598,15 @@ def test_post_complete_fail(
         assert client.get(data["links"]["object"]).status_code == 404
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_post_complete_timeout -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 def test_post_complete_timeout(
-    app, client, headers, bucket, multipart, multipart_url, parts, get_json, admin_user
+    app, client, headers, bucket, multipart, multipart_url, parts, get_json,
+    admin_user, mocker
 ):
     """Test completing multipart when merge fails."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     login_user(client, admin_user)
 
     max_rounds = int(
@@ -576,6 +636,7 @@ def test_post_complete_timeout(
         assert client.get(data["links"]["object"]).status_code == 404
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_delete -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user, expected",
     [
@@ -597,8 +658,12 @@ def test_delete(
     get_json,
     user,
     expected,
+    mocker,
 ):
     """Test complete when parts are missing."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     assert bucket.size == multipart.size
 
     login_user(client, permissions[user])
@@ -664,8 +729,14 @@ def test_get_listuploads(
     assert res.status_code == expected
 
 
-def test_already_exhausted_input_stream(app, client, db, bucket, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_already_exhausted_input_stream -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_already_exhausted_input_stream(
+    app, client, db, bucket, admin_user, mocker
+):
     """Test server error when file stream is already read."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     key = "test.json"
     data = b'{"json": "file"}'
     object_url = url_for("invenio_files_rest.object_api", bucket_id=bucket.id, key=key)

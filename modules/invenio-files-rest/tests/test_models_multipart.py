@@ -46,6 +46,7 @@ def test_multipart_last_part(app, db, bucket):
     assert mp.last_part_number == 5
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_models_multipart.py::test_part_creation -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 def test_part_creation(app, db, bucket, get_md5):
     """Test part creation."""
     assert bucket.size == 0
@@ -66,7 +67,7 @@ def test_part_creation(app, db, bucket, get_md5):
     # Assert checksum of part.
     m = hashlib.sha256()
     m.update(b"p2")
-    assert "get_sha256:{0}".format(m.hexdigest()) == Part.get_or_none(mp, 1).checksum
+    assert "sha256:{0}".format(m.hexdigest()) == Part.get_or_none(mp, 1).checksum
 
     obj = mp.merge_parts()
     db.session.commit()
