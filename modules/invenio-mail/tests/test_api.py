@@ -33,10 +33,10 @@ def test_TempatedMessage(app,email_params, email_ctx):
     assert msg.html == None
     assert msg.body == None
 
-# .tox/c1/bin/pytest --cov=invenio_mail tests/test_invenio_mail_api.py::test_send_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-mail/.tox/c1/tmp
-def test_send_mail(app, mail_configs):
+# .tox/c1/bin/pytest --cov=invenio_mail tests/test_api.py::test_send_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-mail/.tox/c1/tmp
+def test_send_mail(app, mail_configs, mocker):
     # success mail sending
-    mock_send = patch('flask_mail._Mail.send')
+    mock_send = mocker.patch('flask_mail._Mail.send')
     result = send_mail("test_subject",['test@mail.nii.ac.jp'],"test_body","test_html")
     assert result == None
     args,kwargs=mock_send.call_args
@@ -45,7 +45,7 @@ def test_send_mail(app, mail_configs):
     assert msg.html == "test_html"
 
     # failed mail sending
-    mock_send = patch('flask_mail._Mail.send', side_effect=SMTPServerDisconnected())
+    mock_send = mocker.patch('flask_mail._Mail.send', side_effect=SMTPServerDisconnected())
     result = send_mail("test_subject",['test@mail.nii.ac.jp'],"test_body","test_html")
     assert type(result) == SMTPServerDisconnected
     args,kwargs=mock_send.call_args
