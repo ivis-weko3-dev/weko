@@ -16,7 +16,7 @@ import pytest
 import copy
 import uuid
 
-from os.path import dirname, exists, join
+from os.path import join
 from flask import Flask
 from flask.cli import ScriptInfo
 from flask_babel import Babel
@@ -25,7 +25,6 @@ from flask_menu import Menu
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts import InvenioAccounts
-from invenio_admin import InvenioAdmin
 from invenio_accounts.models import Role, User
 from invenio_accounts.testutils import create_test_user
 from invenio_assets import InvenioAssets
@@ -33,7 +32,7 @@ from invenio_cache import InvenioCache
 from invenio_communities import InvenioCommunities
 from invenio_communities.models import Community
 from invenio_communities.views.api import blueprint as api_blueprint
-from invenio_communities.views.ui import Blueprint
+from invenio_communities.views.ui import blueprint as ui_blueprint
 from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_deposit import InvenioDeposit
@@ -48,8 +47,7 @@ from invenio_pidrelations.models import PIDRelation
 from invenio_records import InvenioRecords
 from invenio_search import InvenioSearch
 from mock import patch
-from sqlalchemy_utils.functions import create_database, database_exists, \
-    drop_database
+from sqlalchemy_utils.functions import create_database, database_exists
 
 from weko_index_tree.models import Index
 from weko_records.api import ItemsMetadata
@@ -91,6 +89,21 @@ def base_app(instance_path, request):
         SEARCH_INDEX_PREFIX="test-",
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
+        COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT = 2,
+        CACHE_REDIS_DB='0',
+        CACHE_REDIS_HOST="redis",
+        REDIS_PORT='6379',
+        WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT= {
+            "prefix":"jc",
+            "sysadm_group":"jc_roles_sysadm",
+            "role_keyword":"ro",
+            "role_mapping":{
+                "radm":"Repository Administrator",
+                "cadm":"Community Administrator",
+                "cont":"Contributor",
+            }
+        },
+        WEKO_INDEX_TREE_UPDATED = True
     )
     FlaskCeleryExt(app_)
     Menu(app_)
@@ -111,7 +124,6 @@ def base_app(instance_path, request):
     InvenioCommunities(app_)
     InvenioMail(app_)
 
-    ui_blueprint = Blueprint('invenio_communities', __name__)
     app_.register_blueprint(ui_blueprint)
     app_.register_blueprint(api_blueprint, url_prefix='/api/communities')
 
@@ -169,16 +181,16 @@ def users(app, db):
     if role_count != 1:
         sysadmin_role = ds.create_role(name="System Administrator")
         repoadmin_role = ds.create_role(name="Repository Administrator")
-        contributor_role = ds.create_role(name="Contributor")
         comadmin_role = ds.create_role(name="Community Administrator")
+        contributor_role = ds.create_role(name="Contributor")
         general_role = ds.create_role(name="General")
         originalrole = ds.create_role(name="Original Role")
         group_role = ds.create_role(name="Group Role")
     else:
         sysadmin_role = Role.query.filter_by(name="System Administrator").first()
         repoadmin_role = Role.query.filter_by(name="Repository Administrator").first()
-        contributor_role = Role.query.filter_by(name="Contributor").first()
         comadmin_role = Role.query.filter_by(name="Community Administrator").first()
+        contributor_role = Role.query.filter_by(name="Contributor").first()
         general_role = Role.query.filter_by(name="General").first()
         originalrole = Role.query.filter_by(name="Original Role").first()
         group_role = Role.query.filter_by(name="Group Role").first()
@@ -261,7 +273,7 @@ def users(app, db):
         {"email": repoadmin.email, "id": repoadmin.id, "obj": repoadmin},
         {"email": sysadmin.email, "id": sysadmin.id, "obj": sysadmin},
         {"email": comadmin.email, "id": comadmin.id, "obj": comadmin},
-        {"email": generaluser.email, "id": generaluser.id, "obj": sysadmin},
+        {"email": generaluser.email, "id": generaluser.id, "obj": generaluser},
         {
             "email": originalroleuser.email,
             "id": originalroleuser.id,
@@ -305,15 +317,15 @@ def communities(app, db, users):
                              id_user=user1.id, title='Title1',
                              description='Description1',
                              root_node_id=index.id,
-                             group_id=1)
+                             group_id=r.id)
     comm1 = Community.create(community_id='comm2', role_id=r.id,
                              id_user=user1.id, title='A',
                              root_node_id=index.id,
-                             group_id=1)
+                             group_id=r.id)
     comm2 = Community.create(community_id='oth3', role_id=r.id,
                              id_user=user1.id,
                              root_node_id=index.id,
-                             group_id=1)
+                             group_id=r.id)
     return comm0, comm1, comm2
 
 @pytest.fixture
@@ -347,19 +359,19 @@ def communities_for_filtering(app, db, user):
                              description=('Beautiful is better than ugly. '
                                           'Explicit is better than implicit.'),
                              root_node_id=index.id,
-                             group_id=1)
+                             group_id=r.id)
     comm1 = Community.create(community_id='comm2', role_id=r.id,
                              id_user=user1.id, title='Testing case 2',
                              description=('Flat is better than nested. '
                                           'Sparse is better than dense.'),
                              root_node_id=index.id,
-                             group_id=1)
+                             group_id=r.id)
     comm2 = Community.create(community_id='oth3', role_id=r.id,
                              id_user=user1.id, title='A word about testing',
                              description=('Errors should never pass silently. '
                                           'Unless explicitly silenced.'),
                              root_node_id=index.id,
-                             group_id=1)
+                             group_id=r.id)
     return comm0, comm1, comm2
 
 @pytest.yield_fixture()
@@ -416,7 +428,7 @@ def db_records(app,db):
     item_datas = list()
     with open("tests/data/test_record/item_metadata.json") as f:
         item_datas = json.load(f)
-    
+
     mock_location = Location(id=1, name="mock-location", uri="mock://location", default=True)
     db.session.add(mock_location)
     db.session.commit()

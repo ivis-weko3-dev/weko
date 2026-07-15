@@ -12,6 +12,7 @@ import copy
 import bleach
 import humanize
 
+from bleach.css_sanitizer import CSSSanitizer
 from flask import Blueprint, abort, current_app, flash, jsonify, redirect, \
     render_template, request, url_for
 from flask_babel import gettext as _
@@ -23,7 +24,7 @@ from invenio_communities.forms import CommunityForm, DeleteCommunityForm, \
 from invenio_communities.models import Community, FeaturedCommunity
 from invenio_communities.proxies import current_permission_factory
 from invenio_communities.utils import Pagination, get_user_role_ids, \
-    render_template_to_string
+    get_numeric_user_role_ids, render_template_to_string
 from invenio_db import db
 from invenio_indexer.api import RecordIndexer
 from invenio_i18n.ext import current_i18n
@@ -51,7 +52,7 @@ def sanitize_html(value):
         value,
         tags=current_app.config['COMMUNITIES_ALLOWED_TAGS'],
         attributes=current_app.config['COMMUNITIES_ALLOWED_ATTRS'],
-        styles=current_app.config['COMMUNITIES_ALLOWED_STYLES'],
+        css_sanitizer=CSSSanitizer(allowed_css_properties=current_app.config['COMMUNITIES_ALLOWED_STYLES']),
         strip=True,
     ).strip()
 
@@ -712,20 +713,20 @@ def community_list():
     page = max(page, 1)
     p = Pagination(page, per_page, communities.count())
     lang = get_language()
-    
+
     settings = AdminSettings.get('community_settings')
-    
+
     default_properties = current_app.config['COMMUNITIES_DEFAULT_PROPERTIES']
     title = default_properties['title2'] if lang == 'ja' else default_properties['title1']
     title_en = default_properties['title1']
-    
+
     lists = {
         'title': title,
         'title_en':title_en,
         'icon_code': default_properties['icon_code'],
         'supplement': default_properties['supplement']
     }
-    
+
     if settings:
         if lang == 'ja':
             lists['title'] = settings.title2 if settings.title2 and settings.title2 != '' else settings.title1
@@ -734,7 +735,7 @@ def community_list():
         lists['title_en'] = settings.title1
         lists['icon_code'] = settings.icon_code if settings.icon_code and settings.icon_code != '' else default_properties['icon_code']
         lists['supplement'] = settings.supplement if settings.supplement and settings.supplement != '' else default_properties['supplement']
-    
+
     ctx.update({
         'r_from': max(p.per_page * (p.page - 1), 0),
         'r_to': min(p.per_page * p.page, p.total_count),
@@ -761,7 +762,7 @@ def community_list():
         render_widgets=render_widgets,
         communityModel = Community,
         **ctx)
-    
+
 def get_language():
     return current_i18n.language
 

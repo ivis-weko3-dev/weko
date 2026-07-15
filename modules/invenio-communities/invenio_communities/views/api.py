@@ -33,20 +33,20 @@ class CommunitiesResource(ContentNegotiatedMethodView):
     get_args = dict(
         query=fields.String(
             location='query',
-            load_from='q',
-            missing=None,
+            data_key='q',
+            load_default=None,
         ),
         sort=fields.String(
             location='query',
-            missing=None,
+            load_default=None,
         ),
         page=fields.Int(
             location='query',
-            missing=1,
+            load_default=1,
         ),
         size=fields.Int(
             location='query',
-            missing=20,
+            load_default=20,
         )
     )
 

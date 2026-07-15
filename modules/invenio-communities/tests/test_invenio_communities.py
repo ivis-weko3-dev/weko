@@ -84,7 +84,7 @@ def test_init():
         ext = InvenioCommunities(app)
         assert 'invenio-communities' in app.extensions
 
-
+# .tox/c1/bin/pytest --cov=invenio_communities tests/test_invenio_communities.py::test_alembic -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 def test_alembic(app, db):
     """Test alembic recipes."""
     ext = app.extensions['invenio-db']
@@ -103,7 +103,7 @@ def test_alembic(app, db):
 
     assert ext.alembic.compare_metadata()
 
-
+# .tox/c1/bin/pytest --cov=invenio_communities tests/test_invenio_communities.py::test_model_init -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 def test_model_init(app, db, communities):
     """Test basic model initialization and actions."""
     (comm1, comm2, comm3) = communities
@@ -206,16 +206,17 @@ def test_oaipmh_sets(app, db, communities):
     assert Community.query.count() == 2
     assert OAISet.query.count() == 2
 
-
+# .tox/c1/bin/pytest --cov=invenio_communities tests/test_invenio_communities.py::test_communities_rest_all_communities -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 def test_communities_rest_all_communities(app, db, communities):
     """Test the OAI-PMH Sets creation."""
+    communitie_ids = set(comm.id for comm in communities)
     with app.test_client() as client:
         response = client.get('/api/communities/')
         response_data = get_json(response)
-        assert response_data["hits"]["total"]["value"] == 3
+        assert response_data["hits"]["total"] == 3
         assert len(response_data['hits']['hits']) == 3
 
-        assert set(comm.id for comm in communities) == set(
+        assert communitie_ids == set(
             comm['id'] for comm in response_data['hits']['hits']
         )
 
@@ -235,18 +236,18 @@ def test_community_delete(app, db, communities):
     comm2.delete()
     pytest.raises(CommunitiesError, comm2.delete)
 
-
+# .tox/c1/bin/pytest --cov=invenio_communities tests/test_invenio_communities.py::test_communities_rest_all_communities_query_and_sort -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 def test_communities_rest_all_communities_query_and_sort(app, db, communities):
     """Test the OAI-PMH Sets creation."""
     with app.test_client() as client:
         response = client.get('/api/communities/?q=comm&sort=title')
         response_data = get_json(response)
 
-        assert response_data["hits"]["total"]["value"] == 2
+        assert response_data["hits"]["total"] == 2
         assert response_data['hits']['hits'][0]['id'] == 'comm2'
         assert response_data['hits']['hits'][1]['id'] == 'comm1'
 
-
+# .tox/c1/bin/pytest --cov=invenio_communities tests/test_invenio_communities.py::test_communities_rest_pagination -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 def test_communities_rest_pagination(app, db, communities):
     """Test the OAI-PMH Sets creation."""
     def parse_path(app, path):
@@ -309,7 +310,7 @@ def test_communities_rest_pagination(app, db, communities):
         assert 'prev' in data['links']
         assert 'next' not in data['links']
 
-
+# .tox/c1/bin/pytest --cov=invenio_communities tests/test_invenio_communities.py::test_communities_rest_get_details -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 def test_communities_rest_get_details(app, db, communities):
     """Test the OAI-PMH Sets creation."""
     with app.test_client() as client:
@@ -322,14 +323,14 @@ def test_communities_rest_get_details(app, db, communities):
                 page='',
                 curation_policy='',
                 logo_url=None,
-                last_record_accepted='2000-01-01T00:00:00+00:00',
+                last_record_accepted='2000-01-01T00:00:00',
                 links={
                     'self': 'http://test_server/api/communities/comm1',
                     'html': 'http://test_server/c/comm1/',
                 },
         )
 
-
+# .tox/c1/bin/pytest --cov=invenio_communities tests/test_invenio_communities.py::test_communities_rest_etag -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 def test_communities_rest_etag(app, communities):
     """Test the OAI-PMH Sets creation."""
     with app.test_client() as client:
@@ -344,7 +345,7 @@ def test_communities_rest_etag(app, communities):
         assert response.status_code == 304
         assert response.get_data(as_text=True) == ''
 
-
+# .tox/c1/bin/pytest --cov=invenio_communities tests/test_invenio_communities.py::test_add_remove_corner_cases -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 def test_add_remove_corner_cases(app, db, communities, disable_request_email):
     """Test corner cases for community adding and removal."""
     (comm1, comm2, comm3) = communities

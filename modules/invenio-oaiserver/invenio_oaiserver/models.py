@@ -84,6 +84,40 @@ class OAISet(db.Model, Timestamp):
     #         raise OAISetSpecUpdateError("Updating spec is not allowed.")
     #     return value
 
+    def add_record(self, record):
+        """Add a record to the OAISet.
+        Restore this feature because it was removed during the Invenio-OAIServer update, but it is still used by Invenio-Communities.
+
+        :param record: Record to be added.
+        :type record: `invenio_records.api.Record` or derivative.
+        """
+        record.setdefault('_oai', {}).setdefault('sets', [])
+
+        assert not self.has_record(record)
+
+        record['_oai']['sets'].append(self.spec)
+
+    def remove_record(self, record):
+        """Remove a record from the OAISet.
+        Restore this feature because it was removed during the Invenio-OAIServer update, but it is still used by Invenio-Communities.
+
+        :param record: Record to be removed.
+        :type record: `invenio_records.api.Record` or derivative.
+        """
+        assert self.has_record(record)
+
+        record['_oai']['sets'] = [
+            s for s in record['_oai']['sets'] if s != self.spec]
+
+    def has_record(self, record):
+        """Check if the record blongs to the OAISet.
+        Restore this feature because it was removed during the Invenio-OAIServer update, but it is still used by Invenio-Communities.
+
+        :param record: Record to be checked.
+        :type record: `invenio_records.api.Record` or derivative.
+        """
+        return self.spec in record.get('_oai', {}).get('sets', [])
+
     @classmethod
     def get_set_by_spec(cls, spec):
         """Get OAISet object by spec info."""
