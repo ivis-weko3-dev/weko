@@ -14,14 +14,13 @@ import pytest
 from invenio_communities.models import InclusionRequest, Community
 from invenio_communities.utils import (
     render_template_to_string, Pagination, save_and_validate_logo,
-    initialize_communities_bucket, format_request_email_templ, 
-    send_community_request_email, get_user_role_ids, delete_empty, 
+    initialize_communities_bucket, format_request_email_templ,
+    send_community_request_email, get_user_role_ids, delete_empty,
     get_repository_id_by_item_id)
 from invenio_files_rest.errors import FilesException
 from invenio_files_rest.models import Location, Bucket, ObjectVersion
 from invenio_records.api import Record
 from mock import patch
-from PIL import Image, ImageFilter
 from sqlalchemy.orm.exc import NoResultFound
 from weko_index_tree.models import Index
 
@@ -145,24 +144,24 @@ def test_send_community_request_email(app,db,db_records,communities,users):
         "rcpt_options":[],
         "attachments": []
     }
-    mock_send = mocker.patch("invenio_mail.tasks.send_email.delay")
-    send_community_request_email(increq)
-    args, kwargs = mock_send.call_args
-    data = args[0]
-    assert data["recipients"] == ["sysadmin@test.org"]
-    assert data["subject"] == "A record was requested to be added to your community (Title1)."
-    assert data["sender"] == "info@inveniosoftware.org"
-    assert data["reply_to"] == None
-    assert data["cc"] == []
-    assert data["bcc"] == []
-    assert data["body"] == "A new upload requests to be added to your community (Title1):\n\n\nRequested by:  (user@test.org)\n\nRecord Title: [&#39;test_title1&#39;]\nRecord Description: \n\nYou can accept or reject this record in your community curation page:\nhttps://inveniosoftware.org/communities/comm1/curate/"
-    assert data["html"] == None
-    assert data["date"] == None
-    assert data["charset"] == None
-    assert data["extra_headers"] == None
-    assert data["mail_options"] == []
-    assert data["rcpt_options"] ==[]
-    assert data["attachments"] == []
+    with patch("invenio_mail.tasks.send_email.delay") as mock_send:
+        send_community_request_email(increq)
+        args, kwargs = mock_send.call_args
+        data = args[0]
+        assert data["recipients"] == ["sysadmin@test.org"]
+        assert data["subject"] == "A record was requested to be added to your community (Title1)."
+        assert data["sender"] == "info@inveniosoftware.org"
+        assert data["reply_to"] == None
+        assert data["cc"] == []
+        assert data["bcc"] == []
+        assert data["body"] == "A new upload requests to be added to your community (Title1):\n\n\nRequested by: None (user@test.org)\n\nRecord Title: [&#39;test_title1&#39;]\nRecord Description: \n\nYou can accept or reject this record in your community curation page:\nhttps://inveniosoftware.org/communities/comm1/curate/"
+        assert data["html"] == None
+        assert data["date"] == None
+        assert data["charset"] == None
+        assert data["extra_headers"] == None
+        assert data["mail_options"] == []
+        assert data["rcpt_options"] ==[]
+        assert data["attachments"] == []
 
 
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_utils.py::test_get_user_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
@@ -174,7 +173,7 @@ def test_get_user_role_ids(app,db, communities,users):
     # with login
     with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
         result = get_user_role_ids()
-        assert result == [1]
+        assert result == ["System Administrator"]
 
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_utils.py::test_email_formatting -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 def test_email_formatting(app, db, communities, users):
@@ -239,11 +238,11 @@ def test_get_repository_id_by_item_id(app, db, users, mocker):
     db.session.add(index2)
     db.session.add(index3)
     db.session.commit()
-    comm1 = Community.create(community_id='comm1', role_id=1,
+    comm1 = Community.create(community_id='comm1', role_id="System Administrator",
                             id_user=users[2]["obj"].id, title='Title1',
                             description='Description1',
                             root_node_id=index1.id,
-                            group_id=1)
+                            group_id="System Administrator")
     db.session.commit()
 
     # Setup mock data

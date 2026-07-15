@@ -9,9 +9,7 @@
 """Module tests."""
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_tasks.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 
-import pytest
-
-from datetime import datetime,timedelta
+from datetime import datetime,timedelta, timezone
 from invenio_communities.models import InclusionRequest
 from invenio_communities.tasks import delete_expired_requests
 from invenio_records.api import Record
@@ -51,8 +49,7 @@ def test_delete_expired_requests(app, db, communities):
     (comm1, comm2, comm3) = communities
     communities_key = app.config["COMMUNITIES_RECORD_KEY"]
     rec1 = Record.create({'title': 'Foobar'})
-    from datetime import datetime, timedelta
-    now = datetime.utcnow()+timedelta(days=1)
+    now = datetime.now(timezone.utc)+timedelta(days=1)
     increq = InclusionRequest.create(
         community=comm1,
         record=rec1,
