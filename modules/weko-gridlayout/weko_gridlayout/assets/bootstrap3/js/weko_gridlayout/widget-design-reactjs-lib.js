@@ -1,3 +1,3 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import './browser.min.js';
+import '../../node_modules/babel-core/browser.min.js';
