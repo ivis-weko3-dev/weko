@@ -21,7 +21,7 @@ def _format_args():
     try:
         pretty_format = \
             current_app.config['JSONIFY_PRETTYPRINT_REGULAR'] and \
-            not request.is_xhr
+            not request.headers.get("X-Requested-With") == "XMLHttpRequest"
     except RuntimeError:
         pretty_format = False
 
@@ -50,7 +50,7 @@ def community_responsify(schema_class, mimetype):
             last_modified = data.updated
             response_data = schema_class(
                 context=dict(item_links_factory=links_item_factory)
-            ).dump(data).data
+            ).dump(data)
         else:
             last_modified = None
             response_data = schema_class(
@@ -60,7 +60,7 @@ def community_responsify(schema_class, mimetype):
                     page=page,
                     urlkwargs=urlkwargs,
                     pagination_links_factory=links_pagination_factory)
-            ).dump(data.items, many=True).data
+            ).dump(data.items, many=True)
 
         response = current_app.response_class(
             json.dumps(response_data, **_format_args()),

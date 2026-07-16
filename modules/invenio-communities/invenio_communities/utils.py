@@ -273,14 +273,14 @@ def delete_empty(data):
             return True, data
         else:
             return False, None
-            
+
 def get_numeric_user_role_ids(role_ids):
     """
     Get numeric role ID to prevent errors caused by model changes.
     account_roles(id, name, description) -> account_roles(created, updated, id, name, description, is_managed, version_id)
     In new data records, the id may be the same as the name or default to a UUID.
     """
-    role_list = Role.query.all()
+    role_list = Role.query.order_by(Role.created).all()
     legacy_list = []
     new_list = []
     for role in role_list:
@@ -293,8 +293,7 @@ def get_numeric_user_role_ids(role_ids):
             else:
                 new_list.append(role_id)
     full_list = legacy_list + new_list
-    
-    numeric_id_list = [full_list.index(id) + 1 for id in role_ids if id in full_list]
 
+    numeric_id_list = [full_list.index(id) + 1 for id in role_ids if id in full_list]
     return numeric_id_list
-        
+

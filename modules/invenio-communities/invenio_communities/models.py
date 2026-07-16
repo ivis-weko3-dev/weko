@@ -9,7 +9,7 @@
 """Invenio-Communities database models."""
 
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import current_app, url_for
 from invenio_accounts.models import Role, User
@@ -104,7 +104,7 @@ class InclusionRequest(db.Model, Timestamp):
         :param expires_at: Time after which the request expires and shouldn't
             be resolved anymore.
         """
-        if expires_at and expires_at < datetime.utcnow():
+        if expires_at and expires_at < datetime.now(timezone.utc):
             raise InclusionRequestExpiryTimeError(
                 community=community, record=record)
 
@@ -242,7 +242,7 @@ class Community(db.Model, Timestamp):
     """Community content policy."""
 
     group_id = db.Column(
-        db.Integer,
+        db.String(80),
         db.ForeignKey(Role.id),
         nullable=True
     )

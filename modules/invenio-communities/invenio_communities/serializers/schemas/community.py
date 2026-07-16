@@ -38,7 +38,7 @@ class CommunitySchemaV1(Schema):
             )
 
     @post_dump(pass_many=False)
-    def item_links_addition(self, data):
+    def item_links_addition(self, data, **kwargs):
         """Add the links for each community."""
         links_item_factory = self.context.get('links_item_factory',
                                               default_links_item_factory)
