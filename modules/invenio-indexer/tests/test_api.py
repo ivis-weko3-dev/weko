@@ -219,12 +219,12 @@ def test_process_bulk_queue(app, queue):
         records = [Record.create({'title': f'test{i}'}, id_=str(uuid.uuid4())) for i in range(10)]
         db.session.commit()
         _values = [str(r.id) for r in records]
-        es_bulk_kwargs = {"chunk_size": 500}
+        search_bulk_kwargs = {"chunk_size": 500}
         # bulk処理でエラーが起きなかった
         RecordIndexer().bulk_index(_values)
         with patch('weko_deposit.utils.update_pdf_contents_search', lambda ids: None):
             with patch('invenio_indexer.api.RecordIndexer.reindex_bulk', return_value=(10, 0)):
-                assert RecordIndexer().process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs) == (10, 0)
+                assert RecordIndexer().process_bulk_queue(search_bulk_kwargs=search_bulk_kwargs) == (10, 0)
 
             # BulkIndexError
             errors = [
@@ -240,7 +240,7 @@ def test_process_bulk_queue(app, queue):
                 with patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*10):
                     with patch('invenio_indexer.api.click.secho') as mock_secho:
                         indexer = RecordIndexer()
-                        result = indexer.process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs)
+                        result = indexer.process_bulk_queue(search_bulk_kwargs=search_bulk_kwargs)
                         # エラーログの内容を検証
                         assert any(
                             "type:version_conflict" in str(call) and
@@ -259,7 +259,7 @@ def test_process_bulk_queue(app, queue):
                 with patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*10):
                     with patch('invenio_indexer.api.click.secho') as mock_secho:
                         indexer = RecordIndexer()
-                        result = indexer.process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs)
+                        result = indexer.process_bulk_queue(search_bulk_kwargs=search_bulk_kwargs)
                         # エラーログの内容を検証
                         assert any(
                             "type:ConnectionError" in str(call) and
@@ -280,7 +280,7 @@ def test_process_bulk_queue(app, queue):
                 with patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*10):
                     with patch('invenio_indexer.api.click.secho') as mock_secho:
                         indexer = RecordIndexer()
-                        result = indexer.process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs)
+                        result = indexer.process_bulk_queue(search_bulk_kwargs=search_bulk_kwargs)
                         # エラーログの内容を検証
                         assert any(
                             "type:ConnectionTimeout" in str(call) and
@@ -301,7 +301,7 @@ def test_process_bulk_queue(app, queue):
                 with patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*10):
                     with patch('invenio_indexer.api.click.secho') as mock_secho:
                         indexer = RecordIndexer()
-                        result = indexer.process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs)
+                        result = indexer.process_bulk_queue(search_bulk_kwargs=search_bulk_kwargs)
                         # エラーログの内容を検証
                         assert any(
                             "type:Exception" in str(call) and
@@ -320,7 +320,7 @@ def test_process_bulk_queue(app, queue):
             with patch('invenio_indexer.api.RecordIndexer.reindex_bulk', new=mock_reindex_bulk_be_empty):
                 with patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*10):
                     indexer = RecordIndexer()
-                    result = indexer.process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs)
+                    result = indexer.process_bulk_queue(search_bulk_kwargs=search_bulk_kwargs)
                 assert result[0] == 10  # Number of successes (all considered successful)
                 assert result[1] == 0   # Number of failures
                 assert errors == []
@@ -333,7 +333,7 @@ def test_process_bulk_queue(app, queue):
             with patch('invenio_indexer.api.RecordIndexer.reindex_bulk', new=mock_reindex_bulk_be_str):
                 with patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*10):
                     indexer = RecordIndexer()
-                    result = indexer.process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs)
+                    result = indexer.process_bulk_queue(search_bulk_kwargs=search_bulk_kwargs)
                 assert result[0] == 9  # Number of successes
                 assert result[1] == 1   # Number of failures
                 assert errors[0]['index']['error']['type'] == "Some string error"
@@ -344,7 +344,7 @@ def test_process_bulk_queue(app, queue):
             with patch('invenio_indexer.api.RecordIndexer.reindex_bulk', side_effect=DummyBulkConnectionError(success=10, failed=0, errors=errors, original_exception=es_conn_error)):
                 with patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*10):
                     indexer = RecordIndexer()
-                    result = indexer.process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs)
+                    result = indexer.process_bulk_queue(search_bulk_kwargs=search_bulk_kwargs)
                     assert result[0] == 10  # Number of successes
                     assert result[1] == 0   # Number of failures
                     assert errors == []
@@ -358,7 +358,7 @@ def test_process_bulk_queue(app, queue):
             with patch('invenio_indexer.api.RecordIndexer.reindex_bulk', side_effect=mock_reindex_bulk_ct_empty):
                 with patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*10):
                     indexer = RecordIndexer()
-                    result = indexer.process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs)
+                    result = indexer.process_bulk_queue(search_bulk_kwargs=search_bulk_kwargs)
                     assert result[0] == 10  # Number of successes
                     assert result[1] == 0   # Number of failures
                     assert errors == []
@@ -372,7 +372,7 @@ def test_process_bulk_queue(app, queue):
             with patch('invenio_indexer.api.RecordIndexer.reindex_bulk', side_effect=mock_reindex_bulk_exception_empty):
                 with patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*10):
                     indexer = RecordIndexer()
-                    result = indexer.process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs)
+                    result = indexer.process_bulk_queue(search_bulk_kwargs=search_bulk_kwargs)
                     assert result[0] == 10  # Number of successes
                     assert result[1] == 0   # Number of failures
                     assert errors == []
@@ -385,7 +385,7 @@ def test_process_bulk_queue(app, queue):
             with patch('invenio_indexer.api.RecordIndexer.reindex_bulk', new=mock_reindex_bulk_exception_str):
                 with patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*10):
                     indexer = RecordIndexer()
-                    result = indexer.process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs)
+                    result = indexer.process_bulk_queue(search_bulk_kwargs=search_bulk_kwargs)
                 assert result[0] == 0  # Number of successes
                 assert result[1] == 1   # Number of failures
                 assert errors[0]['index']['error']['type'] == "Some string error"
@@ -394,7 +394,7 @@ def test_process_bulk_queue(app, queue):
 def test_process_bulk_queue_for_error_loop(app):
     with app.app_context():
         indexer = RecordIndexer()
-        es_bulk_kwargs = {"chunk_size": 500}
+        search_bulk_kwargs = {"chunk_size": 500}
 
         # Mock for reindex_bulk: _fail is a list
         def mock_reindex_bulk(*args, **kwargs):
@@ -409,7 +409,7 @@ def test_process_bulk_queue_for_error_loop(app):
              patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[{}]*4), \
              patch('weko_deposit.utils.update_pdf_contents_search', lambda ids: None), \
              patch('click.secho') as mock_secho:
-            result = indexer.process_bulk_queue(es_bulk_kwargs=es_bulk_kwargs)
+            result = indexer.process_bulk_queue(search_bulk_kwargs=search_bulk_kwargs)
             assert result[0] == 2
             assert result[1] == 2
             # click.secho should be called twice in the for error in _fail: loop
@@ -623,7 +623,7 @@ def test_process_bulk_queue_brokerurl_parse_fail(monkeypatch):
     # click.secho mock
     monkeypatch.setattr('invenio_indexer.api.click', types.SimpleNamespace(secho=lambda *a, **k: None))
     indexer = RecordIndexer(search_client=None)
-    result = indexer.process_bulk_queue(es_bulk_kwargs={"chunk_size": 1})
+    result = indexer.process_bulk_queue(search_bulk_kwargs={"chunk_size": 1})
     assert result == (0, 0, 0)
     """Test process_bulk_queue returns (0,0,0) if RabbitMQ connection fails."""
     from invenio_indexer.api import RecordIndexer
@@ -645,7 +645,7 @@ def test_process_bulk_queue_brokerurl_parse_fail(monkeypatch):
     # click.secho mock
     monkeypatch.setattr('invenio_indexer.api.click', types.SimpleNamespace(secho=lambda *a, **k: None))
     indexer = RecordIndexer(search_client=None)
-    result = indexer.process_bulk_queue(es_bulk_kwargs={"chunk_size": 1})
+    result = indexer.process_bulk_queue(search_bulk_kwargs={"chunk_size": 1})
     assert result == (0, 0, 0)
 
 def test_index(app):
