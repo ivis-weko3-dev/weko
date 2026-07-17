@@ -6,8 +6,9 @@ from .models import CRISLinkageResult
 # make signal
 cris_researchmap_linkage_request = NamedSignal('cris_researchmap_linkage_request')
 
-def receiver(item_uuid, should_create_if_not_found=False, **kwargs):
+def receiver(item_uuid, **kwargs):
     # This is the function that enqueue into RabbitMQ
+    should_create_if_not_found = kwargs.get('should_create_if_not_found', False)
 
     # make Exchange
     exchange = current_app.config.get("LINKAGE_MQ_EXCHANGE")

@@ -5,6 +5,7 @@ from flask import make_response
 from invenio_accounts.testutils import login_user_via_session
 from weko_admin.models import ApiCertificate
 from weko_records.models import ItemTypeName
+from weko_items_ui.models import LinkageItems
 
 from weko_items_autofill.views import dbsession_clean
 
@@ -167,7 +168,6 @@ def test_get_auto_fill_record_data(client_api,db,users,mocker):
     assert json.loads(res.data) == {"result":"","items":"","error":"not_exist_type is NOT support autofill feature.",'resource_type' : '' }
 
     # api_type is CrossRef
-
     mock_crossref_record = mocker.patch("weko_items_autofill.views.get_crossref_record_data",return_value="return_crossref_record_data")
     data = {
         "api_type":"CrossRef",
@@ -178,6 +178,11 @@ def test_get_auto_fill_record_data(client_api,db,users,mocker):
     assert res.status_code == 200
     assert json.loads(res.data) == {"result":"return_crossref_record_data","items":"","error":"",'resource_type' : '' }
     mock_crossref_record.assert_called_with("test_crf@test.org","data","1", False)
+
+    mocker.patch("weko_items_autofill.views.get_current_api_certification",return_value={"cert_data":""})
+    res = client_api.post(url,json=data)
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"result":[],"items":"","error":"","resource_type" : "" }
 
     # api_type is CiNii
     data = {
@@ -203,6 +208,18 @@ def test_get_auto_fill_record_data(client_api,db,users,mocker):
     assert json.loads(res.data) == {"result":"return_weko_record_data","items":"","error":"",'resource_type' : '' }
     mock_weko_record.assert_called_with("data","1")
 
+    # api_type is DOI
+    data = {
+        "api_type":"DOI",
+        "search_data":"data",
+        "item_type_id":"1"
+    }
+    mock_doi_record = mocker.patch("weko_items_autofill.views.get_doi_record_data",return_value="return_doi_record_data")
+    res = client_api.post(url,json=data)
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"result":"return_doi_record_data","items":"","error":"","resource_type" : "" }
+    mock_doi_record.assert_called_with("data","1","")
+
     # api_type is researchmap
     data = {
         "api_type":"researchmap",
@@ -214,9 +231,37 @@ def test_get_auto_fill_record_data(client_api,db,users,mocker):
     mock_researchmapid_record = mocker.patch("weko_items_autofill.views.get_researchmapid_record_data",return_value=("return_researchmapid_record_data","return_researchmapid_resource_type"))
     res = client_api.post(url,json=data)
     assert res.status_code == 200
-    assert json.loads(res.data) == {"result":"return_researchmapid_record_data","items":"","error":"",'resource_type' : "return_researchmapid_resource_type" }
+    assert json.loads(res.data) == {"result":"return_researchmapid_record_data","items":"","error":"",'resource_type' : "return_researchmapid_resource_type", "type_data": []}
     mock_researchmapid_record.assert_called_with("test_parmalink","test_achievement_type","test_achievement_id","1")
     
+    data["enable_item_achievement_link"] = True
+    mock_get_by_external_item_id = mocker.patch(
+        "weko_items_autofill.views.LinkageItems.get_by_external_item_id",
+        return_value=[]
+    )
+    res = client_api.post(url,json=data)
+    assert res.status_code == 200
+    assert json.loads(res.data) == {
+        "result":"return_researchmapid_record_data","items":"","error":"",'resource_type':"return_researchmapid_resource_type",
+        "type_data": [{'msg':'The used achievement ID must specify the permlink as a linkage destination in the metadata.','ok': False}],
+    }
+    mock_get_by_external_item_id.assert_called_with("test_achievement_id", LinkageItems.ExternalSystem.RM)
+    
+    mock_get_by_external_item_id = mocker.patch(
+        "weko_items_autofill.views.LinkageItems.get_by_external_item_id",
+        return_value=[mocker.MagicMock()]
+    )
+    res = client_api.post(url,json=data)
+    assert res.status_code == 200
+    assert json.loads(res.data) == {
+        "result":"return_researchmapid_record_data","items":"","error":"",'resource_type':"return_researchmapid_resource_type",
+        "type_data": [
+            {'msg':'This researchmap ID is already linked to other items.','ok': False},
+            {'msg':'The used achievement ID must specify the permlink as a linkage destination in the metadata.','ok': False},
+        ],
+    }
+    mock_get_by_external_item_id.assert_called_with("test_achievement_id", LinkageItems.ExternalSystem.RM)
+
     # raise Exception
     data = {
         "api_type":"WEKOID",

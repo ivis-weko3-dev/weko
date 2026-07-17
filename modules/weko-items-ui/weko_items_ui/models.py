@@ -216,13 +216,9 @@ class LinkageItems(db.Model, Timestamp):
             external_system (str): The external system.
             status (str, optional): The status of the linkage item. Defaults to Status.REGISTERED.
         Returns:
-            dict: A dictionary mapping permalinks to external item IDs.
+            list: A list of linkage items matching the criteria.
         """
-        result = dict()
-        items = cls.query.filter_by(item_id=item_id, external_system=external_system, status=status).filter(cls.permalink.in_(permalinks)).all()
-        for item in items:
-            result[item.permalink] = item.external_item_id
-        return result
+        return cls.query.filter_by(item_id=item_id, external_system=external_system, status=status).filter(cls.permalink.in_(permalinks)).all()
     
     @classmethod
     def create(cls, item_id, external_item_id, external_system, permalink=None, status=Status.REGISTERED):

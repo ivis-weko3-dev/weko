@@ -20,6 +20,7 @@ from weko_authors.utils import (
     get_author_affiliation_obj,
     check_email_existed,
     get_export_status,
+    get_name_identifiers,
     set_export_status,
     delete_export_status,
     get_export_url,
@@ -3591,3 +3592,18 @@ def test_check_delete_affiliation():
 
         mock_check.assert_called_once_with(AuthorsAffiliationSettings, "Affiliation ID", 789)
         assert result == (True, None)
+
+# .tox/c1/bin/pytest --cov=weko_authors tests/test_utils.py::test_get_name_identifiers -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
+def test_get_name_identifiers():
+    data = [
+        {"nameIdentifiers": [{"nameIdentifierScheme": "ORCID", "nameIdentifier": "0123"}]},
+        {"nameIdentifiers": [{"nameIdentifierScheme": "ISNI", "nameIdentifier": "2345"}]},
+        {"nameIdentifiers": [{"nameIdentifierScheme": "researchmap", "nameIdentifier": "4567"}]},
+        {"nameIdentifiers": []},
+        {},
+        "text"
+    ]
+    scheme = "researchmap"
+    ids = []
+    get_name_identifiers(data, scheme, ids)
+    assert ids == ["4567"]

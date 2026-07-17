@@ -15,7 +15,7 @@ from invenio_accounts.models import Role, User
 from invenio_accounts.testutils import create_test_user, login_user_via_session
 from mock import patch
 
-from weko_items_ui.models import CRISLinkageResult
+from weko_items_ui.models import CRISLinkageResult, LinkageItems
 from weko_deposit.pidstore import weko_deposit_minter
 from weko_records.models import ItemMetadata
 
@@ -141,3 +141,178 @@ class TestCRISLinkageResult:
         CRISLinkageResult().set_running(record_uuid_5, "researchmap")
         result = CRISLinkageResult().get_last(100, "researchmap")
         assert result.last_linked_item == record_uuid_5
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_models.py::TestLinkageItems -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+class TestLinkageItems:
+    
+    # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_models.py::TestLinkageItems::test_get_by_item_id -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+    def test_get_by_item_id(self, app, db):
+        # Create a LinkageItems instance and add it to the database
+        linkage_item_1 = LinkageItems(
+            item_id=record_uuid,
+            external_item_id="external_id_1",
+            external_system=LinkageItems.ExternalSystem.RM,
+            status=LinkageItems.Status.REGISTERED
+        )
+        linkage_item_2 = LinkageItems(
+            item_id=record_uuid,
+            external_item_id="external_id_2",
+            external_system=LinkageItems.ExternalSystem.RM,
+            status=LinkageItems.Status.DELETED
+        )
+        linkage_item_3 = LinkageItems(
+            item_id=record_uuid,
+            external_item_id="external_id_3",
+            external_system="other_system",
+            status=LinkageItems.Status.REGISTERED
+        )
+        db.session.add(linkage_item_1)
+        db.session.add(linkage_item_2)
+        db.session.add(linkage_item_3)
+        db.session.commit()
+
+        result = LinkageItems.get_by_item_id(record_uuid, LinkageItems.ExternalSystem.RM, status=LinkageItems.Status.REGISTERED)
+        assert result == [linkage_item_1]
+
+        result = LinkageItems.get_by_item_id(record_uuid, LinkageItems.ExternalSystem.RM)
+        assert result == [linkage_item_1, linkage_item_2]
+
+    # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_models.py::TestLinkageItems::test_get_by_external_item_id -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+    def test_get_by_external_item_id(self, app, db):
+        # Create a LinkageItems instance and add it to the database
+        linkage_item_1 = LinkageItems(
+            item_id=record_uuid,
+            external_item_id="external_id_1",
+            external_system=LinkageItems.ExternalSystem.RM,
+            status=LinkageItems.Status.REGISTERED
+        )
+        linkage_item_2 = LinkageItems(
+            item_id=record_uuid_2,
+            external_item_id="external_id_1",
+            external_system=LinkageItems.ExternalSystem.RM,
+            status=LinkageItems.Status.DELETED
+        )
+        linkage_item_3 = LinkageItems(
+            item_id=record_uuid_3,
+            external_item_id="external_id_2",
+            external_system="other_system",
+            status=LinkageItems.Status.REGISTERED
+        )
+        db.session.add(linkage_item_1)
+        db.session.add(linkage_item_2)
+        db.session.add(linkage_item_3)
+        db.session.commit()
+
+        result = LinkageItems.get_by_external_item_id("external_id_1", LinkageItems.ExternalSystem.RM, status=LinkageItems.Status.REGISTERED)
+        assert result == [linkage_item_1]
+
+        result = LinkageItems.get_by_external_item_id("external_id_1", LinkageItems.ExternalSystem.RM)
+        assert len(result) == 2
+        assert {linkage_item.item_id for linkage_item in result} == {record_uuid, record_uuid_2}
+
+    # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_models.py::TestLinkageItems::test_get_items_by_permalink_itemid -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+    def test_get_items_by_permalink_itemid(self, app, db):
+        # Create a LinkageItems instance and add it to the database
+        linkage_item_1 = LinkageItems(
+            item_id=record_uuid,
+            external_item_id="external_id_1",
+            external_system=LinkageItems.ExternalSystem.RM,
+            permalink="permalink_1",
+            status=LinkageItems.Status.REGISTERED
+        )
+        linkage_item_2 = LinkageItems(
+            item_id=record_uuid,
+            external_item_id="external_id_2",
+            external_system=LinkageItems.ExternalSystem.RM,
+            permalink="permalink_2",
+            status=LinkageItems.Status.DELETED
+        )
+        linkage_item_3 = LinkageItems(
+            item_id=record_uuid,
+            external_item_id="external_id_3",
+            external_system="other_system",
+            permalink="permalink_3",
+            status=LinkageItems.Status.REGISTERED
+        )
+        linkage_item_4 = LinkageItems(
+            item_id=record_uuid,
+            external_item_id="external_id_4",
+            external_system=LinkageItems.ExternalSystem.RM,
+            permalink="permalink_4",
+            status=LinkageItems.Status.REGISTERED
+        )
+        db.session.add(linkage_item_1)
+        db.session.add(linkage_item_2)
+        db.session.add(linkage_item_3)
+        db.session.add(linkage_item_4)
+        db.session.commit()
+
+        permalinks = ["permalink_1", "permalink_2", "permalink_3"]
+        result = LinkageItems.get_items_by_permalink_itemid(record_uuid, permalinks, LinkageItems.ExternalSystem.RM)
+        assert len(result) == 1
+        assert result[0].permalink == "permalink_1"
+        assert result[0].external_item_id == "external_id_1"
+
+        result = LinkageItems.get_items_by_permalink_itemid(record_uuid, permalinks, LinkageItems.ExternalSystem.RM, status=LinkageItems.Status.DELETED)
+        assert len(result) == 1
+        assert result[0].permalink == "permalink_2"
+        assert result[0].external_item_id == "external_id_2"
+
+    # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_models.py::TestLinkageItems::test_create -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+    def test_create(self, app, db):
+        # Create a new linkage item
+        new_linkage_item = LinkageItems.create(
+            item_id=record_uuid,
+            external_item_id="external_id_1",
+            external_system=LinkageItems.ExternalSystem.RM,
+            permalink="permalink_1",
+            status=LinkageItems.Status.DELETED
+        )
+
+        # Verify that the linkage item was created and added to the database
+        assert new_linkage_item.item_id == record_uuid
+        assert new_linkage_item.external_item_id == "external_id_1"
+        assert new_linkage_item.external_system == LinkageItems.ExternalSystem.RM
+        assert new_linkage_item.permalink == "permalink_1"
+        assert new_linkage_item.status == LinkageItems.Status.DELETED
+
+        # Verify that the linkage item exists in the database
+        result = LinkageItems.query.filter_by(item_id=record_uuid, external_item_id="external_id_1").first()
+        assert result is not None
+
+        # Create another linkage item without specifying permalink and status
+        new_linkage_item_2 = LinkageItems.create(
+            item_id=record_uuid,
+            external_item_id="external_id_2",
+            external_system=LinkageItems.ExternalSystem.RM
+        )
+
+        # Verify that the second linkage item was created with default values for permalink and status
+        assert new_linkage_item_2.item_id == record_uuid
+        assert new_linkage_item_2.external_item_id == "external_id_2"
+        assert new_linkage_item_2.external_system == LinkageItems.ExternalSystem.RM
+        assert new_linkage_item_2.permalink is None
+        assert new_linkage_item_2.status == LinkageItems.Status.REGISTERED
+
+        # Verify that the second linkage item exists in the database
+        result_2 = LinkageItems.query.filter_by(item_id=record_uuid, external_item_id="external_id_2").first()
+        assert result_2 is not None
+
+    # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_models.py::TestLinkageItems::test_update_status -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+    def test_update_status(self, app, db):
+        # Create a LinkageItems instance and add it to the database
+        linkage_item = LinkageItems(
+            item_id=record_uuid,
+            external_item_id="external_id_1",
+            external_system=LinkageItems.ExternalSystem.RM,
+            status=LinkageItems.Status.REGISTERED
+        )
+        db.session.add(linkage_item)
+        db.session.commit()
+
+        # Update the status of the linkage item
+        linkage_item.update_status(LinkageItems.Status.DELETED)
+
+        # Verify that the status was updated in the database
+        result = LinkageItems.query.filter_by(item_id=record_uuid, external_item_id="external_id_1").first()
+        assert result.status == LinkageItems.Status.DELETED

@@ -190,9 +190,9 @@ def sync_item_to_researchmap(pid_int, item_id, achievements_obj, merge_mode, ach
 
     # Check the line number of each linkage target in the JSONs
     for linkage_target in linkage_targets:
-        line = 0
-        for json in jsons:
-            if json.find(linkage_target["permalink"]) != -1:
+        line = 1
+        for payload in jsons:
+            if payload.find(linkage_target["permalink"]) != -1:
                 linkage_target["line"] = line
                 break
             line = line + 1
@@ -231,10 +231,11 @@ def sync_item_to_researchmap(pid_int, item_id, achievements_obj, merge_mode, ach
             if line is not None and linkage_target.get("line") == line:
                 exists = True
                 break
-        if not exists:
+        if not exists and line is not None:
+            permalink = json.loads(jsons[line-1]).get("insert",{}).get("permalink")
             LinkageItems.create(
                 pid_without_ver.object_uuid, achievement_id, LinkageItems.ExternalSystem.RM,
-                linkage_target["permalink"], LinkageItems.Status.REGISTERED
+                permalink, LinkageItems.Status.REGISTERED
             )
             register_linkage_result(pid_int, True, item_id, failed_log='新規連携成功:{}'.format(achievement_id))
 

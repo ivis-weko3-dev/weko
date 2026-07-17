@@ -2011,31 +2011,31 @@ def next_action(activity_id='0', action_id=0, json_data=None):
             if temp_data:
                 if json.loads(temp_data).get('cris_linkage',{}).get('researchmap' , False):
                     should_create_if_not_found = json.loads(temp_data).get('cris_linkage',{}).get('should_create_if_not_found', False)
-                    cris_researchmap_linkage_request.send(new_item_id, should_create_if_not_found)
+                    cris_researchmap_linkage_request.send(new_item_id, should_create_if_not_found=should_create_if_not_found)
                 
                 autofill_performance_id = json.loads(temp_data).get('autofill_performance_id' , None)
                 if autofill_performance_id:
                     is_linkage = True
                     ids = []
-                    get_name_identifiers(autofill_performance_id.permalink, "researchmap", ids)
-                    if len(ids) == 0:
-                        # No existing author has this permalink
+                    get_name_identifiers(json.loads(temp_data).get('metainfo',{}), "researchmap", ids)
+                    if not ids or autofill_performance_id.get("permalink") not in ids:
+                        # Not existing this permalink in this item
                         is_linkage = False
                     
-                    pid_without_ver = get_record_without_version(new_item_id)
+                    pid_without_ver = get_record_without_version(current_pid)
                     if is_linkage:
                         linkage_items = LinkageItems.get_by_item_id(
                             pid_without_ver.object_uuid, LinkageItems.ExternalSystem.RM
                         )
                         for item in linkage_items:
-                            if item.permalink == autofill_performance_id.permalink:
+                            if item.permalink == autofill_performance_id.get("permalink"):
                                 # This permalink already exists in this item
                                 is_linkage = False
                                 break
                     
                     if is_linkage:
                         linkage_items = LinkageItems.get_by_external_item_id(
-                            autofill_performance_id.external_item_id, LinkageItems.ExternalSystem.RM
+                            autofill_performance_id.get("id"), LinkageItems.ExternalSystem.RM
                         )
                         if len(linkage_items) > 0:
                             # This external item ID already exists in systems
@@ -2043,8 +2043,8 @@ def next_action(activity_id='0', action_id=0, json_data=None):
 
                     if is_linkage:
                         LinkageItems.create(
-                            pid_without_ver.object_uuid, autofill_performance_id.id,
-                            LinkageItems.ExternalSystem.RM, autofill_performance_id.permalink
+                            pid_without_ver.object_uuid, autofill_performance_id.get("id"),
+                            LinkageItems.ExternalSystem.RM, autofill_performance_id.get("permalink")
                         )
 
             work_activity.end_activity(activity)

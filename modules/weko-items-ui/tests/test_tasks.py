@@ -1,8 +1,9 @@
 import pytest
+import json
 from mock import MagicMock, patch ,sentinel
 from invenio_pidstore.models import PersistentIdentifier
-from weko_items_ui.models import CRIS_Institutions, CRISLinkageResult
-from weko_items_ui.tasks import build_achievement, build_one_data, bulk_post_item_to_researchmap, get_achievement_type, get_merge_mode, process_researchmap_queue ,get_item,is_public, register_linkage_result,get_authors
+from weko_items_ui.models import CRIS_Institutions, CRISLinkageResult, LinkageItems
+from weko_items_ui.tasks import build_achievement, build_one_data, bulk_post_item_to_researchmap, get_achievement_type, get_merge_mode, process_researchmap_queue ,get_item,is_public, register_linkage_result,get_authors, sync_item_to_researchmap, update_linkage_by_authors
 from weko_records.api import Mapping
 from weko_records.models import ItemMetadata, ItemTypeMapping
 from weko_records.utils import json_loader
@@ -21,23 +22,140 @@ def test_process_researchmap_queue(app ,db, db_records_researchmap):
     # item = ItemsMetadata.create(db_records[0][0].object_uuid, id_=rec_uuid)
     db.session.commit()
     # process_researchmap_queue({"item_uuid" : db_records_researchmap[0]}  ,MagicMock())
-    with patch('weko_items_ui.models.CRISLinkageResult.register_linkage_result' , return_value = True):
-        with patch('weko_items_ui.models.PersistentIdentifier.get_by_object' , side_effect = [Exception(),MagicMock()]):
+    with patch('weko_items_ui.tasks.CRISLinkageResult.register_linkage_result' , return_value = True):
+        with patch('weko_items_ui.tasks.PersistentIdentifier.get_by_object' , side_effect = [Exception(),MagicMock()]):
             process_researchmap_queue({"item_uuid" : db_records_researchmap[0]}  ,MagicMock())
-        process_researchmap_queue({"item_uuid" : db_records_researchmap[0]}  ,MagicMock())
-        with patch('weko_items_ui.tasks.check_publish_status' , return_value = True):
-            with patch('weko_items_ui.tasks.is_private_index' , return_value = False):
+        with patch('weko_items_ui.tasks.json_loader' , side_effect = Exception()):
+            process_researchmap_queue({"item_uuid" : db_records_researchmap[0]}  ,MagicMock())
+        with patch('weko_items_ui.tasks.is_public' , return_value = False):
+            process_researchmap_queue({"item_uuid" : db_records_researchmap[0]}  ,MagicMock())
+        with patch('weko_items_ui.tasks.is_public' , return_value = True):
+            with patch('weko_items_ui.tasks.get_authors' , return_value = []):
                 process_researchmap_queue({"item_uuid" : db_records_researchmap[0]}  ,MagicMock())
-                with patch('weko_items_ui.tasks.get_authors' , return_value = ["auth1","auth2"]):
+            with patch('weko_items_ui.tasks.get_authors' , return_value = ["auth1","auth2"]):
+                with patch('weko_items_ui.tasks.get_achievement_type' , return_value = {}):
                     process_researchmap_queue({"item_uuid" : db_records_researchmap[0]}  ,MagicMock())
-                    with patch('weko_items_ui.tasks.get_achievement_type' , return_value = {}):
-                        with patch('weko_items_ui.tasks.build_achievement' , return_value = None):
-                            process_researchmap_queue({"item_uuid" : db_records_researchmap[0]}  ,MagicMock())
-                    with patch('weko_items_ui.tasks.get_achievement_type' , return_value = {"hoge":"fuga"}):
-                        with patch('weko_items_ui.tasks.build_achievement' , return_value = {}):
-                            with patch('weko_items_ui.tasks.Researchmap.post_data' , return_value = '{"url" : "hoge"}'):
-                                with patch('weko_items_ui.tasks.Researchmap.get_result' , return_value = '{"code" : 200}'):
-                                    process_researchmap_queue({"item_uuid" : db_records_researchmap[0]}  ,MagicMock())
+                with patch('weko_items_ui.tasks.get_achievement_type' , return_value = {"hoge":"fuga"}):
+                    with patch('weko_items_ui.tasks.build_achievement' , return_value = {}):
+                        with patch('weko_items_ui.tasks.update_linkage_by_authors' , return_value = True):
+                            with patch('weko_items_ui.tasks.sync_item_to_researchmap' , return_value = True):
+                                process_researchmap_queue({"item_uuid" : db_records_researchmap[0]}  ,MagicMock())
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_tasks.py::test_update_linkage_by_authors -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_items_ui/.tox/c1/tmp
+def test_update_linkage_by_authors(app, db, db_records_researchmap, db_linkage_items):
+    mock_pid = MagicMock()
+    mock_pid.object_uuid = db_records_researchmap[0]
+    with patch('weko_items_ui.tasks.get_record_without_version', return_value=mock_pid):
+        # REGISTERED -> DELETED
+        update_linkage_by_authors(db_records_researchmap[0], [])
+        linkage_item = LinkageItems.get_by_item_id(db_records_researchmap[0], LinkageItems.ExternalSystem.RM)
+        assert len(linkage_item) == 1
+        assert linkage_item[0].item_id == db_records_researchmap[0]
+        assert linkage_item[0].permalink == "auth1"
+        assert linkage_item[0].status == LinkageItems.Status.DELETED
+        
+        # DELETED -> REGISTERED
+        update_linkage_by_authors(db_records_researchmap[0], ["auth1"])
+        linkage_item = LinkageItems.get_by_item_id(db_records_researchmap[0], LinkageItems.ExternalSystem.RM)
+        assert len(linkage_item) > 0
+        assert linkage_item[0].item_id == db_records_researchmap[0]
+        assert linkage_item[0].permalink == "auth1"
+        assert linkage_item[0].status == LinkageItems.Status.REGISTERED
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_tasks.py::test_sync_item_to_researchmap -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_items_ui/.tox/c1/tmp
+def test_sync_item_to_researchmap(app, db, db_records_researchmap, db_linkage_items):
+    mock_pid = MagicMock()
+    mock_pid.object_uuid = db_records_researchmap[0]
+    with patch('weko_items_ui.models.CRISLinkageResult.register_linkage_result' , return_value = True):
+        with patch('weko_items_ui.tasks.get_record_without_version', return_value=mock_pid):
+            with patch('weko_items_ui.tasks.Researchmap.post_data', return_value='{"url" : "hoge"}'):
+                # No authors
+                errors = []
+                success = [{"code": 200, "id": "external_id_1"},]
+                with patch('weko_items_ui.tasks.Researchmap.get_result',
+                        side_effect=[
+                            json.dumps({"errors": errors}),
+                            json.dumps({"success": success}),
+                        ]
+                ):
+                    sync_item_to_researchmap(
+                        pid_int=1,
+                        item_id=db_records_researchmap[0],
+                        achievements_obj={},
+                        merge_mode='merge',
+                        achievement_type='published_papers',
+                        authors=[],
+                        should_create_if_not_found=False
+                    )
+                
+                # No LinkageItems
+                db_linkage_items[0].status = LinkageItems.Status.DELETED
+                db_linkage_items[1].status = LinkageItems.Status.DELETED
+                db.session.commit()
+                with patch('weko_items_ui.tasks.Researchmap.get_result',
+                        side_effect=[
+                            json.dumps({"errors": [{"code": 404, "line": 1}]}),
+                            json.dumps({"success": []}),
+                        ]
+                ):
+                    sync_item_to_researchmap(
+                        pid_int=1,
+                        item_id=db_records_researchmap[0],
+                        achievements_obj={},
+                        merge_mode='merge',
+                        achievement_type='published_papers',
+                        authors=[],
+                        should_create_if_not_found=False
+                    )
+                
+                # No error and Success update, no recall
+                db_linkage_items[0].status = LinkageItems.Status.REGISTERED
+                db_linkage_items[1].status = LinkageItems.Status.REGISTERED
+                db.session.commit()
+                errors = [{"code": 200}, {"code": 404, "line": 2},]
+                success = [{"code": 200, "line": 1, "id": "external_id_1"},]
+                with patch('weko_items_ui.tasks.Researchmap.get_result',
+                        side_effect=[
+                            json.dumps({"errors": errors}),
+                            json.dumps({"success": success}),
+                        ]
+                ):
+                    sync_item_to_researchmap(
+                        pid_int=1,
+                        item_id=db_records_researchmap[0],
+                        achievements_obj={},
+                        merge_mode='merge',
+                        achievement_type='published_papers',
+                        authors=['auth1', 'auth2'],
+                        should_create_if_not_found=False
+                    )
+                
+                # Error and recall(new register), no success
+                db_linkage_items[0].status = LinkageItems.Status.REGISTERED
+                db_linkage_items[1].status = LinkageItems.Status.REGISTERED
+                db.session.commit()
+                errors = [{"code": 404, "line": 2},]
+                success = [
+                    {"code": 200, "line": 1, "id": "new_external_id"},
+                ]
+                with patch('weko_items_ui.tasks.Researchmap.get_result',
+                        side_effect=[
+                            json.dumps({"errors": errors}),
+                            json.dumps({"success": []}),
+                            json.dumps({"errors": []}),         # recall
+                            json.dumps({"success": success}),   # recall
+                        ]
+                ):
+                    sync_item_to_researchmap(
+                        pid_int=1,
+                        item_id=db_records_researchmap[0],
+                        achievements_obj={},
+                        merge_mode='merge',
+                        achievement_type='published_papers',
+                        authors=['auth1', 'auth2'],
+                        should_create_if_not_found=True
+                    )
+
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_tasks.py::test_get_item -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_items_ui/.tox/c1/tmp --full-trace
 def test_get_item(app , db_records):
@@ -124,6 +242,7 @@ def test_build_one_data(app):
     assert build_one_data({} , 'similar_merge_similar_data' ,'author',"publish_papaers").get("priority") == "similar_data"
     assert build_one_data({} , 'similar_merge_input_data' ,'author',"publish_papaers").get("priority") == "input_data"
     assert {} == build_one_data({} , '' ,'author',"publish_papaers")
+    assert build_one_data({"hoge" : "foo"} , 'merge' ,'author',"publish_papaers", [{},{"permalink": "author", "external_item_id": "1234"}]).get("insert") == {"type": "publish_papaers", "permalink": "author", "id": "1234"}
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_tasks.py::test_register_linkage_result -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_items_ui/.tox/c1/tmp --full-trace
 def test_register_linkage_result(db,db_records):

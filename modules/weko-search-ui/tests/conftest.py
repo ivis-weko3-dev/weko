@@ -27,7 +27,7 @@ import tempfile
 import uuid
 import xml.etree.ElementTree as ET
 import xmltodict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from os.path import join
 from time import sleep
 import pytest
@@ -782,10 +782,40 @@ def db(app):
     if not database_exists(str(db_.engine.url)):
         create_database(str(db_.engine.url))
     db_.create_all()
+    create_user_activity_logs_partitions()
     yield db_
     db_.session.remove()
     db_.drop_all()
     drop_alembic_version_table()
+
+def create_user_activity_logs_partitions():
+    # Ensure user_activity_logs partitions exist for surrounding months.
+    from weko_logging.models import make_user_activity_logs_partition_table
+
+    now = datetime.now(timezone.utc)
+    ym_list = [(now.year, now.month)]
+
+    # previous month
+    if now.month == 1:
+        ym_list.append((now.year - 1, 12))
+    else:
+        ym_list.append((now.year, now.month - 1))
+
+    # next month
+    if now.month == 12:
+        ym_list.append((now.year + 1, 1))
+    else:
+        ym_list.append((now.year, now.month + 1))
+
+    for year, month in ym_list:
+        tablename = "user_activity_logs_{}".format(
+            datetime(year, month, 1).strftime('%Y%m')
+        )
+        if tablename not in db_.metadata.tables:
+            tablename = make_user_activity_logs_partition_table(year, month)
+        db_.metadata.tables[tablename].create(bind=db_.engine, checkfirst=True)
+
+    db_.session.commit()
 
 
 @pytest.yield_fixture()
