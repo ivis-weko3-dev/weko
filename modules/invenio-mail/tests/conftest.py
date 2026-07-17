@@ -42,7 +42,7 @@ from weko_admin.models import AdminSettings
 from weko_index_tree.models import Index
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -105,22 +105,21 @@ def base_app(instance_path):
     view_class_template = mail_templates_adminview['view_class']
     admin.add_view(view_class(**mail_adminview['kwargs']))
     admin.add_view(view_class_template(**mail_templates_adminview['kwargs']))
-    
-    
+
     return app_
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app(base_app):
     """Flask application fixture."""
     with base_app.app_context():
         yield base_app
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client(app):
     with app.test_client() as client:
         yield client
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def db(app):
     """Database fixture."""
     if not database_exists(str(db_.engine.url)):
@@ -311,7 +310,7 @@ def mail_templates(db):
     db.session.commit()
     return template
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def email_admin_app():
     """Flask application fixture."""
     instance_path = tempfile.mkdtemp()
@@ -357,6 +356,7 @@ def email_task_app(request):
     FlaskCeleryExt(app)
 
     InvenioMail(app, StringIO())
+    app.jinja_loader.searchpath.append('tests/templates')
 
     return app
 

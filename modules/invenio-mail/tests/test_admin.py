@@ -86,14 +86,14 @@ class TestMailSettingView:
             assert res.status_code == 400
 
 # .tox/c1/bin/pytest --cov=invenio_mail tests/test_admin.py::TestMailSettingView::test_send_test_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-mail/.tox/c1/tmp
-    def test_send_test_mail(self,client, mail_configs):
+    def test_send_test_mail(self,client, mail_configs, mocker):
         url = url_for("mail.send_test_mail")
         post_data = {
             'recipient': 'test@mail.nii.ac.jp',
             'subject': 'test mail',
             'body': 'test body'}
         # success mail sending
-        mock_send = patch('flask_mail._Mail.send')
+        mock_send = mocker.patch('flask_mail._Mail.send')
         res = client.post(url,data=post_data)
         assert res.status_code == 200
         mock_send.assert_called()
@@ -102,7 +102,7 @@ class TestMailSettingView:
         assert "Test mail sent." in str(res.data)
 
         # failed mail sending
-        mock_send = patch('flask_mail._Mail.send', side_effect=SMTPServerDisconnected())
+        mock_send = mocker.patch('flask_mail._Mail.send', side_effect=SMTPServerDisconnected())
         res = client.post(url,data=post_data)
         assert res.status_code == 200
         mock_send.assert_called()
@@ -181,14 +181,20 @@ class TestMailTemplatesView:
                     'key': 1,
                     'content': {
                         'subject': 'test subject1',
-                        'body': 'test body1'
+                        'body': 'test body1',
+                        'recipients': '',
+                        'cc': '',
+                        'bcc': ''
                     },
                 },
                 {
                     'key': '',
                     'content': {
                         'subject': 'test subject2',
-                        'body': 'test body2'
+                        'body': 'test body2',
+                        'recipients': '',
+                        'cc': '',
+                        'bcc': ''
                     },
                 }
             ]
@@ -213,39 +219,12 @@ class TestMailTemplatesView:
             assert MailTemplates.get_templates() == json.loads(res.data)['data']
             mock_save.assert_called()
 
-    # .tox/c1/bin/pytest --cov=invenio_mail tests/test_admin.py::TestMailTemplatesView::test_delete_mail_template -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-mail/.tox/c1/tmp
-    def test_delete_mail_template(self, client, mail_templates, mocker):
-        url = url_for("mailtemplates.delete_mail_template")
-        post_data = {
-            'template_id': 1
-        }
-        # success delete mail template
-        with patch('invenio_mail.admin.MailTemplates.delete_by_id') as mock_delete:
-            mock_delete.return_value = True
-            res = client.delete(url, data=json.dumps(post_data), content_type='application/json')
-            assert res.status_code == 200
-            assert True == json.loads(res.data)['status']
-            assert 'Mail template was successfully deleted.' == json.loads(res.data)['msg']
-            assert MailTemplates.get_templates() == json.loads(res.data)['data']
-            mock_delete.assert_called()
-
-        # failed to delete mail template
-        with patch('invenio_mail.admin.MailTemplates.delete_by_id') as mock_delete:
-            mock_delete.return_value = False
-            res = client.delete(url, data=json.dumps(post_data), content_type='application/json')
-            assert res.status_code == 200
-            assert False == json.loads(res.data)['status']
-            assert 'Mail template delete failed.' == json.loads(res.data)['msg']
-            assert MailTemplates.get_templates() == json.loads(res.data)['data']
-            mock_delete.assert_called()
-
-
-# .tox/c1/bin/pytest --cov=invenio_mail tests/test_admin.py::TestMailTemplatesView::test_save_mail_template -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-mail/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_mail tests/test_admin.py::TestMailTemplatesView::test_save_mail_template_invalid_emails -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-mail/.tox/c1/tmp
     @patch('invenio_mail.admin.MailTemplatesView.get_invalid_emails')
     @patch('invenio_mail.admin.MailTemplates.save_and_update')
     @patch('invenio_mail.admin.MailTemplateUsers.save_and_update')
     @patch('invenio_mail.admin.MailTemplates.get_templates')
-    def test_save_mail_template(
+    def test_save_mail_template_invalid_emails(
         self,
         mock_get_templates,
         mock_save_and_update_users,
@@ -320,7 +299,7 @@ class TestMailTemplatesView:
         assert response.status_code == 200
         assert ('Invalid email addresses (invalid_mail) detected.'
                 in str(response.data))
-        
+
         # when bcc email is invalid
         invalid_bcc_tpl = [{
             'key': 'mail_templates',
@@ -341,7 +320,7 @@ class TestMailTemplatesView:
         assert response.status_code == 200
         assert ('Invalid email addresses (invalid_mail) detected.'
                 in str(response.data))
-        
+
         # when mail template update failed
         mock_save_and_update.return_value = False
         mock_get_invalid_emails.return_value = []
@@ -354,6 +333,31 @@ class TestMailTemplatesView:
         assert response.status_code == 200
         assert 'Mail template update failed.' in str(response.data)
 
+    # .tox/c1/bin/pytest --cov=invenio_mail tests/test_admin.py::TestMailTemplatesView::test_delete_mail_template -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-mail/.tox/c1/tmp
+    def test_delete_mail_template(self, client, mail_templates, mocker):
+        url = url_for("mailtemplates.delete_mail_template")
+        post_data = {
+            'template_id': 1
+        }
+        # success delete mail template
+        with patch('invenio_mail.admin.MailTemplates.delete_by_id') as mock_delete:
+            mock_delete.return_value = True
+            res = client.delete(url, data=json.dumps(post_data), content_type='application/json')
+            assert res.status_code == 200
+            assert True == json.loads(res.data)['status']
+            assert 'Mail template was successfully deleted.' == json.loads(res.data)['msg']
+            assert MailTemplates.get_templates() == json.loads(res.data)['data']
+            mock_delete.assert_called()
+
+        # failed to delete mail template
+        with patch('invenio_mail.admin.MailTemplates.delete_by_id') as mock_delete:
+            mock_delete.return_value = False
+            res = client.delete(url, data=json.dumps(post_data), content_type='application/json')
+            assert res.status_code == 200
+            assert False == json.loads(res.data)['status']
+            assert 'Mail template delete failed.' == json.loads(res.data)['msg']
+            assert MailTemplates.get_templates() == json.loads(res.data)['data']
+            mock_delete.assert_called()
 
 # .tox/c1/bin/pytest --cov=invenio_mail tests/test_admin.py::TestMailTemplatesView::test_get_invalid_emails -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-mail/.tox/c1/tmp
     @patch('invenio_accounts.models.User.query')
