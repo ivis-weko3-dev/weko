@@ -279,12 +279,12 @@ class RecordIndexer(object):
         """
         self._bulk_op(record_id_iterator, "delete")
 
-    def process_bulk_queue(self, es_bulk_kwargs=None, with_deleted=False):
+    def process_bulk_queue(self, search_bulk_kwargs=None, with_deleted=False):
         """
         Process bulk indexing queue.
 
         Args:
-            es_bulk_kwargs (dict, optional): Additional keyword arguments passed to
+            search_bulk_kwargs (dict, optional): Additional keyword arguments passed to
                 search.helpers.bulk. Defaults to None.
             with_deleted (bool, optional): If True, include deleted records in the indexing process. Defaults to False.
 
@@ -301,8 +301,8 @@ class RecordIndexer(object):
         import socket
         import re
 
-        # Update es_bulk_kwargs with default values for missing keys
-        es_bulk_kwargs = es_bulk_kwargs or {}
+        # Update search_bulk_kwargs with default values for missing keys
+        search_bulk_kwargs = search_bulk_kwargs or {}
         default_kwargs = {
             'raise_on_error': True,
             'raise_on_exception': True,
@@ -313,7 +313,7 @@ class RecordIndexer(object):
             'max_backoff': 600,
             'stats_only': False
         }
-        es_bulk_kwargs = {**default_kwargs, **es_bulk_kwargs}
+        search_bulk_kwargs = {**default_kwargs, **search_bulk_kwargs}
 
         # Extract host and port from BROKER_URL, fallback to default if not found
         broker_url = current_app.config.get('BROKER_URL')
@@ -362,7 +362,7 @@ class RecordIndexer(object):
                     # and do not recalculate them afterward.
                     if self.record_num == 0 and self.target_chunks == 0:
                         self.record_num = b4_queues_cnt
-                        self.target_chunks = math.ceil(self.record_num / es_bulk_kwargs["chunk_size"])
+                        self.target_chunks = math.ceil(self.record_num / search_bulk_kwargs["chunk_size"])
                         click.secho("messages count:{}, target chunks:{}".format(self.record_num, self.target_chunks),fg='green')
 
                 consumer = Consumer(
@@ -375,14 +375,14 @@ class RecordIndexer(object):
                 with consumer:
                     try:
                         # Fetch messages up to the chunk_size limit
-                        messages = list(consumer.iterqueue(limit=es_bulk_kwargs["chunk_size"]))
+                        messages = list(consumer.iterqueue(limit=search_bulk_kwargs["chunk_size"]))
                         messages_count = len(messages)
 
                         _success, _fail  = self.reindex_bulk(
                             self.client,
                             self._actionsiter(messages, with_deleted=with_deleted),
                             request_timeout=req_timeout,
-                            **es_bulk_kwargs,
+                            **search_bulk_kwargs,
                             expand_action_callback=search.helpers.expand_action,
                         )
                         # Read files for items that were successfully reindexed
@@ -423,10 +423,10 @@ class RecordIndexer(object):
                                 error['index']['_id'], error['index']['error'].get('type', ''), error_reason
                             ), fg='red')
                         update_pdf_contents_search(self.success_ids)
-                        self.completed_chunk_count += math.ceil(messages_count / es_bulk_kwargs["chunk_size"])
+                        self.completed_chunk_count += math.ceil(messages_count / search_bulk_kwargs["chunk_size"])
 
                         # If raise_on_error is True, terminate the process when an error occurs
-                        if es_bulk_kwargs.get("raise_on_error", True):
+                        if search_bulk_kwargs.get("raise_on_error", True):
                             break
                         self.completed_record_count += self.count
                     except (BulkConnectionTimeout, ConnectionTimeout) as ce:
@@ -460,10 +460,10 @@ class RecordIndexer(object):
                         fail += _fail_num
                         unprocessed += messages_count - (_success_num + _fail_num) if messages_count > (_success_num + _fail_num) else 0
                         update_pdf_contents_search(self.success_ids)
-                        self.completed_chunk_count += math.ceil(messages_count / es_bulk_kwargs["chunk_size"])
+                        self.completed_chunk_count += math.ceil(messages_count / search_bulk_kwargs["chunk_size"])
 
                         # If raise_on_error is True, terminate the process when an error occurs
-                        if es_bulk_kwargs.get("raise_on_exception", True):
+                        if search_bulk_kwargs.get("raise_on_exception", True):
                             break
                         self.completed_record_count += self.count
                     except (BulkConnectionError, ConnectionError) as ce:
@@ -493,10 +493,10 @@ class RecordIndexer(object):
                         fail += _fail_num
                         unprocessed += messages_count - (_success_num + _fail_num) if messages_count > (_success_num + _fail_num) else 0
                         update_pdf_contents_search(self.success_ids)
-                        self.completed_chunk_count += math.ceil(messages_count / es_bulk_kwargs["chunk_size"])
+                        self.completed_chunk_count += math.ceil(messages_count / search_bulk_kwargs["chunk_size"])
 
                         # If raise_on_error is True, terminate the process when an error occurs
-                        if es_bulk_kwargs.get("raise_on_exception", True):
+                        if search_bulk_kwargs.get("raise_on_exception", True):
                             break
                         self.completed_record_count += self.count
                     except (BulkException, Exception) as e:
@@ -531,7 +531,7 @@ class RecordIndexer(object):
                         fail += _fail_num
                         unprocessed += messages_count - (_success_num + _fail_num) if messages_count > (_success_num + _fail_num) else 0
                         update_pdf_contents_search(self.success_ids)
-                        self.completed_chunk_count += math.ceil(messages_count / es_bulk_kwargs["chunk_size"])
+                        self.completed_chunk_count += math.ceil(messages_count / search_bulk_kwargs["chunk_size"])
                         self.completed_record_count += self.count
         if unprocessed == 0:
             count = (success,fail)
