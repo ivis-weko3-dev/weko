@@ -80,7 +80,7 @@ def base_app(instance_path):
         WEKO_INDEX_TREE_UPATED=True,
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English")],
         SERVER_NAME="TEST_SERVER",
-        SEARCH_OPENSEARCH_HOSTS = os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch")
+        SEARCH_OPENSEARCH_HOSTS = os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch"),
         SEARCH_INDEX_PREFIX="test-",
         WEKO_PERMISSION_ROLE_USER=[
             "System Administrator",

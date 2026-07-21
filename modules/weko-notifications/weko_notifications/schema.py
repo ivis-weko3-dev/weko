@@ -147,11 +147,12 @@ class ContextObject(Schema):
 class NotificationSchema(Schema):
     """Notification schema."""
     id = fields.String(
-        required=True, validate=validate_urn_uuid,
-        missing=lambda: f"urn:uuid:{uuid.uuid4()}")
+        validate=validate_urn_uuid,
+        missing=lambda: f"urn:uuid:{uuid.uuid4()}"
+    )
     """URN:UUID of the notification."""
     updated = fields.String(
-        required=True, validate=validate_rfc3339 , missing=rfc3339
+        validate=validate_rfc3339, missing=rfc3339
     )
     """Timestamp of the notification(RFC3339)."""
     at_context = fields.List(
