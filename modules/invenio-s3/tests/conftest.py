@@ -22,7 +22,7 @@ from invenio_db.utils import drop_alembic_version_table
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location
 from invenio_s3 import InvenioS3, S3FSFileStorage
-from moto import mock_s3
+from moto import mock_aws
 from sqlalchemy_utils.functions import create_database, database_exists
 
 from weko_deposit.config import (
@@ -147,7 +147,7 @@ def s3_bucket(app):
     """S3 bucket fixture."""
     os.environ['AWS_ACCESS_KEY_ID'] = 'test'
     os.environ['AWS_SECRET_ACCESS_KEY'] = 'test'
-    with mock_s3():
+    with mock_aws():
         session = boto3.Session(
             aws_access_key_id='test',
             aws_secret_access_key='test',

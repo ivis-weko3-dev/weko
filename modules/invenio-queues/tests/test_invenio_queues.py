@@ -10,7 +10,7 @@
 
 import pytest
 
-from conftest import MOCK_MQ_EXCHANGE, mock_iter_entry_points_factory
+from tests.conftest import MOCK_MQ_EXCHANGE, mock_iter_entry_points_factory
 from flask import Flask
 from invenio_queues import InvenioQueues, current_queues
 from invenio_queues.errors import DuplicateQueueError

@@ -694,7 +694,7 @@ def base_app(instance_path, search_class, request):
             "internal report": "other",
             "report part": "other",
             "conference object": "conference output",
-        }
+        },
         WEKO_COMMUNITIES_DEFAULT_PROPERTIES=WEKO_COMMUNITIES_DEFAULT_PROPERTIES
     )
     app_.url_map.converters["pid"] = PIDConverter

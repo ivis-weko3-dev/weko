@@ -8,7 +8,7 @@ from flask import Blueprint, Response
 from flask_oauthlib.provider import OAuth2Provider
 from invenio_deposit.utils import check_oauth2_scope_write, \
     check_oauth2_scope_write_search
-from invenio_oauth2server.views.server import login_oauth2_user
+from invenio_oauth2server.provider import login_oauth2_user
 from invenio_records_rest.utils import check_search
 from mock import patch
 
