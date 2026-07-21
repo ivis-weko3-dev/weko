@@ -22,9 +22,15 @@ from flask_babel import Babel, lazy_gettext as _
 from flask_celeryext import FlaskCeleryExt
 from flask_menu import Menu
 from flask_login import current_user, login_user, LoginManager
+from flask_webpackext.manifest import (
+    JinjaManifest,
+    JinjaManifestEntry,
+    JinjaManifestLoader,
+)
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import User, Role
 from invenio_accounts.testutils import create_test_user, login_user_via_session
+from invenio_accounts.views.settings import create_settings_blueprint as create_accounts_settings_blueprint
 from invenio_access.models import ActionUsers
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionUsers, ActionRoles
@@ -51,6 +57,7 @@ from invenio_files_rest.permissions import bucket_listmultiparts_all, \
     object_delete_all, object_delete_version_all, object_read_all, \
     object_read_version_all
 from invenio_i18n import InvenioI18N
+from invenio_i18n.views import create_blueprint_from_app as create_i18n_blueprint
 from invenio_indexer import InvenioIndexer
 from invenio_jsonschemas import InvenioJSONSchemas
 from invenio_mail import InvenioMail
@@ -59,6 +66,7 @@ from invenio_oaiserver import InvenioOAIServer
 from invenio_oaiserver.models import OAISet
 from invenio_pidrelations import InvenioPIDRelations
 from invenio_pidstore import InvenioPIDStore, current_pidstore
+from invenio_queues import InvenioQueues
 from invenio_queues.proxies import current_queues
 from invenio_records import InvenioRecords
 from invenio_records.models import RecordMetadata
@@ -74,6 +82,7 @@ from invenio_stats.contrib.event_builders import (
 )
 from invenio_search import current_search_client, current_search
 from invenio_theme import InvenioTheme
+from invenio_theme.views import create_blueprint as create_invenio_theme_blueprint
 
 from mock import Mock, patch
 from os.path import join
@@ -100,6 +109,15 @@ from weko_records_ui.config import (
 from weko_groups import WekoGroups
 from weko_gridlayout.views import blueprint as weko_gridlayout_blueprint
 from weko_logging.audit import WekoLoggingUserActivity
+from weko_theme.config import (
+    BASE_PAGE_TEMPLATE,
+    BASE_EDIT_TEMPLATE,
+    THEME_HEADER_TEMPLATE,
+    THEME_HEADER_EDITOR_TEMPLATE,
+    THEME_HEADER_WYSIWYG_TEMPLATE,
+    THEME_HEADER_LOGIN_TEMPLATE,
+    THEME_BODY_TEMPLATE,
+)
 from weko_theme.ext import WekoTheme
 from weko_workflow import WekoWorkflow
 from weko_workflow.models import Activity, ActionStatus, Action, WorkFlow, FlowDefine, FlowAction
@@ -116,13 +134,35 @@ from weko_admin.config import (
 from werkzeug.local import LocalProxy
 
 
-
-@pytest.yield_fixture(scope='session')
+@pytest.fixture(scope='session')
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
     yield path
     shutil.rmtree(path)
+
+
+#
+# Mock the webpack manifest to avoid having to compile the full assets.
+#
+class MockJinjaManifest(JinjaManifest):
+    """Mock manifest."""
+
+    def __getitem__(self, key):
+        """Get a manifest entry."""
+        return JinjaManifestEntry(key, [key])
+
+    def __getattr__(self, name):
+        """Get a manifest entry."""
+        return JinjaManifestEntry(name, [name])
+
+
+class MockManifestLoader(JinjaManifestLoader):
+    """Manifest loader creating a mocked manifest."""
+
+    def load(self, filepath):
+        """Load the manifest."""
+        return MockJinjaManifest()
 
 
 @pytest.fixture(scope='session')
@@ -160,6 +200,9 @@ def base_app(instance_path):
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         # SQLALCHEMY_DATABASE_URI=os.environ.get(
         #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
+        SEARCH_HOSTS=os.environ.get(
+            'SEARCH_HOST', 'opensearch'
+        ),
         SEARCH_OPENSEARCH_HOSTS=os.environ.get(
             'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
@@ -179,7 +222,7 @@ def base_app(instance_path):
         SEARCH_UI_SEARCH_INDEX="test-weko",
         # SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
         SEARCH_INDEX_PREFIX="{}-".format('test'),
-        SEARCH_CLIENT_CONFIG=dict(timeout=120, max_retries=10),
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         OAISERVER_ID_PREFIX="oai:inveniosoftware.org:recid/",
         OAISERVER_RECORD_INDEX="_all",
         OAISERVER_REGISTER_SET_SIGNALS=True,
@@ -196,9 +239,15 @@ def base_app(instance_path):
             }
         },
         THEME_SITENAME = 'WEKO3',
+        BASE_PAGE_TEMPLATE = BASE_PAGE_TEMPLATE,
+        BASE_EDIT_TEMPLATE = BASE_EDIT_TEMPLATE,
+        THEME_HEADER_TEMPLATE = THEME_HEADER_TEMPLATE,
+        THEME_HEADER_EDITOR_TEMPLATE = THEME_HEADER_EDITOR_TEMPLATE,
+        THEME_HEADER_WYSIWYG_TEMPLATE = THEME_HEADER_WYSIWYG_TEMPLATE,
+        THEME_HEADER_LOGIN_TEMPLATE = THEME_HEADER_LOGIN_TEMPLATE,
+        THEME_BODY_TEMPLATE = THEME_BODY_TEMPLATE,
         THEME_FRONTPAGE_TEMPLATE = 'weko_theme/frontpage.html',
-        BASE_EDIT_TEMPLATE = 'weko_theme/edit.html',
-        BASE_PAGE_TEMPLATE = 'weko_theme/page.html',
+        THEME_TRACKINGCODE_TEMPLATE='weko_theme/trackingcode.html',
         WEKO_ADMIN_ENABLE_LOGIN_INSTRUCTIONS = False,
         WEKO_ADMIN_MANAGEMENT_OPTIONS=WEKO_ADMIN_MANAGEMENT_OPTIONS,
         WEKO_ADMIN_DEFAULT_ITEM_EXPORT_SETTINGS=WEKO_ADMIN_DEFAULT_ITEM_EXPORT_SETTINGS,
@@ -451,6 +500,7 @@ def base_app(instance_path):
         WEKO_INDEX_TREE_LIST_API = "/api/tree",
         WEKO_INDEX_TREE_API = "/api/tree/index/",
         WEKO_INDEX_TREE_DEFAULT_DISPLAY_NUMBER = 5,
+        WEBPACKEXT_MANIFEST_LOADER=MockManifestLoader,
     )
     app_.url_map.converters['pid'] = PIDConverter
 
@@ -473,6 +523,7 @@ def base_app(instance_path):
     InvenioStats(app_)
     InvenioAdmin(app_)
     InvenioPIDStore(app_)
+    InvenioQueues(app_)
     InvenioSearchUI(app_)
     InvenioTheme(app_)
     WekoSearchUI(app_)
@@ -487,6 +538,9 @@ def base_app(instance_path):
     app_.register_blueprint(invenio_communities_blueprint)
     # WekoGridLayout(app_)
     app_.register_blueprint(weko_gridlayout_blueprint)
+
+    app_.register_blueprint(create_invenio_theme_blueprint(app_))
+    app_.register_blueprint(create_i18n_blueprint(app_))
 
     current_assets = LocalProxy(lambda: app_.extensions["invenio-assets"])
     current_assets.collect.collect()
@@ -506,14 +560,14 @@ def base_app(instance_path):
     return app_
 
 
-@pytest.yield_fixture(scope='session')
+@pytest.fixture(scope='session')
 def app(base_app):
     """Flask application fixture."""
     with base_app.app_context():
         yield base_app
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def db(app):
     """Get setup database."""
     if not database_exists(str(db_.engine.url)):
@@ -525,14 +579,15 @@ def db(app):
     drop_alembic_version_table()
 
 
-@pytest.yield_fixture(scope='session')
+@pytest.fixture(scope='session')
 def i18n_app(app):
     with app.test_request_context(
         headers=[('Accept-Language','ja')]):
         app.extensions['invenio-oauth2server'] = 1
         app.extensions['invenio-queues'] = 1
         yield app
-@pytest.yield_fixture()
+
+@pytest.fixture()
 def client(app):
     """make a test client.
     Args:
@@ -543,21 +598,21 @@ def client(app):
     with app.test_client() as client:
         yield client
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client_rest(app):
     # app.register_blueprint(create_blueprint(app, app.config['WEKO_INDEX_TREE_REST_ENDPOINTS']))
     with app.test_client() as client:
         yield client
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client_api(app):
     app.register_blueprint(blueprint_api, url_prefix='/api')
     with app.test_client() as client:
         yield client
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client_request_args(app, search_index):
     try:
         app.register_blueprint(create_blueprint(app, app.config['WEKO_INDEX_TREE_REST_ENDPOINTS']))
@@ -795,7 +850,26 @@ def search_index(app,db_records):
 
 
 @pytest.fixture()
-def db_records(db, instance_path, users):
+def user_activity_log_partition_table(app, db):
+    """Create user activity log partition."""
+    # Create partition for current month
+    now = datetime.now()
+    start = now.date().replace(day=1)
+    end = (start + timedelta(days=31)).replace(day=1)
+    partition_name = f"user_activity_logs_{now.year}_{now.month:02d}"
+    create_partition_sql = f"""
+        CREATE TABLE IF NOT EXISTS {partition_name}
+        PARTITION OF user_activity_logs
+        FOR VALUES FROM ('{start}') TO ('{end}');
+    """
+
+    with db.session.begin_nested():
+        db.session.execute(create_partition_sql)
+    db.session.commit()
+
+
+@pytest.fixture()
+def db_records(db, instance_path, users, user_activity_log_partition_table):
     with db.session.begin_nested():
         Location.query.delete()
         loc = Location(name="local", uri=instance_path, default=True)
@@ -1311,7 +1385,7 @@ def mock_users():
     }
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def mock_user_ctx(mock_users):
     """Run in a mock authenticated user context."""
     with patch('invenio_stats.utils.current_user',
@@ -1319,7 +1393,7 @@ def mock_user_ctx(mock_users):
         yield
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def open_search(app):
     """Provide opencsearch access, create and clean indices.
 
@@ -1388,14 +1462,14 @@ def generate_events(
     current_search_client.indices.refresh(index='test-*')
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def generate_request(app, open_search, mock_user_ctx, request):
     """Parametrized pre indexed sample events."""
     generate_events(app=app, **request.param)
     yield
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def dummy_location(db):
     """File system location."""
     tmppath = tempfile.mkdtemp()
@@ -1421,7 +1495,7 @@ def bucket(db, dummy_location):
     return b1
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def permissions(db, bucket):
     """Permission for users."""
     users = {
