@@ -136,6 +136,7 @@ def run(delayed, concurrency, version_type=None, queue=None,
     prompt="Do you really want to reindex all records?",
 )
 @click.option("-t", "--pid-type", multiple=True, required=True)
+@click.option('--include-delete', is_flag=True, default=False)
 @click.option('--skip-exists', is_flag=True, default=False)
 @click.option('--size',type=int,default=6000)
 @click.option('--item-type-id',type=int,default=None)

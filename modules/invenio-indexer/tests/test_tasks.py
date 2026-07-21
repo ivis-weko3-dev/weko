@@ -14,24 +14,27 @@ from unittest.mock import patch
 from invenio_indexer.tasks import delete_record, index_record, process_bulk_queue
 
 
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_tasks.py::test_process_bulk_queue -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_process_bulk_queue(app):
     """Test index records."""
     with patch("invenio_indexer.api.RecordIndexer.process_bulk_queue") as fun:
-        process_bulk_queue.delay()
+        process_bulk_queue()
         assert fun.called
 
 
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_tasks.py::test_index_record -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_index_record(app):
     """Test index records."""
     with patch("invenio_indexer.api.RecordIndexer.index_by_id") as fun:
         recid = str(uuid.uuid4())
-        index_record.delay(recid)
+        index_record(recid)
         fun.assert_called_with(recid)
 
 
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_tasks.py::test_delete_record -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_delete_record(app):
     """Test index records."""
     with patch("invenio_indexer.api.RecordIndexer.delete_by_id") as fun:
         recid = str(uuid.uuid4())
-        delete_record.delay(recid)
+        delete_record(recid)
         fun.assert_called_with(recid)

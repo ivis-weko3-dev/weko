@@ -33,8 +33,7 @@ def base_app(request):
     instance_path = tempfile.mkdtemp()
     app = Flask("testapp", instance_path=instance_path)
     app.config.update(
-
-        BROKER_URL='amqp://guest:guest@172.19.0.4:5672/',
+        BROKER_URL='amqp://guest:guest@rabbitmq:5672/',
         CELERY_BROKER_URL=os.environ.get(
             "BROKER_URL", "amqp://guest:guest@rabbitmq:5672//"
         ),

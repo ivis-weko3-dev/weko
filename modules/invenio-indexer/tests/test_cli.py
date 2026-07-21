@@ -50,6 +50,7 @@ def test_run(app):
     assert 'Indexing records' in res.output
 
 
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_cli.py::test_reindex -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_reindex(app):
     """Test reindex."""
     # load records
@@ -81,7 +82,7 @@ def test_reindex(app):
         # Make sure the index doesn't exist at the beginning (it was not
         # preserved by accident from some other tests)
         if current_search_client.indices.exists(index):
-            current_search_client.indices.delete(index=index)
+            list(current_search.delete(ignore=[404]))
 
         assert current_search_client.indices.exists(index) is False
 
@@ -100,7 +101,7 @@ def test_reindex(app):
         assert "Indexing queue has been purged." in res.output
 
 
-
+        list(current_search.create(ignore=[400]))
         res = runner.invoke(cli.reindex, ["--yes-i-know", "-t", "recid"])
         assert 0 == res.exit_code
         res = runner.invoke(cli.run, [])
@@ -134,6 +135,7 @@ def test_reindex(app):
         list(current_search.delete(ignore=[404]))
 
 
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_cli.py::test_queues_options -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_queues_options(app):
     """Test queue sub-command options."""
 
@@ -155,8 +157,9 @@ def test_queues_options(app):
         ),
         routing_key="files",
     )
-    current_indexer_registry.register(users_indexer, "users")
-    current_indexer_registry.register(files_indexer, "files")
+    with app.app_context():
+        current_indexer_registry.register(users_indexer, "users")
+        current_indexer_registry.register(files_indexer, "files")
     queues = {
         "default": app.config["INDEXER_MQ_QUEUE"],
         "users": users_indexer.mq_queue,
@@ -187,8 +190,9 @@ def test_queues_options(app):
     with establish_connection() as c:
         assert queues["users"](c).queue_declare(passive=True)
 
-    users_indexer.bulk_index(["123", "456"])
-    files_indexer.bulk_index(["file1", "file2", "file3"])
+    with app.app_context():
+        users_indexer.bulk_index(["123", "456"])
+        files_indexer.bulk_index(["file1", "file2", "file3"])
 
     with establish_connection() as c:
         assert queues["users"](c).queue_declare(passive=True).message_count == 2
