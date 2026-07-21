@@ -55,15 +55,16 @@
 
 {%- block javascript %}
   {{ super() }}
-  <script src="/assets/js/weko_gridlayout/react.production.min.js"></script>
-  <script src="/assets/js/weko_gridlayout/react-dom.production.min.js"></script>
-  <script src="/assets/js/weko_gridlayout/browser.min.js"></script>
+  <script src="/assets/node_modules/react/cjs/react.production.min.js"></script>
+  <script src="/assets/node_modules/react-dom/cjs/react-dom.production.min.js"></script>
+  <script src="/assets/node_modules/babel-core/browser.min.js"></script>
   {{ webpack['gridlayout_js_widget_design_js_lib.js']}}
-  {{ webpack['gridlayout_js_prop_types_js.js']}}
+  <script src="/assets/node_modules/prop-types/prop-types.js"></script>
   {{ webpack['gridlayout_js_widget_setting_js.js']}}
   {{ webpack['gridlayout_js_trumbowyg_js_plugin.js']}}
   <script type="text/javascript"
           src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.5.0/lodash.min.js"></script>
   {{ webpack["admin_js_date_picker_js.js"]}}
 
 {%- endblock javascript %}

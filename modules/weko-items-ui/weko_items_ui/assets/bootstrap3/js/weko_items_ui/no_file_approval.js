@@ -1,4 +1,9 @@
-const ENABLE_NO_FILE_APPROVAL_CHECKBOX_LABEL =  document.getElementById('no_file_approval_checkbox_label').value
+import $ from 'jquery';
+import React from 'react';
+import ReactDOM from 'react-dom';
+import * as ReactBootstrap from 'react-bootstrap';
+
+const ENABLE_NO_FILE_APPROVAL_CHECKBOX_LABEL = document.getElementById('no_file_approval_checkbox_label').value
 const NO_FILE_APPROVAL_LABEL = document.getElementById('no_file_approval_label').value
 const TERMS_AND_CONDITIONS_LABEL = document.getElementById('terms_and_conditions_label').value
 
@@ -88,7 +93,7 @@ class NoneContentsApproval extends React.Component{
                     </div>
                 <div className={`row ${this.state.selected_term === "term_free" ? 'show': 'hidden'}`}>
                     <div className="col-sm-12 form-group schema-form-textarea">
-                        <label className="control-label col-sm-3"></label>
+                        <div className="control-label col-sm-3"></div>
                         <div class="col-sm-9">
                             <textarea class="form-control" id="termsDescription" onChange={() => {this.setState({termsDescription: this.value})}} value={this.state.termsDescription} />
                         </div>

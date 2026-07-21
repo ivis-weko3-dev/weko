@@ -1,3 +1,5 @@
+import $ from 'jquery';
+
 $(document).ready(function () {
 
   const moveRight = $('#moveRight');
@@ -146,6 +148,7 @@ $('#application').change(function(){
 
 function changeRegistrationType(value) {
   const workflowMenu = document.getElementById('workflow');
+  const workflowOption = document.createElement('option');
   closeError();
 
   if (value === 'empty') {
@@ -289,7 +292,7 @@ function save_button_state_change() {
 }
 
 function checke_save_button_enable() {
-  result = false;
+  let result = false;
   if (current_page_type === 'add') {
     if ( $('#application').val() !== '' ) {
       if (check_integrity_result === true) {
@@ -307,6 +310,7 @@ function checke_save_button_enable() {
 }
 
 function saveDataFormat(type) {
+  let registration_type_save_value = ''
   const application = document.getElementById('application');
   const active = document.getElementById('active');
   const registration_type = document.getElementsByName('registration_type');
@@ -321,7 +325,7 @@ function saveDataFormat(type) {
 
   //Validate
   // required check
-  NGList = [];
+  let NGList = [];
   if (
     registration_type_save_value === 'Workflow' &&
     workflowMenu.value === ''
@@ -343,8 +347,8 @@ function saveDataFormat(type) {
     return showMsg(workflow_deleted_alert, false);
   }
 
-  active_value = 'False';
-  duplicate_check_value = 'False';
+  let active_value = 'False';
+  let duplicate_check_value = 'False';
   if (active.checked) {
     active_value = 'True';
   }
@@ -354,7 +358,7 @@ function saveDataFormat(type) {
 
   const children = $('#leftSelect').children();
   const selectedChildren = $('#rightSelect').children();
-  selected_API = [];
+  let selected_API = [];
   for (let index = 0; index < selectedChildren.length; index++) {
     let element = selectedChildren[index].value;
     selected_API.push(element);
@@ -362,7 +366,7 @@ function saveDataFormat(type) {
   if (selected_API.length ===1 && selected_API[0] === "Original") {
     selected_API = [];
   }
-  no_selected_API = [];
+  let no_selected_API = [];
   for (let index = 0; index < children.length; index++) {
     let element = children[index].value;
     no_selected_API.push(element);
@@ -384,6 +388,7 @@ function saveDataFormat(type) {
     Meta_data_API_no_selected: no_selected_API,
   };
 
+  let url = ''
   if (type === 'add') {
     url = '/admin/swordapi/jsonld/add/';
   } else {

@@ -116,8 +116,8 @@ $(document).ready(function () {
               $("#user_lock_modal").css('display','block');
               $('#btn_unlock').on('click', function () {
                 $("#action_unlock_activity").modal("hide");
-                user_unlock_activity(activity_id, is_opened, is_force=true);
-                location.reload();
+                user_unlock_activity(activity_id, is_opened, true);
+                window.location.reload();
               });
             });
           }

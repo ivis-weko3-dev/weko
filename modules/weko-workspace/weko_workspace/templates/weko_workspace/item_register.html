@@ -32,13 +32,13 @@
   {%- endblock css %}
 
   {%- block javascript %}
-  <script src="{{ url_for('static', filename='js/react/react.production.min.js') }}" crossorigin></script>
-  <script src="{{ url_for('static', filename='js/react/react-dom.production.min.js') }}" crossorigin></script>
-  <script src="{{ url_for('static', filename='js/babel-cores/browser.min.js') }}"></script>
-  {{ webpack["theme-js-axios.js"] }}
+  <script src="/assets/node_modules/react/cjs/react.production.min.js" crossorigin></script>
+  <script src="/assets/node_modules/react-dom/cjs/react-dom.production.min.js" crossorigin></script>
+  <script src="/assets/node_modules/babel-core/browser.min.js"></script>
+  <script src="/assets/node_modules/axios/dist/axios.min.js"></script>
 
     {{ webpack["deposit_js_dependencies.js"] }}
-    <script src="{{ url_for('static', filename='js/weko_admin/react-bootstrap.min.js') }}"></script>
+    <script src="/assets/node_modules/react-bootstrap/dist/react-bootstrap.min.js"></script>
     {{ super() }}
     {{ webpack["deposit_js_js.js"] }}
     {{ webpack["workspace_register_js.js"] }}
@@ -48,7 +48,7 @@
     <script src="{{ url_for('static', filename='js/weko_items_ui/main.bundle.js') }}"></script>
     {{ webpack["theme-widget.js"] }}
   {%- endblock javascript %}
- 
+
   {%- block page_header %}
     {%-if not community %}
     {{ super() }}
@@ -126,16 +126,16 @@
                       <div class="row col-sm-12">
                         <div class="col-sm-12">
                           <div class="col-sm-11">
-                            <input type="text" id="doiInput" name="doiInput" placeholder="{{ _('Please enter the DOI.') }}" 
+                            <input type="text" id="doiInput" name="doiInput" placeholder="{{ _('Please enter the DOI.') }}"
                                    style="border: 2px solid #ccc; padding: 5px; width: 100%;" ng-model="doiInput">
                           </div>
                           <div class="col-sm-1">
-                            <button type="button" class="btn btn-primary" id="autofill_item_get_button" 
+                            <button type="button" class="btn btn-primary" id="autofill_item_get_button"
                                     ng-click="setItemMetadataAPI()" ng-disabled="isButtonDisabled">
                                 {{_('Get')}}
                             </button>
                           </div>
-                        
+
                         </div>
                       </div>
 
@@ -144,55 +144,55 @@
                           <div class="radio">&nbsp;
                             <div id="crossref_box" class="select_site_box select_site_disabled">
                               <label style="text-align: center;">
-                                <input type="radio" 
-                                        ng-model="selectedMetaData" 
-                                        ng-change="metaDataSelectAPI(selectedMetaData)" 
-                                        name="metaDataSelect" 
-                                        id="metaDataSelectCrossRef" 
+                                <input type="radio"
+                                        ng-model="selectedMetaData"
+                                        ng-change="metaDataSelectAPI(selectedMetaData)"
+                                        name="metaDataSelect"
+                                        id="metaDataSelectCrossRef"
                                         value="CrossRefMetaData">
                                 <br>CrossRef MetaData
                               </label>
                             </div>
                             <div id="jalc_box" class="select_site_box select_site_disabled">
                                 <label style="text-align: center;">
-                                  <input type="radio" 
-                                          ng-model="selectedMetaData" 
-                                          ng-change="metaDataSelectAPI(selectedMetaData)" 
-                                          name="metaDataSelect" 
-                                          id="metaDataSelectJalc" 
+                                  <input type="radio"
+                                          ng-model="selectedMetaData"
+                                          ng-change="metaDataSelectAPI(selectedMetaData)"
+                                          name="metaDataSelect"
+                                          id="metaDataSelectJalc"
                                           value="JaLCMetaData">
                                   <br>JaLC MetaData
                                 </label>
                             </div>
                             <div id="cinii_box" class="select_site_box select_site_disabled">
                               <label style="text-align: center;">
-                                <input type="radio" 
-                                        ng-model="selectedMetaData" 
-                                        ng-change="metaDataSelectAPI(selectedMetaData)" 
-                                        name="metaDataSelect" 
-                                        id="metaDataSelectCinii" 
+                                <input type="radio"
+                                        ng-model="selectedMetaData"
+                                        ng-change="metaDataSelectAPI(selectedMetaData)"
+                                        name="metaDataSelect"
+                                        id="metaDataSelectCinii"
                                         value="CiNiiMetaData">
                                 <br>CiNii MetaData
                               </label>
                             </div>
                             <div id="datacite_box" class="select_site_box select_site_disabled">
                               <label style="text-align: center;">
-                                <input type="radio" 
-                                ng-model="selectedMetaData" 
+                                <input type="radio"
+                                ng-model="selectedMetaData"
                                 ng-change="metaDataSelectAPI(selectedMetaData)"
-                                name="metaDataSelect" 
-                                id="metaDataSelectDataCite" 
+                                name="metaDataSelect"
+                                id="metaDataSelectDataCite"
                                 value="DataCiteMetaData">
                                 <br>DataCite MetaData
                               </label>
                             </div>
                             <div id="arXiv_box" class="select_site_box select_site_disabled">
                               <label style="text-align: center;">
-                                <input type="radio" 
-                                ng-model="selectedMetaData" 
+                                <input type="radio"
+                                ng-model="selectedMetaData"
                                 ng-change="metaDataSelectAPI(selectedMetaData)"
-                                name="metaDataSelect" 
-                                id="metaDataSelectarXiv" 
+                                name="metaDataSelect"
+                                id="metaDataSelectarXiv"
                                 value="arXivMetaData">
                                 <br>arXiv MetaData
                               </label>
@@ -263,7 +263,7 @@
                       form-templates-base="{{ url_for('static', filename=config.DEPOSIT_FORM_TEMPLATES_BASE) }}"
                       template="{{ url_for('static', filename=config.DEPOSIT_UI_JSTEMPLATE_FORM) }}">
                     </invenio-records-form>
-                    
+
                   </div>
 
                   <div class="panel panel-default" class="col-sm-12">
@@ -399,7 +399,7 @@
   <input type="hidden" id="duplicate_files_error" name="duplicate_files_error"
       value="{{_('The same file name cannot be registered.')}}">
   <input type="hidden" id="autofill_item_type_id" name="autofill_item_type_id" value="{{id}}">
-  
+
   <div role="dialog" tabindex="-1" class="fade in modal" id='regist_confirm_modal'>
     <div class="modal-dialog row popup_notice">
       <div class="modal-content" role="document">
@@ -425,7 +425,7 @@
       </div>
     </div>
   </div>
-    
+
   <div role="dialog" tabindex="-1" class="fade in modal" id='index_select_confirm_modal'>
     <div class="modal-dialog row popup_notice">
       <div class="modal-content" role="document">
@@ -451,7 +451,7 @@
       </div>
     </div>
   </div>
-    
+
   <script>
     window.onload = function() {
         var element = document.querySelector('.panel-footer');
@@ -461,4 +461,3 @@
     };
   </script>
   {%- endblock page_body_main %}
-

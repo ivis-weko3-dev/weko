@@ -226,7 +226,7 @@ class MainLayout extends React.Component {
                         that.setState({
                             errors: result.data,
                             success: false,
-                            list_error: error,
+                            list_error: result.error,
                             show_alert: true
                         }, () => {
                             that.handle_focus_error()
