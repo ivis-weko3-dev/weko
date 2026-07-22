@@ -11,6 +11,7 @@
 import json
 import pytz
 import pytest
+import time
 import types
 import uuid
 
@@ -144,28 +145,24 @@ def test_index_action(app):
             indexer = RecordIndexer()
             indexer.count = 0
             indexer.completed_record_count = 0
-            with patch(
-                "weko_deposit.api.WekoIndexer.get_metadata_by_item_id",
-                return_value={"found": True, "_version": record.model.version_id},
-            ):
-                action = indexer._index_action(
-                    dict(
-                        id=str(record.id),
-                        op="index",
-                    )
+            action = indexer._index_action(
+                dict(
+                    id=str(record.id),
+                    op="index",
                 )
-                assert action["_op_type"] == "index"
-                assert action["_index"] == app.config["INDEXER_DEFAULT_INDEX"]
-                assert action["_id"] == str(record.id)
-                assert action["_version"] == record.model.version_id
-                assert action["_version_type"] == "external_gte"
-                assert action["pipeline"] == "foobar"
-                assert "title" in action["_source"]
-                assert "extra" in action["_source"]
-                assert indexer.count == 1
+            )
+            assert action["_op_type"] == "index"
+            assert action["_index"] == app.config["INDEXER_DEFAULT_INDEX"]
+            assert action["_id"] == str(record.id)
+            assert action["_version"] == record.model.version_id
+            assert action["_version_type"] == "external_gte"
+            assert action["pipeline"] == "foobar"
+            assert "title" in action["_source"]
+            assert "extra" in action["_source"]
+            assert indexer.count == 1
 
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_process_bulk_queue -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_process_bulk_queue -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_process_bulk_queue(app, queue):
     """Test process indexing."""
     with app.app_context():
@@ -189,7 +186,7 @@ def test_process_bulk_queue(app, queue):
             assert [x["_op_type"] for x in ret["actions"]] == ["index", "delete"]
 
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_process_bulk_queue_errors -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_process_bulk_queue_errors -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_process_bulk_queue_errors(app, queue):
     """Test error handling during indexing."""
     with app.app_context():
@@ -203,6 +200,7 @@ def test_process_bulk_queue_errors(app, queue):
         db.session.commit()
 
         RecordIndexer().bulk_index([r1.id, r2.id])
+        time.sleep(1)
 
         ret = {}
 
@@ -210,17 +208,25 @@ def test_process_bulk_queue_errors(app, queue):
             ret['actions'] = list(actions_iterator)
             return (len(ret['actions']), 0)
 
-        with patch('invenio_indexer.api.RecordIndexer.reindex_bulk', _mock_bulk):
-            with patch('invenio_indexer.api.RecordIndexer._actionsiter', return_value=[
+        def _mock_actionsiter(self, messages, with_deleted=False):
+            actions = [
                 {'_id': str(r2.id), '_op_type': 'index', '_source': {'title': 'valid'}}
-            ]):
+            ]
+            self.count = len(actions)
+            self.success_ids = [str(r2.id)]
+            for message in messages:
+                message.ack()
+            return iter(actions)
+
+        with patch('invenio_indexer.api.RecordIndexer.reindex_bulk', _mock_bulk):
+            with patch('invenio_indexer.api.RecordIndexer._actionsiter', new=_mock_actionsiter):
                 # Exceptions are caught
                 assert RecordIndexer().process_bulk_queue() == (1, 0, 1)
                 assert len(ret['actions']) == 1
                 assert ret['actions'][0]['_id'] == str(r2.id)
 
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_process_bulk_queue_reindex -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_process_bulk_queue_reindex -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_process_bulk_queue_reindex(app, queue):
     """Test process indexing."""
     with app.app_context():
@@ -456,7 +462,7 @@ class DummyBulkException(BulkException):
         self.errors = errors
         self.original_exception = original_exception
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_reindex_bulk -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_reindex_bulk -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_reindex_bulk():
     def dummy_streaming_bulk_success(*args, **kwargs):
         for i in range(10):
@@ -578,7 +584,7 @@ def test_reindex_bulk():
         assert e.value.success == 7
 
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_reindex_bulk_chunk_logging -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_reindex_bulk_chunk_logging -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_reindex_bulk_chunk_logging():
     # Dummy for streaming_bulk: Assumes chunk logs are output every 2 items
     def dummy_streaming_bulk(*args, **kwargs):
@@ -848,7 +854,7 @@ def test_bulkrecordindexer_index_delete_by_record(app, queue):
             assert data1['id'] == str(recid)
             assert data1['op'] == 'delete'
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test__index_action_cases -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test__index_action_cases -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 @pytest.mark.parametrize(
     "body, expected_file, has_content, version_id, es_version, expect_commit, max_body_size, expect_error",
     [
@@ -913,7 +919,7 @@ def test__index_action_cases(monkeypatch, body, expected_file, has_content, vers
         assert result['_source']['file'] == expected_file
         assert 'content' not in result['_source']
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test__actionsiter_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test__actionsiter_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test__actionsiter_exception(monkeypatch):
     """Test that reject and logger.error are called when an exception occurs in _actionsiter."""
     indexer = RecordIndexer(search_client=None)
@@ -938,7 +944,7 @@ def test__actionsiter_exception(monkeypatch):
     assert "type:Exception" in logs['msg']
     assert "message:Exception_reason" in logs['msg']
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test__actionsiter_noresultfound -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test__actionsiter_noresultfound -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test__actionsiter_noresultfound(monkeypatch):
     """Test that reject is called when NoResultFound occurs in _actionsiter."""
     indexer = RecordIndexer(search_client=None)
@@ -985,7 +991,7 @@ def test__actionsiter_delete(monkeypatch):
     assert msg.acked is True
     assert msg.rejected is False
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test__actionsiter_sqlalchemyerror -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test__actionsiter_sqlalchemyerror -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test__actionsiter_sqlalchemyerror(monkeypatch):
     """Test that rollback, logger.error, and reject are called on SQLAlchemyError in _actionsiter."""
     from invenio_indexer.api import SQLAlchemyError
@@ -1010,7 +1016,7 @@ def test__actionsiter_sqlalchemyerror(monkeypatch):
     assert called['rollback'] is True
     assert called['error'] is True
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_bulk_base_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_bulk_base_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_bulk_base_exception():
     exc = BulkBaseException(
         success=2,
@@ -1026,7 +1032,7 @@ def test_bulk_base_exception():
     with pytest.raises(BulkBaseException):
         raise exc
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_bulk_connection_timeout -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_bulk_connection_timeout -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_bulk_connection_timeout():
     exc = BulkConnectionTimeout(success=1, failed=2, errors=[{'error': 'timeout'}], original_exception=Exception("timeout"))
     assert exc.success == 1
@@ -1036,7 +1042,7 @@ def test_bulk_connection_timeout():
     with pytest.raises(BulkConnectionTimeout):
         raise exc
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_bulk_connection_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_bulk_connection_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_bulk_connection_error():
     exc = BulkConnectionError(success=3, failed=4, errors=[{'error': 'conn'}], original_exception=Exception("conn"))
     assert exc.success == 3
@@ -1046,7 +1052,7 @@ def test_bulk_connection_error():
     with pytest.raises(BulkConnectionError):
         raise exc
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_bulk_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_bulk_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_bulk_exception():
     exc = BulkException(success=5, failed=6, errors=[{'error': 'other'}], original_exception=Exception("other"))
     assert exc.success == 5
@@ -1057,7 +1063,7 @@ def test_bulk_exception():
         raise exc
 
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_before_record_index_dynamic_connect -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_api.py::test_before_record_index_dynamic_connect -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_before_record_index_dynamic_connect(app):
     """Test before_record_index.dynamic_connect."""
     with app.app_context():

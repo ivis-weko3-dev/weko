@@ -664,7 +664,7 @@ class RecordIndexer(object):
         indexer = WekoIndexer()
         indexer.get_search_index()
         res = indexer.get_metadata_by_item_id(record_id, is_ignore=True)
-        if res["found"] is True:
+        if res.get("found") is True:
             es_version = res.get('_version')
             if record.model.version_id < es_version:
                 record.model.version_id = es_version

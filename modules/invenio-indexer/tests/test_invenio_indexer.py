@@ -45,7 +45,7 @@ def test_init():
     assert "invenio-indexer" in app.extensions
 
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_invenio_bulkindexer.py::test_hook_initialization -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_invenio_bulkindexer.py::test_hook_initialization -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_hook_initialization(base_app):
     """Test hook initialization."""
     app = base_app

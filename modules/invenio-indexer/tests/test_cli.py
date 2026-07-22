@@ -12,6 +12,7 @@ import uuid
 
 import amqp
 import pytest
+import time
 from celery.messaging import establish_connection
 from invenio_db import db
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
@@ -24,7 +25,7 @@ from invenio_indexer.api import RecordIndexer
 from invenio_indexer.proxies import current_indexer_registry
 
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_cli.py::test_run -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_cli.py::test_run -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_run(app):
     """Test run."""
     runner = app.test_cli_runner()
@@ -50,7 +51,7 @@ def test_run(app):
     assert 'Indexing records' in res.output
 
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_cli.py::test_reindex -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_cli.py::test_reindex -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_reindex(app):
     """Test reindex."""
     # load records
@@ -101,9 +102,9 @@ def test_reindex(app):
         assert "Indexing queue has been purged." in res.output
 
 
-        list(current_search.create(ignore=[400]))
         res = runner.invoke(cli.reindex, ["--yes-i-know", "-t", "recid"])
         assert 0 == res.exit_code
+        time.sleep(1)
         res = runner.invoke(cli.run, [])
         assert 0 == res.exit_code
         current_search.flush_and_refresh(index)
@@ -120,6 +121,7 @@ def test_reindex(app):
         list(current_search.delete(ignore=[404]))
         res = runner.invoke(cli.reindex, ["--yes-i-know", "-t", "recid"])
         assert 0 == res.exit_code
+        time.sleep(1)
         res = runner.invoke(cli.run, [])
         assert 0 == res.exit_code
         current_search.flush_and_refresh(index)
@@ -135,7 +137,7 @@ def test_reindex(app):
         list(current_search.delete(ignore=[404]))
 
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_cli.py::test_queues_options -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_cli.py::test_queues_options -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_queues_options(app):
     """Test queue sub-command options."""
 

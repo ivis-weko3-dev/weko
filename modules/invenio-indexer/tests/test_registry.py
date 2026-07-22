@@ -14,7 +14,7 @@ from invenio_indexer.api import RecordIndexer
 from invenio_indexer.proxies import current_indexer_registry
 
 
-# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_registry.py::test_indexer_registry -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=invenio_indexer tests/test_registry.py::test_indexer_registry -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-indexer/.tox/c1/tmp
 def test_indexer_registry(app):
     indexer_instance = RecordIndexer()
     with app.app_context():
