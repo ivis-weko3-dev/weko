@@ -454,7 +454,7 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
             )
 
         try:
-            request_data = schema().load(request.json).data
+            request_data = schema().load(request.json)
         except ValidationError as ex:
             current_app.logger.error("Invalid payload for author creation.")
             traceback.print_exc()
@@ -470,10 +470,10 @@ class AuthorDBManagementAPI(ContentNegotiatedMethodView):
             ) from ex
 
         return request_data
-    
+
     def check_author_id_info(self, author_data):
         """Remove authorIdInfo with idType '1(WEKO)'.
-        
+
         Args:
             author_data (dict): The author data containing authorIdInfo.
         """
