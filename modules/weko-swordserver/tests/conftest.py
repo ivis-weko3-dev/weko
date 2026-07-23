@@ -19,11 +19,15 @@ import subprocess
 import tempfile
 import uuid
 
+from io import BytesIO
+from os.path import join
 from datetime import datetime, timedelta
+from zipfile import ZipFile, ZIP_DEFLATED
+
 from flask import Flask
 from flask_babel import Babel
 from flask_mail import Mail
-from flask_menu import Menu
+from werkzeug.local import LocalProxy
 
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionUsers,ActionRoles
@@ -34,7 +38,6 @@ from invenio_accounts.testutils import create_test_user
 from invenio_admin import InvenioAdmin
 from invenio_assets import InvenioAssets
 from invenio_cache import InvenioCache
-from invenio_communities.ext import InvenioCommunities
 from invenio_communities.models import Community
 from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
 from invenio_deposit import InvenioDeposit
@@ -52,8 +55,6 @@ from invenio_records import InvenioRecords
 from invenio_records_ui import InvenioRecordsUI
 from invenio_search import InvenioSearch, current_search_client
 from invenio_theme import InvenioTheme
-from io import BytesIO
-from os.path import join, dirname
 from sqlalchemy_utils.functions import create_database, database_exists
 
 from weko_accounts import WekoAccounts
@@ -75,19 +76,17 @@ from weko_workflow.models import Action, ActionStatus, FlowAction, FlowDefine, W
 from weko_swordserver import WekoSWORDServer
 from weko_swordserver.views import blueprint as weko_swordserver_blueprint
 from weko_logging.audit import WekoLoggingUserActivity
-from werkzeug.local import LocalProxy
-from zipfile import ZipFile, ZIP_DEFLATED
 
 from .helpers import json_data, create_record
 
-@pytest.yield_fixture()
+@pytest.fixture
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
     yield path
     shutil.rmtree(path)
 
-@pytest.fixture()
+@pytest.fixture
 def base_app(instance_path):
     """Flask application fixture."""
     app_ = Flask(
@@ -181,7 +180,7 @@ def base_app(instance_path):
 
     yield app_
 
-@pytest.yield_fixture()
+@pytest.fixture
 def app(base_app):
     """Flask application"""
     WekoSWORDServer(base_app)
@@ -189,12 +188,12 @@ def app(base_app):
     with base_app.app_context():
         yield base_app
 
-@pytest.yield_fixture()
+@pytest.fixture
 def client(app):
     with app.test_client() as client:
         yield client
 
-@pytest.yield_fixture()
+@pytest.fixture
 def search_index(app):
     app.config.update(
         WEKO_AUTHORS_SEARCH_INDEX_NAME="test-weko-author"
@@ -234,7 +233,7 @@ def search_index(app):
         current_search_client.indices.delete(index="test-*")
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def db(app):
     """Database fixture."""
     if not database_exists(str(db_.engine.url)):
@@ -288,7 +287,7 @@ def tokens(app,users,db):
     return tokens
 
 
-@pytest.fixture()
+@pytest.fixture
 def personal_token(app, users, db):
     tokens = []
 
@@ -321,7 +320,7 @@ def personal_token(app, users, db):
     return tokens
 
 
-@pytest.fixture()
+@pytest.fixture
 def users(app, db):
     """Create users."""
     ds = app.extensions['invenio-accounts'].datastore
@@ -454,7 +453,7 @@ def users(app, db):
         {'email': student.email,'id': student.id, 'obj': student}
     ]
 
-@pytest.fixture()
+@pytest.fixture
 def item_type(app, db):
 
     item_type_name = ItemTypeName(id=1,
@@ -474,7 +473,7 @@ def item_type(app, db):
     )
     item_type_mapping = ItemTypeMapping(
         id=1,
-        item_type_id=1,
+        item_type_id=item_type.id,
         mapping=json_data("data/item_type/mapping_1.json")
     )
 
@@ -495,18 +494,19 @@ def item_type(app, db):
     )
     item_type_mapping_2 = ItemTypeMapping(
         id=2,
-        item_type_id=2,
+        item_type_id=item_type_2.id,
         mapping=json_data("data/item_type/mapping_2.json")
     )
 
-    with db.session.begin_nested():
-        db.session.add(item_type_name)
-        db.session.add(item_type)
-        db.session.add(item_type_mapping)
-        db.session.add(item_type_name_2)
-        db.session.add(item_type_2)
-        db.session.add(item_type_mapping_2)
+    # with db.session.begin_nested():
+    db.session.add(item_type_name)
+    db.session.add(item_type)
+    db.session.add(item_type_name_2)
+    db.session.add(item_type_2)
+    db.session.commit()
 
+    db.session.add(item_type_mapping)
+    db.session.add(item_type_mapping_2)
     db.session.commit()
 
     return [
@@ -514,7 +514,7 @@ def item_type(app, db):
         {"item_type_name": item_type_name_2, "item_type": item_type_2, "item_type_mapping":None}
     ]
 
-@pytest.fixture()
+@pytest.fixture
 def doi_identifier(app, db):
     identifier = Identifier(
         id=1,
@@ -537,7 +537,7 @@ def doi_identifier(app, db):
     return identifier
 
 
-@pytest.fixture()
+@pytest.fixture
 def index(app, db):
     index_1 = Index(
         id=1234567891011,
@@ -571,7 +571,7 @@ def index(app, db):
     db.session.add(index_2)
     db.session.commit()
 
-@pytest.fixture()
+@pytest.fixture
 def location(app,db):
     """Create default location."""
     tmppath = tempfile.mkdtemp()
@@ -582,7 +582,7 @@ def location(app,db):
     db.session.commit()
     return loc
 
-@pytest.fixture()
+@pytest.fixture
 def records(db,location):
     record_data = json_data("data/records/test_records.json")
     item_data = json_data("data/records/test_items.json")
@@ -593,7 +593,7 @@ def records(db,location):
         db.session.commit()
     return result
 
-@pytest.fixture()
+@pytest.fixture
 def admin_settings(db):
     settings = []
     settings.append(AdminSettings(id=1,name='items_display_settings',settings={"items_display_email": False, "items_search_author": "name", "item_display_open_date": False}))
@@ -611,12 +611,12 @@ def admin_settings(db):
     return settings
 
 
-@pytest.fixture()
+@pytest.fixture
 def bucket(app, db, location):
     bucket = Bucket.create()
     return bucket
 
-@pytest.fixture()
+@pytest.fixture
 def search_records(app, search_index, records):
     for recid, depid, record, item, parent, doi, deposit in records:
         search_index.index(
@@ -627,13 +627,13 @@ def search_records(app, search_index, records):
         )
     return records
 
-@pytest.fixture()
+@pytest.fixture
 def sessionlifetime(app, db):
     session_lifetime = SessionLifetime(lifetime=60, is_delete=False)
     with db.session.begin_nested():
         db.session.add(session_lifetime)
 
-@pytest.fixture()
+@pytest.fixture
 def make_zip():
     def factory():
         fp = BytesIO()
@@ -646,7 +646,7 @@ def make_zip():
         return fp
     return factory
 
-@pytest.fixture()
+@pytest.fixture
 def make_crate():
     def factory():
         temp_dir = tempfile.mkdtemp()
@@ -660,7 +660,7 @@ def make_crate():
         return fp, file_size
     return factory
 
-@pytest.fixture()
+@pytest.fixture
 def make_crate2():
     def factory():
         temp_dir = tempfile.mkdtemp()
@@ -674,14 +674,14 @@ def make_crate2():
         return fp, file_size
     return factory
 
-@pytest.fixture()
+@pytest.fixture
 def install_node_module(app):
     current_path = os.getcwd()
     os.chdir(app.instance_path+'/static')
     assert subprocess.call('npm install bootstrap-sass@3.3.5 font-awesome@4.4.0 angular@1.4.9 angular-gettext angular-loading-bar@0.9.0 bootstrap-datepicker@1.7.1 almond@0.3.1 jquery@1.9.1 d3@3.5.17 invenio-search-js@1.3.1', shell=True) == 0
     os.chdir(current_path)
 
-@pytest.yield_fixture()
+@pytest.fixture
 def indexer(app):
     """Create a record indexer."""
     InvenioRecordsUI(app)
@@ -690,7 +690,7 @@ def indexer(app):
     app.extensions['invenio-indexer'] = WekoIndexer()
     yield WekoIndexer()
 
-@pytest.fixture()
+@pytest.fixture
 def action_data(db):
     action_datas={}
     with open('tests/data/actions.json', 'r') as f:
@@ -714,7 +714,7 @@ def action_data(db):
     return actions_db, actionstatus_db
 
 
-@pytest.fixture()
+@pytest.fixture
 def workflow(app, db, item_type, action_data, users):
     flow_define = FlowDefine(
         id=1,
