@@ -780,8 +780,8 @@ def users(app, db):
 def indices(app, db):
     with db.session.begin_nested():
         # Create a test Indices
-        testIndexOne = Index(index_name="testIndexOne",position=10, browsing_role="3,-98,-99",public_state=True,id=11)
-        testIndexTwo = Index(index_name="testIndexTwo",position=11, browsing_group="group_test1",public_state=True,id=22)
+        testIndexOne = Index(index_name="testIndexOne",position=10, browsing_role="3,-98,-99", browsing_group="-89", public_state=True, id=11)
+        testIndexTwo = Index(index_name="testIndexTwo",position=11, browsing_group="group_test1",public_state=True, id=22)
         testIndexThree = Index(
             index_name="testIndexThree",
             browsing_role="3,-98,-99",
