@@ -10,14 +10,14 @@ Babel==2.14.0
 bagit==1.7.0
 base32-lib==1.0.2
 beautifulsoup4==4.9.3
-billiard==4.2.0
+billiard==4.2.1
 binaryornot==0.4.4
 bleach==6.1.0
 blinker==1.7.0
 cachelib==0.9.0
 captcha==0.6.0
 cchardet==2.2.0a2
-celery==5.3.6
+celery==5.5
 charset-normalizer==3.3.2
 certifi==2023.7.22
 cffi==1.16.0
@@ -90,7 +90,7 @@ jupyter-client==6.1.12
 jupyter-core==4.12.0
 jsonpath-ng == 1.5.2
 #kombu==5.3.7
--e git+https://github.com/RCOSDP/kombu.git@nii_develop/W2024-16#egg=kombu
+-e git+https://github.com/RCOSDP/kombu.git@nii_develop/W2026-31#egg=kombu
 limits==3.11.0
 lxml==5.2.1
 lxml-html-clean==0.4.4
