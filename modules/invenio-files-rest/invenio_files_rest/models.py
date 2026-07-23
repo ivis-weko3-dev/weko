@@ -55,7 +55,6 @@ from sqlalchemy.orm import validates
 from sqlalchemy.orm.exc import MultipleResultsFound
 from sqlalchemy.sql.expression import func
 from sqlalchemy_utils.types import JSONType, UUIDType
-from weko_admin.models import AdminSettings
 
 
 from .errors import (
@@ -1030,6 +1029,7 @@ class FileInstance(db.Model, Timestamp):
         if convert_to_pdf:
 
             try:
+                from weko_admin.models import AdminSettings
                 settings = AdminSettings.get("convert_pdf_settings")
 
                 # Load settings from settings if there is not settings in db

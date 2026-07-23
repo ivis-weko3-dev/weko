@@ -1,3 +1,5 @@
+import $ from 'jquery';
+
 $(document).ready(function () {
   /**
    * 以前の OA ポリシー情報をリセット

@@ -1,3 +1,5 @@
+import $ from 'jquery';
+
 const setLanguage = $("#shib_form").data("value");
 
 $(document).ready(function () {

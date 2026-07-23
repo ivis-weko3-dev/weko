@@ -41,27 +41,27 @@ from weko_workflow.utils import get_cache_data, delete_cache_data
 # def export_all():
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_tasks.py::test_export_all -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
 def test_export_all(app):
-    patch("weko_authors.tasks.set_export_status")
-    patch("weko_authors.tasks.save_export_url")
-    patch("weko_authors.tasks.export_authors",return_value="test_url.txt")
-    patch("weko_authors.tasks.export_prefix",return_value="prefix_url.txt")
+    with patch("weko_authors.tasks.set_export_status"), \
+         patch("weko_authors.tasks.save_export_url"), \
+         patch("weko_authors.tasks.export_authors",return_value="test_url.txt"), \
+         patch("weko_authors.tasks.export_prefix",return_value="prefix_url.txt"):
 
-    result = export_all('author_db', user_id=1)
-    assert result == "test_url.txt"
+        result = export_all('author_db', user_id=1)
+        assert result == "test_url.txt"
 
-    result = export_all('id_prefix', user_id=2)
-    assert result == "prefix_url.txt"
+        result = export_all('id_prefix', user_id=2)
+        assert result == "prefix_url.txt"
 
-    mocker.patch("weko_authors.tasks.export_authors", return_value=None)
-    result = export_all('author_db', user_id=3)
-    assert result == None
+        with patch("weko_authors.tasks.export_authors", return_value=None):
+            result = export_all('author_db', user_id=3)
+            assert result == None
 
-    result = export_all('XXXX', user_id=4)
-    assert result == None
+            result = export_all('XXXX', user_id=4)
+            assert result == None
 
-    mocker.patch("weko_authors.tasks.export_authors", side_effect=Exception)
-    result = export_all('author_db', user_id=5)
-    assert result == None
+        with patch("weko_authors.tasks.export_authors", side_effect=Exception):
+            result = export_all('author_db', user_id=5)
+            assert result == None
 
 
 # def import_author(author):
@@ -149,49 +149,52 @@ def test_check_is_import_available(app):
                 return MockTask(2,"not success")
             elif task_id == "not_success_task2":
                 return MockTask("not_success_task2","not success")
-    patch("weko_authors.tasks.GroupResult",side_effect=MockGroupTask)
-    class MockInspect:
-        def __init__(self,flg):
-            self.flg = flg
-        def ping(self):
-            return self.flg
-    # inspect.ping is false
-    patch("weko_authors.tasks.inspect",return_value=MockInspect(False))
-    result = check_is_import_available()
-    assert result == {"is_available":False,"celery_not_run":True}
+    with patch("weko_authors.tasks.GroupResult",side_effect=MockGroupTask):
+        mock_ping = MagicMock()
+        mock_ping.ping.return_value = False
 
-    # inspect.ping is true
-    patch("weko_authors.tasks.inspect",return_value=MockInspect(True))
+        mock_ext = MagicMock()
+        mock_ext.celery.control.inspect.return_value = mock_ping
+        # inspect.ping is false
+        with patch.dict(current_app.extensions, {"invenio-celery": mock_ext}, clear=False):
+            result = check_is_import_available()
+            assert result == {"is_available":False,"celery_not_run":True}
 
-    current_cache.delete(cache_key)
-    # not exist cache
-    patch("weko_authors.tasks.GroupResult.restore",side_effect=mock_restore)
-    result = check_is_import_available()
-    assert result == {"is_available":True}
+        # inspect.ping is true
+        mock_ping.ping.return_value = True
+        mock_ext.celery.control.inspect.return_value = mock_ping
 
-    # not exist task
-    current_cache.set(cache_key,{"group_task_id":"not_exist_task"})
-    result = check_is_import_available()
-    assert result == {"is_available":True}
-    assert current_cache.get(cache_key) is None
+        with patch.dict(current_app.extensions, {"invenio-celery": mock_ext}, clear=False), \
+             patch("weko_authors.tasks.GroupResult.restore",side_effect=mock_restore):
 
-    # task is successful
-    current_cache.set(cache_key,{"group_task_id":"success_task"})
-    result = check_is_import_available(1)
-    assert result == {"is_available":True}
-    assert current_cache.get(cache_key) is None
+            current_cache.delete(cache_key)
+            # not exist cache
+            result = check_is_import_available()
+            assert result == {"is_available":True}
 
-    # task is not success,failed, group_task_id = taks.id
-    current_cache.set(cache_key,{"group_task_id":"not_success_task1"})
-    result = check_is_import_available(2)
-    assert result == {"is_available":False,"continue_data":{"group_task_id":"not_success_task1"}}
-    assert current_cache.get(cache_key) is not None
+            # not exist task
+            current_cache.set(cache_key,{"group_task_id":"not_exist_task"})
+            result = check_is_import_available()
+            assert result == {"is_available":True}
+            assert current_cache.get(cache_key) is None
 
-    # task is not success,failed, group_task_id != taks.id
-    current_cache.set(cache_key,{"group_task_id":"not_success_task2"})
-    result = check_is_import_available(2)
-    assert result == {"is_available":False}
-    assert current_cache.get(cache_key) is not None
+            # task is successful
+            current_cache.set(cache_key,{"group_task_id":"success_task"})
+            result = check_is_import_available(1)
+            assert result == {"is_available":True}
+            assert current_cache.get(cache_key) is None
+
+            # task is not success,failed, group_task_id = taks.id
+            current_cache.set(cache_key,{"group_task_id":"not_success_task1"})
+            result = check_is_import_available(2)
+            assert result == {"is_available":False,"continue_data":{"group_task_id":"not_success_task1"}}
+            assert current_cache.get(cache_key) is not None
+
+            # task is not success,failed, group_task_id != taks.id
+            current_cache.set(cache_key,{"group_task_id":"not_success_task2"})
+            result = check_is_import_available(2)
+            assert result == {"is_available":False}
+            assert current_cache.get(cache_key) is not None
 
 
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_tasks.py::TestImportAuthorsFromTempFiles -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-authors/.tox/c1/tmp
@@ -260,7 +263,7 @@ class TestImportAuthorsFromTempFiles:
 
         # os.removeをモック
         with patch('os.remove') as mock_remove, \
-            patch('builtins.open', side_effect=mock_open_side_effect):
+             patch('weko_authors.tasks.open', side_effect=mock_open_side_effect):
 
             # 関数実行
             import_authors_from_temp_files(reached_point, max_part)
@@ -320,7 +323,7 @@ class TestImportAuthorsFromTempFiles:
 
         # os.removeをモック
         with patch('os.remove') as mock_remove, \
-            patch('builtins.open', side_effect=mock_open_side_effect):
+             patch('weko_authors.tasks.open', side_effect=mock_open_side_effect):
 
             # 関数実行
             import_authors_from_temp_files(reached_point, max_part, request_info)
@@ -370,7 +373,7 @@ class TestImportAuthorsFromTempFiles:
 
         # os.removeをモック
         with patch('os.remove', side_effect=FileNotFoundError("File not found")) as mock_remove, \
-            patch('builtins.open', side_effect=mock_open_side_effect):
+             patch('weko_authors.tasks.open', side_effect=mock_open_side_effect):
 
             import_authors_from_temp_files(reached_point, max_part)
 
@@ -407,7 +410,7 @@ class TestImportAuthorsFromTempFiles:
 
         # os.removeをモック
         with patch('os.remove') as mock_remove, \
-            patch('builtins.open', side_effect=mock_open_side_effect):
+             patch('weko_authors.tasks.open', side_effect=mock_open_side_effect):
 
             # 関数実行してエラーを検証
             with pytest.raises(json.JSONDecodeError):
@@ -934,7 +937,7 @@ def test_check_tmp_file_time_for_author(app, caplog: LogCaptureFixture, mocker):
     #       └─ import_author
     #            ├─ test_file1
     #            └─ test_file2
-    
+
     # Partial deletion
     create_tmp_files()
     now = datetime.now(timezone.utc)
@@ -957,7 +960,7 @@ def test_check_tmp_file_time_for_author(app, caplog: LogCaptureFixture, mocker):
     import shutil
     shutil.rmtree(export_tmp_dir, ignore_errors=True)
     shutil.rmtree(import_tmp_dir, ignore_errors=True)
-    
+
     # all deletion
     create_tmp_files()
     now = datetime.now(timezone.utc)
@@ -974,7 +977,7 @@ def test_check_tmp_file_time_for_author(app, caplog: LogCaptureFixture, mocker):
     # cleanup
     shutil.rmtree(export_tmp_dir, ignore_errors=True)
     shutil.rmtree(import_tmp_dir, ignore_errors=True)
-    
+
     # error cases
     create_tmp_files()
     now = datetime.now(timezone.utc)

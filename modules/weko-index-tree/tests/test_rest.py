@@ -11,7 +11,7 @@ from flask_oauthlib.provider import OAuth2Provider
 from sqlalchemy.exc import SQLAlchemyError
 
 from invenio_accounts.testutils import login_user_via_session
-from invenio_oauth2server.views.server import login_oauth2_user
+from invenio_oauth2server.provider import login_oauth2_user
 from weko_index_tree.api import Indexes
 from weko_index_tree.errors import PermissionError
 from weko_admin.models import AdminLangSettings

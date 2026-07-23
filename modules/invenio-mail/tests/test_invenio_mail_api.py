@@ -10,7 +10,7 @@
 
 from invenio_mail.api import TemplatedMessage
 
-
+# .tox/c1/bin/pytest --cov=invenio_mail tests/test_invenio_mail_api.py::test_templated_message -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-mail/.tox/c1/tmp
 def test_templated_message(email_api_app, email_params, email_ctx):
     """Test that all the fields given are inside the message."""
     with email_api_app.app_context():

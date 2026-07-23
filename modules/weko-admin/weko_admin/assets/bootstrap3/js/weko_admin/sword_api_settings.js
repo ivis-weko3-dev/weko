@@ -1,3 +1,5 @@
+import $ from 'jquery';
+
 const Required_item = document.getElementById("Required_item").value;
 const Successfully_Changed = document.getElementById("Successfully_Changed").value;
 const Failed_Changed = document.getElementById("Failed_Changed").value;
@@ -46,6 +48,7 @@ function isDeletedWorkflow(value) {
 
 function changeRegistrationType(value) {
   const workflowMenu = document.getElementById("workflow");
+  const workflowOption = document.createElement('option');
   closeError();
 
   if (value === "empty") {
@@ -57,7 +60,8 @@ function changeRegistrationType(value) {
   } else if (value === "Workflow") {
     workflowMenu.removeAttribute("disabled");
     workflowMenu.setAttribute("required", true);
-    if (isDeletedWorkflow(settings["XML"]["workflow"])) {
+    if (isDeletedWorkflow(page_type_value === "XML"
+                          && settings["XML"]["workflow"])) {
       workflowOption.value = "deleted_workflow";
       workflowOption.textContent = deleted_workflows_name[settings["XML"]["workflow"]] + "(削除済みワークフロー)";
       workflowOption.selected = true;

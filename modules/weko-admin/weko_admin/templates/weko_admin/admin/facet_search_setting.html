@@ -29,10 +29,10 @@
 
 {%- block javascript %}
 {{ super() }}
-<script src="/assets/js/weko_admin/react.production.min.js"></script>
-<script src="/assets/js/weko_admin/react-dom.production.min.js"></script>
-<script src="/assets/js/weko_admin/browser.min.js"></script>
-<script src="/assets/js/weko_admin/react-bootstrap.min.js"></script>
+<script src="/assets/node_modules/react/cjs/react.production.min.js"></script>
+<script src="/assets/node_modules/react-dom/cjs/react-dom.production.min.js"></script>
+<script src="/assets/node_modules/babel-core/browser.min.js"></script>
+<script src="/assets/node_modules/react-bootstrap/dist/react-bootstrap.min.js"></script>
 {{ webpack['admin_js_weko_admin_facet_search_js.js']}}
 <script type="text/javascript"
       src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
