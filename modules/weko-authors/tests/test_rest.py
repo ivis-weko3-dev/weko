@@ -325,7 +325,7 @@ class TestAuthorDBManagementAPI:
         data = self.valid_author_data("ORCID", "")
         data["author"]["communityIds"] = community_ids
         return data
-    
+
     # .tox/c1/bin/pytest --cov=weko_authors tests/test_rest.py::TestAuthorDBManagementAPI::test_check_author_id_info -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_index_tree/.tox/c1/tmp --full-trace | tee log.log
     def test_check_author_id_info(self, app):
         api = AuthorDBManagementAPI()
@@ -420,9 +420,6 @@ class TestAuthorDBManagementAPI:
         """
         著者情報更新APIのテスト
         """
-        print(1111111111111111111111111111)
-        print(request_data)
-        print(1111111111111111111111111111)
         url = f"v1/authors/{id}"
         response = client_api.put(url, json=request_data, headers=user_headers)
         # assert response.status_code == expected_status, f"Expected {expected_status}, got {response.status_code}"
