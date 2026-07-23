@@ -89,7 +89,7 @@ def run(delayed, concurrency, version_type=None, queue=None,
         celery_kwargs = {
             'kwargs': {
                 'version_type': version_type,
-                'es_bulk_kwargs': {
+                'search_bulk_kwargs': {
                     'raise_on_error': raise_on_error,
                     'chunk_size': chunk_size,
                     'max_chunk_bytes': max_chunk_bytes,
@@ -112,7 +112,7 @@ def run(delayed, concurrency, version_type=None, queue=None,
     else:
         click.secho("Indexing records...", fg="green")
         RecordIndexer(version_type=version_type).process_bulk_queue(
-            es_bulk_kwargs={
+            search_bulk_kwargs={
                 'raise_on_error': raise_on_error,
                 'raise_on_exception': raise_on_exception,
                 'chunk_size': chunk_size,
@@ -136,6 +136,7 @@ def run(delayed, concurrency, version_type=None, queue=None,
     prompt="Do you really want to reindex all records?",
 )
 @click.option("-t", "--pid-type", multiple=True, required=True)
+@click.option('--include-delete', is_flag=True, default=False)
 @click.option('--skip-exists', is_flag=True, default=False)
 @click.option('--size',type=int,default=6000)
 @click.option('--item-type-id',type=int,default=None)

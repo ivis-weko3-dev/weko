@@ -288,7 +288,7 @@ def _process(data_size, data_from, process_counter, target, origin_pkid_list, ke
                 ))
                 RecordIndexer().bulk_index(query)
                 RecordIndexer().process_bulk_queue(
-                    es_bulk_kwargs={'raise_on_error': True})
+                    search_bulk_kwargs={'raise_on_error': True})
                 break
             except Exception as e:
                 current_app.logger.error("Failed to update record to Search. method:process_bulk_queue err:{}".format(e))
@@ -375,7 +375,7 @@ def _update_author_data(item_id, record_ids, process_counter, target, origin_pki
                                 author_link.add(target_id)
 
         dep['author_link'] = list(author_link)
-        
+
         dep.update_item_by_task()
         obj = ItemsMetadata.get_record(pid.object_uuid)
         obj.update(author_data)
@@ -725,7 +725,7 @@ def extract_pdf_and_update_file_contents(
                             break
                         tmp.write(chunk)
                     tmp.flush()
-                    
+
                     is_pdf = file.get("is_pdf", False)
                     tmp_filename = tmp.name
                     file_size_limit = current_app.config['WEKO_DEPOSIT_FILESIZE_LIMIT']
