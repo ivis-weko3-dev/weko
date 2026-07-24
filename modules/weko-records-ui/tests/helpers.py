@@ -4,7 +4,7 @@ import copy
 import uuid
 from flask import url_for,current_app
 from invenio_db import db
-from weko_records.api import ItemsMetadata 
+from weko_records.api import ItemsMetadata
 from weko_deposit.api import WekoDeposit,WekoRecord
 from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus, RecordIdentifier
@@ -30,10 +30,11 @@ def login(client, obj = None, email=None, password=None):
     if obj:
         email = obj.email
         password = obj.password_plaintext
-        client.post(login_url, data=dict(
-            email=email or current_app.config['TEST_USER_EMAIL'],
-            password=password or current_app.config['TEST_USER_PASSWORD'],
-        ))
+        client.post(login_url,json={
+        "email": email or current_app.config['TEST_USER_EMAIL'],
+        "password": password or current_app.config['TEST_USER_PASSWORD'],
+        })
+
     else:
         client.post(login_url, data=dict(
             email=email or current_app.config['TEST_USER_EMAIL'],

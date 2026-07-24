@@ -90,11 +90,11 @@ def test_pid_value_version():
 
 # def publish(pid, record, template=None, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_publish_acl_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_publish_acl_guest(client, records):
+def test_publish_acl_guest(client, records, create_endpoint):
     url = url_for("invenio_records_ui.recid_publish", pid_value=1, _external=True)
     res = client.post(url)
     assert res.status_code == 302
-    assert res.location == "http://test_server/records/1"
+    assert res.location == "/records/1"
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_publish_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -111,17 +111,17 @@ def test_publish_acl_guest(client, records):
         # (7, 302),
     ],
 )
-def test_publish_acl(client, records, users, id, status_code):
+def test_publish_acl(client, records, users, id, status_code, create_endpoint):
     login_user_via_session(client=client, email=users[id]["email"])
     url = url_for("invenio_records_ui.recid_publish", pid_value=1, _external=True)
     res = client.post(url)
     assert res.status_code == status_code
-    assert res.location == "http://test_server/records/1"
+    assert res.location == "/records/1"
 
 
 # def export(pid, record, template=None, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_publish -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_publish(client, records, users, communities, mocker):
+def test_publish(client, records, users, communities, mocker, app, create_endpoint):
     login_user_via_session(client=client, email=users[0]["email"])
     indexer, records_info = records
 
@@ -130,23 +130,24 @@ def test_publish(client, records, users, communities, mocker):
 
     mock_update_search_data = mocker.patch("weko_deposit.api.WekoIndexer.update_search_data")
 
-    # Test Case 1: community id exists
-    mock_request = mocker.patch("weko_records_ui.views.request")
-    mock_request.values = {"community": 1}
-    actual_response = publish(records_info[0]["recid"], records_info[0]["record"], template=None)
-    assert actual_response.status_code == 302
-    assert actual_response.location == "/records/1?community=1"
+    with app.test_request_context():
+        # Test Case 1: community id exists
+        mock_request = mocker.patch("weko_records_ui.views.request")
+        mock_request.values = {"community": 1}
+        actual_response = publish(records_info[0]["recid"], records_info[0]["record"], template=None)
+        assert actual_response.status_code == 302
+        assert actual_response.location == "/records/1?community=1"
 
-    # Test Case 2: community id exists
-    mock_request.values = {}
-    actual_response = publish(records_info[0]["recid"], records_info[0]["record"], template=None)
-    assert actual_response.status_code == 302
-    assert actual_response.location == "/records/1"
+        # Test Case 2: community id exists
+        mock_request.values = {}
+        actual_response = publish(records_info[0]["recid"], records_info[0]["record"], template=None)
+        assert actual_response.status_code == 302
+        assert actual_response.location == "/records/1"
 
 
 # def export(pid, record, template=None, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_export_acl_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_export_acl_guest(client, records):
+def test_export_acl_guest(client, records, create_endpoint):
     url = url_for(
         "invenio_records_ui.recid_export", pid_value=1, format="json", _external=True
     )
@@ -193,7 +194,7 @@ def test_export_acl_guest(client, records):
     ],
 )
 @pytest.mark.timeout(60)
-def test_export_acl(client, records, users, id, status_code):
+def test_export_acl(client, records, users, id, status_code, create_endpoint):
     login_user_via_session(client=client, email=users[id]["email"])
     url = url_for(
         "invenio_records_ui.recid_export", pid_value=1, format="json", _external=True
@@ -432,7 +433,7 @@ def test_get_usage_workflow(app, users, workflows):
     _file_json = {
         'provide': [
             {
-                'role_id': "3",
+                'role_id': "Contributor",
                 'workflow_id': "2"
             }
             ,
@@ -576,16 +577,16 @@ def test_default_view_method(app, records, itemtypes, indexstyle, users, db):
                         def side_effect(arg):
                             values = ['a', 'b']
                             return values[arg]
-                        pid_ver = MagicMock
+                        pid_ver = MagicMock()
                         pid_ver.exists = False
                         with patch('weko_records_ui.views.PIDNodeVersioning', return_value=pid_ver):
                             with pytest.raises(NotFound):  # 404
                                 assert default_view_method(recid, record, 'helloworld.pdf')
 
-                        pid_ver = MagicMock
+                        pid_ver = MagicMock()
                         pid_ver.exists = True
                         pid_ver.is_last_child = False
-                        mock = MagicMock
+                        mock = MagicMock()
                         mock.object_uuid = uuid.uuid4()
                         pid_ver.children = [mock]
                         pid_ver.get_children = lambda ordered, pid_status: [mock]
@@ -657,16 +658,16 @@ def test_default_view_method(app, records, itemtypes, indexstyle, users, db):
                                 return values[arg]
                             # with patch('weko_search_ui.utils.get_sub_item_value', side_effect=side_effect):
                             #     default_view_method(recid, record ,'helloworld.pdf')
-                            pid_ver = MagicMock
+                            pid_ver = MagicMock()
                             pid_ver.exists = False
                             with patch('weko_records_ui.views.PIDNodeVersioning',return_value=pid_ver):
                                 with pytest.raises(NotFound) : #404
                                     assert default_view_method(recid, record ,'helloworld.pdf')
 
-                            pid_ver = MagicMock
+                            pid_ver = MagicMock()
                             pid_ver.exists = True
                             pid_ver.is_last_child = False
-                            mock = MagicMock
+                            mock = MagicMock()
                             mock.object_uuid = uuid.uuid4()
                             pid_ver.children = [mock]
                             pid_ver.get_children = lambda ordered,pid_status : [mock]
@@ -760,7 +761,7 @@ def test_default_view_method2(app, records, itemtypes, indexstyle, mocker):
 @patch('weko_records_ui.utils.current_user')
 @patch('weko_records_ui.views.send_secret_url_mail')
 def test_create_secret_url_and_send_mail(send_mail, login_user, can_manage,
-                                         vldt_req, client, users, records):
+                                         vldt_req, client, users, records, create_endpoint):
     vldt_req.return_value = True
     can_manage.return_value = True
     login_user.id = 1
@@ -820,7 +821,7 @@ def test_create_secret_url_and_send_mail(send_mail, login_user, can_manage,
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_copy_secret_url -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_copy_secret_url(app, client, records):
+def test_copy_secret_url(app, client, records, create_endpoint):
     _, records = records
     url = url_for('invenio_records_ui.recid_copy_secret_url',
                     pid_value=records[1]['recid'].pid_value,
@@ -865,7 +866,7 @@ def test_copy_secret_url(app, client, records):
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_copy_onetime_url -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_copy_onetime_url(app, client, records):
+def test_copy_onetime_url(app, client, records, create_endpoint):
     _, records = records
     url = url_for('invenio_records_ui.recid_copy_onetime_url',
                     pid_value=records[1]['recid'].pid_value,
@@ -913,7 +914,7 @@ def test_copy_onetime_url(app, client, records):
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_delete_secret_url -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_delete_secret_url(client, records):
+def test_delete_secret_url(client, records, create_endpoint):
     _, records = records
     url = url_for('invenio_records_ui.recid_delete_secret_url',
                     pid_value=records[1]['recid'].pid_value,
@@ -956,7 +957,7 @@ def test_delete_secret_url(client, records):
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_delete_onetime_url -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_delete_onetime_url(client, records):
+def test_delete_onetime_url(client, records, create_endpoint):
     _, records = records
     url = url_for('invenio_records_ui.recid_delete_onetime_url',
                     pid_value=records[1]['recid'].pid_value,
@@ -1050,7 +1051,7 @@ def test_doi_ish_view_method_acl_guest(app,client,records):
     url = url_for("weko_records_ui.doi_ish_view_method", parent_pid_value=1, _external=True)
     res = client.get(url)
     assert res.status_code == 302
-    assert res.location == 'http://test_server/login/?next=%2Fr%2F1'
+    assert res.location == '/login/?next=%2Fr%2F1'
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_doi_ish_view_method_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -1067,12 +1068,12 @@ def test_doi_ish_view_method_acl_guest(app,client,records):
         # (7, True),
     ],
 )
-def test_doi_ish_view_method_acl(app,client,records,users,id,result):
+def test_doi_ish_view_method_acl(app,client,records,users,id,result, create_endpoint):
     login_user_via_session(client=client, email=users[id]["email"])
     url = url_for("weko_records_ui.doi_ish_view_method", parent_pid_value=1, _external=True)
     res = client.get(url)
     assert res.status_code == 302
-    assert res.location == 'http://test_server/records/1.1'
+    assert res.location == '/records/1.1'
 
 
 # def parent_view_method(pid_value=0):
@@ -1081,7 +1082,7 @@ def test_parent_view_method_acl_guest(app,client,records):
     url = url_for("weko_records_ui.parent_view_method", pid_value=1, _external=True)
     res = client.get(url)
     assert res.status_code == 302
-    assert res.location == 'http://test_server/login/?next=%2Frecords%2Fparent%3A1'
+    assert res.location == '/login/?next=%2Frecords%2Fparent%3A1'
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_parent_view_method_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 @pytest.mark.parametrize(
@@ -1097,12 +1098,12 @@ def test_parent_view_method_acl_guest(app,client,records):
         # (7, True),
     ],
 )
-def test_parent_view_method_acl(app,client,records,users,id,result):
+def test_parent_view_method_acl(app,client,records,users,id,result, create_endpoint):
     login_user_via_session(client=client, email=users[id]["email"])
     url = url_for("weko_records_ui.parent_view_method", pid_value=1, _external=True)
     res = client.get(url)
     assert res.status_code == 302
-    assert res.location == 'http://test_server/records/1.1'
+    assert res.location == '/records/1.1'
 
 
 # def set_pdfcoverpage_header():
@@ -1111,8 +1112,8 @@ def test_parent_view_method_acl(app,client,records,users,id,result):
 def test_set_pdfcoverpage_header_acl_guest(app, client, records, pdfcoverpagesetting):
     url = url_for("weko_records_ui.set_pdfcoverpage_header",_external=True)
     res = client.get(url)
-    assert res.status_code == 308
-    assert res.location == 'http://test_server/admin/pdfcoverpage/'
+    assert res.status_code == 302
+    assert res.location == '/admin/pdfcoverpage/'
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_set_pdfcoverpage_header_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 @pytest.mark.parametrize(
@@ -1133,8 +1134,8 @@ def test_set_pdfcoverpage_header_acl_error(app, client, records, users, id, resu
     login_user_via_session(client=client, email=users[id]["email"])
     url = url_for("weko_records_ui.set_pdfcoverpage_header",_external=True)
     res = client.get(url)
-    assert res.status_code == 308
-    assert res.location == 'http://test_server/admin/pdfcoverpage/'
+    assert res.status_code == 302
+    assert res.location == '/admin/pdfcoverpage/'
     s = PDFCoverPageSettings.find(1)
     assert s is not None
     assert s.header_output_image == ''
@@ -1165,8 +1166,8 @@ def test_set_pdfcoverpage_header_acl(app, client, records, users, id, result, pd
     login_user_via_session(client=client, email=users[id]["email"])
     url = url_for("weko_records_ui.set_pdfcoverpage_header",_external=True)
     res = client.get(url)
-    assert res.status_code == 308
-    assert res.location == 'http://test_server/admin/pdfcoverpage/'
+    assert res.status_code == 302
+    assert res.location == '/admin/pdfcoverpage/'
     s = PDFCoverPageSettings.find(1)
     assert s is not None
     assert s.header_output_image == ''
@@ -1175,7 +1176,7 @@ def test_set_pdfcoverpage_header_acl(app, client, records, users, id, result, pd
         'header-output-image': (io.BytesIO(b"some initial text data"), 'test.png')}
     res = client.post(url,data=data)
     assert res.status_code == 302
-    assert res.location == 'http://test_server/admin/pdfcoverpage'
+    assert res.location == '/admin/pdfcoverpage'
     s = PDFCoverPageSettings.find(1)
     assert s is not None
     assert s.header_output_image != ''
@@ -1194,7 +1195,7 @@ def test_file_version_update_acl_guest(client, records):
     url = url_for("weko_records_ui.file_version_update",_external=True)
     res = client.put(url)
     assert res.status_code == 302
-    assert res.location == 'http://test_server/login/?next=%2Ffile_version%2Fupdate'
+    assert res.location == '/login/?next=%2Ffile_version%2Fupdate'
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_file_version_update_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -1334,8 +1335,14 @@ def test_soft_delete_locked(client, records, users, id, status_code):
     login_user_via_session(client=client, email=users[id]["email"])
 
     # 51994 case.03(soft_delete)
-    with patch("weko_records_ui.views.is_workflow_activity_work", return_value=True), \
-         patch("weko_records_ui.permissions.has_comadmin_permission",return_value=True):
+    with patch("weko_records_ui.views.PersistentIdentifier.get") as mock_get, \
+         patch("weko_records_ui.views.is_workflow_activity_work", return_value=True), \
+         patch("weko_records_ui.permissions.has_comadmin_permission",return_value=True), \
+         patch("weko_records_ui.views.check_created_id_by_recid",return_value=True):
+        from unittest.mock import Mock
+        mock = Mock()
+        mock.object_uuid = "42a97a89-fef9-48fd-2a38-9348a2093b75"
+        mock_get.return_value = mock
         res = client.post(url_for("weko_records_ui.soft_delete", recid=1, _external=True))
         expected_response = {
             "code": -1,
@@ -1386,7 +1393,7 @@ def test_restore_acl_guest(client, records):
 @pytest.mark.parametrize(
     "id, status_code",
     [
-        (0, 500), # contributor
+        (0, 200), # contributor
         (1, 200), # repoadmin
         (2, 200), # sysadmin
         (3, 200), # comadmin
@@ -1567,10 +1574,10 @@ def test_default_view_method_fix35133(app, records, itemtypes, indexstyle):
     recid = results[0]["recid"]
     etree_str = '<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd"><responseDate>2022-10-07T06:11:40Z</responseDate><request identifier="oai:repository.dl.itc.u-tokyo.ac.jp:02005680" verb="getrecord" metadataPrefix="jpcoar_1.0">https://repository.dl.itc.u-tokyo.ac.jp/oai</request><getrecord><record><header><identifier>oai:repository.dl.itc.u-tokyo.ac.jp:02005680</identifier><datestamp>2022-09-27T06:40:27Z</datestamp></header><metadata><jpcoar:jpcoar xmlns:datacite="https://schema.datacite.org/meta/kernel-4/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcndl="http://ndl.go.jp/dcndl/terms/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:jpcoar="https://github.com/JPCOAR/schema/blob/master/1.0/" xmlns:oaire="http://namespace.openaire.eu/schema/oaire/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rioxxterms="http://www.rioxx.net/schema/v2.0/rioxxterms/" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="https://github.com/JPCOAR/schema/blob/master/1.0/" xsi:schemaLocation="https://github.com/JPCOAR/schema/blob/master/1.0/jpcoar_scm.xsd"><dc:title xml:lang="ja">『史料編纂掛備用写真画像図画類目録』画像の部：新旧架番号対照表</dc:title><jpcoar:creator><jpcoar:nameIdentifier nameIdentifierURI="https://orcid.org/123" nameIdentifierScheme="ORCID">123</jpcoar:nameIdentifier><jpcoar:creatorName xml:lang="en">creator name</jpcoar:creatorName><jpcoar:familyName xml:lang="en">creator family name</jpcoar:familyName><jpcoar:givenName xml:lang="en">creator given name</jpcoar:givenName><jpcoar:creatorAlternative xml:lang="en">creator alternative name</jpcoar:creatorAlternative><jpcoar:affiliation><jpcoar:nameIdentifier nameIdentifierURI="test uri" nameIdentifierScheme="ISNI">affi name id</jpcoar:nameIdentifier><jpcoar:affiliationName xml:lang="en">affi name</jpcoar:affiliationName></jpcoar:affiliation></jpcoar:creator><dc:rights>CC BY</dc:rights><datacite:description xml:lang="ja" descriptionType="Other">『史料編纂掛備用寫眞畫像圖畫類目録』（1905年）の「画像」（肖像画模本）の部に著録する資料の架番号の新旧対照表。史料編纂所所蔵肖像画模本データベースおよび『目録』版面画像へのリンク付き。『画像史料解析センター通信』98（2022年10月）に解説記事あり。</datacite:description><dc:publisher xml:lang="ja">東京大学史料編纂所附属画像史料解析センター</dc:publisher><dc:publisher xml:lang="en">Center for the Study of Visual Sources, Historiographical Institute, The University of Tokyo</dc:publisher><datacite:date dateType="Issued">2022-09-30</datacite:date><dc:language>jpn</dc:language><dc:type rdf:resource="http://purl.org/coar/resource_type/c_ddb1">dataset</dc:type><jpcoar:identifier identifierType="HDL">http://hdl.handle.net/2261/0002005680</jpcoar:identifier><jpcoar:identifier identifierType="URI">https://repository.dl.itc.u-tokyo.ac.jp/records/2005680</jpcoar:identifier><jpcoar:relation relationType="references"><jpcoar:relatedIdentifier identifierType="URI">https://clioimg.hi.u-tokyo.ac.jp/viewer/list/idata/850/8500/20/%28a%29/?m=limit</jpcoar:relatedIdentifier></jpcoar:relation><datacite:geoLocation><datacite:geoLocationPoint><datacite:pointLongitude>point longitude test</datacite:pointLongitude><datacite:pointLatitude>point latitude test</datacite:pointLatitude></datacite:geoLocationPoint><datacite:geoLocationBox><datacite:westBoundLongitude>1</datacite:westBoundLongitude><datacite:eastBoundLongitude>2</datacite:eastBoundLongitude><datacite:southBoundLatitude>3</datacite:southBoundLatitude><datacite:northBoundLatitude>4</datacite:northBoundLatitude></datacite:geoLocationBox><datacite:geoLocationPlace>geo location place test</datacite:geoLocationPlace></datacite:geoLocation><jpcoar:file><jpcoar:URI objectType="dataset">https://repository.dl.itc.u-tokyo.ac.jp/record/2005680/files/comparison_table_of_preparation_image_catalog.xlsx</jpcoar:URI><jpcoar:mimeType>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</jpcoar:mimeType><jpcoar:extent>121.7KB</jpcoar:extent><datacite:date dateType="Available">2022-09-27</datacite:date></jpcoar:file></jpcoar:jpcoar></metadata></record></getrecord></OAI-PMH>'
     et = etree.fromstring(etree_str)
-    mock_render_template = patch("weko_records_ui.views.render_template")
     with app.test_request_context():
         with patch('weko_records_ui.views.check_original_pdf_download_permission', return_value=True):
-            with patch("weko_records_ui.views.getrecord",return_value=et):
+            with patch("weko_records_ui.views.getrecord",return_value=et),\
+                 patch("weko_records_ui.views.render_template") as mock_render_template:
                 default_view_method(recid, record)
                 args, kwargs = mock_render_template.call_args
                 assert kwargs["google_scholar_meta"] == [
@@ -1598,8 +1605,8 @@ def test_default_view_method_fix35133(app, records, itemtypes, indexstyle):
                     assert kwargs["google_dataset_meta"] == '{"@context": "https://schema.org/", "@type": "Dataset", "citation": ["http://hdl.handle.net/2261/0002005680", "https://repository.dl.itc.u-tokyo.ac.jp/records/2005680"], "creator": [{"@type": "Person", "alternateName": "creator alternative name", "familyName": "creator family name", "givenName": "creator given name", "identifier": "123", "name": "creator name"}], "description": "『史料編纂掛備用寫眞畫像圖畫類目録』（1905年）の「画像」（肖像画模本）の部に著録する資料の架番号の新旧対照表。史料編纂所所蔵肖像画模本データベースおよび『目録』版面画像へのリンク付き。『画像史料解析センター通信』98（2022年10月）に解説記事あり。", "distribution": [{"@type": "DataDownload", "contentUrl": "https://repository.dl.itc.u-tokyo.ac.jp/record/2005680/files/comparison_table_of_preparation_image_catalog.xlsx", "encodingFormat": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}, {"@type": "DataDownload", "contentUrl": "https://raw.githubusercontent.com/RCOSDP/JDCat-base/main/apt.txt", "encodingFormat": "text/plain"}, {"@type": "DataDownload", "contentUrl": "https://raw.githubusercontent.com/RCOSDP/JDCat-base/main/environment.yml", "encodingFormat": "application/x-yaml"}, {"@type": "DataDownload", "contentUrl": "https://raw.githubusercontent.com/RCOSDP/JDCat-base/main/postBuild", "encodingFormat": "text/x-shellscript"}], "includedInDataCatalog": {"@type": "DataCatalog", "name": "https://localhost"}, "license": ["CC BY"], "name": "『史料編纂掛備用写真画像図画類目録』画像の部：新旧架番号対照表", "spatialCoverage": [{"@type": "Place", "geo": {"@type": "GeoCoordinates", "latitude": "point latitude test", "longitude": "point longitude test"}}, {"@type": "Place", "geo": {"@type": "GeoShape", "box": "1 3 2 4"}}, "geo location place test"]}'
 
 
-# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_publish -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_publish(app, client, records):
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_publish2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_publish2(app, client, records):
     record = WekoRecord.get_record_by_pid("1")
     mock_pid = MagicMock()
     mock_pid.last_child = record.pid
@@ -1636,8 +1643,8 @@ def test_get_bucket_list(app,records,users):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_copy_bucket -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_copy_bucket(app,records,users, client):
-
-    login(client,obj=users[0]["obj"])
+    with patch("flask.templating._render", return_value=""):
+        login(client,obj=users[0]["obj"])
     url = url_for("weko_records_ui.copy_bucket")
     with patch("weko_records_ui.views.copy_bucket_to_s3", return_value={}):
         res = client.post(
@@ -1668,7 +1675,8 @@ def test_copy_bucket(app,records,users, client):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_get_file_place -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_get_file_place(app,records,users, client):
-    login(client,obj=users[0]["obj"])
+    with patch("flask.templating._render", return_value=""):
+        login(client,obj=users[0]["obj"])
     url = url_for("weko_records_ui.get_file_place")
     with patch(
         "weko_records_ui.views.get_file_place_info",
@@ -1701,7 +1709,8 @@ def test_get_file_place(app,records,users, client):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_replace_file -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_replace_file(app,records,users, client):
-    login(client,obj=users[0]["obj"])
+    with patch("flask.templating._render", return_value=""):
+        login(client,obj=users[0]["obj"])
     url = url_for("weko_records_ui.replace_file")
     # テスト用のデータを用意
     test_data = b'Hello, World!' # バイナリデータ

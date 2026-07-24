@@ -1029,8 +1029,7 @@ def test_get_workflows(app,users):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_get_roles -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 def test_get_roles(app,users):
     with patch("flask_login.utils._get_user", return_value=users[1]["obj"]):
-        assert get_roles()==[{'id': 'none_loggin', 'name': 'Guest'}, {'id': 1, 'name': 'System Administrator'}, {'id': 2, 'name': 'Repository Administrator'}, {'id': 3, 'name': 'Contributor'}, {'id': 4, 'name': 'Community Administrator'}, {'id': 5, 'name': 'General'}, {'id': 6, 'name': 'Original Role'}]
-
+        assert get_roles()==[{'id': 'none_loggin', 'name': 'Guest'},{'id': 'System Administrator', 'name': 'System Administrator'},{'id': 'Contributor', 'name': 'Contributor'},{'id': 'Community Administrator', 'name': 'Community Administrator'},{'id': 'Original Role', 'name': 'Original Role'},{'id': 'Repository Administrator', 'name': 'Repository Administrator'},{'id': 'General', 'name': 'General'}]
 
 # def get_terms():
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_get_terms -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp

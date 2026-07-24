@@ -113,7 +113,7 @@ from weko_logging.audit import WekoLoggingUserActivity
 from weko_records import WekoRecords
 from weko_records.api import ItemsMetadata, FilesMetadata
 from weko_records.models import (
-    ItemType, ItemTypeMapping, ItemTypeName, SiteLicenseInfo, 
+    ItemType, ItemTypeMapping, ItemTypeName, SiteLicenseInfo,
     SiteLicenseIpAddress, RequestMailList
 )
 from weko_records_ui import WekoRecordsUI, WekoRecordsCitesREST
@@ -143,7 +143,7 @@ from weko_records_ui.config import (
 )
 from weko_records_ui.ext import WekoRecordsREST
 from weko_records_ui.models import (
-    FileSecretDownload, PDFCoverPageSettings,FileOnetimeDownload, 
+    FileSecretDownload, PDFCoverPageSettings,FileOnetimeDownload,
     FilePermission, RocrateMapping
 )
 from weko_records_ui.utils import create_download_url
@@ -182,8 +182,8 @@ def instance_path():
     shutil.rmtree(path)
 
 
-@patch.dict('os.environ', {'INVENIO_OPENSEARCH_USER': 'invenio', 'INVENIO_OPENSEARCH_PASSWORD': 'openpass123!'})
 @pytest.fixture()
+@patch.dict('os.environ', {'INVENIO_OPENSEARCH_USER': 'invenio', 'INVENIO_OPENSEARCH_PASS': 'openpass123!'})
 def base_app(instance_path):
     """Flask application fixture."""
     app_ = Flask(
@@ -276,9 +276,9 @@ def base_app(instance_path):
         PDF_COVERPAGE_LANG_FILENAME=PDF_COVERPAGE_LANG_FILENAME,
         # JPAEXG_TTF_FILEPATH=JPAEXG_TTF_FILEPATH,
         # JPAEXG_TTF_FILEPATH = "/code/modules/weko-records-ui/weko_records_ui/fonts/ipaexg00201/ipaexg.ttf",
-        JPAEXG_TTF_FILEPATH="tests/fonts/ipaexg.ttf",
+        JPAEXG_TTF_FILEPATH="/../tests/fonts/ipaexg.ttf",
         # JPAEXM_TTF_FILEPATH=JPAEXM_TTF_FILEPATH,
-        JPAEXM_TTF_FILEPATH="tests/fonts/ipaexm.ttf",
+        JPAEXM_TTF_FILEPATH="/../tests/fonts/ipaexm.ttf",
         URL_OA_POLICY_HEIGHT=URL_OA_POLICY_HEIGHT,
         HEADER_HEIGHT=HEADER_HEIGHT,
         TITLE_HEIGHT=TITLE_HEIGHT,
@@ -308,7 +308,11 @@ def base_app(instance_path):
         EXTERNAL_SYSTEM = EXTERNAL_SYSTEM,
         ITEM_ACTION = ITEM_ACTION,
         FILE_OPEN_STATUS = FILE_OPEN_STATUS,
-        WEKO_RECORDS_UI_RESTRICTED_API = False
+        WEKO_RECORDS_UI_RESTRICTED_API = False,
+        WEB_HOST_NAME='localhost',
+        APP_THEME=["semantic-ui"],
+        ACCOUNTS_COVER_TEMPLATE="invenio_accounts/base_cover.html",
+        WEKO_MIMETYPE_WHITELIST_FOR_SEARCH =[]
     )
     #with SearchTestServer(timeout=30) as server:
     client = search.OpenSearch(['localhost:9200'])
@@ -742,13 +746,17 @@ def itemtypes(app, db):
     with db.session.begin_nested():
         db.session.add(item_type_name)
         db.session.add(item_type)
-        db.session.add(item_type_mapping)
+
         db.session.add(item_type_name_31001)
         db.session.add(item_type_31001)
-        db.session.add(item_type_mapping_31001)
+
         db.session.add(item_type_name_31002)
         db.session.add(item_type_31002)
+        db.session.flush()
+        db.session.add(item_type_mapping)
+        db.session.add(item_type_mapping_31001)
         db.session.add(item_type_mapping_31002)
+
 
     return {
         "item_type_name": item_type_name,
@@ -4971,10 +4979,9 @@ def make_record_restricted_open_login(db, indexer, i, filepath, filename, mimety
         status=PIDStatus.REGISTERED,
     )
 
-    parent_pid = PIDNodeVersioning(pid=parent).parents.one_or_none()
-    h1 = PIDNodeVersioning(pid=parent_pid)
-    h1.insert_child(child=recid)
-    h1.insert_child(child=recid_v1)
+    h1 = PIDNodeVersioning(pid=parent)
+    h1.insert_child(child_pid=recid)
+    h1.insert_child(child_pid=recid_v1)
     PIDNodeDraft(pid=recid).insert_child(depid)
     PIDNodeDraft(pid=recid_v1).insert_child(depid_v1)
 
@@ -5738,10 +5745,13 @@ def db_restricted_access_secret(db):
 def db_community(db , users ,indextree):
     from invenio_communities.models import Community
     comm : Community
+    contributor_role = Role.query.filter_by(
+    name="Contributor"
+    ).first()
     with db.session.begin_nested():
         comm = Community(
             id="community"
-            ,id_role = users[0]["id"]
+            ,id_role = contributor_role.id
             ,root_node_id=Index.get_index_by_id(1).id
             ,id_user = users[0]["id"]
         )
@@ -6366,7 +6376,7 @@ def communities2(app, indices, users, db):
 
     community = Community(
         id="community_sample",
-        group_id=4,
+        group_id="Contributor",
         id_role=user_obj.roles[0].id,
         id_user=user_record["id"],
         title='Community 1',
@@ -6378,7 +6388,6 @@ def communities2(app, indices, users, db):
         last_record_accepted=datetime.now(),
         root_node_id=2,
     )
-
     db.session.add(community)
     db.session.commit()
     return [community]
@@ -6448,3 +6457,13 @@ def user_activity_log_partition_table(app, db):
     with db.session.begin_nested():
         db.session.execute(create_partition_sql)
     db.session.commit()
+
+@pytest.fixture()
+def create_endpoint(app):
+    from invenio_records_ui.views import create_blueprint_from_app
+    bp=create_blueprint_from_app(app)
+    app.register_blueprint(bp)
+    app.add_url_rule(
+    "/records/<pid_value>",
+    endpoint="weko_theme.recid"
+    )
