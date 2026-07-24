@@ -106,31 +106,31 @@ if [ "${INVENIO_WORKER_HOST}" = "" ]; then
     exit 1
 fi
 
-# load virtualenvrapper:
-# shellcheck source=/dev/null
-source "$(which virtualenvwrapper.sh)"
-
 # detect pathname of this script:
 scriptpathname=$(cd "$(dirname "$0")" && pwd)
 
+system_python="$(command -v python3.12 || command -v python3 || true)"
+if [ -z "$system_python" ]; then
+    echo "[ERROR] python3.12 (or python3) is required before running this script."
+    exit 1
+fi
+
 # sphinxdoc-create-virtual-environment-begin
-mkvirtualenv "${INVENIO_WEB_VENV}"
-cdvirtualenv
+UV_PYTHON_DOWNLOADS=never uv venv --python "$system_python" "$VIRTUAL_ENV"
+source "$VIRTUAL_ENV/bin/activate"
+cd "$VIRTUAL_ENV"
 # sphinxdoc-create-virtual-environment-end
 
 # quit on errors and unbound symbols:
 set -o errexit
 set -o nounset
 
-pip install pip==24.1.2
-pip install setuptools==71.0.3
+cd "$scriptpathname/.."
 
 if [[ "$@" != *"--devel"* ]]; then
 # sphinxdoc-install-invenio-full-begin
-    pip install -r "$scriptpathname/../packages.txt"
-    pip install --no-deps -r "$scriptpathname/../packages-invenio.txt"
-    pip install --no-deps -r "$scriptpathname/../requirements-weko-modules.txt"
+    uv sync --active --frozen --no-install-project --group invenio --group weko
 # sphinxdoc-install-invenio-full-end
 else
-    pip install -r "$scriptpathname/../requirements-devel.txt"
+    uv sync --active --frozen --no-install-project --group dev --group invenio --group weko
 fi

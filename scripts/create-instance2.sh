@@ -106,14 +106,24 @@ if [ "${INVENIO_WORKER_HOST}" = "" ]; then
     exit 1
 fi
 
-# load virtualenvrapper:
-# shellcheck source=/dev/null
-source "$(which virtualenvwrapper.sh)"
+system_python="$(command -v python3.12 || command -v python3 || true)"
+if [ -z "$system_python" ]; then
+    echo "[ERROR] python3.12 (or python3) is required before running this script."
+    exit 1
+fi
 
 # sphinxdoc-create-virtual-environment-begin
-mkvirtualenv "${INVENIO_WEB_VENV}"
-cdvirtualenv
+if [ ! -f "$VIRTUAL_ENV/bin/activate" ]; then
+    UV_PYTHON_DOWNLOADS=never uv venv --python "$system_python" "$VIRTUAL_ENV"
+fi
+source "$VIRTUAL_ENV/bin/activate"
+cd "$VIRTUAL_ENV"
 # sphinxdoc-create-virtual-environment-end
+
+# Some runtime deps still import pkg_resources, which is provided by setuptools.
+if ! python -c "import pkg_resources" > /dev/null 2>&1; then
+    uv pip install "setuptools==71.0.3"
+fi
 
 # quit on errors and unbound symbols:
 set -o errexit
@@ -125,29 +135,27 @@ mkdir -p "var/instance/"
 mkdir -p "var/instance/data"
 mkdir -p "var/instance/conf"
 mkdir -p "var/instance/static"
-pip install "jinja2-cli>=0.6.0"
 jinja2 "/code/scripts/instance.cfg" > "var/instance/conf/${INVENIO_WEB_INSTANCE}.cfg"
 ln -s "$(pwd)/var/instance/conf/${INVENIO_WEB_INSTANCE}.cfg" "var/instance/${INVENIO_WEB_INSTANCE}.cfg"
 cp -pf "/code/scripts/uwsgi.ini" "var/instance/conf/"
 cp -pf "/code/modules/weko-theme/weko_theme/assets/bootstrap3/css/weko_theme/_variables.scss" "var/instance/data/"
 cp -prf "/code/modules/weko-index-tree/weko_index_tree/static/indextree" "var/instance/data/"
 # sphinxdoc-customise-instance-end
-pip install pip==24.1.2
-pip install setuptools==71.0.3
+
 # sphinxdoc-run-npm-begin
 ${INVENIO_WEB_INSTANCE} webpack create
-cdvirtualenv "var/instance/assets"
+cd "$VIRTUAL_ENV/var/instance/assets"
 CI=true npm install --legacy-peer-deps
 CI=true npm install angular-schema-form@0.8.13 --legacy-peer-deps
 ## for install ckeditor plugins
-cdvirtualenv "var/instance/assets/node_modules/ckeditor/plugins"
+cd "$VIRTUAL_ENV/var/instance/assets/node_modules/ckeditor/plugins"
 CI=true git clone https://github.com/RCOSDP/base64image.git
 # sphinxdoc-run-npm-end
-cdvirtualenv "var/instance/assets/node_modules"
+cd "$VIRTUAL_ENV/var/instance/assets/node_modules"
 rm -rf invenio-search-js
 git clone --branch feature/changePaginationForSearchAfterUse https://github.com/RCOSDP/invenio-search-js.git
 
-cdvirtualenv "var/instance/assets"
+cd "$VIRTUAL_ENV/var/instance/assets"
 ln -s ../static/templates templates
 # force copy webpack.config.js to NODE_ENV=production
 \cp -pf "/code/scripts/webpack.config.js" "$(pwd)/build/webpack.config.js"
@@ -159,10 +167,10 @@ ${INVENIO_WEB_INSTANCE} webpack build
 # gunicorn uwsgi - begin
 # pip install gunicorn
 # pip install meinheld
-pip install uwsgi
-pip install uwsgitop
+uv pip install "uwsgi>=2.0.31,<3"
+uv pip install "uwsgitop>=0.12,<1"
 # gunicorn uwsgi -end
 
 # clean caches
-pip cache purge
+uv cache clean
 CI=true npm cache clean --force

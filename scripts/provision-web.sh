@@ -160,24 +160,17 @@ setup_npm_and_css_js_filters () {
 
 }
 
-setup_virtualenvwrapper () {
+setup_uv () {
     # disable quitting on errors due to virtualenvrapper:
     set +o errexit
     set +o nounset
 
-    # sphinxdoc-install-virtualenvwrapper-begin
-    #$sudo pip install -U setuptools==71.0.1 pip==24.1.2
-    $sudo pip install -U setuptools pip
-    $sudo pip install -U virtualenvwrapper
-    if ! grep -q virtualenvwrapper ~/.bashrc; then
-        mkdir -p "$HOME/.virtualenvs"
-        echo "export WORKON_HOME=$HOME/.virtualenvs" >> "$HOME/.bashrc"
-        echo "source $(which virtualenvwrapper.sh)" >> "$HOME/.bashrc"
+    # sphinxdoc-install-uv-begin
+    if ! command -v uv > /dev/null 2>&1; then
+        $sudo pip install -U "setuptools==71.0.3" pip
+        $sudo pip install -U uv
     fi
-    export WORKON_HOME=$HOME/.virtualenvs
-    # shellcheck source=/dev/null
-    source "$(which virtualenvwrapper.sh)"
-    # sphinxdoc-install-virtualenvwrapper-end
+    # sphinxdoc-install-uv-end
 
     # enable quitting on errors back:
     set -o errexit
@@ -303,14 +296,14 @@ main () {
         provision_web_common_ubuntu14
         provision_web_libpostgresql_ubuntu14
         setup_npm_and_css_js_filters
-        setup_virtualenvwrapper
+        setup_uv
         setup_libreoffice_ubuntu14
         cleanup_web_ubuntu14
     elif [ "$os_distribution" = "Ubuntu" ]; then
         provision_web_common_ubuntu14
         provision_web_libpostgresql_ubuntu14
         setup_npm_and_css_js_filters
-        setup_virtualenvwrapper
+        setup_uv
         #setup_nginx_ubuntu14
         setup_libreoffice_ubuntu14
         cleanup_web_ubuntu14
@@ -319,7 +312,7 @@ main () {
         provision_web_common_ubuntu14
         provision_web_libpostgresql_ubuntu14
         setup_npm_and_css_js_filters
-        setup_virtualenvwrapper
+        setup_uv
         #setup_nginx_ubuntu14
         setup_libreoffice_ubuntu14
         cleanup_web_ubuntu14
@@ -328,7 +321,7 @@ main () {
             provision_web_common_centos7
             provision_web_libpostgresql_centos7
             setup_npm_and_css_js_filters
-            setup_virtualenvwrapper
+            setup_uv
             #setup_nginx_centos7
             setup_libreoffice_centos7
             cleanup_web_centos7

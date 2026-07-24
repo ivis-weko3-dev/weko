@@ -110,12 +110,8 @@ if [ "${SEARCH_INDEX_PREFIX}" = "" ]; then
     exit 1
 fi
 
-# load virtualenvrapper:
 # shellcheck source=/dev/null
-source "$(which virtualenvwrapper.sh)"
-
-# switch virtual environment:
-workon "${INVENIO_WEB_VENV}"
+source "$VIRTUAL_ENV/bin/activate"
 
 # quit on errors and unbound symbols:
 set -o errexit
@@ -498,7 +494,7 @@ ${INVENIO_WEB_INSTANCE} authors_prefix default_settings \
 ${INVENIO_WEB_INSTANCE} authors_prefix default_settings \
        "Ringgold" "Ringgold" ""
 ${INVENIO_WEB_INSTANCE} authors_prefix default_settings \
-       "GRID" "GRID【非推奨】" "" 
+       "GRID" "GRID【非推奨】" ""
 ${INVENIO_WEB_INSTANCE} authors_prefix default_settings \
        "researchmap" "researchmap" "https://researchmap.jp/##"
 # create-default-authors-prefix-settings-end

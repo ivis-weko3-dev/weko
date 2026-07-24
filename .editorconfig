@@ -36,6 +36,11 @@ known_first_party = weko
 multi_line_output = 2
 default_section = THIRDPARTY
 
+# TOML files
+[*.toml]
+indent_size = 4
+indent_style = space
+
 # RST files (used by sphinx)
 [*.rst]
 indent_size = 4

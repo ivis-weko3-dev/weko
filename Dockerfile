@@ -26,6 +26,8 @@
 # Use Python-3.12:
 FROM python:3.12-slim-bullseye as stage_1
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
 ARG INVENIO_APP_THEME
 # Configure Weko instance:
 ENV INVENIO_WEB_HOST=127.0.0.1
@@ -69,6 +71,7 @@ RUN /tmp/provision-web.sh
 FROM stage_2 AS stage_3
 # Add Weko sources to `code` and work there:
 WORKDIR /code
+ENV VIRTUAL_ENV="/home/invenio/.virtualenvs/${INVENIO_WEB_VENV:-invenio}"
 RUN adduser --uid 1000 --disabled-password --gecos '' invenio
 USER invenio
 COPY --chown=invenio:invenio scripts /code/scripts
@@ -76,8 +79,8 @@ COPY --chown=invenio:invenio tools /code/tools
 COPY --chown=invenio:invenio modules /code/modules
 #COPY --chown=invenio:invenio others /code/others
 COPY --chown=invenio:invenio packages.txt /code/packages.txt
-COPY --chown=invenio:invenio packages-invenio.txt /code/packages-invenio.txt
-COPY --chown=invenio:invenio requirements-weko-modules.txt /code/requirements-weko-modules.txt
+COPY --chown=invenio:invenio pyproject.toml /code/pyproject.toml
+COPY --chown=invenio:invenio uv.lock /code/uv.lock
 COPY --chown=invenio:invenio invenio /code/invenio
 COPY --chown=invenio:invenio postgresql /code/postgresql
 COPY --chown=invenio:invenio tika /code/tika
@@ -95,11 +98,7 @@ RUN chmod +x /code/scripts/create-instance2.sh && /code/scripts/create-instance2
 
 FROM stage_5 AS build-env
 # Make given VENV default:
-ENV PATH=/home/invenio/.virtualenvs/invenio/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ENV VIRTUALENVWRAPPER_PYTHON=/home/invenio/.virtualenvs/invenio/bin/python
-RUN pip install virtualenvwrapper
-RUN echo "source /home/invenio/.virtualenvs/invenio/bin/virtualenvwrapper.sh" >> ~/.bashrc ; echo "workon invenio" >> ~/.bashrc
-#RUN mv /home/invenio/.virtualenvs/invenio/var/instance/static /home/invenio/.virtualenvs/invenio/var/instance/static.org
+ENV PATH="$VIRTUAL_ENV/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 USER root
 RUN chown -R invenio:invenio /code
 USER invenio
