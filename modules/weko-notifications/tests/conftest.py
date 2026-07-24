@@ -37,7 +37,8 @@ from invenio_pidrelations import InvenioPIDRelations
 from invenio_pidstore import InvenioPIDStore
 from invenio_records import InvenioRecords
 from invenio_records_ui import InvenioRecordsUI
-from invenio_search import InvenioSearch, current_search_client
+from invenio_records_ui.views import create_blueprint_from_app
+from invenio_search import InvenioSearch
 from sqlalchemy_utils.functions import create_database, database_exists
 
 from weko_index_tree import WekoIndexTree
@@ -62,7 +63,7 @@ from werkzeug.local import LocalProxy
 from .helpers import json_data
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -70,7 +71,7 @@ def instance_path():
     shutil.rmtree(path)
 
 
-@pytest.fixture()
+@pytest.fixture
 def base_app(instance_path):
     """Flask application fixture."""
     app_ = Flask(
@@ -116,10 +117,11 @@ def base_app(instance_path):
 
     current_assets = LocalProxy(lambda: app_.extensions["invenio-assets"])
     current_assets.collect.collect()
+    app_.register_blueprint(create_blueprint_from_app(app_))
 
     yield app_
 
-@pytest.fixture()
+@pytest.fixture
 def app(base_app):
     """Flask application fixture."""
     WekoNotifications(base_app)
@@ -127,12 +129,12 @@ def app(base_app):
     with base_app.app_context():
         yield base_app
 
-@pytest.yield_fixture()
+@pytest.fixture
 def client(app):
     with app.test_client() as client:
         yield client
 
-@pytest.yield_fixture
+@pytest.fixture
 def db(app):
     """Database fixture."""
     if not database_exists(str(db_.engine.url)):
@@ -142,7 +144,7 @@ def db(app):
     db_.session.remove()
     db_.drop_all()
 
-@pytest.fixture()
+@pytest.fixture
 def users(app, db):
     """Create users."""
     ds = app.extensions["invenio-accounts"].datastore
@@ -276,7 +278,7 @@ def users(app, db):
     ]
 
 
-@pytest.fixture()
+@pytest.fixture
 def user_profiles(db,users):
     all_data = UserProfile(
         user_id=users[0]["id"],
@@ -354,7 +356,7 @@ def user_profiles(db,users):
     return [all_data,repo_profile,not_validate_language]
 
 
-@pytest.fixture()
+@pytest.fixture
 def json_notifications():
     """Return a notifications instance."""
 

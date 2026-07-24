@@ -2,11 +2,10 @@
 #
 # Copyright (C) 2024 National Institute of Informatics.
 #
-# WEKO-SWORDServer is free software; you can redistribute it and/or modify it
+# WEKO-Notifications is free software; you can redistribute it and/or modify it
 # under the terms of the MIT License; see LICENSE file for more details.
 
 import pytest
-from unittest.mock import patch
 from marshmallow import ValidationError
 
 from weko_notifications.notifications import ActivityType
@@ -43,12 +42,12 @@ def test_actor_resource_validation():
     schema = ActorResource()
 
     # Valid data should pass
-    result = schema.load(valid_data).data
+    result = schema.load(valid_data)
     assert result == valid_data
 
     # Invalid data should raise ValidationError
     with pytest.raises(ValidationError) as ex:
-        schema.load(invalid_data).data
+        schema.load(invalid_data)
     assert "type" in ex.value.messages
     assert "name" in ex.value.messages
 
@@ -61,12 +60,12 @@ def test_inbox_resource_validation():
     schema = InboxResource()
 
     # Valid data should pass
-    result = schema.load(valid_data).data
+    result = schema.load(valid_data)
     assert result == valid_data
 
     # Invalid data should raise ValidationError
     with pytest.raises(ValidationError) as ex:
-        schema.load(invalid_data).data
+        schema.load(invalid_data)
     assert "type" in ex.value.messages
 
 # class UrlObject(Schema):
@@ -78,12 +77,12 @@ def test_url_object_validation():
     schema = UrlObject()
 
     # Valid data should pass
-    result = schema.load(valid_data).data
+    result = schema.load(valid_data)
     assert result == valid_data
 
     # Invalid data should raise ValidationError
     with pytest.raises(ValidationError) as ex:
-        schema.load(invalid_data).data
+        schema.load(invalid_data)
     assert "type" in ex.value.messages
 
 # class DocumentObject(Schema):
@@ -95,12 +94,12 @@ def test_document_object_validation():
     schema = DocumentObject()
 
     # Valid data should pass
-    result = schema.load(valid_data).data
+    result = schema.load(valid_data)
     assert result == valid_data
 
     # Invalid data should raise ValidationError
     with pytest.raises(ValidationError) as ex:
-        schema.load(invalid_data).data
+        schema.load(invalid_data)
     assert "type" in ex.value.messages
     assert "url" in ex.value.messages
 
@@ -113,12 +112,12 @@ def test_context_object_validation():
     schema = ContextObject()
 
     # Valid data should pass
-    result = schema.load(valid_data).data
+    result = schema.load(valid_data)
     assert result == valid_data
 
     # Invalid data should raise ValidationError
     with pytest.raises(ValidationError) as ex:
-        schema.load(invalid_data).data
+        schema.load(invalid_data)
     assert "type" in ex.value.messages
 
 # class NotificationSchema(Schema):
@@ -152,7 +151,7 @@ def test_notification_schema_validation(json_notifications):
 
     schema = NotificationSchema()
     # Valid data should pass
-    result = schema.load(valid_data).data
+    result = schema.load(valid_data)
     assert result["id"] is not None
     assert result["id"].startswith("urn:uuid:")
     assert result["updated"] is not None
@@ -166,13 +165,13 @@ def test_notification_schema_validation(json_notifications):
     assert result["inReplyTo"] == valid_data["inReplyTo"]
 
     # Valid data should pass
-    result = schema.load(valid_data2).data
+    result = schema.load(valid_data2)
     assert result["id"] == valid_data2["id"]
     assert result["updated"] == valid_data2["updated"]
 
     # Invalid data should raise ValidationError
     with pytest.raises(ValidationError) as ex:
-        schema.load(invalid_data).data
+        schema.load(invalid_data)
     assert "id" in ex.value.messages
     assert "updated" in ex.value.messages
     assert "type" in ex.value.messages
