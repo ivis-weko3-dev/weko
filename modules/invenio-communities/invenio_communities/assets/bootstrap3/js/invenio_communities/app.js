@@ -1,3 +1,6 @@
+import $ from "jquery";
+import angular from 'angular';
+
 (function (angular) {
   // Bootstrap it!
   angular.element(document).ready(function () {
@@ -15,7 +18,7 @@
         const form1Data = new FormData(document.getElementsByClassName('admin-form form-horizontal')[0]);
 
         var metainfo = { 'metainfo': $rootScope.recordsVM.invenioRecordsModel };
-        form2Data = new FormData();
+        let form2Data = new FormData();
         form2Data.append('catalog_data', JSON.stringify(metainfo));
 
         for (const [key, value] of form2Data) {
@@ -287,7 +290,7 @@ var CustomBSDatePicker = {
       CustomBSDatePicker.initAttributeForModel(model, val);
       if (reverse) {
         //Fill data from model to fields
-        str_code = "$(val).val(" + $(val).attr('ng-model') + ")";
+        let str_code = "$(val).val(" + $(val).attr('ng-model') + ")";
         try {
           eval(str_code);
         } catch (e) {
@@ -298,7 +301,7 @@ var CustomBSDatePicker = {
         }
       } else {
         //Fill data from fields to model
-        str_code = 'if ($(val).val().length != 0) {' + $(val).attr('ng-model') + '=$(val).val()}';
+        let str_code = 'if ($(val).val().length != 0) {' + $(val).attr('ng-model') + '=$(val).val()}';
         eval(str_code);
       }
     });

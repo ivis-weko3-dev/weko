@@ -1,3 +1,5 @@
+import $ from 'jquery';
+
 $('#request_mail_btn')?.on('click', () => {
   const CALCULATION_MESSAGE = document.getElementById("calculation_message_initial").value;
   $("#calculation_message").text(CALCULATION_MESSAGE);
@@ -46,7 +48,7 @@ let mail_form = $('#request_mail_form')
       dataType: 'json'
     }).then((response) => {
       const re = /records\/(.+)/;
-      const reg_result = re.exec(location.pathname);
+      const reg_result = re.exec(window.location.pathname);
       const recid = reg_result[1];
       const url = ['/api/v1/records', recid, 'request-mail'].join('/');
       // write content

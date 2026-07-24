@@ -1,4 +1,6 @@
-function handleOnclickCid(e){
+import $ from 'jquery';
+
+function handleOnclickCid(e) {
     console.log('weko_admin_cris_linkage_js')
     $('#researchmap_cidkey').click();
     $('#researchmap_cidkey').on("change", (event) =>{

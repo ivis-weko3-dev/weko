@@ -1,2 +1,2 @@
 import './activity_list.js';
-import './bootstrap-datepicker.min.js'
+import '../../node_modules/bootstrap-datepicker/dist/js/bootstrap-datepicker.min.js'

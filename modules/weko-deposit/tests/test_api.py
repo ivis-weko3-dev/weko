@@ -63,7 +63,7 @@ from tests.helpers import create_record_with_pdf
 
 from weko_admin.models import AdminSettings
 from weko_deposit.api import (
-    WekoDeposit, WekoFileObject, WekoIndexer, serialize_relations,
+    WekoDeposit, WekoFileObject, WekoIndexer,
     WekoRecord, _FormatSysBibliographicInformation, _FormatSysCreator)
 from weko_deposit.config import (
     WEKO_DEPOSIT_BIBLIOGRAPHIC_TRANSLATIONS, WEKO_DEPOSIT_SYS_CREATOR_KEY
@@ -899,7 +899,7 @@ class TestWekoDeposit():
 
     # def update(self, *args, **kwargs):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_update -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test_update(self, app, users, location, db_index, db_itemtype,db_index,redis_connect,db_itemtype):
+    def test_update(self, app, users, location, db_index, db_itemtype, redis_connect):
         with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 deposit = WekoDeposit.create({})

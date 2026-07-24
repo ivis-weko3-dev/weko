@@ -30,6 +30,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy_utils.types import JSONType
 from weko_records.models import Timestamp
 
+from invenio_communities.models import Community
 # from invenio_records.models import RecordMetadata
 
 
@@ -76,7 +77,7 @@ class Authors(db.Model, Timestamp):
     """json for author info"""
 
     communities = db.relationship(
-        'Community',
+        Community,
         secondary='author_community_relations',
         backref=db.backref('authors', lazy='select'),
     )
@@ -231,7 +232,7 @@ class AuthorsPrefixSettings(db.Model, Timestamp):
     """ Updated date."""
 
     communities = db.relationship(
-        'Community',
+        Community,
         secondary='author_prefix_community_relations',
         backref=db.backref('authors_prefix', lazy='select'),
     )
@@ -369,7 +370,7 @@ class AuthorsAffiliationSettings(db.Model, Timestamp):
     """ Updated date."""
 
     communities = db.relationship(
-        'Community',
+        Community,
         secondary='author_affiliation_community_relations',
         backref=db.backref('authors_affiliation', lazy='select'),
     )

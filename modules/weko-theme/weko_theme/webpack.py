@@ -19,21 +19,23 @@ weko_theme = WebpackThemeBundle(
                 "theme-widget": "./js/weko_theme/widget_js.js",
                 "theme-angular": "./node_modules/angular/angular.js",
                 "theme-schema-form": "./node_modules/angular-schema-form/dist/schema-form.min.js",
-                "theme-js-treeview": "./js/weko_theme/treeview.js",
                 "theme-js-sidebar": "./js/weko_theme/sidebar.js",
                 "theme-css-sidebar": "./css/weko_theme/sidebar.css",
-                "theme-js-axios": "./js/axios/axios.min.js",
                 "theme-js-preview-widget": "./js/weko_theme/preview_widget.js"
             },
             dependencies={
                 "almond": "~0.3.1",
                 "angular": "~1.4.9",
+                "axios": "0.24.0",
+                'babel-core': '5.8.38',
                 "bootstrap": "~3.3.7",
                 "bootstrap-sass": "~3.3.5",
                 "font-awesome": "~4.4.0",
                 "jquery": "~2.1.3",
                 "lodash": "~3.10.1",
                 "mootools": "~1.5.1",
+                'react': '16.14.0',
+                'react-dom': '16.14.0'
             },
             aliases={
                 "../../theme.config$": "less/weko_theme/theme.config",

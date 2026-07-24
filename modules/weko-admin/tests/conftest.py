@@ -139,7 +139,10 @@ def base_app(instance_path, cache_config,request ,search_class):
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         #SEARCH_OPENSEARCH_HOSTS=os.environ.get(
         #    'SEARCH_OPENSEARCH_HOSTS', None),
-        SEARCH_OPENSEARCH_HOSTS = os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch")
+        SEARCH_OPENSEARCH_HOSTS = os.environ.get(
+            "SEARCH_OPENSEARCH_HOSTS",
+            "opensearch"
+        ),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         SQLALCHEMY_ECHO=False,
         TEST_USER_EMAIL='test_user@example.com',
@@ -1155,7 +1158,8 @@ class MockSearch():
         self.indices = self.MockIndices()
         self.open_search = OpenSearch()
         self.cluster = self.MockCluster()
-    def index(self, id="",version="",version_type="",index="",,body="",**arguments):
+
+    def index(self, id="",version="",version_type="",index="",body="",**arguments):
         return {"_shards":{"failed":0} }
     # def delete(self,id="",index="",**kwargs):
     #     return Response(response=json.dumps({}),status=500)

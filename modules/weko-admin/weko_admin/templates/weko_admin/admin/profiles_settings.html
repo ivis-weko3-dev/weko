@@ -20,7 +20,7 @@
   #}
   {# admin_base_templateを継承 #}
   {%- extends admin_base_template %}
-  
+
   {# CSSの定義 #}
   {% block css %}
     {{ super() }}  {# 親テンプレートのCSSを継承 #}
@@ -34,15 +34,13 @@
     {{ super() }}  {# 親テンプレートのJavaScriptを継承 #}
     {# "weko_admin_profile_settings" のJavaScriptファイルを読み込む#}
     {{ webpack["admin_js_profile_set_js.js"] }}
-    
-    {# React.js用のライブラリ "weko_admin_statistics_reactjs_lib" を読み込む #}
-    <script src="{{ url_for('static', filename='js/weko_admin/react.production.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/weko_admin/react-dom.production.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/weko_admin/browser.min.js') }}"></script>
-    {# React BootstrapのJavaScriptファイル "weko_admin_react_bootstrap_js" を読み込む #}
-    <script src="{{ url_for('static', filename='js/weko_admin/react-bootstrap.min.js') }}"></script>
+
+    <script src="/assets/node_modules/react/cjs/react.production.min.js"></script>
+    <script src="/assets/node_modules/react-dom/cjs/react-dom.production.min.js"></script>
+    <script src="/assets/node_modules/babel-core/browser.min.js"></script>
+    <script src="/assets/node_modules/react-bootstrap/dist/react-bootstrap.min.js"></script>
   {%- endblock javascript %}
-  
+
   {%- block body %}
     {# モーダルウィンドウのテンプレートをインポート #}
     {% from "weko_theme/macros/modal_page.html" import all_modal %}
@@ -54,4 +52,3 @@
     <div id="alert-container"></div>
     {{ all_modal() }}
   {%- endblock body %}
-  

@@ -1,3 +1,8 @@
+import $ from 'jquery';
+import React from 'react';
+import ReactDOM from 'react-dom';
+import * as ReactBootstrap from 'react-bootstrap';
+
 const NUM_OF_RESULT = 10;
 const LIMIT_PAGINATION_NUMBER = 5;
 const ENABLE_REQUEST_EMAIL_CHECKBOX_LABEL = document.getElementById("enable-request-email-checkbox-label").value;
@@ -100,21 +105,21 @@ class RequestMailTarget extends React.Component {
             let v = item.author_id + '_' + item.email
             if (item.author_id) {
               return (
-                <a className={`list-group-item list-group-item-action ${this.state.selectedId.indexOf(id) > -1 ? 'active' : ''}`}
+                <button className={`list-group-item list-group-item-action ${this.state.selectedId.indexOf(id) > -1 ? 'active' : ''}`}
                   onClick={() => { this.handleClick(id) }}
                   key={id}
                   value={v}>
                   {item.email}&nbsp;&nbsp;(Author&nbsp;ID:&nbsp;{item.author_id})
-                </a>
+                </button>
               )
             } else {
               return (
-                <a className={`list-group-item list-group-item-action ${this.state.selectedId.indexOf(id) > -1 ? 'active' : ''}`}
+                <button className={`list-group-item list-group-item-action ${this.state.selectedId.indexOf(id) > -1 ? 'active' : ''}`}
                   onClick={() => { this.handleClick(id) }}
                   key={id}
                   value={v}>
                   {item.email}
-                </a>
+                </button>
               )
             }
           })
@@ -435,26 +440,44 @@ class Pagination extends React.Component {
     for (let i = this.state.startPage; i <= this.state.endPage; i++) {
       listPage.push(
         <li key={i.toString()} className={this.state.currentPage == i ? 'active' : ''}>
-          <a href="#" onClick={() => this.locatePageResult(i)}>{i}</a>
+          <button
+            onClick={() => this.locatePageResult(i)}>{i}
+          </button>
         </li>
       )
     }
     return (
       <ul className="pagination">
         {this.state.numOfPage > LIMIT_PAGINATION_NUMBER ?
-          <li >
-            <a href="#" onClick={() => this.locatePageResult(1)} className={this.state.currentPage == 1 ? 'my-pagination-disabled' : ''}><span aria-hidden="true">&#8810;</span></a>
+          <li>
+            <button
+              onClick={() => this.locatePageResult(1)}
+              className={this.state.currentPage == 1 ? 'my-pagination-disabled' : ''}>
+              <span aria-hidden="true">&#8810;</span>
+            </button>
           </li> : null}
         <li >
-          <a href="#" onClick={() => this.locatePageResult(this.state.currentPage - 1)} className={this.state.currentPage == 1 ? 'my-pagination-disabled' : ''}><span aria-hidden="true">&lt;</span></a>
+          <button
+            onClick={() => this.locatePageResult(this.state.currentPage - 1)}
+            className={this.state.currentPage == 1 ? 'my-pagination-disabled' : ''}>
+            <span aria-hidden="true">&lt;</span>
+          </button>
         </li>
         {listPage}
         <li >
-          <a href="#" onClick={() => this.locatePageResult(this.state.currentPage + 1)} className={this.state.currentPage == this.state.numOfPage ? 'my-pagination-disabled' : ''}><span aria-hidden="true">&gt;</span></a>
+          <button
+            onClick={() => this.locatePageResult(this.state.currentPage + 1)}
+            className={this.state.currentPage == this.state.numOfPage ? 'my-pagination-disabled' : ''}>
+            <span aria-hidden="true">&gt;</span>
+          </button>
         </li>
         {this.state.numOfPage > LIMIT_PAGINATION_NUMBER ?
           <li >
-            <a href="#" onClick={() => this.locatePageResult(this.state.numOfPage)} className={this.state.currentPage == this.state.numOfPage ? 'my-pagination-disabled' : ''}><span aria-hidden="true">&#8811;</span></a>
+            <button
+              onClick={() => this.locatePageResult(this.state.numOfPage)}
+              className={this.state.currentPage == this.state.numOfPage ? 'my-pagination-disabled' : ''}>
+              <span aria-hidden="true">&#8811;</span>
+            </button>
           </li> : null}
       </ul>
     )

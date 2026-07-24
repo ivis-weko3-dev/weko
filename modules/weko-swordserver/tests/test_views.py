@@ -926,7 +926,7 @@ def test_put_object(
 
 
 # def get_status_document(recid):
-# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__get_status_document -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_get_status_document -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
 def test_get_status_document(client, users, tokens):
     login_user_via_session(client=client,email=users[0]["email"])
     token = tokens[0]["token"].access_token
@@ -951,7 +951,7 @@ def test__get_status_document(app,records):
         "@type": "Status",
         "@id" : url_for('weko_swordserver.get_status_document', recid=recid_doi, _external=True),
         "actions" : {"getMetadata" : False,"getFiles" : False,"appendMetadata" : False,"appendFiles" : False,"replaceMetadata" : False,"replaceFiles" : False,"deleteMetadata" : False,"deleteFiles" : False,"deleteObject" : True,},
-        "eTag" : str(1),
+        "eTag" : str(records[0][2].revision_id),
         "fileSet" : {},
         "metadata" : {},
         "service" : url_for('weko_swordserver.get_service_document',_external=False),
@@ -979,7 +979,7 @@ def test__get_status_document(app,records):
         "@type": "Status",
         "@id" : url_for('weko_swordserver.get_status_document', recid=recid_not_doi, _external=True),
         "actions" : {"getMetadata" : False,"getFiles" : False,"appendMetadata" : False,"appendFiles" : False,"replaceMetadata" : False,"replaceFiles" : False,"deleteMetadata" : False,"deleteFiles" : False,"deleteObject" : True,},
-        "eTag" : str(1),
+        "eTag" : str(records[2][2].revision_id),
         "fileSet" : {},
         "metadata" : {},
         "service" : url_for('weko_swordserver.get_service_document',_external=False),
@@ -1000,7 +1000,7 @@ def test__get_status_document(app,records):
         "@type": "Status",
         "@id" : url_for('weko_swordserver.get_status_document', recid=recid_sysdoi, _external=True),
         "actions" : {"getMetadata" : False,"getFiles" : False,"appendMetadata" : False,"appendFiles" : False,"replaceMetadata" : False,"replaceFiles" : False,"deleteMetadata" : False,"deleteFiles" : False,"deleteObject" : True,},
-        "eTag" : str(1),
+        "eTag" : str(records[3][2].revision_id),
         "fileSet" : {},
         "metadata" : {},
         "service" : url_for('weko_swordserver.get_service_document',_external=False),
@@ -1028,7 +1028,7 @@ def test__get_status_document(app,records):
         "@type": "Status",
         "@id" : url_for('weko_swordserver.get_status_document', recid=recid_file, _external=True),
         "actions" : {"getMetadata" : False,"getFiles" : False,"appendMetadata" : False,"appendFiles" : False,"replaceMetadata" : False,"replaceFiles" : False,"deleteMetadata" : False,"deleteFiles" : False,"deleteObject" : True,},
-        "eTag" : str(1),
+        "eTag" : str(records[4][2].revision_id),
         "fileSet" : {},
         "metadata" : {},
         "service" : url_for('weko_swordserver.get_service_document',_external=False),
@@ -1098,7 +1098,7 @@ def test_status_document_files_info_none(app, mocker):
 
 # def _get_status_workflow_document(activity, recid):
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__get_status_workflow_document -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test__get_status_workflow_document(app, records):
+def test__get_status_workflow_document(app, records, mocker):
     recid_doi = records[0][0].pid_value
     recid_not_doi = records[2][0].pid_value
     recid_file = records[4][0].pid_value
@@ -1126,14 +1126,14 @@ def test__get_status_workflow_document(app, records):
                 "contentType" : "text/html"
             },
             {
-                "@id" : url_for('weko_swordserver.get_status_document', recid=recid_doi, _external=True),
+                "@id" : f"http://TEST_SERVER.localdomain/records/{recid_doi}",
                 "rel" : ["alternate"],
                 "contentType" : "text/html"
             }
         ]
     }
     test_doi_no_recid = {
-        "@id" : "",
+        "@id" : url_for('weko_swordserver.get_status_document', recid=recid_not_doi, _external=True),
         "@context": "https://swordapp.github.io/swordv3/swordv3.jsonld",
         "@type": "ServiceDocument",
         "actions" : {"getMetadata" : False,"getFiles" : False,"appendMetadata" : False,"appendFiles" : False,"replaceMetadata" : False,"replaceFiles" : False,"deleteMetadata" : False,"deleteFiles" : False,"deleteObject" : True,},
@@ -1153,9 +1153,15 @@ def test__get_status_workflow_document(app, records):
                 "contentType" : "text/html"
             },
             {
-                "@id": url_for('weko_swordserver.get_status_document', recid=recid_not_doi, _external=True),
+                "@id": f"http://TEST_SERVER.localdomain/records/{recid_not_doi}",
                 "rel": ["alternate"],
                 "contentType": "text/html"
+            },
+            {
+                "@id": f"https://TEST_SERVER.localdomain/records/{recid_not_doi}/files/filetest.pdf",
+                "contentType": "application/pdf",
+                "rel": ["http://purl.org/net/sword/3.0/terms/fileSetFile"],
+                "derivedFrom": f"http://TEST_SERVER.localdomain/records/{recid_not_doi}"
             }
         ]
     }
@@ -1180,7 +1186,7 @@ def test__get_status_workflow_document(app, records):
                 "contentType": "text/html"
             },
             {
-                "@id": url_for('weko_swordserver.get_status_document', recid=recid_file, _external=True),
+                "@id": f"http://TEST_SERVER.localdomain/records/{recid_file}",
                 "rel": ["alternate"],
                 "contentType": "text/html"
             },
@@ -1188,7 +1194,7 @@ def test__get_status_workflow_document(app, records):
                 "@id": "http://TEST_SERVER.localdomain/files/filetest.pdf",
                 "contentType": "application/pdf",
                 "rel": ["http://purl.org/net/sword/3.0/terms/fileSetFile"],
-                "derivedFrom": url_for('weko_swordserver.get_status_document', recid=recid_file, _external=True)
+                "derivedFrom": f"http://TEST_SERVER.localdomain/records/{recid_file}"
             }
         ]
     }
@@ -1202,6 +1208,33 @@ def test__get_status_workflow_document(app, records):
         result = _get_status_workflow_document(expected_activity_id, recid_file)
         assert result == test_file
 
+    with app.test_request_context("/test_req"):
+        # activity
+        temp_data = '{"files": [{"filename": "filetest.pdf", "mimetype": "application/pdf"}]}'
+        mock_query = mocker.MagicMock()
+        mock_query.filter_by.return_value.first.return_value = mocker.MagicMock(temp_data=temp_data)
+        with patch("weko_swordserver.views.Activity.query", new=mock_query):
+            result = _get_status_workflow_document(expected_activity_id, recid_not_doi)
+            assert result == test_doi_no_recid
+
+        # no files
+        temp_data = '{"files": []}'
+        mock_query = mocker.MagicMock()
+        mock_query.filter_by.return_value.first.return_value = mocker.MagicMock(temp_data=temp_data)
+        test_doi_no_recid["links"] = test_doi_no_recid["links"][:-1]
+        with patch("weko_swordserver.views.Activity.query", new=mock_query):
+            result = _get_status_workflow_document(expected_activity_id, recid_not_doi)
+            assert result == test_doi_no_recid
+
+        # no label in file
+        temp_data = '{"files": [{"mimetype": "application/pdf"}]}'
+        mock_query = mocker.MagicMock()
+        mock_query.filter_by.return_value.first.return_value = mocker.MagicMock(temp_data=temp_data)
+        with patch("weko_swordserver.views.Activity.query", new=mock_query):
+            result = _get_status_workflow_document(expected_activity_id, recid_not_doi)
+            assert result == test_doi_no_recid
+
+    with app.test_request_context("/test_req"):
         # not exist recid
         with pytest.raises(WekoSwordserverException):
             _get_status_workflow_document(expected_activity_id, None)
@@ -1221,8 +1254,7 @@ def test__get_status_workflow_document(app, records):
             assert "Activity created, but not found" in e.value.message
 
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_status_workflow_document_files_info_none -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test_status_workflow_document_files_info_none(app, mocker):
-    from weko_swordserver.views import _get_status_workflow_document
+def test_status_workflow_document_files_info_none(app, db, mocker):
     activity_id = "A-20240301-00001"
     recid = "dummy_recid"
     with app.test_request_context("/test_req"):
@@ -1678,8 +1710,8 @@ def test_delete_item(app, client, db, tokens, sword_client, users,search_records
 
 # def _create_error_document(type, error):
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__create_error_document -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test__create_error_document():
-    mock_datetime = patch("weko_swordserver.views.datetime")
+def test__create_error_document(mocker):
+    mock_datetime = mocker.patch("weko_swordserver.views.datetime")
     mock_datetime.now.return_value=datetime.datetime(2022,10,1,2,3,4)
     test = {
         "@context":"https://swordapp.github.io/swordv3/swordv3.jsonld",

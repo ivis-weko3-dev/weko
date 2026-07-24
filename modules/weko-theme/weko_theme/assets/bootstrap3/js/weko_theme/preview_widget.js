@@ -1,3 +1,9 @@
+import $ from 'jquery';
+import { buildWidget, toggleWidgetUI } from './widget';
+
+const DEFAULT_REPOSITORY = "Root Index";
+const MAIN_CONTENTS = "main_contents";
+
 /**
  * プレビュー機能の要件に基づき、情報取得元をサーバからローカルストレージへ意図的に変更（オーバーライド）
  * Get Widget design setting.
@@ -7,7 +13,8 @@ function getWidgetDesignSetting() {
     // If the current page is a widget page get
     const widgetListLocal = localStorage.getItem("widget_setting_data");
     const widgetListLocalJson = JSON.parse(widgetListLocal);
-    widgetList = widgetListLocalJson["widget-settings"];
+    let widgetList = widgetListLocalJson["widget-settings"];
+    let community_id = $("#community-id").text();
     if (Array.isArray(widgetList) && widgetList.length) {
       $("#page_body").removeClass("hidden");
       $("#" + MAIN_CONTENTS).addClass("grid-stack-item");

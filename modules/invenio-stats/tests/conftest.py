@@ -54,12 +54,6 @@ from invenio_stats.config import (
     STATS_QUERIES,
     STATS_WEKO_DEFAULT_TIMEZONE
 )
-from invenio_stats.contrib.registrations import register_queries
-from invenio_stats.contrib.config import (
-    AGGREGATIONS_CONFIG,
-    EVENTS_CONFIG,
-    QUERIES_CONFIG,
-)
 from invenio_stats.contrib.event_builders import (
     build_file_unique_id,
     build_record_unique_id,
@@ -113,43 +107,43 @@ def mock_gethostbyaddr():
 
 
 @pytest.yield_fixture()
-def query_entrypoints(custom_permission_factory):
+def query_entrypoints(app, custom_permission_factory):
     """Same as event_entrypoints for queries."""
     from pkg_resources import EntryPoint
     entrypoint = EntryPoint('invenio_stats', 'queries')
     data = []
     result = []
-    conf = [dict(
-        query_name='test-query',
-        query_class=CustomQuery,
-        query_config=dict(
-            index='stats-file-download',
-            copy_fields=dict(
-                bucket_id='bucket_id',
-            ),
-            required_filters=dict(
-                bucket_id='bucket_id',
-            )
-        ),
-        permission_factory=custom_permission_factory
-    ),
-        dict(
-        query_name='test-query2',
-        query_class=CustomQuery,
-        query_config=dict(
-            index='stats-file-download',
-            copy_fields=dict(
-                bucket_id='bucket_id',
-            ),
-            required_filters=dict(
-                bucket_id='bucket_id',
-            )
-        ),
-        permission_factory=custom_permission_factory
-    )]
+    conf = {
+        "test-query": {
+            "cls": CustomQuery,
+            "params": {
+                "index": "stats-file-download",
+                "copy_fields": {
+                    "bucket_id": "bucket_id",
+                },
+                "required_filters": {
+                    "bucket_id": "bucket_id",
+                }
+            },
+            "permission_factory": custom_permission_factory
+        },
+        "test-query2": {
+            "cls": CustomQuery,
+            "params": {
+                "index": "stats-file-download",
+                "copy_fields": {
+                    "bucket_id": "bucket_id",
+                },
+                "required_filters": {
+                    "bucket_id": "bucket_id",
+                }
+            },
+            "permission_factory": custom_permission_factory
+        }
+    }
 
-    result += conf
-    result += register_queries()
+    # Join the two dictionaries, with the values from conf taking precedence
+    result = conf | app.config.get("STATS_QUERIES", {})
     entrypoint.load = lambda conf=conf: (lambda: result)
     data.append(entrypoint)
 
@@ -201,7 +195,7 @@ def event_queues(app):
 @pytest.fixture(scope="module")
 def events_config():
     """Events config for the tests."""
-    stats_events = deepcopy(EVENTS_CONFIG)
+    stats_events = deepcopy(STATS_EVENTS)
     for idx in range(5):
         event_name = "event_{}".format(idx)
         stats_events[event_name] = {
@@ -214,7 +208,7 @@ def events_config():
 @pytest.fixture(scope="module")
 def aggregations_config():
     """Aggregations config for the tests."""
-    return deepcopy(AGGREGATIONS_CONFIG)
+    return deepcopy(STATS_AGGREGATIONS)
 
 
 @pytest.fixture(scope='function')
@@ -477,7 +471,7 @@ def role_users(app, db):
 @pytest.fixture()
 def queries_config(app, custom_permission_factory):
     """Queries config for the tests."""
-    stats_queries = deepcopy(QUERIES_CONFIG)
+    stats_queries = deepcopy(STATS_QUERIES)
     # store the original config value
     original_value = app.config.get("STATS_QUERIES")
     app.config["STATS_QUERIES"] = original_value
