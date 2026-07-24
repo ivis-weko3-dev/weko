@@ -12,6 +12,7 @@ import pytest
 
 from invenio_records.api import Record
 from invenio_records.resolver import urljoin_with_custom_scheme
+from invenio_records.resolver import InvenioRefResolver
 
 
 def local_ref_resolver_store_factory():
@@ -48,8 +49,10 @@ def app_config(app_config):
     return app_config
 
 
-def test_invenio_refresolver_with_local_store(db):
+def test_invenio_refresolver_with_local_store(app, db):
     """Test InvenioRefResolver with local store and complex JSONSchema."""
+    app.extensions["invenio-records"].refresolver_cls = InvenioRefResolver
+    app.extensions["invenio-records"].refresolver_store = local_ref_resolver_store_factory()
     data = {
         "$schema": "local://books.json#",
         "title": "The Lord of the Rings",
