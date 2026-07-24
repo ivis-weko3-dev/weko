@@ -114,7 +114,8 @@ def list_records(
     with requests.Session() as s:
         retries = Retry(total=OAIHARVESTER_RETRY_COUNT,
                         backoff_factor=OAIHARVESTER_BACKOFF_FACTOR,
-                        status_forcelist=[500, 502, 503, 504])
+                        status_forcelist=[500, 502, 503, 504],
+                        raise_on_status=False) # Suppress exception here so the final response reaches raise_for_status() as HTTPError
         s.mount('https://', HTTPAdapter(max_retries=retries))
         s.mount('http://', HTTPAdapter(max_retries=retries))
         response = s.get(url, params=payload,
@@ -306,7 +307,7 @@ def parsing_metadata(mappin, props, patterns, metadata, res):
                         subitem_key_list = mapping[0].split(',')[0].split('.')[1:]
                     else:
                         subitem_key_list = mapping[0].split('.')[1:]
-                    
+
                     if subitem_key_list:
                         subitem_recs(
                             items,
@@ -1015,7 +1016,7 @@ def add_conference(schema, mapping, res, metadata):
             'jpcoar:conferenceVenue.#text'),
         ('conference.conferenceVenue.@attributes.xml:lang',
             'jpcoar:conferenceVenue.@xml:lang'),
-        
+
     ]
 
     parsing_metadata(mapping, schema, patterns, metadata, res)
