@@ -8,7 +8,6 @@
 """Module of weko-notifications."""
 
 from flask import request
-from flask_babel import gettext as _
 
 from . import config
 from .utils import inbox_url

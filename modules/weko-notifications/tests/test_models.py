@@ -6,7 +6,6 @@
 # it under the terms of the MIT License; see LICENSE file for more details.
 
 import pytest
-from unittest.mock import patch
 
 from sqlalchemy.exc import SQLAlchemyError
 
