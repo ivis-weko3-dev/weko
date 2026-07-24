@@ -721,21 +721,27 @@ def db_itemtype(app, db):
 
     item_type_bioproject_mapping = ItemTypeMapping(id=32103, item_type_id=32103, mapping=item_type_bioproject_mapping)
 
+    # NOTE: No ORM relationship() links ItemType/ItemTypeMapping (FK only),
+    # so flush ItemType (parent) first, then add ItemTypeMapping (child)
+    # separately to avoid a ForeignKeyViolation.
     with db.session.begin_nested():
         db.session.add(item_type_multiple_name)
         db.session.add(item_type_multiple)
-        db.session.add(item_type_multiple_mapping)
         db.session.add(item_type_ddi_name)
         db.session.add(item_type_ddi)
-        db.session.add(item_type_ddi_mapping)
         db.session.add(item_type_dc_name)
         db.session.add(item_type_dc)
-        db.session.add(item_type_dc_mapping)
         db.session.add(item_type_biosample_name)
         db.session.add(item_type_biosample)
-        db.session.add(item_type_biosample_mapping)
         db.session.add(item_type_bioproject_name)
         db.session.add(item_type_bioproject)
+    db.session.commit()
+
+    with db.session.begin_nested():
+        db.session.add(item_type_multiple_mapping)
+        db.session.add(item_type_ddi_mapping)
+        db.session.add(item_type_dc_mapping)
+        db.session.add(item_type_biosample_mapping)
         db.session.add(item_type_bioproject_mapping)
     db.session.commit()
 
