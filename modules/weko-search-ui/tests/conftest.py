@@ -886,17 +886,6 @@ def client_request_args_FULL_TEXT(app, file_instance_mock):
             )
         yield r
 
-@pytest.fixture()
-def location(app, db):
-    """Create default location."""
-    tmppath = tempfile.mkdtemp()
-    with db.session.begin_nested():
-        Location.query.delete()
-        loc = Location(name="local", uri=tmppath, default=True)
-        db.session.add(loc)
-    db.session.commit()
-    return location
-
 
 @pytest.fixture()
 def user(app, db):
@@ -1202,7 +1191,7 @@ def es_authors_index(app):
 
 
 @pytest.fixture()
-def db_records(db, instance_path, users):
+def db_records(db, instance_path, users, user_activity_log_partition_table):
     with db.session.begin_nested():
         Location.query.delete()
         loc = Location(name="local", uri=instance_path, default=True)
@@ -1274,7 +1263,7 @@ def db_records2(db, instance_path, users):
 
 
 @pytest.fixture()
-def db_records3(db):
+def db_records3(db, location):
     record_data = json_data("data/test_records2.json")
     item_data = json_data("data/test_items2.json")
     record_num = len(record_data)
@@ -2442,7 +2431,7 @@ def deposit(app, open_search, users, location, db):
 
 
 @pytest.fixture()
-def db_index(client, users):
+def db_index(client, users, user_activity_log_partition_table):
     index_metadata = {
         "id": 1,
         "parent": 0,
@@ -2959,7 +2948,7 @@ def search_records2(app, db, db_index, location, db_itemtype, db_oaischema):
     return {"indexer": indexer, "results": results}
 
 @pytest.fixture()
-def indextree(app, client, users):
+def indextree(app, client, users, user_activity_log_partition_table):
     from weko_index_tree.api import Indexes
 
     index_metadata = {
@@ -4340,6 +4329,8 @@ def make_itemtype(app,db):
             version_id=1,
             is_deleted=False,
         )
+        with db.session.begin_nested():
+            db.session.add(item_type)
 
         if "mapping" in datas:
             item_type_mapping = dict()
@@ -4348,8 +4339,6 @@ def make_itemtype(app,db):
             item_type_mapping = ItemTypeMapping(id=id, item_type_id=id, mapping=item_type_mapping)
             db.session.add(item_type_mapping)
             result["item_type_mapping"] = item_type_mapping
-        with db.session.begin_nested():
-            db.session.add(item_type)
 
         db.session.commit()
         result["item_type_name"] = item_type_name
@@ -4442,24 +4431,6 @@ def sample_config(app, db):
         source.save()
         db.session.commit()
     return source_name
-
-
-@pytest.fixture()
-def location(app, db):
-    """Create default location."""
-    tmppath = tempfile.mkdtemp()
-
-    location = Location.query.filter_by(name="testloc").count()
-    if location != 1:
-        loc = Location(name="testloc", uri=tmppath, default=True)
-        db.session.add(loc)
-        db.session.commit()
-    else:
-        loc = Location.query.filter_by(name="testloc").first()
-
-    yield loc
-
-    shutil.rmtree(tmppath)
 
 
 @pytest.fixture()
@@ -4607,11 +4578,15 @@ def location(app, db):
     """Create default location."""
     tmppath = tempfile.mkdtemp()
     with db.session.begin_nested():
+        # Delete existing locations to ensure a clean state
         Location.query.delete()
-        loc = Location(name='local', uri=tmppath, default=True)
+        loc = Location(name="local", uri=tmppath, default=True)
         db.session.add(loc)
     db.session.commit()
-    return loc
+    
+    yield loc
+    # Ensure the temporary directory is removed after the test
+    shutil.rmtree(tmppath)
 
 
 @pytest.fixture()
@@ -4648,11 +4623,15 @@ def db_itemtype_jpcoar(app, db):
         is_deleted=False,
     )
 
-    item_type_multiple_mapping = ItemTypeMapping(id=10, item_type_id=10, mapping=item_type_multiple_mapping)
-
     with db.session.begin_nested():
         db.session.add(item_type_multiple_name)
         db.session.add(item_type_multiple)
+
+    item_type_multiple_mapping = ItemTypeMapping(
+        id=10, item_type_id=item_type_multiple.id, mapping=item_type_multiple_mapping
+    )
+
+    with db.session.begin_nested():
         db.session.add(item_type_multiple_mapping)
     db.session.commit()
 
@@ -4786,3 +4765,22 @@ def ro_crate():
     shutil.make_archive(zip_path.replace(".zip", ""), 'zip', "tests/data/zip_crate/")
     yield zip_path
     shutil.rmtree(temp_dir)
+
+
+@pytest.fixture
+def user_activity_log_partition_table(app, db):
+    """Create user activity log partition."""
+    # Create partition for current month
+    now = datetime.now()
+    start = now.date().replace(day=1)
+    end = (start + timedelta(days=31)).replace(day=1)
+    partition_name = f"user_activity_logs_{now.year}_{now.month:02d}"
+    create_partition_sql = f"""
+        CREATE TABLE IF NOT EXISTS {partition_name}
+        PARTITION OF user_activity_logs
+        FOR VALUES FROM ('{start}') TO ('{end}');
+    """
+
+    with db.session.begin_nested():
+        db.session.execute(create_partition_sql)
+    db.session.commit()

@@ -5326,7 +5326,7 @@ class TestJsonLdMapper:
         mapper = JsonLdMapper(item_type2.model.id, None)
 
         mapper.data_path = str(tmp_path)
-        file_content = "これは\r\nテキストファイルです\r\n"
+        file_content = "これは\r\n日本語テキストファイルです\r\n"
 
         file_name = "サンプル.txt"
         tmpfile = tmp_path / file_name

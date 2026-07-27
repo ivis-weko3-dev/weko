@@ -1489,7 +1489,9 @@ def find_and_update_location_size():
                 loc.size = row[1]
 """
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_register_item_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_register_item_metadata(i18n_app, es_item_file_pipeline, deposit, search_records, mocker):
+def test_register_item_metadata(
+    i18n_app, search_item_file_pipeline, deposit, search_records, mocker
+):
     item = search_records["results"][0]["item"]
     root_path = os.path.dirname(os.path.abspath(__file__))
     item["$schema"] = "/items/jsonschema/1000"
@@ -1500,7 +1502,10 @@ def test_register_item_metadata(i18n_app, es_item_file_pipeline, deposit, search
 
 
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_register_item_metadata2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_register_item_metadata2(i18n_app, es_item_file_pipeline, deposit, search_records, db_index, open_search, db, mocker):
+def test_register_item_metadata2(
+    i18n_app, search_item_file_pipeline, deposit, search_records, db_index,
+    open_search, db, mocker
+):
     item = search_records["results"][0]["item"]
     item["item_type_id"] = 1000
     item["$schema"] = "/items/jsonschema/1000"
@@ -1525,7 +1530,10 @@ def test_register_item_metadata2(i18n_app, es_item_file_pipeline, deposit, searc
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_register_item_metadata3 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 # @pytest.mark.parametrize('order_if', [1,2])
 @pytest.mark.parametrize('order_if', [1,2,3,4])
-def test_register_item_metadata3(i18n_app, es_item_file_pipeline, deposit, search_records2, db_index, open_search, db, mocker, order_if):
+def test_register_item_metadata3(
+    i18n_app, search_item_file_pipeline, deposit, search_records2, db_index,
+    open_search, db, mocker, order_if
+):
     item = search_records2["results"][0]["item"]
     item["item_type_id"] = 1000
     item["$schema"] = "/items/jsonschema/1000"
@@ -1583,7 +1591,9 @@ def test_register_item_metadata3(i18n_app, es_item_file_pipeline, deposit, searc
 
 # def update_publish_status(item_id, status):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_update_publish_status -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_update_publish_status(i18n_app, es_item_file_pipeline, search_records):
+def test_update_publish_status(
+    i18n_app, search_item_file_pipeline, search_records
+):
     item_id = 1
     status = None
 
@@ -1593,7 +1603,9 @@ def test_update_publish_status(i18n_app, es_item_file_pipeline, search_records):
 
 # def handle_workflow(item: dict):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_handle_workflow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_handle_workflow(i18n_app, es_item_file_pipeline, search_records, db):
+def test_handle_workflow(
+    i18n_app, search_item_file_pipeline, search_records, db
+):
     item = search_records["results"][0]["item"]
 
     with patch(
@@ -1656,7 +1668,8 @@ def test_create_flow_define(i18n_app, db_workflow):
 # def send_item_created_event_to_search(item, request_info): *** ERR
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_send_item_created_event_to_search -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_send_item_created_event_to_search(
-    i18n_app, es_item_file_pipeline, search_records, client_request_args, users, open_search
+    i18n_app, search_item_file_pipeline, search_records, client_request_args,
+    users, open_search
 ):
     # with patch("weko_search_ui.utils.send_item_created_event_to_search._push_item_to_search", return_value=""):
     # with patch("weko_search_ui.utils._push_item_to_search", return_value=""):
@@ -1673,7 +1686,9 @@ def test_send_item_created_event_to_search(
 
 # def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False): ERROR = TypeError: handle_remove_search_metadata() missing 2 required positional arguments: 'bef_metadata' and 'bef_las...
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_import_items_to_system -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_import_items_to_system(i18n_app, db, es_item_file_pipeline, search_records, app, mocker):
+def test_import_items_to_system(
+    i18n_app, db, search_item_file_pipeline, search_records, app, mocker
+):
     item = search_records["results"][0]["item"]
     db.session.commit()
     with patch("weko_search_ui.utils.register_item_metadata", return_value={}), \
@@ -1780,7 +1795,9 @@ def test_import_items_to_system(i18n_app, db, es_item_file_pipeline, search_reco
 
 # def import_items_to_activity(item, request_info):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_import_items_to_activity -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_import_items_to_activity(i18n_app, es_item_file_pipeline, search_records, db_workflow, mocker):
+def test_import_items_to_activity(
+    i18n_app, search_item_file_pipeline, search_records, db_workflow, mocker
+):
     mock_auto = mocker.patch("weko_workflow.headless.HeadlessActivity.auto", return_value=("test/A-TEST-1", "end_action", "2000001"))
 
     item = search_records["results"][0]["item"]
@@ -1835,7 +1852,9 @@ def test_import_items_to_activity(i18n_app, es_item_file_pipeline, search_record
 
 # def delete_items_with_activity(item_id, request_info):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_delete_items_with_activity -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_delete_items_with_activity(i18n_app, es_item_file_pipeline, search_records, db_workflow, mocker):
+def test_delete_items_with_activity(
+    i18n_app, search_item_file_pipeline, search_records, db_workflow, mocker
+):
     request_info = {
         "user_id": 1,
         "shared_ids": None,
@@ -1873,7 +1892,9 @@ def test_delete_items_with_activity(i18n_app, es_item_file_pipeline, search_reco
 
 
 # def handle_item_title(list_record):
-def test_handle_item_title(i18n_app, db_itemtype, es_item_file_pipeline, search_records):
+def test_handle_item_title(
+    i18n_app, db_itemtype, search_item_file_pipeline, search_records
+):
     list_record = [search_records["results"][0]["item"]]
     list_record[0]["item_type_id"] = db_itemtype["item_type"].id
 
@@ -2115,7 +2136,9 @@ def test_handle_check_cnri_2(i18n_app):
 
 
 # def handle_check_doi_indexes(list_record):
-def test_handle_check_doi_indexes(i18n_app, es_item_file_pipeline, search_records):
+def test_handle_check_doi_indexes(
+    i18n_app, search_item_file_pipeline, search_records
+):
     list_record = [search_records["results"][0]["item"]]
 
     # Doesn't return any value
@@ -2124,7 +2147,9 @@ def test_handle_check_doi_indexes(i18n_app, es_item_file_pipeline, search_record
 
 # def handle_check_doi_ra(list_record):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_handle_check_doi_ra -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_handle_check_doi_ra(app, db, es_item_file_pipeline, search_records,identifier, mocker):
+def test_handle_check_doi_ra(
+    app, db, search_item_file_pipeline, search_records,identifier, mocker
+):
     # list_record = [search_records['results'][0]['item']]
     item = MagicMock()
 
@@ -2832,7 +2857,9 @@ def test_handle_check_operation_flags(tmpdir):
     assert len(os.listdir(tmp_dir)) == 6
 
 # def register_item_handle(item):
-def test_register_item_handle(i18n_app, es_item_file_pipeline, search_records):
+def test_register_item_handle(
+    i18n_app, search_item_file_pipeline, search_records
+):
     item = search_records["results"][0]["item"]
 
     assert not register_item_handle(item)
@@ -3104,7 +3131,7 @@ def test_register_item_doi(i18n_app, db_activity, identifier, mocker):
 
 # def register_item_update_publish_status(item, status):
 def test_register_item_update_publish_status(
-    i18n_app, es_item_file_pipeline, search_records
+    i18n_app, search_item_file_pipeline, search_records
 ):
     item = search_records["results"][0]["item"]
     # item = db_activity['item']
@@ -3118,7 +3145,7 @@ def test_register_item_update_publish_status(
 # def handle_doi_required_check(record):
 def test_handle_doi_required_check(
     i18n_app,
-    es_item_file_pipeline,
+    search_item_file_pipeline,
     search_records,
     record_with_metadata,
     db_itemtype,
@@ -4735,7 +4762,9 @@ def test_handle_check_item_is_locked(i18n_app, db_activity):
 
 
 # def handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata):
-def test_handle_remove_search_metadata(i18n_app, es_item_file_pipeline, search_records):
+def test_handle_remove_search_metadata(
+    i18n_app, search_item_file_pipeline, search_records
+):
     item = search_records["results"][0]["item"]
     bef_metadata = {}
     bef_metadata["_id"] = 9
