@@ -111,7 +111,7 @@ class InboxResource(Schema):
 class UrlObject(Schema):
     id = fields.String(required=True)
     media_type = fields.String(
-        all_none=True, attribute="mediaType", load_from="mediaType"
+        allow_none=True, attribute="mediaType", data_key="mediaType"
     )
     type = fields.Field(allow_none=True, validate=validate_string_or_list)
 
@@ -124,7 +124,7 @@ class DocumentObject(Schema):
     object = fields.String(allow_none=True)
     type = fields.Field(allow_none=True, validate=validate_string_or_list)
     ietf_cite_as = fields.String(
-        allow_none=True, attribute="ietf:cite-as", load_from="ietf:cite-as"
+        allow_none=True, attribute="ietf:cite-as", data_key="ietf:cite-as"
     )
     url = fields.Nested(UrlObject, allow_none=True)
     name = fields.String(allow_none=True)
@@ -136,7 +136,7 @@ class DocumentObject(Schema):
 class ContextObject(Schema):
     id = fields.String(required=True)
     ietf_cite_as = fields.String(
-        allow_none=True, attribute="ietf:cite-as", load_from="ietf:cite-as"
+        allow_none=True, attribute="ietf:cite-as", data_key="ietf:cite-as"
     )
     type = fields.Field(allow_none=True, validate=validate_string_or_list)
 
@@ -148,22 +148,22 @@ class NotificationSchema(Schema):
     """Notification schema."""
     id = fields.String(
         validate=validate_urn_uuid,
-        missing=lambda: f"urn:uuid:{uuid.uuid4()}"
+        load_default=lambda: f"urn:uuid:{uuid.uuid4()}"
     )
     """URN:UUID of the notification."""
     updated = fields.String(
-        validate=validate_rfc3339, missing=rfc3339
+        validate=validate_rfc3339, load_default=rfc3339
     )
     """Timestamp of the notification(RFC3339)."""
     at_context = fields.List(
-        fields.String(),
-        required=True, attribute="@context", load_from="@context"
+        fields.String,
+        required=True, attribute="@context", data_key="@context"
     )
     """Context of the notification. alias of '@context'."""
 
     activity_type = fields.Field(
         required=True, validate=validate_activity_type,
-        attribute="type", load_from="type"
+        attribute="type", data_key="type"
     )
     """Type of the notification."""
     origin = fields.Nested(InboxResource, required=True)
@@ -178,7 +178,7 @@ class NotificationSchema(Schema):
     """Context entity of the notification."""
 
     in_reply_to = fields.String(
-        allow_none=True, attribute="inReplyTo", load_from="inReplyTo"
+        allow_none=True, attribute="inReplyTo", data_key="inReplyTo"
     )
     """In reply to the notification. alias of 'inReplyTo'."""
 
