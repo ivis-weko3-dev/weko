@@ -8,22 +8,16 @@
 """Module of weko-sitemap."""
 
 from celery.result import AsyncResult
-from celery.app.control import Inspect
 from datetime import datetime
-from urllib.parse import urlparse
 
-from flask import abort, current_app, jsonify, render_template, request, \
-    session, url_for
+from flask import current_app, jsonify, request, session, url_for
 from flask_admin import BaseView, expose
 from flask_babel import gettext as _
 from flask_login import current_user
-from flask_wtf import FlaskForm,Form
+from flask_wtf import FlaskForm
+
 from weko_accounts.utils import get_remote_addr
 from weko_admin.api import validate_csrf_header
-from wtforms import ValidationError
-
-
-
 
 
 class SitemapSettingView(BaseView):
@@ -38,9 +32,9 @@ class SitemapSettingView(BaseView):
     def update_sitemap(self):
         """Start the task to update the sitemap."""
         from .tasks import update_sitemap, link_success_handler, link_error_handler
-        
+
         validate_csrf_header(request)
-                
+
         # Celery cannot access config
         task = update_sitemap.apply_async(args=(
             datetime.now().strftime('%Y-%m-%dT%H:%M:%S%z'),
