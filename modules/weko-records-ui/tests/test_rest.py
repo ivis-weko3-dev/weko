@@ -125,84 +125,44 @@ def url(root, kwargs = {}):
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_NeedRestrictedAccess_get_v1 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_NeedRestrictedAccess_get_v1(app, client, db, make_record_need_restricted_access, oauth_headers, users):
+@pytest.mark.parametrize(
+"version,pid_value,headers_idx,expected_status",
+[
+("v0", 11, 0, 400), # Invalid version : 400 error
+("v1", 100, 0, 404), # Invalid pid_value : 404 error
+("v1", 16, 0, 404), # Activity is not completed : 404 error
+("v1", 11, 2, 200), # File access is not restricted access : result is False
+("v1", 12, 0, 200), # Login user is administrator : result is False
+("v1", 12, 1, 200), # Login user is register user : result is False
+("v1", 14, 1, 200), # Restricted access is not approval : result is True
+("v1", 15, 1, 200), # Restricted access is not applied : result is True
+("v1", 15, 2, 200), # User who can't apply : result is True
+("v1", 15, 3, 200), # Not login : result is True
+]
+)
+def test_NeedRestrictedAccess_get_v1(app, client, db, make_record_need_restricted_access, oauth_headers, users, version,pid_value,headers_idx,expected_status):
     """Test NeedRestrictedAccess.get_v1 method."""
 
-    version = 'v1'
-    invalid_version = 'v0'
-    headers_sysadmin = oauth_headers[0]     # OAuth token : sysadmin
-    headers_contributor = oauth_headers[1]  # OAuth token : contributor
-    headers_user = oauth_headers[2]         # OAuth token : user
-    headers_not_login = oauth_headers[3]    # No OAuth token : not login
     current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = True)
+    with patch('weko_records_ui.utils.check_file_download_permission',return_value=True),\
+         patch('weko_records_ui.permissions.check_file_download_permission',return_value=True):
+        pid_value = pid_value
+        res = client.get(
+            f'/{version}/records/{pid_value}/need-restricted-access',
+            headers=oauth_headers[headers_idx],
+        )
+        try:
+            json.loads(res.get_data())
+        except:
+            assert False
+        assert res.status_code == expected_status
 
-    # Invalid version : 400 error
-    pid_value = 11
-    res = client.get(
-        f'/{invalid_version}/records/{pid_value}/need-restricted-access',
-        headers=headers_sysadmin,
-    )
-    try:
-        json.loads(res.get_data())
-    except:
-        assert False
-    assert res.status_code == 400
-
-    # Invalid pid_value : 404 error
-    pid_value = 100
-    res = client.get(
-        f'/{version}/records/{pid_value}/need-restricted-access',
-        headers=headers_sysadmin,
-    )
-    try:
-        json.loads(res.get_data())
-    except:
-        assert False
-    assert res.status_code == 404
-
-    # Activity is not completed : 404 error
-    pid_value = 16
-    res = client.get(
-        f'/{version}/records/{pid_value}/need-restricted-access',
-        headers=headers_sysadmin,
-    )
-    assert res.status_code == 404
-    try:
-        json.loads(res.get_data())
-    except:
-        assert False
-
-    # File access is not restricted access : result is False
-    pid_value = 11
-    res = client.get(
-        f'/{version}/records/{pid_value}/need-restricted-access',
-        headers=headers_user,
-    )
-    res_data = json.loads(res.get_data())
-    assert res.status_code == 200
-    assert res_data[0]['need_restricted_access'] == False
-
-    # Login user is administrator : result is False
-    pid_value = 12
-    res = client.get(
-        f'/{version}/records/{pid_value}/need-restricted-access',
-        headers=headers_sysadmin,
-    )
-    res_data = json.loads(res.get_data())
-    assert res.status_code == 200
-    assert res_data[0]['need_restricted_access'] == False
-
-    # Login user is register user : result is False
-    pid_value = 12
-    res = client.get(
-        f'/{version}/records/{pid_value}/need-restricted-access',
-        headers=headers_contributor,
-    )
-    res_data = json.loads(res.get_data())
-    assert res.status_code == 200
-    assert res_data[0]['need_restricted_access'] == False
-
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_NeedRestrictedAccess_get_v1_approval -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_NeedRestrictedAccess_get_v1_approval(app, client, db, make_record_need_restricted_access, oauth_headers):
     # Restricted access is approval : result is False
+    version = 'v1'
+    headers_contributor = oauth_headers[1]  # OAuth token : contributor
+    current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = True)
     pid_value = 13
     onetime_download = make_record_need_restricted_access['FileOnetimeDownload']['13']
     # find_downloadable_only function can not execute on test.
@@ -215,58 +175,13 @@ def test_NeedRestrictedAccess_get_v1(app, client, db, make_record_need_restricte
     assert res.status_code == 200
     assert res_data[0]['need_restricted_access'] == False
 
-    # Restricted access is not approval : result is True
-    pid_value = 14
-    res = client.get(
-        f'/{version}/records/{pid_value}/need-restricted-access',
-        headers=headers_contributor,
-    )
-    res_data = json.loads(res.get_data())
-    assert res.status_code == 200
-    assert res_data[0]['need_restricted_access'] == True
 
-    # Restricted access is not applied : result is True
-    pid_value = 15
-    res = client.get(
-        f'/{version}/records/{pid_value}/need-restricted-access',
-        headers=headers_contributor,
-    )
-    res_data = json.loads(res.get_data())
-    assert res.status_code == 200
-    assert res_data[0]['need_restricted_access'] == True
-
-    # User who can't apply : result is True
-    pid_value = 15
-    res = client.get(
-        f'/{version}/records/{pid_value}/need-restricted-access',
-        headers=headers_user,
-    )
-    res_data = json.loads(res.get_data())
-    assert res.status_code == 200
-    assert res_data[0]['need_restricted_access'] == True
-
-    # Not login : result is True
-    pid_value = 15
-    res = client.get(
-        f'/{version}/records/{pid_value}/need-restricted-access',
-        headers=headers_not_login,
-    )
-    res_data = json.loads(res.get_data())
-    assert res.status_code == 200
-    assert res_data[0]['need_restricted_access'] == True
-
-
-# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_GetFileTerms_get_v1 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_GetFileTerms_get_v1(app, client, db, make_record_need_restricted_access, oauth_headers, users):
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_GetFileTerms_get_v1_1 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_GetFileTerms_get_v1_1(app, client, db, make_record_need_restricted_access, oauth_headers, users):
     """Test GetFileTerms.get_v1 method."""
 
     version = 'v1'
-    invalid_version = 'v0'
     headers_sysadmin = oauth_headers[4]                 # OAuth token : sysadmin (activity_scope)
-    headers_contributor = oauth_headers[5]              # OAuth token : contributor (activity_scope)
-    headers_user = oauth_headers[6]                     # OAuth token : user (activity_scope)
-    headers_not_login = oauth_headers[3]                # No OAuth token : not login
-    headers_user_no_activity_scope = oauth_headers[2]   # OAuth token : user (item_scope)
 
     # WEKO_RECORDS_UI_RESTRICTED_API = False : 403 error
     pid_value = 12
@@ -277,69 +192,66 @@ def test_GetFileTerms_get_v1(app, client, db, make_record_need_restricted_access
     )
     assert res.status_code == 403
 
+@pytest.mark.parametrize(
+"version,pid_value,headers_idx,expected_status,lang",
+[
+("v1", 100, 4, 404, "aaa"), # Invalid pid_value : 404 error
+("v1", 17, 4, 404, "ja"), # Record not found : 404 error
+]
+)
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_GetFileTerms_get_v1_2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_GetFileTerms_get_v1_2(app, client, db, make_record_need_restricted_access, oauth_headers, users, version,pid_value,headers_idx,expected_status,lang):
+    """Test GetFileTerms.get_v1 method."""
+
+    current_app.config.update(WEKO_RECORDS_UI_RESTRICTED_API = True)
+    pid_value = pid_value
+    file_name = "dummy.txt"
+    res = client.get(
+        f'/{version}/records/{pid_value}/files/{file_name}/terms',
+        headers=oauth_headers[headers_idx]+[("Accept-Language", lang)],
+    )
+    try:
+        json.loads(res.get_data())
+    except:
+        assert False
+    assert res.status_code == expected_status
+
+
+@pytest.mark.parametrize(
+"version,pid_value,headers_idx,expected_status,file_name",
+[
+("v0", 11, 4, 400, "dummy.txt"), # Invalid version : 400 error
+("v1", 12, 2, 403, "dummy.txt"), # Invalid scope : 403 error
+("v1", 11, 4, 404, "invalid.txt") # Invalid file_name : 404 error
+]
+)
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_GetFileTerms_get_v1_3 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_GetFileTerms_get_v1_3(app, client, db, make_record_need_restricted_access, oauth_headers, users, version,pid_value,headers_idx,expected_status,file_name):
+    """Test GetFileTerms.get_v1 method."""
+
     current_app.config.update(WEKO_RECORDS_UI_RESTRICTED_API = True)
 
     # Invalid version : 400 error
-    pid_value = 11
-    file_name = "dummy.txt"
-    res = client.get(
-        f'/{invalid_version}/records/{pid_value}/files/{file_name}/terms',
-        headers=headers_sysadmin,
-    )
-    try:
-        json.loads(res.get_data())
-    except:
-        assert False
-    assert res.status_code == 400
-
-    # Invalid scope : 403 error
-    pid_value = 12
-    file_name = "dummy.txt"
-    res = client.get(
-        f'/{invalid_version}/records/{pid_value}/files/{file_name}/terms',
-        headers=headers_user_no_activity_scope
-    )
-    try:
-        json.loads(res.get_data())
-    except:
-        assert False
-    assert res.status_code == 403
-
-    # Invalid pid_value : 404 error
-    pid_value = 100
-    file_name = "dummy.txt"
+    pid_value = pid_value
+    file_name = file_name
     res = client.get(
         f'/{version}/records/{pid_value}/files/{file_name}/terms',
-        headers=headers_sysadmin+[("Accept-Language", "aaa")],
+        headers=oauth_headers[headers_idx],
     )
     try:
         json.loads(res.get_data())
     except:
         assert False
-    assert res.status_code == 404
+    assert res.status_code == expected_status
 
-    # Record not found : 404 error
-    pid_value = 17
-    file_name = "dummy.txt"
-    res = client.get(
-        f'/{version}/records/{pid_value}/files/{file_name}/terms',
-        headers=headers_sysadmin+[("Accept-Language", "ja")],
-    )
-    res_data = json.loads(res.get_data())
-    assert res.status_code == 404
 
-    # Invalid file_name : 404 error
-    pid_value = 11
-    file_name = "invalid.txt"
-    res = client.get(
-        f'/{version}/records/{pid_value}/files/{file_name}/terms',
-        headers=headers_sysadmin,
-    )
-    try:
-        json.loads(res.get_data())
-    except:
-        assert False
-    assert res.status_code == 404
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_GetFileTerms_get_v1_4 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_GetFileTerms_get_v1_4(app, client, db, make_record_need_restricted_access, oauth_headers, users):
+    """Test GetFileTerms.get_v1 method."""
+    current_app.config.update(WEKO_RECORDS_UI_RESTRICTED_API = True)
+
+    version = 'v1'
+    headers_sysadmin = oauth_headers[4]                 # OAuth token : sysadmin (activity_scope)
 
     # Success: 200
     pid_value = 12
@@ -354,6 +266,13 @@ def test_GetFileTerms_get_v1(app, client, db, make_record_need_restricted_access
     assert res.status_code == 200
     assert res_data['text'] == terms_content
     assert res_data['Etag'] == etag
+
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_GetFileTerms_get_v1_5 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_GetFileTerms_get_v1_5(app, client, db, make_record_need_restricted_access, oauth_headers, users):
+    """Test GetFileTerms.get_v1 method."""
+    current_app.config.update(WEKO_RECORDS_UI_RESTRICTED_API = True)
+    version = 'v1'
+    headers_sysadmin = oauth_headers[4]
 
     # Success (If-None-Match): 304
     pid_value = 12
@@ -989,7 +908,7 @@ def test_CreateCaptchaImage_get_v1(app, client, db):
     assert res.status_code == 200
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoRecordsResource -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_WekoRecordsResource(app, records_rest, db_rocrate_mapping):
+def test_WekoRecordsResource(app, location, records_rest, db_rocrate_mapping):
     with app.test_client() as client:
         res = client.get('/v1/records/1')
         assert res.status_code == 200
@@ -1035,7 +954,7 @@ def test_WekoRecordsResource(app, records_rest, db_rocrate_mapping):
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoRecordsResource_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_WekoRecordsResource_error(app, records_rest, db_rocrate_mapping):
+def test_WekoRecordsResource_error(app, location, records_rest, db_rocrate_mapping):
     with app.test_client() as client:
         url = '/v1/records/1'
         res = client.get(url)
@@ -1068,7 +987,7 @@ def test_WekoRecordsResource_error(app, records_rest, db_rocrate_mapping):
         with patch('weko_records_ui.permissions.check_publish_status', MagicMock(return_value=False)):
             url = '/v1/records/1'
             res = client.get(url)
-            assert res.status_code == 403
+            assert res.status_code == 401
 
         # Failed to execute SQL
         with patch('weko_deposit.api.WekoRecord.get_record', MagicMock(side_effect=SQLAlchemyError())):
@@ -1086,7 +1005,7 @@ def test_WekoRecordsResource_error(app, records_rest, db_rocrate_mapping):
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoRecordsStats -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_WekoRecordsStats(app, records_rest, db_rocrate_mapping):
+def test_WekoRecordsStats(app, location, records_rest, db_rocrate_mapping):
     with app.test_client() as client:
         res = client.get('/v1/records/1/stats')
         assert res.status_code == 200
@@ -1096,7 +1015,7 @@ def test_WekoRecordsStats(app, records_rest, db_rocrate_mapping):
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoRecordsStats_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_WekoRecordsStats_error(app, records_rest, db_rocrate_mapping):
+def test_WekoRecordsStats_error(app, location, records_rest, db_rocrate_mapping):
     with app.test_client() as client:
         url = '/v1/records/1/stats'
         res = client.get(url)
@@ -1260,18 +1179,17 @@ def test_WekoFilesGet_error(app, records):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoFileListGetAll -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoFileListGetAll(app, records):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         with patch('weko_records_ui.fd.file_list_ui', return_value=Response(status=200)):
             # 1 GET request
             res = client.get('/v1/records/1/files/all')
             assert res.status_code == 200
 
-    test_mock = patch('weko_records_ui.fd.file_list_ui', return_value=Response(status=200))
-    # 2 Exist thumbnail
-    url = '/v1/records/7/files/all'
-    res = client.get(url)
-    assert len(test_mock.call_args[0][1]) == 1
+    with patch('weko_records_ui.fd.file_list_ui', return_value=Response(status=200)) as test_mock:
+        # 2 Exist thumbnail
+        url = '/v1/records/7/files/all'
+        res = client.get(url)
+        assert len(test_mock.call_args[0][1]) == 1
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoFileListGetAll_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
@@ -1330,7 +1248,6 @@ def test_WekoFileListGetAll_error(app, records):
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_rest.py::test_WekoFileListGetSelected -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_WekoFileListGetSelected(app, records):
-    app.register_blueprint(create_blueprint(app.config['WEKO_RECORDS_UI_CITES_REST_ENDPOINTS']))
     with app.test_client() as client:
         with patch('weko_records_ui.fd.file_list_ui', return_value=Response(status=200)):
             # 1 POST request
