@@ -329,30 +329,37 @@ class QueryFileReportsHelper(object):
         open_access_list = []
         all_groups = set()
 
-        event = kwargs.get("event")
-        year = kwargs.get("year")
-        month = kwargs.get("month")
-        repository_id = kwargs.get("repository_id")
+        event = kwargs.get('event')
+        year = kwargs.get('year')
+        month = kwargs.get('month')
+        start_date = kwargs.get('start_date')
+        end_date = kwargs.get('end_date')
+        repository_id = kwargs.get('repository_id')
 
         if repository_id and repository_id != "Root Index":
             repository = Community.query.get(repository_id)
             index_list = get_descendant_index_names(repository.root_node_id) if repository else []
 
         try:
-            query_month = f"{year}-{str(month).zfill(2)}"
-            _, lastday = calendar.monthrange(year, month)
+            if not start_date or not end_date:
+                query_month = str(year) + '-' + str(month).zfill(2)
+                _, lastday = calendar.monthrange(year, month)
+                start_date = query_month + '-01'
+                end_date = query_month + '-' + str(lastday).zfill(2)
+            else:
+                query_month = f"{start_date}-{end_date}"
             all_params = {
-                "start_date": f"{query_month}-01",
-                "end_date": f"{query_month}-{str(lastday).zfill(2)}T23:59:59"
+                'start_date': start_date,
+                'end_date': end_date + 'T23:59:59',
             }
             params = {
-                "start_date": f"{query_month}-01",
-                "end_date": f"{query_month}-{str(lastday).zfill(2)}T23:59:59",
-                "accessrole": "open_access"
+                'start_date': start_date,
+                'end_date': end_date + 'T23:59:59',
+                'accessrole': 'open_access',
             }
-            if repository_id and repository_id != "Root Index":
-                all_params["index_list"] = index_list
-                params["index_list"] = index_list
+            if repository_id and repository_id != 'Root Index':
+                all_params['index_list'] = index_list
+                params['index_list'] = index_list
             else:
                 all_params["index_list"] = None
                 params["index_list"] = None
@@ -400,18 +407,25 @@ class QueryFileReportsHelper(object):
         all_list = {}
         all_res = {}
 
-        year = kwargs.get("year")
-        month = kwargs.get("month")
-        repository_id = kwargs.get("repository_id")
+        year = kwargs.get('year')
+        month = kwargs.get('month')
+        start_date = kwargs.get('start_date')
+        end_date = kwargs.get('end_date')
+        repository_id = kwargs.get('repository_id')
 
         try:
-            query_month = f"{year}-{str(month).zfill(2)}"
-            _, lastday = calendar.monthrange(year, month)
+            if not start_date or not end_date:
+                query_month = str(year) + '-' + str(month).zfill(2)
+                _, lastday = calendar.monthrange(year, month)
+                start_date = query_month + '-01'
+                end_date = query_month + '-' + str(lastday).zfill(2)
+            else:
+                query_month = f"{start_date}-{end_date}"
             params = {
-                "start_date": f"{query_month}-01",
-                "end_date": f"{query_month}-{str(lastday).zfill(2)}T23:59:59"
+                'start_date': start_date,
+                'end_date': end_date + 'T23:59:59'
             }
-            if repository_id and repository_id != "Root Index":
+            if repository_id and repository_id != 'Root Index':
                 repository = Community.query.get(repository_id)
                 user_ids = get_user_ids_by_role(repository.group_id) if repository_id else []
                 params["user_ids"] = user_ids
@@ -478,13 +492,15 @@ class QuerySearchReportHelper(object):
         try:
             if not start_date or not end_date:
                 start_date, end_date = get_start_end_date(year, month)
-                result["date"] = str(year) + "-" + str(month).zfill(2)
-            params = {"start_date": start_date,
-                      "end_date": end_date + "T23:59:59",
-                      "agg_size": kwargs.get("agg_size", 0),
-                      "agg_filter": kwargs.get("agg_filter", None)}
-            if repository_id and repository_id != "Root Index":
-                params["wildcard"] = {"referrer": f"*{repository_id}*"}
+                result['date'] = str(year) + '-' + str(month).zfill(2)
+            else:
+                result['date'] = f"{start_date}-{end_date}"
+            params = {'start_date': start_date,
+                      'end_date': end_date + 'T23:59:59',
+                      'agg_size': kwargs.get('agg_size', 0),
+                      'agg_filter': kwargs.get('agg_filter', None)}
+            if repository_id and repository_id != 'Root Index':
+                params['wildcard'] = {"referrer": f"*{repository_id}*"}
 
             # Run query
             keyword_query_cfg = current_stats.queries["get-search-report"]
@@ -498,15 +514,17 @@ class QuerySearchReportHelper(object):
                 current_report["search_key"] = report["search_key"]
                 current_report["count"] = report["count"]
                 all.append(current_report)
-            all = sorted(all, key=lambda x:x["count"], reverse=True)
-            result["all"] = all
-        except search.NotFoundError as ex:
+            all = sorted(all, key=lambda x:x['count'], reverse=True)
+            result['all'] = all
+        except es_exceptions.NotFoundError as e:
+            traceback.print_exc()
             current_app.logger.debug(
-                "Indexes do not exist yet:" + str(ex.info["error"]))
-            result["all"] = []
-        except Exception as ex:
-            current_app.logger.debug(ex)
-            result["all"] = []
+                "Indexes do not exist yet:" + str(e.info['error']))
+            result['all'] = []
+        except Exception as e:
+            traceback.print_exc()
+            current_app.logger.debug(e)
+            result['all'] = []
 
         return result
 
@@ -519,29 +537,23 @@ class QueryCommonReportsHelper(object):
         """Get common params."""
         from invenio_communities.models import Community
         from weko_index_tree.utils import get_descendant_index_names
-        year = kwargs.get("year")
-        month = kwargs.get("month")
-        start_date = kwargs.get("start_date")
-        end_date = kwargs.get("end_date")
-        repository_id = kwargs.get("repository_id")
+        start_date = kwargs.get('start_date')
+        end_date = kwargs.get('end_date')
+        repository_id = kwargs.get('repository_id')
         if not start_date or not end_date:
-            if month > 0 and month <= 12:
-                query_date = f"{year}-{str(month).zfill(2)}"
-                _, lastday = calendar.monthrange(year, month)
-                params = {
-                    "start_date": query_date + "-01",
-                    "end_date": f"{query_date}-{str(lastday).zfill(2)}T23:59:59"
-                }
-            else:
-                query_date = "all"
-                params = {"interval": "day"}
+            year = kwargs.get('year')
+            month = kwargs.get('month')
+            query_date = str(year) + '-' + str(month).zfill(2)
+            _, lastday = calendar.monthrange(year, month)
+            start_date = query_date + '-01'
+            end_date = query_date + '-' + str(lastday).zfill(2)
         else:
-            query_date = start_date + "-" + end_date
-            params = {"start_date": start_date,
-                      "end_date": end_date + "T23:59:59",
-                      "agg_size": kwargs.get("agg_size", 0),
-                      "agg_sort": kwargs.get("agg_sort", {"_term": "desc"})}
-        if repository_id and repository_id != "Root Index":
+            query_date = start_date + '-' + end_date
+        params = {
+            'start_date': start_date,
+            'end_date': end_date + 'T23:59:59',
+        }
+        if repository_id and repository_id != 'Root Index':
             repository = Community.query.get(repository_id)
             index_list = get_descendant_index_names(repository.root_node_id)
             params['index_list'] = index_list
@@ -607,8 +619,9 @@ class QueryCommonReportsHelper(object):
 
             Calculation(all_res, all_list)
 
-        except Exception as ex:
-            current_app.logger.debug(ex)
+        except Exception as e:
+            traceback.print_exc()
+            current_app.logger.debug(e)
 
         result["date"] = query_month
         result["all"] = all_list
@@ -668,8 +681,9 @@ class QueryCommonReportsHelper(object):
             Calculation(query_list, all_res, site_license_list, other_list,
                         institution_name_list)
 
-        except Exception as ex:
-            current_app.logger.debug(ex)
+        except Exception as e:
+            traceback.print_exc()
+            current_app.logger.debug(e)
 
         result["date"] = query_month
         result["site_license"] = [site_license_list]
@@ -703,8 +717,9 @@ class QueryCommonReportsHelper(object):
             query = query_cfg.cls(name=query_cfg.name, **query_cfg.params)
             res = query.run(**params)
             Calculation(res, data_list)
-        except Exception as ex:
-            current_app.logger.debug(ex)
+        except Exception as e:
+            traceback.print_exc()
+            current_app.logger.debug(e)
 
         result["date"] = query_date
         result["all"] = data_list
@@ -777,15 +792,21 @@ class QueryRecordViewPerIndexReportHelper(object):
         from invenio_communities.models import Community
 
         result = {}
-        year = kwargs.get("year")
-        month = kwargs.get("month")
-        repository_id = kwargs.get("repository_id")
+        year = kwargs.get('year')
+        month = kwargs.get('month')
+        start_date = kwargs.get('start_date')
+        end_date = kwargs.get('end_date')
+        repository_id = kwargs.get('repository_id')
 
         try:
-            query_month = f"{year}-{str(month).zfill(2)}"
-            _, lastday = calendar.monthrange(year, month)
-            start_date = f"{query_month}-01"
-            end_date =  f"{query_month}-{str(lastday).zfill(2)}T23:59:59"
+            if not start_date or not end_date:
+                query_month = str(year) + '-' + str(month).zfill(2)
+                _, lastday = calendar.monthrange(year, month)
+                start_date = query_month + '-01'
+                end_date = query_month + '-' + str(lastday).zfill(2)
+            else:
+                query_month = f"{start_date}-{end_date}"
+
             index_list = None
             if repository_id and repository_id != "Root Index":
                 repository = Community.query.get(repository_id)
@@ -796,6 +817,7 @@ class QueryRecordViewPerIndexReportHelper(object):
             total = 1
             count = 0
             while count < total and (after_key or first_search):
+                end_date = end_date + 'T23:59:59'
                 agg_query = cls.build_query(start_date, end_date, after_key, index_list)
                 current_app.logger.debug(agg_query.to_dict())
                 temp_res = agg_query.execute().to_dict()
@@ -909,14 +931,12 @@ class QueryRecordViewReportHelper(object):
                 month = kwargs.get("month")
                 query_date = f"{year}-{str(month).zfill(2)}"
                 _, lastday = calendar.monthrange(year, month)
-                start_date = f"{query_date}-01"
-                end_date = f"{query_date}-{str(lastday).zfill(2)}"
-                query_date = f"{start_date}-{end_date}"
-            params = {
-                "start_date": start_date,
-                "end_date": f"{end_date}T23:59:59"
-            }
-            if not kwargs.get("ranking", False):
+                start_date = query_date + '-01'
+                end_date = query_date + '-' + str(lastday).zfill(2)
+            query_date = start_date + '-' + end_date
+            params = {'start_date': start_date,
+                      'end_date': end_date + 'T23:59:59'}
+            if not kwargs.get('ranking', False):
                 # Limit size
                 params.update({"agg_size": kwargs.get("agg_size", 0)})
             repository_id = kwargs.get('repository_id')

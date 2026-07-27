@@ -304,17 +304,37 @@ def test_query_file_reports_helper(app, db, event_queues, aggregated_file_downlo
         res = QueryFileReportsHelper.get(year=2022, month=10, event='test')
         assert res==[]
 
-def test_query_file_reports_helper_error(app):
-    with app.app_context():
-        # get
-        res = QueryFileReportsHelper.get(year=2022, month=10, event='file_download')
-        assert res=={'all': [], 'all_groups': [], 'date': '2022-10', 'open_access': []}
-        res = QueryFileReportsHelper.get(year=2022, month=10, event='billing_file_download')
-        assert res=={'all': [], 'all_groups': [], 'date': '2022-10', 'open_access': []}
-        res = QueryFileReportsHelper.get(year=2022, month=10, event='file_using_per_user')
-        assert res=={'all': {}, 'date': '2022-10'}
-        res = QueryFileReportsHelper.get(year=2022, month=10, event='test')
-        assert res==[]
+    # get
+    res = QueryFileReportsHelper.get(year=2022, month=10, event='file_download')
+    assert res=={'all': [], 'all_groups': [], 'date': '2022-10', 'open_access': []}
+    res = QueryFileReportsHelper.get(year=2022, month=10, event='billing_file_download')
+    assert res=={'all': [], 'all_groups': [], 'date': '2022-10', 'open_access': []}
+    res = QueryFileReportsHelper.get(year=2022, month=10, event='file_using_per_user')
+    assert res=={'all': {}, 'date': '2022-10'}
+    res = QueryFileReportsHelper.get(year=2022, month=10, event='test')
+    assert res==[]
+
+    res = QueryFileReportsHelper.get(start_date='2022-10-01', end_date='2022-10-31', event='file_download')
+    assert res=={'all': [], 'all_groups': [], 'date': '2022-10-01-2022-10-31', 'open_access': []}
+    res = QueryFileReportsHelper.get(start_date='2022-10-01', end_date='2022-10-31', event='billing_file_download')
+    assert res=={'all': [], 'all_groups': [], 'date': '2022-10-01-2022-10-31', 'open_access': []}
+    res = QueryFileReportsHelper.get(start_date='2022-10-01', end_date='2022-10-31', event='file_using_per_user')
+    assert res=={'all': {}, 'date': '2022-10-01-2022-10-31'}
+    res = QueryFileReportsHelper.get(start_date='2022-10-01', end_date='2022-10-31', event='test')
+    assert res==[]
+
+@patch("weko_index_tree.utils.get_descendant_index_names")
+@patch("invenio_communities.models.Community")
+def test_query_file_reports_helper_error(mock_Community, mock_get_descendant_index_names, app, mocker):
+    # get
+    res = QueryFileReportsHelper.get(year=2022, month=10, event='file_download')
+    assert res=={'all': [], 'all_groups': [], 'date': '2022-10', 'open_access': []}
+    res = QueryFileReportsHelper.get(year=2022, month=10, event='billing_file_download')
+    assert res=={'all': [], 'all_groups': [], 'date': '2022-10', 'open_access': []}
+    res = QueryFileReportsHelper.get(year=2022, month=10, event='file_using_per_user')
+    assert res=={'all': {}, 'date': '2022-10'}
+    res = QueryFileReportsHelper.get(year=2022, month=10, event='test')
+    assert res==[]
 
     mock_Community.query.get.return_value = MagicMock(root_node_id=1, group_id=1)
     mock_get_descendant_index_names.return_value = []
@@ -379,15 +399,15 @@ def test_query_search_report_helper(app):
         assert res=={'name1': 3, 'name2': 2}
 
         # get
-        with patch('invenio_stats.queries.SearchWekoTermsQuery.run', return_value=_raw_res1):
+        with patch('invenio_stats.queries.ESWekoTermsQuery.run', return_value=_raw_res1):
             res = QuerySearchReportHelper.get(
                 year=2022, month=10, start_date='2022-10-01', end_date='2022-10-31')
-            assert res=={'all': []}
+            assert res=={'all': [], 'date': '2022-10-01-2022-10-31'}
 
-        with patch('invenio_stats.queries.SearchWekoTermsQuery.run', return_value=_raw_res2):
+        with patch('invenio_stats.queries.ESWekoTermsQuery.run', return_value=_raw_res2):
             res = QuerySearchReportHelper.get(
-                year=2022, month=10, start_date='2022-10-01', end_date='2022-10-31')
-            assert res=={'all': [{'search_key': 'key2', 'count': 7}, {'search_key': 'key1', 'count': 4}]}
+                year=2022, month=10)
+            assert res=={'all': [{'search_key': 'key2', 'count': 7}, {'search_key': 'key1', 'count': 4}], 'date': '2022-10'}
 
         with patch('invenio_stats.queries.SearchWekoTermsQuery.run', return_value=_raw_res2):
             res = QuerySearchReportHelper.get(
@@ -440,10 +460,15 @@ def test_query_common_reports_helper(mock_Community, mock_get_descendant_index_n
             res = QueryCommonReportsHelper.get(event='top_page_access', year=2022, month=10, start_date='2022-10-01', end_date='2022-10-10')
             assert res=={'date': '2022-10-01-2022-10-10', 'all': {'localhost': {'host': 'name2', 'ip': 'localhost', 'count': 2}}}
 
-        mock_Community.query.get.return_value = MagicMock(root_node_id=1)
-        mock_get_descendant_index_names.return_value = ['index1']
-        res = QueryCommonReportsHelper.get(event='top_page_access', year=2022, month=10, start_date='2022-10-01', end_date='2022-10-10', repository_id='com1')
-        assert res=={'date': '2022-10-01-2022-10-10', 'all': {'localhost': {'host': 'name2', 'ip': 'localhost', 'count': 2}}}
+        with patch('invenio_stats.queries.ESTermsQuery.run', return_value=_res):
+            res = QueryCommonReportsHelper.get(event='top_page_access', year=2022, month=10)
+            assert res=={'date': '2022-10', 'all': {'localhost': {'host': 'name2', 'ip': 'localhost', 'count': 2}}}
+
+        with patch('invenio_stats.queries.ESTermsQuery.run', return_value=_res):
+            mock_Community.query.get.return_value = MagicMock(root_node_id=1)
+            mock_get_descendant_index_names.return_value = ['index1']
+            res = QueryCommonReportsHelper.get(event='top_page_access', year=2022, month=10, start_date='2022-10-01', end_date='2022-10-10', repository_id='com1')
+            assert res=={'date': '2022-10-01-2022-10-10', 'all': {'localhost': {'host': 'name2', 'ip': 'localhost', 'count': 2}}}
 
         _res = {
             "interval": "year",
@@ -574,6 +599,26 @@ def test_query_record_view_per_index_report_helper(mock_Community, mock_get_desc
         res = QueryRecordViewPerIndexReportHelper.get(year=2022, month=10, repository_id='com1')
         assert res=={'all': [], 'date': '2022-10', 'total': 0}
 
+    # end_dateに時間が追加されているか
+    with patch.object(QueryRecordViewPerIndexReportHelper, 'build_query')\
+            as mock_build_query:
+        mock_agg_query = MagicMock()
+        mock_agg_query.execute.return_value.to_dict.return_value = {
+            'aggregations': {
+                QueryRecordViewPerIndexReportHelper.nested_path: {
+                    'my_buckets': {'buckets': []},
+                    'doc_count': 0
+                }
+            }
+        }
+        mock_build_query.return_value = mock_agg_query
+        with patch.object(QueryRecordViewPerIndexReportHelper,
+                          'parse_bucket_response', return_value=0):
+            QueryRecordViewPerIndexReportHelper.get(
+                start_date='2022-10-01', end_date='2022-10-31')
+            called_args = mock_build_query.call_args[0]
+            assert called_args[1] == '2022-10-31T23:59:59'
+
 def test_query_record_view_per_index_report_helper_error(app):
     with app.app_context():
         # get
@@ -617,9 +662,9 @@ def test_query_record_view_report_helper(mock_Community, mock_get_descendant_ind
     }
     _data_list = []
     # Calculation
-    with pytest.raises(Exception) as e:
-        QueryRecordViewReportHelper.Calculation(_res, _data_list)
-    assert e.type==TypeError
+    QueryRecordViewReportHelper.Calculation(_res, _data_list)
+    assert _data_list
+
 
     # correct_record_title
     _res = [['2', ['name2old']]]
@@ -656,6 +701,8 @@ def test_query_record_view_report_helper(mock_Community, mock_get_descendant_ind
     # get
     res = QueryRecordViewReportHelper.get(year=2022, month=9)
     assert res=={'all': [], 'date': '2022-09-01-2022-09-30'}
+    res = QueryRecordViewReportHelper.get(start_date='2022-09-01', end_date='2022-09-30')
+    assert res=={'all': [], 'date': '2022-09-01-2022-09-30'}
     res = QueryRecordViewReportHelper.get(year=2022, month=9, repository_id='com1')
     assert res=={'all': [], 'date': '2022-09-01-2022-09-30'}
 
@@ -665,7 +712,7 @@ def test_query_record_view_report_helper_error(app, db):
     with app.app_context():
         # get
         res = QueryRecordViewReportHelper.get(start_date='2022-09-01', end_date='2022-09-30', ranking=True)
-        assert res=={'all': [], 'date': ''}
+        assert res=={'all': [], 'date': '2022-09-01-2022-09-30'}
 
         res = QueryRecordViewReportHelper.get()
         assert res=={'all': [], 'date': 'None-None'}

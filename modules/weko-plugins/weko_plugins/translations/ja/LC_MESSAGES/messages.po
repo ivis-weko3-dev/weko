@@ -111,5 +111,5 @@ msgstr "詳細"
 
 #: weko_plugins/templates/weko_plugins/admin/plugin_setting.html:40
 msgid "Send"
-msgstr ""
+msgstr "送信"
 
