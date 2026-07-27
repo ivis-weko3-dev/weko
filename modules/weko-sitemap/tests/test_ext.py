@@ -1,19 +1,16 @@
-
-import pytest
-from mock import patch
+from unittest.mock import patch
 from datetime import datetime
+
 from flask import current_app,make_response, url_for
 from flask_babel import format_datetime
 
 from invenio_cache import InvenioCache, current_cache
 
-from weko_sitemap import WekoSitemap
-
 
 # .tox/c1/bin/pytest --cov=weko_sitemap tests/test_ext.py::test_create_page -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-sitemap/.tox/c1/tmp
-def test_create_page(create_app):
-    mock_cache = patch("weko_sitemap.ext.WekoSitemap.set_cache_page")
-    patch("weko_sitemap.ext.format_datetime",return_value="2022-10-01T01:02:03")
+def test_create_page(create_app, mocker):
+    mock_cache = mocker.patch("weko_sitemap.ext.WekoSitemap.set_cache_page")
+    mocker.patch("weko_sitemap.ext.format_datetime",return_value="2022-10-01T01:02:03")
     app = create_app()
 
     with app.app_context():
@@ -83,7 +80,7 @@ def test_get_cache_page(create_app):
         current_app.extensions["weko-sitemap"].get_cache_page("sitemap_page_keys")
 
 # .tox/c1/bin/pytest --cov=weko_sitemap tests/test_ext.py::test_sitemap -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-sitemap/.tox/c1/tmp
-def test_sitemap(create_app):
+def test_sitemap(create_app, mocker):
     app = create_app(CACHE_REDIS_URL='redis://redis:6379/0',
         CACHE_REDIS_DB='0',
         CACHE_REDIS_HOST="redis")
@@ -94,27 +91,27 @@ def test_sitemap(create_app):
         ]
         for d in data:
             yield d
-    patch("weko_sitemap.ext.WekoSitemap._load_cache_pages",side_effect=mock_load)
+    mocker.patch("weko_sitemap.ext.WekoSitemap._load_cache_pages",side_effect=mock_load)
     with app.app_context():
-        mock_render = patch("weko_sitemap.ext.render_template", return_value=make_response())
+        mock_render = mocker.patch("weko_sitemap.ext.render_template", return_value=make_response())
         res = current_app.extensions["weko-sitemap"].sitemap()
         assert res.status_code == 200
         args, kwargs = mock_render.call_args
         assert args[0] == "flask_sitemap/sitemapindex.xml"
 
 # .tox/c1/bin/pytest --cov=weko_sitemap tests/test_ext.py::test_page -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-sitemap/.tox/c1/tmp
-def test_page(create_app):
+def test_page(create_app, mocker):
     app = create_app(CACHE_REDIS_URL='redis://redis:6379/0',
         CACHE_REDIS_DB='0',
         CACHE_REDIS_HOST="redis")
     InvenioCache(app)
     with app.app_context():
         current_cache.set("sitemap_0001",{"page":"test_data"})
-        mock_zip = patch("weko_sitemap.ext.WekoSitemap.gzip_response",return_value=make_response())
+        mock_zip = mocker.patch("weko_sitemap.ext.WekoSitemap.gzip_response",return_value=make_response())
         current_app.extensions["weko-sitemap"].page(1)
         mock_zip.assert_called_with("test_data")
 
-        mock_page = patch("weko_sitemap.ext.WekoSitemap.render_page",return_value=make_response())
+        mock_page = mocker.patch("weko_sitemap.ext.WekoSitemap.render_page",return_value=make_response())
         current_app.extensions["weko-sitemap"].page(2)
         mock_page.assert_called_with(urlset=[None])
 
@@ -155,7 +152,7 @@ def test_load_cache_pages(create_app):
             result = iter(current_app.extensions["weko-sitemap"]._load_cache_pages())
             for i,r in enumerate(result):
                 if i==0:
-                    assert r == {"loc": "https://localhost/weko/sitemaps/sitemap_1.xml.gz", "lastmod":"2023-01-12T10:01:02+0000"}
+                    assert r == {"loc": "https://localhost/weko/sitemaps/sitemap_1.xml.gz", "lastmod":"2023-01-12T10:01:02UTC"}
             current_cache.delete("sitemap_page_keys")
             current_cache.delete("key1")
             current_cache.delete("key2")

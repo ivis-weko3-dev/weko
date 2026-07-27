@@ -1,8 +1,10 @@
 # .tox/c1/bin/pytest --cov=weko_sitemap tests/test_admin.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-sitemap/.tox/c1/tmp
 
-from flask import url_for,json
+from unittest.mock import patch
+
 import pytest
-from mock import patch
+from flask import url_for,json
+
 from invenio_accounts.testutils import login_user_via_session
 
 # .tox/c1/bin/pytest --cov=weko_sitemap tests/test_admin.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-sitemap/.tox/c1/tmp
@@ -71,17 +73,17 @@ class TestSitemapSettingView:
             assert ret.status_code == 403
 
     # .tox/c1/bin/pytest --cov=weko_sitemap tests/test_admin.py::TestSitemapSettingView::test_update_sitemap -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-sitemap/.tox/c1/tmp
-    def test_update_sitemap(self, client, users):
+    def test_update_sitemap(self, client, users, mocker):
         login_user_via_session(client=client, email=users[3]["email"])
-        patch("weko_sitemap.admin.validate_csrf_header")
+        mocker.patch("weko_sitemap.admin.validate_csrf_header")
 
         class MockTask:
             def __init__(self,id):
                 self.id = id
 
-        patch("weko_sitemap.tasks.link_success_handler.s",return_value=None)
-        patch("weko_sitemap.tasks.link_error_handler.s",return_value=None)
-        patch("weko_sitemap.tasks.update_sitemap.apply_async",return_value=MockTask("test_task"))
+        mocker.patch("weko_sitemap.tasks.link_success_handler.s",return_value=None)
+        mocker.patch("weko_sitemap.tasks.link_error_handler.s",return_value=None)
+        mocker.patch("weko_sitemap.tasks.update_sitemap.apply_async",return_value=MockTask("test_task"))
 
         url = url_for("sitemap.update_sitemap")
         test = {
@@ -122,7 +124,7 @@ class TestSitemapSettingView:
             assert ret.status_code == 403
 
     # .tox/c1/bin/pytest --cov=weko_sitemap tests/test_admin.py::TestSitemapSettingView::test_get_task_status -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-sitemap/.tox/c1/tmp
-    def test_get_task_status(self, app, client,users,db_sessionlifetime):
+    def test_get_task_status(self, app, client,users,db_sessionlifetime, mocker):
         login_user_via_session(client=client, email=users[2]["email"])
 
         class MockResult:
@@ -139,7 +141,7 @@ class TestSitemapSettingView:
             return MockResult("ERROR")
 
         # task_result.state = success
-        patch("weko_sitemap.admin.AsyncResult",side_effect=mock_result_success)
+        mocker.patch("weko_sitemap.admin.AsyncResult",side_effect=mock_result_success)
         url = url_for("sitemap.get_task_status", task_id="test_id",_external=True)
         ret = client.get(url)
         result = json.loads(ret.data)
@@ -149,7 +151,7 @@ class TestSitemapSettingView:
         assert result["state"] == "SUCCESS"
 
         # task_result.state != success
-        patch("weko_sitemap.admin.AsyncResult",side_effect=mock_result_else)
+        mocker.patch("weko_sitemap.admin.AsyncResult",side_effect=mock_result_else)
         url = url_for("sitemap.get_task_status", task_id="test_id",_external=True)
         ret = client.get(url)
         result = json.loads(ret.data)
