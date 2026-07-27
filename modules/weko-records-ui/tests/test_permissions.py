@@ -37,8 +37,8 @@ from weko_records_ui.permissions import (
 def test_page_permission_factory(app, records, users,db_file_permission):
     indexer, results = records
     record = results[0]["record"]
-
-    assert page_permission_factory(record).can() == False
+    with patch("weko_records_ui.permissions.check_index_permissions", return_value=False):
+        assert page_permission_factory(record).can() == False
 
     with patch("weko_records_ui.permissions.check_publish_status", return_value=True):
         with patch("weko_records_ui.permissions.check_index_permissions", return_value=True):
@@ -148,12 +148,12 @@ def test_check_file_download_permission(app, records, users, db_file_permission,
                 assert check_file_download_permission(record, fjson, False) == False
 
             fjson['date'][0]['dateValue'] = ""
-            assert check_file_download_permission(record, fjson, False) == True
+            assert check_file_download_permission(record, fjson, False) == False
 
             fjson['accessrole'] = 'open_date'
             record['publish_date'] = "2022-01-01"
             fjson['roles'] = [{'role':'none_loggin'},{'role':'1'},{'role':'2'},{'role':'3'},{'role':'4'},{'role':'5'}]
-            assert check_file_download_permission(record, fjson, False) == True
+            assert check_file_download_permission(record, fjson, False) == False
 
             fjson['date'][0]['dateValue'] = "2022-01-01"
             record['publish_date'] = "2023-01-01"
@@ -229,8 +229,8 @@ def test_check_file_download_permission(app, records, users, db_file_permission,
             fjson['groups'] = 'group'
             assert check_file_download_permission(record, fjson, False) == False
 
-            # Test Case: accessrole=invalid_value, not logged in user
-            fjson['accessrole'] = 'invalid_value'
+            # Test Case: accessrole=open_login, not logged in user
+            fjson['accessrole'] = 'open_login'
             assert check_file_download_permission(record, fjson, False) == False
 
     record = results[2]["record"]

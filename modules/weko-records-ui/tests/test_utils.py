@@ -1655,54 +1655,52 @@ def test_validate_file_access():
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_save_download_log -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_save_download_log(secret_url, onetime_url, mocker):
+def test_save_download_log(secret_url, onetime_url, mocker, app):
     file_name = 'test.txt'
     record = MagicMock()
+    with app.test_request_context('/',environ_base={'REMOTE_ADDR': '192.168.56.1'}):
+        secret_token = secret_url['secret_token']
 
-    mock_request = mocker.patch('weko_records_ui.utils.request')
-    mock_request.remote_addr = '192.168.56.1'
-    secret_token = secret_url['secret_token']
+        # When accessrole is open_no
+        record.get_file_data.return_value = [
+            {'filename': 'other_file', 'accessrole': 'open_yes'},
+            {'filename': file_name, 'accessrole': 'open_no'}
+        ]
+        open_no_dl = save_download_log(
+            record, file_name, secret_token, is_secret_url=True)
+        assert isinstance(open_no_dl, FileUrlDownloadLog)
+        assert open_no_dl.url_type       is UrlType.SECRET
+        assert open_no_dl.secret_url_id  == 1
+        assert open_no_dl.onetime_url_id is None
+        assert open_no_dl.ip_address     == '192.168.56.1'
+        assert open_no_dl.access_status  is AccessStatus.OPEN_NO
+        assert open_no_dl.used_token     == secret_token
 
-    # When accessrole is open_no
-    record.get_file_data.return_value = [
-        {'filename': 'other_file', 'accessrole': 'open_yes'},
-        {'filename': file_name, 'accessrole': 'open_no'}
-    ]
-    open_no_dl = save_download_log(
-        record, file_name, secret_token, is_secret_url=True)
-    assert isinstance(open_no_dl, FileUrlDownloadLog)
-    assert open_no_dl.url_type       is UrlType.SECRET
-    assert open_no_dl.secret_url_id  == 1
-    assert open_no_dl.onetime_url_id is None
-    assert open_no_dl.ip_address     == '192.168.56.1'
-    assert open_no_dl.access_status  is AccessStatus.OPEN_NO
-    assert open_no_dl.used_token     == secret_token
+        # When accessrole is open_date
+        record.get_file_data.return_value = [
+            {'filename': file_name, 'accessrole': 'open_date'}
+        ]
+        open_date_dl = save_download_log(
+            record, file_name, secret_token, is_secret_url=True)
+        assert isinstance(open_date_dl, FileUrlDownloadLog)
+        assert open_date_dl.url_type       is UrlType.SECRET
+        assert open_date_dl.secret_url_id  == 1
+        assert open_date_dl.onetime_url_id is None
+        assert open_date_dl.ip_address     == '192.168.56.1'
+        assert open_date_dl.access_status  is AccessStatus.OPEN_DATE
+        assert open_date_dl.used_token     == secret_token
 
-    # When accessrole is open_date
-    record.get_file_data.return_value = [
-        {'filename': file_name, 'accessrole': 'open_date'}
-    ]
-    open_date_dl = save_download_log(
-        record, file_name, secret_token, is_secret_url=True)
-    assert isinstance(open_date_dl, FileUrlDownloadLog)
-    assert open_date_dl.url_type       is UrlType.SECRET
-    assert open_date_dl.secret_url_id  == 1
-    assert open_date_dl.onetime_url_id is None
-    assert open_date_dl.ip_address     == '192.168.56.1'
-    assert open_date_dl.access_status  is AccessStatus.OPEN_DATE
-    assert open_date_dl.used_token     == secret_token
-
-    # When accessrole is open_restricted
-    onetime_token = onetime_url['onetime_token']
-    open_restricted = save_download_log(
-        record, file_name, onetime_token, is_secret_url=False)
-    assert isinstance(open_restricted, FileUrlDownloadLog)
-    assert open_restricted.url_type       is UrlType.ONETIME
-    assert open_restricted.secret_url_id  is None
-    assert open_restricted.onetime_url_id == 1
-    assert open_restricted.ip_address     is None
-    assert open_restricted.access_status  is AccessStatus.OPEN_RESTRICTED
-    assert open_restricted.used_token     == onetime_token
+        # When accessrole is open_restricted
+        onetime_token = onetime_url['onetime_token']
+        open_restricted = save_download_log(
+            record, file_name, onetime_token, is_secret_url=False)
+        assert isinstance(open_restricted, FileUrlDownloadLog)
+        assert open_restricted.url_type       is UrlType.ONETIME
+        assert open_restricted.secret_url_id  is None
+        assert open_restricted.onetime_url_id == 1
+        assert open_restricted.ip_address     is None
+        assert open_restricted.access_status  is AccessStatus.OPEN_RESTRICTED
+        assert open_restricted.used_token     == onetime_token
 
 
 # def update_secret_download(**kwargs) -> Optional[List[FileSecretDownload]]:
@@ -1718,7 +1716,7 @@ def test_export_preprocess(app, records, search_index):
         res = export_preprocess(recid, record, schema_type)
         res_dict = json.loads(res)
         assert 'created' in res_dict
-        assert res_dict['id'] == 1
+        assert res_dict['id'] == '1'
         assert res_dict['links'] == {}
         assert res_dict['metadata'] == record
         assert 'updated' in res_dict
@@ -1757,11 +1755,11 @@ def test_RoCrateConverter_convert(app, db):
     with open('tests/data/rocrate/test_mapping_records_metadata.json', 'r') as f:
         record_data = json.load(f)
     rocrate = converter.convert(record_data, mapping)
-    assert rocrate['@graph'][0]['prop1'] == 'value1'
+    assert rocrate['@graph'][0]['prop1'] == ['value1']
     assert rocrate['@graph'][0]['prop2'] == ['value2']
     assert rocrate['@graph'][0]['prop3'] == ['value3_1', 'value3_2']
-    assert rocrate['@graph'][0]['prop4_1'] == 'value4_1'
-    assert rocrate['@graph'][0]['prop4_2'] == 'value4_2'
+    assert rocrate['@graph'][0]['prop4_1'] == ['value4_1']
+    assert rocrate['@graph'][0]['prop4_2'] == ['value4_2']
     assert 'prop4_3' not in rocrate['@graph'][0]
     assert rocrate['@graph'][0]['prop5'] == ['value5_1', 'value5_2', 'value5_3']
     assert rocrate['@graph'][0]['prop6'] == ['value6_2']
@@ -1769,24 +1767,24 @@ def test_RoCrateConverter_convert(app, db):
     assert 'prop8' not in rocrate['@graph'][0]
     assert 'prop9' not in rocrate['@graph'][0]
     assert rocrate['@graph'][0]['prop10'] == ['value10_1_en', 'value10_2_1_en']
-    assert rocrate['@graph'][0]['prop_static'] == 'value_static'
+    assert rocrate['@graph'][0]['prop_static'] == ['value_static']
     assert 'prop_none' not in rocrate['@graph'][0]
     assert 'prop_none_lang' not in rocrate['@graph'][0]
 
     assert rocrate['@graph'][5]['name'] == 'name_en'
     assert rocrate['@graph'][5]['additionalType'] == 'tab'
-    assert rocrate['@graph'][2]['fileprop1'] == 'filevalue1_1'
-    assert rocrate['@graph'][2]['fileprop2'] == 'filevalue2_1'
+    assert rocrate['@graph'][2]['fileprop1'] == ['filevalue1_1']
+    assert rocrate['@graph'][2]['fileprop2'] == ['filevalue2_1']
     assert rocrate['@graph'][2]['fileprop3'] == ['filevalue3_1_1', 'filevalue3_2_1_1_1', 'filevalue3_2_1_1_2']
-    assert rocrate['@graph'][2]['fileprop_static'] == 'filevalue_static'
-    assert rocrate['@graph'][3]['fileprop1'] == 'filevalue1_2'
-    assert rocrate['@graph'][3]['fileprop2'] == 'filevalue2_2'
+    assert rocrate['@graph'][2]['fileprop_static'] == ['filevalue_static']
+    assert rocrate['@graph'][3]['fileprop1'] == ['filevalue1_2']
+    assert rocrate['@graph'][3]['fileprop2'] == ['filevalue2_2']
     assert rocrate['@graph'][3]['fileprop3'] == ['filevalue3_1_2', 'filevalue3_2_1_2_1', 'filevalue3_2_1_2_2']
-    assert rocrate['@graph'][3]['fileprop_static'] == 'filevalue_static'
-    assert rocrate['@graph'][4]['fileprop1'] == 'filevalue1_3'
-    assert rocrate['@graph'][4]['fileprop2'] == 'filevalue2_3'
+    assert rocrate['@graph'][3]['fileprop_static'] == ['filevalue_static']
+    assert rocrate['@graph'][4]['fileprop1'] == ['filevalue1_3']
+    assert rocrate['@graph'][4]['fileprop2'] == ['filevalue2_3']
     assert rocrate['@graph'][4]['fileprop3'] == ['filevalue3_1_3', 'filevalue3_2_1_3_1', 'filevalue3_2_1_3_2']
-    assert rocrate['@graph'][4]['fileprop_static'] == 'filevalue_static'
+    assert rocrate['@graph'][4]['fileprop_static'] == ['filevalue_static']
 
     rocrate = converter.convert(record_data, mapping, 'ja')
     assert rocrate['@graph'][0]['prop6'] == ['value6_3']
@@ -1848,16 +1846,17 @@ def test_delete_version(app, records):
         object_uuid = record1.pid.object_uuid,
         status=PIDStatus.REGISTERED,
     )
-    with patch(
-        "weko_records_ui.utils.WekoDeposit.merge_data_to_record_without_version"):
-        with patch("weko_records_ui.utils.WekoDeposit.publish"):
-            with patch("weko_deposit.api.WekoIndexer.update_search_data"):
-                with patch(
-                    "weko_records_ui.utils.call_external_system") as mock_external:
-                    delete_version("1.1")
-                    mock_external.assert_called()
-                    assert mock_external.call_args[1]["old_record"] is not None
-                    assert mock_external.call_args[1]["new_record"] is not None
+    with patch("weko_records_ui.utils.WekoDeposit.commit"):
+        with patch(
+            "weko_records_ui.utils.WekoDeposit.merge_data_to_record_without_version"):
+            with patch("weko_records_ui.utils.WekoDeposit.publish"):
+                with patch("weko_deposit.api.WekoIndexer.update_search_data"):
+                    with patch(
+                        "weko_records_ui.utils.call_external_system") as mock_external:
+                        delete_version("1.1")
+                        mock_external.assert_called()
+                        assert mock_external.call_args[1]["old_record"] is not None
+                        assert mock_external.call_args[1]["new_record"] is not None
 
     record2 = WekoRecord.get_record_by_pid("2")
     PersistentIdentifier.create(

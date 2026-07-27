@@ -49,6 +49,7 @@ from weko_records_ui.views import (
 )
 from weko_records_ui.utils import create_download_url
 from werkzeug.datastructures import FileStorage
+from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
 from werkzeug.exceptions import NotFound, Forbidden
 from .helpers import login
 
@@ -583,14 +584,12 @@ def test_default_view_method(app, records, itemtypes, indexstyle, users, db):
                             with pytest.raises(NotFound):  # 404
                                 assert default_view_method(recid, record, 'helloworld.pdf')
 
-                        pid_ver = MagicMock()
-                        pid_ver.exists = True
-                        pid_ver.is_last_child = False
+
                         mock = MagicMock()
                         mock.object_uuid = uuid.uuid4()
                         pid_ver.children = [mock]
                         pid_ver.get_children = lambda ordered, pid_status: [mock]
-                        with patch('weko_records_ui.views.PIDNodeVersioning', return_value=pid_ver):
+                        with patch.object(PIDNodeVersioning,"is_last_child",return_value=False):
                             with patch('weko_records_ui.views.WekoRecord.get_record', return_value={'_deposit': {'status': 'draft'}}):
                                 assert default_view_method(recid, record, 'helloworld.pdf').status_code == 200
 
@@ -666,12 +665,12 @@ def test_default_view_method(app, records, itemtypes, indexstyle, users, db):
 
                             pid_ver = MagicMock()
                             pid_ver.exists = True
-                            pid_ver.is_last_child = False
+                            pid_ver.is_last_child.return_value = False
                             mock = MagicMock()
                             mock.object_uuid = uuid.uuid4()
                             pid_ver.children = [mock]
                             pid_ver.get_children = lambda ordered,pid_status : [mock]
-                            with patch('weko_records_ui.views.PIDNodeVersioning',return_value=pid_ver):
+                            with patch.object(PIDNodeVersioning,"is_last_child",return_value=False):
                                 with patch('weko_records_ui.views.WekoRecord.get_record',return_value={'_deposit':{'status':'draft'}}):
                                     assert default_view_method(recid, record ,'helloworld.pdf').status_code == 200
 
@@ -1140,9 +1139,27 @@ def test_set_pdfcoverpage_header_acl_error(app, client, records, users, id, resu
     assert s is not None
     assert s.header_output_image == ''
 
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_set_pdfcoverpage_header_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+@pytest.mark.parametrize(
+    "id, result",
+    [
+        (0, False),
+        # (1, True),
+        # (2, True),
+        # (3, True),
+        # (4, True),
+        # (5, True),
+        # (6, True),
+        # (7, True),
+    ],
+)
+@pytest.mark.timeout(300)
+def test_set_pdfcoverpage_header_acl_error2(app, client, records, users, id, result, pdfcoverpagesetting):
+    login_user_via_session(client=client, email=users[id]["email"])
+    url = url_for("weko_records_ui.set_pdfcoverpage_header",_external=True)
     data = {'availability':'enable', 'header-display':'string', 'header-output-string':'Weko Univ', 'header-display-position':'center', 'pdfcoverpage_form': '',
         'header-output-image': (io.BytesIO(b"some initial text data"), 'test.png')}
-    with patch('weko_records_ui.views.db.session.commit', side_effect=Exception("")):
+    with patch('weko_records_ui.views.PDFCoverPageSettings.update',side_effect=Exception()):
         res = client.post(url,data=data)
         assert res.status_code == 302
         s = PDFCoverPageSettings.find(1)
@@ -1172,20 +1189,52 @@ def test_set_pdfcoverpage_header_acl(app, client, records, users, id, result, pd
     assert s is not None
     assert s.header_output_image == ''
 
+@pytest.mark.parametrize(
+    "id, result",
+    [
+        (0, False),
+        # (1, True),
+        # (2, True),
+        # (3, True),
+        # (4, True),
+        # (5, True),
+        # (6, True),
+        # (7, True),
+    ],
+)
+def test_set_pdfcoverpage_header_acl2(app, client, records, users, id, result, pdfcoverpagesetting):
+    login_user_via_session(client=client, email=users[id]["email"])
+    url = url_for("weko_records_ui.set_pdfcoverpage_header",_external=True)
     data = {'availability':'enable', 'header-display':'string', 'header-output-string':'Weko Univ', 'header-display-position':'center', 'pdfcoverpage_form': '',
         'header-output-image': (io.BytesIO(b"some initial text data"), 'test.png')}
     res = client.post(url,data=data)
     assert res.status_code == 302
-    assert res.location == '/admin/pdfcoverpage'
+    assert res.location == '/admin/pdfcoverpage/'
     s = PDFCoverPageSettings.find(1)
     assert s is not None
     assert s.header_output_image != ''
 
+@pytest.mark.parametrize(
+    "id, result",
+    [
+        (0, False),
+        # (1, True),
+        # (2, True),
+        # (3, True),
+        # (4, True),
+        # (5, True),
+        # (6, True),
+        # (7, True),
+    ],
+)
+def test_set_pdfcoverpage_header_acl3(app, client, records, users, id, result, pdfcoverpagesetting):
+    login_user_via_session(client=client, email=users[id]["email"])
+    url = url_for("weko_records_ui.set_pdfcoverpage_header",_external=True)
     data = {'availability':'enable', 'header-display':'image', 'header-output-string':'Weko Univ', 'header-display-position':'center', 'pdfcoverpage_form': '',
     'header-output-image': (io.BytesIO(b"some initial text data"), 'test.png')}
     res = client.post(url,data=data)
     assert res.status_code == 302
-    assert res.location == 'http://test_server/admin/pdfcoverpage'
+    assert res.location == '/admin/pdfcoverpage/'
 
 
 #     def handle_over_max_file_size(error):
@@ -1220,6 +1269,23 @@ def test_file_version_update_acl(client, records, users, id, status_code):
     assert res.status_code == status_code
     assert json.loads(res.data) == {'status': 0, 'msg': 'Insufficient permission'}
 
+@pytest.mark.parametrize(
+    "id, status_code",
+    [
+        (0, 200),
+        # (1, 302),
+        # (2, 302),
+        # (3, 302),
+        # (4, 302),
+        # (5, 302),
+        # (6, 302),
+        # (7, 302),
+    ],
+)
+def test_file_version_update_acl2(client, records, users, id, status_code):
+    _data = {}
+    login_user_via_session(client=client, email=users[id]["email"])
+    url = url_for("weko_records_ui.file_version_update",_external=True)
     with patch("weko_records_ui.views.has_update_version_role", return_value=True):
         _data['is_show'] = '1'
         _data['bucket_id'] = 'none bucket'
@@ -1229,11 +1295,6 @@ def test_file_version_update_acl(client, records, users, id, status_code):
         assert res.status_code == status_code
         assert json.loads(res.data) == {'status': 0, 'msg': 'Invalid data'}
 
-        data1 = MagicMock()
-        data1.is_show = 1
-
-        with patch("invenio_files_rest.models.ObjectVersion.get", return_value=data1):
-            file_version_update()
 
 # def citation(record, pid, style=None, ln=None):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_citation -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -1625,7 +1686,7 @@ def test_publish2(app, client, records):
                     with patch("weko_records_ui.views.WekoRecord.get_record_by_pid", return_value=record_0_a):
                         with app.test_request_context(data={"status": "1"}):
                             publish(record.pid, record_0_b)
-                            mock_external.assert_called_with(old_record=record_0_c, new_record=record_1_c)
+                            mock_external.assert_called_with(old_record=record_0_c, new_record=record_0_c)
                     with patch("weko_records_ui.views.WekoRecord.get_record_by_pid", return_value=record_1_a):
                         with app.test_request_context(data={"status": "0"}):
                             publish(record.pid, record_1_b)

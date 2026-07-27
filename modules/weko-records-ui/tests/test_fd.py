@@ -312,9 +312,10 @@ def test_check_onetime_token_and_validate(
 
     # Configure mocks
     with app.test_request_context():
-        mock_request = mocker.patch('weko_records_ui.fd.request')
+        mock_request = MagicMock()
         mock_request.args.get.return_value = test_token
         mock_request.url = test_url
+        mocker.patch('weko_records_ui.fd.request',mock_request)
         mock_validate.return_value = "mocked_response"
 
         # Call the function
@@ -490,11 +491,13 @@ def test_file_download_onetime(
 
     # Setup default return values of mock objects
     with app.test_request_context():
-        mock_request = mocker.patch('weko_records_ui.fd.request')
+        mock_request = MagicMock()
         mock_request.args.get.return_value = onetime_url['onetime_token']
         mock_request.get_json.return_value = {"mail_address": onetime_obj.user_mail}
-        mock_session = mocker.patch('weko_records_ui.fd.session')
+        mocker.patch("weko_records_ui.fd.request",mock_request)
+        mock_session = MagicMock()
         mock_session.get.return_value = onetime_url['onetime_token']
+        mocker.patch("weko_records_ui.fd.session",mock_session)
         val_url.return_value = (True, '')
         mock_process_onetime.return_value = "SUCCESS"
 
@@ -701,8 +704,10 @@ def test_file_download_secret(dl_file, save_log, current_user, err_res,
 
     # Setup default return values of mock objects
 
-    mocker = mocker.patch('weko_records_ui.fd.request')
-    mocker.args.get.return_value = secret_url['secret_token']
+    mock_request = MagicMock()
+    mock_request.args.get.return_value = secret_url['secret_token']
+
+    mocker.patch("weko_records_ui.fd.request",mock_request)
     val_url.return_value = (True, '')
     current_user.is_authenticated = False
     err_res.return_value = 'ERROR'
@@ -713,7 +718,7 @@ def test_file_download_secret(dl_file, save_log, current_user, err_res,
         assert file_download_secret(
             pid, record, filename, _record_file_factory) == 'SUCCESS'
         save_log.assert_called_once_with(
-            record, filename, mocker.args.get.return_value, is_secret_url=True)
+            record, filename, mock_request.args.get.return_value, is_secret_url=True)
         dl_file.assert_called_once_with(
             file_obj, False, 'en', file_obj.obj, pid, record)
 
@@ -726,7 +731,7 @@ def test_file_download_secret(dl_file, save_log, current_user, err_res,
             assert file_download_secret(
                 pid, record, filename, _record_file_factory) == 'SUCCESS'
             save_log.assert_called_with(
-                record, filename, mocker.args.get.return_value, is_secret_url=True)
+                record, filename, mock_request.args.get.return_value, is_secret_url=True)
             dl_file.assert_called_with(
                 file_obj, False, 'ja', file_obj.obj, pid, record)
 
