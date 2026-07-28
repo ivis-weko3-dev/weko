@@ -13,12 +13,12 @@ from flask import current_app
 WEKO_USER_PROFILES_MESSAGE = {
     'WEKO_USER_PROFILES_FAILED_UPDATE_USER_PROFILE': {
         'msgid': 'WEKO_USER_PROFILES_E_0001',
-        'msgstr': "FAILED to update user {user_id} profile.",
+        'msgstr': "FAILED to update user %(user_id)s profile.",
         'loglevel': 'ERROR',
     },
     'WEKO_USER_PROFILES_FAILED_DELETE_RECORD': {
         'msgid': 'WEKO_USER_PROFILES_E_0002',
-        'msgstr': "FAILED to delete {num} record.",
+        'msgstr': "FAILED to delete %(num)s record.",
         'loglevel': 'ERROR',
     },
     'WEKO_USER_PROFILES_SENT_CONFIRMATION_EMAIL': {
@@ -28,12 +28,12 @@ WEKO_USER_PROFILES_MESSAGE = {
     },
     'WEKO_USER_PROFILES_UPDATE_USER_PROFILE': {
         'msgid': 'WEKO_USER_PROFILES_I_0002',
-        'msgstr': "User {user_id} profile updated.",
+        'msgstr': "User %(user_id)s profile updated.",
         'loglevel': 'INFO',
     },
     'WEKO_USER_PROFILES_DELETE_RECORD': {
         'msgid': 'WEKO_USER_PROFILES_I_0003',
-        'msgstr': "{num} record was deleted.",
+        'msgstr': "%(num)s record was deleted.",
         'loglevel': 'INFO',
     },
 }

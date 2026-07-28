@@ -10,7 +10,7 @@
 WEKO_COMMON_MESSAGE = {
     'WEKO_COMMON_FOR_LOOP_ITERATION': {
         'msgid': 'WEKO_COMMON_D_0001',
-        'msgstr': "Loop iteration {count}, {element}",
+        'msgstr': "Loop iteration %(count)s, %(element)s",
         'loglevel': 'DEBUG',
     },
     'WEKO_COMMON_FOR_START': {
@@ -25,22 +25,22 @@ WEKO_COMMON_MESSAGE = {
     },
     'WEKO_COMMON_RETURN_VALUE': {
         'msgid': 'WEKO_COMMON_D_0004',
-        'msgstr': "Return value: {value}",
+        'msgstr': "Return value: %(value)s",
         'loglevel': 'DEBUG',
     },
     'WEKO_COMMON_IF_ENTER': {
         'msgid': 'WEKO_COMMON_D_0005',
-        'msgstr': "Enter IF: {branch}",
+        'msgstr': "Enter IF: %(branch)s",
         'loglevel': 'DEBUG',
     },
     'WEKO_COMMON_INIT_APP': {
         'msgid': 'WEKO_COMMON_D_0006',
-        'msgstr': "Init app: {ext}",
+        'msgstr': "Init app: %(ext)s",
         'loglevel': 'DEBUG',
     },
     'WEKO_COMMON_INIT_CONFIG': {
         'msgid': 'WEKO_COMMON_D_0007',
-        'msgstr': "Init config: {config}={value}",
+        'msgstr': "Init config: %(config)s=%(value)s",
         'loglevel': 'DEBUG',
     },
     'WEKO_COMMON_WHILE_START':{
@@ -55,7 +55,7 @@ WEKO_COMMON_MESSAGE = {
     },
     'WEKO_COMMON_WHILE_LOOP_ITERATION':{
         'msgid': 'WEKO_COMMON_D_0010',
-        'msgstr': "Loop iteration {count}, {element}",
+        'msgstr': "Loop iteration %(count)s, %(element)s",
         'loglevel': 'DEBUG',
     },
     'WEKO_COMMON_FAILED_DBCONNECTION': {
@@ -65,7 +65,7 @@ WEKO_COMMON_MESSAGE = {
     },
     'WEKO_COMMON_NOT_FOUND_OBJECT': {
         'msgid': 'WEKO_COMMON_E_0002',
-        'msgstr': "NOT found object: {object}",
+        'msgstr': "NOT found object: %(object)s",
         'loglevel': 'ERROR',
     },
     'WEKO_COMMON_DB_SOME_ERROR': {
@@ -95,7 +95,7 @@ WEKO_COMMON_MESSAGE = {
     },
     'WEKO_COMMON_CALLED_ARGUMENT': {
         'msgid': 'WEKO_COMMON_I_0001',
-        'msgstr': "Called with arg: arg={arg}",
+        'msgstr': "Called with arg: arg=%(arg)s",
         'loglevel': 'INFO',
     },
     'WEKO_COMMON_UNAUTHORISED_ACCESS': {
@@ -105,12 +105,12 @@ WEKO_COMMON_MESSAGE = {
     },
     'WEKO_COMMON_CALLED_KW_ARGUMENT': {
         'msgid': 'WEKO_COMMON_I_0003',
-        'msgstr': "Called with kwarg: kwarg={kwarg}",
+        'msgstr': "Called with kwarg: kwarg=%(kwarg)s",
         'loglevel': 'INFO',
     },
     'WEKO_COMMON_DBCONNECTION_RETRY': {
         'msgid': 'WEKO_COMMON_W_0001',
-        'msgstr': "Retry connection count {count}",
+        'msgstr': "Retry connection count %(count)s",
         'loglevel': 'WARN',
     },
 }
