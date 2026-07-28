@@ -18,6 +18,62 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.5.1\n"
 
+#: tests/test_admin.py:1846 tests/test_admin.py:1852 tests/test_admin.py:1854
+#: tests/test_admin.py:1871 tests/test_admin.py:1879 tests/test_admin.py:1887
+#: tests/test_admin.py:1895 weko_admin/admin.py:143
+msgid "completed"
+msgstr "処理が完了しました。"
+
+#: tests/test_admin.py:1904 weko_admin/admin.py:136
+#: weko_admin/templates/weko_admin/admin/reindex_elasticsearch.html:43
+msgid "executing..."
+msgstr "実行中..."
+
+#: tests/test_admin.py:1914 weko_admin/admin.py:134
+#: weko_admin/templates/weko_admin/admin/reindex_elasticsearch.html:42
+msgid "haserror"
+msgstr "エラー発生中につき実行できません。"
+
+#: tests/test_views.py:98 tests/test_views.py:111 tests/test_views.py:125
+#: weko_admin/views.py:154
+msgid "15 mins"
+msgstr "15分"
+
+#: tests/test_views.py:98 tests/test_views.py:111 tests/test_views.py:125
+#: weko_admin/views.py:155
+msgid "30 mins"
+msgstr "30分"
+
+#: tests/test_views.py:98 tests/test_views.py:111 tests/test_views.py:125
+#: weko_admin/views.py:156
+msgid "45 mins"
+msgstr "45分"
+
+#: tests/test_views.py:98 tests/test_views.py:111 tests/test_views.py:125
+#: weko_admin/views.py:157
+msgid "60 mins"
+msgstr "1時間"
+
+#: tests/test_views.py:99 tests/test_views.py:112 tests/test_views.py:126
+#: weko_admin/views.py:158
+msgid "180 mins"
+msgstr "3時間"
+
+#: tests/test_views.py:99 tests/test_views.py:112 tests/test_views.py:126
+#: weko_admin/views.py:159
+msgid "360 mins"
+msgstr "6時間"
+
+#: tests/test_views.py:99 tests/test_views.py:112 tests/test_views.py:126
+#: weko_admin/views.py:160
+msgid "720 mins"
+msgstr "12時間"
+
+#: tests/test_views.py:99 tests/test_views.py:112 tests/test_views.py:126
+#: weko_admin/views.py:161
+msgid "1440 mins"
+msgstr "1日"
+
 #: weko_admin/admin.py:227
 msgid "deny access"
 msgstr "アクセス拒否"
@@ -326,6 +382,11 @@ msgstr "ランキング"
 #: weko_admin/templates/weko_admin/admin/feedback_mail.html:61
 msgid "Search"
 msgstr "検索"
+
+#: weko_admin/admin.py:2479 weko_admin/admin.py:2488 weko_admin/config.py:190
+#: weko_admin/config.py:195
+msgid "Site License"
+msgstr "サイトライセンス"
 
 #: weko_admin/admin.py:2490
 msgid "File Preview"

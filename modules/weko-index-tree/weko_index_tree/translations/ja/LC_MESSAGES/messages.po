@@ -270,9 +270,6 @@ msgstr ""
 #~ msgid "More_Display"
 #~ msgstr "もっと表示"
 
-#~ msgid "Send"
-#~ msgstr "送信"
-
 #~ msgid "Choose_Processing"
 #~ msgstr "DELETEインデックス以下のインデックスおよびアイテムに対する処理を選択してください"
 
