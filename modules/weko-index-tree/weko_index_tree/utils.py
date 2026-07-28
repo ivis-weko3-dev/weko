@@ -1381,8 +1381,8 @@ def get_all_records_in_index(index_id):
     search = RecordsSearch(
         index=current_app.config['SEARCH_UI_SEARCH_INDEX']
     ).query(
-        dsl.Bool(filter=[
-            dsl.QueryString(query=query_string),
+        dsl.query.Bool(filter=[
+            dsl.query.QueryString(query=query_string),
             dsl.Q("terms", path=child_idx),
             dsl.Q("terms", publish_status=[
                 PublishStatus.PUBLIC.value,

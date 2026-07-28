@@ -875,7 +875,7 @@ def test_indices(app, db, user_activity_log_partition_table):
     db.session.commit()
 
 @pytest.fixture
-def indices_for_api(app, db):
+def indices_for_api(app, db, user_activity_log_partition_table):
     with db.session.begin_nested():
         sample_index = Index(
             id=1623632832836,
