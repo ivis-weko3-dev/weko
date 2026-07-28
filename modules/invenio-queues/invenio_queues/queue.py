@@ -93,8 +93,7 @@ class Queue(object):
     def create_consumer(self):
         """Context manager that yields an instance of ``Consumer``."""
         with self.connection_pool.acquire(block=True) as conn:
-            with self.consumer(conn) as consumer:
-                yield consumer
+            return self.consumer(conn)
 
     def publish(self, events):
         """Publish events."""
