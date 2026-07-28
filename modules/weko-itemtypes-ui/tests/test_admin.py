@@ -50,6 +50,7 @@ class TestItemTypeMetaDataView:
         url = url_for("itemtypesregister.index",item_type_id=10)#
         res = client.get(url)
         assert_statuscode_with_role(res,is_permission)
+
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypeMetaDataView::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
     def test_index(self,client,admin_view,item_type,users):
         login_user_via_session(client=client,email=users[0]["email"])
@@ -941,7 +942,7 @@ class TestItemTypePropertiesView():
         assert_statuscode_with_role(res,is_permission)
 
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypePropertiesView::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
-    def test_index(self,client,db,admin_view,users,itemtype_props):
+    def test_index(self, client, db, admin_view, users, itemtype_props, mocker):
         login_user_via_session(client,email=users[0]["email"])
         billing_permission = BillingPermission(user_id=1,is_active=False)
         db.session.add(billing_permission)
@@ -1069,8 +1070,9 @@ class TestItemTypeMappingView:
         url = url_for("itemtypesmapping.index")
         res = client.get(url)
         assert_statuscode_with_role(res,is_permission)
+
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypeMappingView::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
-    def test_index(self,app,client,admin_view,users,item_type,oaiserver_schema):
+    def test_index(self, app, client, admin_view, users, item_type, oaiserver_schema, mocker):
         login_user_via_session(client,email=users[0]["email"])
         login(app,client,obj=users[0]["obj"])
         url = url_for("itemtypesmapping.index")
