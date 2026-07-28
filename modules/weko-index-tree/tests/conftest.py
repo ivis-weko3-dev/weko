@@ -116,7 +116,7 @@ from werkzeug.local import LocalProxy
 from .helpers import create_record, json_data, fill_oauth2_headers
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -494,17 +494,37 @@ def base_app(instance_path):
     current_assets = LocalProxy(lambda: app_.extensions["invenio-assets"])
     current_assets.collect.collect()
 
+    def delete_user_from_cache(exception):
+        """Delete user from `flask.g` when the request is tearing down.
+
+        Flask-login==0.6.2 changed the way the user is saved i.e uses `flask.g`.
+        Flask.g is pointing to the application context which is initialized per
+        request. That said, `pytest-flask` is pushing an application context on each
+        test initialization that causes problems as subsequent requests during a test
+        are detecting the active application request and not popping it when the
+        sub-request is tearing down. That causes the logged in user to remain cached
+        for the whole duration of the test. To fix this, we add an explicit teardown
+        handler that will pop out the logged in user in each request and it will force
+        the user to be loaded each time.
+        """
+        from flask import g
+
+        if "_login_user" in g:
+            del g._login_user
+
+    app_.teardown_request(delete_user_from_cache)
+
     return app_
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app(base_app):
     """Flask application fixture."""
     with base_app.app_context():
         yield base_app
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def db(app):
     """Get setup database."""
     if not database_exists(str(db_.engine.url)):
@@ -515,13 +535,13 @@ def db(app):
     db_.drop_all()
     drop_alembic_version_table()
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def without_session_remove():
     with patch("weko_search_ui.views.db.session.remove"):
         with patch("weko_search_ui.rest.db.session.remove"):
             yield
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def i18n_app(app):
     with app.test_request_context(
         headers=[('Accept-Language','ja')]):
@@ -538,21 +558,21 @@ def i18n_app(app):
     #     ]
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client_rest(app):
     app.register_blueprint(create_blueprint(app, app.config['WEKO_INDEX_TREE_REST_ENDPOINTS']))
     with app.test_client() as client:
         yield client
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client_api(app):
     app.register_blueprint(blueprint_api, url_prefix='/api')
     with app.test_client() as client:
         yield client
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client_request_args(app):
     app.register_blueprint(create_blueprint(app, app.config['WEKO_INDEX_TREE_REST_ENDPOINTS']))
     with app.test_client() as client:
@@ -799,7 +819,7 @@ def indices(app, db):
 
 
 @pytest.fixture
-def test_indices(app, db):
+def test_indices(app, db, user_activity_log_partition_table):
     def base_index(id, parent, position, harvest_public_state=True, public_state=True, public_date=None, coverpage_state=False, recursive_browsing_role=False,
                    recursive_contribute_role=False, recursive_browsing_group=False,
                    recursive_contribute_group=False, online_issn='', is_deleted=False):
@@ -995,7 +1015,7 @@ def indices_for_api(app, db):
         "comm_child_index": comm_child_index
     }
 
-@pytest.yield_fixture
+@pytest.fixture
 def without_oaiset_signals(app):
     """Temporary disable oaiset signals."""
     from invenio_oaiserver import current_oaiserver
@@ -1045,7 +1065,26 @@ def search_index(app, open_search, db_records):
 
 
 @pytest.fixture()
-def db_records(db, instance_path, users):
+def user_activity_log_partition_table(app, db):
+    """Create user activity log partition."""
+    # Create partition for current month
+    now = datetime.now()
+    start = now.date().replace(day=1)
+    end = (start + timedelta(days=31)).replace(day=1)
+    partition_name = f"user_activity_logs_{now.year}_{now.month:02d}"
+    create_partition_sql = f"""
+        CREATE TABLE IF NOT EXISTS {partition_name}
+        PARTITION OF user_activity_logs
+        FOR VALUES FROM ('{start}') TO ('{end}');
+    """
+
+    with db.session.begin_nested():
+        db.session.execute(create_partition_sql)
+    db.session.commit()
+
+
+@pytest.fixture()
+def db_records(db, instance_path, users, user_activity_log_partition_table):
     with db.session.begin_nested():
         Location.query.delete()
         loc = Location(name="local", uri=instance_path, default=True)
@@ -1416,7 +1455,7 @@ def mock_users():
     }
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def mock_user_ctx(mock_users):
     """Run in a mock authenticated user context."""
     with patch('invenio_stats.utils.current_user',
@@ -1476,14 +1515,14 @@ def generate_events(
     current_search_client.indices.refresh(index='*')
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def generate_request(app, open_search, mock_user_ctx, request):
     """Parametrized pre indexed sample events."""
     generate_events(app=app, **request.param)
     yield
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def dummy_location(db):
     """File system location."""
     tmppath = tempfile.mkdtemp()
@@ -1509,7 +1548,7 @@ def bucket(db, dummy_location):
     return b1
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def permissions(db, bucket):
     """Permission for users."""
     users = {
