@@ -11,7 +11,7 @@ import shutil
 import tempfile
 import pytest
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask
 from flask_babel import Babel
 from flask_menu import Menu
@@ -103,7 +103,6 @@ def base_app(instance_path):
     WekoAdmin(app_)
     WekoTheme(app_)
     WekoLoggingUserActivity(app_)
-    app_.register_blueprint(logging_blueprint)
     yield app_
 
 
@@ -360,3 +359,22 @@ def communities(app, indices, users, db):
     db.session.add(community)
     db.session.commit()
     return [community]
+
+@pytest.fixture
+def user_activity_log_partition_table(app, db):
+    """Create user activity log partition."""
+    # Create partition for current month
+    now = datetime.now()
+    start = now.date().replace(day=1)
+    end = (start + timedelta(days=31)).replace(day=1)
+    partition_name = f"user_activity_logs_{now.year}_{now.month:02d}"
+    create_partition_sql = f"""
+        CREATE TABLE IF NOT EXISTS {partition_name}
+        PARTITION OF user_activity_logs
+        FOR VALUES FROM ('{start}') TO ('{end}');
+    """
+
+    with db.session.begin_nested():
+        db.session.execute(create_partition_sql)
+    db.session.commit()
+    return partition_name
