@@ -5,10 +5,6 @@
 # WEKO-Notifications is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
 
-import pytest
-from unittest.mock import patch
-from marshmallow import ValidationError
-
 from weko_notifications.config import COAR_NOTIFY_CONTEXT
 from weko_notifications.notifications import Notification, ActivityType
 
@@ -109,9 +105,9 @@ class TestNotifications:
         assert notification.payload == after_approval
         assert notification._is_validated == True
 
-    # def create_item_registared(cls, target_id, actor_id, object_id, **kwargs):
-    # .tox/c1/bin/pytest --cov=weko_notifications tests/test_notifications.py::TestNotifications::test_create_item_registared -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-notifications/.tox/c1/tmp --full-trace
-    def test_create_item_registared(self, app, json_notifications):
+    # def create_item_registered(cls, target_id, actor_id, object_id, **kwargs):
+    # .tox/c1/bin/pytest --cov=weko_notifications tests/test_notifications.py::TestNotifications::test_create_item_registered -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-notifications/.tox/c1/tmp --full-trace
+    def test_create_item_registered(self, app, json_notifications):
         after_registration = json_notifications["after_registration"]
         after_registration.pop("id")
 

@@ -12,4 +12,6 @@ from .ext import WekoNotifications
 from .notifications import Notification
 from .version import __version__
 
-__all__ = ('__version__', 'WekoNotifications')
+__all__ = (
+    '__version__', 'WekoNotifications', 'NotificationClient', 'Notification'
+)

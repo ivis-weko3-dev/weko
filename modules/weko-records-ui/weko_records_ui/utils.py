@@ -322,7 +322,7 @@ def delete_version(recid):
         for p in pids:
             p.status = PIDStatus.DELETED
     # delete file if only in the version
-    parent_pid = PIDNodeVersioning(pid=pid)
+    parent_pid = PIDNodeVersioning(pid=pid).parents.one_or_none()
     if parent_pid is not None:
         versioning = PIDNodeVersioning(pid=parent_pid)
         all_ver = versioning.children.all()

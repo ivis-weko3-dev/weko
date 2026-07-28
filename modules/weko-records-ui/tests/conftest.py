@@ -113,7 +113,7 @@ from weko_logging.audit import WekoLoggingUserActivity
 from weko_records import WekoRecords
 from weko_records.api import ItemsMetadata, FilesMetadata
 from weko_records.models import (
-    ItemType, ItemTypeMapping, ItemTypeName, SiteLicenseInfo, 
+    ItemType, ItemTypeMapping, ItemTypeName, SiteLicenseInfo,
     SiteLicenseIpAddress, RequestMailList
 )
 from weko_records_ui import WekoRecordsUI, WekoRecordsCitesREST
@@ -143,7 +143,7 @@ from weko_records_ui.config import (
 )
 from weko_records_ui.ext import WekoRecordsREST
 from weko_records_ui.models import (
-    FileSecretDownload, PDFCoverPageSettings,FileOnetimeDownload, 
+    FileSecretDownload, PDFCoverPageSettings,FileOnetimeDownload,
     FilePermission, RocrateMapping
 )
 from weko_records_ui.utils import create_download_url
@@ -182,8 +182,8 @@ def instance_path():
     shutil.rmtree(path)
 
 
-@patch.dict('os.environ', {'INVENIO_OPENSEARCH_USER': 'invenio', 'INVENIO_OPENSEARCH_PASSWORD': 'openpass123!'})
 @pytest.fixture()
+@patch.dict('os.environ', {'INVENIO_OPENSEARCH_USER': 'invenio', 'INVENIO_OPENSEARCH_PASS': 'openpass123!'})
 def base_app(instance_path):
     """Flask application fixture."""
     app_ = Flask(
@@ -276,9 +276,9 @@ def base_app(instance_path):
         PDF_COVERPAGE_LANG_FILENAME=PDF_COVERPAGE_LANG_FILENAME,
         # JPAEXG_TTF_FILEPATH=JPAEXG_TTF_FILEPATH,
         # JPAEXG_TTF_FILEPATH = "/code/modules/weko-records-ui/weko_records_ui/fonts/ipaexg00201/ipaexg.ttf",
-        JPAEXG_TTF_FILEPATH="tests/fonts/ipaexg.ttf",
+        JPAEXG_TTF_FILEPATH="/../tests/fonts/ipaexg.ttf",
         # JPAEXM_TTF_FILEPATH=JPAEXM_TTF_FILEPATH,
-        JPAEXM_TTF_FILEPATH="tests/fonts/ipaexm.ttf",
+        JPAEXM_TTF_FILEPATH="/../tests/fonts/ipaexm.ttf",
         URL_OA_POLICY_HEIGHT=URL_OA_POLICY_HEIGHT,
         HEADER_HEIGHT=HEADER_HEIGHT,
         TITLE_HEIGHT=TITLE_HEIGHT,
@@ -308,7 +308,11 @@ def base_app(instance_path):
         EXTERNAL_SYSTEM = EXTERNAL_SYSTEM,
         ITEM_ACTION = ITEM_ACTION,
         FILE_OPEN_STATUS = FILE_OPEN_STATUS,
-        WEKO_RECORDS_UI_RESTRICTED_API = False
+        WEKO_RECORDS_UI_RESTRICTED_API = False,
+        WEB_HOST_NAME='localhost',
+        APP_THEME=["semantic-ui"],
+        ACCOUNTS_COVER_TEMPLATE="invenio_accounts/base_cover.html",
+        WEKO_MIMETYPE_WHITELIST_FOR_SEARCH =[]
     )
     #with SearchTestServer(timeout=30) as server:
     client = search.OpenSearch(['localhost:9200'])
@@ -742,13 +746,17 @@ def itemtypes(app, db):
     with db.session.begin_nested():
         db.session.add(item_type_name)
         db.session.add(item_type)
-        db.session.add(item_type_mapping)
+
         db.session.add(item_type_name_31001)
         db.session.add(item_type_31001)
-        db.session.add(item_type_mapping_31001)
+
         db.session.add(item_type_name_31002)
         db.session.add(item_type_31002)
+        db.session.flush()
+        db.session.add(item_type_mapping)
+        db.session.add(item_type_mapping_31001)
         db.session.add(item_type_mapping_31002)
+
 
     return {
         "item_type_name": item_type_name,
@@ -4971,10 +4979,9 @@ def make_record_restricted_open_login(db, indexer, i, filepath, filename, mimety
         status=PIDStatus.REGISTERED,
     )
 
-    parent_pid = PIDNodeVersioning(pid=parent).parents.one_or_none()
-    h1 = PIDNodeVersioning(pid=parent_pid)
-    h1.insert_child(child=recid)
-    h1.insert_child(child=recid_v1)
+    h1 = PIDNodeVersioning(pid=parent)
+    h1.insert_child(child_pid=recid)
+    h1.insert_child(child_pid=recid_v1)
     PIDNodeDraft(pid=recid).insert_child(depid)
     PIDNodeDraft(pid=recid_v1).insert_child(depid_v1)
 
@@ -5738,10 +5745,13 @@ def db_restricted_access_secret(db):
 def db_community(db , users ,indextree):
     from invenio_communities.models import Community
     comm : Community
+    contributor_role = Role.query.filter_by(
+    name="Contributor"
+    ).first()
     with db.session.begin_nested():
         comm = Community(
             id="community"
-            ,id_role = users[0]["id"]
+            ,id_role = contributor_role.id
             ,root_node_id=Index.get_index_by_id(1).id
             ,id_user = users[0]["id"]
         )
@@ -5776,17 +5786,21 @@ def make_record_need_restricted_access(app, db, workflows, users):
     rec_id11 = 11
     rec_id11_1 = 11.1
     rec_uuid11 = uuid.uuid4()
-    rec_uuid11_1 = uuid.uuid4()
-    recid11 = PersistentIdentifier.create('recid', str(rec_id11), object_type='rec', object_uuid=rec_uuid11, status=PIDStatus.REGISTERED,)
-    recid11_1 = PersistentIdentifier.create('recid', str(rec_id11_1), object_type='rec', object_uuid=rec_uuid11_1, status=PIDStatus.REGISTERED,)
-    depid11 = PersistentIdentifier.create('depid', str(rec_id11), object_type='rec', object_uuid=rec_uuid11, status=PIDStatus.REGISTERED,)
-    depid11_1 = PersistentIdentifier.create('depid', str(rec_id11_1), object_type='rec', object_uuid=rec_uuid11_1, status=PIDStatus.REGISTERED,)
-    parent11 = PersistentIdentifier.create('parent', f'parent:{rec_id11}', object_type='rec', object_uuid=rec_uuid11, status=PIDStatus.REGISTERED,)
-    rel11 = PIDRelation.create(parent11, recid11, 2, 0)
-    rel11_1 = PIDRelation.create(parent11, recid11_1, 2, 1)
-    dep_rel11 = PIDRelation.create(recid11, depid11, 3)
-    dep_rel11_1 = PIDRelation.create(recid11_1, depid11_1, 3)
-    record11 = WekoRecord.create(record_data_list[0], id_=rec_uuid11)
+    rec_uuid11_1 = rec_uuid11
+    recid11 = PersistentIdentifier.create('recid',str(rec_id11),object_type='rec',object_uuid=rec_uuid11,status=PIDStatus.REGISTERED,)
+    recid11_1 = PersistentIdentifier.create('recid',str(rec_id11_1),object_type='rec',object_uuid=rec_uuid11,status=PIDStatus.REGISTERED,)
+    depid11 = PersistentIdentifier.create('depid',str(rec_id11),object_type='rec',object_uuid=rec_uuid11,status=PIDStatus.REGISTERED,)
+    depid11_1 = PersistentIdentifier.create('depid',str(rec_id11_1),object_type='rec',object_uuid=rec_uuid11_1,status=PIDStatus.REGISTERED,)
+    parent11 = PersistentIdentifier.create('parent',f'parent:{rec_id11}',object_type='rec',object_uuid=rec_uuid11_1,status=PIDStatus.REGISTERED,)
+    h1 = PIDNodeVersioning(pid=parent11)
+    h1.insert_child(child_pid=recid11)
+    h1.insert_child(child_pid=recid11_1)
+    PIDNodeDraft(pid=recid11).insert_child(depid11)
+    PIDNodeDraft(pid=recid11_1).insert_child(depid11_1)
+    record11 = WekoRecord.create(
+        record_data_list[0],
+        id_=rec_uuid11,
+    )
 
     activity11 = Activity(
         activity_id='11',
@@ -5804,16 +5818,17 @@ def make_record_need_restricted_access(app, db, workflows, users):
     rec_id12 = 12
     rec_id12_1 = 12.1
     rec_uuid12 = uuid.uuid4()
-    rec_uuid12_1 = uuid.uuid4()
+    rec_uuid12_1 = rec_uuid12
     recid12 = PersistentIdentifier.create('recid', str(rec_id12), object_type='rec', object_uuid=rec_uuid12, status=PIDStatus.REGISTERED,)
     recid12_1 = PersistentIdentifier.create('recid', str(rec_id12_1), object_type='rec', object_uuid=rec_uuid12_1, status=PIDStatus.REGISTERED,)
     depid12 = PersistentIdentifier.create('depid', str(rec_id12), object_type='rec', object_uuid=rec_uuid12, status=PIDStatus.REGISTERED,)
     depid12_1 = PersistentIdentifier.create('depid', str(rec_id12_1), object_type='rec', object_uuid=rec_uuid12_1, status=PIDStatus.REGISTERED,)
     parent12 = PersistentIdentifier.create('parent', f'parent:{rec_id12}', object_type='rec', object_uuid=rec_uuid12, status=PIDStatus.REGISTERED,)
-    rel12 = PIDRelation.create(parent12, recid12, 2, 0)
-    rel12_1 = PIDRelation.create(parent12, recid12_1, 2, 1)
-    dep_rel12 = PIDRelation.create(recid12, depid12, 3)
-    dep_rel12_1 = PIDRelation.create(recid12_1, depid12_1, 3)
+    h1 = PIDNodeVersioning(pid=parent12)
+    h1.insert_child(child_pid=recid12)
+    h1.insert_child(child_pid=recid12_1)
+    PIDNodeDraft(pid=recid12).insert_child(depid12)
+    PIDNodeDraft(pid=recid12_1).insert_child(depid12_1)
     record12 = WekoRecord.create(record_data_list[1], id_=rec_uuid12)
 
     activity12 = Activity(
@@ -5832,16 +5847,17 @@ def make_record_need_restricted_access(app, db, workflows, users):
     rec_id13 = 13
     rec_id13_1 = 13.1
     rec_uuid13 = uuid.uuid4()
-    rec_uuid13_1 = uuid.uuid4()
+    rec_uuid13_1 = rec_uuid13
     recid13 = PersistentIdentifier.create('recid', str(rec_id13), object_type='rec', object_uuid=rec_uuid13, status=PIDStatus.REGISTERED,)
     recid13_1 = PersistentIdentifier.create('recid', str(rec_id13_1), object_type='rec', object_uuid=rec_uuid13_1, status=PIDStatus.REGISTERED,)
     depid13 = PersistentIdentifier.create('depid', str(rec_id13), object_type='rec', object_uuid=rec_uuid13, status=PIDStatus.REGISTERED,)
     depid13_1 = PersistentIdentifier.create('depid', str(rec_id13_1), object_type='rec', object_uuid=rec_uuid13_1, status=PIDStatus.REGISTERED,)
     parent13 = PersistentIdentifier.create('parent', f'parent:{rec_id13}', object_type='rec', object_uuid=rec_uuid13, status=PIDStatus.REGISTERED,)
-    rel13 = PIDRelation.create(parent13, recid13, 2, 0)
-    rel13_1 = PIDRelation.create(parent13, recid13_1, 2, 1)
-    dep_rel13 = PIDRelation.create(recid13, depid13, 3)
-    dep_rel13_1 = PIDRelation.create(recid13_1, depid13_1, 3)
+    h1 = PIDNodeVersioning(pid=parent13)
+    h1.insert_child(child_pid=recid13)
+    h1.insert_child(child_pid=recid13_1)
+    PIDNodeDraft(pid=recid13).insert_child(depid13)
+    PIDNodeDraft(pid=recid13_1).insert_child(depid13_1)
     record13 = WekoRecord.create(record_data_list[2], id_=rec_uuid13)
 
     activity13 = Activity(
@@ -5877,16 +5893,17 @@ def make_record_need_restricted_access(app, db, workflows, users):
     rec_id14 = 14
     rec_id14_1 = 14.1
     rec_uuid14 = uuid.uuid4()
-    rec_uuid14_1 = uuid.uuid4()
+    rec_uuid14_1 = rec_uuid14
     recid14 = PersistentIdentifier.create('recid', str(rec_id14), object_type='rec', object_uuid=rec_uuid14, status=PIDStatus.REGISTERED,)
     recid14_1 = PersistentIdentifier.create('recid', str(rec_id14_1), object_type='rec', object_uuid=rec_uuid14_1, status=PIDStatus.REGISTERED,)
     depid14 = PersistentIdentifier.create('depid', str(rec_id14), object_type='rec', object_uuid=rec_uuid14, status=PIDStatus.REGISTERED,)
     depid14_1 = PersistentIdentifier.create('depid', str(rec_id14_1), object_type='rec', object_uuid=rec_uuid14_1, status=PIDStatus.REGISTERED,)
     parent14 = PersistentIdentifier.create('parent', f'parent:{rec_id14}', object_type='rec', object_uuid=rec_uuid14, status=PIDStatus.REGISTERED,)
-    rel14 = PIDRelation.create(parent14, recid14, 2, 0)
-    rel14_1 = PIDRelation.create(parent14, recid14_1, 2, 1)
-    dep_rel14 = PIDRelation.create(recid14, depid14, 3)
-    dep_rel14_1 = PIDRelation.create(recid14_1, depid14_1, 3)
+    h1 = PIDNodeVersioning(pid=parent14)
+    h1.insert_child(child_pid=recid14)
+    h1.insert_child(child_pid=recid14_1)
+    PIDNodeDraft(pid=recid14).insert_child(depid14)
+    PIDNodeDraft(pid=recid14_1).insert_child(depid14_1)
     record14 = WekoRecord.create(record_data_list[3], id_=rec_uuid14)
 
     activity14 = Activity(
@@ -5914,16 +5931,17 @@ def make_record_need_restricted_access(app, db, workflows, users):
     rec_id15 = 15
     rec_id15_1 = 15.1
     rec_uuid15 = uuid.uuid4()
-    rec_uuid15_1 = uuid.uuid4()
+    rec_uuid15_1 = rec_uuid15
     recid15 = PersistentIdentifier.create('recid', str(rec_id15), object_type='rec', object_uuid=rec_uuid15, status=PIDStatus.REGISTERED,)
     recid15_1 = PersistentIdentifier.create('recid', str(rec_id15_1), object_type='rec', object_uuid=rec_uuid15_1, status=PIDStatus.REGISTERED,)
     parent15 = PersistentIdentifier.create('parent', f'parent:{rec_id15}', object_type='rec', object_uuid=rec_uuid15, status=PIDStatus.REGISTERED,)
     depid15 = PersistentIdentifier.create('depid', str(rec_id15), object_type='rec', object_uuid=rec_uuid15, status=PIDStatus.REGISTERED,)
     depid15_1 = PersistentIdentifier.create('depid', str(rec_id15_1), object_type='rec', object_uuid=rec_uuid15_1, status=PIDStatus.REGISTERED,)
-    rel15 = PIDRelation.create(parent15, recid15, 2, 0)
-    rel15_1 = PIDRelation.create(parent15, recid15_1, 2, 1)
-    dep_rel15 = PIDRelation.create(recid15, depid15, 3)
-    dep_rel15_1 = PIDRelation.create(recid15_1, depid15_1, 3)
+    h1 = PIDNodeVersioning(pid=parent15)
+    h1.insert_child(child_pid=recid15)
+    h1.insert_child(child_pid=recid15_1)
+    PIDNodeDraft(pid=recid15).insert_child(depid15)
+    PIDNodeDraft(pid=recid15_1).insert_child(depid15_1)
     record15 = WekoRecord.create(record_data_list[4], id_=rec_uuid15)
 
     activity15 = Activity(
@@ -5942,16 +5960,17 @@ def make_record_need_restricted_access(app, db, workflows, users):
     rec_id16 = 16
     rec_id16_1 = 16.1
     rec_uuid16 = uuid.uuid4()
-    rec_uuid16_1 = uuid.uuid4()
+    rec_uuid16_1 = rec_uuid16
     recid16 = PersistentIdentifier.create('recid', str(rec_id16), object_type='rec', object_uuid=rec_uuid16, status=PIDStatus.REGISTERED,)
     recid16_1 = PersistentIdentifier.create('recid', str(rec_id16_1), object_type='rec', object_uuid=rec_uuid16_1, status=PIDStatus.REGISTERED,)
     depid16 = PersistentIdentifier.create('depid', str(rec_id16), object_type='rec', object_uuid=rec_uuid16, status=PIDStatus.REGISTERED,)
     depid16_1 = PersistentIdentifier.create('depid', str(rec_id16_1), object_type='rec', object_uuid=rec_uuid16_1, status=PIDStatus.REGISTERED,)
     parent16 = PersistentIdentifier.create('parent', f'parent:{rec_id16}', object_type='rec', object_uuid=rec_uuid16, status=PIDStatus.REGISTERED,)
-    rel16 = PIDRelation.create(parent16, recid16, 2, 0)
-    rel16_1 = PIDRelation.create(parent16, recid16_1, 2, 1)
-    dep_rel16 = PIDRelation.create(recid15, depid16, 3)
-    dep_rel16_1 = PIDRelation.create(recid15_1, depid16_1, 3)
+    h1 = PIDNodeVersioning(pid=parent16)
+    h1.insert_child(child_pid=recid16)
+    h1.insert_child(child_pid=recid16_1)
+    PIDNodeDraft(pid=recid16).insert_child(depid16)
+    PIDNodeDraft(pid=recid16_1).insert_child(depid16_1)
     record16 = WekoRecord.create(record_data_list[5], id_=rec_uuid16)
 
     activity16 = Activity(
@@ -6366,7 +6385,7 @@ def communities2(app, indices, users, db):
 
     community = Community(
         id="community_sample",
-        group_id=4,
+        group_id="Contributor",
         id_role=user_obj.roles[0].id,
         id_user=user_record["id"],
         title='Community 1',
@@ -6378,7 +6397,6 @@ def communities2(app, indices, users, db):
         last_record_accepted=datetime.now(),
         root_node_id=2,
     )
-
     db.session.add(community)
     db.session.commit()
     return [community]
@@ -6448,3 +6466,13 @@ def user_activity_log_partition_table(app, db):
     with db.session.begin_nested():
         db.session.execute(create_partition_sql)
     db.session.commit()
+
+@pytest.fixture()
+def create_endpoint(app):
+    from invenio_records_ui.views import create_blueprint_from_app
+    bp=create_blueprint_from_app(app)
+    app.register_blueprint(bp)
+    app.add_url_rule(
+    "/records/<pid_value>",
+    endpoint="weko_theme.recid"
+    )

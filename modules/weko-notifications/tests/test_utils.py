@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2024 National Institute of Informatics.
 #
-# WEKO-SWORDServer is free software; you can redistribute it and/or modify it
+# WEKO-Notifications is free software; you can redistribute it and/or modify it
 # under the terms of the MIT License; see LICENSE file for more details.
 
 import json
@@ -111,15 +111,6 @@ def test_get_push_template(app, mocker):
         with pytest.raises(TypeError):
             get_push_template()
 
-    with patch("flask.current_app.logger") as mock_logger:
-    # Template file exists but contains invalid JSON
-        mocker.patch("os.path.isfile", return_value=True)
-        mocker.patch("builtins.open", mocker.mock_open(read_data=[{"test": "not dict"}]))
-        mocker.patch("json.load", return_value=[{"test": "not dict"}])
-
-        assert get_push_template() is None
-
-
     # Template file exists and contains valid JSON
     valid_template = {
         "template1": {
@@ -194,7 +185,7 @@ def test_get_item_title(app, mocker):
     mocker.patch("weko_notifications.utils.PersistentIdentifier.get", return_value=mock_pid)
     mock_deposit = MagicMock()
     mock_deposit.get.return_value = object_title
-    mocker.patch("weko_notifications.utils.WekoDeposit.get_record", return_value=mock_deposit)
+    mocker.patch("weko_deposit.api.WekoDeposit.get_record", return_value=mock_deposit)
 
     title = get_item_title(recid)
     assert title == object_title

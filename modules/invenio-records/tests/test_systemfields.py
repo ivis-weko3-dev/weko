@@ -329,7 +329,7 @@ def test_base_systemfield_base(app):
     assert pytest.raises(AttributeError, TestRecord, {}, field={})
 
 
-def test_systemfield_initialization(app):
+def test_systemfield_initialization(app, db):
     """Test default implementation of system field."""
 
     class TestField(SystemField):
