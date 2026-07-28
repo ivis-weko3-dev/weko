@@ -71,7 +71,7 @@ class TestIndexCreateSchema:
         }
 
         schema = IndexCreateSchema()
-        result = schema.load(index).data
+        result = schema.load(index)
         assert result == index
 
         index_s = {
@@ -98,7 +98,7 @@ class TestIndexCreateSchema:
         }
         # Test with string values for boolean fields
         schema = IndexCreateSchema()
-        result = schema.load(index_s).data
+        result = schema.load(index_s)
 
         assert result["parent"] == 2
         assert result["index_link_enabled"] is True
@@ -180,7 +180,7 @@ class TestIndexCreateRequestSchema:
         }
 
         schema = IndexCreateRequestSchema()
-        result = schema.load(json).data
+        result = schema.load(json)
         assert result == json
 
         json = {
@@ -209,7 +209,7 @@ class TestIndexCreateRequestSchema:
         }
 
         schema = IndexCreateRequestSchema()
-        result = schema.load(json).data
+        result = schema.load(json)
         assert result["index"]["parent"] == 2
         assert result["index"]["index_link_enabled"] is True
         assert result["index"]["more_check"] is False
@@ -267,14 +267,14 @@ class TestIndexUpdateRequestSchema:
         }
 
         schema = IndexUpdateRequestSchema()
-        result = schema.load(json).data
+        result = schema.load(json)
         assert result == json
 
         json = {
             "index": {}
         }
         schema = IndexUpdateRequestSchema()
-        result = schema.load(json).data
+        result = schema.load(json)
         assert result == json
 
     def test_invalid_index(self):
