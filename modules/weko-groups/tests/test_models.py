@@ -393,7 +393,7 @@ def test_group_add_member(app):
         assert isinstance(obj, Membership)
         assert Group.query.count() == 1
         assert Membership.query.count() == 1
-        with pytest.raises(FlushError):
+        with pytest.raises((IntegrityError)):
             g.add_member(u)
 
 
@@ -469,7 +469,7 @@ def test_group_subscribe(app):
                            subscription_policy=SubscriptionPolicy.APPROVAL)
         g_c = Group.create(name="test_closed",
                            subscription_policy=SubscriptionPolicy.CLOSED)
-        u = User(email="test", password="test")
+        u = User(email="test@test.org", password="test")
         db.session.add(u)
         db.session.commit()
 
@@ -493,12 +493,11 @@ def test_group_is_admin(app):
         from weko_groups.models import Group
         from invenio_accounts.models import User
 
-        g = Group.create(name="test")
-        u = User(email="test", password="test")
+        u = User(email="test@test.org", password="test")
         db.session.add(u)
         db.session.commit()
 
-        g.add_admin(u)
+        g = Group.create(name="test_user_admin", admins=[u])
 
         assert g.is_admin(u)
 
@@ -557,7 +556,7 @@ def test_membership_create(app):
         assert m.state == MembershipState.ACTIVE
         assert m.group.name == g.name
         assert m.user.id == u.id
-        with pytest.raises(FlushError):
+        with pytest.raises((IntegrityError)):
             Membership.create(g, u)
 
 
@@ -876,13 +875,13 @@ def test_group_admin_query_admins_by_group_ids(app):
         c = Group.create(name="admin3")
         g = Group.create(name="test", admins=[b,c])
         h = Group.create(name="test2", admins=[b,c])
-        
+
         assert 0 == GroupAdmin.query_admins_by_group_ids([b.id]).count()
         assert 0 == GroupAdmin.query_admins_by_group_ids([c.id]).count()
         assert 1 == GroupAdmin.query_admins_by_group_ids([g.id]).count()
         assert 2 == GroupAdmin.query_admins_by_group_ids([g.id, h.id]).count()
         assert 2 == GroupAdmin.query_admins_by_group_ids(None).count()
-
+# .tox/c1/bin/pytest -W ignore --cov=weko_groups tests/test_models.py::test_invite_by_emails -v -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-groups/.tox/c1/tmp
 def test_invite_by_emails(app):
     """
     Test invite by emails.
@@ -913,6 +912,17 @@ def test_invite_by_emails(app):
         assert g.is_member(u1, with_pending=True)
         assert g.is_member(u2, with_pending=True)
         assert not g.is_member('invalid@example.com', with_pending=True)
+
+
+        with patch("weko_groups.models.Group.invite",side_effect=Exception("Test Exception")):
+            result = g.invite_by_emails(
+                [
+                    u1.email,
+                    u2.email,
+                    'invalid@example.com'
+                ]
+            )
+            assert result == [None,None,None]
 
 
 def test_can_see_members(example_group):
@@ -1094,7 +1104,7 @@ def test_function_issue34801(app):
         assert g.name == "test<script>alert()</script>"
 
 
-# class Group(db.Model): 
+# class Group(db.Model):
 # def get_group_list(cls):
 def test_get_group_list(app):
     from weko_groups.models import Group
@@ -1106,7 +1116,7 @@ def test_get_group_list(app):
         assert test.get_group_list() != None
 
 
-# def _escape_value(self,text): 
+# def _escape_value(self,text):
 def test__escape_value(app):
     with app.app_context():
         test = Group()
@@ -1134,13 +1144,13 @@ def test__filter(app):
 
         with patch('weko_groups.models.joinedload', return_value=""):
             assert test._filter(query=query, eager=eager) != None
-        
+
 
 # def query_invitations(cls, user, eager=False):
 def test_query_invitations(app):
     def query_by_user(item1, item2, item3):
         return True
-    
+
     def get_id():
         return "id"
 
@@ -1154,7 +1164,7 @@ def test_query_invitations(app):
         assert test.query_invitations(user=user, eager=eager) != None
 
 
-# def query_requests(cls, admin): 
+# def query_requests(cls, admin):
 def test_query_requests(app):
     def is_superadmin():
         return "is_superadmin"
@@ -1167,7 +1177,7 @@ def test_query_requests(app):
         assert test.query_requests(admin=admin) != None
 
 
-# def query_by_group(cls, group_or_id, with_invitations=False, **kwargs): 
+# def query_by_group(cls, group_or_id, with_invitations=False, **kwargs):
 def test_query_by_group(app):
     with app.app_context():
         test = Membership()
@@ -1176,11 +1186,11 @@ def test_query_by_group(app):
         assert test.query_by_group(group_or_id=group, with_invitations=True) != None
 
 
-# def order(cls, query, field, s): 
+# def order(cls, query, field, s):
 def test_order(app):
     def order_by(item):
         return "item"
-    
+
     with app.app_context():
         test = Membership()
         query = MagicMock()
