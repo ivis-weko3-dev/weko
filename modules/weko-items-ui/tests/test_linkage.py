@@ -4,11 +4,30 @@ import pytest
 from mock import MagicMock, patch
 from requests import Response
 
-from weko_items_ui.linkage import Researchmap
+from weko_items_ui.linkage import Researchmap, _parse_first_json_object
 
 
 def test__init__():
     assert Researchmap().token == ""
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_linkage.py::test_parse_first_json_object -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_items_ui/.tox/c1/tmp --full-trace
+def test_parse_first_json_object():
+    assert _parse_first_json_object("") == {}
+    assert _parse_first_json_object("   ") == {}
+    assert _parse_first_json_object("INVALID") == {}
+
+    # The first JSON token is not an object.
+    assert _parse_first_json_object("123") == {}
+    assert _parse_first_json_object("[1, 2, 3]") == {}
+
+    # Return only the first JSON object even if multiple objects exist.
+    concatenated = '{"code": 200}\n{"code": 102}'
+    assert _parse_first_json_object(concatenated) == {"code": 200}
+
+    # Leading whitespaces should be ignored.
+    leading_spaces = '   {"error": "invalid_token"}'
+    assert _parse_first_json_object(leading_spaces) == {"error": "invalid_token"}
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_linkage.py::test_create_access_token -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_items_ui/.tox/c1/tmp --full-trace
 def test_create_access_token(app):
@@ -151,6 +170,23 @@ def test_get_result(app, db_admin_setting):
                 rm = Researchmap()
                 assert rm.get_result("url")
 
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_linkage.py::test_get_result_with_concatenated_json -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_items_ui/.tox/c1/tmp --full-trace
+def test_get_result_with_concatenated_json(app, db_admin_setting):
+    with patch("weko_items_ui.linkage.jwt.encode", return_value="result"):
+        res_token = Response()
+        res_token.status_code = 200
+        res_token._content = b'{"access_token":"foo"}'
+
+        res_concat = Response()
+        res_concat.status_code = 200
+        res_concat._content = b'{"code":200}\n{"code":102}'
+
+        with patch("weko_items_ui.linkage.requests.post", return_value=res_token):
+            with patch("weko_items_ui.linkage.requests.get", return_value=res_concat):
+                rm = Researchmap()
+                assert rm.get_result("url") == res_concat.text
+
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_linkage.py::test_retry -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_items_ui/.tox/c1/tmp --full-trace
 def test_retry(app):
 
@@ -174,3 +210,13 @@ def test_retry(app):
     assert res_402.text == Researchmap().retry(functools.partial(lambda : res_402))
     assert res_200.text == Researchmap().retry(functools.partial(lambda : res_200))
     # Researchmap().retry(functools.partial(lambda : res_200))
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_linkage.py::test_retry_with_concatenated_json_no_exception -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko_items_ui/.tox/c1/tmp --full-trace
+def test_retry_with_concatenated_json_no_exception(app):
+    res_401_concat = Response()
+    res_401_concat.status_code = 401
+    res_401_concat._content = b'{"error":"invalid_token"}{"error":"invalid_token"}'
+
+    assert res_401_concat.text == Researchmap().retry(
+        functools.partial(lambda: res_401_concat)
+    )

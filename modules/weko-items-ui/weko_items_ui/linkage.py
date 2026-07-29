@@ -12,6 +12,24 @@ import json
 
 from weko_admin.models import AdminSettings
 
+
+def _parse_first_json_object(raw_text):
+    """Parse and return the first JSON object from a response text."""
+    if not raw_text:
+        return {}
+
+    text = raw_text.lstrip()
+    decoder = json.JSONDecoder()
+    try:
+        obj, _ = decoder.raw_decode(text)
+    except ValueError:
+        return {}
+
+    if isinstance(obj, dict):
+        return obj
+
+    return {}
+
 class Researchmap:
 
     def __init__(self) -> None:
@@ -153,7 +171,8 @@ class Researchmap:
                                 ,"Accept": "application/ld+json,application/json,*/*;q=0.1"
                                 ,"Accept-Encoding": "gzip"})
             current_app.logger.debug(response.text)
-            if response.status_code == 200 and json.loads(response.text.splitlines()[0]).get('code' , '') == 102:
+            response_json = _parse_first_json_object(response.text)
+            if response.status_code == 200 and response_json.get('code' , '') == 102:
                 sleep(10) # 10 seconds waiting
                 return __get()
             else :
@@ -171,7 +190,8 @@ class Researchmap:
             return response.status_code == 200 or response.status_code == 404 or retry_count >= CONST_RETRY_MAX
 
         def __recovery(response):
-            if response.status_code == 401 and json.loads(response.text.splitlines()[0]).get("error") == "invalid_token" :
+            response_json = _parse_first_json_object(response.text)
+            if response.status_code == 401 and response_json.get("error") == "invalid_token" :
                 self.token = ""
 
         response = func()

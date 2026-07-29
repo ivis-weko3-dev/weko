@@ -137,7 +137,7 @@ def get_auto_fill_record_data():
                 linkage_items = LinkageItems.get_by_external_item_id(achievement_id, LinkageItems.ExternalSystem.RM)
                 if linkage_items:
                     type_data.append(dict(ok=False, msg=_('This researchmap ID is already linked to other items.')))
-                type_data.append(dict(ok=False, msg=_('The used achievement ID must specify the permlink as a linkage destination in the metadata.')))
+                type_data.append(dict(ok=False, msg=_('The used achievement ID must specify the permalink as a linkage destination in the metadata.')))
             result['type_data'] = type_data
         else:
             result['error'] = api_type + ' is NOT support autofill feature.'

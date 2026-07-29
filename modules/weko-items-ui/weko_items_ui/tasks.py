@@ -14,16 +14,13 @@ from invenio_pidstore.models import PersistentIdentifier
 from invenio_oaiserver.response import is_private_index
 from weko_admin.models import AdminSettings
 from celery.utils.log import get_task_logger
-from weko_authors.models import Authors
+from weko_authors.utils import get_name_identifiers
 from weko_deposit.api import WekoRecord
 from weko_deposit.pidstore import get_record_without_version
-from weko_index_tree.api import Indexes
 from weko_items_ui.models import CRIS_Institutions, CRISLinkageResult, LinkageItems
 from weko_records.api import ItemsMetadata, Mapping
-from weko_records.models import ItemTypeMapping
 from weko_records.utils import json_loader
-from weko_records_ui.permissions import check_publish_status, file_permission_factory 
-from weko_schema_ui.schema import SchemaTree
+from weko_records_ui.permissions import check_publish_status 
 from .linkage import Researchmap
 
 logger = get_task_logger(__name__)
@@ -145,11 +142,12 @@ def update_linkage_by_authors(item_id, authors):
     current_app.logger.debug("update_linkage_by_authors")
     current_app.logger.debug(authors)
 
-    pid_without_ver = get_record_without_version(item_id)
+    pid = PersistentIdentifier.get_by_object(pid_type="recid", object_type="rec", object_uuid=item_id)
+    pid_without_ver = get_record_without_version(pid)
     linkages = LinkageItems.get_by_item_id(item_id=pid_without_ver.object_uuid, external_system=LinkageItems.ExternalSystem.RM)
     permalinks = [author for author in authors]
     for linkage in linkages:
-        if linkage.permalink not in permalinks:
+        if not permalinks or linkage.permalink not in permalinks:
             linkage.update_status(LinkageItems.Status.DELETED)
         else:
             if linkage.status == LinkageItems.Status.DELETED:
@@ -169,7 +167,8 @@ def sync_item_to_researchmap(pid_int, item_id, achievements_obj, merge_mode, ach
     """
 
     jsons = []
-    pid_without_ver = get_record_without_version(item_id)
+    pid = PersistentIdentifier.get_by_object(pid_type="recid", object_type="rec", object_uuid=item_id)
+    pid_without_ver = get_record_without_version(pid)
 
     # Get active linkage items
     item_linkages = LinkageItems.get_items_by_permalink_itemid(
@@ -208,36 +207,56 @@ def sync_item_to_researchmap(pid_int, item_id, achievements_obj, merge_mode, ach
     recalls = []
     error_url = url + "&display_type=error"
     error_result = sender.get_result(error_url)
-    for error in json.loads(error_result).get("errors",[]):
+    parsed_error = parse_bulk_result(error_result)
+
+    current_app.logger.debug("error_result:{}".format(error_result))
+    current_app.logger.debug("parsed_error:{}".format(parsed_error))
+
+    for error in parsed_error:
         line = error.get("line")
         error_code = error.get("code")
         if line is not None and error_code == 404:
             for linkage_target in linkage_targets:
-                if  linkage_target.get("line") == line:
+                if linkage_target.get("line") == line:
                     # Not found linkage_target in researchmap, update status to DELETED
                     linkage_target["model"].update_status(LinkageItems.Status.DELETED)
                     if should_create_if_not_found:
                         recalls.append(linkage_target["permalink"])
                     break
+        register_linkage_result(pid_int, False, item_id, error_result)
 
     # Get success result from researchmap
     success_url = url + "&display_type=success"
     success_result = sender.get_result(success_url)
-    for success in json.loads(success_result).get("success",[]):
+    parsed_success = parse_bulk_result(success_result)
+
+    current_app.logger.debug("success_result:{}".format(success_result))
+    current_app.logger.debug("parsed_success:{}".format(parsed_success))
+
+    for success in parsed_success:
         line = success.get("line")
         achievement_id = success.get("id")
         exists = False
+        result_message = success_result
         for linkage_target in linkage_targets:
             if line is not None and linkage_target.get("line") == line:
-                exists = True
-                break
+                if linkage_target.get("external_item_id") == achievement_id:
+                    exists = True
+                    break
         if not exists and line is not None:
-            permalink = json.loads(jsons[line-1]).get("insert",{}).get("permalink")
-            LinkageItems.create(
-                pid_without_ver.object_uuid, achievement_id, LinkageItems.ExternalSystem.RM,
-                permalink, LinkageItems.Status.REGISTERED
-            )
-            register_linkage_result(pid_int, True, item_id, failed_log='新規連携成功:{}'.format(achievement_id))
+            # Check if the achievement ID is already linked to another item
+            check_linkage_items = LinkageItems.get_by_external_item_id(achievement_id, LinkageItems.ExternalSystem.RM)
+            if check_linkage_items:
+                # Found achievement_id in other items, do not create linkage item
+                result_message = f"ID({achievement_id}) is already linked to other items.\n{success_result}"
+            else:
+                # Not found achievement_id in other items, create linkage item
+                permalink = json.loads(jsons[line-1]).get("insert",{}).get("permalink")
+                LinkageItems.create(
+                    pid_without_ver.object_uuid, achievement_id, LinkageItems.ExternalSystem.RM,
+                    permalink, LinkageItems.Status.REGISTERED
+                )
+        register_linkage_result(pid_int, True, item_id, result_message)
 
     # Recuirsive call to sync_item_to_researchmap if recalls exist
     if len(recalls) > 0:
@@ -262,12 +281,11 @@ def is_public(record , pid):
 
 def get_authors(jrc):
     """著者取得"""
+    authors = []
+    get_name_identifiers(jrc, "researchmap", authors)
 
-    author_links = jrc.get("author_link")
-
-    authors:list = Authors.get_authorIdInfo('researchmap' , author_links)
-
-    return authors
+    # Keep first occurrence order and remove duplicates.
+    return list(dict.fromkeys(authors))
     
 def get_merge_mode():
     """マージモード取得"""
@@ -564,6 +582,29 @@ def build_one_data(achievement_obj:dict , merge_mode:str , permalink:str ,achiev
         ret = {"insert": insert_info , "similar_merge" :achievement_obj ,"priority":"input_data" }
     return ret
 
-def register_linkage_result(pid_int:int,result:bool,item_uuid:uuid, failed_log :str):
+def register_linkage_result(pid_int:int,result:bool,item_uuid:uuid, message :str):
     """ researchmap 連携結果の登録"""
-    return CRISLinkageResult().register_linkage_result(pid_int,CRIS_Institutions.RM,result , item_uuid ,failed_log)
+    return CRISLinkageResult().register_linkage_result(pid_int, CRIS_Institutions.RM, result, item_uuid, message)
+
+def parse_bulk_result(raw_text):
+    """Return JSON objects from the second line onward."""
+    if not raw_text:
+        return []
+
+    result = []
+
+    # The first line is a summary record, so decode only from the second line.
+    for line in raw_text.splitlines()[1:]:
+        line = line.strip()
+        if not line:
+            continue
+
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+
+        if isinstance(obj, dict):
+            result.append(obj)
+
+    return result

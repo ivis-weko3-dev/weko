@@ -243,7 +243,7 @@ def test_get_auto_fill_record_data(client_api,db,users,mocker):
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "result":"return_researchmapid_record_data","items":"","error":"",'resource_type':"return_researchmapid_resource_type",
-        "type_data": [{'msg':'The used achievement ID must specify the permlink as a linkage destination in the metadata.','ok': False}],
+        "type_data": [{'msg':'The used achievement ID must specify the permalink as a linkage destination in the metadata.','ok': False}],
     }
     mock_get_by_external_item_id.assert_called_with("test_achievement_id", LinkageItems.ExternalSystem.RM)
     
@@ -257,7 +257,7 @@ def test_get_auto_fill_record_data(client_api,db,users,mocker):
         "result":"return_researchmapid_record_data","items":"","error":"",'resource_type':"return_researchmapid_resource_type",
         "type_data": [
             {'msg':'This researchmap ID is already linked to other items.','ok': False},
-            {'msg':'The used achievement ID must specify the permlink as a linkage destination in the metadata.','ok': False},
+            {'msg':'The used achievement ID must specify the permalink as a linkage destination in the metadata.','ok': False},
         ],
     }
     mock_get_by_external_item_id.assert_called_with("test_achievement_id", LinkageItems.ExternalSystem.RM)

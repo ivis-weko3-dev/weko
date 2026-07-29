@@ -77,7 +77,7 @@ class CRISLinkageResult(db.Model, Timestamp):
         nullable= True
     )
 
-    failed_log = db.Column(
+    message = db.Column(
         db.Text,
         nullable = False,
         default = ''
@@ -86,7 +86,7 @@ class CRISLinkageResult(db.Model, Timestamp):
     def get_last(self ,recid ,cris_institution):
         return self.query.filter_by(recid=recid , cris_institution=cris_institution).one_or_none()
     
-    def register_linkage_result(self ,recid ,cris_institution ,result ,item_uuid ,failed_log):
+    def register_linkage_result(self, recid, cris_institution, result, item_uuid, message):
         with db.session.begin_nested():
             lresult:CRISLinkageResult = self.get_last(recid ,cris_institution)
             if not lresult:
@@ -95,10 +95,8 @@ class CRISLinkageResult(db.Model, Timestamp):
                 lresult.cris_institution = cris_institution
             
             lresult.succeed = result
-            if not result:
-                lresult.failed_log = failed_log
-            else :
-                lresult.failed_log = ''
+            lresult.message = message
+            if result:
                 lresult.last_linked_date = datetime.utcnow()
                 lresult.last_linked_item = item_uuid
 

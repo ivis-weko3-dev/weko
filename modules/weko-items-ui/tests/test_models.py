@@ -34,7 +34,7 @@ cris_linkage_result = CRISLinkageResult(
     last_linked_date = datetime.now(),
     last_linked_item = record_uuid,
     succeed = False,
-    failed_log = "failed_log"
+    message = "failed_log"
 )
 
 cris_linkage_result_2 = CRISLinkageResult(
@@ -43,7 +43,7 @@ cris_linkage_result_2 = CRISLinkageResult(
     last_linked_date = datetime.now(),
     last_linked_item = record_uuid_2,
     succeed = False,
-    failed_log = "failed_log"
+    message = "failed_log"
 )
 
 cris_linkage_result_4 = CRISLinkageResult(
@@ -52,7 +52,7 @@ cris_linkage_result_4 = CRISLinkageResult(
     last_linked_date = datetime.now(),
     last_linked_item = record_uuid_4,
     succeed = False,
-    failed_log = "failed_log"
+    message = "failed_log"
 )
 
 item_metadata = ItemMetadata(
@@ -103,7 +103,7 @@ class TestCRISLinkageResult:
         result = CRISLinkageResult().get_last(recid=100, cris_institution="researchmap")
         assert result == None
 
-    # def register_linkage_result(self ,recid ,cris_institution ,result ,item_uuid ,failed_log):
+    # def register_linkage_result(self ,recid ,cris_institution ,result ,item_uuid ,message):
     # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_models.py::TestCRISLinkageResult::test_register_linkage_result -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
     def test_register_linkage_result(self,app, db):
         weko_deposit_minter(record_uuid_2, data_2, 2)
@@ -115,10 +115,10 @@ class TestCRISLinkageResult:
             db.session.add(cris_linkage_result_2)
         db.session.commit()
 
-        result = CRISLinkageResult().register_linkage_result(recid=2, cris_institution="researchmap", result=True, item_uuid=record_uuid_2, failed_log="")
+        result = CRISLinkageResult().register_linkage_result(recid=2, cris_institution="researchmap", result=True, item_uuid=record_uuid_2, message="")
         assert result == True
 
-        result = CRISLinkageResult().register_linkage_result(recid=100, cris_institution="researchmap", result=False, item_uuid=record_uuid_3, failed_log="")
+        result = CRISLinkageResult().register_linkage_result(recid=100, cris_institution="researchmap", result=False, item_uuid=record_uuid_3, message="")
         assert result == True
 
 

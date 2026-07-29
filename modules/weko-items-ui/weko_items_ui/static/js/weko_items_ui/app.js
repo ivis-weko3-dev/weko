@@ -3426,7 +3426,7 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
         const parmalink = $("#parmalink").val();
         const achievement_type = $("#achievement_type").val();
         const achievement_id = $("#achievement_id").val();
-        const enable_item_achievement_link = $("#enable_item_achievement_link").val();
+        const enable_item_achievement_link = $("#enable_item_achievement_link").prop("checked");
         if (autoFillID === 'Default') {
           $scope.enableAutofillButton();
           this.setAutoFillErrorMessage($("#autofill_error_id").val());
@@ -3493,7 +3493,10 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
       $scope.set_autofill_warning_msg = function (data) {
         data.forEach(function (d) {
           if (!d.ok) {
-            $("#alerts").append(d.msg);
+            $('#alerts').append(
+              '<div class="alert alert-warning" id="autofill_warning">' +
+              '<button type="button" class="close" data-dismiss="alert">' +
+              '&times;</button>' + d.msg + '</div>');
           }
         })
       }
@@ -3520,14 +3523,14 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
               $scope.clearAllField();
               $scope.setRecordDataCallBack(data);
               $scope.resourceTypeSelect(data.resource_type);
-              $scope.set_autofill_warning_msg(data.type_data);
+              $scope.set_autofill_warning_msg(data.type_data || []);
               json_data = {
                 id: param.achievement_id,
                 permalink: param.parmalink,
                 type: param.api_type,
                 enable_item_achievement_link: param.enable_item_achievement_link
               };
-              $("#autofill_status").text(JSON.stringify(json_data));
+              $("#autofill_status").val(JSON.stringify(json_data));
 
             } else {
               $scope.enableAutofillButton();
@@ -5010,6 +5013,15 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
         if (!angular.isUndefined($rootScope.filesVM)) {
           this.mappingThumbnailInfor();
           this.updateFilenameFilesVM();
+          let autofillPerformanceId = $("#autofill_status").val();
+          if (typeof autofillPerformanceId === "string") {
+            try {
+              autofillPerformanceId = JSON.parse(autofillPerformanceId);
+            } catch (e) {
+              // Not valid JSON.
+              autofillPerformanceId = null;
+            }
+          }
           metainfo = angular.merge(
             {},
             metainfo,
@@ -5021,7 +5033,7 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
                 'researchmap' : $('#researchmap_chk').prop("checked"),
                 'should_create_if_not_found' : $('#researchmap_new_chk').prop("checked")
               },
-              'autofill_performance_id': $("#autofill_status").val()
+              'autofill_performance_id': autofillPerformanceId
             }
           );
         }
