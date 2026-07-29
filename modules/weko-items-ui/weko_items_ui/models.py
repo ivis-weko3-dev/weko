@@ -77,7 +77,7 @@ class CRISLinkageResult(db.Model, Timestamp):
         nullable= True
     )
 
-    failed_log = db.Column(
+    message = db.Column(
         db.Text,
         nullable = False,
         default = ''
@@ -86,7 +86,7 @@ class CRISLinkageResult(db.Model, Timestamp):
     def get_last(self ,recid ,cris_institution):
         return self.query.filter_by(recid=recid , cris_institution=cris_institution).one_or_none()
     
-    def register_linkage_result(self ,recid ,cris_institution ,result ,item_uuid ,failed_log):
+    def register_linkage_result(self, recid, cris_institution, result, item_uuid, message):
         with db.session.begin_nested():
             lresult:CRISLinkageResult = self.get_last(recid ,cris_institution)
             if not lresult:
@@ -95,10 +95,8 @@ class CRISLinkageResult(db.Model, Timestamp):
                 lresult.cris_institution = cris_institution
             
             lresult.succeed = result
-            if not result:
-                lresult.failed_log = failed_log
-            else :
-                lresult.failed_log = ''
+            lresult.message = message
+            if result:
                 lresult.last_linked_date = datetime.utcnow()
                 lresult.last_linked_item = item_uuid
 
@@ -125,4 +123,136 @@ class CRISLinkageResult(db.Model, Timestamp):
 
         db.session.add(lresult)
         db.session.commit()
-        return 
+        return
+
+
+class LinkageItems(db.Model, Timestamp):
+    class Status(object):
+        REGISTERED = "R"
+        DELETED = "D"
+
+    class ExternalSystem(object):
+        RM = "researchmap"
+
+    __tablename__ = 'linkage_items'
+
+    __table_args__ = (
+        db.UniqueConstraint('item_id', 'external_item_id', 'external_system'),
+    )
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    item_id = db.Column(
+        UUIDType,
+        nullable = False,
+    )
+
+    external_item_id = db.Column(
+        db.Text,
+        nullable = False,
+    )
+
+    external_system = db.Column(
+        db.Text,
+        nullable = False,
+    )
+
+    permalink = db.Column(
+        db.Text,
+        nullable = True,
+    )
+    
+    status = db.Column(
+        db.String(1),
+        nullable = False,
+        default = Status.REGISTERED
+    )
+
+    @classmethod
+    def get_by_item_id(cls, item_id, external_system, status=None):
+        """Get linkage items by item_id and external_system.
+
+        Args:
+            item_id (UUID): The item ID.
+            external_system (str): The external system.
+            status (str, optional): The status of the linkage item. Defaults to None.
+        Returns:
+            list: A list of linkage items matching the criteria.
+        """
+        if status:
+            return cls.query.filter_by(item_id=item_id, external_system=external_system, status=status).all()
+        else :
+            return cls.query.filter_by(item_id=item_id, external_system=external_system).all()
+
+    @classmethod
+    def get_by_external_item_id(cls, external_item_id, external_system, status=None):
+        """Get linkage items by external_item_id and external_system.
+
+        Args:
+            external_item_id (str): The external item ID.
+            external_system (str): The external system.
+            status (str, optional): The status of the linkage item. Defaults to None.
+        Returns:
+            list: A list of linkage items matching the criteria.
+        """
+        if status:
+            return cls.query.filter_by(external_item_id=external_item_id, external_system=external_system, status=status).all()
+        else :
+            return cls.query.filter_by(external_item_id=external_item_id, external_system=external_system).all()
+
+    @classmethod
+    def get_items_by_permalink_itemid(cls, item_id, permalinks, external_system, status=Status.REGISTERED):
+        """Get linkage items by item_id, permalinks, and external_system.
+
+        Args:
+            item_id (UUID): The item ID.
+            permalinks (list): A list of permalinks.
+            external_system (str): The external system.
+            status (str, optional): The status of the linkage item. Defaults to Status.REGISTERED.
+        Returns:
+            list: A list of linkage items matching the criteria.
+        """
+        return cls.query.filter_by(item_id=item_id, external_system=external_system, status=status).filter(cls.permalink.in_(permalinks)).all()
+    
+    @classmethod
+    def create(cls, item_id, external_item_id, external_system, permalink=None, status=Status.REGISTERED):
+        """Create a new linkage item.
+
+        Args:
+            item_id (UUID): The item ID.
+            external_item_id (str): The external item ID.
+            external_system (str): The external system.
+            permalink (str, optional): The permalink. Defaults to None.
+            status (str, optional): The status of the linkage item. Defaults to Status.REGISTERED.
+        Returns:
+            LinkageItems: The created linkage item.
+        """
+        with db.session.begin_nested():
+            linkage_item = LinkageItems()
+            linkage_item.item_id = item_id
+            linkage_item.external_item_id = external_item_id
+            linkage_item.external_system = external_system
+            linkage_item.permalink = permalink
+            linkage_item.status = status
+
+            db.session.add(linkage_item)
+        db.session.commit()
+        return linkage_item
+    
+    def update_status(self, status):
+        """Update the status of the linkage item.
+
+        Args:
+            status (str): The new status of the linkage item.
+        Returns:
+            LinkageItems: The updated linkage item.
+        """
+        with db.session.begin_nested():
+            self.status = status
+            db.session.merge(self)
+        db.session.commit()
+        return self

@@ -15,7 +15,7 @@ from urllib.parse import urljoin
 
 from weko_admin.models import AdminSettings
 from weko_items_ui.signals import cris_researchmap_linkage_request
-from weko_items_ui.models import CRIS_Institutions, CRISLinkageResult
+from weko_items_ui.models import CRIS_Institutions, CRISLinkageResult, LinkageItems
 from weko_workflow.schema.marshmallow import ActionSchema, \
     ActivitySchema, GetRequestMailListSchema, ResponseMessageSchema, CancelSchema, PasswdSchema, LockSchema,\
     ResponseLockSchema, LockedValueSchema, GetFeedbackMailListSchema, SaveActivityResponseSchema,\
@@ -47,6 +47,7 @@ from weko_accounts.models import User
 from weko_accounts.utils import login_required_customize
 from weko_admin.models import AdminSettings
 from weko_authors.models import Authors
+from weko_authors.utils import get_name_identifiers
 from weko_admin.models import AdminSettings
 from weko_deposit.api import WekoDeposit, WekoRecord
 from weko_deposit.links import base_factory
@@ -926,7 +927,7 @@ def display_activity(activity_id="0", community_id=None):
     if temporary_journal:
         temporary_journal = temporary_journal.action_journal
 
-    cris_linkage = {'researchmap' : False}
+    cris_linkage = {'researchmap' : False, 'linked': ""}
     allow_multi_thumbnail = False
     application_item_type = False
     approval_record = []
@@ -1193,6 +1194,11 @@ def display_activity(activity_id="0", community_id=None):
         last_linkage_result = _('Successful') if last_result.succeed == True else _('Failed') if last_result.succeed == False else _('Running')
         last_linkage_result = last_linkage_result + ' (' +last_result.updated.strftime('%Y-%m-%d') + ') '
 
+    if recid:
+        pid_without_ver = get_record_without_version(recid)
+        linked_items = LinkageItems.get_by_item_id(pid_without_ver.object_uuid, LinkageItems.ExternalSystem.RM)
+        if linked_items:
+            cris_linkage["linked"] = ', '.join(set(item.external_item_id for item in linked_items))
 
     return render_template(
         'weko_workflow/activity_detail.html',
@@ -2004,7 +2010,42 @@ def next_action(activity_id='0', action_id=0, json_data=None):
             temp_data = work_activity.get_activity_metadata(activity_id=activity_id)
             if temp_data:
                 if json.loads(temp_data).get('cris_linkage',{}).get('researchmap' , False):
-                    cris_researchmap_linkage_request.send(new_item_id)
+                    should_create_if_not_found = json.loads(temp_data).get('cris_linkage',{}).get('should_create_if_not_found', False)
+                    cris_researchmap_linkage_request.send(new_item_id, should_create_if_not_found=should_create_if_not_found)
+                
+                autofill_performance_id = json.loads(temp_data).get('autofill_performance_id' , None)
+                if autofill_performance_id:
+                    is_linkage = True
+                    ids = []
+                    get_name_identifiers(json.loads(temp_data).get('metainfo',{}), "researchmap", ids)
+                    if not ids or autofill_performance_id.get("permalink") not in ids:
+                        # Not existing this permalink in this item
+                        is_linkage = False
+                    
+                    pid_without_ver = get_record_without_version(current_pid)
+                    if is_linkage:
+                        linkage_items = LinkageItems.get_by_item_id(
+                            pid_without_ver.object_uuid, LinkageItems.ExternalSystem.RM
+                        )
+                        for item in linkage_items:
+                            if item.permalink == autofill_performance_id.get("permalink"):
+                                # This permalink already exists in this item
+                                is_linkage = False
+                                break
+                    
+                    if is_linkage:
+                        linkage_items = LinkageItems.get_by_external_item_id(
+                            autofill_performance_id.get("id"), LinkageItems.ExternalSystem.RM
+                        )
+                        if len(linkage_items) > 0:
+                            # This external item ID already exists in systems
+                            is_linkage = False
+
+                    if is_linkage:
+                        LinkageItems.create(
+                            pid_without_ver.object_uuid, autofill_performance_id.get("id"),
+                            LinkageItems.ExternalSystem.RM, autofill_performance_id.get("permalink")
+                        )
 
             work_activity.end_activity(activity)
 

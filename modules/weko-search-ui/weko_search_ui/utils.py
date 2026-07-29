@@ -2255,7 +2255,10 @@ def import_items_to_system(
                 pid = PersistentIdentifier.query.filter_by(
                     pid_type="recid", pid_value=item["id"]
                 ).first()
-                cris_researchmap_linkage_request.send(pid.object_uuid)
+                cris_researchmap_linkage_request.send(
+                    pid.object_uuid,
+                    should_create_if_not_found=item.get("researchmap_linkage_create_if_missing", False)
+                )
 
         except SQLAlchemyError as ex:
             current_app.logger.error("sqlalchemy error: %s", ex)

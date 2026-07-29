@@ -49,7 +49,7 @@ def item_login(item_type_id: int = 0):
     record = {}
     schema_form = ""
     template_url = "weko_items_ui/iframe/item_edit.html"
-    cris_linkage = {"researchmap" : False}
+    cris_linkage = {"researchmap" : False, "linked" : ""}
     try:
         item_type = (
             ItemTypes.get_by_id(item_type_id)

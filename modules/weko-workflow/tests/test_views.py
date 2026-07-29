@@ -3140,6 +3140,236 @@ def test_next_action_for_request_mail(app, client, db, users, db_register_reques
     assert data["msg"] == "success"
     send_mail.assert_called()
 
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_next_action_for_linkage_researchmap -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_next_action_for_linkage_researchmap(client, db, users, db_register_fullaction, db_records, mocker):
+    current_app.config.update(
+        WEKO_NOTIFICATIONS=False
+    )
+    def update_activity_order(activity_id, action_id, action_order, item_id=None, extra_info={}, temp_data='{ }'):
+        with db.session.begin_nested():
+            activity=Activity.query.filter_by(activity_id=activity_id).one_or_none()
+            activity.activity_status=ActionStatusPolicy.ACTION_BEGIN
+            activity.action_id=action_id
+            activity.action_order=action_order
+            activity.action_status=None
+            activity.extra_info=extra_info
+            activity.temp_data = temp_data
+            activity.item_id=item_id
+            db.session.merge(activity)
+            pid = PersistentIdentifier.query.filter(
+                PersistentIdentifier.object_uuid==activity.item_id,
+                PersistentIdentifier.object_type=='rec',
+                PersistentIdentifier.pid_type=='recid').one_or_none()
+            if pid:
+                pid.status=PIDStatus.NEW
+                db.session.merge(pid)
+        db.session.commit()
+    
+    login(client=client, email=users[0]["email"])
+
+    input = {"temporary_save":0}
+    item_id = db_register_fullaction["activities"][2].item_id
+    new_id = uuid.uuid4()
+
+    mocker.patch("weko_workflow.views.cris_researchmap_linkage_request.send")
+    mocker.patch("weko_workflow.views.handle_finish_workflow",return_value=new_id)
+
+    # temp_data is None
+    url = url_for("weko_workflow.next_action", activity_id="3", action_id=4)
+    update_activity_order("3", 4, 6, item_id, {}, None)
+    res = client.post(url, json=input)
+    data = response_data(res)
+    assert res.status_code == 200
+    assert data["code"] == 0
+    assert data["msg"] == "success"
+
+    # researchmap: False
+    url = url_for("weko_workflow.next_action", activity_id="3", action_id=4)
+    temp_data = {"metainfo":{}, "cris_linkage": {"researchmap": False}}
+    update_activity_order("3", 4, 6, item_id, {}, json.dumps(temp_data))
+    res = client.post(url, json=input)
+    data = response_data(res)
+    assert res.status_code == 200
+    assert data["code"] == 0
+    assert data["msg"] == "success"
+
+    # researchmap: True, (should_create_if_not_found: None(False), autofill_performance_id: None)
+    url = url_for("weko_workflow.next_action", activity_id="3", action_id=4)
+    temp_data = {"metainfo":{}, "cris_linkage": {"researchmap": True}}
+    update_activity_order("3", 4, 6, item_id, {}, json.dumps(temp_data))
+    res = client.post(url, json=input)
+    data = response_data(res)
+    assert res.status_code == 200
+    assert data["code"] == 0
+    assert data["msg"] == "success"
+
+    # researchmap: True, should_create_if_not_found: True, autofill_performance_id: {"type": "ORCID"}
+    url = url_for("weko_workflow.next_action", activity_id="3", action_id=4)
+    temp_data = {
+        "metainfo":{
+            "creator_prop": [
+                {
+                    "nameIdentifiers": [
+                        {
+                            "nameIdentifier": "auth1",
+                            "nameIdentifierScheme": "ORCID",
+                            "schemeUri": "https://orcid.org/auth1",
+                        }
+                    ]
+                }
+            ]
+        },
+        "cris_linkage": {
+            "researchmap": True,
+            "should_create_if_not_found": True
+        },
+        "autofill_performance_id": {
+            "id": "1234",
+            "permalink": "auth1",
+            "type": "ORCID",
+        }
+    }
+    update_activity_order("3", 4, 6, item_id, {}, json.dumps(temp_data))
+    res = client.post(url, json=input)
+    data = response_data(res)
+    assert res.status_code == 200
+    assert data["code"] == 0
+    assert data["msg"] == "success"
+    
+    # researchmap: True, should_create_if_not_found: True, autofill_performance_id: {"type": "researchmap"}
+    # permalink already exists in this item
+    url = url_for("weko_workflow.next_action", activity_id="3", action_id=4)
+    temp_data = {
+        "metainfo":{
+            "creator_prop": [
+                {
+                    "nameIdentifiers": [
+                        {
+                            "nameIdentifier": "auth1",
+                            "nameIdentifierScheme": "researchmap",
+                            "schemeUri": "https://researchmap.jp/auth1",
+                        }
+                    ]
+                }
+            ]
+        },
+        "cris_linkage": {
+            "researchmap": True,
+            "should_create_if_not_found": True
+        },
+        "autofill_performance_id": {
+            "id": "1234",
+            "permalink": "auth1",
+            "type": "researchmap",
+        }
+    }
+    linkage_items = [MagicMock(permalink="auth0"), MagicMock(permalink="auth1")]
+    update_activity_order("3", 4, 6, item_id, {}, json.dumps(temp_data))
+    with patch("weko_workflow.views.LinkageItems.get_by_item_id", return_value=linkage_items):
+        res = client.post(url, json=input)
+        data = response_data(res)
+        assert res.status_code == 200
+        assert data["code"] == 0
+        assert data["msg"] == "success"
+    
+    # researchmap: True, should_create_if_not_found: True, autofill_performance_id: {"type": "researchmap"}
+    # external item ID already exists in systems
+    url = url_for("weko_workflow.next_action", activity_id="3", action_id=4)
+    temp_data = {
+        "metainfo":{
+            "creator_prop": [
+                {
+                    "nameIdentifiers": [
+                        {
+                            "nameIdentifier": "auth1",
+                            "nameIdentifierScheme": "researchmap",
+                            "schemeUri": "https://researchmap.jp/auth1",
+                        }
+                    ]
+                }
+            ]
+        },
+        "cris_linkage": {
+            "researchmap": True,
+            "should_create_if_not_found": True
+        },
+        "autofill_performance_id": {
+            "id": "1234",
+            "permalink": "auth1",
+            "type": "researchmap",
+        }
+    }
+    linkage_items = [MagicMock()]
+    update_activity_order("3", 4, 6, item_id, {}, json.dumps(temp_data))
+    with patch("weko_workflow.views.LinkageItems.get_by_external_item_id", return_value=linkage_items):
+        res = client.post(url, json=input)
+        data = response_data(res)
+        assert res.status_code == 200
+        assert data["code"] == 0
+        assert data["msg"] == "success"
+    
+    # researchmap: True, should_create_if_not_found: True, autofill_performance_id: {"type": "researchmap"}
+    # create LinkageItems
+    url = url_for("weko_workflow.next_action", activity_id="3", action_id=4)
+    temp_data = {
+        "metainfo":{
+            "creator_prop": [
+                {
+                    "nameIdentifiers": [
+                        {
+                            "nameIdentifier": "auth1",
+                            "nameIdentifierScheme": "researchmap",
+                            "schemeUri": "https://researchmap.jp/auth1",
+                        }
+                    ]
+                }
+            ]
+        },
+        "cris_linkage": {
+            "researchmap": True,
+            "should_create_if_not_found": True
+        },
+        "autofill_performance_id": {
+            "id": "1234",
+            "permalink": "auth1",
+            "type": "researchmap",
+        }
+    }
+    update_activity_order("3", 4, 6, item_id, {}, json.dumps(temp_data))
+    res = client.post(url, json=input)
+    data = response_data(res)
+    assert res.status_code == 200
+    assert data["code"] == 0
+    assert data["msg"] == "success"
+    
+    # researchmap: True, should_create_if_not_found: True, autofill_performance_id: {"type": "researchmap"}
+    # no nameIdentifiers in temp_data
+    url = url_for("weko_workflow.next_action", activity_id="3", action_id=4)
+    temp_data = {
+        "metainfo":{
+            "creator_prop": [
+                {
+                    "nameIdentifiers": []
+                }
+            ]
+        },
+        "cris_linkage": {
+            "researchmap": True,
+            "should_create_if_not_found": True
+        },
+        "autofill_performance_id": {
+            "id": "1234",
+            "permalink": "auth1",
+            "type": "researchmap",
+        }
+    }
+    update_activity_order("3", 4, 6, item_id, {}, json.dumps(temp_data))
+    res = client.post(url, json=input)
+    data = response_data(res)
+    assert res.status_code == 200
+    assert data["code"] == 0
+    assert data["msg"] == "success"
+
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_cancel_action_acl_nologin -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_cancel_action_acl_nologin(client,db_register2):
@@ -5162,7 +5392,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     del_session()
     with client.session_transaction() as session:
         assert "itemlogin_id" not in session
-    current_cache.set("workflow_userlock_activity_5","A-00000001-10001")
+    current_cache.set("workflow_userlock_activity_4","A-00000001-10001")
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
                steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
@@ -5180,7 +5410,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
                                     with client.session_transaction() as session:
                                         assert "itemlogin_id" not in session
                                         assert "activity_info" not in session
-    current_cache.delete("workflow_userlock_activity_5")
+    current_cache.delete("workflow_userlock_activity_4")
 
     #raise PIDDeletedError
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-10001')
@@ -5548,11 +5778,13 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                 with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                     with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                         with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                            with patch('weko_workflow.views.render_template', mock_render_template):
-                                res = client.post(url, query_string=input)
-                                mock_render_template.assert_called()
-                                args,kwargs = mock_render_template.call_args
-                                assert kwargs['enable_multi_contributors'] == False
+                            with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                    with patch('weko_workflow.views.render_template', mock_render_template):
+                                        res = client.post(url, query_string=input)
+                                        mock_render_template.assert_called()
+                                        args,kwargs = mock_render_template.call_args
+                                        assert kwargs['enable_multi_contributors'] == False
     current_app.config.update(WEKO_ITEMS_UI_PROXY_POSTING = True)
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
@@ -5564,11 +5796,13 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                 with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                     with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                         with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                            with patch('weko_workflow.views.render_template', mock_render_template):
-                                res = client.post(url, query_string=input)
-                                mock_render_template.assert_called()
-                                args,kwargs = mock_render_template.call_args
-                                assert kwargs['enable_multi_contributors'] == True
+                            with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[MagicMock(external_item_id='1')]):
+                                    with patch('weko_workflow.views.render_template', mock_render_template):
+                                        res = client.post(url, query_string=input)
+                                        mock_render_template.assert_called()
+                                        args,kwargs = mock_render_template.call_args
+                                        assert kwargs['enable_multi_contributors'] == True
     #activity_id is not String
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-10001')
     input = {}
@@ -5586,9 +5820,11 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                     with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                         with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                             with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                                with patch('weko_workflow.views.render_template', mock_render_template):
-                                    res = client.post(url, query_string=input)
-                                    mock_render_template.assert_called()
+                                with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                    with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                        with patch('weko_workflow.views.render_template', mock_render_template):
+                                            res = client.post(url, query_string=input)
+                                            mock_render_template.assert_called()
 
     #activity_id is include "?"
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-00005?-test')
@@ -5606,9 +5842,11 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                 with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                     with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                         with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                            with patch('weko_workflow.views.render_template', mock_render_template):
-                                res = client.post(url, query_string=input)
-                                mock_render_template.assert_called()
+                            with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                    with patch('weko_workflow.views.render_template', mock_render_template):
+                                        res = client.post(url, query_string=input)
+                                        mock_render_template.assert_called()
 
     #get_activity_display_info is include "None object"
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-00005')
@@ -5625,9 +5863,11 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                 with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                     with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                         with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                            with patch('weko_workflow.views.render_template', mock_render_template):
-                                res = client.post(url, query_string=input)
-                                mock_render_template.assert_called()
+                            with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                    with patch('weko_workflow.views.render_template', mock_render_template):
+                                        res = client.post(url, query_string=input)
+                                        mock_render_template.assert_called()
 
     #action_endpoint is identifier_grant and item is not None
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-00005')
@@ -5645,9 +5885,11 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                 with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                     with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                         with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                            with patch('weko_workflow.views.render_template', mock_render_template):
-                                res = client.post(url, query_string=input)
-                                mock_render_template.assert_called()
+                            with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                    with patch('weko_workflow.views.render_template', mock_render_template):
+                                        res = client.post(url, query_string=input)
+                                        mock_render_template.assert_called()
 
     #action_endpoint is item_login and activity is None
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-10002')
@@ -5698,9 +5940,11 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                 with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                     with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                         with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                            with patch('weko_workflow.views.render_template', mock_render_template):
-                                res = client.post(url, query_string=input)
-                                mock_render_template.assert_called()
+                            with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                    with patch('weko_workflow.views.render_template', mock_render_template):
+                                        res = client.post(url, query_string=input)
+                                        mock_render_template.assert_called()
 
     #action_endpoint is item_link
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-00005')
@@ -5721,9 +5965,11 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                     with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                         with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                             with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                                with patch('weko_workflow.views.render_template', mock_render_template):
-                                    res = client.post(url, query_string=input)
-                                    mock_render_template.assert_called()
+                                with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                    with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                        with patch('weko_workflow.views.render_template', mock_render_template):
+                                            res = client.post(url, query_string=input)
+                                            mock_render_template.assert_called()
 
     #action_endpoint is item_login
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-00005')
@@ -5733,6 +5979,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
     json_schema = "test"
     item = item_metadata
     del_session()
+    current_cache.delete("workflow_userlock_activity_1")
     with client.session_transaction() as session:
         assert "itemlogin_id" not in session
     # locked_value is not existed
@@ -5747,12 +5994,14 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                     with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                         with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                             with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                                with patch('weko_workflow.views.render_template', mock_render_template):
-                                    res = client.post(url, query_string=input)
-                                    mock_render_template.assert_called()
-                                    with client.session_transaction() as session:
-                                        assert "itemlogin_id" in session
-                                        assert "activity_info" in session
+                                with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                    with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                        with patch('weko_workflow.views.render_template', mock_render_template):
+                                            res = client.post(url, query_string=input)
+                                            mock_render_template.assert_called()
+                                            with client.session_transaction() as session:
+                                                assert "itemlogin_id" in session
+                                                assert "activity_info" in session
 
     # locked_value is existed
     del_session()
@@ -5770,13 +6019,15 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                     with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                         with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                             with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                                with patch('weko_workflow.views.render_template', mock_render_template):
-                                    res = client.post(url, query_string=input)
-                                    mock_render_template.assert_called()
-                                    with client.session_transaction() as session:
-                                        assert "itemlogin_id" not in session
-                                        assert "activity_info" not in session
-    current_cache.delete("workflow_userlock_activity_5")
+                                with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                    with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                        with patch('weko_workflow.views.render_template', mock_render_template):
+                                            res = client.post(url, query_string=input)
+                                            mock_render_template.assert_called()
+                                            with client.session_transaction() as session:
+                                                assert "itemlogin_id" not in session
+                                                assert "activity_info" not in session
+    current_cache.delete("workflow_userlock_activity_1")
 
     #raise PIDDeletedError
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-00005')
@@ -5795,9 +6046,11 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                 with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                     with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                         with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                            with patch('weko_workflow.views.render_template', mock_render_template):
-                                res = client.post(url, query_string=input)
-                                #mock_render_template.assert_called()
+                            with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                    with patch('weko_workflow.views.render_template', mock_render_template):
+                                        res = client.post(url, query_string=input)
+                                        #mock_render_template.assert_called()
 
     #raise PIDDoesNotExistError
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-00005')
@@ -5817,9 +6070,11 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                 with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                     with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                         with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                            with patch('weko_workflow.views.render_template', mock_render_template):
-                                res = client.post(url, query_string=input)
-                                mock_render_template.assert_called()
+                            with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                    with patch('weko_workflow.views.render_template', mock_render_template):
+                                        res = client.post(url, query_string=input)
+                                        mock_render_template.assert_called()
 
     #raise Exception
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-00005')
@@ -5839,9 +6094,11 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                 with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                     with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                         with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                            with patch('weko_workflow.views.render_template', mock_render_template):
-                                res = client.post(url, query_string=input)
-                                mock_render_template.assert_called()
+                            with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                    with patch('weko_workflow.views.render_template', mock_render_template):
+                                        res = client.post(url, query_string=input)
+                                        mock_render_template.assert_called()
 
     #approval record is not None
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-00005')
@@ -5861,9 +6118,11 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                 with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                     with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                         with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                            with patch('weko_workflow.views.render_template', mock_render_template):
-                                res = client.post(url, query_string=input)
-                                mock_render_template.assert_called()
+                            with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                    with patch('weko_workflow.views.render_template', mock_render_template):
+                                        res = client.post(url, query_string=input)
+                                        mock_render_template.assert_called()
 
     #license_list is None
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-00005')
@@ -5883,9 +6142,11 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                 with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                     with patch('weko_records_ui.utils.get_list_licence',return_value=None):
                         with patch('weko_workflow.views.get_main_record_detail',return_value=record_detail_alt):
-                            with patch('weko_workflow.views.render_template', mock_render_template):
-                                res = client.post(url, query_string=input)
-                                mock_render_template.assert_called()
+                            with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                    with patch('weko_workflow.views.render_template', mock_render_template):
+                                        res = client.post(url, query_string=input)
+                                        mock_render_template.assert_called()
 
     #record_detail_alt is None
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-00005')
@@ -5904,10 +6165,12 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
             with patch('weko_workflow.views.get_pid_and_record',return_value=(test_pid,None)):
                 with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=test_comm):
                     with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
-                        with patch('weko_workflow.views.get_main_record_detail',return_value=None):
-                            with patch('weko_workflow.views.render_template', mock_render_template):
-                                res = client.post(url, query_string=input)
-                                mock_render_template.assert_called()
+                        with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                            with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                with patch('weko_workflow.views.get_main_record_detail',return_value=None):
+                                    with patch('weko_workflow.views.render_template', mock_render_template):
+                                        res = client.post(url, query_string=input)
+                                        mock_render_template.assert_called()
     url = url_for('weko_workflow.display_activity', activity_id='A-00000001-00005')
     input = {'community': 'test'}
     action_endpoint = 'item_login'
@@ -5929,10 +6192,12 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
                 with patch('weko_workflow.views.GetCommunity.get_community_by_id',return_value=None):
                     with patch('weko_records_ui.utils.get_list_licence',return_value=license_list):
                         with patch('weko_workflow.views.get_main_record_detail',return_value=None):
-                            with patch('weko_workflow.views.render_template', mock_render_template):
-                                with patch("flask_login.utils._get_user",return_value=mock_user):
-                                    res = client.post(url, query_string=input)
-                                    mock_render_template.assert_called()
+                            with patch('weko_workflow.views.get_record_without_version', return_value=MagicMock()):
+                                with patch('weko_workflow.views.LinkageItems.get_by_item_id', return_value=[]):
+                                    with patch('weko_workflow.views.render_template', mock_render_template):
+                                        with patch("flask_login.utils._get_user",return_value=mock_user):
+                                            res = client.post(url, query_string=input)
+                                            mock_render_template.assert_called()
 
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_display_activity_2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp

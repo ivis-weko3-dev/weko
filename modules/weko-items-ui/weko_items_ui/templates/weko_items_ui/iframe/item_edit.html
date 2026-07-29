@@ -335,14 +335,20 @@
                           <div class="col-xs-3" style="text-align:right"><label for="" >{{_('Auto Linkage to CRIS Institution')}}</label></div>
                           <div class="col-xs-9">
                             <span class="workflow-span">
-                              <input type="checkbox" id="researchmap_chk" name="researchmap_chk" {{ 'checked' if cris_linkage.researchmap else '' }}/>
+                              <input type="checkbox" id="researchmap_chk" name="researchmap_chk" {{ 'checked' if cris_linkage.researchmap else '' }}
+                                {% if cris_linkage.linked|length > 0 %}onchange="document.getElementById('researchmap_new_chk_span').style.display = this.checked ? 'block' : 'none'"{% endif %} />
                               <label for="researchmap_chk" >researchmap</label>
+                              <span id="researchmap_new_chk_span" class="workflow-span" {% if cris_linkage.linked|length > 0 and cris_linkage.researchmap %}style="margin-left: 20px;"{% else %}style="margin-left: 20px; display: none;"{% endif %}>
+                                <input type="checkbox" id="researchmap_new_chk" name="researchmap_new_chk" />
+                                <label for="researchmap_new_chk" >{{_('If no existing connection is found, create a new connection.')}}</label>
+                              </span>
                             </span>
                             <span class="workflow-span">
                               {{_('Latest Linkage Result：')}}{{ researchmap_latest_linkage_result }}
                             </span>
                           </div>
                         </div>
+                        <input type="hidden" id="autofill_status" name="autofill_status" value="">
                       </div>
                     {%- endif %}
                   {%- endblock cris_linkage %}
@@ -505,6 +511,8 @@
           <input type="hidden" id="enable_feedback_maillist" name="enable_feedback_maillist" value='{{enable_feedback_maillist}}'>
           <input type="hidden" id="enable_multi_contributors" name="enable_multi_contributors" value='{{enable_multi_contributors}}'>
           <input type="hidden" id="enable_request_maillist" name="enable_request_maillist" value='{{enable_request_maillist}}'/>
+          <input type="hidden" id="cris_linkage_linked_ids" name="cris_linkage_linked_ids" value='{{cris_linkage.linked}}'>
+          <input type="hidden" id="cris_linkage_linked_message" name="cris_linkage_linked_message" value='{{_("The item cannot be linked because it is already associated with another achievement ID ({achievement_id}).")}}'>
           {% set position_err_msg = "Position is being inputted (Only input when selecting 'Others')" %}
           <input type="hidden" id="err_input_other_position" name="err_input_other_position" value='{{_(position_err_msg)}}'>
           <input type="hidden" id="err_position_not_provided" name="err_position_not_provided" value='{{_("Position not provided.")}}'>
@@ -514,6 +522,8 @@
           name="autofill_achievement_type" value="{{_('achievement type')}}">
           <input type="hidden" id="autofill_achievement_id"
           name="autofill_achievement_id" value="{{_('achievement id')}}">
+          <input type="hidden" id="autofill_enable_item_achievement_link"
+          name="autofill_enable_item_achievement_link" value="{{_('achievement id link to item')}}">
           <input type="hidden" id="autofill_parmalink" value="{{_('parmalink')}}">
           <input type="hidden" id="autofill_published_papers" value="{{_('published papers')}}">
           <input type="hidden" id="autofill_misc" value="{{_('MISC')}}">
