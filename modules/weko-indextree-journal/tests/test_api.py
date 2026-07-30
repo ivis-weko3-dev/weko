@@ -40,7 +40,7 @@ class TestJournals:
         assert Journal.query.filter_by(id=1).one_or_none()
 
         # raise IntegrityError
-        journals = {"id": "not int","index_id":1}
+        journals = {"id": 1,"index_id":1}
         result = Journals.create(journals)
         assert result == False
 
@@ -99,10 +99,12 @@ class TestJournals:
         result = Journals.get_journal(journal_id)
 
         # raise Exception
-        with patch("weko_indextree_journal.api.Journal",side_effect=Exception("test_error")):
-            journal_id = 1000
-            result = Journals.get_journal(journal_id)
-            assert result == None
+        from unittest import mock
+        with mock.patch("weko_indextree_journal.api.db.session.query") as mock_query:
+            mock_query.side_effect = Exception("test error")
+            journal_id = 1
+            result = Journals.get_journal(1)
+            assert result is None
 
 #    def get_journal_by_index_id(cls, index_id):
 # .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_api.py::TestJournals::test_get_journal_by_index_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
@@ -123,10 +125,12 @@ class TestJournals:
         result = Journals.get_journal_by_index_id(index_id)
 
         # raise Exception
-        with patch("weko_indextree_journal.api.Journal",side_effect=Exception("test_error")):
-            index_id = 1000
-            result = Journals.get_journal_by_index_id(index_id)
-            assert result == None
+        from unittest import mock
+        with mock.patch("weko_indextree_journal.api.db.session.query") as mock_query:
+            mock_query.side_effect = Exception("test error")
+            journal_id = 1
+            result = Journals.get_journal_by_index_id(1)
+            assert result is None
 
 
 #    def get_all_journals(cls):
