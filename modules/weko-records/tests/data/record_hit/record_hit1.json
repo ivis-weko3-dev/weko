@@ -3,8 +3,8 @@
   "_version": "1",
   "_source":{
     "pid": "1",
-    "_created": "2021-09-01",
-    "_updated": "2021-10-26",
+    "_created": "2021-09-01T00:00:00+00:00",
+    "_updated": "2021-10-26T00:00:00+00:00",
     "_oai": {
       "id": "0001"
     },
@@ -17,6 +17,7 @@
       "path": [1],
       "control_number": "1",
       "item_type_id":"1",
+      "item_title":"test",
       "item_test1_1":{
         "attribute_name":"Test Item1-1",
         "attribute_value_mlt":[
@@ -77,14 +78,14 @@
               "label":"open and exist label"
             },
             "accessrole":"open_restricted",
-            "format": "application/pdf" 
+            "format": "application/pdf"
           },
           {
             "url":{
               "test":"open and not exist label"
             },
             "accessrole":"open_restricted",
-            "format": "application/pdf" 
+            "format": "application/pdf"
           },
           {
             "url":{
@@ -92,7 +93,7 @@
             },
             "version_id":"1.0",
             "filename":"test.txt",
-            "format": "application/pdf" 
+            "format": "application/pdf"
           },
           {
             "url":{
@@ -100,13 +101,13 @@
             },
             "version_id":"1.0",
             "filename":"test_not_extension",
-            "format": "application/pdf" 
+            "format": "application/pdf"
           },
           {
             "url":{
               "test":"not open and not label"
             },
-            "format": "application/pdf" 
+            "format": "application/pdf"
           }
         ]
       },

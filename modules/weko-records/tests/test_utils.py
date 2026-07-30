@@ -321,7 +321,6 @@ def test_json_loader2(app, db, item_type, item_type2, item_type3, item_type_mapp
         def dumps(self):
             return item_type_mapping
     mocker.patch("weko_records.utils.Mapping.get_record",return_value=MockMapping())
-    mocker.patch("weko_authors.api.WekoAuthors.get_pk_id_by_weko_id", side_effect=["1234","5678"])
 
     # weko_shared_ids!=[], shared_user_ids=[], exist control_number
     data3={
@@ -352,7 +351,6 @@ def test_json_loader2(app, db, item_type, item_type2, item_type3, item_type_mapp
 
     # weko_shared_ids!=-1, shared_user_ids!=[], sm.get is not none
     class MockSM:
-        mocker.patch("weko_authors.api.WekoAuthors.get_pk_id_by_weko_id", side_effect=["1234","5678"])
         search_conditions=WEKO_ADMIN_MANAGEMENT_OPTIONS
     with patch("weko_records.utils.sm.get",return_value=MockSM()):
         data4={
@@ -374,7 +372,7 @@ def test_json_loader2(app, db, item_type, item_type2, item_type3, item_type_mapp
         assert dc == OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']),('weko_shared_ids',[2]),('owner', 1),('owners',[1])])
         assert jrc == {'item_6': ['item_6_1_v'], 'item_5': ['item_5'], 'creator1': {'nameIdentifier': ['1234', '5678']}, 'item_3': ['item_3_1_v'], 'item_4': ['item_4_1_v'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata': OrderedDict([('item_1', {'attribute_name': 'Publish Date', 'attribute_value': '2023-08-08'}), ('item_1', {'attribute_name': 'item_1', 'attribute_value': 'item_1_v'}), ('item_2', {'attribute_name': 'item_2', 'attribute_value': 'item_2_v'}), ('item_3', {'attribute_name': 'item_3', 'attribute_type': 'creator', 'attribute_value_mlt': [{'item_3_1': 'item_3_1_v'}]}), ('item_4', {'attribute_name': 'item_4', 'attribute_value_mlt': [{'item_4_1': 'item_4_1_v'}]}), ('item_5', {'attribute_name': 'item_5', 'attribute_type': 'file', 'attribute_value_mlt': [{'filename': 'item_5'}]}), ('item_6', {'attribute_name': 'item_6', 'attribute_value_mlt': [{'item_6_1': 'item_6_1_v'}]}), ('item_7', {'attribute_name': 'item_7', 'attribute_value_mlt': [{}, {'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '1234'}]}]}), ('item_8', {'attribute_name': 'item_8', 'attribute_value_mlt': [{'nameIdentifiers': [{'nameIdentifierScheme': 'WEKO', 'nameIdentifier': '5678'}]}]}), ('item_title', 'test_item2'), ('item_type_id', '4'), ('control_number', '1'), ('author_link', ['1234', '5678']),('weko_shared_ids',[2]),('owner', 1),('owners',[1])]), 'itemtype': 'test10', 'publish_date': None, 'author_link': ['1234', '5678'],'weko_creator_id': '1','weko_shared_ids': [2]}
         assert is_edit == True
-        mocker.patch("weko_authors.api.WekoAuthors.get_pk_id_by_weko_id", side_effect=["1234","5678"])
+
     with patch("weko_records.utils.COPY_NEW_FIELD",False):
         with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
             data5={
@@ -963,9 +961,9 @@ def test_get_author_link(app,mocker):
             }]
         }
     ]
-    mocker.patch("weko_authors.api.WekoAuthors.get_pk_id_by_weko_id", side_effect=["1"])
+
     ret = get_author_link(author_link, value_list)
-    assert ['1'] == author_link
+    assert ['v1'] == author_link
 
     author_link = []
     value_dict = {
@@ -974,9 +972,9 @@ def test_get_author_link(app,mocker):
                 "nameIdentifier": 'v2'
                 }]
     }
-    mocker.patch("weko_authors.api.WekoAuthors.get_pk_id_by_weko_id", side_effect=["2"])
+
     ret = get_author_link(author_link,  value_dict)
-    assert ['2'] == author_link
+    assert ['v2'] == author_link
 
     author_link = []
     value_str = 'v2'
@@ -1221,8 +1219,8 @@ def test_copy_values_json_path(meta, jsonpath):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_utils.py::test_set_timestamp -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
 def test_set_timestamp():
     _jrc = {}
-    _created = datetime.strptime('2000-01-01', '%Y-%m-%d')
-    _updated = datetime.strptime('2000-12-31', '%Y-%m-%d')
+    _created = datetime.datetime.strptime('2000-01-01', '%Y-%m-%d')
+    _updated = datetime.datetime.strptime('2000-12-31', '%Y-%m-%d')
     set_timestamp(_jrc, _created, _updated)
     assert _jrc=={'_created': '2000-01-01T00:00:00+00:00', '_updated': '2000-12-31T00:00:00+00:00'}
     set_timestamp(_jrc, None, _updated)
@@ -1502,13 +1500,14 @@ params=[
 ]
 @pytest.mark.parametrize("render,form,mapping,hit,licence",params)
 @pytest.mark.asyncio
-async def test_sort_meta_data_by_options_subRepository(i18n_app, db, admin_settings, mocker, item_type_mapping, item_type_mapping2,
+async def test_sort_meta_data_by_options_subRepository(i18n_app, db, admin_settings, mocker, item_type, item_type2, item_type_mapping, item_type_mapping2,
                                          render, form, mapping, hit,licence):
-    import asyncio
+    import uuid
     mocker.patch("weko_records_ui.permissions.check_file_download_permission", return_value=True)
-    _item_type_name=ItemTypeName(name="test")
+    test_name=f"test_{uuid.uuid4().hex}"
+    _item_type_name=ItemTypeName(name=test_name)
     item_type = ItemTypes.create(
-        name="test",
+        name=test_name,
         item_type_name=_item_type_name,
         schema=json_data("data/item_type/item_type_schema.json"),
         render=json_data(render),
