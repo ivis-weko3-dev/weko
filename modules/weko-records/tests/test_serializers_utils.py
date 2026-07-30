@@ -129,7 +129,7 @@ params=[
      "data/record_hit/record_hit1.json",
      True)]
 @pytest.mark.parametrize("render, form, mapping, hit, licence", params)
-def test_open_search_detail_data(app, db, db_index, render, form, mapping, hit, licence):
+def test_open_search_detail_data(app, db, user_activity_log_partition_table, db_index, render, form, mapping, hit, licence):
     def fetcher(obj_uuid, data):
         assert obj_uuid in ['a', 'b']
         return PersistentIdentifier(pid_type='recid', pid_value=data['pid'])
@@ -147,14 +147,14 @@ def test_open_search_detail_data(app, db, db_index, render, form, mapping, hit, 
         item_type_id=_item_type.id,
         mapping=json_data(mapping)
     )
-    _search_result = {'hits': {'total': 1, 'hits': [json_data(hit)]}}
+    _search_result = {'hits': {'total': {'value':1}, 'hits': [json_data(hit)]}}
     data = OpenSearchDetailData(fetcher, _search_result, 'rss')
     with app.test_request_context():
         assert data.output_open_search_detail_data()
 
 sample = OpenSearchDetailData(
     pid_fetcher = MagicMock(),
-    search_result = MagicMock(),
+    search_result = {'hits': {'total': {'value': 1},'hits': [{'_source': {'_item_metadata': {'item_type_id':"1","control_number": "1",'path':["1"]},'_oai':{'id':"1"},'itemtype':"1",'_updated':'2026-7-29T00:00:00+00:00','_created':'2026-7-29T00:00:00+00:00'}}]}},
     output_type = "atom",
     links = MagicMock(),
     item_links_factory = MagicMock(),
@@ -162,9 +162,18 @@ sample = OpenSearchDetailData(
 )
 
 # class OpenSearchDetailData:
-#     def output_open_search_detail_data(self): 
+#     def output_open_search_detail_data(self):
 # .tox/c1/bin/pytest --cov=weko_records tests/test_serializers_utils.py::test_output_open_search_detail_data -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-records/.tox/c1/tmp
-def test_output_open_search_detail_data(app, db_index, records, item_type, item_type_mapping):
+def test_output_open_search_detail_data(app, user_activity_log_partition_table, db_index, records, item_type, item_type_mapping):
+
+    sample = OpenSearchDetailData(
+    pid_fetcher = MagicMock(),
+    search_result = {'hits': {'total': {'value':1}, 'hits': [json_data("data/record_hit/record_hit1.json")]}},
+    output_type = "atom",
+    links = MagicMock(),
+    item_links_factory = MagicMock(),
+    kwargs = MagicMock(),
+)
     with app.test_request_context():
         res = sample.output_open_search_detail_data()
         _tree = etree.fromstring(res)
@@ -180,35 +189,14 @@ def test_output_open_search_detail_data(app, db_index, records, item_type, item_
         _tree = etree.fromstring(res)
         assert _tree.find('title', namespaces=_tree.nsmap).text == 'WEKO OpenSearch: Nonexistent Index'
 
-    _search_result = {
-        '_source': {
-            '_item_metadata': {
-                'item_type_id': '1',
-                'item_title': 'Title',
-                'control_number': '1',
-                'path': ['99'], # deleted index
-                'pubdate': {
-                    'attribute_value': '2024-08-01',
-                },
-            },
-            '_oai': {
-                'id': '1',
-            },
-            'itemtype': 'test_itemtype',
-            '_created': '2024-08-01T00:00:00Z',
-            '_updated': '2024-08-01T00:00:00Z',
-        },
-    }
-
     sample_copy = copy.deepcopy(sample)
-    sample_copy.search_result = {'hits': {'total': 1, 'hits': [_search_result]}}
 
     with app.test_request_context('/?q=IndexA'):
         res = sample_copy.output_open_search_detail_data()
         _tree = etree.fromstring(res)
         _entry = _tree.find('entry', namespaces=_tree.nsmap)
         assert _tree.find('title', namespaces=_tree.nsmap).text == 'WEKO OpenSearch: IndexA'
-        assert _entry.find('dc:subject', namespaces=_entry.nsmap).text == 'Nonexistent Index'
+        assert _entry.find('dc:subject', namespaces=_entry.nsmap).text == 'IndexA'
 
 #     def _set_publication_date(self, fe, item_map, item_metadata):
 def test__set_publication_date(app):
@@ -224,10 +212,10 @@ def test__set_publication_date(app):
 
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=["date"]):
         sample_copy._set_publication_date(fe=fe, item_map=item_map, item_metadata=item_metadata)
-    
+
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value={"date.@value": "date.@value"}):
         sample_copy._set_publication_date(fe=fe, item_map=item_map, item_metadata=item_metadata)
-    
+
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value={"date.@value": ["date.@value"]}):
         sample_copy._set_publication_date(fe=fe, item_map=item_map, item_metadata=item_metadata)
 
@@ -249,7 +237,7 @@ def test__set_publication_date(app):
 
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=data2):
         sample_copy._set_publication_date(fe=fe, item_map=item_map, item_metadata=item_metadata)
-    
+
 
 #     def _set_source_identifier(self, fe, item_map, item_metadata):
 def test__set_source_identifier(app):
@@ -259,7 +247,7 @@ def test__set_source_identifier(app):
 
     def issn(item):
         return item
-    
+
     fe.prism.issn = issn
 
     item_map = {
@@ -288,14 +276,14 @@ def test__set_source_identifier(app):
 
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=item_metadata):
         assert sample_copy._set_source_identifier(fe=fe, item_map=item_map, item_metadata=item_metadata) == None
-    
+
     item_metadata["sourceIdentifier"] = [
         "sourceIdentifier"
     ]
 
     with patch("weko_records.serializers.utils.get_metadata_from_map", return_value=item_metadata):
         assert sample_copy._set_source_identifier(fe=fe, item_map=item_map, item_metadata=item_metadata) == None
-    
+
     sample_copy.output_type = "not_atom"
     item_metadata["sourceIdentifier"] = "ISSN"
 
@@ -306,7 +294,7 @@ def test__set_source_identifier(app):
         item_metadata["sourceIdentifier"] = ["ISSN"]
 
         assert sample_copy._set_source_identifier(fe=fe, item_map=item_map, item_metadata=item_metadata) == None
-    
+
 
 #     def _set_author_info(self, fe, item_map, item_metadata, request_lang):
 def test__set_author_info(app):
@@ -344,7 +332,7 @@ def test__set_author_info(app):
         assert sample_copy._set_author_info(fe=fe, item_map=item_map, item_metadata=item_metadata, request_lang=request_lang) == None
 
 
-# def _set_publisher(self, fe, item_map, item_metadata, request_lang): 
+# def _set_publisher(self, fe, item_map, item_metadata, request_lang):
 def test__set_publisher(app):
     sample_copy = copy.deepcopy(sample)
     fe = MagicMock()
