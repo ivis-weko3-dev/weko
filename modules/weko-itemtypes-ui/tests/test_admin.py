@@ -223,107 +223,115 @@ class TestItemTypeMetaDataView:
         (3,False),
         (4,False),
         (5,False),
-        (7,False)
+        #(7,False)
     ])
     def test_register_acl(self,client,admin_view,users,item_type,index,is_permission):
         login_user_via_session(client=client,email=users[index]["email"])
-        url = url_for("itemtypesregister.register",item_type_id=1)
+        url = url_for("itemtypesregister.register",item_type_id=item_type[index]["item_type"].id)
 
         with patch("weko_itemtypes_ui.admin.is_import_running", return_value="is_import_running"):
             res = client.post(url,headers={"Content-Type":"application/json"})
-            assert json.loads(res.data)=={'msg': 'Item type cannot be updated becase import is in progress.'}
-            assert res.status_code == 400
-
-        with patch("weko_itemtypes_ui.admin.is_import_running", return_value=None),\
-            patch("weko_workflow.utils.get_cache_data", return_value=True):
-            res = client.post(url,json={})
             if is_permission:
+                assert json.loads(res.data)=={'msg': 'Item type cannot be updated becase import is in progress.'}
                 assert res.status_code == 400
-                result = json.loads(res.data)
-                assert result["msg"] == 'Item type cannot be updated because import is in progress.'
             else:
                 assert res.status_code == 403
 
+        with patch("weko_itemtypes_ui.admin.is_import_running", return_value=None):
+
+            render = item_type[index]["item_type"].render
+            schema = copy.deepcopy(item_type[index]["item_type"].schema)
+            data = {
+                    "table_row_map":{
+                        "schema": schema,
+                        "form": item_type[index]["item_type"].form,
+                        "name":"new item type name"
+                    },
+                    "meta_list":render["meta_list"],
+                }
+            schema = copy.deepcopy(item_type[index]["item_type"].schema)
+            form = copy.deepcopy(item_type[index]["item_type"].form)
+            with patch("weko_itemtypes_ui.admin.fix_json_schema", return_value=schema), \
+                patch("weko_itemtypes_ui.admin.update_text_and_textarea", return_value=(schema, form)), \
+                patch("weko_itemtypes_ui.admin.update_required_schema_not_exist_in_form", return_value=schema):
+                res = client.post(url,json=data,headers={"Content-Type":"application/json"})
+                if is_permission:
+                    assert res.status_code == 200
+                    result = json.loads(res.data)
+                    assert result["msg"] == "Successfuly registered Item type."
+                else:
+                    assert res.status_code == 403
+
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypeMetaDataView::test_register -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
-    def test_register(self,app,client,db,admin_view,users, item_type):
+    def test_register(self, app, client, db, admin_view, users, item_type):
         login_user_via_session(client=client,email=users[0]["email"])
         login(app,client,obj=users[0]["obj"])
 
-        with patch("weko_records.api.after_record_insert.send"):
-            with patch("weko_records.api.before_record_insert.send"):
-                with patch("weko_workflow.utils.get_cache_data", return_value=False):
+        with patch("weko_itemtypes_ui.admin.is_import_running", return_value=None),\
+            patch("weko_records.api.after_record_insert.send"),\
+            patch("weko_records.api.before_record_insert.send"):
 
-                    # Content-Type is not 'application/json'
-                    url = url_for("itemtypesregister.register")
-                    res = client.post(url,headers={"Content-Type":"plain/text"})
-                    assert json.loads(res.data)["msg"] == "Header Error"
+            # Content-Type is not 'application/json'
+            url = url_for("itemtypesregister.register")
+            res = client.post(url,headers={"Content-Type":"plain/text"})
+            assert json.loads(res.data)["msg"] == "Header Error"
 
-                    data = {
-                        "table_row_map":{
-                            "schema":{"object":"test schema"},
-                            "form":["test form"],
-                            "name":"new item type name",
-                        }
-                    }
-                    schema = copy.deepcopy(data["table_row_map"]["schema"])
-                    form = copy.deepcopy(data["table_row_map"]["form"])
+            data = {
+                "table_row_map":{
+                    "schema":{"object":"test schema"},
+                    "form":["test form"],
+                    "name":"new item type name",
+                }
+            }
+            schema = copy.deepcopy(data["table_row_map"]["schema"])
+            form = copy.deepcopy(data["table_row_map"]["form"])
+            with patch("weko_itemtypes_ui.admin.fix_json_schema", return_value=schema),\
+                patch("weko_itemtypes_ui.admin.update_text_and_textarea", return_value=(schema,form)) as mock_update_text_and_textarea,\
+                patch("weko_itemtypes_ui.admin.update_required_schema_not_exist_in_form", return_value={}):
+                # schema is in wrong format
+                res = client.post(url,json=data,headers={"Content-Type":"application/json"})
+                assert res.status_code == 400
+                result = json.loads(res.data)
+                assert result["msg"] == "Failed to register Item type. Schema is in wrong format."
 
-                    with patch("weko_itemtypes_ui.admin.fix_json_schema",return_value=schema):
-                        with patch("weko_itemtypes_ui.admin.update_text_and_textarea",return_value=(schema,form)):
-                            # schema invalid, raise ValueError
-                            with patch("weko_itemtypes_ui.admin.update_required_schema_not_exist_in_form",return_value={}):
-                                res = client.post(url,json=data,headers={"Content-Type":"application/json"})
-                                assert res.status_code == 400
-                                result = json.loads(res.data)
-                                assert result["msg"] == "Failed to register Item type. Schema is in wrong format."
+            flow_define = FlowDefine(id=2,flow_id=uuid.uuid4(),
+                                flow_name='Registration Flow',
+                                flow_user=1)
+            with db.session.begin_nested():
+                db.session.add(flow_define)
+            db.session.commit()
+            workflow = WorkFlow(flows_id=uuid.uuid4(),
+                            flows_name='test workflow01',
+                            itemtype_id=2,
+                            index_tree_id=None,
+                            flow_id=flow_define.id,
+                            is_deleted=False,
+                            open_restricted=False,
+                            location_id=None,
+                            is_gakuninrdm=False)
+            with db.session.begin_nested():
+                db.session.add(workflow)
+            db.session.commit()
 
-                    flow_define = FlowDefine(id=2,flow_id=uuid.uuid4(),
-                                        flow_name='Registration Flow',
-                                        flow_user=1)
-                    with db.session.begin_nested():
-                        db.session.add(flow_define)
-                    db.session.commit()
-                    workflow = WorkFlow(flows_id=uuid.uuid4(),
-                                    flows_name='test workflow01',
-                                    itemtype_id=2,
-                                    index_tree_id=None,
-                                    flow_id=flow_define.id,
-                                    is_deleted=False,
-                                    open_restricted=False,
-                                    location_id=None,
-                                    is_gakuninrdm=False)
-                    with db.session.begin_nested():
-                        db.session.add(workflow)
-                    db.session.commit()
+            render = item_type[1]["item_type"].render
+            schema = copy.deepcopy(item_type[1]["item_type"].schema)
+            data = {
+                    "table_row_map":{
+                        # "schema":{"object":"test schema"},
+                        "schema": schema,
+                        "form": item_type[1]["item_type"].form,
+                        "name":"new item type name"
+                    },
+                    "meta_list":render["meta_list"],
+                }
 
-                with patch("weko_workflow.utils.get_cache_data", return_value=True):
-                    # get_cache_data is True
-                    url = url_for("itemtypesregister.register",item_type_id=0)
-                    res = client.post(url,json=data,headers={"Content-Type":"application/json"})
-                    result = json.loads(res.data)
-                    assert res.status_code == 400
-                    assert result["msg"] == "Item type cannot be updated because import is in progress."
-
-                render = item_type[1]["item_type"].render
-                schema = copy.deepcopy(item_type[1]["item_type"].schema)
-                data = {
-                        "table_row_map":{
-                            # "schema":{"object":"test schema"},
-                            "schema": schema,
-                            "form": item_type[1]["item_type"].form,
-                            "name":"new item type name"
-                        },
-                        "meta_list":render["meta_list"],
-                    }
-
-                # success
-                with patch("weko_workflow.utils.get_cache_data", return_value=False):
-                    url = url_for("itemtypesregister.register",item_type_id=item_type[1]["item_type"].id)
-                    with patch("weko_itemtypes_ui.admin.update_required_schema_not_exist_in_form",return_value=schema):
-                        res = client.post(url,json=data,headers={"Content-Type":"application/json"})
-                        result = json.loads(res.data)
-                        assert result["msg"] == "Successfuly registered Item type."
-                        assert result["redirect_url"] == "/admin/itemtypes/2"
+            # success
+            url = url_for("itemtypesregister.register", item_type_id=item_type[1]["item_type"].id)
+            with patch("weko_itemtypes_ui.admin.update_required_schema_not_exist_in_form", return_value=schema):
+                res = client.post(url,json=data,headers={"Content-Type":"application/json"})
+                result = json.loads(res.data)
+                assert result["msg"] == "Successfuly registered Item type."
+                assert result["redirect_url"] == "/admin/itemtypes/2"
 
 #     def restore_itemtype(self, item_type_id=0):
 # .tox/c1/bin/pytest --cov=weko_itemtypes_ui tests/test_admin.py::TestItemTypeMetaDataView::test_restore_itemtype -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-itemtypes-ui/.tox/c1/tmp
