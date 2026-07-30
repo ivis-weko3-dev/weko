@@ -13,7 +13,7 @@ from flask import current_app
 WEKO_ITEMS_UI_MESSAGE = {
     'WEKO_ITEMS_UI_FAILED_SEARCH_ITEM': {
         'msgid': 'WEKO_ITEMS_UI_E_0001',
-        'msgstr': "FAILED to search item: {query}",
+        'msgstr': "FAILED to search item: %(query)s",
         'loglevel': 'ERROR',
     },
     'WEKO_ITEMS_UI_FAILED_ADD_SEARCH_CONDITION': {
@@ -33,7 +33,7 @@ WEKO_ITEMS_UI_MESSAGE = {
     },
     'WEKO_ITEMS_UI_FAILED_SETTINGS_FACETED_SEARCH': {
         'msgid': 'WEKO_ITEMS_UI_E_0005',
-        'msgstr': "FAILED to change faceted search settings to {set_value}.",
+        'msgstr': "FAILED to change faceted search settings to %(set_value)s.",
         'loglevel': 'ERROR',
     },
     'WEKO_ITEMS_UI_FAILED_CHANGE_ITEM_DISPLAY_SETTINGS': {
@@ -59,25 +59,25 @@ WEKO_ITEMS_UI_MESSAGE = {
     },
     'WEKO_ITEMS_UI_FAILED_SAVE_INDEX': {
         'msgid': 'WEKO_ITEMS_UI_E_0010',
-        'msgstr': "FAILED to save index designation: {pid}",
+        'msgstr': "FAILED to save index designation: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_ITEMS_UI_FAILED_POPULATE_AUTO_METADATA_CROSSREF': {
         'msgid': 'WEKO_ITEMS_UI_E_0011',
         'msgstr': "FAILED to automatically populate metadata via CrossRef. "\
-            "Itemid: {pid}",
+            "Itemid: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_ITEMS_UI_FAILED_POPULATE_AUTO_METADATA_CINII': {
         'msgid': 'WEKO_ITEMS_UI_E_0012',
         'msgstr': "FAILED to automatically populate metadata via CiNii. "\
-            "Itemid: {pid}",
+            "Itemid: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_ITEMS_UI_FAILED_POPULATE_AUTO_METADATA_WEKOID': {
         'msgid': 'WEKO_ITEMS_UI_E_0013',
         'msgstr': "FAILED to automatically populate metadata via WEKOID. "\
-            "Itemid: {pid}",
+            "Itemid: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_ITEMS_UI_FAILED_EXPORT_ITEM_IN_JSON': {
@@ -97,7 +97,7 @@ WEKO_ITEMS_UI_MESSAGE = {
     },
     'WEKO_ITEMS_UI_FAILED_REGISTER_INDEX': {
         'msgid': 'WEKO_ITEMS_UI_E_0017',
-        'msgstr': "FAILED to register index designation: {pid}",
+        'msgstr': "FAILED to register index designation: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_ITEMS_UI_FAILED_SAVE_RANKING_SETTINGS': {
@@ -112,7 +112,7 @@ WEKO_ITEMS_UI_MESSAGE = {
     },
     'WEKO_ITEMS_UI_SEARCH_ITEM': {
         'msgid': 'WEKO_ITEMS_UI_I_0001',
-        'msgstr': "Search item: {query}, result: {num}",
+        'msgstr': "Search item: %(query)s, result: %(num)s",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMS_UI_ADD_SEARCH_CONDITION': {
@@ -147,13 +147,13 @@ WEKO_ITEMS_UI_MESSAGE = {
     },
     'WEKO_ITEMS_UI_CHANGED_RSS_FEEDS_SETTING': {
         'msgid': 'WEKO_ITEMS_UI_I_0008',
-        'msgstr': "The RSS feeds has been changed to {configuration_value}.",
+        'msgstr': "The RSS feeds has been changed to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMS_UI_CHANGED_RSS_FEEDS_DETAILS_SETTING': {
         'msgid': 'WEKO_ITEMS_UI_I_0009',
-        'msgstr': "The RSS feeds has been changed {section} to "\
-            "{configuration_value}.",
+        'msgstr': "The RSS feeds has been changed %(section)s to "\
+            "%(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMS_UI_OUTPUT_RSS_DOCUMENT': {
@@ -164,13 +164,13 @@ WEKO_ITEMS_UI_MESSAGE = {
     'WEKO_ITEMS_UI_CHANGE_DISPLAY_SETTINGS_SEARCH_RESULTS': {
         'msgid': 'WEKO_ITEMS_UI_I_0011',
         'msgstr': "The display setting for search results has been changed "\
-            "to {configuration_value}.",
+            "to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMS_UI_CHANGE_DISPLAY_DETAIL_SETTING _SEARCH_RESULTS': {
         'msgid': 'WEKO_ITEMS_UI_I_0012',
         'msgstr': "The display setting for search results has been changed "\
-            "{section} to {configuration_value}.",
+            "%(section)s to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMS_UI_ENABLE_ITEM_EXPORT': {
@@ -185,30 +185,30 @@ WEKO_ITEMS_UI_MESSAGE = {
     },
     'WEKO_ITEMS_UI_SAVED_INDEX': {
         'msgid': 'WEKO_ITEMS_UI_I_0015',
-        'msgstr': "Index designation saved: {pid}",
+        'msgstr': "Index designation saved: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMS_UI_QUIT_INDEX': {
         'msgid': 'WEKO_ITEMS_UI_I_0016',
-        'msgstr': "Index designation quitted: {pid}",
+        'msgstr': "Index designation quitted: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMS_UI_POPULATE_AUTO_METADATA_CROSSREF': {
         'msgid': 'WEKO_ITEMS_UI_I_0017',
         'msgstr': "Metadata was automatically populated via CrossRef. "\
-            "Itemid: {pid}",
+            "Itemid: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMS_UI_POPULATE_AUTO_METADATA_CINII': {
         'msgid': 'WEKO_ITEMS_UI_I_0018',
         'msgstr': "Metadata was automatically populated via CiNii. "\
-            "Itemid: {pid}",
+            "Itemid: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMS_UI_POPULATE_AUTO_METADATA_WEKOID': {
         'msgid': 'WEKO_ITEMS_UI_I_0019',
         'msgstr': "Metadata was automatically populated via WEKOID. "\
-            "Itemid: {pid}",
+            "Itemid: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMS_UI_EXPORT_ITEM_IN_JSON': {
@@ -235,12 +235,12 @@ WEKO_ITEMS_UI_MESSAGE = {
     },
     'WEKO_ITEMS_UI_ASSIGN_PROXY_CONTRIBUTOR': {
         'msgid': 'WEKO_ITEMS_UI_I_0024',
-        'msgstr': "A proxy contributor has been assigned for the item: {pid}",
+        'msgstr': "A proxy contributor has been assigned for the item: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMS_UI_REGISTER_INDEX': {
         'msgid': 'WEKO_ITEMS_UI_I_0025',
-        'msgstr': "Destination index has been registered: {pid}",
+        'msgstr': "Destination index has been registered: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMS_UI_SAVED_RANKING_SETTINGS': {

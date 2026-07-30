@@ -73,7 +73,7 @@ WEKO_INDEX_TREE_MESSAGE = {
     },
     'WEKO_INDEX_TREE_INDEX_SEARCH_RESULT': {
         'msgid': 'WEKO_INDEX_TREE_I_0001',
-        'msgstr': "index search : {search_content}, results: {num} items",
+        'msgstr': "index search : %(search_content)s, results: %(num)s items",
         'loglevel': 'INFO',
     },
     'WEKO_INDEX_TREE_ENABLED_RSS_FEEDS': {
@@ -83,13 +83,13 @@ WEKO_INDEX_TREE_MESSAGE = {
     },
     'WEKO_INDEX_TREE_CHANGED_RSS_FEEDS_SETTING': {
         'msgid': 'WEKO_INDEX_TREE_I_0003',
-        'msgstr': "The RSS feeds has been changed to {configuration_value}.",
+        'msgstr': "The RSS feeds has been changed to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_INDEX_TREE_CHANGED_RSS_FEEDS_DETAILS_SETTING': {
         'msgid': 'WEKO_INDEX_TREE_I_0004',
-        'msgstr': "The RSS feeds has been changed {section} to "\
-            "{configuration_value}.",
+        'msgstr': "The RSS feeds has been changed %(section)s to "\
+            "%(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_INDEX_TREE_OUTPUT_RSS_DOCUMENT': {
@@ -105,18 +105,18 @@ WEKO_INDEX_TREE_MESSAGE = {
     'WEKO_INDEX_TREE_CHANGE_DISPLAY_SETTINGS_SEARCH_RESULTS': {
         'msgid': 'WEKO_INDEX_TREE_I_0007',
         'msgstr': "The display setting for search results has been changed "\
-            "to {configuration_value}.",
+            "to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_INDEX_TREE_CHANGE_DISPLAY_DETAIL_SETTINGS_SEARCH_RESULTS': {
         'msgid': 'WEKO_INDEX_TREE_I_0008',
         'msgstr': "The display setting for search results has been changed "\
-            "{section} to {configuration_value}.",
+            "%(section)s to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_INDEX_TREE_UPDATE_ITEMS_IN_BULK': {
         'msgid': 'WEKO_INDEX_TREE_I_0009',
-        'msgstr': "Items updated in bulk: {pid}",
+        'msgstr': "Items updated in bulk: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_INDEX_TREE_REGISTER_NEW_INDEX': {
@@ -162,13 +162,13 @@ WEKO_INDEX_TREE_MESSAGE = {
     'WEKO_INDEX_TREE_CHANGE_DISPLAY_INDEX_LINK_SETTING': {
         'msgid': 'WEKO_INDEX_TREE_I_0018',
         'msgstr': "The display setting of the index link has been changed to "\
-            "{configuration_value}.",
+            "%(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_INDEX_TREE_CHANGE_DISPLAY_INDEX_LINK_DETAIL_SETTING': {
         'msgid': 'WEKO_INDEX_TREE_I_0019',
         'msgstr': "The display setting of the index link has been changed "\
-            "{section} to {configuration_value}.",
+            "%(section)s to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
 }
