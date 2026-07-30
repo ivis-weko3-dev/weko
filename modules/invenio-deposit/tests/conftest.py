@@ -50,22 +50,18 @@ from invenio_records_ui import InvenioRecordsUI
 from invenio_records_ui.views import create_blueprint_from_app as records_ui_bp
 from invenio_rest import InvenioREST
 from invenio_search import InvenioSearch, current_search, current_search_client
-from invenio_search.errors import IndexAlreadyExistsError
-from invenio_search.engine import search
 from invenio_search_ui import InvenioSearchUI
 from kombu import Exchange, Queue
 
-from opensearchpy import OpenSearch
-from opensearchpy.exceptions import NotFoundError, RequestError
 from time import sleep
-from io import BytesIO, get_method_self
+from io import BytesIO
 from sqlalchemy import inspect
 from sqlalchemy_utils.functions import create_database, database_exists, \
     drop_database
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 
-from .helpers import fill_oauth2_headers, make_pdf_fixture
+from .helpers import fill_oauth2_headers
 
 def object_as_dict(obj):
     """Make a dict from SQLAlchemy object."""
@@ -118,7 +114,7 @@ def base_app(request):
             OAUTH2_CACHE_TYPE='simple',
             ACCOUNTS_JWT_ENABLE=False,
             INDEXER_DEFAULT_INDEX='records-default-v1.0.0',
-            INDEXER_MQ_QUEUE = Queue("indexer", 
+            INDEXER_MQ_QUEUE = Queue("indexer",
                 exchange=Exchange("indexer", type="direct"), routing_key="indexer",auto_delete=False,queue_arguments={"x-queue-type":"quorum"}),
             WEKO_PERMISSION_SUPER_ROLE_USER=[
                 "System Administrator",
@@ -126,6 +122,8 @@ def base_app(request):
             ],
             WEKO_RECORDS_UI_EMAIL_ITEM_KEYS = ['creatorMails', 'contributorMails', 'mails'],
             WEKO_PERMISSION_ROLE_COMMUNITY = ['Community Administrator'],
+            ACCOUNTS_COVER_TEMPLATE="invenio_accounts/base_cover.html",
+            ACCOUNTS_BASE_TEMPLATE="invenio_accounts/base.html"
         )
         Babel(app_)
         FlaskCeleryExt(app_)
@@ -194,7 +192,7 @@ def app(base_app):
 @pytest.yield_fixture()
 def api(base_app):
     """Yield the REST API application in its context."""
-    api = get_method_self(base_app.wsgi_app.mounts['/api'])
+    api = base_app.wsgi_app.mounts['/api'].__self__
     api.register_blueprint(records_rest_bp(api))
     with api.app_context():
         yield api
@@ -223,7 +221,11 @@ def users(app):
             action='deposit-admin-access', user=admin
         ))
     db.session.commit()
-    return [object_as_dict(user1), object_as_dict(user2)]
+    return [
+        {"email": user1.email, "id": user1.id, "obj": user1},
+        {"email": user2.email, "id": user2.id, "obj": user2},
+        {"email": admin.email, "id": admin.id, "obj": admin},
+    ]
 
 
 @pytest.fixture()
@@ -262,6 +264,7 @@ def write_token_user_1(app, client, users):
         )
         db.session.add(token_)
     db.session.commit()
+    access_token = token_.access_token
     return token_
 
 
@@ -336,8 +339,9 @@ def deposit(app, search, users, location):
     }
     with app.test_request_context():
         datastore = app.extensions['security'].datastore
-        login_user(datastore.find_user(email=users[0]['_email']))
+        login_user(datastore.find_user(email=users[0]['email']))
         deposit = Deposit.create(record)
+        deposit.pid.register()
         deposit.commit()
         db.session.commit()
     sleep(2)
@@ -347,13 +351,20 @@ def deposit(app, search, users, location):
 @pytest.fixture()
 def files(app, deposit):
     """Add a file to the deposit."""
-    # content = b'### Testing textfile ###'
-    # stream = BytesIO(content)
-    # key = 'hello.txt'
-    # deposit.files[key] = stream
-    # deposit.commit()
-    # db.session.commit()
-    return []
+    content = b'### Testing textfile ###'
+    stream = BytesIO(content)
+    key = 'hello.txt'
+    deposit.files[key] = stream
+    deposit.commit()
+    db.session.commit()
+    obj = list(deposit.files)[0]
+
+    return [{
+    "key": obj.key,
+    "checksum": obj.file.checksum,
+    "size": obj.file.size,
+    "file_id": obj.file.id,
+    }]
 
 
 @pytest.fixture()

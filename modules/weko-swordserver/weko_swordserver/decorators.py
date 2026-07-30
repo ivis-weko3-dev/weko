@@ -20,7 +20,7 @@ from .errors import ErrorType, WekoSwordserverException
 def check_oauth(*scopes):
     """Decorator to check header.
 
-    :param \*scopes: List of scopes required.
+    :param *scopes: List of scopes required.
     """
     def wrapper(f):
         """Wrap function with oauth require decorator."""

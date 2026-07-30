@@ -6,14 +6,12 @@
 # it under the terms of the MIT License; see LICENSE file for more details.
 
 import json
-import pytest
 from unittest.mock import patch
 
 import requests
 from flask import jsonify, request
 from invenio_accounts.testutils import login_user_via_session
 
-from weko_notifications.forms import handle_notifications_form
 from weko_notifications.utils import inbox_url
 from weko_notifications.views import init_push_templates
 # .tox/c1/bin/pytest --cov=weko_notifications tests/test_views.py -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-notifications/.tox/c1/tmp --full-trace
@@ -149,24 +147,13 @@ def test_user_settings(app, users, client, mocker):
         )
 
 
-
-
 # def notifications():
 # .tox/c1/bin/pytest --cov=weko_notifications tests/test_views.py::test_notifications -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-notifications/.tox/c1/tmp --full-trace
 def test_notifications(app, users, client):
-    """Test notifications API endpoint."""
-
-    # Mock NotificationClient
-
-
-    # Test unauthorized access
-    response = client.get("/notifications")
-    assert response.status_code == 401, json.dumps(response.get_json())
-
     # Test authorized access
     login_user_via_session(client=client, email=users[0]["email"])
     mock_notifications = ["notification1", "notification2"]
-    with patch("weko_notifications.client.NotificationClient.notifications", return_value=mock_notifications):
+    with patch("weko_notifications.views.NotificationClient.notifications", return_value=mock_notifications):
         response = client.get("/notifications")
 
     assert response.status_code == 200, json.dumps(response.get_json())
@@ -176,3 +163,12 @@ def test_notifications(app, users, client):
     assert data["message"] == "Notifications retrieved successfully."
     assert data["count"] == 2
     assert data["notifications"] == mock_notifications
+
+
+# def notifications():
+# .tox/c1/bin/pytest --cov=weko_notifications tests/test_views.py::test_notifications_unauthorized -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-notifications/.tox/c1/tmp --full-trace
+def test_notifications_unauthorized(app, users, client):
+    """Test notifications API endpoint."""
+    # Test unauthorized access
+    response = client.get("/notifications")
+    assert response.status_code == 401, json.dumps(response.get_json())

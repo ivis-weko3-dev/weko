@@ -19,7 +19,6 @@ from flask import current_app, request
 from requests import HTTPError
 from invenio_pidstore.models import PersistentIdentifier
 
-
 from weko_user_profiles.config import USERPROFILES_TIMEZONE_LIST
 from weko_user_profiles.models import UserProfile
 
@@ -213,7 +212,7 @@ def get_item_title(recid):
     Returns:
         str | None: The item title.
     """
-    from weko_deposit.api import WekoDeposit
+    from weko_deposit.api import WekoDeposit # 遅延import(循環import回避)
     try:
         pid = PersistentIdentifier.get("recid", recid)
         deposit = WekoDeposit.get_record(pid.object_uuid)

@@ -12,39 +12,39 @@ See https://pytest-invenio.readthedocs.io/ for documentation on which test
 fixtures are available.
 """
 
-import json
 import os
 import pytest
 import shutil
 import tempfile
+from unittest.mock import patch
 
 from flask import Flask
+from sqlalchemy_utils.functions import create_database, database_exists
+
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import Role, User
 from invenio_db import InvenioDB, db as db_
 from invenio_db.utils import drop_alembic_version_table
+from invenio_i18n import InvenioI18N
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location
 from invenio_records import InvenioRecords
-from invenio_pidstore import InvenioPIDStore
-from invenio_pidstore import current_pidstore
-from invenio_accounts.testutils import create_test_user
 from invenio_records_ui import InvenioRecordsUI
-from unittest.mock import patch
-from sqlalchemy_utils.functions import create_database, database_exists
+from invenio_records_ui.views import create_blueprint_from_app
+from invenio_pidstore import InvenioPIDStore
+from invenio_accounts.testutils import create_test_user
 
 from weko_index_tree import WekoIndexTree
 from weko_index_tree.api import Indexes
 from weko_logging.audit import WekoLoggingUserActivity
 from weko_signposting import WekoSignposting
-from weko_signposting.views import blueprint
 from weko_workflow import WekoWorkflow
 
 from .helpers import create_record, json_data
 
-@pytest.yield_fixture()
+@pytest.fixture
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -52,7 +52,7 @@ def instance_path():
     shutil.rmtree(path)
 
 
-@pytest.fixture()
+@pytest.fixture
 def base_app(instance_path):
     app_ = Flask(
         'testapp',
@@ -95,6 +95,7 @@ def base_app(instance_path):
     InvenioAccess(app_)
     InvenioAccounts(app_)
     InvenioDB(app_)
+    InvenioI18N(app_)
     InvenioFilesREST(app_)
     InvenioRecords(app_)
     InvenioRecordsUI(app_)
@@ -102,10 +103,13 @@ def base_app(instance_path):
     WekoIndexTree(app_)
     WekoWorkflow(app_)
     WekoLoggingUserActivity(app_)
+
+    app_.register_blueprint(create_blueprint_from_app(app_))
+
     return app_
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def app(base_app):
     """Flask application fixture."""
     WekoSignposting(base_app)
@@ -113,7 +117,7 @@ def app(base_app):
         yield base_app
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def db(app):
     """Get setup database."""
     if not database_exists(str(db_.engine.url)):
@@ -125,14 +129,19 @@ def db(app):
     drop_alembic_version_table()
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def client(app):
     """Get test client."""
     with app.test_client() as client:
         yield client
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
+def activity_logger(mocker):
+    mocker.patch("weko_logging.activity_logger.UserActivityLogger")
+
+
+@pytest.fixture
 def users(app, db):
     """Create users."""
     ds = app.extensions["invenio-accounts"].datastore
@@ -263,7 +272,7 @@ def users(app, db):
         {"email": user.email, "id": user.id, "obj": user},
     ]
 
-@pytest.fixture()
+@pytest.fixture
 def db_records(db, instance_path, users):
     with db.session.begin_nested():
         Location.query.delete()

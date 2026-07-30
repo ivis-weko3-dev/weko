@@ -1,3 +1,5 @@
+import $ from 'jquery';
+
 async function openBucketCopyModal() {
   $('#bucket_copy_modal').modal('show');
   $('#modal-guide').hide();
@@ -8,7 +10,7 @@ async function openBucketCopyModal() {
   $('#modal-result-uri').text('');
   $('creating_bucket_name').text('');
 
-  url ="/records/get_bucket_list";
+  let url ="/records/get_bucket_list";
   await fetch(url ,{method:'GET' ,headers:{'Content-Type':'application/json'} ,credentials:"include"})
   .then(res => {
     if (!res.ok) {
@@ -99,7 +101,7 @@ async function copyFileToBucket() {
     'checked': checked,
     'bucket_name': bucket_name,
   }
-  url ="/records/copy_bucket";
+  let url ="/records/copy_bucket";
   await fetch(url ,{method:'POST' ,headers:{'Content-Type':'application/json'} ,credentials:"include", body: JSON.stringify(form)})
   .then(res => {
     if (!res.ok) {
@@ -153,7 +155,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
     formData.append('pid', pid);
     formData.append('bucket_id', bucket_id);
     formData.append('file_name', file.name);
-    url ="/records/get_file_place";
+    let url ="/records/get_file_place";
 
     await fetch(url ,{method:'POST', credentials:"include", body: formData})
     .then(res => {
@@ -255,6 +257,7 @@ async function calculateChecksum(file) {
 // XMLHttpRequestをPromiseでラップする関数
 function uploadFileToS3(file, signedUrl) {
   return new Promise((resolve, reject) => {
+      const replacing_file_failed = document.getElementById('replacing_file_failed').value;
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', signedUrl, true);
       xhr.setRequestHeader('Content-Type', 'binary/octet-stream');

@@ -187,7 +187,7 @@ def create_captcha_image():
     # Create response
     res_json = {
         "key": key,
-        'image': captcha_info['image'],
+        'image': captcha_info['image'].decode("utf-8"),
         'ttl': ttl
     }
     return True, res_json

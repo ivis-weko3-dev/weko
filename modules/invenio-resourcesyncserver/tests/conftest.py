@@ -59,8 +59,6 @@ from invenio_db import db as db_
 from invenio_db.utils import drop_alembic_version_table
 from invenio_deposit.api import Deposit
 from invenio_files_rest.models import Location
-from invenio_files_rest.permissions import bucket_listmultiparts_all, \
-from invenio_files_rest.models import Bucket, Location, ObjectVersion
 from invenio_i18n import InvenioI18N
 from invenio_indexer import InvenioIndexer
 from invenio_jsonschemas import InvenioJSONSchemas
@@ -89,10 +87,6 @@ from invenio_records.models import RecordMetadata
 from invenio_search import current_search_client, current_search
 from invenio_search.engine import search
 from invenio_queues.proxies import current_queues
-    bucket_read_all, bucket_read_versions_all, bucket_update_all, \
-    location_update_all, multipart_delete_all, multipart_read_all, \
-    object_delete_all, object_delete_version_all, object_read_all, \
-    object_read_version_all
 
 from io import BytesIO
 from os.path import join

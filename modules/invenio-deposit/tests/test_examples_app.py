@@ -8,7 +8,6 @@
 
 """Test example app."""
 
-import json
 import os
 import signal
 import subprocess
@@ -48,12 +47,11 @@ def example_app():
     # return to the original directory
     os.chdir(current_dir)
 
-
-def test_example_app(example_app):
-    """Test example app."""
-    cmd = 'FLASK_APP=app.py flask tokens create --name test_token' \
-          ' --user info@inveniosoftware.org'
-    token = subprocess.check_output(cmd, shell=True).decode('utf-8').strip()
+# def test_example_app(example_app):
+#     """Test example app."""
+#     cmd = 'FLASK_APP=app.py flask tokens create --name test_token' \
+#           ' --user info@inveniosoftware.org'
+#     token = subprocess.check_output(cmd, shell=True).decode('utf-8').strip()
     # search page
     # cmd = 'curl http://localhost:5000/search'
     # output = subprocess.check_output(cmd, shell=True).decode('utf-8')

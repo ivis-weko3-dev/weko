@@ -21,7 +21,7 @@ import uuid
 
 from flask import Flask, g, url_for
 from flask_login import LoginManager, UserMixin
-from helpers import create_record
+from tests.helpers import create_record
 from invenio_access.models import ActionRoles
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.testutils import create_test_user

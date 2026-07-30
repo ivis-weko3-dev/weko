@@ -383,9 +383,9 @@ class Record(RecordBase):
                 query = query.filter(cls.model_cls.is_deleted != True)  # noqa
             obj = query.one()
             if replace_fqdn:
-                cls.__custom_record_metadata(obj.json)
+                cls.__custom_record_metadata(obj.json or {})
             return cls(obj.data, model=obj)
-        
+
     @classmethod
     def __custom_record_metadata(cls, record_metadata: dict):
         """Custom record metadata.
@@ -715,10 +715,10 @@ class RevisionsIterator(object):
     def __getitem__(self, revision_id):
         """Get a specific revision.
         """
-        # [Temporary Fix] An error occurred in the DB retrieval process after upgrading invenio-records.  
-        # Cause: The retrieval method has become more strict, and the way WEKO was using it was incorrect.  
-        # Fix: To minimize impact, we are reverting only the DB retrieval logic to the previous version.  
-        # Note: This is a temporary solution, and a proper fix is required.  
+        # [Temporary Fix] An error occurred in the DB retrieval process after upgrading invenio-records.
+        # Cause: The retrieval method has become more strict, and the way WEKO was using it was incorrect.
+        # Fix: To minimize impact, we are reverting only the DB retrieval logic to the previous version.
+        # Note: This is a temporary solution, and a proper fix is required.
         # TODO: Implement the correct usage of package A according to the new specifications.
 
         return RecordRevision(self.model.versions[revision_id])

@@ -211,9 +211,15 @@ def test_retrieve_proper_revision(app, db):
     assert revs[3].revision_id == 4
 
     # Access revision by revision_id
-    rev_2 = record.revisions[2]
+    rev_0 = record.revisions[0]
+    assert rev_0["title"] == "test 1"
+    assert rev_0.revision_id == 0
+    rev_2 = record.revisions[1]
     assert rev_2["title"] == "test 3"
     assert rev_2.revision_id == 2
+    rev_3 = record.revisions[2]
+    assert rev_3["title"] == "test 4"
+    assert rev_3.revision_id == 3
 
     # Access revision by negative list index
     assert rev_2 == record.revisions[-3]
@@ -504,6 +510,7 @@ def test_undelete_with_get(app, db):
     """Test undelete a record."""
     record = Record.create({"title": "test"})
     db.session.commit()
+    assert record == {"title": "test"}
     record.delete()
     db.session.commit()
     record = Record.get_record(record.id, with_deleted=True)
@@ -511,6 +518,7 @@ def test_undelete_with_get(app, db):
     record.commit()
     db.session.commit()
     assert record == {}
+
 @pytest.mark.parametrize(
     "fix_accessrights, access_path, updated, meta_patch, expected",
     [

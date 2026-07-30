@@ -43,8 +43,10 @@ from weko_search_ui.utils import (
     delete_items_with_activity
 )
 from weko_workflow.errors import WekoWorkflowException
+from weko_workflow.models import Activity
 from weko_workflow.utils import get_site_info_name
 from weko_workflow.scopes import activity_scope
+
 from werkzeug.http import parse_options_header
 from werkzeug.utils import import_string
 
@@ -1065,7 +1067,6 @@ def _get_status_workflow_document(activity_id, recid):
     links_record_url = "{}records/{}".format(request.url_root, recid)
     # Get file info
     files_info = None
-    from weko_workflow.models import Activity
     activity = Activity.query.filter_by(activity_id=activity_id).first()
     if activity and activity.temp_data:
         decoded = activity.temp_data.encode().decode('unicode_escape')
@@ -1075,8 +1076,8 @@ def _get_status_workflow_document(activity_id, recid):
         if files:
             for file in files:
                 label = file.get("filename")
-                host_name = os.environ.get("INVENIO_WEB_HOST_NAME")
-                url = f"https://{host_name}/record/{recid}/files/{label}"
+                host_name = current_app.config.get("SERVER_NAME")
+                url = f"https://{host_name}/records/{recid}/files/{label}"
                 content_type = file.get("mimetype")
                 file_rel = (
                     current_app.config["WEKO_SWORDSERVER_SWORD_VERSION"]

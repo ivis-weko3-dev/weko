@@ -117,7 +117,7 @@ class Notification(object):
             Notification: Notification instance with payload.
         """
         from .schema import NotificationSchema
-        self.payload = NotificationSchema().load(self.current_body).data
+        self.payload = NotificationSchema().load(self.current_body)
         self.activity_type = self.payload.get("type")
         self.origin = self.payload.get("origin")
         self.target = self.payload.get("target")
@@ -142,7 +142,7 @@ class Notification(object):
         """
         obj = cls()
         from .schema import NotificationSchema
-        obj.payload = NotificationSchema().load(payload).data
+        obj.payload = NotificationSchema().load(payload)
         obj._is_validated = True
         return obj
 
@@ -156,7 +156,7 @@ class Notification(object):
             ValidationError: If the payload is not valid.
         """
         from .schema import NotificationSchema
-        self.payload = NotificationSchema().load(self.current_body).data
+        self.payload = NotificationSchema().load(self.current_body)
         self._is_validated = True
         return self
 
