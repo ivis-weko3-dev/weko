@@ -480,9 +480,7 @@ class ResourceListHandler(object):
                     path = 'recid_{}/{}'.format(
                         record.get('recid'),
                         file_info.get('key'))
-                    lastmod = str(datetime.datetime.now(timezone.utc).replace(
-                        tzinfo=datetime.timezone.utc
-                    ).isoformat())
+                    lastmod = str(datetime.datetime.now(timezone.utc).isoformat())
                     rdm.add(Resource(
                         '{}record/{}/files/{}'.format(
                             request.url_root,
@@ -903,9 +901,7 @@ class ChangeListHandler(object):
                     lastmod=data.get("updated"),
                     mime_type='application/zip',
                     md_from=data.get('updated'),
-                    md_until=datetime.datetime.now(timezone.utc).replace(
-                        tzinfo=datetime.timezone.utc
-                    ).isoformat(),
+                    md_until=datetime.datetime.now(timezone.utc).isoformat(),
                     ln=[]
                 )
                 if next_ch and next_ch.get('updated'):
@@ -995,9 +991,7 @@ class ChangeListHandler(object):
                     path = 'recid_{}/{}'.format(
                         current_record.get('recid'),
                         file_info.get('key'))
-                    lastmod = str(datetime.datetime.now(timezone.utc).replace(
-                        tzinfo=datetime.timezone.utc
-                    ).isoformat())
+                    lastmod = str(datetime.datetime.now(timezone.utc).isoformat())
                     if change:
                         re = Resource(
                             '{}record/{}/files/{}'.format(
