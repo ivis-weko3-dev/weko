@@ -27,7 +27,6 @@ from datetime import datetime, timedelta
 from flask_login.utils import login_user
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_records.errors import MissingModelError
-from invenio_search import current_search_client
 from jsonschema.validators import Draft4Validator
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
