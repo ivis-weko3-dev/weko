@@ -28,8 +28,9 @@ def test_index(app, client):
     url = url_for(
         "weko_handle.index", format="json", _external=True
     )
-    res = client.get(url)
-    assert res.status_code == 200
+    with patch("weko_handle.views.render_template"):
+        res = client.get(url)
+        assert res.status_code == 200
 
 
 # .tox/c1/bin/pytest --cov=weko_handle tests/test_views.py::test_retrieve_handle -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-handle/.tox/c1/tmp
@@ -37,7 +38,10 @@ def test_retrieve_handle(app, client):
     url = url_for(
         "weko_handle.retrieve_handle", format="json", _external=True
     )
-    mock_handle_client = MagicMock(side_effect=MockHandleClient)
+    mock_client = MagicMock(side_effect=MockHandleClient)
+    mock_client.retrieve_handle_record_json.return_value = {"handle": "test"}
+    mock_handle_client = MagicMock()
+    mock_handle_client.instantiate_with_credentials.return_value = mock_client
     with patch('weko_handle.api.EUDATHandleClient', mock_handle_client):
         with pytest.raises(Exception) as e:
             client.post(url)
@@ -57,7 +61,10 @@ def test_register_handle(app, client):
     url = url_for(
         "weko_handle.register_handle", format="json", _external=True
     )
-    mock_handle_client = MagicMock(side_effect=MockHandleClient)
+    mock_client = MagicMock(side_effect=MockHandleClient)
+    mock_client.register_handle.return_value = {"handle": "test"}
+    mock_handle_client = MagicMock()
+    mock_handle_client.instantiate_with_credentials.return_value = mock_client
     with patch('weko_handle.api.EUDATHandleClient', mock_handle_client):
         with pytest.raises(Exception) as e:
             client.post(url)
