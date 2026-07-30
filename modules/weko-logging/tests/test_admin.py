@@ -155,12 +155,17 @@ class TestExportLogAdminView():
     ])
     def test_check_export_status_acl(self, client, users, users_index, is_permission, mocker):
         login_user_via_session(client=client, email=users[users_index]['email'])
-        url = url_for("logs/export.check_export_status")
-        mocker_celery_run = mocker.patch("weko_logging.admin.check_celery_is_run")
+        url = url_for("logs/export.check_export_status", _external=True)
+        
+        mock_get_export_task_status = mocker.patch(
+            "weko_logging.admin.UserActivityLogUtils.get_export_task_status"
+        )
+        mock_get_export_task_status.return_value = {}
+
+        mocker_celery_run = mocker.patch(
+            "weko_logging.admin.check_celery_is_run"
+        )
         mocker_celery_run.return_value = True
-        mocker.patch("weko_logging.admin.UserActivityLogUtils.get_export_url", return_value={})
-        mock_task = mocker.patch("weko_logging.admin.export_all_user_activity_logs.AsyncResult")
-        mock_task.return_value = MagicMock(state="PENDING", successful=lambda: True)
         res =  client.get(url)
         assert_role(res,is_permission)
 
