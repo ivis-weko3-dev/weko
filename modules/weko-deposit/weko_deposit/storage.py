@@ -47,7 +47,6 @@ class WekoFileStorage(PyFSFileStorage):
                 message digest object.
         """
         result =  hashlib.sha256()
-        weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=('sha256', result))
         return 'sha256', result
 
     def upload_file(self, fjson):
@@ -75,7 +74,7 @@ class WekoFileStorage(PyFSFileStorage):
         except EnvironmentError as ex:
             # FIXME: get the file name from the fjson if we use this method.
             weko_logger(key='WEKO_DEPOSIT_FAILED_FILE_UPLOAD',
-                        file_name="", ex=ex)
+                        file_name=self.fileurl, ex=ex)
             raise StorageError(description="Could not upload file") from ex
         except Exception as ex:
             weko_logger(key='WEKO_COMMON_ERROR_UNEXPECTED', ex=ex)
@@ -92,7 +91,7 @@ class WekoFileStorage(PyFSFileStorage):
                     # FIXME: get the file name from the fjson.
                     weko_logger(
                         key="WEKO_DEPOSIT_FAILED_ENCODING_DECODING_FILE",
-                        file_name="", ex=ex)
+                        file_name=self.fileurl, ex=ex)
                     raise WekoDepositError(ex=ex,
                                 msg="Could not encoding/decoding file") from ex
             strb = base64.b64encode(s).decode("utf-8")
@@ -101,7 +100,7 @@ class WekoFileStorage(PyFSFileStorage):
         fp.close()
 
         # FIXME: get the file id if we use this method.
-        weko_logger(key='WEKO_DEPOSIT_UPLOAD_FILE', file_id="")
+        weko_logger(key='WEKO_DEPOSIT_UPLOAD_FILE', file_id=self.fileurl)
         fjson.update({"file": strb})
 
 
@@ -220,5 +219,4 @@ def pyfs_storage_factory(fileinstance=None, default_location=None,
 
     result = filestorage_class(
         fileurl, size=size, modified=modified, clean_dir=clean_dir)
-    weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=result)
     return result

@@ -45,13 +45,10 @@ def weko_deposit_minter(record_uuid, data, recid=None):
         :obj:`PersistentIdentifier`: depid; PID object.
     """
     if recid is None:
-        weko_logger(key='WEKO_COMMON_IF_ENTER', branch='recid is None')
-
         id_ = RecordIdentifier.next()
+
     else:
-        weko_logger(key='WEKO_COMMON_IF_ENTER', branch='recid is not None')
         if isinstance(recid, int):
-            weko_logger(key='WEKO_COMMON_IF_ENTER', branch='recid is int')
             RecordIdentifier.insert(recid)
 
         id_ = recid
@@ -80,7 +77,6 @@ def weko_deposit_minter(record_uuid, data, recid=None):
         },
     })
 
-    weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=depid)
     return depid
 
 
@@ -103,7 +99,6 @@ def weko_deposit_fetcher(record_uuid, data):
         pid_type='depid',
         pid_value=pid_value,
     ) if pid_value else None
-    weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=result)
     return result
 
 
@@ -123,12 +118,9 @@ def get_latest_version_id(recid):
     pid = PersistentIdentifier.query.filter_by(pid_type='recid')\
         .filter(PersistentIdentifier.pid_value.like(pid_value)).all()
     if pid:
-        weko_logger(key='WEKO_COMMON_IF_ENTER', branch='pid is not empty')
-
         version_id = max([int(idx.pid_value.split('.')[-1]) for idx in pid])
         version_id += 1
 
-    weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=version_id)
     return version_id
 
 
@@ -157,7 +149,6 @@ def get_record_identifier(recid):
         weko_logger(key='WEKO_COMMON_ERROR_UNEXPECTED', ex=ex)
         # raise WekoDepositError(ex=ex)
 
-    weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=record_id)
     return record_id
 
 
@@ -173,19 +164,12 @@ def get_record_without_version(pid):
     recid_without_ver = None
     parent_relations = PIDRelation.get_child_relations(pid).one_or_none()
     if parent_relations is not None:
-        weko_logger(key='WEKO_COMMON_IF_ENTER',
-                    branch='parent_relations is not None')
-
         parent_pid = PersistentIdentifier.query. \
             filter_by(id=parent_relations.parent_id).one_or_none()
         if parent_pid is not None:
-            weko_logger(key='WEKO_COMMON_IF_ENTER',
-                        branch='parent_pid is not None')
-
             parent_pid_value = parent_pid.pid_value.split(':')[-1]
             recid_without_ver = PersistentIdentifier.get(
                 pid_type='recid',
                 pid_value=parent_pid_value)
 
-    weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=recid_without_ver)
     return recid_without_ver
