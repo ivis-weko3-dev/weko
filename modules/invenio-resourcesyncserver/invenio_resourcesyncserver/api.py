@@ -26,7 +26,7 @@ import shutil
 import sys
 import tempfile
 import traceback
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 from flask import current_app, request, send_file
 from invenio_communities.models import Community
@@ -480,7 +480,7 @@ class ResourceListHandler(object):
                     path = 'recid_{}/{}'.format(
                         record.get('recid'),
                         file_info.get('key'))
-                    lastmod = str(datetime.datetime.utcnow().replace(
+                    lastmod = str(datetime.datetime.now(timezone.utc).replace(
                         tzinfo=datetime.timezone.utc
                     ).isoformat())
                     rdm.add(Resource(
@@ -511,7 +511,7 @@ class ResourceListHandler(object):
         if not self._validation(record_id):
             return None
         # Set export folder
-        export_path = temp_path.name + '/' + datetime.datetime.utcnow() \
+        export_path = temp_path.name + '/' + datetime.datetime.now(timezone.utc) \
             .strftime(
             "%Y%m%d%H%M%S")
         try:
@@ -806,7 +806,7 @@ class ChangeListHandler(object):
             capability_name='changelist',
         )
         change_list.up = INVENIO_CAPABILITY_URL.format(request.url_root)
-        published_date = self.publish_date or datetime.datetime.utcnow()
+        published_date = self.publish_date or datetime.datetime.now(timezone.utc)
         change_date = published_date
         day_now = datetime.datetime.now()
 
@@ -844,7 +844,7 @@ class ChangeListHandler(object):
             capability_name='changedump',
         )
         changedump.up = INVENIO_CAPABILITY_URL.format(request.url_root)
-        published_date = self.publish_date or datetime.datetime.utcnow()
+        published_date = self.publish_date or datetime.datetime.now(timezone.utc)
         change_date = published_date
         day_now = datetime.datetime.now()
 
@@ -903,7 +903,7 @@ class ChangeListHandler(object):
                     lastmod=data.get("updated"),
                     mime_type='application/zip',
                     md_from=data.get('updated'),
-                    md_until=datetime.datetime.utcnow().replace(
+                    md_until=datetime.datetime.now(timezone.utc).replace(
                         tzinfo=datetime.timezone.utc
                     ).isoformat(),
                     ln=[]
@@ -995,7 +995,7 @@ class ChangeListHandler(object):
                     path = 'recid_{}/{}'.format(
                         current_record.get('recid'),
                         file_info.get('key'))
-                    lastmod = str(datetime.datetime.utcnow().replace(
+                    lastmod = str(datetime.datetime.now(timezone.utc).replace(
                         tzinfo=datetime.timezone.utc
                     ).isoformat())
                     if change:
@@ -1202,7 +1202,7 @@ class ChangeListHandler(object):
             return None
         try:
             # Set export folder
-            export_path = temp_path.name + '/' + datetime.datetime.utcnow()\
+            export_path = temp_path.name + '/' + datetime.datetime.now(timezone.utc)\
                 .strftime(
                 "%Y%m%d%H%M%S")
             # Double check for limits
@@ -1311,7 +1311,7 @@ class ChangeListHandler(object):
         try:
             ret = datetime.datetime.strptime(date_from, r"%Y%m%d")
 
-            if self.publish_date <= ret < datetime.datetime.utcnow():
+            if self.publish_date <= ret < datetime.datetime.now(timezone.utc).replace(tzinfo=None):
                 return ret
         except ValueError:
             current_app.logger.debug("Incorrect datetime format, should be "
@@ -1347,8 +1347,8 @@ class ChangeListHandler(object):
             return []
         _util = _from + datetime.timedelta(days=self.interval_by_date)
 
-        if _util > datetime.datetime.utcnow():
-            _util = datetime.datetime.utcnow()
+        if _util > datetime.datetime.now(timezone.utc).replace(tzinfo=None):
+            _util = datetime.datetime.now(timezone.utc).replace(tzinfo=None)
 
         record_changes = self._get_record_changes(
             self.repository_id,
