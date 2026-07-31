@@ -299,14 +299,17 @@ def process_item(record, resync, counter):
     event = ItemEvents.INIT
     if resync.saving_format == RESYNC_SAVING_FORMAT_BIOSAMPLE:
         mapper = BIOSAMPLEMapper(record)
+        version = ""
 
     elif resync.saving_format == RESYNC_SAVING_FORMAT_BIOPROJECT:
         mapper = BIOPROJECTMapper(record)
+        version = ""
     else:
         xml = etree.tostring(record, encoding='utf-8').decode()
         # current_app.logger.debug('{0} {1} {2}: {3}'.format(
         #     __file__, 'process_item()', 'xml', xml))
         mapper = JPCOARMapper(xml)
+        version = "2.0"
 
     current_app.logger.debug('{0} {1} {2}: {3}'.format(
         __file__, 'process_item()', 'mapper.identifier()', mapper.identifier()))
@@ -335,7 +338,7 @@ def process_item(record, resync, counter):
             __file__, 'process_item()', 'Create pid', pid))
         indexes.append(str(resync.index_id)) if str(
             resync.index_id) not in indexes else None
-        json = mapper.map()
+        json = mapper.map(version)
         json['$schema'] = '/items/jsonschema/' + str(mapper.itemtype.id)
         dep['_deposit']['status'] = 'draft'
         dep.update({'actions': 'publish', 'index': indexes}, json)
@@ -374,7 +377,7 @@ def process_item(record, resync, counter):
                 indexes = dep['path'].copy()
             indexes.append(str(resync.index_id)) if str(
                 resync.index_id) not in indexes else None
-            json = mapper.map()
+            json = mapper.map(version)
             json['$schema'] = '/items/jsonschema/' + str(mapper.itemtype.id)
             dep['_deposit']['status'] = 'draft'
             dep.update({'actions': 'publish', 'index': indexes}, json)
