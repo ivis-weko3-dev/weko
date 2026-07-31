@@ -127,7 +127,17 @@ def base_app(instance_path):
         SEARCH_INDEX_PREFIX="test-",
         INDEXER_FILE_DOC_TYPE='content',
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME='jpcoar_v1_mapping',
+        WEKO_SCHEMA_JPCOAR_V2_SCHEMA_NAME='jpcoar_mapping',
+        WEKO_SCHEMA_JPCOAR_V2_RESOURCE_TYPE_REPLACE={
+            'periodical':'journal',
+            'interview':'other',
+            'internal report':'other',
+            'report part':'other',
+            'conference object':'conference output',
+        },
         WEKO_SCHEMA_DDI_SCHEMA_NAME='ddi_mapping',
+        BABEL_DEFAULT_TIMEZONE='Asia/Tokyo',
+        THEME_SITEURL="https://localhost",
         DEPOSIT_DEFAULT_JSONSCHEMA=DEPOSIT_DEFAULT_JSONSCHEMA,
         DEPOSIT_JSONSCHEMAS_PREFIX=DEPOSIT_JSONSCHEMAS_PREFIX,
         DEPOSIT_RECORDS_UI_ENDPOINTS=DEPOSIT_RECORDS_UI_ENDPOINTS,
@@ -155,6 +165,26 @@ def base_app(instance_path):
     WekoDeposit(app_)
     WekoRecords(app_)
     WekoSearchUI(app_)
+
+    def delete_user_from_cache(exception):
+        """Delete user from `flask.g` when the request is tearing down.
+
+        Flask-login==0.6.2 changed the way the user is saved i.e uses `flask.g`.
+        Flask.g is pointing to the application context which is initialized per
+        request. That said, `pytest-flask` is pushing an application context on each
+        test initialization that causes problems as subsequent requests during a test
+        are detecting the active application request and not popping it when the
+        sub-request is tearing down. That causes the logged in user to remain cached
+        for the whole duration of the test. To fix this, we add an explicit teardown
+        handler that will pop out the logged in user in each request and it will force
+        the user to be loaded each time.
+        """
+        from flask import g
+
+        if "_login_user" in g:
+            del g._login_user
+
+    app_.teardown_request(delete_user_from_cache)
 
     return app_
 
@@ -453,12 +483,15 @@ def db_itemtype(app, db):
     with db.session.begin_nested():
         db.session.add(item_type_multiple_name)
         db.session.add(item_type_multiple)
-        db.session.add(item_type_multiple_mapping)
         db.session.add(item_type_biosample_name)
         db.session.add(item_type_biosample)
-        db.session.add(item_type_biosample_mapping)
         db.session.add(item_type_bioproject_name)
         db.session.add(item_type_bioproject)
+    db.session.commit()
+
+    with db.session.begin_nested():
+        db.session.add(item_type_multiple_mapping)
+        db.session.add(item_type_biosample_mapping)
         db.session.add(item_type_bioproject_mapping)
     db.session.commit()
 
