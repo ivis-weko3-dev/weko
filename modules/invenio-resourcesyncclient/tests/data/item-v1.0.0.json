@@ -154,82 +154,82 @@
             "type": "keyword",
             "index": true
           }
-        },
-        "request_mail_list": {
-          "type": "nested",
-          "properties": {
-            "author_id": {
-              "type": "keyword",
-              "index": true
-            },
-            "email": {
-              "type": "keyword",
-              "index": true
-            }
+        }
+      },
+      "request_mail_list": {
+        "type": "nested",
+        "properties": {
+          "author_id": {
+            "type": "keyword",
+            "index": true
+          },
+          "email": {
+            "type": "keyword",
+            "index": true
           }
-        },
-        "alternative": {
-          "type": "keyword",
-          "index": true,
-          "copy_to": [
-            "search_title"
-          ]
-        },
-        "creator": {
-          "type": "object",
-          "properties": {
-            "nameIdentifier": {
-              "type": "keyword",
-              "index": true,
-              "copy_to": [
-                "search_creator"
-              ]
-            },
-            "creatorName": {
-              "type": "keyword",
-              "index": true,
-              "copy_to": [
-                "search_creator"
-              ]
-            },
-            "familyName": {
-              "type": "keyword",
-              "index": true,
-              "copy_to": [
-                "search_creator"
-              ]
-            },
-            "givenName": {
-              "type": "keyword",
-              "index": true,
-              "copy_to": [
-                "search_creator"
-              ]
-            },
-            "creatorAlternative": {
-              "type": "keyword",
-              "index": true,
-              "copy_to": [
-                "search_creator"
-              ]
-            },
-            "affiliation": {
-              "type": "object",
-              "properties": {
-                "nameIdentifier": {
-                  "type": "keyword",
-                  "index": true,
-                  "copy_to": [
-                    "search_identifier"
-                  ]
-                },
-                "affiliationName": {
-                  "type": "keyword",
-                  "index": true,
-                  "copy_to": [
-                    "search_other"
-                  ]
-                }
+        }
+      },
+      "alternative": {
+        "type": "keyword",
+        "index": true,
+        "copy_to": [
+          "search_title"
+        ]
+      },
+      "creator": {
+        "type": "object",
+        "properties": {
+          "nameIdentifier": {
+            "type": "keyword",
+            "index": true,
+            "copy_to": [
+              "search_creator"
+            ]
+          },
+          "creatorName": {
+            "type": "keyword",
+            "index": true,
+            "copy_to": [
+              "search_creator"
+            ]
+          },
+          "familyName": {
+            "type": "keyword",
+            "index": true,
+            "copy_to": [
+              "search_creator"
+            ]
+          },
+          "givenName": {
+            "type": "keyword",
+            "index": true,
+            "copy_to": [
+              "search_creator"
+            ]
+          },
+          "creatorAlternative": {
+            "type": "keyword",
+            "index": true,
+            "copy_to": [
+              "search_creator"
+            ]
+          },
+          "affiliation": {
+            "type": "object",
+            "properties": {
+              "nameIdentifier": {
+                "type": "keyword",
+                "index": true,
+                "copy_to": [
+                  "search_identifier"
+                ]
+              },
+              "affiliationName": {
+                "type": "keyword",
+                "index": true,
+                "copy_to": [
+                  "search_other"
+                ]
               }
             }
           }

@@ -8,6 +8,7 @@ import json
 
 from invenio_accounts.testutils import login_user_via_session
 from jinja2.exceptions import TemplateNotFound, TemplateSyntaxError
+from invenio_resourcesyncclient.config import INVENIO_RESYNC_SAVE_PATH
 
 # class AdminResyncClient(BaseView):
 #     def index(self):
@@ -97,7 +98,10 @@ def test_AdminResyncClient_action(app, client, users, test_indices, id, status_c
                 res = json.loads(res.data)['data'][0]
                 res.pop("created")
                 res.pop("updated")
-                res == {'base_url': 'test', 'from_date': None, 'id': 1, 'index_id': 1, 'index_name': 'Test index 1', 'interval_by_day': 1, 'is_running': None, 'repository_name': 'root', 'result': None, 'resync_mode': 'Baseline', 'resync_save_dir': '', 'saving_format': 'JPCOAR-XML', 'status': 'Automatic', 'task_id': None, 'to_date': None}
+                expected_save_dir = '{0}{1}'.format(
+                        app.config.get('INVENIO_RESYNC_SAVE_PATH', INVENIO_RESYNC_SAVE_PATH), 1
+                    )
+                assert res == {'base_url': 'test', 'from_date': None, 'id': 1, 'index_id': 1, 'index_name': 'Test index 1', 'interval_by_day': 1, 'is_running': True, 'repository_name': 'root', 'result': {}, 'resync_mode': 'Baseline', 'resync_save_dir': expected_save_dir, 'saving_format': 'JPCOAR-XML', 'status': 'Automatic', 'task_id': None, 'to_date': None}
 
     # update_resync
     url = url_for('resync.update_resync', resync_id=2)

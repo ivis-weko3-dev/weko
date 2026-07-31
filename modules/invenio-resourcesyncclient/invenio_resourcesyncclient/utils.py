@@ -315,7 +315,7 @@ def process_item(record, resync, counter):
         pid_type='syncid', pid_value=gen_resync_pid_value(
             resync,
             mapper.identifier()
-        )).with_lockmode('update').one_or_none()
+        )).with_for_update().one_or_none()
 
     indexes = []
     current_app.logger.debug('{0} {1} {2}: {3}'.format(
