@@ -8,7 +8,7 @@ from invenio_pidstore.models import PersistentIdentifier, PIDStatus, RecordIdent
 from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_pidrelations.models import PIDRelation
 from weko_deposit.api import WekoDeposit, WekoRecord
-from weko_records.api import ItemsMetadata 
+from weko_records.api import ItemsMetadata
 
 
 def json_data(filename):
@@ -59,12 +59,12 @@ def login(app, client, obj = None, email=None, password=None):
     if obj:
         email = obj.email
         password = obj.password_plaintext
-        client.post(login_url, data=dict(
+        client.post(login_url, json=dict(
             email=email or app.config['TEST_USER_EMAIL'],
             password=password or app.config['TEST_USER_PASSWORD'],
         ))
     else:
-        client.post(login_url, data=dict(
+        client.post(login_url, json=dict(
             email=email or app.config['TEST_USER_EMAIL'],
             password=password or app.config['TEST_USER_PASSWORD'],
         ))

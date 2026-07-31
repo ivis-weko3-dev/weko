@@ -63,7 +63,8 @@ def test_get_selection_option_acl_guest(client_api,users):
     assert res.status_code != 302
 
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_views.py::test_get_selection_option -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
-def test_get_selection_option(client_api,users):
+def test_get_selection_option(client_api,app,users,mocker):
+    mocker.patch("weko_items_autofill.views.db.session.remove")
     url = "/autofill/select_options"
     login_user_via_session(client=client_api,email=users[0]["email"])
     test = {"options":[
@@ -73,6 +74,19 @@ def test_get_selection_option(client_api,users):
         {'value': 'WEKOID', 'text': 'WEKOID'},
         {'value': 'researchmap','text':'researchmap'}
     ]
+    }
+    res = client_api.get(url)
+    assert json.loads(res.data) == test
+
+    app.config["WEKO_ITEMS_AUTOFILL_TO_BE_USED"] = [1]
+    test = {"options":[
+            {'value': 'Default', 'text': 'Select the ID'},
+            {'value': 'DOI', 'text': 'DOI'},
+            {'value': 'CrossRef', 'text': 'CrossRef'},
+            {'value': 'CiNii', 'text': 'CiNii'},
+            {'value': 'WEKOID', 'text': 'WEKOID'},
+            {'value': 'researchmap','text':'researchmap'}
+        ]
     }
     res = client_api.get(url)
     assert json.loads(res.data) == test
@@ -136,6 +150,7 @@ def test_get_auto_fill_record_data_acl_guest(client_api, users):
 
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_views.py::test_get_auto_fill_record_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
 def test_get_auto_fill_record_data(client_api,db,users,mocker):
+    mocker.patch("weko_items_autofill.views.db.session.remove")
     login_user_via_session(client=client_api, email=users[0]['email'])
     url = '/autofill/get_auto_fill_record_data'
     api_certificate = ApiCertificate(
@@ -179,6 +194,15 @@ def test_get_auto_fill_record_data(client_api,db,users,mocker):
     assert json.loads(res.data) == {"result":"return_crossref_record_data","items":"","error":"",'resource_type' : '' }
     mock_crossref_record.assert_called_with("test_crf@test.org","data","1", False)
 
+    mocker.patch("weko_items_autofill.views.get_current_api_certification",return_value={"cert_data":[]})
+    data = {
+        "api_type":"CrossRef",
+        "search_data":"data",
+        "item_type_id":"1"
+    }
+    res = client_api.post(url,json=data)
+    assert json.loads(res.data) == {"error":"","items":"","resource_type":"","result":[]}
+
     # api_type is CiNii
     data = {
         "api_type":"CiNii",
@@ -216,7 +240,7 @@ def test_get_auto_fill_record_data(client_api,db,users,mocker):
     assert res.status_code == 200
     assert json.loads(res.data) == {"result":"return_researchmapid_record_data","items":"","error":"",'resource_type' : "return_researchmapid_resource_type" }
     mock_researchmapid_record.assert_called_with("test_parmalink","test_achievement_type","test_achievement_id","1")
-    
+
     # raise Exception
     data = {
         "api_type":"WEKOID",
@@ -231,6 +255,7 @@ def test_get_auto_fill_record_data(client_api,db,users,mocker):
 
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_views.py::test_get_auto_fill_record_data_doi -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
 def test_get_auto_fill_record_data_doi(client_api,db,users,mocker):
+    mocker.patch("weko_items_autofill.views.db.session.remove")
     login_user_via_session(client=client_api, email=users[0]['email'])
     url = '/autofill/get_auto_fill_record_data'
     api_certificate = ApiCertificate(
