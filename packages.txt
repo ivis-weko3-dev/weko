@@ -90,7 +90,7 @@ jupyter-client==6.1.12
 jupyter-core==4.12.0
 jsonpath-ng == 1.5.2
 #kombu==5.3.7
--e git+https://github.com/RCOSDP/kombu.git@nii_develop/W2026-31#egg=kombu
+-e git+https://github.com/ivis-weko3-dev/kombu.git@nii_develop/W2026-31#egg=kombu
 limits==3.11.0
 lxml==5.2.1
 lxml-html-clean==0.4.4
