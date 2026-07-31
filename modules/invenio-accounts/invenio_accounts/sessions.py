@@ -76,8 +76,7 @@ def add_session(session=None):
         # this is to support both flask-login 0.4.x as well as 0.5+,
         # where 'user_id' was renamed to '_user_id'
         session["_user_id"] = session["user_id"]
-
-    request_data = request.get_json()
+    request_data = request.form
     orgniazation_name = request_data.get('jao') if request_data else None
     user_id, sid_s = session["_user_id"], session.sid_s
     with db.session.begin_nested():
