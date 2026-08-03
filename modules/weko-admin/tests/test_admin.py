@@ -49,7 +49,7 @@ from .test_views import assert_role
 class TestStyleSettingView:
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestStyleSettingView::test_index -vv -s -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_index(self,client,users):
+    def test_index(self,client,users, mocker):
         login_user_via_session(client,email=users[0]["email"])
 
         url = url_for("stylesetting.index")
@@ -60,7 +60,7 @@ class TestStyleSettingView:
         scss_file = os.path.join(scss_dir, '_variables.scss')
         with open(scss_file, "w") as f:
             f.write("$body-bg: #ffff;\n$panel-bg: #ffff;\n$footer-default-bg: #0d5f89;\n$navbar-default-bg: #0d5f89;\n$panel-default-border: #dddddd;\n$input-bg-transparent: rgba(255, 255, 255, 0);")
-        mock_render = patch("weko_admin.admin.StyleSettingView.render",return_value=make_response())
+        mock_render = mocker.patch("weko_admin.admin.StyleSettingView.render",return_value=make_response())
         res = client.get(url)
         mock_render.assert_called_with(
             "weko_admin/admin/block_style.html",
@@ -74,8 +74,8 @@ class TestStyleSettingView:
             def can(self):
                 return self.flg
         with patch("weko_admin.admin.admin_permission_factory",return_value=MockPermission(False)):
-            mock_render = patch("weko_admin.admin.StyleSettingView.render",return_value=make_response())
-            mock_flash = patch("weko_admin.admin.flash")
+            mock_render = mocker.patch("weko_admin.admin.StyleSettingView.render",return_value=make_response())
+            mock_flash = mocker.patch("weko_admin.admin.flash")
             res = client.post(url)
             mock_render.assert_called_with(
                 "weko_admin/admin/block_style.html",
@@ -85,8 +85,8 @@ class TestStyleSettingView:
         with patch("weko_admin.admin.admin_permission_factory",return_value=MockPermission(True)):
             data={"body-bg":"#0d5f89"}
             test = ["$body-bg: #0d5f89;\n", "$panel-bg: #ffff;\n", "$footer-default-bg: #0d5f89;\n", "$navbar-default-bg: #0d5f89;\n", "$panel-default-border: #dddddd;\n", "$input-bg-transparent: rgba(255, 255, 255, 0);"]
-            mock_render = patch("weko_admin.admin.StyleSettingView.render",return_value=make_response())
-            mock_flash = patch("weko_admin.admin.flash")
+            mock_render = mocker.patch("weko_admin.admin.StyleSettingView.render",return_value=make_response())
+            mock_flash = mocker.patch("weko_admin.admin.flash")
             res = client.post(url,data=data)
             mock_render.assert_called_with(
                 "weko_admin/admin/block_style.html",
@@ -98,7 +98,7 @@ class TestStyleSettingView:
                 assert new_scss == test
 
         # raise BaseException
-        mock_render = patch("weko_admin.admin.StyleSettingView.render",return_value=make_response())
+        mock_render = mocker.patch("weko_admin.admin.StyleSettingView.render",return_value=make_response())
         current_app.config.update(
             WEKO_THEME_INSTANCE_DATA_DIR="not_exist_dir"
         )
@@ -111,14 +111,14 @@ class TestStyleSettingView:
 
 #    def upload_editor(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestStyleSettingView::test_upload_editor -vv -s -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    @pytest.mark.parametrize("f_or_h,data,result,status_code,res_data",[
-        ("footer",{"temp":"footer","content":"<div>this is new content</div>","isEmpty":"True"},"<div>this is contents</div>",200,{"code":0, "msg": "success"}),
-        ("footer",{"temp":"footer","content":"<div>this is new content</div>","isEmpty":"False"},"<div>this is new content</div>",200,{"code":0, "msg": "success"}),
-        ("header",{"temp":"header","content":"<div>this is new content</div>","isEmpty":"True"},"<div>this is contents</div>",200,{"code":0, "msg": "success"}),
-        ("header",{"temp":"header","content":"<div>this is new content</div>","isEmpty":"False"},"<div>this is new content</div>",200,{"code":0, "msg": "success"}),
-        ("error",{"temp":"others","content":"<div>this is new content</div>","isEmpty":"True"},None,500,None),
-        ("error",{"temp":"header"},None,500,None)
-    ])
+    @pytest.mark.parametrize("f_or_h, data, result, status_code ,res_data", [
+        ("footer", {"temp": "footer", "content": "<div>this is new content</div>", "isEmpty": "True"}, "<div>this is contents</div>", 200, {"code": 0, "msg": "success"}),
+        ("footer", {"temp": "footer", "content": "<div>this is new content</div>", "isEmpty": "False"}, "<div>this is new content</div>", 200,{"code":0, "msg": "success"}),
+        ("header", {"temp": "header", "content": "<div>this is new content</div>", "isEmpty": "True"}, "<div>this is contents</div>", 200, {"code":0, "msg": "success"}),
+        ("header", {"temp": "header", "content": "<div>this is new content</div>", "isEmpty": "False"}, "<div>this is new content</div>", 200, {"code":0, "msg": "success"}),
+        ("error", {"temp": "others", "content": "<div>this is new content</div>", "isEmpty": "True"}, None, 500, None),
+        ("error", {"temp": "header"}, None, 500, None)
+    ], ids=["footer_empty", "footer_not_empty", "header_empty", "header_not_empty", "error_others", "error_header"])
     def test_upload_editor(self, client, users,f_or_h,data,result,status_code,res_data):
         login_user_via_session(client,email=users[0]["email"])
         url = url_for("stylesetting.upload_editor")
@@ -151,7 +151,7 @@ class TestStyleSettingView:
 
 #    def get_contents(self, f_path):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestStyleSettingView::test_get_contents -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_get_contents(self,client):
+    def test_get_contents(self,client, mocker):
         path = os.path.join(current_app.instance_path,os.path.dirname(__file__),"data/_variables.scss")
         result = StyleSettingView().get_contents(path)
         test = [
@@ -166,13 +166,13 @@ class TestStyleSettingView:
 
         # raise Exception
         path = "not_exist_path"
-        mock_abort = patch("weko_admin.admin.abort",return_value=make_response())
+        mock_abort = mocker.patch("weko_admin.admin.abort",return_value=make_response())
         result = StyleSettingView().get_contents(path)
         mock_abort.assert_called_with(500)
 
 #    def cmp_files(self, f_path1, f_path2):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestStyleSettingView::test_cmp_files -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_cmp_files(self,app,client):
+    def test_cmp_files(self,app,client, mocker):
         path1=os.path.join(current_app.instance_path,os.path.dirname(__file__),"data/_variables.scss")
         path2=os.path.join(current_app.instance_path,os.path.dirname(__file__),"data/actions.json")
         result = StyleSettingView().cmp_files(path1,path2)
@@ -181,7 +181,7 @@ class TestStyleSettingView:
         result = StyleSettingView().cmp_files(path1,path1)
         assert result == True
 
-        mock_abort = patch("weko_admin.admin.abort",return_value=make_response())
+        mock_abort = mocker.patch("weko_admin.admin.abort",return_value=make_response())
         path1 = "not_exist_path1"
         path2 = "not_exist_path2"
         result = StyleSettingView().cmp_files(path1,path2)
@@ -247,7 +247,8 @@ class TestReportView:
 
         # indexes is []
         mock_render = mocker.patch("weko_admin.admin.ReportView.render",return_value=make_response())
-        client.get(url)
+        res = client.get(url)
+        print(res)
         args,kwargs = mock_render.call_args
         test = {"total":0,"open":0,"private":0}
         assert args[0] == "weko_admin/admin/report.html"
@@ -346,8 +347,8 @@ class TestReportView:
                 }
             }
         }
-        patch("invenio_stats.utils.get_aggregations",return_value=agg)
-        mock_render = patch("weko_admin.admin.ReportView.render",return_value=make_response())
+        mocker.patch("invenio_stats.utils.get_aggregations",return_value=agg)
+        mock_render = mocker.patch("weko_admin.admin.ReportView.render",return_value=make_response())
         test = {
             "total":2,
             "open":1,
@@ -361,15 +362,15 @@ class TestReportView:
         assert kwargs["current_schedule"] == {'frequency': 'daily', 'details': '', 'enabled': False}
         assert kwargs["repositories"][0]["id"] == "comm1"
 
-        with patch("weko_index_tree.api.Indexes.get_public_indexes_list",return_value=[]):
-            with patch("invenio_stats.utils.get_aggregations",return_value={}):
-                with patch("weko_admin.admin.ReportView.render",side_effect=Exception("test_error")):
-                    result = client.get(url)
-                    assert result.status_code == 400
+        with patch("weko_index_tree.api.Indexes.get_public_indexes_list",return_value=[]), \
+                mocker.patch("invenio_stats.utils.get_aggregations",return_value={}), \
+                mocker.patch("weko_admin.admin.ReportView.render",side_effect=Exception("test_error")):
+            result = client.get(url)
+            assert result.status_code == 400
 
 #    def get_file_stats_output(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestReportView::test_get_file_stats_output -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_get_file_stats_output(self,client,users,statistic_email_addrs):
+    def test_get_file_stats_output(self,client,users,statistic_email_addrs,mocker):
         login_user_via_session(client,email=users[0]["email"])
         url = url_for("report.get_file_stats_output")
         stats_json = {
@@ -461,7 +462,7 @@ class TestReportView:
         data = {
             "report":json.dumps(stats_json),"year":"2022","month":"10","send_email":"False"
         }
-        patch("weko_admin.admin.package_reports",return_value=BytesIO())
+        mocker.patch("weko_admin.admin.package_reports",return_value=io.BytesIO())
         result = client.post(url,data=data)
         assert result.headers["Content-Type"] == "application/x-zip-compressed"
         assert result.headers["Content-Disposition"] == "attachment; filename=logReport_2022-10.zip"
@@ -472,9 +473,10 @@ class TestReportView:
             "report":json.dumps(stats_json),"year":"2022","month":"10","send_email":"True"
         }
         ## send_mail is true
-        mock_send = patch("weko_admin.admin.send_mail",return_value=True)
-        mock_flash = patch("weko_admin.admin.flash")
-        mock_redirect = patch("weko_admin.admin.redirect",return_value=make_response())
+        mocker.patch("weko_admin.admin.render_template",return_value="2022-10 Log report.")
+        mock_send = mocker.patch("weko_admin.admin.send_mail",return_value=True)
+        mock_flash = mocker.patch("weko_admin.admin.flash")
+        mock_redirect = mocker.patch("weko_admin.admin.redirect",return_value=make_response())
         result = client.post(url,data=data)
         mock_flash.assert_called_with(True,"error")
         mock_redirect.assert_called_with("/admin/report/")
@@ -483,9 +485,9 @@ class TestReportView:
         assert args[1] == ["test.taro@test.org"]
 
         ## send_mail is false
-        mock_send = patch("weko_admin.admin.send_mail",return_value=False)
-        mock_flash = patch("weko_admin.admin.flash")
-        mock_redirect = patch("weko_admin.admin.redirect",return_value=make_response())
+        mock_send = mocker.patch("weko_admin.admin.send_mail",return_value=False)
+        mock_flash = mocker.patch("weko_admin.admin.flash")
+        mock_redirect = mocker.patch("weko_admin.admin.redirect",return_value=make_response())
         result = client.post(url,data=data)
         mock_flash.assert_called_with('Successfully sent the reports to the recepients.')
         mock_redirect.assert_called_with("/admin/report/")
@@ -494,9 +496,10 @@ class TestReportView:
         assert args[1] == ["test.taro@test.org"]
 
         # raise Exception
-        patch("weko_admin.admin.package_reports",side_effect=Exception("test_error"))
-        mock_flash = patch("weko_admin.admin.flash")
-        mock_redirect = patch("weko_admin.admin.redirect",return_value=make_response())
+        mocker.patch("weko_admin.admin.package_reports",side_effect=Exception("test_error"))
+        mock_flash = mocker.patch("weko_admin.admin.flash")
+        mock_redirect = mocker.patch("weko_admin.admin.redirect",return_value=make_response())
+        print("!")
         result = client.post(url,data=data)
         mock_flash.assert_called_with('Unexpected error occurred.',"error")
         mock_redirect.assert_called_with("/admin/report/")
@@ -504,7 +507,7 @@ class TestReportView:
 
 #    def get_user_report_data(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestReportView::test_get_user_report_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_get_user_report_data(self,client,users):
+    def test_get_user_report_data(self,client,users, mocker):
         login_user_via_session(client,email=users[0]["email"])
         url = url_for("report.get_user_report_data")
         user_report = {
@@ -519,16 +522,16 @@ class TestReportView:
                 {"role_name":"Registered Users","count":9}
             ],
         }
-        patch("weko_admin.admin.get_user_report",return_value=user_report)
+        mocker.patch("weko_admin.admin.get_user_report",return_value=user_report)
         result = client.get(url)
         assert json.loads(result.data) == user_report
 
 #    def set_email_schedule(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestReportView::test_set_email_schedule -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_set_email_schedule(self,client,users):
+    def test_set_email_schedule(self,client,users, mocker):
         login_user_via_session(client,email=users[0]["email"])
         url = url_for("report.set_email_schedule")
-        patch("weko_admin.admin.redirect",return_value=make_response())
+        mocker.patch("weko_admin.admin.redirect",return_value=make_response())
 
         # frequency is daily
         data = {
@@ -559,20 +562,20 @@ class TestReportView:
 
         # raise Exception
         with patch("weko_admin.admin.AdminSettings.update",side_effect=Exception("test_error")):
-            mock_flash = patch("weko_admin.admin.flash")
+            mock_flash = mocker.patch("weko_admin.admin.flash")
             result = client.post(url,data=data)
             mock_flash.assert_called_with('Could Not Save Changes.',"error")
 
 
 #    def get_email_address(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestReportView::test_get_email_address -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_get_email_address(self,client,users,statistic_email_addrs):
+    def test_get_email_address(self,client,users,statistic_email_addrs, mocker):
         login_user_via_session(client,email=users[0]["email"])
         url = url_for("report.get_email_address")
         data = {"inputEmail":["test.smith@test.org","","not_correct_email_address"], "repository_select": "Root Index"}
 
-        patch("weko_admin.admin.redirect",return_value=make_response())
-        mock_flash = patch("weko_admin.admin.flash")
+        mocker.patch("weko_admin.admin.redirect",return_value=make_response())
+        mock_flash = mocker.patch("weko_admin.admin.flash")
         result = client.post(url,data=data)
         assert result.status_code == 200
         email_list = [row.email_address for row in StatisticsEmail.query.all()]
@@ -584,17 +587,17 @@ class TestReportView:
 #class FeedbackMailView(BaseView):
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::test_FeedbackMailView_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_FeedbackMailView_index(client,users):
+def test_FeedbackMailView_index(client,users,mocker):
     login_user_via_session(client,email=users[0]["email"])
     url = url_for("feedbackmail.index")
     # get
-    mock_render = patch("weko_admin.admin.FeedbackMailView.render",return_value=make_response())
+    mock_render = mocker.patch("weko_admin.admin.FeedbackMailView.render",return_value=make_response())
     result = client.get(url)
     assert result.status_code == 200
     mock_render.assert_called_with("weko_admin/admin/feedback_mail.html")
 
     # post
-    mock_render = patch("weko_admin.admin.FeedbackMailView.render",return_value=make_response())
+    mock_render = mocker.patch("weko_admin.admin.FeedbackMailView.render",return_value=make_response())
     result = client.post(url)
     assert result.status_code == 200
     mock_render.assert_called_with("weko_admin/admin/feedback_mail.html")
@@ -602,20 +605,20 @@ def test_FeedbackMailView_index(client,users):
 #class LanguageSettingView(BaseView):
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::test_LanguageSettingView_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_LanguageSettingView_index(client,users):
+def test_LanguageSettingView_index(client,users,mocker):
     login_user_via_session(client,email=users[0]["email"])
     url = url_for("language.index")
     with client.session_transaction() as sess:
         print(f"sess:{sess}")
         print(f"users[0]['obj'].roles:{users[0]['obj'].roles}")
     # get
-    mock_render = patch("weko_admin.admin.LanguageSettingView.render",return_value=make_response())
+    mock_render = mocker.patch("weko_admin.admin.LanguageSettingView.render",return_value=make_response())
     result = client.get(url)
     assert result.status_code == 200
     mock_render.assert_called_with("weko_admin/admin/lang_settings.html")
 
     # post
-    mock_render = patch("weko_admin.admin.LanguageSettingView.render",return_value=make_response())
+    mock_render = mocker.patch("weko_admin.admin.LanguageSettingView.render",return_value=make_response())
     result = client.post(url)
     assert result.status_code == 200
     mock_render.assert_called_with("weko_admin/admin/lang_settings.html")
@@ -624,17 +627,17 @@ def test_LanguageSettingView_index(client,users):
 #class WebApiAccount(BaseView):
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::test_LanguageSettingView_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_WebApiAccount_index(client,users):
+def test_WebApiAccount_index(client,users,mocker):
     login_user_via_session(client,email=users[0]["email"])
     url = url_for("webapiaccount.index")
     # get
-    mock_render = patch("weko_admin.admin.WebApiAccount.render",return_value=make_response())
+    mock_render = mocker.patch("weko_admin.admin.WebApiAccount.render",return_value=make_response())
     result = client.get(url)
     assert result.status_code == 200
     mock_render.assert_called_with("weko_admin/admin/web_api_account.html")
 
     # post
-    mock_render = patch("weko_admin.admin.WebApiAccount.render",return_value=make_response())
+    mock_render = mocker.patch("weko_admin.admin.WebApiAccount.render",return_value=make_response())
     result = client.post(url)
     assert result.status_code == 200
     mock_render.assert_called_with("weko_admin/admin/web_api_account.html")
@@ -643,23 +646,23 @@ def test_WebApiAccount_index(client,users):
 #class StatsSettingsView(BaseView):
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::test_StatsSettingsView_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_StatsSettingsView_index(client,users,admin_settings):
+def test_StatsSettingsView_index(client,users,admin_settings,mocker):
     login_user_via_session(client,email=users[0]["email"])
     url = url_for("statssettings.index")
     # get
-    mock_render = patch("weko_admin.admin.StatsSettingsView.render",return_value=make_response())
+    mock_render = mocker.patch("weko_admin.admin.StatsSettingsView.render",return_value=make_response())
     result = client.get(url)
     assert result.status_code == 200
     mock_render.assert_called_with("weko_admin/admin/stats_settings.html",display_stats=False)
     ## not exist admin_setting
     with patch("weko_admin.admin.AdminSettings.get",return_value=None):
-        mock_render = patch("weko_admin.admin.StatsSettingsView.render",return_value=make_response())
+        mock_render = mocker.patch("weko_admin.admin.StatsSettingsView.render",return_value=make_response())
         result = client.get(url)
         assert result.status_code == 200
         mock_render.assert_called_with("weko_admin/admin/stats_settings.html",display_stats=True)
 
     # post
-    mock_redirect = patch("weko_admin.admin.redirect",return_value=make_response())
+    mock_redirect = mocker.patch("weko_admin.admin.redirect",return_value=make_response())
     data = {"record_stats_radio":"True"}
     result = client.post(url,data=data)
     assert result.status_code == 200
@@ -671,11 +674,11 @@ def test_StatsSettingsView_index(client,users,admin_settings):
 class TestLogAnalysisSettings:
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestLogAnalysisSettings::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_index(self,db,client,users,log_crawler_list,restricted_ip_addr):
+    def test_index(self,db,client,users,log_crawler_list,restricted_ip_addr, mocker):
         login_user_via_session(client,email=users[0]["email"])
         url = url_for("loganalysissetting.index")
 
-        mock_render = patch("weko_admin.admin.LogAnalysisSettings.render",return_value=make_response())
+        mock_render = mocker.patch("weko_admin.admin.LogAnalysisSettings.render",return_value=make_response())
         result = client.get(url)
         assert result.status_code == 200
         args, kwargs = mock_render.call_args
@@ -687,7 +690,7 @@ class TestLogAnalysisSettings:
         # not shared_crawlers
         LogAnalysisRestrictedCrawlerList.query.delete()
         db.session.commit()
-        mock_render = patch("weko_admin.admin.LogAnalysisSettings.render",return_value=make_response())
+        mock_render = mocker.patch("weko_admin.admin.LogAnalysisSettings.render",return_value=make_response())
         result = client.get(url)
         assert result.status_code == 200
         args, kwargs = mock_render.call_args
@@ -698,8 +701,8 @@ class TestLogAnalysisSettings:
 
         # raise Exception
         with patch("weko_admin.admin.LogAnalysisRestrictedIpAddress.get_all",side_effect=Exception("test_error")):
-            mock_render = patch("weko_admin.admin.LogAnalysisSettings.render",return_value=make_response())
-            mock_flash = patch("weko_admin.admin.flash")
+            mock_render = mocker.patch("weko_admin.admin.LogAnalysisSettings.render",return_value=make_response())
+            mock_flash = mocker.patch("weko_admin.admin.flash")
             result = client.get(url)
             assert result.status_code == 200
             mock_flash.assert_called_with("Could not get restricted data.","error")
@@ -717,7 +720,7 @@ class TestLogAnalysisSettings:
             "shared_crawler_0_id":"1","shared_crawler_0_check":"on","shared_crawler_0":"https://bitbucket.org/niijp/jairo-crawler-list/raw/master/test2_Crawler-List_ip_blacklist.txt",
             "shared_crawler_1_id":"2","shared_crawler_1_check":"on","shared_crawler_1":"https://bitbucket.org/niijp/jairo-crawler-list/raw/master/test2_Crawler-List_useragent.txt",
         }
-        mock_render = patch("weko_admin.admin.LogAnalysisSettings.render",return_value=make_response())
+        mock_render = mocker.patch("weko_admin.admin.LogAnalysisSettings.render",return_value=make_response())
         result = client.post(url,data=data)
         assert result.status_code == 200
         args, kwargs = mock_render.call_args
@@ -733,8 +736,8 @@ class TestLogAnalysisSettings:
             "shared_crawler_1_id":"2","shared_crawler_1_check":"on","shared_crawler_1":"https://bitbucket.org/niijp/jairo-crawler-list/raw/master/test2_Crawler-List_useragent.txt",
         }
         with patch("weko_admin.admin.LogAnalysisRestrictedIpAddress.update_table",side_effect=Exception("test_error")):
-            mock_render = patch("weko_admin.admin.LogAnalysisSettings.render",return_value=make_response())
-            mock_flash = patch("weko_admin.admin.flash")
+            mock_render = mocker.patch("weko_admin.admin.LogAnalysisSettings.render",return_value=make_response())
+            mock_flash = mocker.patch("weko_admin.admin.flash")
             result = client.post(url,data=data)
             assert result.status_code == 200
             args, kwargs = mock_render.call_args
@@ -770,12 +773,12 @@ class TestLogAnalysisSettings:
 #class RankingSettingsView(BaseView):
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::test_RankingSettingsView_indes -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_RankingSettingsView_indes(client,users,ranking_settings):
+def test_RankingSettingsView_indes(client,users,ranking_settings,mocker):
     login_user_via_session(client,email=users[0]["email"])
     url = url_for("rankingsettings.index")
 
     # get, ranking_setting is exist
-    mock_render = patch("weko_admin.admin.RankingSettingsView.render",return_value=make_response())
+    mock_render = mocker.patch("weko_admin.admin.RankingSettingsView.render",return_value=make_response())
     result = client.get(url)
     assert result.status_code == 200
     args, kwargs = mock_render.call_args
@@ -788,7 +791,7 @@ def test_RankingSettingsView_indes(client,users,ranking_settings):
 
     # get, ranking_setting is not exist
     with patch("weko_admin.admin.RankingSettings.get",return_value=None):
-        mock_render = patch("weko_admin.admin.RankingSettingsView.render",return_value=make_response())
+        mock_render = mocker.patch("weko_admin.admin.RankingSettingsView.render",return_value=make_response())
         result = client.get(url)
         assert result.status_code == 200
         args, kwargs = mock_render.call_args
@@ -803,7 +806,7 @@ def test_RankingSettingsView_indes(client,users,ranking_settings):
     data = {
         "is_show":"True","new_item_period":"20","statistical_period":"730","display_rank":"15","most_reviewed_items":"on","most_downloaded_items":"on","created_most_items_user":"on","most_searched_keywords":"off","new_items":"on","submit":"not_save_ranking_settings"
     }
-    mock_render = patch("weko_admin.admin.RankingSettingsView.render",return_value=make_response())
+    mock_render = mocker.patch("weko_admin.admin.RankingSettingsView.render",return_value=make_response())
     result = client.post(url,data=data)
     assert result.status_code == 200
     args, kwargs = mock_render.call_args
@@ -819,8 +822,8 @@ def test_RankingSettingsView_indes(client,users,ranking_settings):
     data = {
         "is_show":"True","new_item_period":"20","statistical_period":"730","display_rank":"15","most_reviewed_items":"on","most_downloaded_items":"on","created_most_items_user":"on","new_items":"on","submit":"save_ranking_settings"
     }
-    mock_redirect=patch("weko_admin.admin.redirect",return_value=make_response())
-    mock_flash = patch("weko_admin.admin.flash")
+    mock_redirect=mocker.patch("weko_admin.admin.redirect",return_value=make_response())
+    mock_flash = mocker.patch("weko_admin.admin.flash")
     result = client.post(url,data=data)
     assert result.status_code==200
     mock_flash.assert_called_with("Successfully Changed Settings.")
@@ -835,8 +838,8 @@ def test_RankingSettingsView_indes(client,users,ranking_settings):
     data = {
         "is_show":"True","new_item_period":"100","statistical_period":"730","display_rank":"15","most_reviewed_items":"on","most_downloaded_items":"on","created_most_items_user":"on","new_items":"on","submit":"save_ranking_settings"
     }
-    mock_redirect=patch("weko_admin.admin.redirect",return_value=make_response())
-    mock_flash = patch("weko_admin.admin.flash")
+    mock_redirect=mocker.patch("weko_admin.admin.redirect",return_value=make_response())
+    mock_flash = mocker.patch("weko_admin.admin.flash")
     result = client.post(url,data=data)
     assert result.status_code==200
     mock_flash.assert_called_with("Failurely Changed Settings.","error")
@@ -846,8 +849,8 @@ def test_RankingSettingsView_indes(client,users,ranking_settings):
     data = {
         "is_show":"True","new_item_period":"10","statistical_period":"7300","display_rank":"15","most_reviewed_items":"on","most_downloaded_items":"on","created_most_items_user":"on","new_items":"on","submit":"save_ranking_settings"
     }
-    mock_redirect=patch("weko_admin.admin.redirect",return_value=make_response())
-    mock_flash = patch("weko_admin.admin.flash")
+    mock_redirect=mocker.patch("weko_admin.admin.redirect",return_value=make_response())
+    mock_flash = mocker.patch("weko_admin.admin.flash")
     result = client.post(url,data=data)
     assert result.status_code==200
     mock_flash.assert_called_with("Failurely Changed Settings.","error")
@@ -857,8 +860,8 @@ def test_RankingSettingsView_indes(client,users,ranking_settings):
     data = {
         "is_show":"True","new_item_period":"10","statistical_period":"730","display_rank":"150","most_reviewed_items":"on","most_downloaded_items":"on","created_most_items_user":"on","new_items":"on","submit":"save_ranking_settings"
     }
-    mock_redirect=patch("weko_admin.admin.redirect",return_value=make_response())
-    mock_flash = patch("weko_admin.admin.flash")
+    mock_redirect=mocker.patch("weko_admin.admin.redirect",return_value=make_response())
+    mock_flash = mocker.patch("weko_admin.admin.flash")
     result = client.post(url,data=data)
     assert result.status_code==200
     mock_flash.assert_called_with("Failurely Changed Settings.","error")
@@ -867,12 +870,12 @@ def test_RankingSettingsView_indes(client,users,ranking_settings):
 #class SearchSettingsView(BaseView):
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::test_SearchSettingsView_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_SearchSettingsView_index(client,db,users,item_type,admin_settings,index_style,search_management):
+def test_SearchSettingsView_index(client,db,users,item_type,admin_settings,index_style,search_management, mocker):
 
     login_user_via_session(client,email=users[0]["email"])
     url = url_for("searchsettings.index")
     # get
-    mock_render = patch("weko_admin.admin.SearchSettingsView.render",return_value=make_response())
+    mock_render = mocker.patch("weko_admin.admin.SearchSettingsView.render",return_value=make_response())
     result = client.get(url)
     assert result.status_code == 200
     test = {"init_disp_setting":{"init_disp_index":"","init_disp_screen_setting":"0","init_disp_index_disp_method":"0"},
@@ -957,7 +960,7 @@ def test_SearchSettingsView_index(client,db,users,item_type,admin_settings,index
 #class SiteLicenseSettingsView(BaseView):
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::test_SiteLicenseSettingsView_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_SiteLicenseSettingsView_index(client,users,item_type,site_license):
+def test_SiteLicenseSettingsView_index(client,users,item_type,site_license, mocker):
     login_user_via_session(client,email=users[0]["email"])
     url = url_for("sitelicensesettings.index")
     response_json = {
@@ -970,8 +973,8 @@ def test_SiteLicenseSettingsView_index(client,users,item_type,site_license):
         ],
         "item_type":{"deny":[{"id":"2","name":"テストアイテムタイプ2"}],"allow":[{"id":"1","name":"テストアイテムタイプ1"}]}
     }
-    patch("weko_admin.admin.get_response_json",return_value=response_json)
-    mock_render = patch("weko_admin.admin.SiteLicenseSettingsView.render",return_value=make_response())
+    mocker.patch("weko_admin.admin.get_response_json",return_value=response_json)
+    mock_render = mocker.patch("weko_admin.admin.SiteLicenseSettingsView.render",return_value=make_response())
     result = client.get(url)
     assert result.status_code == 200
     mock_render.assert_called_with(
@@ -1062,16 +1065,12 @@ def test_SiteLicenseSettingsView_index(client,users,item_type,site_license):
 #class SiteLicenseSendMailSettingsView(BaseView):
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::test_SiteLicenseSendMailSettingsView_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_SiteLicenseSendMailSettingsView_index(client,users,admin_settings,site_license):
-    setting = AdminSettings(id=3,name='site_license_mail_settings',settings={"Root Index": {"auto_send_flag": False}})
-    db.session.add(setting)
-    db.session.commit()
-
+def test_SiteLicenseSendMailSettingsView_index(db, client,users,admin_settings,site_license, mocker):
     login_user_via_session(client,email=users[0]["email"])
     url = url_for("sitelicensesendmail.index")
 
     # get
-    mock_render = patch("weko_admin.admin.SiteLicenseSendMailSettingsView.render",return_value = make_response())
+    mock_render = mocker.patch("weko_admin.admin.SiteLicenseSendMailSettingsView.render",return_value = make_response())
     res = client.get(url)
     assert res.status_code == 200
     args, kwargs = mock_render.call_args
@@ -1080,7 +1079,7 @@ def test_SiteLicenseSendMailSettingsView_index(client,users,admin_settings,site_
     assert kwargs["sitelicenses"][0].organization_name == "test data"
 
     login_user_via_session(client,email=users[2]["email"])
-    patch("weko_admin.admin.Community.get_repositories_by_user",return_value=[MagicMock(id="Root Index")])
+    mocker.patch("weko_admin.admin.Community.get_repositories_by_user",return_value=[MagicMock(id="Root Index")])
     res = client.get(url)
     assert res.status_code == 200
 
@@ -1094,7 +1093,7 @@ def test_SiteLicenseSendMailSettingsView_index(client,users,admin_settings,site_
         },
         "repository_id": "Root Index"
     }
-    mock_render = patch("weko_admin.admin.SiteLicenseSendMailSettingsView.render",return_value = make_response())
+    mock_render = mocker.patch("weko_admin.admin.SiteLicenseSendMailSettingsView.render",return_value = make_response())
     res = client.post(url,json=data)
     assert res.status_code == 200
     args, kwargs = mock_render.call_args
@@ -1109,11 +1108,11 @@ def test_SiteLicenseSendMailSettingsView_index(client,users,admin_settings,site_
 #class FilePreviewSettingsView(BaseView):
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::test_FilePreviewSettingsView_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_FilePreviewSettingsView_index(client, db, users, admin_settings):
+def test_FilePreviewSettingsView_index(client, db, users, admin_settings, mocker):
     login_user_via_session(client,email=users[0]["email"])
     url = url_for("filepreview.index")
     # get
-    mock_render = patch("weko_admin.admin.FilePreviewSettingsView.render", return_value = make_response())
+    mock_render = mocker.patch("weko_admin.admin.FilePreviewSettingsView.render", return_value = make_response())
     res = client.get(url)
     assert res.status_code == 200
     args, kwargs = mock_render.call_args
@@ -1124,7 +1123,7 @@ def test_FilePreviewSettingsView_index(client, db, users, admin_settings):
     # not exist admin_settings
     AdminSettings.query.filter_by(name="convert_pdf_settings").delete()
     db.session.commit()
-    mock_render = patch("weko_admin.admin.FilePreviewSettingsView.render", return_value = make_response())
+    mock_render = mocker.patch("weko_admin.admin.FilePreviewSettingsView.render", return_value = make_response())
     res = client.get(url)
     assert res.status_code == 200
     args, kwargs = mock_render.call_args
@@ -1136,8 +1135,8 @@ def test_FilePreviewSettingsView_index(client, db, users, admin_settings):
     redirect_url = "/admin/filepreview/"
     # not exist submit in data
     data = {}
-    mock_flash = patch("weko_admin.admin.flash")
-    mock_redirect = patch("weko_admin.admin.redirect", return_value=make_response())
+    mock_flash = mocker.patch("weko_admin.admin.flash")
+    mock_redirect = mocker.patch("weko_admin.admin.redirect", return_value=make_response())
     res = client.post(url,data=data)
     assert res.status_code == 200
     mock_flash.assert_called_with("Failurely Changed Settings.", "error")
@@ -1147,8 +1146,8 @@ def test_FilePreviewSettingsView_index(client, db, users, admin_settings):
     data = {
         "submit": "save_settings",
     }
-    mock_flash = patch("weko_admin.admin.flash")
-    mock_redirect = patch("weko_admin.admin.redirect", return_value=make_response())
+    mock_flash = mocker.patch("weko_admin.admin.flash")
+    mock_redirect = mocker.patch("weko_admin.admin.redirect", return_value=make_response())
     res = client.post(url,data=data)
     assert res.status_code == 200
     mock_flash.assert_called_with("Failurely Changed Settings.", "error")
@@ -1161,8 +1160,8 @@ def test_FilePreviewSettingsView_index(client, db, users, admin_settings):
             "path": "/tmp",
             "pdf_ttl": 3600
         }
-        mock_flash = patch("weko_admin.admin.flash")
-        mock_redirect = patch("weko_admin.admin.redirect", return_value=make_response())
+        mock_flash = mocker.patch("weko_admin.admin.flash")
+        mock_redirect = mocker.patch("weko_admin.admin.redirect", return_value=make_response())
         res = client.post(url,data=data)
         assert res.status_code == 200
         mock_flash.assert_called_with("Successfully Changed Settings.")
@@ -1177,8 +1176,8 @@ def test_FilePreviewSettingsView_index(client, db, users, admin_settings):
             "path": "/new_tmp",
             "pdf_ttl": 7200
         }
-        mock_flash = patch("weko_admin.admin.flash")
-        mock_redirect = patch("weko_admin.admin.redirect", return_value=make_response())
+        mock_flash = mocker.patch("weko_admin.admin.flash")
+        mock_redirect = mocker.patch("weko_admin.admin.redirect", return_value=make_response())
         res = client.post(url,data=data)
         assert res.status_code == 200
         mock_flash.assert_called_with("Successfully Changed Settings.")
@@ -1193,14 +1192,14 @@ def test_FilePreviewSettingsView_index(client, db, users, admin_settings):
 class TestItemExportSettingsView:
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestItemExportSettingsView::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_index(self, client, users, admin_settings):
+    def test_index(self, client, users, admin_settings, mocker):
         login_user_via_session(client,email=users[0]["email"])
         url = url_for("itemexportsettings.index")
         current_settings = {"allow_item_exporting": True, "enable_contents_exporting": True}
-        patch("weko_admin.admin.ItemExportSettingsView._get_current_settings", return_value=current_settings)
-        patch("weko_admin.admin.str_to_bool",side_effect=lambda x: x.lower() in ["true", "t"])
+        mocker.patch("weko_admin.admin.ItemExportSettingsView._get_current_settings", return_value=current_settings)
+        mocker.patch("weko_admin.admin.str_to_bool",side_effect=lambda x: x.lower() in ["true", "t"])
         # get
-        mock_render = patch("weko_admin.admin.ItemExportSettingsView.render", return_value=make_response())
+        mock_render = mocker.patch("weko_admin.admin.ItemExportSettingsView.render", return_value=make_response())
         res = client.get(url)
         assert res.status_code == 200
         args, kwargs = mock_render.call_args
@@ -1212,8 +1211,8 @@ class TestItemExportSettingsView:
             "item_export_radio": "False",
             "export_contents_radio": "False",
         }
-        mock_flash = patch("weko_admin.admin.flash")
-        mock_redirect = patch("weko_admin.admin.redirect", return_value=make_response())
+        mock_flash = mocker.patch("weko_admin.admin.flash")
+        mock_redirect = mocker.patch("weko_admin.admin.redirect", return_value=make_response())
         res = client.post(url, data=data)
         assert res.status_code == 200
         mock_flash.assert_called_with("Successfully Changed Settings")
@@ -1228,8 +1227,8 @@ class TestItemExportSettingsView:
                 "item_export_radio": "True",
                 "export_contents_radio": "True",
             }
-            mock_flash = patch("weko_admin.admin.flash")
-            mock_redirect = patch("weko_admin.admin.redirect", return_value=make_response())
+            mock_flash = mocker.patch("weko_admin.admin.flash")
+            mock_redirect = mocker.patch("weko_admin.admin.redirect", return_value=make_response())
             res = client.post(url, data=data)
             assert res.status_code == 200
             mock_flash.assert_called_with("Failed To Change Settings", "error")
@@ -1250,10 +1249,10 @@ class TestItemExportSettingsView:
 #class SiteInfoView(BaseView):
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::test_SiteInfoView_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_SiteInfoView_index(client, users):
+def test_SiteInfoView_index(client, users, mocker):
     login_user_via_session(client,email=users[0]["email"])
     url = url_for("site_info.index")
-    mock_render = patch("weko_admin.admin.SiteInfoView.render", return_value=make_response())
+    mock_render = mocker.patch("weko_admin.admin.SiteInfoView.render", return_value=make_response())
     res = client.get(url)
     assert res.status_code == 200
     args, kwargs = mock_render.call_args
@@ -1462,7 +1461,7 @@ class TestIdentifierSettingView:
 
 #    def on_form_prefill(self, form, id):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestIdentifierSettingView::test_on_form_prefill -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_on_form_prefill(self, setup_view_identifier):
+    def test_on_form_prefill(self, setup_view_identifier, mocker):
         app, db, _, user = setup_view_identifier
         iden = Identifier(
             repository="Root Index",
@@ -1486,7 +1485,7 @@ class TestIdentifierSettingView:
         with app.test_client() as client:
             login_user_via_session(client,email=user.email)
             url = url_for("identifier.edit_view",id="1",url="/admin/identifier/")
-            mock_render = patch("flask_admin.base.render_template", return_value=make_response())
+            mock_render = mocker.patch("flask_admin.base.render_template", return_value=make_response())
             res = client.get(url)
             args, kwargs = mock_render.call_args
             assert args[0] == "weko_records_ui/admin/pidstore_identifier_editor.html"
@@ -1498,7 +1497,7 @@ class TestIdentifierSettingView:
 #    def _get_community_list(self):
 
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestIdentifierSettingView::test_get_comunity_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_get_comunity_list(self, setup_view_identifier):
+    def test_get_comunity_list(self, setup_view_identifier, mocker):
         app, _, _, user = setup_view_identifier
         with app.test_client() as client:
             login_user_via_session(client,email=user.email)
@@ -1517,7 +1516,7 @@ class TestIdentifierSettingView:
             )
             with patch("flask_sqlalchemy._QueryProperty.__get__") as mock_query:
                 mock_query.return_value.all.side_effect = Exception("test_error")
-                mock_render = patch("flask_admin.base.render_template", return_value=make_response())
+                mock_render = mocker.patch("flask_admin.base.render_template", return_value=make_response())
                 client.post(url,data=data)
                 args, kwargs = mock_render.call_args
                 assert args[0] == "weko_records_ui/admin/pidstore_identifier_creator.html"
@@ -1525,10 +1524,10 @@ class TestIdentifierSettingView:
 #class RestrictedAccessSettingView(BaseView):
 #    def index(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::test_RestrictedAccessSettingView_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_RestrictedAccessSettingView_index(client, users, admin_settings):
+def test_RestrictedAccessSettingView_index(client, users, admin_settings, mocker):
     login_user_via_session(client,email=users[0]["email"])
     url = url_for("restricted_access.index")
-    mock_render = patch("weko_admin.admin.RestrictedAccessSettingView.render", return_value=make_response())
+    mock_render = mocker.patch("weko_admin.admin.RestrictedAccessSettingView.render", return_value=make_response())
     res = client.get(url)
     assert res.status_code == 200
     args, kwargs = mock_render.call_args
@@ -1571,17 +1570,17 @@ class TestFacetSearchSettingView:
 
 #    def create_view(self):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestFacetSearchSettingView::test_create_view -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_create_view(self, setup_view_facetsearch):
+    def test_create_view(self, setup_view_facetsearch, mocker):
         app, db, admin, user, view = setup_view_facetsearch
         with app.test_client() as client:
             login_user_via_session(client,email=user.email)
             url = url_for("facet-search.create_view",url="/admin/facet-search/")
             # can_create is True
             mapping_list = ["","path","title"]
-            patch("weko_admin.admin.get_item_mapping_list",return_value=mapping_list)
+            mocker.patch("weko_admin.admin.get_item_mapping_list",return_value=mapping_list)
             detail_condition = [["title", "text"],["creator", "text"]]
-            patch("weko_admin.admin.get_detail_search_list",return_value=detail_condition)
-            mock_render = patch("weko_admin.admin.FacetSearchSettingView.render", return_value=make_response())
+            mocker.patch("weko_admin.admin.get_detail_search_list",return_value=detail_condition)
+            mock_render = mocker.patch("weko_admin.admin.FacetSearchSettingView.render", return_value=make_response())
             test = {
                 "name_en": "",
                 "name_jp": "",
@@ -1603,13 +1602,13 @@ class TestFacetSearchSettingView:
 
             # can_create is False
             view.can_create = False
-            mock_redirect = patch("weko_admin.admin.redirect", return_value=make_response())
+            mock_redirect = mocker.patch("weko_admin.admin.redirect", return_value=make_response())
             client.get(url)
             mock_redirect.assert_called_with("/admin/facet-search/")
 
 #    def edit_view(self, id=None):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestFacetSearchSettingView::test_edit_view -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_edit_view(self, setup_view_facetsearch):
+    def test_edit_view(self, setup_view_facetsearch, mocker):
         app, db, admin, user, view = setup_view_facetsearch
         language = FacetSearchSetting(
             name_en="Data Language",
@@ -1625,15 +1624,15 @@ class TestFacetSearchSettingView:
         db.session.add(language)
         db.session.commit()
         mapping_list = ["","path","title"]
-        patch("weko_admin.admin.get_item_mapping_list",return_value=mapping_list)
+        mocker.patch("weko_admin.admin.get_item_mapping_list",return_value=mapping_list)
         detail_condition = [["title", "text"],["creator", "text"]]
-        patch("weko_admin.admin.get_detail_search_list",return_value=detail_condition)
+        mocker.patch("weko_admin.admin.get_detail_search_list",return_value=detail_condition)
 
         with app.test_client() as client:
             login_user_via_session(client,email=user.email)
             url = url_for("facet-search.edit_view",id=1,url="/admin/facet-search/")
             # can_edit is True
-            mock_render = patch("weko_admin.admin.FacetSearchSettingView.render", return_value=make_response())
+            mock_render = mocker.patch("weko_admin.admin.FacetSearchSettingView.render", return_value=make_response())
             test = {
                 "name_en": "Data Language",
                 "name_jp": "データの言語",
@@ -1656,13 +1655,13 @@ class TestFacetSearchSettingView:
 
             # can_edit is False
             view.can_edit = False
-            mock_redirect = patch("weko_admin.admin.redirect", return_value=make_response())
+            mock_redirect = mocker.patch("weko_admin.admin.redirect", return_value=make_response())
             client.get(url)
             mock_redirect.assert_called_with("/admin/facet-search/")
 
 #    def details_view(self, id=None):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestFacetSearchSettingView::test_details_view -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_details_view(self, setup_view_facetsearch):
+    def test_details_view(self, setup_view_facetsearch, mocker):
         app, db, admin, user, view = setup_view_facetsearch
         language = FacetSearchSetting(
             name_en="Data Language",
@@ -1678,15 +1677,15 @@ class TestFacetSearchSettingView:
         db.session.add(language)
         db.session.commit()
         mapping_list = ["","path","title"]
-        patch("weko_admin.admin.get_item_mapping_list",return_value=mapping_list)
+        mocker.patch("weko_admin.admin.get_item_mapping_list",return_value=mapping_list)
         detail_condition = [["title", "text"],["creator", "text"]]
-        patch("weko_admin.admin.get_detail_search_list",return_value=detail_condition)
+        mocker.patch("weko_admin.admin.get_detail_search_list",return_value=detail_condition)
 
         with app.test_client() as client:
             login_user_via_session(client,email=user.email)
             url = url_for("facet-search.details_view",id=1,url="/admin/facet-search/")
             # can_edit is True
-            mock_render = patch("weko_admin.admin.FacetSearchSettingView.render", return_value=make_response())
+            mock_render = mocker.patch("weko_admin.admin.FacetSearchSettingView.render", return_value=make_response())
             test = {
                 "name_en": "Data Language",
                 "name_jp": "データの言語",
@@ -1708,13 +1707,13 @@ class TestFacetSearchSettingView:
 
             # can_edit is False
             view.can_edit = False
-            mock_redirect = patch("weko_admin.admin.redirect", return_value=make_response())
+            mock_redirect = mocker.patch("weko_admin.admin.redirect", return_value=make_response())
             client.get(url)
             mock_redirect.assert_called_with("/admin/facet-search/")
 
 #    def delete(self, id=None):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestFacetSearchSettingView::test_delete -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_delete(self, setup_view_facetsearch):
+    def test_delete(self, setup_view_facetsearch, mocker):
 
         app, db, admin, user, view = setup_view_facetsearch
         language = FacetSearchSetting(
@@ -1736,14 +1735,14 @@ class TestFacetSearchSettingView:
             url = url_for("facet-search.delete",id=1,url="/admin/facet-search/")
             # can_delete is False
             view.can_delete = False
-            mock_redirect = patch("weko_admin.admin.redirect", return_value=make_response())
+            mock_redirect = mocker.patch("weko_admin.admin.redirect", return_value=make_response())
             client.get(url)
             mock_redirect.assert_called_with("/admin/facet-search/")
 
             # can_delete is True
             view.can_delete = True
 
-            mock_render = patch("weko_admin.admin.FacetSearchSettingView.render", return_value=make_response())
+            mock_render = mocker.patch("weko_admin.admin.FacetSearchSettingView.render", return_value=make_response())
             test = {
                 "name_en": "Data Language",
                 "name_jp": "データの言語",
@@ -1764,7 +1763,7 @@ class TestFacetSearchSettingView:
 
             url = url_for("facet-search.delete",url="/admin/facet-search/")
 
-            mock_render = patch("weko_admin.admin.FacetSearchSettingView.render", return_value=make_response())
+            mock_render = mocker.patch("weko_admin.admin.FacetSearchSettingView.render", return_value=make_response())
             client.get(url,data={"id":1})
             args, kwargs = mock_render.call_args
             assert args[0] == "weko_admin/admin/facet_search_setting.html"
@@ -1797,12 +1796,12 @@ class TestsReindexSearchView:
                             (3,False,403),# contributor
                             (4,False,403),# generaluser
                             ])
-    def test_ReindexSearchView_index_acl(self, client,users,admin_settings,index, is_permission ,status_code):
+    def test_ReindexSearchView_index_acl(self, client,users,admin_settings,index, is_permission ,status_code, mocker):
         login_user_via_session(client,email=users[index]["email"])
         url = url_for("reindex_search.index")
         # with patch("weko_admin.admin.check_reindex_is_running", return_value="{\"isError\":False ,\"isExecuting\":False,\"disabled_Btn\":False }"):
         with patch("weko_admin.admin.is_reindex_running", return_value=False):
-            mocker_render = patch("weko_admin.admin.ReindexSearchView.render",return_value=make_response())
+            mocker_render = mocker.patch("weko_admin.admin.ReindexSearchView.render",return_value=make_response())
             res = client.get(url)
         assert_role(res,is_permission,status_code)
 
@@ -1817,21 +1816,21 @@ class TestsReindexSearchView:
             mocker_render.assert_not_called()
 
 
-    def test_ReindexSearchView_index_guest(self, client,users,admin_settings):
+    def test_ReindexSearchView_index_guest(self, client,users,admin_settings, mocker):
         url = url_for("reindex_search.index")
         # with patch("weko_admin.admin.check_reindex_is_running", return_value="{\"isError\":False ,\"isExecuting\":False,\"disabled_Btn\":False }"):
         with patch("weko_admin.admin.is_reindex_running", return_value=False):
-            mocker_render = patch("weko_admin.admin.ReindexSearchView.render",return_value=make_response())
+            mocker_render = mocker.patch("weko_admin.admin.ReindexSearchView.render",return_value=make_response())
             res = client.get(url)
         assert res.status_code == 302
         mocker_render.assert_not_called()
 
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestsReindexSearchView::test_ReindexSearchView_index_raise -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_ReindexSearchView_index_raise(self, client,users,admin_settings):
+    def test_ReindexSearchView_index_raise(self, client,users,admin_settings, mocker):
         login_user_via_session(client,email=users[0]["email"])# sysadmin
         url = url_for("reindex_search.index")
         with patch("weko_admin.admin.is_reindex_running", side_effect=BaseException("test_error")):
-            mocker_render = patch("weko_admin.admin.ReindexSearchView.render",return_value=make_response())
+            mocker_render = mocker.patch("weko_admin.admin.ReindexSearchView.render",return_value=make_response())
             res = client.get(url)
         assert res.status_code == 500
         mocker_render.assert_not_called()
@@ -1843,16 +1842,16 @@ class TestsReindexSearchView:
                             (3,False,403),# contributor
                             (4,False,403),# generaluser
                             ])
-    def test_ReindexSearchView_reindex_acl(self, client,users,index,admin_settings, is_permission ,status_code):
+    def test_ReindexSearchView_reindex_acl(self, client,users,index,admin_settings, is_permission ,status_code, mocker):
         login_user_via_session(client,email=users[index]["email"])
         url = url_for("reindex_search.reindex" , is_db_to_search=False)
         with patch("weko_admin.admin.is_reindex_running", return_value=False):
-            patch("weko_admin.admin.reindex", return_value='completed')
+            mocker.patch("weko_admin.admin.reindex", return_value='completed')
             res = client.get(url)
             assert res.status_code == 405
             assert res.data != str({"responce" : _('completed')})
         with patch("weko_admin.admin.is_reindex_running", return_value=False):
-            patch("weko_admin.admin.reindex", return_value='completed')
+            mocker.patch("weko_admin.admin.reindex", return_value='completed')
             res = client.post(url)
             assert_role(res,is_permission,status_code)
             if res.status_code == 200:
@@ -1868,35 +1867,35 @@ class TestsReindexSearchView:
         assert res.status_code == 302
 
 
-    def test_ReindexSearchView_reindex_param1(self, client,users,admin_settings):
+    def test_ReindexSearchView_reindex_param1(self, client,users,admin_settings, mocker):
         login_user_via_session(client,email=users[0]["email"])# sysadmin
         url = url_for("reindex_search.reindex" , is_db_to_search=False)
         with patch("weko_admin.admin.is_reindex_running", return_value=False):
-            patch("weko_admin.admin.reindex", return_value='completed')
+            mocker.patch("weko_admin.admin.reindex", return_value='completed')
             res = client.post(url)
             assert res.status_code == 200
             assert json.loads(res.data) == {"responce" : _('completed')}
-    def test_ReindexSearchView_reindex_param2(self, client,users,admin_settings):
+    def test_ReindexSearchView_reindex_param2(self, client,users,admin_settings, mocker):
         login_user_via_session(client,email=users[0]["email"])# sysadmin
         url = url_for("reindex_search.reindex" , is_db_to_search=True)
         with patch("weko_admin.admin.is_reindex_running", return_value=False):
-            patch("weko_admin.admin.reindex", return_value='completed')
+            mocker.patch("weko_admin.admin.reindex", return_value='completed')
             res = client.post(url)
             assert res.status_code == 200
             assert json.loads(res.data) == {"responce" : _('completed')}
-    def test_ReindexSearchView_reindex_param3(self, client,users,admin_settings):
+    def test_ReindexSearchView_reindex_param3(self, client,users,admin_settings, mocker):
         login_user_via_session(client,email=users[0]["email"])# sysadmin
         url = url_for("reindex_search.reindex" , is_db_to_search="aaa")
         with patch("weko_admin.admin.is_reindex_running", return_value=False):
-            patch("weko_admin.admin.reindex", return_value='completed')
+            mocker.patch("weko_admin.admin.reindex", return_value='completed')
             res = client.post(url)
             assert res.status_code == 200
             assert json.loads(res.data) == {"responce" : _('completed')}
-    def test_ReindexSearchView_reindex_param4(self, client,users,admin_settings):
+    def test_ReindexSearchView_reindex_param4(self, client,users,admin_settings, mocker):
         login_user_via_session(client,email=users[0]["email"])# sysadmin
         url = url_for("reindex_search.reindex" )
         with patch("weko_admin.admin.is_reindex_running", return_value=False):
-            patch("weko_admin.admin.reindex", return_value='completed')
+            mocker.patch("weko_admin.admin.reindex", return_value='completed')
             res = client.post(url)
             assert res.status_code == 200
             assert json.loads(res.data) == {"responce" : _('completed')}
@@ -1910,12 +1909,12 @@ class TestsReindexSearchView:
             assert res.status_code == 400
             assert json.loads(res.data).get("error") ==  _('executing...')
 
-    def test_ReindexSearchView_reindex_chk_err(self, client,users,admin_settings):
+    def test_ReindexSearchView_reindex_chk_err(self, client,users,admin_settings, mocker):
         login_user_via_session(client,email=users[0]["email"])# sysadmin
         url = url_for("reindex_search.reindex" , is_db_to_search=False)
         with patch("weko_admin.admin.is_reindex_running", return_value=False):
-            # patch("weko_admin.admin.reindex", return_value='completed')
-            patch("weko_admin.admin.AdminSettings.get", return_value=dict({"has_errored": True}))
+            # mocker.patch("weko_admin.admin.reindex", return_value='completed')
+            mocker.patch("weko_admin.admin.AdminSettings.get", return_value=dict({"has_errored": True}))
             res = client.post(url)
             assert res.status_code == 400
             assert json.loads(res.data).get("error") == _('haserror')
@@ -1929,7 +1928,7 @@ class TestsReindexSearchView:
             res = client.post(url)
             assert res.status_code == 500
             assert json.loads(res.data).get("error") != None
-            admin_setting = AdminSettings.get('search_reindex_settings',False)
+            admin_setting = AdminSettings.get('elastic_reindex_settings',False)
             assert True == admin_setting.get('has_errored')
 
     def test_ReindexSearchView_reindex_return2(self, client,users,admin_settings):
@@ -1940,7 +1939,7 @@ class TestsReindexSearchView:
                 res = client.post(url)
                 assert res.status_code == 500
                 assert json.loads(res.data).get("error") != None
-                admin_setting = AdminSettings.get('search_reindex_settings',False)
+                admin_setting = AdminSettings.get('elastic_reindex_settings',False)
                 assert True == admin_setting.get('has_errored')
 
     @pytest.mark.parametrize("index,is_permission,status_code",[
@@ -1970,11 +1969,11 @@ class TestsReindexSearchView:
             assert res.status_code == 200
             assert json.loads(res.data) == dict({ "isError":False ,"isExecuting":True,"disabled_Btn":True })
 
-    def test_ReindexSearchView_check_reindex_iserror(self, client,users,admin_settings):
+    def test_ReindexSearchView_check_reindex_iserror(self, client,users,admin_settings, mocker):
         login_user_via_session(client,email=users[0]["email"])# sysadmin
         url = url_for("reindex_search.check_reindex_is_running")
         with patch("weko_admin.admin.is_reindex_running", return_value=False):
-            patch("weko_admin.admin.AdminSettings.get", return_value=dict({"has_errored": True}))
+            mocker.patch("weko_admin.admin.AdminSettings.get", return_value=dict({"has_errored": True}))
             res = client.get(url)
             assert res.status_code == 200
             assert json.loads(res.data) == dict({ "isError":True ,"isExecuting":False,"disabled_Btn":True })
@@ -2038,7 +2037,7 @@ class TestSwordAPISettingsView:
         assert kwargs["workflows"] == ["workflow 1"]
         assert kwargs["duplicate_check_value"] == ""
         assert kwargs["is_enable_duplicate_check"] == False
-        
+
         # xml get
         # old_format exit and xml setting is workflow
         login_user_via_session(client,email=users[0]["email"])# sysadmin
@@ -2065,7 +2064,7 @@ class TestSwordAPISettingsView:
         assert kwargs["workflows"] == ["workflow 1"]
         assert kwargs["duplicate_check_value"] == ""
         assert kwargs["is_enable_duplicate_check"] == False
-        
+
         # tsv/csv get
         # new_format exit
         AdminSettings.query.filter_by(name="sword_api_setting").delete()
@@ -2188,7 +2187,7 @@ class TestSwordAPIJsonldSettingsView:
         assert kwargs["workflows"]
         assert kwargs["can_edit"]
         assert kwargs["is_enable_duplicate_check"] == False
-        
+
         # post
         # success registration_type:Direct, active:True
         login_user_via_session(client,email=users[0]["email"])# sysadmin
@@ -2331,7 +2330,7 @@ class TestSwordAPIJsonldSettingsView:
         assert kwargs["workflows"]
         assert kwargs["can_edit"]
         assert kwargs["is_enable_duplicate_check"] == False
-        
+
         # get
         # cannot edit
         mock_can_edit.return_value = False
@@ -2942,7 +2941,7 @@ class Dict2Obj:
 #class CommunitiesPageSettingView(BaseView):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_admin.py::TestCommunitiesPageSettingView -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
 class TestCommunitiesPageSettingView:
-    def test_index(self, client, users):
+    def test_index(self, client, users, mocker):
         login_user_via_session(client, email=users[0]["email"])
         url = url_for("communities_page.index")
         # Mock current settings for GET request
@@ -2952,9 +2951,10 @@ class TestCommunitiesPageSettingView:
             icon_code='fa fa-handshake-o',
             supplement='Database supplement text'
         )
-        patch("weko_admin.admin.AdminSettings.get", return_value=current_settings)
+        mocker.patch("weko_admin.admin.AdminSettings.get", return_value=current_settings)
         # Mock render for GET request
-        mock_render = patch("weko_admin.admin.CommunitiesPageSettingView.render", return_value=make_response())
+        mock_render = mocker.patch("weko_admin.admin.CommunitiesPageSettingView.render", return_value=make_response())
+        mocker.patch("weko_admin.ext.WekoAdmin.role_has_access", return_value=True)
         # GET request test
         res = client.get(url)
         assert res.status_code == 200
@@ -2974,9 +2974,9 @@ class TestCommunitiesPageSettingView:
             "submit": "save_settings"
         }
         # Mock flash and redirect
-        mock_flash = patch("weko_admin.admin.flash")
-        mock_redirect = patch("weko_admin.admin.redirect", return_value=make_response())
-        mock_update = patch("weko_admin.admin.AdminSettings.update")
+        mock_flash = mocker.patch("weko_admin.admin.flash")
+        mock_redirect = mocker.patch("weko_admin.admin.redirect", return_value=make_response())
+        mock_update = mocker.patch("weko_admin.admin.AdminSettings.update")
         res = client.post(url, data=data)
         assert res.status_code == 200
         mock_update.assert_called_with("community_settings", {
@@ -2988,7 +2988,7 @@ class TestCommunitiesPageSettingView:
         mock_flash.assert_called_with(_("MSG_WEKO_THEME_SAVE_SUCCESS"), 'success')
         mock_redirect.assert_called_with(url_for('communities_page.index'))
 
-    def test_index_form_setting_error(self, client, users):
+    def test_index_form_setting_error(self, client, users, mocker):
         login_user_via_session(client, email=users[0]["email"])
         url = url_for("communities_page.index")
         # POST request test (successful case)
@@ -3000,22 +3000,22 @@ class TestCommunitiesPageSettingView:
             "submit": "save_settings"
         }
         # Mock flash and redirect
-        mock_flash = patch("weko_admin.admin.flash")
-        mock_redirect = patch("weko_admin.admin.redirect", return_value=make_response())
+        mock_flash = mocker.patch("weko_admin.admin.flash")
+        mock_redirect = mocker.patch("weko_admin.admin.redirect", return_value=make_response())
         # POST request test (exception case)
-        patch("weko_admin.admin.AdminSettings.update", side_effect=Exception("test_error"))
+        mocker.patch("weko_admin.admin.AdminSettings.update", side_effect=Exception("test_error"))
         res = client.post(url, data=data)
         assert res.status_code == 200
 
-    def test_index_with_default_settings(self, client, users):
+    def test_index_with_default_settings(self, client, users, mocker):
         # ログイン処理
         login_user_via_session(client, email=users[0]["email"])
         # URLを取得
         url = url_for("communities_page.index")
         # AdminSettings.getをモックし、設定が存在しない場合の挙動をテスト
-        patch("weko_admin.admin.AdminSettings.get", return_value=None)
+        mocker.patch("weko_admin.admin.AdminSettings.get", return_value=None)
         # GETリクエスト
-        mock_render = patch("weko_admin.admin.CommunitiesPageSettingView.render", return_value=make_response())
+        mock_render = mocker.patch("weko_admin.admin.CommunitiesPageSettingView.render", return_value=make_response())
         res = client.get(url)
         # ステータスコードが200か確認
         assert res.status_code == 200
@@ -3026,7 +3026,8 @@ class TestCommunitiesPageSettingView:
         assert kwargs["temp"]["title2"] == default_properties['title2']
         assert kwargs["temp"]["icon_code"] == default_properties['icon_code']
         assert kwargs["temp"]["supplement"] == default_properties['supplement']
-    def test_index_with_database_settings(self, client, users):
+
+    def test_index_with_database_settings(self, client, users, mocker):
         # ログイン処理
         login_user_via_session(client, email=users[0]["email"])
         # URLを取得
@@ -3038,9 +3039,10 @@ class TestCommunitiesPageSettingView:
             'icon_code': 'fa fa-handshake-o',
             'supplement': 'Database supplement text'
         }
-        patch("weko_admin.admin.AdminSettings.get", return_value=Dict2Obj(**db_settings))
+        mocker.patch("weko_admin.admin.AdminSettings.get", return_value=Dict2Obj(**db_settings))
+        mocker.patch("weko_admin.ext.WekoAdmin.role_has_access", return_value=True)
         # GETリクエスト
-        mock_render = patch("weko_admin.admin.CommunitiesPageSettingView.render", return_value=make_response())
+        mock_render = mocker.patch("weko_admin.admin.CommunitiesPageSettingView.render", return_value=make_response())
         res = client.get(url)
         # ステータスコードが200か確認
         assert res.status_code == 200
