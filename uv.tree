@@ -1,0 +1,952 @@
+weko v2.1.0
+├── angular-gettext-babel v0.3
+│   └── babel v2.14.0
+├── asn1crypto v0.23.0
+├── b2handle v1.2.0
+│   ├── datetime v6.0
+│   │   ├── pytz v2024.1
+│   │   └── zope-interface v8.5
+│   ├── future v1.0.0
+│   ├── requests v2.32.3
+│   │   ├── certifi v2023.7.22
+│   │   ├── charset-normalizer v3.3.2
+│   │   ├── idna v2.6
+│   │   └── urllib3 v1.26.20
+│   └── six v1.16.0
+├── bagit v1.7.0
+├── base32-lib v1.0.2
+│   └── six v1.16.0
+├── bibtexparser v1.0.1
+│   ├── future v1.0.0
+│   └── pyparsing v3.3.2
+├── boto3 v1.20.0
+│   ├── botocore v1.23.24
+│   │   ├── jmespath v0.10.0
+│   │   ├── python-dateutil v2.9.0.post0
+│   │   │   └── six v1.16.0
+│   │   └── urllib3 v1.26.20
+│   ├── jmespath v0.10.0
+│   └── s3transfer v0.5.2
+│       └── botocore v1.23.24 (*)
+├── cachelib v0.9.0
+├── captcha v0.6.0
+│   └── pillow v10.3.0
+├── cchardet v2.2.0a2
+├── celery v5.3.6
+│   ├── billiard v4.2.0
+│   ├── click v8.1.7
+│   ├── click-didyoumean v0.3.1
+│   │   └── click v8.1.7
+│   ├── click-plugins v1.1.1.2
+│   │   └── click v8.1.7
+│   ├── click-repl v0.3.0
+│   │   ├── click v8.1.7
+│   │   └── prompt-toolkit v3.0.47
+│   │       └── wcwidth v0.1.7
+│   ├── kombu v5.3.7
+│   │   ├── amqp v5.2.0
+│   │   │   └── vine v5.1.0
+│   │   └── vine v5.1.0
+│   ├── python-dateutil v2.9.0.post0 (*)
+│   ├── tzdata v2026.3
+│   └── vine v5.1.0
+├── chardet v3.0.4
+├── citeproc-py v0.5.1
+│   └── lxml v5.2.1
+├── citeproc-py-styles v0.1.3
+│   ├── lxml v5.2.1
+│   └── six v1.16.0
+├── click-default-group v1.2.4
+│   └── click v8.1.7
+├── counter-robots v2018.6
+├── cryptography v42.0.5
+│   └── cffi v1.16.0
+│       └── pycparser v2.18
+├── datacite v1.0.1
+│   ├── jsonschema v4.21.1
+│   │   ├── attrs v23.2.0
+│   │   ├── jsonschema-specifications v2025.9.1
+│   │   │   └── referencing v0.37.0
+│   │   │       ├── attrs v23.2.0
+│   │   │       ├── rpds-py v2026.6.3
+│   │   │       └── typing-extensions v4.16.0
+│   │   ├── referencing v0.37.0 (*)
+│   │   └── rpds-py v2026.6.3
+│   ├── lxml v5.2.1
+│   └── requests v2.32.3 (*)
+├── dictdiffer v0.9.0
+├── dojson v1.3.2
+│   ├── click v8.1.7
+│   ├── lxml v5.2.1
+│   └── simplejson v3.19.2
+├── entrypoints v0.2.3
+├── feedgen v0.7.0
+│   ├── lxml v5.2.1
+│   └── python-dateutil v2.9.0.post0 (*)
+├── flask v2.2.0
+│   ├── click v8.1.7
+│   ├── itsdangerous v2.0.1
+│   ├── jinja2 v3.1.4
+│   │   └── markupsafe v2.1.5
+│   └── werkzeug v2.2.3
+│       └── markupsafe v2.1.5
+├── flask-admin v1.6.1
+│   ├── flask v2.2.0 (*)
+│   └── wtforms v2.3.3
+│       └── markupsafe v2.1.5
+├── flask-alembic v2.0.1
+│   ├── alembic v1.10.4
+│   │   ├── mako v1.0.7
+│   │   │   └── markupsafe v2.1.5
+│   │   ├── sqlalchemy v1.4.50
+│   │   │   └── greenlet v3.5.3
+│   │   └── typing-extensions v4.16.0
+│   ├── flask v2.2.0 (*)
+│   ├── flask-sqlalchemy v2.5.1
+│   │   ├── flask v2.2.0 (*)
+│   │   └── sqlalchemy v1.4.50 (*)
+│   └── sqlalchemy v1.4.50 (*)
+├── flask-assets v0.12
+│   ├── flask v2.2.0 (*)
+│   └── webassets v2.0
+├── flask-babel v4.0.0
+│   ├── babel v2.14.0
+│   ├── flask v2.2.0 (*)
+│   ├── jinja2 v3.1.4 (*)
+│   └── pytz v2024.1
+├── flask-breadcrumbs v0.5.1
+│   ├── flask v2.2.0 (*)
+│   ├── flask-menu v1.0.1
+│   │   └── flask v2.2.0 (*)
+│   └── six v1.16.0
+├── flask-celeryext v0.4.0
+│   ├── celery v5.3.6 (*)
+│   └── flask v2.2.0 (*)
+├── flask-collect-invenio v1.4.0
+│   └── flask v2.2.0 (*)
+├── flask-cors v4.0.0
+│   └── flask v2.2.0 (*)
+├── flask-debugtoolbar v0.13.1
+│   ├── blinker v1.7.0
+│   ├── flask v2.2.0 (*)
+│   ├── itsdangerous v2.0.1
+│   └── werkzeug v2.2.3 (*)
+├── flask-iiif v1.0.0
+│   ├── blinker v1.7.0
+│   ├── cachelib v0.9.0
+│   ├── flask v2.2.0 (*)
+│   ├── flask-restful v0.3.10
+│   │   ├── aniso8601 v8.0.0
+│   │   ├── flask v2.2.0 (*)
+│   │   ├── pytz v2024.1
+│   │   └── six v1.16.0
+│   ├── pillow v10.3.0
+│   └── six v1.16.0
+├── flask-kvsession v0.6.2
+│   ├── flask v2.2.0 (*)
+│   ├── itsdangerous v2.0.1
+│   ├── simplekv v0.14.1
+│   ├── six v1.16.0
+│   └── werkzeug v2.2.3 (*)
+├── flask-kvsession-invenio v0.6.3
+│   ├── flask v2.2.0 (*)
+│   ├── itsdangerous v2.0.1
+│   ├── simplekv v0.14.1
+│   ├── six v1.16.0
+│   └── werkzeug v2.2.3 (*)
+├── flask-limiter v2.0.0
+│   ├── flask v2.2.0 (*)
+│   ├── limits v3.11.0
+│   │   ├── deprecated v1.3.1
+│   │   │   └── wrapt v2.2.2
+│   │   ├── importlib-resources v7.1.0
+│   │   ├── packaging v24.2
+│   │   └── typing-extensions v4.16.0
+│   └── six v1.16.0
+├── flask-login v0.6.3
+│   ├── flask v2.2.0 (*)
+│   └── werkzeug v2.2.3 (*)
+├── flask-mail v0.9.1
+│   ├── blinker v1.7.0
+│   └── flask v2.2.0 (*)
+├── flask-marshmallow v0.14.0
+│   ├── flask v2.2.0 (*)
+│   ├── marshmallow v3.26.2
+│   │   └── packaging v24.2
+│   └── six v1.16.0
+├── flask-menu v1.0.1 (*)
+├── flask-oauthlib v0.9.6
+│   ├── cachelib v0.9.0
+│   ├── flask v2.2.0 (*)
+│   ├── flask-caching v2.1.0
+│   │   ├── cachelib v0.9.0
+│   │   └── flask v2.2.0 (*)
+│   ├── oauthlib v2.1.0
+│   └── requests-oauthlib v1.1.0
+│       ├── oauthlib v2.1.0
+│       └── requests v2.32.3 (*)
+├── flask-plugins v2.0.0
+│   ├── flask v2.2.0 (*)
+│   ├── markupsafe v2.1.5
+│   └── werkzeug v2.2.3 (*)
+├── flask-resources v1.2.0
+│   ├── flask v2.2.0 (*)
+│   ├── marshmallow v3.26.2 (*)
+│   └── speaklater v1.3
+├── flask-security-invenio v3.3.3
+│   ├── email-validator v1.0.5
+│   │   ├── dnspython v2.8.0
+│   │   └── idna v2.6
+│   ├── flask v2.2.0 (*)
+│   ├── flask-babel v4.0.0 (*)
+│   ├── flask-login v0.6.3 (*)
+│   ├── flask-mail v0.9.1 (*)
+│   ├── flask-principal v0.4.0
+│   │   ├── blinker v1.7.0
+│   │   └── flask v2.2.0 (*)
+│   ├── flask-wtf v1.2.1
+│   │   ├── flask v2.2.0 (*)
+│   │   ├── itsdangerous v2.0.1
+│   │   └── wtforms v2.3.3 (*)
+│   ├── itsdangerous v2.0.1
+│   ├── passlib v1.7.4
+│   └── speaklater v1.3
+├── flask-shell-ipython v0.5.1
+│   ├── click v8.1.7
+│   ├── flask v2.2.0 (*)
+│   └── ipython v8.26.0
+│       ├── decorator v4.1.2
+│       ├── jedi v0.19.1
+│       │   └── parso v0.8.4
+│       ├── matplotlib-inline v0.2.2
+│       │   └── traitlets v5.14.3
+│       ├── pexpect v4.9.0
+│       │   └── ptyprocess v0.5.2
+│       ├── prompt-toolkit v3.0.47 (*)
+│       ├── pygments v2.7.4
+│       ├── stack-data v0.6.3
+│       │   ├── asttokens v3.0.2
+│       │   ├── executing v2.2.1
+│       │   └── pure-eval v0.2.3
+│       └── traitlets v5.14.3
+├── flask-sitemap v0.4.0
+│   ├── blinker v1.7.0
+│   └── flask v2.2.0 (*)
+├── flask-sqlalchemy v2.5.1 (*)
+├── flask-talisman v0.8.1
+│   └── six v1.16.0
+├── flask-webpackext v1.0.0
+│   ├── flask v2.2.0 (*)
+│   ├── pynpm v0.3.1
+│   └── pywebpack v1.2.0
+│       ├── node-semver v0.1.1
+│       │   └── setuptools v71.0.3
+│       └── pynpm v0.3.1
+├── fpdf v1.7.2
+├── fs v2.4.16
+│   ├── appdirs v1.4.4
+│   ├── setuptools v71.0.3
+│   └── six v1.16.0
+├── github3-py v4.0.1
+│   ├── pyjwt[crypto] v2.8.0
+│   │   └── cryptography v42.0.5 (extra: crypto) (*)
+│   ├── python-dateutil v2.9.0.post0 (*)
+│   ├── requests v2.32.3 (*)
+│   └── uritemplate v4.2.0
+├── humanize v4.10.0
+├── iiif-prezi v0.3.0
+│   ├── lxml v5.2.1
+│   ├── pillow v10.3.0
+│   └── pyld v3.1.0
+│       ├── cachetools v7.1.4
+│       ├── frozendict v2.4.7
+│       └── lxml v5.2.1
+├── importlib-metadata v4.8.3
+│   └── zipp v4.1.0
+├── ipaddress v1.0.19
+├── ipython-genutils v0.2.0
+├── jinja2 v3.1.4 (*)
+├── jinja2-cli v0.8.2
+│   └── jinja2 v3.1.4 (*)
+├── jsmin v3.0.1
+├── jsonpatch v1.33
+│   └── jsonpointer v1.14
+├── jsonpath-ng v1.5.2
+│   ├── decorator v4.1.2
+│   ├── ply v3.11
+│   └── six v1.16.0
+├── jsonref v1.1.0
+├── jsonresolver v0.3.2
+│   ├── pluggy v0.13.1
+│   └── werkzeug v2.2.3 (*)
+├── jsonschema v4.21.1 (*)
+├── jupyter-client v6.1.12
+│   ├── jupyter-core v4.12.0
+│   │   └── traitlets v5.14.3
+│   ├── python-dateutil v2.9.0.post0 (*)
+│   ├── pyzmq v25.1.1
+│   ├── tornado v6.4.2
+│   └── traitlets v5.14.3
+├── kombu v5.3.7 (*)
+├── luqum v0.13.0
+│   └── ply v3.11
+├── lxml-html-clean v0.4.4
+│   └── lxml v5.2.1
+├── marshmallow-sqlalchemy v0.23.1
+│   ├── marshmallow v3.26.2 (*)
+│   └── sqlalchemy v1.4.50 (*)
+├── marshmallow-utils v0.9.1
+│   ├── arrow v1.3.0
+│   │   ├── python-dateutil v2.9.0.post0 (*)
+│   │   └── types-python-dateutil v2.9.0.20260716
+│   ├── babel v2.14.0
+│   ├── babel-edtf v1.1.4
+│   │   ├── babel v2.14.0
+│   │   └── edtf v4.0.1
+│   │       ├── pyparsing v3.3.2
+│   │       ├── python-dateutil v2.9.0.post0 (*)
+│   │       └── six v1.16.0
+│   ├── bleach v6.1.0
+│   │   ├── six v1.16.0
+│   │   └── webencodings v0.5.1
+│   ├── edtf v4.0.1 (*)
+│   ├── ftfy v4.4.3
+│   │   ├── html5lib v1.1
+│   │   │   ├── six v1.16.0
+│   │   │   └── webencodings v0.5.1
+│   │   └── wcwidth v0.1.7
+│   ├── geojson v3.1.0
+│   ├── idutils v1.2.1
+│   │   ├── isbnlib v3.10.14
+│   │   └── six v1.16.0
+│   ├── marshmallow v3.26.2 (*)
+│   ├── marshmallow-oneofschema v3.1.1
+│   │   └── marshmallow v3.26.2 (*)
+│   ├── pycountry v24.6.1
+│   ├── uritemplate v4.2.0
+│   └── werkzeug v2.2.3 (*)
+├── maxminddb-geolite2 v2018.703
+│   └── maxminddb v1.5.2
+├── more-itertools v8.10.0
+├── nbconvert v7.16.3
+│   ├── beautifulsoup4 v4.9.3
+│   │   └── soupsieve v2.8.4
+│   ├── bleach v6.1.0 (*)
+│   ├── defusedxml v0.7.1
+│   ├── jinja2 v3.1.4 (*)
+│   ├── jupyter-core v4.12.0 (*)
+│   ├── jupyterlab-pygments v0.3.0
+│   ├── markupsafe v2.1.5
+│   ├── mistune v3.0.2
+│   ├── nbclient v0.10.4
+│   │   ├── jupyter-client v6.1.12 (*)
+│   │   ├── jupyter-core v4.12.0 (*)
+│   │   ├── nbformat v5.10.4
+│   │   │   ├── fastjsonschema v2.21.2
+│   │   │   ├── jsonschema v4.21.1 (*)
+│   │   │   ├── jupyter-core v4.12.0 (*)
+│   │   │   └── traitlets v5.14.3
+│   │   └── traitlets v5.14.3
+│   ├── nbformat v5.10.4 (*)
+│   ├── packaging v24.2
+│   ├── pandocfilters v1.5.1
+│   ├── pygments v2.7.4
+│   ├── tinycss2 v1.5.1
+│   │   └── webencodings v0.5.1
+│   └── traitlets v5.14.3
+├── netaddr v0.8.0
+├── numpy v1.26.0
+├── opensearch-dsl v2.0.1
+│   ├── opensearch-py v2.0.0
+│   │   ├── certifi v2023.7.22
+│   │   ├── requests v2.32.3 (*)
+│   │   └── urllib3 v1.26.20
+│   ├── python-dateutil v2.9.0.post0 (*)
+│   └── six v1.16.0
+├── ordereddict v1.1
+├── pickleshare v0.7.5
+├── psycopg2-binary v2.9.10
+├── py-ldnlib v0.1.3
+│   ├── rdflib v5.0.0
+│   │   ├── isodate v0.7.2
+│   │   ├── pyparsing v3.3.2
+│   │   └── six v1.16.0
+│   ├── rdflib-jsonld v0.6.1
+│   │   └── rdflib v5.0.0 (*)
+│   └── requests v2.32.3 (*)
+├── pyjwt v2.8.0
+├── pyld v3.1.0 (*)
+├── pymysql v1.1.1
+├── pypdf v4.3.1
+├── pypdfium2 v4.30.0
+├── pypeg2 v2.15.2
+├── python-editor v1.0.3
+├── python-geoip v1.2
+├── redis v6.0.0
+├── requests v2.32.3 (*)
+├── resync v2.0.1
+│   ├── defusedxml v0.7.1
+│   └── python-dateutil v2.9.0.post0 (*)
+├── rocrate v0.6.0
+│   ├── arcp v0.2.1
+│   ├── click v8.1.7
+│   ├── galaxy2cwl v0.1.4
+│   │   ├── gxformat2 v0.20.0
+│   │   │   ├── bioblend v1.9.0
+│   │   │   │   ├── pyyaml v6.0.1
+│   │   │   │   ├── requests v2.32.3 (*)
+│   │   │   │   ├── requests-toolbelt v1.0.0
+│   │   │   │   │   └── requests v2.32.3 (*)
+│   │   │   │   └── tuspy v1.1.0
+│   │   │   │       ├── aiohttp v3.14.1
+│   │   │   │       │   ├── aiohappyeyeballs v2.7.1
+│   │   │   │       │   ├── aiosignal v1.4.0
+│   │   │   │       │   │   ├── frozenlist v1.8.0
+│   │   │   │       │   │   └── typing-extensions v4.16.0
+│   │   │   │       │   ├── attrs v23.2.0
+│   │   │   │       │   ├── frozenlist v1.8.0
+│   │   │   │       │   ├── multidict v6.7.1
+│   │   │   │       │   ├── propcache v0.5.2
+│   │   │   │       │   ├── typing-extensions v4.16.0
+│   │   │   │       │   └── yarl v1.24.5
+│   │   │   │       │       ├── idna v2.6
+│   │   │   │       │       ├── multidict v6.7.1
+│   │   │   │       │       └── propcache v0.5.2
+│   │   │   │       ├── requests v2.32.3 (*)
+│   │   │   │       └── tinydb v4.8.2
+│   │   │   ├── pyyaml v6.0.1
+│   │   │   ├── schema-salad v8.5.20240311110950
+│   │   │   │   ├── cachecontrol[filecache] v0.14.4
+│   │   │   │   │   ├── msgpack v1.0.8
+│   │   │   │   │   ├── requests v2.32.3 (*)
+│   │   │   │   │   └── filelock v3.30.2 (extra: filecache)
+│   │   │   │   ├── mistune v3.0.2
+│   │   │   │   ├── mypy-extensions v1.1.0
+│   │   │   │   ├── rdflib v5.0.0 (*)
+│   │   │   │   ├── requests v2.32.3 (*)
+│   │   │   │   └── ruamel-yaml v0.18.17
+│   │   │   │       └── ruamel-yaml-clib v0.2.15
+│   │   │   └── typing-extensions v4.16.0
+│   │   └── pyyaml v6.0.1
+│   ├── jinja2 v3.1.4 (*)
+│   ├── python-dateutil v2.9.0.post0 (*)
+│   └── requests v2.32.3 (*)
+├── s3fs v2022.1.0
+│   ├── aiobotocore v2.1.2
+│   │   ├── aiohttp v3.14.1 (*)
+│   │   ├── aioitertools v0.13.0
+│   │   ├── botocore v1.23.24 (*)
+│   │   └── wrapt v2.2.2
+│   ├── aiohttp v3.14.1 (*)
+│   └── fsspec v2022.1.0
+├── sentry-sdk v1.0.0
+│   ├── certifi v2023.7.22
+│   └── urllib3 v1.26.20
+├── sickle v0.7.0
+│   ├── lxml v5.2.1
+│   └── requests v2.32.3 (*)
+├── simplegeneric v0.8.1
+├── snowballstemmer v3.1.1
+├── sphinx v1.8.4
+│   ├── alabaster v0.7.16
+│   ├── babel v2.14.0
+│   ├── docutils v0.15.2
+│   ├── imagesize v2.0.0
+│   ├── jinja2 v3.1.4 (*)
+│   ├── packaging v24.2
+│   ├── pygments v2.7.4
+│   ├── requests v2.32.3 (*)
+│   ├── setuptools v71.0.3
+│   ├── six v1.16.0
+│   ├── snowballstemmer v3.1.1
+│   └── sphinxcontrib-websupport v1.2.4
+│       └── sphinxcontrib-serializinghtml v2.0.0
+├── sqlalchemy-continuum v1.4.1
+│   ├── sqlalchemy v1.4.50 (*)
+│   └── sqlalchemy-utils v0.38.3
+│       └── sqlalchemy v1.4.50 (*)
+├── sqlalchemy-utils v0.38.3 (*)
+├── sword3common v0.1.1
+├── testpath v0.3.1
+├── tika v2.6.0
+│   ├── requests v2.32.3 (*)
+│   └── setuptools v71.0.3
+├── ua-parser v0.18.0
+├── uritools v4.0.2
+├── wand v0.6.13
+├── watchdog v2.2.1
+├── webargs v5.5.3
+│   └── marshmallow v3.26.2 (*)
+├── wtforms-alchemy v0.18.0
+│   ├── sqlalchemy v1.4.50 (*)
+│   ├── sqlalchemy-utils v0.38.3 (*)
+│   ├── wtforms v2.3.3 (*)
+│   └── wtforms-components v0.10.5
+│       ├── email-validator v1.0.5 (*)
+│       ├── intervals v0.8.0
+│       │   └── infinity v1.4
+│       ├── markupsafe v2.1.5
+│       ├── six v1.16.0
+│       ├── validators v0.12.0
+│       │   ├── decorator v4.1.2
+│       │   └── six v1.16.0
+│       └── wtforms v2.3.3 (*)
+├── xmlschema v1.0.8
+│   └── elementpath v1.1.2
+├── xmltodict v0.12.0
+├── yarl v1.24.5 (*)
+├── zipstream-ng v1.7.1
+├── cookiecutter v1.6.0 (group: dev)
+│   ├── binaryornot v0.4.4
+│   │   └── chardet v3.0.4
+│   ├── click v8.1.7
+│   ├── future v1.0.0
+│   ├── jinja2 v3.1.4 (*)
+│   ├── jinja2-time v0.2.0
+│   │   ├── arrow v1.3.0 (*)
+│   │   └── jinja2 v3.1.4 (*)
+│   ├── poyo v0.4.1
+│   ├── requests v2.32.3 (*)
+│   └── whichcraft v0.4.1
+├── pytest v7.4.4 (group: dev)
+│   ├── iniconfig v2.3.0
+│   ├── packaging v24.2
+│   └── pluggy v0.13.1
+├── tox v3.28.0 (group: dev)
+│   ├── filelock v3.30.2
+│   ├── packaging v24.2
+│   ├── pluggy v0.13.1
+│   ├── py v1.11.0
+│   ├── six v1.16.0
+│   └── virtualenv v21.6.1
+│       ├── distlib v0.4.3
+│       ├── filelock v3.30.2
+│       ├── platformdirs v4.11.0
+│       └── python-discovery v1.4.4
+│           ├── filelock v3.30.2
+│           └── platformdirs v4.11.0
+├── tox-setuptools-version v0.0.0.3 (group: dev)
+│   └── tox v3.28.0 (*)
+├── invenio-access v2.0.0 (group: invenio)
+│   ├── invenio-accounts v5.0.1
+│   │   ├── cryptography v42.0.5 (*)
+│   │   ├── flask-kvsession-invenio v0.6.3 (*)
+│   │   ├── flask-security-invenio v3.3.3 (*)
+│   │   ├── invenio-celery v1.3.1
+│   │   │   ├── celery v5.3.6 (*)
+│   │   │   ├── flask-celeryext v0.4.0 (*)
+│   │   │   ├── invenio-base v1.4.0
+│   │   │   │   ├── blinker v1.7.0
+│   │   │   │   ├── flask v2.2.0 (*)
+│   │   │   │   ├── importlib-metadata v4.8.3 (*)
+│   │   │   │   ├── importlib-resources v7.1.0
+│   │   │   │   ├── itsdangerous v2.0.1
+│   │   │   │   ├── markupsafe v2.1.5
+│   │   │   │   ├── watchdog v2.2.1
+│   │   │   │   └── werkzeug v2.2.3 (*)
+│   │   │   ├── msgpack v1.0.8
+│   │   │   └── redis v6.0.0
+│   │   ├── invenio-i18n v2.1.1
+│   │   │   ├── babel v2.14.0
+│   │   │   ├── flask-babel v4.0.0 (*)
+│   │   │   └── invenio-base v1.4.0 (*)
+│   │   ├── invenio-mail v2.1.0
+│   │   │   ├── flask v2.2.0 (*)
+│   │   │   ├── flask-mail v0.9.1 (*)
+│   │   │   ├── invenio-admin v1.4.0
+│   │   │   │   ├── flask-admin v1.6.1 (*)
+│   │   │   │   ├── flask-menu v1.0.1 (*)
+│   │   │   │   ├── flask-principal v0.4.0 (*)
+│   │   │   │   ├── invenio-accounts v5.0.1 (*)
+│   │   │   │   ├── invenio-base v1.4.0 (*)
+│   │   │   │   ├── invenio-db v1.1.5
+│   │   │   │   │   ├── alembic v1.10.4 (*)
+│   │   │   │   │   ├── flask-alembic v2.0.1 (*)
+│   │   │   │   │   ├── flask-sqlalchemy v2.5.1 (*)
+│   │   │   │   │   ├── invenio-base v1.4.0 (*)
+│   │   │   │   │   ├── sqlalchemy[asyncio] v1.4.50
+│   │   │   │   │   │   ├── greenlet v3.5.3
+│   │   │   │   │   │   └── greenlet v3.5.3 (extra: asyncio)
+│   │   │   │   │   ├── sqlalchemy-continuum v1.4.1 (*)
+│   │   │   │   │   └── sqlalchemy-utils v0.38.3 (*)
+│   │   │   │   └── invenio-i18n v2.1.1 (*)
+│   │   │   └── invenio-db v1.1.5 (*)
+│   │   ├── invenio-rest v1.3.0
+│   │   │   ├── flask-cors v4.0.0 (*)
+│   │   │   ├── invenio-base v1.4.0 (*)
+│   │   │   ├── invenio-logging[sentry-sdk] v2.1.0
+│   │   │   │   ├── invenio-celery v1.3.1 (*)
+│   │   │   │   ├── invenio-db v1.1.5 (*)
+│   │   │   │   └── sentry-sdk[flask] v1.0.0 (extra: sentry-sdk)
+│   │   │   │       ├── certifi v2023.7.22
+│   │   │   │       ├── urllib3 v1.26.20
+│   │   │   │       ├── blinker v1.7.0 (extra: flask)
+│   │   │   │       └── flask v2.2.0 (extra: flask) (*)
+│   │   │   ├── itsdangerous v2.0.1
+│   │   │   ├── marshmallow v3.26.2 (*)
+│   │   │   └── webargs v5.5.3 (*)
+│   │   ├── invenio-theme v3.1.0
+│   │   │   ├── flask-menu v1.0.1 (*)
+│   │   │   ├── invenio-assets v2.0.1
+│   │   │   │   ├── flask-collect-invenio v1.4.0 (*)
+│   │   │   │   ├── flask-webpackext v1.0.0 (*)
+│   │   │   │   ├── invenio-base v1.4.0 (*)
+│   │   │   │   ├── node-semver v0.1.1 (*)
+│   │   │   │   └── pywebpack v1.2.0 (*)
+│   │   │   ├── invenio-base v1.4.0 (*)
+│   │   │   ├── invenio-i18n v2.1.1 (*)
+│   │   │   └── jsmin v3.0.1
+│   │   ├── maxminddb-geolite2 v2018.703 (*)
+│   │   ├── pyjwt v2.8.0
+│   │   ├── simplekv v0.14.1
+│   │   └── ua-parser v0.18.0
+│   ├── invenio-admin v1.4.0 (*)
+│   ├── invenio-base v1.4.0 (*)
+│   └── invenio-i18n v2.1.1 (*)
+├── invenio-accounts v5.0.1 (group: invenio) (*)
+├── invenio-admin v1.4.0 (group: invenio) (*)
+├── invenio-app v1.5.0 (group: invenio)
+│   ├── flask-limiter v2.0.0 (*)
+│   ├── flask-shell-ipython v0.5.1 (*)
+│   ├── flask-talisman v0.8.1 (*)
+│   ├── invenio-base v1.4.0 (*)
+│   ├── invenio-cache v1.3.0
+│   │   ├── flask-caching v2.1.0 (*)
+│   │   └── invenio-base v1.4.0 (*)
+│   ├── invenio-celery v1.3.1 (*)
+│   ├── invenio-config v1.0.4
+│   │   └── flask v2.2.0 (*)
+│   └── uritools v4.0.2
+├── invenio-assets v2.0.1 (group: invenio) (*)
+├── invenio-base v1.4.0 (group: invenio) (*)
+├── invenio-cache v1.3.0 (group: invenio) (*)
+├── invenio-celery v1.3.1 (group: invenio) (*)
+├── invenio-communities v1.0.0a29 (group: invenio)
+│   ├── bleach v6.1.0 (*)
+│   ├── flask v2.2.0 (*)
+│   ├── flask-babel v4.0.0 (*)
+│   ├── invenio-access v2.0.0 (*)
+│   ├── invenio-accounts v5.0.1 (*)
+│   ├── invenio-files-rest v2.2.0
+│   │   ├── click-default-group v1.2.4 (*)
+│   │   ├── flask-wtf v1.2.1 (*)
+│   │   ├── fs v2.4.16 (*)
+│   │   ├── invenio-accounts v5.0.1 (*)
+│   │   └── invenio-i18n v2.1.1 (*)
+│   ├── invenio-indexer v2.3.0
+│   │   ├── invenio-db v1.1.5 (*)
+│   │   ├── invenio-pidstore v1.3.1
+│   │   │   ├── base32-lib v1.0.2 (*)
+│   │   │   ├── importlib-metadata v4.8.3 (*)
+│   │   │   ├── importlib-resources v7.1.0
+│   │   │   ├── invenio-base v1.4.0 (*)
+│   │   │   └── invenio-i18n v2.1.1 (*)
+│   │   ├── invenio-records v2.3.0
+│   │   │   ├── arrow v1.3.0 (*)
+│   │   │   ├── invenio-celery v1.3.1 (*)
+│   │   │   ├── invenio-i18n v2.1.1 (*)
+│   │   │   ├── jsonpatch v1.33 (*)
+│   │   │   ├── jsonref v1.1.0
+│   │   │   ├── jsonresolver v0.3.2 (*)
+│   │   │   └── jsonschema v4.21.1 (*)
+│   │   └── pytz v2024.1
+│   ├── invenio-pidstore v1.3.1 (*)
+│   ├── invenio-records v2.3.0 (*)
+│   └── invenio-rest v1.3.0 (*)
+├── invenio-config v1.0.4 (group: invenio) (*)
+├── invenio-csl-rest v1.0.0a1 (group: invenio)
+│   ├── citeproc-py-styles v0.1.3 (*)
+│   └── invenio-rest v1.3.0 (*)
+├── invenio-db v1.1.5 (group: invenio) (*)
+├── invenio-deposit v1.0.0a11 (group: invenio)
+│   ├── dictdiffer v0.9.0
+│   ├── flask v2.2.0 (*)
+│   ├── flask-babel v4.0.0 (*)
+│   ├── flask-login v0.6.3 (*)
+│   ├── invenio-assets v2.0.1 (*)
+│   ├── invenio-db v1.1.5 (*)
+│   ├── invenio-files-rest v2.2.0 (*)
+│   ├── invenio-jsonschemas v1.1.4
+│   │   ├── importlib-metadata v4.8.3 (*)
+│   │   ├── importlib-resources v7.1.0
+│   │   ├── invenio-base v1.4.0 (*)
+│   │   └── jsonref v1.1.0
+│   ├── invenio-oauth2server v2.3.0
+│   │   ├── cachelib v0.9.0
+│   │   ├── flask-oauthlib v0.9.6 (*)
+│   │   ├── flask-wtf v1.2.1 (*)
+│   │   ├── future v1.0.0
+│   │   ├── importlib-metadata v4.8.3 (*)
+│   │   ├── invenio-accounts v5.0.1 (*)
+│   │   ├── invenio-base v1.4.0 (*)
+│   │   ├── invenio-i18n v2.1.1 (*)
+│   │   ├── invenio-theme v3.1.0 (*)
+│   │   ├── pyjwt v2.8.0
+│   │   ├── requests-oauthlib v1.1.0 (*)
+│   │   ├── wtforms v2.3.3 (*)
+│   │   └── wtforms-alchemy v0.18.0 (*)
+│   ├── invenio-records-files v1.2.1
+│   │   ├── flask v2.2.0 (*)
+│   │   ├── invenio-files-rest v2.2.0 (*)
+│   │   ├── invenio-records v2.3.0 (*)
+│   │   └── invenio-records-rest v2.4.1
+│   │       ├── bleach v6.1.0 (*)
+│   │       ├── ftfy v4.4.3 (*)
+│   │       ├── invenio-base v1.4.0 (*)
+│   │       ├── invenio-i18n v2.1.1 (*)
+│   │       ├── invenio-indexer v2.3.0 (*)
+│   │       ├── invenio-pidstore v1.3.1 (*)
+│   │       ├── invenio-records v2.3.0 (*)
+│   │       └── invenio-rest v1.3.0 (*)
+│   ├── invenio-records-rest v2.4.1 (*)
+│   ├── invenio-records-ui v1.2.0
+│   │   ├── invenio-base v1.4.0 (*)
+│   │   ├── invenio-i18n v2.1.1 (*)
+│   │   ├── invenio-pidstore v1.3.1 (*)
+│   │   └── invenio-records v2.3.0 (*)
+│   ├── invenio-search-ui v2.8.5
+│   │   ├── babel v2.14.0
+│   │   ├── invenio-assets v2.0.1 (*)
+│   │   ├── invenio-base v1.4.0 (*)
+│   │   └── invenio-i18n v2.1.1 (*)
+│   ├── sqlalchemy-continuum v1.4.1 (*)
+│   └── sqlalchemy-utils[encrypted] v0.38.3
+│       ├── sqlalchemy v1.4.50 (*)
+│       └── cryptography v42.0.5 (extra: encrypted) (*)
+├── invenio-files-rest v2.2.0 (group: invenio) (*)
+├── invenio-formatter v2.0.3 (group: invenio)
+│   ├── arrow v1.3.0 (*)
+│   ├── bleach v6.1.0 (*)
+│   ├── invenio-base v1.4.0 (*)
+│   ├── invenio-i18n v2.1.1 (*)
+│   └── pillow v10.3.0
+├── invenio-i18n v2.1.1 (group: invenio) (*)
+├── invenio-iiif v1.2.0 (group: invenio)
+│   ├── flask-iiif v1.0.0 (*)
+│   ├── iiif-prezi v0.3.0 (*)
+│   ├── invenio-access v2.0.0 (*)
+│   ├── invenio-base v1.4.0 (*)
+│   ├── invenio-celery v1.3.1 (*)
+│   ├── invenio-files-rest v2.2.0 (*)
+│   ├── invenio-records-files v1.2.1 (*)
+│   └── wand v0.6.13
+├── invenio-indexer v2.3.0 (group: invenio) (*)
+├── invenio-jsonschemas v1.1.4 (group: invenio) (*)
+├── invenio-logging v2.1.0 (group: invenio)
+│   ├── invenio-celery v1.3.1 (*)
+│   └── invenio-db v1.1.5 (*)
+├── invenio-mail v2.1.0 (group: invenio) (*)
+├── invenio-oaiharvester v1.0.0a4.dev20171205 (group: invenio)
+│   ├── blinker v1.7.0
+│   ├── flask v2.2.0 (*)
+│   ├── flask-celeryext v0.4.0 (*)
+│   └── sickle v0.7.0 (*)
+├── invenio-oaiserver v2.2.1 (group: invenio)
+│   ├── arrow v1.3.0 (*)
+│   ├── dojson v1.3.2 (*)
+│   ├── invenio-base v1.4.0 (*)
+│   ├── invenio-i18n v2.1.1 (*)
+│   ├── invenio-pidstore v1.3.1 (*)
+│   ├── invenio-records v2.3.0 (*)
+│   ├── invenio-rest v1.3.0 (*)
+│   └── lxml v5.2.1
+├── invenio-oauth2server v2.3.0 (group: invenio) (*)
+├── invenio-oauthclient v4.0.0 (group: invenio)
+│   ├── blinker v1.7.0
+│   ├── flask-oauthlib v0.9.6 (*)
+│   ├── github3-py v4.0.1 (*)
+│   ├── invenio-accounts v5.0.1 (*)
+│   ├── invenio-base v1.4.0 (*)
+│   ├── invenio-i18n v2.1.1 (*)
+│   ├── invenio-mail v2.1.0 (*)
+│   ├── invenio-theme v3.1.0 (*)
+│   ├── oauthlib v2.1.0
+│   ├── requests-oauthlib v1.1.0 (*)
+│   ├── uritemplate v4.2.0
+│   └── uritools v4.0.2
+├── invenio-pidrelations v0.2.0 (group: invenio)
+│   ├── invenio-base v1.4.0 (*)
+│   ├── invenio-i18n v2.1.1 (*)
+│   ├── invenio-pidstore v1.3.1 (*)
+│   ├── marshmallow v3.26.2 (*)
+│   └── speaklater v1.3
+├── invenio-pidstore v1.3.1 (group: invenio) (*)
+├── invenio-previewer v2.2.0 (group: invenio)
+│   ├── charset-normalizer v3.3.2
+│   ├── invenio-assets v2.0.1 (*)
+│   ├── invenio-base v1.4.0 (*)
+│   ├── invenio-formatter v2.0.3 (*)
+│   ├── invenio-i18n v2.1.1 (*)
+│   ├── invenio-pidstore v1.3.1 (*)
+│   ├── invenio-records-ui v1.2.0 (*)
+│   ├── lxml-html-clean v0.4.4 (*)
+│   ├── mistune v3.0.2
+│   ├── nbconvert v7.16.3 (*)
+│   └── nbformat v5.10.4 (*)
+├── invenio-query-parser v0.6.0 (group: invenio)
+│   ├── ordereddict v1.1
+│   ├── pypeg2 v2.15.2
+│   └── six v1.16.0
+├── invenio-queues v1.0.1 (group: invenio)
+│   ├── invenio-base v1.4.0 (*)
+│   ├── invenio-celery v1.3.1 (*)
+│   └── redis v6.0.0
+├── invenio-records v2.3.0 (group: invenio) (*)
+├── invenio-records-files v1.2.1 (group: invenio) (*)
+├── invenio-records-rest v2.4.1 (group: invenio) (*)
+├── invenio-records-ui v1.2.0 (group: invenio) (*)
+├── invenio-resourcesyncclient v1.0.0.dev20200000 (group: invenio)
+│   └── flask-babel v4.0.0 (*)
+├── invenio-resourcesyncserver v1.0.0.dev20200000 (group: invenio)
+│   └── flask-babel v4.0.0 (*)
+├── invenio-rest v1.3.0 (group: invenio) (*)
+├── invenio-s3 v1.0.6 (group: invenio)
+│   ├── boto3 v1.20.0 (*)
+│   ├── invenio-files-rest v2.2.0 (*)
+│   └── s3fs v2022.1.0 (*)
+├── invenio-search v2.3.1 (group: invenio)
+│   ├── dictdiffer v0.9.0
+│   └── invenio-base v1.4.0 (*)
+├── invenio-search-ui v2.8.5 (group: invenio) (*)
+├── invenio-stats v4.0.2 (group: invenio)
+│   ├── counter-robots v2018.6
+│   ├── invenio-base v1.4.0 (*)
+│   ├── invenio-cache v1.3.0 (*)
+│   ├── invenio-celery v1.3.1 (*)
+│   ├── invenio-queues v1.0.1 (*)
+│   ├── maxminddb-geolite2 v2018.703 (*)
+│   ├── python-dateutil v2.9.0.post0 (*)
+│   └── python-geoip v1.2
+├── invenio-theme v3.1.0 (group: invenio) (*)
+├── weko-accounts v0.1.0.dev20170000 (group: weko)
+│   ├── flask-babel v4.0.0 (*)
+│   ├── invenio-accounts v5.0.1 (*)
+│   ├── invenio-admin v1.4.0 (*)
+│   ├── invenio-db v1.1.5 (*)
+│   └── invenio-logging v2.1.0 (*)
+├── weko-admin v0.1.0.dev20170000 (group: weko)
+│   ├── flask-babel v4.0.0 (*)
+│   ├── flask-breadcrumbs v0.5.1 (*)
+│   ├── flask-mail v0.9.1 (*)
+│   ├── flask-wtf v1.2.1 (*)
+│   ├── invenio-accounts v5.0.1 (*)
+│   ├── invenio-admin v1.4.0 (*)
+│   ├── invenio-assets v2.0.1 (*)
+│   ├── invenio-cache v1.3.0 (*)
+│   ├── invenio-db v1.1.5 (*)
+│   ├── invenio-indexer v2.3.0 (*)
+│   ├── invenio-search v2.3.1 (*)
+│   ├── requests v2.32.3 (*)
+│   ├── sqlalchemy-continuum v1.4.1 (*)
+│   └── wtforms v2.3.3 (*)
+├── weko-authors v0.1.0.dev20170000 (group: weko)
+│   └── flask-babel v4.0.0 (*)
+├── weko-bulkupdate v1.0.0.dev20190000 (group: weko)
+│   └── flask-babel v4.0.0 (*)
+├── weko-deposit v0.1.0.dev20170000 (group: weko)
+│   └── flask-babel v4.0.0 (*)
+├── weko-gridlayout v1.0.0.dev20190000 (group: weko)
+│   └── flask-babel v4.0.0 (*)
+├── weko-groups v0.1.0.dev20170000 (group: weko)
+│   ├── flask v2.2.0 (*)
+│   ├── flask-babel v4.0.0 (*)
+│   ├── flask-breadcrumbs v0.5.1 (*)
+│   ├── flask-menu v1.0.1 (*)
+│   ├── flask-security-invenio v3.3.3 (*)
+│   ├── flask-wtf v1.2.1 (*)
+│   ├── invenio-accounts v5.0.1 (*)
+│   ├── invenio-admin v1.4.0 (*)
+│   ├── invenio-assets v2.0.1 (*)
+│   ├── invenio-db v1.1.5 (*)
+│   ├── wtforms v2.3.3 (*)
+│   └── wtforms-alchemy v0.18.0 (*)
+├── weko-handle v1.0.0.dev20190000 (group: weko)
+│   └── flask-babel v4.0.0 (*)
+├── weko-index-tree v0.1.0.dev20170000 (group: weko)
+│   └── flask-babel v4.0.0 (*)
+├── weko-indextree-journal v1.0.0.dev20190000 (group: weko)
+│   ├── flask-babel v4.0.0 (*)
+│   └── invenio-logging v2.1.0 (*)
+├── weko-items-autofill v1.0.0.dev20190000 (group: weko)
+│   └── flask-babel v4.0.0 (*)
+├── weko-items-ui v0.1.0.dev20170000 (group: weko)
+│   ├── flask-babel v4.0.0 (*)
+│   └── invenio-assets v2.0.1 (*)
+├── weko-itemtypes-ui v0.1.0.dev20170000 (group: weko)
+│   ├── flask-babel v4.0.0 (*)
+│   ├── invenio-assets v2.0.1 (*)
+│   ├── invenio-i18n v2.1.1 (*)
+│   └── invenio-theme v3.1.0 (*)
+├── weko-logging v0.1.0.dev20170000 (group: weko)
+│   ├── flask v2.2.0 (*)
+│   └── six v1.16.0
+├── weko-notifications v1.0.0.dev20250000 (group: weko)
+│   └── flask-babel v4.0.0 (*)
+├── weko-records v0.1.0.dev20170000 (group: weko)
+│   ├── dojson v1.3.2 (*)
+│   ├── feedgen v0.7.0 (*)
+│   ├── flask-babel v4.0.0 (*)
+│   ├── invenio-access v2.0.0 (*)
+│   ├── invenio-db v1.1.5 (*)
+│   ├── invenio-i18n v2.1.1 (*)
+│   ├── invenio-pidrelations v0.2.0 (*)
+│   ├── invenio-records v2.3.0 (*)
+│   ├── jsonpatch v1.33 (*)
+│   └── lxml v5.2.1
+├── weko-records-ui v0.1.0.dev20170000 (group: weko)
+│   ├── flask-babel v4.0.0 (*)
+│   ├── invenio-pidrelations v0.2.0 (*)
+│   ├── invenio-previewer v2.2.0 (*)
+│   ├── invenio-records v2.3.0 (*)
+│   └── pypdf v4.3.1
+├── weko-redis v0.1.0.dev20170000 (group: weko)
+│   ├── flask v2.2.0 (*)
+│   └── flask-babel v4.0.0 (*)
+├── weko-schema-ui v0.1.0.dev20170000 (group: weko)
+│   ├── bibtexparser v1.0.1 (*)
+│   ├── flask-babel v4.0.0 (*)
+│   └── xmlschema v1.0.8 (*)
+├── weko-search-ui v0.1.0.dev20170000 (group: weko)
+│   ├── angular-gettext-babel v0.3 (*)
+│   ├── bagit v1.7.0
+│   ├── flask-assets v0.12 (*)
+│   ├── flask-babel v4.0.0 (*)
+│   ├── invenio-assets v2.0.1 (*)
+│   ├── invenio-db v1.1.5 (*)
+│   ├── invenio-records-rest v2.4.1 (*)
+│   └── ipaddress v1.0.19
+├── weko-signposting v1.0.0.dev20220000 (group: weko)
+│   └── flask-babel v4.0.0 (*)
+├── weko-sitemap v1.0.0.dev20190000 (group: weko)
+│   └── flask-babel v4.0.0 (*)
+├── weko-swordserver v1.1.0.dev20240214 (group: weko)
+│   ├── flask-babel v4.0.0 (*)
+│   └── sword3common v0.1.1
+├── weko-theme v0.1.0.dev20170000 (group: weko)
+│   └── flask-babel v4.0.0 (*)
+├── weko-user-profiles v0.1.0.dev20170000 (group: weko)
+│   ├── flask v2.2.0 (*)
+│   ├── flask-babel v4.0.0 (*)
+│   ├── flask-breadcrumbs v0.5.1 (*)
+│   ├── flask-mail v0.9.1 (*)
+│   ├── flask-menu v1.0.1 (*)
+│   ├── flask-wtf v1.2.1 (*)
+│   ├── invenio-accounts v5.0.1 (*)
+│   └── wtforms v2.3.3 (*)
+├── weko-workflow v0.1.0.dev20170000 (group: weko)
+│   ├── flask v2.2.0 (*)
+│   └── flask-babel v4.0.0 (*)
+└── weko-workspace v0.1.0.dev20250201 (group: weko)
+    ├── flask v2.2.0 (*)
+    ├── flask-babel v4.0.0 (*)
+    ├── flask-breadcrumbs v0.5.1 (*)
+    ├── flask-menu v1.0.1 (*)
+    ├── flask-security-invenio v3.3.3 (*)
+    ├── flask-wtf v1.2.1 (*)
+    ├── invenio-accounts v5.0.1 (*)
+    ├── invenio-admin v1.4.0 (*)
+    ├── invenio-assets v2.0.1 (*)
+    ├── invenio-db v1.1.5 (*)
+    ├── wtforms v2.3.3 (*)
+    └── wtforms-alchemy v0.18.0 (*)
+(*) Package tree already displayed
