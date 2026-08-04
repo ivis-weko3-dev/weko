@@ -40,6 +40,7 @@ class TestJournals:
         assert Journal.query.filter_by(id=1).one_or_none()
 
         # raise IntegrityError
+        # Unique constraint violation
         journals = {"id": 1,"index_id":1}
         result = Journals.create(journals)
         assert result == False
