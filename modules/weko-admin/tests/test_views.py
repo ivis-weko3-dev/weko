@@ -83,7 +83,6 @@ def test_set_lifetime(app, client, db, users, db_session_remove):
 def test_lifetime(app, client,users,db, db_session_remove, mocker):
     app.register_blueprint(blueprint)
     url = url_for("weko_admin.lifetime")
-    print("test_lifetime url:{}".format(url))
     # not login
     res = client.get(url)
     assert res.status_code == 302

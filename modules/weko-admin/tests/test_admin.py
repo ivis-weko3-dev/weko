@@ -248,7 +248,6 @@ class TestReportView:
         # indexes is []
         mock_render = mocker.patch("weko_admin.admin.ReportView.render",return_value=make_response())
         res = client.get(url)
-        print(res)
         args,kwargs = mock_render.call_args
         test = {"total":0,"open":0,"private":0}
         assert args[0] == "weko_admin/admin/report.html"
@@ -499,7 +498,6 @@ class TestReportView:
         mocker.patch("weko_admin.admin.package_reports",side_effect=Exception("test_error"))
         mock_flash = mocker.patch("weko_admin.admin.flash")
         mock_redirect = mocker.patch("weko_admin.admin.redirect",return_value=make_response())
-        print("!")
         result = client.post(url,data=data)
         mock_flash.assert_called_with('Unexpected error occurred.',"error")
         mock_redirect.assert_called_with("/admin/report/")
