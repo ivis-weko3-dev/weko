@@ -32,8 +32,8 @@ weko v2.1.0
 ├── captcha v0.6.0
 │   └── pillow v10.3.0
 ├── cchardet v2.2.0a2
-├── celery v5.3.6
-│   ├── billiard v4.2.0
+├── celery v5.5.3
+│   ├── billiard v4.2.1
 │   ├── click v8.1.7
 │   ├── click-didyoumean v0.3.1
 │   │   └── click v8.1.7
@@ -43,12 +43,12 @@ weko v2.1.0
 │   │   ├── click v8.1.7
 │   │   └── prompt-toolkit v3.0.47
 │   │       └── wcwidth v0.1.7
-│   ├── kombu v5.3.7
+│   ├── kombu v5.5.2
 │   │   ├── amqp v5.2.0
 │   │   │   └── vine v5.1.0
+│   │   ├── tzdata v2025.2
 │   │   └── vine v5.1.0
 │   ├── python-dateutil v2.9.0.post0 (*)
-│   ├── tzdata v2026.3
 │   └── vine v5.1.0
 ├── chardet v3.0.4
 ├── citeproc-py v0.5.1
@@ -120,7 +120,7 @@ weko v2.1.0
 │   │   └── flask v2.2.0 (*)
 │   └── six v1.16.0
 ├── flask-celeryext v0.4.0
-│   ├── celery v5.3.6 (*)
+│   ├── celery v5.5.3 (*)
 │   └── flask v2.2.0 (*)
 ├── flask-collect-invenio v1.4.0
 │   └── flask v2.2.0 (*)
@@ -287,7 +287,7 @@ weko v2.1.0
 │   ├── pyzmq v25.1.1
 │   ├── tornado v6.4.2
 │   └── traitlets v5.14.3
-├── kombu v5.3.7 (*)
+├── kombu v5.5.2 (*)
 ├── luqum v0.13.0
 │   └── ply v3.11
 ├── lxml-html-clean v0.4.4
@@ -532,8 +532,8 @@ weko v2.1.0
 │   │   ├── cryptography v42.0.5 (*)
 │   │   ├── flask-kvsession-invenio v0.6.3 (*)
 │   │   ├── flask-security-invenio v3.3.3 (*)
-│   │   ├── invenio-celery v1.3.1
-│   │   │   ├── celery v5.3.6 (*)
+│   │   ├── invenio-celery v1.3.2
+│   │   │   ├── celery v5.5.3 (*)
 │   │   │   ├── flask-celeryext v0.4.0 (*)
 │   │   │   ├── invenio-base v1.4.0
 │   │   │   │   ├── blinker v1.7.0
@@ -575,7 +575,7 @@ weko v2.1.0
 │   │   │   ├── flask-cors v4.0.0 (*)
 │   │   │   ├── invenio-base v1.4.0 (*)
 │   │   │   ├── invenio-logging[sentry-sdk] v2.1.0
-│   │   │   │   ├── invenio-celery v1.3.1 (*)
+│   │   │   │   ├── invenio-celery v1.3.2 (*)
 │   │   │   │   ├── invenio-db v1.1.5 (*)
 │   │   │   │   └── sentry-sdk[flask] v1.0.0 (extra: sentry-sdk)
 │   │   │   │       ├── certifi v2023.7.22
@@ -613,14 +613,14 @@ weko v2.1.0
 │   ├── invenio-cache v1.3.0
 │   │   ├── flask-caching v2.1.0 (*)
 │   │   └── invenio-base v1.4.0 (*)
-│   ├── invenio-celery v1.3.1 (*)
+│   ├── invenio-celery v1.3.2 (*)
 │   ├── invenio-config v1.0.4
 │   │   └── flask v2.2.0 (*)
 │   └── uritools v4.0.2
 ├── invenio-assets v2.0.1 (group: invenio) (*)
 ├── invenio-base v1.4.0 (group: invenio) (*)
 ├── invenio-cache v1.3.0 (group: invenio) (*)
-├── invenio-celery v1.3.1 (group: invenio) (*)
+├── invenio-celery v1.3.2 (group: invenio) (*)
 ├── invenio-communities v1.0.0a29 (group: invenio)
 │   ├── bleach v6.1.0 (*)
 │   ├── flask v2.2.0 (*)
@@ -643,7 +643,7 @@ weko v2.1.0
 │   │   │   └── invenio-i18n v2.1.1 (*)
 │   │   ├── invenio-records v2.3.0
 │   │   │   ├── arrow v1.3.0 (*)
-│   │   │   ├── invenio-celery v1.3.1 (*)
+│   │   │   ├── invenio-celery v1.3.2 (*)
 │   │   │   ├── invenio-i18n v2.1.1 (*)
 │   │   │   ├── jsonpatch v1.33 (*)
 │   │   │   ├── jsonref v1.1.0
@@ -726,14 +726,14 @@ weko v2.1.0
 │   ├── iiif-prezi v0.3.0 (*)
 │   ├── invenio-access v2.0.0 (*)
 │   ├── invenio-base v1.4.0 (*)
-│   ├── invenio-celery v1.3.1 (*)
+│   ├── invenio-celery v1.3.2 (*)
 │   ├── invenio-files-rest v2.2.0 (*)
 │   ├── invenio-records-files v1.2.1 (*)
 │   └── wand v0.6.13
 ├── invenio-indexer v2.3.0 (group: invenio) (*)
 ├── invenio-jsonschemas v1.1.4 (group: invenio) (*)
 ├── invenio-logging v2.1.0 (group: invenio)
-│   ├── invenio-celery v1.3.1 (*)
+│   ├── invenio-celery v1.3.2 (*)
 │   └── invenio-db v1.1.5 (*)
 ├── invenio-mail v2.1.0 (group: invenio) (*)
 ├── invenio-oaiharvester v1.0.0a4.dev20171205 (group: invenio)
@@ -789,7 +789,7 @@ weko v2.1.0
 │   └── six v1.16.0
 ├── invenio-queues v1.0.1 (group: invenio)
 │   ├── invenio-base v1.4.0 (*)
-│   ├── invenio-celery v1.3.1 (*)
+│   ├── invenio-celery v1.3.2 (*)
 │   └── redis v6.0.0
 ├── invenio-records v2.3.0 (group: invenio) (*)
 ├── invenio-records-files v1.2.1 (group: invenio) (*)
@@ -812,7 +812,7 @@ weko v2.1.0
 │   ├── counter-robots v2018.6
 │   ├── invenio-base v1.4.0 (*)
 │   ├── invenio-cache v1.3.0 (*)
-│   ├── invenio-celery v1.3.1 (*)
+│   ├── invenio-celery v1.3.2 (*)
 │   ├── invenio-queues v1.0.1 (*)
 │   ├── maxminddb-geolite2 v2018.703 (*)
 │   ├── python-dateutil v2.9.0.post0 (*)

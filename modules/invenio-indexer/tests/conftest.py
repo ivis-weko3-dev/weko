@@ -26,15 +26,14 @@ from invenio_indexer import InvenioIndexer
 from kombu import Exchange, Queue
 from unittest.mock import patch
 
-@patch.dict('os.environ', {'INVENIO_OPENSEARCH_USER': 'invenio', 'INVENIO_OPENSEARCH_PASSWORD': 'openpass123!'})
 @pytest.fixture()
+@patch.dict('os.environ', {'INVENIO_OPENSEARCH_USER': 'invenio', 'INVENIO_OPENSEARCH_PASSWORD': 'openpass123!'})
 def base_app(request):
     """Base application fixture."""
     instance_path = tempfile.mkdtemp()
     app = Flask("testapp", instance_path=instance_path)
     app.config.update(
-        
-        BROKER_URL='amqp://guest:guest@172.19.0.4:5672/',
+        BROKER_URL='amqp://guest:guest@rabbitmq:5672/',
         CELERY_BROKER_URL=os.environ.get(
             "BROKER_URL", "amqp://guest:guest@rabbitmq:5672//"
         ),
@@ -53,12 +52,12 @@ def base_app(request):
         # ),
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
-       SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
                 'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'
         ),
-        
+        SEARCH_UI_SEARCH_INDEX="test-weko",
         SEARCH_CLIENT_CONFIG={"http_auth":("invenio","openpass123!"),"use_ssl":True, "verify_certs":False},
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         TESTING=True,

@@ -23,8 +23,6 @@ from flask_login import current_user
 from invenio_accounts.models import User
 from weko_user_profiles.models import UserProfile
 
-from .logger import weko_logger
-
 
 def file_uploaded_owner(created_user_id=0, updated_user_id=0):
     """Build upload file owners.
@@ -51,13 +49,9 @@ def file_uploaded_owner(created_user_id=0, updated_user_id=0):
     show_updated_user = False
 
     # if not current_user.is_authenticated:
-    #     weko_logger(key='WEKO_COMMON_IF_ENTER',
-    #                 branch="current_user.is_authenticated is False")
     #     return {}
 
     if current_user.is_authenticated:
-        weko_logger(key='WEKO_COMMON_IF_ENTER',
-                    branch="current_user.is_authenticated is True")
         show_created_user = True
         show_updated_user = True
 
@@ -67,8 +61,6 @@ def file_uploaded_owner(created_user_id=0, updated_user_id=0):
         created_userprofile = UserProfile.get_by_userid(created_user_id)
 
         if created_userprofile is not None:
-            weko_logger(key='WEKO_COMMON_IF_ENTER',
-                        branch="created_userprofile is not None")
             created_username = created_userprofile._username
             created_displayname = created_userprofile._displayname
 
@@ -78,8 +70,6 @@ def file_uploaded_owner(created_user_id=0, updated_user_id=0):
         updated_userprofile = UserProfile.get_by_userid(updated_user_id)
 
         if updated_userprofile is not None:
-            weko_logger(key='WEKO_COMMON_IF_ENTER',
-                        branch="updated_userprofile is not None")
             updated_username = updated_userprofile._username
             updated_displayname = updated_userprofile._displayname
 
@@ -97,5 +87,4 @@ def file_uploaded_owner(created_user_id=0, updated_user_id=0):
             'email': updated_email,
         }
     }
-    weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=result)
     return result

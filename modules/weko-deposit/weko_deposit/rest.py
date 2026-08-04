@@ -103,7 +103,6 @@ def create_blueprint(app, endpoints):
             exception (:obj:`Exception`): Exception object.
         """
         if exception is None:
-            weko_logger(app=app, key='WEKO_COMMON_IF_ENTER', branch='exception is None')
             try:
                 db.session.commit()
             except SQLAlchemyError as ex:
@@ -114,35 +113,19 @@ def create_blueprint(app, endpoints):
             weko_logger(app=app, key='WEKO_COMMON_ERROR_UNEXPECTED', ex=exception)
         db.session.remove()
 
-    weko_logger(app=app, key='WEKO_COMMON_FOR_START')
-    for i, (endpoint, options) in enumerate((endpoints or {}).items()):
-        weko_logger(app=app, key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                    count=i, element=endpoint)
-
+    for endpoint, options in (endpoints or {}).items():
         if 'record_serializers' in options:
-            weko_logger(app=app, key='WEKO_COMMON_IF_ENTER',
-                        branch='record_serializers in options.')
-
             record_serializers = options.get('record_serializers')
             record_serializers = {mime: obj_or_import_string(func)
                                 for mime, func in record_serializers.items()}
         else:
-            weko_logger(app=app, key='WEKO_COMMON_IF_ENTER',
-                        branch='record_serializers not in options.')
-
             record_serializers = {}
 
         if 'search_serializers' in options:
-            weko_logger(app=app, key='WEKO_COMMON_IF_ENTER',
-                        branch='search_serializers in options.')
-
             serializers = options.get('search_serializers')
             search_serializers = {mime: obj_or_import_string(func)
                                 for mime, func in serializers.items()}
         else:
-            weko_logger(app=app, key='WEKO_COMMON_IF_ENTER',
-                        branch='search_serializers not in options.')
-
             search_serializers = {}
 
         record_class = obj_or_import_string(options.get('record_class'),
@@ -195,8 +178,6 @@ def create_blueprint(app, endpoints):
             methods=['PUT'],
         )
 
-    weko_logger(app=app, key='WEKO_COMMON_FOR_END')
-    weko_logger(app=app, key='WEKO_COMMON_RETURN_VALUE', value=blueprint)
     return blueprint
 
 
@@ -240,14 +221,9 @@ class ItemResource(ContentNegotiatedMethodView):
             default_media_type=default_media_type,
             **kwargs
         )
-        weko_logger(key='WEKO_COMMON_CALLED_KW_ARGUMENT', kwarg=kwargs)
 
-        weko_logger(key='WEKO_COMMON_FOR_START')
-        for i, (key, value) in enumerate(ctx.items()):
-            weko_logger(key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                        count=i, element=key)
+        for key, value in ctx.items():
             setattr(self, key, value)
-        weko_logger(key='WEKO_COMMON_FOR_END')
 
         self.pid_fetcher = current_pidstore.fetchers[self.pid_fetcher]
 
@@ -270,7 +246,6 @@ class ItemResource(ContentNegotiatedMethodView):
                                   record,
                                   201,
                                   links_factory=base_factory)
-        weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=result)
         return result
 
     def put(self, **kwargs):
@@ -294,9 +269,6 @@ class ItemResource(ContentNegotiatedMethodView):
             old_record = WekoRecord.get_record_by_pid(old_pid_value)
 
             if edit_mode and edit_mode == 'upgrade':
-                weko_logger(key='WEKO_COMMON_IF_ENTER',
-                            branch='edit_mode == upgrade')
-
                 data.pop('edit_mode')
                 cur_pid = PersistentIdentifier.get('recid', pid_value)
                 pid = PersistentIdentifier.get(
@@ -307,10 +279,6 @@ class ItemResource(ContentNegotiatedMethodView):
 
                 with db.session.begin_nested():
                     if upgrade_record is not None and ".0" in pid_value:
-                        weko_logger(key='WEKO_COMMON_IF_ENTER',
-                                    branch="upgrade_record is not None "
-                                        "and '.0' in pid_value")
-
                         _upgrade_record = WekoDeposit(
                             upgrade_record,
                             upgrade_record.model)
@@ -321,9 +289,6 @@ class ItemResource(ContentNegotiatedMethodView):
                     wf_activity = activity.get_workflow_activity_by_item_id(
                         cur_pid.object_uuid)
                     if wf_activity is not None:
-                        weko_logger(key='WEKO_COMMON_IF_ENTER',
-                                    branch='wf_activity is not None')
-
                         wf_activity.item_id = upgrade_record.model.id
                         db.session.merge(wf_activity)
 
@@ -409,17 +374,10 @@ class ItemResource(ContentNegotiatedMethodView):
         s = s.strip()
         sanitize_str = ""
 
-        weko_logger(key='WEKO_COMMON_FOR_START')
-        for i, c in enumerate(s):
-            weko_logger(key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                        count=i, element=c)
+        for c in s:
             if ord(c) in [9, 10, 13] or (31 < ord(c) != 127):
-                weko_logger(key='WEKO_COMMON_IF_ENTER',
-                            branch=f"charcter:{c} is valid")
                 sanitize_str += c
-        weko_logger(key='WEKO_COMMON_FOR_END')
 
-        weko_logger(key='WEKO_COMMON_RETURN_VALUE', value=sanitize_str)
         return sanitize_str
 
     def __sanitize_input_data(self, data):
@@ -434,37 +392,16 @@ class ItemResource(ContentNegotiatedMethodView):
             data (dict | list): input data to be sanitized.
         """
         if isinstance(data, dict):
-            weko_logger(key='WEKO_COMMON_IF_ENTER',
-                        branch="data is dict")
 
-            weko_logger(key='WEKO_COMMON_FOR_START')
-            for i, (k, v) in enumerate(data.items()):
-                weko_logger(key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                            count=i, element=k)
+            for k, v in data.items():
                 if isinstance(v, str):
-                    weko_logger(key='WEKO_COMMON_IF_ENTER',
-                                branch=f"{v} is str")
                     data[k] = self.__sanitize_string(v)
                 else:
-                    weko_logger(key='WEKO_COMMON_IF_ENTER',
-                                branch=f"{v} is not str")
                     self.__sanitize_input_data(v)
-            weko_logger(key='WEKO_COMMON_FOR_END')
 
         elif isinstance(data, list):
-            weko_logger(key='WEKO_COMMON_IF_ENTER',
-                        branch='data is not dict')
-
-            weko_logger(key='WEKO_COMMON_FOR_START')
             for i in range(len(data)):
-                weko_logger(key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                            count=i, element=data[i])
                 if isinstance(data[i], str):
-                    weko_logger(key='WEKO_COMMON_IF_ENTER',
-                                branch=f"{data[i]} is str")
                     data[i] = self.__sanitize_string(data[i])
                 else:
-                    weko_logger(key='WEKO_COMMON_IF_ENTER',
-                                branch=f"{data[i]} is not str")
                     self.__sanitize_input_data(data[i])
-            weko_logger(key='WEKO_COMMON_FOR_END')

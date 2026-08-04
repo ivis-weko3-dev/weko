@@ -13,67 +13,67 @@ from flask import current_app
 WEKO_INDEX_TREE_JOURNAL_MESSAGE = {
     'WEKO_INDEX_TREE_JOURNAL_FAILED_DISPLAY_SETTINGS_JOURNAL_INFO': {
         'msgid': 'WEKO_INDEX_TREE_JOURNAL_E_0001',
-        'msgstr': "FAILED to change display settings of index {index_name} "\
-            "for journal information to {configuration_value}.",
+        'msgstr': "FAILED to change display settings of index %(index_name)s "\
+            "for journal information to %(configuration_value)s.",
         'loglevel': 'ERROR',
     },
     'WEKO_INDEX_TREE_JOURNAL_FAILED_SAVE_JOURNAL_INFO': {
         'msgid': 'WEKO_INDEX_TREE_JOURNAL_E_0002',
         'msgstr': "FAILED to save journal information. "\
-            "Index name: {index_name}",
+            "Index name: %(index_name)s",
         'loglevel': 'ERROR',
     },
     'WEKO_INDEX_TREE_JOURNAL_FAILED_OUTPUT _JOURNAL_INFO': {
         'msgid': 'WEKO_INDEX_TREE_JOURNAL_E_0003',
         'msgstr': "FAILED to output journal information. "\
-            "Index name: {index_name}",
+            "Index name: %(index_name)s",
         'loglevel': 'ERROR',
     },
     'WEKO_INDEX_TREE_JOURNAL_FAILED_CREATE_NEW_JOURNAL_INFO': {
         'msgid': 'WEKO_INDEX_TREE_JOURNAL_E_0004',
         'msgstr': "FAILED to create new journal information. "\
-            "Index name: {index_name}",
+            "Index name: %(index_name)s",
         'loglevel': 'ERROR',
     },
     'WEKO_INDEX_TREE_JOURNAL_FAILED_DELETE_JOURNAL_INFO': {
         'msgid': 'WEKO_INDEX_TREE_JOURNAL_E_0005',
         'msgstr': "FAILED to delete journal information. "\
-            "Index name: {index_name}",
+            "Index name: %(index_name)s",
         'loglevel': 'ERROR',
     },
     'WEKO_INDEX_TREE_JOURNAL_DISPLAY_SETTINGS_JOURNAL_INFO': {
         'msgid': 'WEKO_INDEX_TREE_JOURNAL_I_0001',
-        'msgstr': "Display settings of index {index_name} for journal "\
-            "information has been changed to {configuration_value}.",
+        'msgstr': "Display settings of index %(index_name)s for journal "\
+            "information has been changed to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_INDEX_TREE_JOURNAL_DISPLAY_DETAIL_SETTINGS_JOURNAL_INFO': {
         'msgid': 'WEKO_INDEX_TREE_JOURNAL_I_0002',
-        'msgstr': "Display settings of index {index_name} for journal "\
-            "information has been changed {section} to {configuration_value}.",
+        'msgstr': "Display settings of index %(index_name)s for journal "\
+            "information has been changed %(section)s to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_INDEX_TREE_JOURNAL_SAVE_JOURNAL_INFO': {
         'msgid': 'WEKO_INDEX_TREE_JOURNAL_I_0003',
-        'msgstr': "Journal information edited. Index name: {index_name}",
+        'msgstr': "Journal information edited. Index name: %(index_name)s",
         'loglevel': 'INFO',
     },
     'WEKO_INDEX_TREE_JOURNAL_OUTPUT _JOURNAL_INFO': {
         'msgid': 'WEKO_INDEX_TREE_JOURNAL_I_0004',
         'msgstr': "Journal information has been output. "\
-            "Index name: {index_name}",
+            "Index name: %(index_name)s",
         'loglevel': 'INFO',
     },
     'WEKO_INDEX_TREE_JOURNAL_CREATE_NEW_JOURNAL_INFO': {
         'msgid': 'WEKO_INDEX_TREE_JOURNAL_I_0005',
         'msgstr': "New journal information has been created. "\
-            "Index name: {index_name}",
+            "Index name: %(index_name)s",
         'loglevel': 'INFO',
     },
     'WEKO_INDEX_TREE_JOURNAL_DELETE_JOURNAL_INFO': {
         'msgid': 'WEKO_INDEX_TREE_JOURNAL_I_0006',
         'msgstr': "Journal information has been deleted. "\
-            "Index name: {index_name}",
+            "Index name: %(index_name)s",
         'loglevel': 'INFO',
     },
 }

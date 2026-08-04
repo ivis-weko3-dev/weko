@@ -173,8 +173,8 @@ class TestJournalActionResource:
                                content_type='application/json')
         assert res.status_code == 401
 
-# .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_rest.py::TestJournalActionResource::test_post -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
-    def test_post(self,client_rest, users, test_indices):
+# .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_rest.py::TestJournalActionResource::test_post_success -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
+    def test_post_success(self,client_rest, users, test_indices):
         _data = dict(
             id=1,
             index_id=1,
@@ -200,18 +200,37 @@ class TestJournalActionResource:
         assert json.loads(str(res.data,"utf-8")) == {"status": 201,"message":"Journal created successfully."}
         assert Journal.query.filter_by(id=1).one().publication_title == "test journal 1"
 
-        # not data
+# .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_rest.py::TestJournalActionResource::test_post_no_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
+    def test_post_no_data(self,client_rest, users, test_indices):
+        login_user_via_session(client=client_rest, email=users[0]['email'])
         res = client_rest.post('/admin/indexjournal/1',
-                               data=json.dumps({}),
-                               content_type='application/json')
+                                       data=json.dumps({}),
+                                       content_type='application/json')
         assert res.status_code == 400
 
-        # failed create
-        res = client_rest.post('/admin/indexjournal/1',
-                               data=json.dumps(_data),
-                               content_type='application/json')
-        assert res.status_code == 400
+# .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_rest.py::TestJournalActionResource::test_post_failed -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
+    def test_post_failed(self,client_rest, users, test_indices):
+        _data = dict(
+                    id=1,
+                    publication_title="test journal {}".format(1),
+                    date_first_issue_online="2022-01-01",
+                    date_last_issue_online="2022-01-01",
+                    title_url="search?search_type=2&q={}".format(1),
+                    title_id=str(1),
+                    coverage_depth="abstract",
+                    publication_type="serial",
+                    access_type="F",
+                    language="en",
+                    is_output=True,
+                    abstract='',
+                    code_issnl=''
 
+                )
+        login_user_via_session(client=client_rest, email=users[0]['email'])
+        res = client_rest.post('/admin/indexjournal/1',
+                                data=json.dumps(_data),
+                                content_type='application/json')
+        assert res.status_code == 400
 # .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_rest.py::TestJournalActionResource::test_put_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
     user_results2 = [
         (0, True),
@@ -238,8 +257,8 @@ class TestJournalActionResource:
                               content_type='application/json')
         assert res.status_code == 401
 
-# .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_rest.py::TestJournalActionResource::test_put -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
-    def test_put(self, client_rest, users, test_indices, test_journals):
+# .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_rest.py::TestJournalActionResource::test_put_success -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
+    def test_put_success(self, client_rest, users, test_indices, test_journals):
         _data = dict(
             id=1,
             index_id=1,
@@ -257,7 +276,6 @@ class TestJournalActionResource:
             code_issnl=''
         )
         login_user_via_session(client=client_rest, email=users[0]['email'])
-        # success update
         res = client_rest.put('/admin/indexjournal/1',
                               data=json.dumps(_data),
                               content_type='application/json')
@@ -265,13 +283,33 @@ class TestJournalActionResource:
         assert json.loads(str(res.data,"utf-8")) == {"status":200,"message":'Journal updated successfully.'}
         assert Journal.query.filter_by(id=1).one().publication_title == "updated test journal 1"
 
-        # no data
+# .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_rest.py::TestJournalActionResource::test_put_no_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
+    def test_put_no_data(self, client_rest, users, test_indices, test_journals):
+        login_user_via_session(client=client_rest, email=users[0]['email'])
         res = client_rest.put('/admin/indexjournal/1',
                               data=json.dumps({}),
                               content_type='application/json')
         assert res.status_code == 400
 
-        # failed update
+# .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_rest.py::TestJournalActionResource::test_put_failed -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
+    def test_put_failed(self, client_rest, users, test_indices, test_journals):
+        login_user_via_session(client=client_rest, email=users[0]['email'])
+        _data = dict(
+                    id=1,
+                    index_id=100,
+                    publication_title="updated test journal {}".format(1),
+                    date_first_issue_online="2022-01-01",
+                    date_last_issue_online="2022-01-01",
+                    title_url="search?search_type=2&q={}".format(1),
+                    title_id=str(1),
+                    coverage_depth="abstract",
+                    publication_type="serial",
+                    access_type="F",
+                    language="en",
+                    is_output=True,
+                    abstract='',
+                    code_issnl=''
+                )
         res = client_rest.put('/admin/indexjournal/2',
                               data=json.dumps(_data),
                               content_type='application/json')
@@ -290,19 +328,23 @@ class TestJournalActionResource:
         res = client_rest.delete('/admin/indexjournal/0')
         assert res.status_code == 401
 
-# .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_rest.py::TestJournalActionResource::test_delete -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
-    def test_delete(self,app, client_rest, users, test_indices, test_journals):
+# .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_rest.py::TestJournalActionResource::test_delete_success -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
+    def test_delete_success(self,app, client_rest, users, test_indices, test_journals):
         login_user_via_session(client=client_rest, email=users[0]['email'])
-        # success delete
         res = client_rest.delete("/admin/indexjournal/1")
         assert Journal.query.filter_by(id=1).one_or_none() is None
         assert json.loads(str(res.data,"utf-8")) == {"status": 200, "message": "Journal deleted successfully."}
         assert res.status_code == 200
 
-        # not journal_id
+# .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_rest.py::TestJournalActionResource::test_delete_no_journal_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
+    def test_delete_no_journal_id(self,app, client_rest, users, test_indices, test_journals):
+        login_user_via_session(client=client_rest, email=users[0]['email'])
         res = client_rest.delete("/admin/indexjournal/0")
         assert res.status_code == 204
 
+# .tox/c1/bin/pytest --cov=weko_indextree_journal tests/test_rest.py::TestJournalActionResource::test_delete_failed -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-indextree-journal/.tox/c1/tmp
+    def test_delete_failed(self,app, client_rest, users, test_indices, test_journals):
+        login_user_via_session(client=client_rest, email=users[0]['email'])
         # failed delete
         res = client_rest.delete("/admin/indexjournal/100")
         assert res.status_code == 204

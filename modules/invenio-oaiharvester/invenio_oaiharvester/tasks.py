@@ -26,7 +26,7 @@ import traceback
 
 from ast import literal_eval as make_tuple
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timezone
 
 from celery import current_task, shared_task
 from celery import current_app as current_celery_app
@@ -285,10 +285,10 @@ def process_item(record, harvesting, counter, request_info):
             if 'item_1600078832557' in json_data:
                 for i in json_data['item_1600078832557']:
                     i['accessrole'] = 'open_access'
-            
+
             json_data['resourcetype']=[]
             json_data['resourcetype'].append({
-                "resourcetype": "dataset", "resourceuri": "http://purl.org/coar/resource_type/c_ddb1"})        
+                "resourcetype": "dataset", "resourceuri": "http://purl.org/coar/resource_type/c_ddb1"})
         # END: temporary fix for JDCat
 
         # current_app.logger.debug('[{0}] [{1}] Processing {2}'.format(
@@ -381,7 +381,7 @@ def is_harvest_running(id, task_id):
 
 
 @ shared_task
-def run_harvesting(id, start_time, user_data, request_info): 
+def run_harvesting(id, start_time, user_data, request_info):
     """Run harvest."""
     def dump(setting):
         setting_json = {}
@@ -421,7 +421,7 @@ def run_harvesting(id, start_time, user_data, request_info):
                 counter['deleted_items'] = 0
                 counter['error_items'] = 0
                 harvest_log = HarvestLogs(harvest_setting_id=id, status='Running',
-                                        start_time=datetime.utcnow(), counter=counter)
+                                        start_time=datetime.now(timezone.utc), counter=counter)
                 db.session.add(harvest_log)
             else:
                 harvest_log = HarvestLogs.query.filter_by(
@@ -435,7 +435,7 @@ def run_harvesting(id, start_time, user_data, request_info):
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(e)
-    
+
         if int(harvesting.auto_distribution):
             sets = list_sets(harvesting.base_url)
             sets_map = map_sets(sets)
@@ -492,7 +492,7 @@ def run_harvesting(id, start_time, user_data, request_info):
     finally:
         try:
             harvesting.task_id = None
-            end_time = datetime.utcnow()
+            end_time = datetime.now(timezone.utc)
             harvest_log.end_time = end_time
             harvest_log.counter = counter
             current_app.logger.info('[{0}] [{1}] END'.format(0, 'Harvesting'))
@@ -516,7 +516,7 @@ def run_harvesting(id, start_time, user_data, request_info):
 def check_schedules_and_run():
     """Check schedules and run."""
     settings = HarvestSettings.query.all()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     user_data = {
             'ip_address': "",
             'user_agent': "",

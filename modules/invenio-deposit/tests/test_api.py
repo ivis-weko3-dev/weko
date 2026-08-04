@@ -8,13 +8,10 @@
 
 """Test the API."""
 import pytest
-import uuid
 
-from copy import deepcopy
-from flask_login.utils import login_user, logout_user
+from flask_login.utils import logout_user
 from invenio_db import db
 from invenio_deposit.api import Deposit
-from invenio_deposit.errors import MergeConflict
 from invenio_pidstore.errors import PIDInvalidAction
 from invenio_records.errors import MissingModelError
 from jsonschema.exceptions import RefResolutionError
@@ -22,8 +19,7 @@ from mock import patch
 from io import BytesIO
 from sqlalchemy.orm.exc import NoResultFound
 
-
-
+# .tox/c1/bin/pytest --cov=invenio_deposit tests/test_api.py::test_schemas -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-deposit/.tox/c1/tmp
 def test_schemas(app, fake_schemas, location):
     """Test schema URL transformations."""
     deposit = Deposit.create({})
@@ -43,14 +39,14 @@ def test_schemas(app, fake_schemas, location):
             '$schema': 'http://localhost/schemas/deposits/invalid.json',
         })
 
-
+# .tox/c1/bin/pytest --cov=invenio_deposit tests/test_api.py::test_simple_flow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-deposit/.tox/c1/tmp
 def test_simple_flow(app, fake_schemas, location):
     """Test simple flow of deposit states through its lifetime."""
     deposit = Deposit.create({})
     assert deposit['_deposit']['id']
     assert 'draft' == deposit.status
     assert 0 == deposit.revision_id
-
+    deposit.pid.register()
     deposit.publish()
     assert 'published' == deposit.status
     assert 1 == deposit.revision_id
@@ -191,6 +187,7 @@ def test_publish_revision_changed_mergeable(app, location, fake_schemas):
     deposit.commit()
     db.session.commit()
     # publish
+    deposit.pid.register()
     deposit.publish()
     db.session.commit()
     # # edit
@@ -228,6 +225,7 @@ def test_publish_revision_changed_not_mergeable(app, location, fake_schemas):
     deposit.commit()
     db.session.commit()
     # publish
+    deposit.pid.register()
     deposit.publish()
     db.session.commit()
     # # edit

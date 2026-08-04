@@ -28,7 +28,7 @@ WEKO_GRIDLAYOUT_MESSAGE = {
     },
     'WEKO_GRIDLAYOUT_FAILED_SAVE_WIDGET': {
         'msgid': 'WEKO_GRIDLAYOUT_E_0004',
-        'msgstr': "FAILED to edit widget: {widget_id}",
+        'msgstr': "FAILED to edit widget: %(widget_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_GRIDLAYOUT_FAILED_APPLY_FILTER': {
@@ -49,12 +49,12 @@ WEKO_GRIDLAYOUT_MESSAGE = {
     'WEKO_GRIDLAYOUT_FAILED_QUIT_DELETE_WIDGET': {
         'msgid': 'WEKO_GRIDLAYOUT_E_0008',
         'msgstr': "FAILED to quit the deletion of selected widgets: "\
-            "{num} records",
+            "%(num)s records",
         'loglevel': 'ERROR',
     },
     'WEKO_GRIDLAYOUT_FAILED_SEARCH_WIDGET': {
         'msgid': 'WEKO_GRIDLAYOUT_E_0009',
-        'msgstr': "FAILED to search wedgets: {query}",
+        'msgstr': "FAILED to search wedgets: %(query)s",
         'loglevel': 'ERROR',
     },
     'WEKO_GRIDLAYOUT_FAILED_ADD_PAGE': {
@@ -79,13 +79,13 @@ WEKO_GRIDLAYOUT_MESSAGE = {
     },
     'WEKO_GRIDLAYOUT_CHANGED_RSS_FEEDS_SETTING': {
         'msgid': 'WEKO_GRIDLAYOUT_I_0002',
-        'msgstr': "The RSS feeds has been changed to {configuration_value}.",
+        'msgstr': "The RSS feeds has been changed to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_GRIDLAYOUT_CHANGED_RSS_FEEDS_DETAILS_SETTING': {
         'msgid': 'WEKO_GRIDLAYOUT_I_0003',
-        'msgstr': "The RSS feeds has been changed {section} to "\
-            "{configuration_value}.",
+        'msgstr': "The RSS feeds has been changed %(section)s to "\
+            "%(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_GRIDLAYOUT_OUTPUT_RSS_DOCUMENT': {
@@ -100,12 +100,12 @@ WEKO_GRIDLAYOUT_MESSAGE = {
     },
     'WEKO_GRIDLAYOUT_CREATE_WIDGET': {
         'msgid': 'WEKO_GRIDLAYOUT_I_0006',
-        'msgstr': "New widget created: {widget_id}",
+        'msgstr': "New widget created: %(widget_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_GRIDLAYOUT_SAVE_WIDGET': {
         'msgid': 'WEKO_GRIDLAYOUT_I_0007',
-        'msgstr': "Widget edits have been saved: {widget_id}",
+        'msgstr': "Widget edits have been saved: %(widget_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_GRIDLAYOUT_APPLY_FILTER': {
@@ -120,7 +120,7 @@ WEKO_GRIDLAYOUT_MESSAGE = {
     },
     'WEKO_GRIDLAYOUT_DELETE_WIDGET': {
         'msgid': 'WEKO_GRIDLAYOUT_I_0010',
-        'msgstr': "Selected widget has been deleted: {num} records",
+        'msgstr': "Selected widget has been deleted: %(num)s records",
         'loglevel': 'INFO',
     },
     'WEKO_GRIDLAYOUT_QUIT_DELETE_WIDGET': {
@@ -130,7 +130,7 @@ WEKO_GRIDLAYOUT_MESSAGE = {
     },
     'WEKO_GRIDLAYOUT_SEARCH_WIDGET': {
         'msgid': 'WEKO_GRIDLAYOUT_I_0012',
-        'msgstr': "Search widgets: {query}, results: {num} records",
+        'msgstr': "Search widgets: %(query)s, results: %(num)s records",
         'loglevel': 'INFO',
     },
     'WEKO_GRIDLAYOUT_ADD_PAGE': {

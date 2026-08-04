@@ -31,7 +31,7 @@ import tempfile
 import time
 import uuid
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from glob import glob
 from zipfile import ZipFile, ZIP_DEFLATED
 from click.testing import CliRunner
@@ -329,8 +329,28 @@ def client(app):
     with app.test_client() as client:
         yield client
 
+
 @pytest.fixture()
-def admin_view(app):
+def user_activity_log_partition_table(app, db):
+    """Create user activity log partition."""
+    # Create partition for current month
+    now = datetime.now()
+    start = now.date().replace(day=1)
+    end = (start + timedelta(days=31)).replace(day=1)
+    partition_name = f"user_activity_logs_{now.year}_{now.month:02d}"
+    create_partition_sql = f"""
+        CREATE TABLE IF NOT EXISTS {partition_name}
+        PARTITION OF user_activity_logs
+        FOR VALUES FROM ('{start}') TO ('{end}');
+    """
+
+    with db.session.begin_nested():
+        db.session.execute(create_partition_sql)
+    db.session.commit()
+
+
+@pytest.fixture()
+def admin_view(app, user_activity_log_partition_table):
     WekoItemtypesUI(app)
     admin = Admin(app)
     meta_viewclass=itemtype_meta_data_adminview["view_class"]
@@ -530,11 +550,15 @@ def item_type(app,db):
         with db.session.begin_nested():
             db.session.add(item_type_name)
             db.session.add(item_type)
+        db.session.commit()
+
+        with db.session.begin_nested():
             db.session.add(item_type_mapping)
+        db.session.commit()
+
         itemtype_list.append(
             {"item_type_name":item_type_name,"item_type":item_type,"item_type_mapping":item_type_mapping}
         )
-    db.session.commit()
 
     sync_sequence(db.session, ItemTypeName)
     sync_sequence(db.session, ItemType)
@@ -872,7 +896,11 @@ def db_itemtype6(app, db):
     with db.session.begin_nested():
         db.session.add(item_type_name)
         db.session.add(item_type)
+    db.session.commit()
+
+    with db.session.begin_nested():
         db.session.add(item_type_mapping)
+    db.session.commit()
 
     return {
         "item_type_name": item_type_name,
@@ -947,9 +975,12 @@ def create_item_type(db):
         with db.session.begin_nested():
             db.session.add(item_type_name)
             db.session.add(item_type)
-            db.session.add(item_type_mapping)
             db.session.add(item_type_property)
         db.session.commit()
+        with db.session.begin_nested():
+            db.session.add(item_type_mapping)
+        db.session.commit()
+
         item_type_data = {
             'item_type_name': item_type_name,
             'item_type': item_type,

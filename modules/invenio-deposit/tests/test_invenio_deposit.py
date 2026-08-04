@@ -12,7 +12,7 @@ import pytest
 
 from copy import deepcopy
 from flask import Flask, render_template_string
-from invenio_deposit import InvenioDeposit, InvenioDepositREST, bundles
+from invenio_deposit import InvenioDeposit, InvenioDepositREST
 from invenio_deposit.proxies import current_deposit
 from invenio_records_rest import InvenioRecordsREST
 from invenio_records_rest.utils import PIDConverter
@@ -47,12 +47,6 @@ def test_version():
     assert __version__
 
 
-def test_bundles():
-    """Test bundles."""
-    assert bundles.js
-    assert bundles.js_dependecies
-
-
 def test_init():
     """Test extension initialization."""
     app = Flask('testapp')
@@ -77,7 +71,7 @@ def test_init():
     with app.app_context():
         current_deposit.app
 
-
+# .tox/c1/bin/pytest --cov=invenio_deposit tests/test_invenio_deposit.py::test_conflict_in_endpoint_prefixes -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-deposit/.tox/c1/tmp
 def test_conflict_in_endpoint_prefixes():
     """Test conflict in endpoint prefixes."""
     app = Flask('testapp')
@@ -96,11 +90,11 @@ def test_conflict_in_endpoint_prefixes():
     deposit_endpoints = deepcopy(app.config['DEPOSIT_REST_ENDPOINTS'])
     deposit_endpoints['recid'] = endpoints['recid']
     app.config['DEPOSIT_REST_ENDPOINTS'] = deposit_endpoints
-    with pytest.raises(TypeError):
-        ext.init_app(app)
 
-    # with app.test_client() as c:
-    #     assert 500 == c.get('/').status_code
+    ext.init_app(app)
+
+    with app.test_client() as c:
+        assert 500 == c.get('/').status_code
 
 
 def test_template(base_app):

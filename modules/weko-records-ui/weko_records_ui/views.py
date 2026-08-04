@@ -1259,9 +1259,9 @@ def soft_delete(recid):
                 pid = PersistentIdentifier.get('recid', recid)
                 parent_pid = PIDNodeVersioning(pid=pid).parents.one_or_none()
                 versioning = PIDNodeVersioning(pid=parent_pid)
-                if versioning.exists:
-                   all_ver = versioning.children.all()
-                   for ver in all_ver:
+                if parent_pid is None:
+                    all_ver = versioning.children.all()
+                    for ver in all_ver:
                         if is_workflow_activity_work(ver.object_uuid):
                             is_editing = True
                             break

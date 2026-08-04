@@ -58,6 +58,7 @@ class TestWekoAuthors:
                 author = Authors.query.filter_by(id=id).one()
                 test = {"authorIdInfo": [{"idType": "1", "authorId": str(id), "authorIdShowFlg": "true"}], "gather_flg": 0, "id": str(search_id), "pk_id": "1"}
                 assert author
+                res = current_search_client.get(index=current_app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"],id=str(search_id))
                 assert res["_source"]["pk_id"]==str(id)
 
         id = 2
@@ -644,7 +645,7 @@ class TestWekoAuthors:
             "外部所属機関 所属期間 終了日[0][0]",
             "コミュニティ[0]",
         ]
-        
+
         assert data == [["1","テスト","太郎","ja","familyNmAndNm","Y","ORCID","1234","Y","3","12345","Y","test.taro@test.org","",None,None,None,None,None,None,"","ja","Y",None,None,None],
                         ["2","test","smith","en","familyNmAndNm","Y","ORCID","5678","Y",None,None,None,"test.smith@test.org","","1","1234","Y","2","12345","Y","","ja","Y",None,None,None],
                         ["3","test2","smith2","en","familyNmAndNm","Y",None,None,None,None,None,None,"test.smith2@test.org","","1","91011","Y",None,None,None,"","ja","Y",None,None,None],
@@ -656,10 +657,10 @@ class TestWekoAuthors:
         assert header == ["#pk_id","authorNameInfo[0].familyName","authorNameInfo[0].firstName","authorNameInfo[0].language","authorNameInfo[0].nameFormat","authorNameInfo[0].nameShowFlg","authorIdInfo[0].idType","authorIdInfo[0].authorId","authorIdInfo[0].authorIdShowFlg","emailInfo[0].email","is_deleted","communityIds[0]"]
         assert label_en == ["#WEKO ID","Family Name[0]","Given Name[0]","Language[0]","Name Format[0]","Name Display[0]","Identifier Scheme[0]","Identifier[0]","Identifier Display[0]","Mail Address[0]","Delete Flag","Community[0]"]
         assert label_jp == ["#WEKO ID","姓[0]","名[0]","言語[0]","フォーマット[0]","姓名・言語 表示／非表示[0]","外部著者ID 識別子[0]","外部著者ID[0]","外部著者ID 表示／非表示[0]","メールアドレス[0]","削除フラグ","コミュニティ[0]"]
-        
+
         assert data == []
-        
-        
+
+
         author = {
             "authorNameInfo":[],
             "authorIdInfo":[{"idType":""}],
@@ -672,7 +673,7 @@ class TestWekoAuthors:
         )
         mapping = WEKO_AUTHORS_FILE_MAPPING
         header, label_en,label_jp,data = WekoAuthors.prepare_export_data(mapping, None, None, [a], scheme_info, None, 0, 10)
-        
+
         assert header == ["#pk_id","authorNameInfo[0].familyName","authorNameInfo[0].firstName","authorNameInfo[0].language","authorNameInfo[0].nameFormat","authorNameInfo[0].nameShowFlg","authorIdInfo[0].idType","authorIdInfo[0].authorId","authorIdInfo[0].authorIdShowFlg","emailInfo[0].email","is_deleted","communityIds[0]"]
         assert label_en == ["#WEKO ID","Family Name[0]","Given Name[0]","Language[0]","Name Format[0]","Name Display[0]","Identifier Scheme[0]","Identifier[0]","Identifier Display[0]","Mail Address[0]","Delete Flag","Community[0]"]
         assert label_jp == ["#WEKO ID","姓[0]","名[0]","言語[0]","フォーマット[0]","姓名・言語 表示／非表示[0]","外部著者ID 識別子[0]","外部著者ID[0]","外部著者ID 表示／非表示[0]","メールアドレス[0]","削除フラグ","コミュニティ[0]"]
@@ -1647,7 +1648,7 @@ class TestAuthorIndexer:
 
 
         # bulk の戻り値(success, fail)
-        with patch("weko_authors.api.bulk", side_effect=fake_bulk) as mock_bulk:
+        with patch("weko_authors.api.search.helpers.bulk", side_effect=fake_bulk) as mock_bulk:
             result = indexer.bulk_process_authors(es_bulk_kwargs={})
 
             # bulk に generate_actions が渡されていることを確認
@@ -1678,7 +1679,7 @@ class TestAuthorIndexer:
         fake_error = {
             "index": {"_id": "uuid-1", "error": {"type": "mapping_error"}}
         }
-        with patch("weko_authors.api.bulk", side_effect=search.helpers.BulkIndexError("bulk error", [fake_error])):
+        with patch("weko_authors.api.search.helpers.bulk", side_effect=search.helpers.BulkIndexError("bulk error", [fake_error])):
             result = indexer.bulk_process_authors({}, uuids=["uuid-1", "uuid-2"])
 
             assert result[1] == 1  # fail=1
@@ -1688,7 +1689,7 @@ class TestAuthorIndexer:
 
     def test_bulk_process_authors_connection_error(self, app, capsys):
         indexer = AuthorIndexer(search_client="mock-client")
-        with patch("weko_authors.api.bulk", side_effect=search.ConnectionError("conn error", None, None)):
+        with patch("weko_authors.api.search.helpers.bulk", side_effect=search.ConnectionError("conn error", None, None)):
             result = indexer.bulk_process_authors({})
             assert result == (0, 0, 0)
             out = capsys.readouterr().out
@@ -1696,7 +1697,7 @@ class TestAuthorIndexer:
 
     def test_bulk_process_authors_connection_timeout(self, app, capsys):
         indexer = AuthorIndexer(search_client="mock-client")
-        with patch("weko_authors.api.bulk", side_effect=search.ConnectionTimeout("timeout", None, None)):
+        with patch("weko_authors.api.search.helpers.bulk", side_effect=search.ConnectionTimeout("timeout", None, None)):
             result = indexer.bulk_process_authors({})
             assert result == (0, 0, 0)
             out = capsys.readouterr().out
@@ -1742,7 +1743,7 @@ class TestAuthorIndexer:
                 pass
             return (0, fail_list)
 
-        with patch("weko_authors.api.bulk", side_effect=fake_bulk):
+        with patch("weko_authors.api.search.helpers.bulk", side_effect=fake_bulk):
             result = indexer.bulk_process_authors(es_bulk_kwargs={})
             # success=0, fail=2, unprocessed = count - success - fail = 1 - 0 - 2 = -1
             # → self.count を1しか増やしてないので、実際には -1 になる

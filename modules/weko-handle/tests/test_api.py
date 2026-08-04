@@ -2,7 +2,7 @@ import pytest
 import json
 from mock import patch, MagicMock
 from flask import Flask
-from b2handle.handleexceptions import HandleAlreadyExistsException, HandleNotFoundException
+from b2handle.handleexceptions import HandleAlreadyExistsException, HandleNotFoundException, HandleAuthenticationError
 
 from weko_handle.api import Handle
 
@@ -13,31 +13,33 @@ def test_register_handle(app):
     sample = Handle()
 
     # Exception coveraga ~ Line 86 - 89
-    try:
+    location = 1
+    sample.register_handle(
+        location=location
+    )
+
+
+    sample.register_handle(
+        location=None,hdl=1
+    )
+
+    # Exception coveraga
+    with patch("weko_handle.api.PIDClientCredentials.load_from_JSON", side_effect=HandleAlreadyExistsException()):
         location = 1
         sample.register_handle(
             location=location
         )
-    except:
-        pass
 
-    try:
-        sample.register_handle(
-            location=None,hdl=1
-        )
-    except:
-        pass
-
-    # Exception coveraga
-    with patch("weko_handle.api.PIDClientCredentials.load_from_JSON", side_effect=HandleAlreadyExistsException()):
-        try:
+    with patch("weko_handle.api.PIDClientCredentials.load_from_JSON", side_effect=HandleAuthenticationError()):
             location = 1
             sample.register_handle(
                 location=location
             )
-        except:
-            pass
 
+    with patch("weko_handle.api.EUDATHandleClient.instantiate_with_credentials", returnvalue=MagicMock()):
+        sample.register_handle(
+            location=None,hdl="test/handle"
+        )
 
 def test_delete_handle(app):
     sample = Handle()

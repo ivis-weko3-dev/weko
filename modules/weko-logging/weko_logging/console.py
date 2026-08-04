@@ -131,6 +131,9 @@ class WekoLoggingConsole(WekoLoggingBase):
         msgstr = param.get('msgstr', None)
         loglevel = param.get('loglevel', None)
 
+        if not app.logger.isEnabledFor(getattr(logging, loglevel, logging.INFO)):
+            return
+
         msg = msgid + ' : ' + msgstr
 
         frame, extra = None, {}
@@ -151,13 +154,13 @@ class WekoLoggingConsole(WekoLoggingBase):
 
         # output log by msglvl
         if loglevel == 'ERROR':
-            app.logger.error(msg.format(**kwargs), extra=extra)
+            app.logger.error(msg, kwargs, extra=extra)
         elif loglevel == 'WARN':
-            app.logger.warning(msg.format(**kwargs), extra=extra)
+            app.logger.warning(msg, kwargs, extra=extra)
         elif loglevel == 'INFO':
-            app.logger.info(msg.format(**kwargs), extra=extra)
+            app.logger.info(msg, kwargs, extra=extra)
         elif loglevel == 'DEBUG':
-            app.logger.debug(msg.format(**kwargs), extra=extra)
+            app.logger.debug(msg, kwargs, extra=extra)
         else:
             pass
 

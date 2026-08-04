@@ -14,7 +14,9 @@ from weko_logging.utils import UserActivityLogUtils
 
 # UserActivityLogUtils.package_export_log(cls)
 # .tox/c1/bin/pytest --cov=weko_logging tests/test_utils.py::test_package_export_log -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging/.tox/c1/tmp
-def test_package_export_log(db, users, redis_connect, location):
+def test_package_export_log(
+    db, users, redis_connect, location, user_activity_log_partition_table
+):
     """Test package_export_log."""
 
     mock_date = datetime.now()
@@ -29,7 +31,7 @@ def test_package_export_log(db, users, redis_connect, location):
         remarks="test_remarks1"
     )
     log_data2 = UserActivityLog(
-        date=mock_date,
+        date=mock_date + timedelta(minutes=1),
         user_id=users[1]["id"],
         community_id=None,
         log_group_id=2,
@@ -90,7 +92,7 @@ def test_cancel_export_log(app, redis_connect, mock_async_result_factory):
     }
     mock_async_result = mock_async_result_factory("test_task_id", "REVOKED", "test_result")
     redis_connect.put(UserActivityLogUtils.USER_ACTIVITY_LOG_EXPORT_CACHE_STATUS_KEY, bytes(json.dumps(mock_export_status), "utf-8"))
-    with patch("weko_logging.utils.revoke") as mock_revoke:
+    with patch("weko_logging.utils.current_celery_app.control.revoke") as mock_revoke:
         with patch("weko_logging.utils.AsyncResult") as mocker_async_result:
             mocker_async_result.return_value = mock_async_result
             assert UserActivityLogUtils.cancel_export_log()
@@ -104,7 +106,7 @@ def test_cancel_export_log(app, redis_connect, mock_async_result_factory):
     }
     mock_async_result = mock_async_result_factory("test_task_id", "SUCCESS", "test_result")
     redis_connect.put(UserActivityLogUtils.USER_ACTIVITY_LOG_EXPORT_CACHE_STATUS_KEY, bytes(json.dumps(mock_export_status), "utf-8"))
-    with patch("weko_logging.utils.revoke") as mock_revoke:
+    with patch("weko_logging.utils.current_celery_app.control.revoke") as mock_revoke:
         with patch("weko_logging.utils.AsyncResult") as mocker_async_result:
             mocker_async_result.return_value = mock_async_result
             assert not UserActivityLogUtils.cancel_export_log()
@@ -119,7 +121,7 @@ def test_cancel_export_log(app, redis_connect, mock_async_result_factory):
     redis_connect.put(UserActivityLogUtils.USER_ACTIVITY_LOG_EXPORT_CACHE_STATUS_KEY, bytes(json.dumps(mock_export_status), "utf-8"))
     with patch("weko_logging.utils.AsyncResult") as mocker_async_result:
         mocker_async_result.return_value = mock_async_result
-        with patch("weko_logging.utils.revoke") as mock_revoke:
+        with patch("weko_logging.utils.current_celery_app.control.revoke") as mock_revoke:
             mock_revoke.side_effect = Exception("test_exception")
             assert not UserActivityLogUtils.cancel_export_log()
             assert redis_connect.get(UserActivityLogUtils.USER_ACTIVITY_LOG_EXPORT_CACHE_STATUS_KEY) != bytes("", "utf-8")
@@ -127,12 +129,25 @@ def test_cancel_export_log(app, redis_connect, mock_async_result_factory):
 
 # UserActivityLogUtils.delete_log(cls)
 # .tox/c1/bin/pytest --cov=weko_logging tests/test_utils.py::test_delete_log -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging/.tox/c1/tmp
-def test_delete_log(app, db):
+def test_delete_log(app, db, user_activity_log_partition_table):
     """Test delete_log."""
 
     def _create_test_data():
         UserActivityLog.query.delete()
         db.session.flush()
+        # Create default partition table
+        now = datetime.now()
+        start = now.date().replace(day=1)
+        end = (start + timedelta(days=31)).replace(day=1)
+        default_partition_name = f"user_activity_logs_test"
+        create_partition_sql = f"""
+            CREATE TABLE IF NOT EXISTS {default_partition_name}
+            PARTITION OF user_activity_logs DEFAULT;
+        """
+        with db.session.begin_nested():
+            db.session.execute(create_partition_sql)
+        db.session.commit()
+        # Create test data
         mock_date = datetime.now()
         # today
         log_data1 = UserActivityLog(

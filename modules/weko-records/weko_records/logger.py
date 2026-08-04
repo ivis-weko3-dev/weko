@@ -13,7 +13,7 @@ from flask import current_app
 WEKO_RECORDS_MESSAGE = {
     'WEKO_RECORDS_FAILED_SEARCH_ITEM': {
         'msgid': 'WEKO_RECORDS_E_0001',
-        'msgstr': "FAILED to search item: {query}",
+        'msgstr': "FAILED to search item: %(query)s",
         'loglevel': 'ERROR',
     },
     'WEKO_RECORDS_FAILED_OUTPUT_RSS_DOCUMENT': {
@@ -28,17 +28,17 @@ WEKO_RECORDS_MESSAGE = {
     },
     'WEKO_RECORDS_FAILED_DELETE_RECORD': {
         'msgid': 'WEKO_RECORDS_E_0004',
-        'msgstr': "FAILED to delete records. Uuid: {uuid}",
+        'msgstr': "FAILED to delete records. Uuid: %(uuid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_RECORDS_FAILED_RESTORE_RECORD': {
         'msgid': 'WEKO_RECORDS_E_0005',
-        'msgstr': "FAILED to restore record. Uuid: {uuid}",
+        'msgstr': "FAILED to restore record. Uuid: %(uuid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_RECORDS_SEARCH_ITEM': {
         'msgid': 'WEKO_RECORDS_I_0001',
-        'msgstr': "Search item: {query}, result: {num}",
+        'msgstr': "Search item: %(query)s, result: %(num)s",
         'loglevel': 'INFO',
     },
     'WEKO_RECORDS_ENABLED_RSS_FEEDS': {
@@ -48,13 +48,13 @@ WEKO_RECORDS_MESSAGE = {
     },
     'WEKO_RECORDS_CHANGED_RSS_FEEDS_SETTING': {
         'msgid': 'WEKO_RECORDS_I_0003',
-        'msgstr': "The RSS feeds has been changed to {configuration_value}.",
+        'msgstr': "The RSS feeds has been changed to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_RECORDS_CHANGED_RSS_FEEDS_DETAILS_SETTING': {
         'msgid': 'WEKO_RECORDS_I_0004',
-        'msgstr': "The RSS feeds has been changed {section} to "\
-            "{configuration_value}.",
+        'msgstr': "The RSS feeds has been changed %(section)s to "\
+            "%(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_RECORDS_OUTPUT_RSS_DOCUMENT': {
@@ -69,12 +69,12 @@ WEKO_RECORDS_MESSAGE = {
     },
     'WEKO_RECORDS_DELETE_RECORD': {
         'msgid': 'WEKO_RECORDS_I_0007',
-        'msgstr': "{delete_num} record was deleted. Uuid: {uuid}",
+        'msgstr': "%(delete_num)s record was deleted. Uuid: %(uuid)s",
         'loglevel': 'INFO',
     },
     'WEKO_RECORDS_RESTORE_RECORD': {
         'msgid': 'WEKO_RECORDS_I_0008',
-        'msgstr': "Record restored. Uuid: {uuid}",
+        'msgstr': "Record restored. Uuid: %(uuid)s",
         'loglevel': 'INFO',
     },
 }

@@ -18,44 +18,44 @@ WEKO_GROUPS_MESSAGE = {
     },
     'WEKO_GROUPS_FAILED_UPDATE_GROUP': {
         'msgid': 'WEKO_GROUPS_E_0002',
-        'msgstr': "FAILED to update group {group_id}",
+        'msgstr': "FAILED to update group %(group_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_GROUPS_FAILED_DELETE_GROUP': {
         'msgid': 'WEKO_GROUPS_E_0003',
-        'msgstr': "FAILED to delete group {group_id}",
+        'msgstr': "FAILED to delete group %(group_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_GROUPS_FAILED_DISPLAY_MEMBER_LIST': {
         'msgid': 'WEKO_GROUPS_E_0004',
-        'msgstr': "FAILED to display member list of group {group_id}",
+        'msgstr': "FAILED to display member list of group %(group_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_GROUPS_FAILED_LEAVE_GROUP': {
         'msgid': 'WEKO_GROUPS_E_0005',
-        'msgstr': "FAILED to leave group {group_id}",
+        'msgstr': "FAILED to leave group %(group_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_GROUPS_FAILED_APPROVE_USER_TO_GROUP': {
         'msgid': 'WEKO_GROUPS_E_0006',
-        'msgstr': "FAILED to approve membership for the group {group_id}",
+        'msgstr': "FAILED to approve membership for the group %(group_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_GROUPS_FAILED_REMOVE_USER_FROM_GROUP': {
         'msgid': 'WEKO_GROUPS_E_0007',
-        'msgstr': "FAILED to remove user {user_id} from group {group_id}",
+        'msgstr': "FAILED to remove user %(user_id)s from group %(group_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_GROUPS_FAILED_ACCEPT_INVITATION_FROM_GROUP': {
         'msgid': 'WEKO_GROUPS_E_0008',
         'msgstr': "FAILED to accept the invitation to join the group "\
-            "{group_id}",
+            "%(group_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_GROUPS_FAILED_REFUSE_INVITATION_FROM_GROUP': {
         'msgid': 'WEKO_GROUPS_E_0009',
         'msgstr': "FAILED to refuse the invitation to join the group "\
-            "{group_id}",
+            "%(group_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_GROUPS_FAILED_INVITE_USER_TO_GROUP': {
@@ -80,42 +80,42 @@ WEKO_GROUPS_MESSAGE = {
     },
     'WEKO_GROUPS_CREATE_NEW_GROUP': {
         'msgid': 'WEKO_GROUPS_I_0004',
-        'msgstr': "Create new group: {group_id}",
+        'msgstr': "Create new group: %(group_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_GROUPS_UPDATE_GROUP': {
         'msgid': 'WEKO_GROUPS_I_0005',
-        'msgstr': "Group {group_id} was updated.",
+        'msgstr': "Group %(group_id)s was updated.",
         'loglevel': 'INFO',
     },
     'WEKO_GROUPS_DELETE_GROUP': {
         'msgid': 'WEKO_GROUPS_I_0006',
-        'msgstr': "Delete group: {group_id}",
+        'msgstr': "Delete group: %(group_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_GROUPS_DISPLAY_MEMBER_LIST': {
         'msgid': 'WEKO_GROUPS_I_0007',
-        'msgstr': "Group {group_id} member list displayed. ",
+        'msgstr': "Group %(group_id)s member list displayed. ",
         'loglevel': 'INFO',
     },
     'WEKO_GROUPS_LEAVED_GROUP': {
         'msgid': 'WEKO_GROUPS_I_0008',
-        'msgstr': "Leaved group {group_id}",
+        'msgstr': "Leaved group %(group_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_GROUPS_APPROVE_USER_TO_GROUP': {
         'msgid': 'WEKO_GROUPS_I_0009',
-        'msgstr': "Approved user {user_id} to be member of group {group_id}",
+        'msgstr': "Approved user %(user_id)s to be member of group %(group_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_GROUPS_REMOVE_USER_FROM_GROUP': {
         'msgid': 'WEKO_GROUPS_I_0010',
-        'msgstr': "Remove user {user_id} from group {group_id}",
+        'msgstr': "Remove user %(user_id)s from group %(group_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_GROUPS_ACCEPT_INVITATION_FROM_GROUP': {
         'msgid': 'WEKO_GROUPS_I_0011',
-        'msgstr': "The invitation to join the group {group_id} was accepted.",
+        'msgstr': "The invitation to join the group %(group_id)s was accepted.",
         'loglevel': 'INFO',
     },
     'WEKO_GROUPS_REFUSE_INVITATION_FROM_GROUP': {
@@ -125,7 +125,7 @@ WEKO_GROUPS_MESSAGE = {
     },
     'WEKO_GROUPS_INVITE_USER_TO_GROUP': {
         'msgid': 'WEKO_GROUPS_I_0013',
-        'msgstr': "Invite user {user_id} to group {group_id}",
+        'msgstr': "Invite user %(user_id)s to group %(group_id)s",
         'loglevel': 'INFO',
     },
 }

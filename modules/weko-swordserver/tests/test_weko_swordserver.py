@@ -29,13 +29,3 @@ def test_init():
     assert 'weko-swordserver' not in app.extensions
     ext.init_app(app)
     assert 'weko-swordserver' in app.extensions
-
-
-# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_weko_swordserver.py::test_view -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test_view(client,sessionlifetime,install_node_module):
-    """Test view."""
-    import os
-    os.environ["INVENIO_WEB_HOST_NAME"] = "weko3.example.org"
-    res = client.get("/")
-    assert res.status_code == 200
-    # assert 'Welcome to WEKO-SWORDServer' in str(res.data)

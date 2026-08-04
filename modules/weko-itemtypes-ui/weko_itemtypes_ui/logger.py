@@ -13,12 +13,12 @@ from flask import current_app
 WEKO_ITEMTYPES_UI_MESSAGE = {
     'WEKO_ITEMTYPES_UI_FAILED_UPDATE_ITEM': {
         'msgid': 'WEKO_ITEMTYPES_UI_E_0001',
-        'msgstr': "FAILED to update item: {pid}",
+        'msgstr': "FAILED to update item: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_ITEMTYPES_UI_FAILED_DELETE_ITEM': {
         'msgid': 'WEKO_ITEMTYPES_UI_E_0002',
-        'msgstr': "FAILED to delete item: {pid}",
+        'msgstr': "FAILED to delete item: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_ITEMTYPES_UI_FAILED_ADD_ITEM_TYPE': {
@@ -73,37 +73,37 @@ WEKO_ITEMTYPES_UI_MESSAGE = {
     },
     'WEKO_ITEMTYPES_UI_UPDATE_ITEM': {
         'msgid': 'WEKO_ITEMTYPES_UI_I_0001',
-        'msgstr': "Update item: {pid}",
+        'msgstr': "Update item: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMTYPES_UI_DELETE_ITEM': {
         'msgid': 'WEKO_ITEMTYPES_UI_I_0002',
-        'msgstr': "Delete item: {pid}",
+        'msgstr': "Delete item: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMTYPES_UI_ADD_ITEM_TYPE': {
         'msgid': 'WEKO_ITEMTYPES_UI_I_0003',
-        'msgstr': "Item type {itemtype_name} added.",
+        'msgstr': "Item type %(itemtype_name)s added.",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMTYPES_UI_COPY_ITEM_TYPE': {
         'msgid': 'WEKO_ITEMTYPES_UI_I_0004',
-        'msgstr': "Item type {itemtype_name} copied.",
+        'msgstr': "Item type %(itemtype_name)s copied.",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMTYPES_UI_SAVED_EDITS_TO_ITEM_TYPE': {
         'msgid': 'WEKO_ITEMTYPES_UI_I_0005',
-        'msgstr': "Edits to the item type {itemtype_name} have been saved.",
+        'msgstr': "Edits to the item type %(itemtype_name)s have been saved.",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMTYPES_UI_DELETE_ITEM_TYPE': {
         'msgid': 'WEKO_ITEMTYPES_UI_I_0006',
-        'msgstr': "Item type {itemtype_name} deleted.",
+        'msgstr': "Item type %(itemtype_name)s deleted.",
         'loglevel': 'INFO',
     },
     'WEKO_ITEMTYPES_UI_RESTORE_ITEM_TYPE': {
         'msgid': 'WEKO_ITEMTYPES_UI_I_0007',
-        'msgstr': "Logically deleted item type {itemtype_name} have been "\
+        'msgstr': "Logically deleted item type %(itemtype_name)s have been "\
             "restored.",
         'loglevel': 'INFO',
     },
