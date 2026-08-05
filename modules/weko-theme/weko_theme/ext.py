@@ -49,6 +49,11 @@ class WekoTheme(object):
         app.add_template_filter(
             get_search_detail_keyword,
             name='detail_conditions')
+        # Update auto correct location header config
+        # Werkzeug 2.3.0+ will auto correct location header to be absolute URL when using reverse proxy.
+        app.response_class.autocorrect_location_header = app.config.get(
+            "WEKO_THEME_AUTO_CORRECT_LOCATION_HEADER", False
+        )
 
     def init_config(self, app):
         """Initialize configuration.

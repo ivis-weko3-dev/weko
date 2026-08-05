@@ -105,18 +105,23 @@ def test_Flow_get_flow_list(app, client, users, db, action_data):
         db.session.add(flow)
         db.session.commit()
 
-        login_user(users[2]["obj"])
+        # System administrator can see all flows
+        sysadmin_user = users[2]["obj"]
+        login_user(sysadmin_user)
         res = _flow.get_flow_list()
         assert len(res) == 1
         assert res[0] == flow
 
-        login_user(users[3]["obj"])
+        # Community administrator can see flows in their community
+        comadmin_user = users[3]["obj"]
+        login_user(comadmin_user)
         res = _flow.get_flow_list()
         assert len(res) == 0
-
-        flow_com = _flow.create_flow({'flow_name': 'flow_comm01', 'repository_id': 'comm01'})
-        db.session.add(flow_com)
-        db.session.commit()
+        # Create a flow in the community and check if the community administrator can see it
+        flow_com = _flow.create_flow({
+            "flow_name": "flow_comm01",
+            "repository_id": "comm01"
+        })
 
         res = _flow.get_flow_list()
         assert len(res) == 1
@@ -769,7 +774,9 @@ def test_WorkActivity_count_waiting_approval_by_workflow_id(app, db, db_register
 
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_WorkFlow_upt_workflow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_WorkFlow_upt_workflow(app, db, workflow, logging_client, users):
+def test_WorkFlow_upt_workflow(
+    app, db, workflow, users, user_activity_log_partition_table
+):
     with app.test_request_context():
         # System Administrator
         login_user(users[2]["obj"])
@@ -1584,10 +1591,17 @@ def test_workactivity_get_params_for_approver(app, users, db, db_register_full_a
     index = Index(position=1, id=111)
     db.session.add(index)
     db.session.commit()
-    comm = Community(id="test_com11", id_role=users[3]["id"],
-                        id_user=users[3]["id"], title="test community",
-                        description="this is test community",
-                        root_node_id=index.id)
+    comadmin_user_id = users[3]["id"]
+    comadmin_user = User.query.get(comadmin_user_id)
+    comadmin_role = comadmin_user.roles[0]
+    comm = Community(
+        id="test_com11",
+        id_role=comadmin_role.id,
+        id_user=comadmin_user_id,
+        title="test community",
+        description="this is test community",
+        root_node_id=index.id
+    )
     db.session.add(comm)
     db.session.commit()
     flow_define = db_register_full_action["flow_define"]
@@ -1737,7 +1751,9 @@ def test_workactivity_get_params_for_approver(app, users, db, db_register_full_a
             patch("weko_workflow.api.GetCommunity.get_community_by_id") as mock_get_community_by_id:
         mock_user_profile = MagicMock(username="test_username")
         mock_get_user_profile.return_value = mock_user_profile
-        mock_get_community_by_id.return_value = MagicMock(id_role=4)
+        mock_get_community_by_id.return_value = MagicMock(
+            id_role="Community Administrator",
+        )
         mock_flow_detail = MagicMock(
             flow_actions=[_ for _ in flow_detail.flow_actions]
         )
@@ -2352,7 +2368,7 @@ def test_query_activities_by_tab_is_wait(users, db):
                 _WorkFlow.flows_name,
                 _Action.action_name,
                 Role.name
-            ).outerjoin(_Flow).outerjoin(
+            ).select_from(_Activity).outerjoin(_Flow).outerjoin(
                 _WorkFlow,
                 and_(_Activity.workflow_id == _WorkFlow.id,)
             ).outerjoin(_Action).outerjoin(_FlowAction).outerjoin(_FlowActionRole).outerjoin(
@@ -2367,7 +2383,7 @@ def test_query_activities_by_tab_is_wait(users, db):
                     _Activity.activity_update_user == User.id,
                     _Activity.shared_user_ids == [],
                 )
-                )
+            )
         expected = "AND (" \
                         "workflow_activity.activity_login_user = %(activity_login_user_1)s " \
                         "OR (CAST(workflow_activity.shared_user_ids AS VARCHAR) LIKE '%%' || %(param_1)s || '%%') " \
@@ -2554,14 +2570,23 @@ def test_WorkActivity_get_activity_action_role(app, activity_with_roles, action_
     (6, 3, 'allow', True),
     (5, 4, 'deny', True),
 ])
-def test_WorkActivity_get_activity_action_role2(app, activity_with_roles_for_request_mail, action_id, action_order, expected_index, expected_included):
+def test_WorkActivity_get_activity_action_role2(
+    app, activity_with_roles_for_request_mail, action_id, action_order, expected_index, expected_included
+):
     activity = activity_with_roles_for_request_mail["activity"]
     item_metadata = activity_with_roles_for_request_mail['itemMetadata']
     owner_id = int(item_metadata['owner'])
 
+    # Get repository administrator role
+    role_repoadmin = Role.query.filter_by(name="Repository Administrator").one()
+
     workflow_activity = WorkActivity()
     roles, _ = workflow_activity.get_activity_action_role(str(activity.id), action_id, action_order)
-    assert (owner_id in roles[expected_index]) == expected_included
+    # Check if the action role includes the repository administrator role
+    # Note: fixture `activity_with_roles_for_request_mail` should be set up to include the repository administrator role for the specified action_role
+    assert (
+        (role_repoadmin.id in roles[expected_index]) == expected_included
+    )
 
 # for request_mail
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_WorkActivity_get_activity_action_role3 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
@@ -2717,29 +2742,42 @@ def test_request_mail_list_create_and_update(app, workflow, db, mocker):
 
 # def get_user_ids_of_request_mails_by_activity_id
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_get_user_ids_of_request_mails_by_activity_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_get_user_ids_of_request_mails_by_activity_id(workflow, users, mocker):
+def test_get_user_ids_of_request_mails_by_activity_id(
+    db, workflow, users, mocker
+):
+    # Get user ids of request mails by activity id
+    role_unassigned_user_id = users[7]["id"]
+    contributor_user_id = users[0]["id"]
+    
+    # Get users by user ids
+    role_unassigned_user = db.session.get(User, role_unassigned_user_id)
+    contributor_user = db.session.get(User, contributor_user_id)
+    
     activity = WorkActivity()
     activityrequestmails = [
         ActivityRequestMail(
-        id = 1,
-        activity_id = 1,
-        display_request_button = True,
-        request_maillist = []
-    ),
+            id=1,
+            activity_id=1,
+            display_request_button=True,
+            request_maillist=[]
+        ),
         ActivityRequestMail(
-            id = 2,
-            activity_id = 2,
-            display_request_button = False,
-            request_maillist = [{}]
-    ),
+            id=2,
+            activity_id=2,
+            display_request_button=False,
+            request_maillist=[{}]
+        ),
         ActivityRequestMail(
-            id = 3,
-            activity_id = 3,
-            display_request_button = True,
-            request_maillist = [{"email":"not_user","author_id":""},
-                                {"email":"user@test.org","author_id":""},
-                                {"email":"contributor@test.org","author_id":""}]
-    )]
+            id=3,
+            activity_id=3,
+            display_request_button=True,
+            request_maillist=[
+                {"email": "not_user", "author_id": ""},
+                {"email": role_unassigned_user.email, "author_id": ""},
+                {"email": contributor_user.email, "author_id": ""}
+            ]
+        )
+    ]
     with patch("weko_workflow.api.WorkActivity.get_activity_detail", return_value = _Activity(extra_info={"record_id":1, "is_restricted_access":True})):
         mock = mocker.patch("weko_workflow.api.WorkActivity.get_user_ids_of_request_mails_by_record_id")
         activity.get_user_ids_of_request_mails_by_activity_id(1)
@@ -2753,15 +2791,33 @@ def test_get_user_ids_of_request_mails_by_activity_id(workflow, users, mocker):
         assert activity.get_user_ids_of_request_mails_by_activity_id(2) == []
     with patch("weko_workflow.api.WorkActivity.get_activity_request_mail", return_value = activityrequestmails[2]):
         ids = activity.get_user_ids_of_request_mails_by_activity_id(3)
-        assert ids == [User.query.filter_by(email="contributor@test.org").one_or_none().id]
+        assert ids == [contributor_user_id]
+
 
 # def get_user_ids_of_request_mails_by_record_id
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_get_user_ids_of_request_mails_by_record_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_get_user_ids_of_request_mails_by_record_id(workflow, users, mocker):
+def test_get_user_ids_of_request_mails_by_record_id(
+    db, workflow, users, mocker
+):
+
+    # Get user ids of request mails by activity id
+    role_unassigned_user_id = users[7]["id"]
+    contributor_user_id = users[0]["id"]
+
+    # Get users by user ids
+    role_unassigned_user = db.session.get(User, role_unassigned_user_id)
+    contributor_user = db.session.get(User, contributor_user_id)
+
     activity = WorkActivity()
-    requestmails = [[],[{}],[{"email":"not_user","author_id":""},
-                                {"email":"user@test.org","author_id":""},
-                                {"email":"contributor@test.org","author_id":""}]]
+    requestmails = [
+        [],
+        [{}],
+        [
+            {"email": "not_user", "author_id" :""},
+            {"email": role_unassigned_user.email, "author_id": ""},
+            {"email": contributor_user.email, "author_id":""}
+        ]
+    ]
     mocker.patch("weko_workflow.api.PersistentIdentifier.get")
     mocker.patch("weko_workflow.api.PersistentIdentifier.get_assigned_object")
     with patch("weko_workflow.api.RequestMailList.get_mail_list_by_item_id", return_value=None):
@@ -2772,8 +2828,7 @@ def test_get_user_ids_of_request_mails_by_record_id(workflow, users, mocker):
         assert not activity.get_user_ids_of_request_mails_by_record_id(0)
     with patch("weko_workflow.api.RequestMailList.get_mail_list_by_item_id", return_value=requestmails[2]):
         ids = activity.get_user_ids_of_request_mails_by_record_id(0)
-        assert ids == [User.query.filter_by(email="contributor@test.org").one_or_none().id]
-
+        assert ids == [contributor_user_id]
 
 
 # def check_user_role_for_mail
