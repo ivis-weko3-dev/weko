@@ -30,6 +30,8 @@ def upgrade():
         ),
     )
 
+    op.execute("UPDATE oaiserver_set SET system_created = true")
+
 
 def downgrade():
     """Downgrade database."""
