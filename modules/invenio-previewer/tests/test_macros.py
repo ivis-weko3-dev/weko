@@ -14,7 +14,7 @@ from flask import render_template_string, url_for
 from invenio_db import db
 from invenio_files_rest.models import ObjectVersion
 from io import BytesIO
-from mock import patch
+from unittest.mock import patch
 
 
 def create_file(record, filename, stream):
@@ -53,6 +53,7 @@ def test_default_extension(testapp, webassets, record):
         assert "we are unfortunately not" in res.get_data(as_text=True)
 
 
+# .tox/c1/bin/pytest --cov=invenio_previewer tests/test_macros.py::test_markdown_extension -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-previewer/.tox/c1/tmp
 def test_markdown_extension(testapp, webassets, record):
     """Test view with md files."""
     create_file(record, "markdown.md", BytesIO(b"### Testing markdown ###"))
@@ -251,6 +252,7 @@ def test_txt_extension_valid_file(testapp, webassets, record):
         assert "<pre>test content foobar</pre>" in res.get_data(as_text=True)
 
 
+# .tox/c1/bin/pytest --cov=invenio_previewer tests/test_macros.py::test_txt_extension_large_file -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-previewer/.tox/c1/tmp
 def test_txt_extension_large_file(testapp, webassets, record):
     """Text .txt file viewer for large files."""
     max_file_size = testapp.config.get("PREVIEWER_TXT_MAX_BYTES", 1 * 1024 * 1024)
@@ -262,6 +264,7 @@ def test_txt_extension_large_file(testapp, webassets, record):
         assert "file truncated" in res.get_data(as_text=True)
 
 
+# .tox/c1/bin/pytest --cov=invenio_previewer tests/test_macros.py::test_view_macro_file_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-previewer/.tox/c1/tmp
 def test_view_macro_file_list(testapp):
     """Test file list macro."""
     with testapp.test_request_context():
@@ -290,6 +293,10 @@ def test_view_macro_file_list(testapp):
         )
 
         assert 'href="/record/1/files/test1.txt?download=1"' in result
-        assert "<td>10 Bytes</td>" in result
         assert 'href="/record/1/files/test2.txt?download=1"' in result
-        assert "<td>12.0 MB</td>" in result
+        if testapp.config["APP_THEME"] == ["bootstrap3"]:
+            assert '<td class="nowrap">10 Bytes</td>' in result
+            assert '<td class="nowrap">12.0 MB</td>' in result
+        else:
+            assert "<td>10 Bytes</td>" in result
+            assert "<td>12.0 MB</td>" in result

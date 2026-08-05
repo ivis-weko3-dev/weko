@@ -11,8 +11,10 @@
 from flask import render_template_string
 
 from invenio_previewer.views import preview, dbsession_clean
-from mock import patch, MagicMock
+from unittest.mock import patch, MagicMock
 
+
+# .tox/c1/bin/pytest --cov=invenio_previewer tests/test_views.py::test_view_macro_file_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-previewer/.tox/c1/tmp
 def test_view_macro_file_list(testapp):
     """Test file list macro."""
     with testapp.test_request_context():
@@ -41,9 +43,14 @@ def test_view_macro_file_list(testapp):
         )
 
         assert 'href="/record/1/files/test1.txt?download=1"' in result
-        assert "<td>10 Bytes</td>" in result
         assert 'href="/record/1/files/test2.txt?download=1"' in result
-        assert "<td>12.0 MB</td>" in result
+        if testapp.config["APP_THEME"] == ["bootstrap3"]:
+            assert '<td class="nowrap">10 Bytes</td>' in result
+            assert '<td class="nowrap">12.0 MB</td>' in result
+        else:
+            assert "<td>10 Bytes</td>" in result
+            assert "<td>12.0 MB</td>" in result
+
 
 
 def test_previewable_test(testapp):
@@ -63,9 +70,10 @@ def test_previewable_test(testapp):
 
     file["type"] = ""
     assert render_template_string(template, file=file) == "Not previewable"
-    
+
 # def dbsession_clean(exception):
-def test_dbsession_clean(app):
+# .tox/c1/bin/pytest --cov=invenio_previewer tests/test_views.py::test_dbsession_clean -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-previewer/.tox/c1/tmp
+def test_dbsession_clean(app, db):
     exception = "ValueError"
     dbsession_clean(exception=exception)
 

@@ -21,6 +21,8 @@ from flask_webpackext import current_webpack
 from invenio_accounts import InvenioAccounts
 from invenio_app import InvenioApp
 from invenio_assets import InvenioAssets
+from invenio_communities import InvenioCommunities
+from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
 from invenio_config import InvenioConfigDefault
 from invenio_db import InvenioDB
 from invenio_files_rest import InvenioFilesREST
@@ -70,6 +72,14 @@ def app():
                 view_imp='invenio_records_files.utils.file_download_ui',
                 record_class='invenio_records_files.api:Record',
             ),
+            recid_file_preview=dict(
+                pid_type='recid',
+                route='/record/<pid_value>/file_preview/<path:filename>',
+                view_imp='weko_records_ui.fd.file_preview_ui',
+                record_class='weko_deposit.api:WekoRecord',
+                permission_factory_imp='weko_records_ui.permissions'
+                                    ':page_permission_factory',
+            ),
         ),
         SERVER_NAME='localhost',
         SECRET_KEY="SECRET_KEY",
@@ -81,9 +91,12 @@ def app():
     InvenioRecords(app_)
     previewer = InvenioPreviewer(app_)._state
     InvenioRecordsUI(app_)
-    app_.register_blueprint(create_blueprint_from_app(app_))
     InvenioFilesREST(app_)
     InvenioAccounts(app_)
+
+    app_.register_blueprint(create_blueprint_from_app(app_))
+    InvenioCommunities(app_)
+    app_.register_blueprint(invenio_communities_blueprint)
 
     # Add base assets bundles for jQuery and Bootstrap
     # Note: These bundles aren't included by default since package consumers
