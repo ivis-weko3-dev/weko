@@ -29,12 +29,12 @@ class _InvenioQueuesState(object):
     @cached_property
     def queues(self):
         # NOTE: import iter_entry_points here so it can be mocked in tests
-        from pkg_resources import iter_entry_points
+        from importlib.metadata import entry_points
 
         if self._queues is None:
             self._queues = dict()
             from_entry_point = [
-                ep.load()() for ep in iter_entry_points(group=self.entry_point_group)
+                ep.load()() for ep in entry_points(group=self.entry_point_group)
             ]
 
             for queue in chain(
