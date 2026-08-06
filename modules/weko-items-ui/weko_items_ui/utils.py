@@ -37,7 +37,7 @@ from collections import OrderedDict, Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 from flask import (
     abort, current_app, flash, redirect, request, send_file, url_for, Flask
-) 
+)
 from flask_babel import gettext as _
 from flask_login import current_user
 from invenio_accounts.models import Role, userrole, User
@@ -69,7 +69,7 @@ from weko_index_tree.utils import (
 from weko_notifications.models import NotificationsUserSettings
 from weko_notifications.utils import _get_params_for_registrant
 from weko_records.api import (
-    FeedbackMailList, JsonldMapping, RequestMailList, 
+    FeedbackMailList, JsonldMapping, RequestMailList,
     ItemTypes, Mapping, ItemApplication
 )
 from weko_records.serializers.utils import get_item_type_name
@@ -4076,7 +4076,7 @@ def check_duplicate(data, is_item=True, exclude_ids=[]):
     """Check if a record or item is duplicate in records_metadata.
 
     If the setting for enabling/disabling the duplicate check function is False, it returns false.
-    
+
     Checks whether records or items in records_metadata are unique.
 
     If an identifier exists, returns True if a duplicate item exists.
@@ -4099,7 +4099,7 @@ def check_duplicate(data, is_item=True, exclude_ids=[]):
     """
     if current_app.config.get("WEKO_ITEMS_UI_ENABLE_DUPLICATE_CHECK", False) is False:
         return False, [], []
-    
+
     if isinstance(data, str):
         try:
             data = json.loads(data)
@@ -4652,7 +4652,7 @@ def make_stats_file_with_permission(item_type_id, recids,
                                                                     'terms':item_application.get('terms',""),
                                                                     'termsDescription':item_application.get('termsDescription',"")}
             return 0
-        
+
         def get_max_items_from_map(self, item_fullpath_key, max_map):
             """Get max data each sub property in all exporting records."""
             list_attr = []
@@ -4673,7 +4673,7 @@ def make_stats_file_with_permission(item_type_id, recids,
             max_length = max_map.get(canon_path, 1)
             return max_length
 
-        
+
         def get_property_metadata(self, record, item_key, json_schema):
             """Get property metadata from record.
             Args:
@@ -4695,7 +4695,7 @@ def make_stats_file_with_permission(item_type_id, recids,
                 return property_metadata
             else:
                 return []
-        
+
         def iter_list_lengths_with_canon_paths(self, root, array_properties):
             """
             Scan the root once, sequentially returning (normalized path, list length).
@@ -4710,7 +4710,7 @@ def make_stats_file_with_permission(item_type_id, recids,
                 array_properties(str): properties
 
             """
-            
+
             stack = [(root, [], [])]
             while stack:
                 node, path, canon_path = stack.pop()
@@ -4768,9 +4768,9 @@ def make_stats_file_with_permission(item_type_id, recids,
                         max_map[ptuple] = L
 
             return max_map
-        
 
-        
+
+
         def get_headers(self, json_schema, table_row, max_map):
             """Get headers from JSON schema.
             Args:
@@ -4781,7 +4781,7 @@ def make_stats_file_with_permission(item_type_id, recids,
                 column_keys (list): Column keys
                 column_labels (list): Column labels
             """
-            stack = [(json_schema[key], key, json_schema[key].get("title")) 
+            stack = [(json_schema[key], key, json_schema[key].get("title"))
                      for key in reversed(table_row)]
             column_keys = []
             column_labels = []
@@ -4850,7 +4850,7 @@ def make_stats_file_with_permission(item_type_id, recids,
                     column_labels.append(column_label)
                     escape_list.append(column_key)
             return column_keys, column_labels, escape_list
-        
+
 
         def flatten_metadata(self, record, table_row, json_schema):
             """Flatten metadata from record.
@@ -4869,7 +4869,7 @@ def make_stats_file_with_permission(item_type_id, recids,
                     continue
 
                 stack = [(property_metadata, [item_key])]
-            
+
                 while stack:
                     curr, path = stack.pop()
                     if isinstance(curr, dict):
@@ -4881,7 +4881,7 @@ def make_stats_file_with_permission(item_type_id, recids,
                     else:
                         res[tuple(path)] = curr
             return res
-        
+
 
         def format_key(self, path_info):
             """Format key from path info.
@@ -4902,7 +4902,7 @@ def make_stats_file_with_permission(item_type_id, recids,
                     result += f".{item}"
 
             return result
-        
+
 
         def extract_all_metadata(self, headers, table_row, json_schema, escape_list):
             """Extract all metadata for exporting records.
@@ -4915,7 +4915,7 @@ def make_stats_file_with_permission(item_type_id, recids,
 
             for header in headers:
                 data[header]  # initialize
-            
+
             # Traverse each record and flatten metadata
             for idx, recid in enumerate(self.recids):
                 record = self.records[recid]
@@ -4929,7 +4929,7 @@ def make_stats_file_with_permission(item_type_id, recids,
                         "thumbnail_label" in formatted_key:
                         splitted_key = formatted_key.split('.')
                         if "filename" in splitted_key:
-                            # find index 
+                            # find index
                             index_find_result = re.findall(r"\[\d+\]", formatted_key)
                             temp_file_path = "recid_{}/{}".format(str(recid), value)
                             file_path_value = temp_file_path if os.path.exists(os.path.join(export_path,temp_file_path)) else ""
@@ -4957,7 +4957,7 @@ def make_stats_file_with_permission(item_type_id, recids,
             for ridx, recid in enumerate(self.recids):
                 self.attr_output[recid].extend(data[ridx])
 
-    
+
     records = RecordsPermissionManager(recids, records_metadata, permissions=permissions)
 
     ret = ['#.id', '.uri']
@@ -5200,7 +5200,7 @@ def check_item_is_being_edit(
                 draft_pid.object_uuid, draft_workflow.action_status))
             #return True
             return draft_workflow.activity_id
-        
+
         parent_pid = PIDNodeVersioning(pid=recid).parents.one_or_none()
         pv = PIDNodeVersioning(pid=parent_pid)
         latest_pid = pv.children.order_by(
@@ -5220,10 +5220,7 @@ def check_item_is_being_edit(
     pv = PIDNodeVersioning(pid=parent_pid)
     versions_uuid = [
         record.object_uuid
-        for record in pv.get_children(pid_status=PIDStatus.REGISTERED)
-        .filter(PIDRelation.relation_type == 2)
-        .order_by(PIDRelation.index.desc())
-        .all()
+        for record in pv.children.order_by(PIDRelation.index.desc()).all()
     ]
     last_activity = (
         Activity.query

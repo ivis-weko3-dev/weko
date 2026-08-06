@@ -26,7 +26,7 @@ def test_get_log_group_sequence(db):
 
 # UserActivityLog.to_dict(self):
 # .tox/c1/bin/pytest --cov=weko_logging tests/test_models.py::test_to_dict -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging/.tox/c1/tmp
-def test_to_dict(db, users):
+def test_to_dict(db, users, user_activity_log_partition_table):
     """Test to dict."""
     user_activity_log = UserActivityLog(
         date=datetime.now(),

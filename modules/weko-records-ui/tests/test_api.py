@@ -176,25 +176,27 @@ def test_send_request_mail(app, make_request_maillist):
 
     # TestCase: Request Mail Successful
     #mocker.patch('flask_mail._Mail.send')
-    item_id = make_request_maillist[0]
-    msg_body = correct_mail_info['from'] + current_app.config.get("WEKO_RECORDS_UI_REQUEST_MESSAGE") + correct_mail_info['message']
-    res_test ={
-        "from": correct_mail_info['from'],
-        "subject": correct_mail_info['subject'],
-        "message": msg_body
-    }
-    with app.test_request_context():
-        with patch ("flask_mail._Mail.send"):
-           status, response = send_request_mail(item_id, correct_mail_info)
-        assert status == True
-        assert response == res_test
+    with patch("weko_records_ui.api.UserActivityLogger.info"):
+        item_id = make_request_maillist[0]
+        msg_body = correct_mail_info['from'] + current_app.config.get("WEKO_RECORDS_UI_REQUEST_MESSAGE") + correct_mail_info['message']
+        res_test ={
+            "from": correct_mail_info['from'],
+            "subject": correct_mail_info['subject'],
+            "message": msg_body
+        }
+        with app.test_request_context():
+            with patch ("flask_mail._Mail.send"):
+                status, response = send_request_mail(item_id, correct_mail_info)
+                assert status == True
+                assert response == res_test
 
     # TestCase: exception occured
-    item_id = make_request_maillist[0]
-    with app.test_request_context():
-        with patch("flask_mail._Mail.send", side_effect=SMTPException):
-            with pytest.raises(InternalServerError):
-                send_request_mail(item_id, correct_mail_info)
+    with patch("weko_records_ui.api.UserActivityLogger.error"):
+        item_id = make_request_maillist[0]
+        with app.test_request_context():
+            with patch("flask_mail._Mail.send", side_effect=SMTPException):
+                with pytest.raises(InternalServerError):
+                    send_request_mail(item_id, correct_mail_info)
 
 
 # def validate_captcha_answer(captcha_answer):
@@ -386,7 +388,8 @@ def test_copy_bucket_to_s3(
     s3_storage_user = user_profile_s3["user_info"]["obj"]
     s3_storage_user_profile = user_profile_s3["profile_obj"]
     s3_storage_region_name = s3_storage_user_profile.s3_region_name
-    login(client, obj=s3_storage_user)
+    with patch("flask.templating._render", return_value=""):
+        login(client, obj=s3_storage_user)
 
     # Mock UserProfile.create_s3_client to return mock boto3 client
     mock_profile_boto3_client = mocker.Mock()
@@ -399,7 +402,7 @@ def test_copy_bucket_to_s3(
 
     # Mock create_storage_bucket to return None
     mock_create_storage_bucket = mocker.patch("weko_records_ui.api.create_storage_bucket", return_value=None)
-
+    mocker.patch("weko_records_ui.api.current_user",mocker.Mock(id=s3_storage_user.id))
     # Test Case (Pos): local to s3 with create
     uri = copy_bucket_to_s3(
         pid=1, filename="helloworld.pdf",
@@ -736,7 +739,8 @@ def test_copy_bucket_to_s3_cross_service(
     non_s3_storage_user = user_profile_s3["user_info"]["obj"]
     non_s3_storage_user_profile = user_profile_s3["profile_obj"]
     non_s3_storage_region_name = non_s3_storage_user_profile.s3_region_name
-    login(client, obj=non_s3_storage_user)
+    with patch("flask.templating._render", return_value=""):
+        login(client, obj=non_s3_storage_user)
 
     # Mock UserProfile.create_s3_client to return mock boto3 client
     mock_profile_boto3_client = mocker.Mock()
@@ -775,6 +779,7 @@ def test_copy_bucket_to_s3_cross_service(
     mock_get_default.return_value = loc_s3
     with patch("invenio_files_rest.models.FileInstance.get", return_value=mock_file_instance_s3):
         mocker.patch.object(loc_s3, "create_s3_client", return_value=mocker_boto3_client_src)
+        mocker.patch("weko_records_ui.api.current_user",mocker.Mock(id=non_s3_storage_user.id))
         uri = copy_bucket_to_s3(
             pid=1, filename="helloworld.pdf",
             org_bucket_id=records_buckets.bucket_id,
@@ -1272,7 +1277,7 @@ def test_get_file_place_info(app, db, users, client, records, mocker):
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_api.py::test_replace_file_bucket -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_replace_file_bucket_local(app, db, users, client, records):
+def test_replace_file_bucket_local(app, db, users, client, records, mocker):
 
     pid = PersistentIdentifier.query.filter_by(
         pid_type="recid", pid_value='1'
@@ -1290,10 +1295,10 @@ def test_replace_file_bucket_local(app, db, users, client, records):
 
     url = url_for("weko_records_ui.replace_file")
 
-    with patch("weko_records_ui.api.import_items_to_system", return_value={"success": True, "recid": {}}):
-
+    with patch("weko_records_ui.api.import_items_to_system", return_value={"success": True, "recid": {}}),\
+         patch("flask.templating._render", return_value=""):
         login(client,obj=users[0]["obj"])
-
+        mocker.patch("weko_records_ui.api.current_user",mocker.Mock(id=users[0]["obj"].id))
         # location weko local
         res = client.post(
             url,
@@ -1311,7 +1316,7 @@ def test_replace_file_bucket_local(app, db, users, client, records):
         )
         assert res.status_code == 200
 
-def test_replace_file_bucket_S3(app, db, users, client, records):
+def test_replace_file_bucket_S3(app, db, users, client, records, mocker):
 
     pid = PersistentIdentifier.query.filter_by(
         pid_type="recid", pid_value='1'
@@ -1329,9 +1334,10 @@ def test_replace_file_bucket_S3(app, db, users, client, records):
 
     url = url_for("weko_records_ui.replace_file")
 
-    with patch("weko_records_ui.api.import_items_to_system", return_value={"success": True, "recid": {}}):
-
+    with patch("weko_records_ui.api.import_items_to_system", return_value={"success": True, "recid": {}}),\
+         patch("flask.templating._render", return_value=""):
         login(client,obj=users[0]["obj"])
+        mocker.patch("weko_records_ui.api.current_user",mocker.Mock(id=users[0]["obj"].id))
         # location type:s3
         l2=Location.get_default()
         l2.uri='s3://test/'

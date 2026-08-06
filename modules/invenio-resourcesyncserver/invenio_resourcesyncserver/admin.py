@@ -80,7 +80,8 @@ class AdminResourceListView(BaseView):
             result = resource.update(request.get_json())
             if result.get('success'):
                 return jsonify(data=result.get('data').to_dict(), success=True)
-        return jsonify(message=result.get('message'), success=False)
+            return jsonify(message=result.get('message'), success=False)
+        return jsonify(message='', success=False)
 
     @expose('/delete/<resource_id>', methods=['POST'])
     def delete(self, resource_id):

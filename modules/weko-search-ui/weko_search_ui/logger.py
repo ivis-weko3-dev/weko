@@ -13,7 +13,7 @@ from flask import current_app
 WEKO_SEARCH_UI_MESSAGE = {
     'WEKO_SEARCH_UI_FAILED_SEARCH_ITEM': {
         'msgid': 'WEKO_SEARCH_UI_E_0001',
-        'msgstr': "FAILED to search item: {query}",
+        'msgstr': "FAILED to search item: %(query)s",
         'loglevel': 'ERROR',
     },
     'WEKO_SEARCH_UI_FAILED_ADD_SEARCH_CONDITION': {
@@ -48,20 +48,20 @@ WEKO_SEARCH_UI_MESSAGE = {
     },
     'WEKO_SEARCH_UI_FAILED_DISPLAY_SETTINGS_JOURNAL_INFO': {
         'msgid': 'WEKO_SEARCH_UI_E_0008',
-        'msgstr': "FAILED to change display settings of index {index_name} "\
-            "for journal information to {configuration_value}.",
+        'msgstr': "FAILED to change display settings of index %(index_name)s "\
+            "for journal information to %(configuration_value)s.",
         'loglevel': 'ERROR',
     },
     'WEKO_SEARCH_UI_FAILED_SAVE_JOURNAL_INFO': {
         'msgid': 'WEKO_SEARCH_UI_E_0009',
         'msgstr': "FAILED to save journal information. "\
-            "Index name: {index_name}",
+            "Index name: %(index_name)s",
         'loglevel': 'ERROR',
     },
     'WEKO_SEARCH_UI_FAILED_OUTPUT _JOURNAL_INFO': {
         'msgid': 'WEKO_SEARCH_UI_E_0010',
         'msgstr': "FAILED to output journal information. "\
-            "Index name: {index_name}",
+            "Index name: %(index_name)s",
         'loglevel': 'ERROR',
     },
     'WEKO_SEARCH_UI_FAILED_BULK_DELETE_ITEMS': {
@@ -127,7 +127,7 @@ WEKO_SEARCH_UI_MESSAGE = {
     },
     'WEKO_SEARCH_UI_SEARCH_ITEM': {
         'msgid': 'WEKO_SEARCH_UI_I_0001',
-        'msgstr': "Search item: {query}, result: {num}",
+        'msgstr': "Search item: %(query)s, result: %(num)s",
         'loglevel': 'INFO',
     },
     'WEKO_SEARCH_UI_ADD_SEARCH_CONDITION': {
@@ -157,42 +157,42 @@ WEKO_SEARCH_UI_MESSAGE = {
     },
     'WEKO_SEARCH_UI_INDEX_SEARCH_RESULT': {
         'msgid': 'WEKO_SEARCH_UI_I_0007',
-        'msgstr': "index search : {search_content}, results: {num} items",
+        'msgstr': "index search : %(search_content)s, results: %(num)s items",
         'loglevel': 'INFO',
     },
     'WEKO_SEARCH_UI_CHANGE_DISPLAY_SETTINGS_SEARCH_RESULTS': {
         'msgid': 'WEKO_SEARCH_UI_I_0008',
         'msgstr': "The display setting for search results has been changed "\
-            "to {configuration_value}.",
+            "to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_SEARCH_UI_CHANGE_DISPLAY_DETAIL_SETTINGS_SEARCH_RESULTS': {
         'msgid': 'WEKO_SEARCH_UI_I_0009',
         'msgstr': "The display setting for search results has been changed "\
-            "{section} to {configuration_value}.",
+            "%(section)s to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_SEARCH_UI_DISPLAY_SETTINGS_JOURNAL_INFO': {
         'msgid': 'WEKO_SEARCH_UI_I_0010',
-        'msgstr': "Display settings of index {index_name} for journal "\
-            "information has been changed to {configuration_value}.",
+        'msgstr': "Display settings of index %(index_name)s for journal "\
+            "information has been changed to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_SEARCH_UI_DISPLAY_DETAIL_SETTINGS_JOURNAL_INFO': {
         'msgid': 'WEKO_SEARCH_UI_I_0011',
-        'msgstr': "Display settings of index {index_name} for journal "\
-            "information has been changed {section} to {configuration_value}.",
+        'msgstr': "Display settings of index %(index_name)s for journal "\
+            "information has been changed %(section)s to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_SEARCH_UI_SAVE_JOURNAL_INFO': {
         'msgid': 'WEKO_SEARCH_UI_I_0012',
-        'msgstr': "Journal information edited. Index name: {index_name}",
+        'msgstr': "Journal information edited. Index name: %(index_name)s",
         'loglevel': 'INFO',
     },
     'WEKO_SEARCH_UI_OUTPUT _JOURNAL_INFO': {
         'msgid': 'WEKO_SEARCH_UI_I_0013',
         'msgstr': "Journal information has been output. "\
-            "Index name: {index_name}",
+            "Index name: %(index_name)s",
         'loglevel': 'INFO',
     },
     'WEKO_SEARCH_UI_BULK_DELETE_ITEMS': {

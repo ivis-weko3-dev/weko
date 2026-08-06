@@ -46,7 +46,7 @@ from invenio_i18n import InvenioI18N
 
 from weko_groups import WekoGroups
 from weko_groups.api import Group
-
+from weko_groups import webpack
 
 @pytest.fixture
 def app(request):

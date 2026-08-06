@@ -49,25 +49,22 @@ class TestCrossRefOpenURL:
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_api.py::TestCrossRefOpenURL::test_create_url -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
     def test_create_url(self):
         cross_ref = CrossRefOpenURL("test_pid","test_doi",response_format="txt")
-        patch("weko_items_autofill.api.CrossRefOpenURL._create_endpoint",return_value="openurl?pid=test_pid&id=doi:test_doi")
         result = cross_ref._create_url()
-        assert result == "https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi"
+        assert result == "https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi&format=txt"
 
 
 #     def url(self):
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_api.py::TestCrossRefOpenURL::test_url -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
     def test_url(self):
         cross_ref = CrossRefOpenURL("test_pid","test_doi",response_format="txt")
-        patch("weko_items_autofill.api.CrossRefOpenURL._create_url",return_value="https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi")
-
         result = cross_ref.url
-        assert result == "https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi"
+        assert result == "https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi&format=txt"
 
 
 #     def _do_http_request(self):
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_api.py::TestCrossRefOpenURL::test_do_http_request -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
-    def test_do_http_request(self):
-        mock_get = patch("weko_items_autofill.api.requests.get")
+    def test_do_http_request(self,mocker):
+        mock_get = mocker.patch("weko_items_autofill.api.requests.get")
         cross_ref = CrossRefOpenURL("test_pid","test_doi")
         cross_ref._do_http_request()
         mock_get.assert_called_with("https://doi.crossref.org/openurl?pid=test_pid&id=doi:test_doi&format=xml",
@@ -133,25 +130,25 @@ class TestCiNiiURL:
 #     def _create_url(self):
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_api.py::TestCiNiiURL::test_create_url -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
     def test_create_url(self):
-        patch("weko_items_autofill.api.CiNiiURL._create_endpoint",return_value="naid/test_naid.json")
-        cini = CiNiiURL("test_naid")
-        result = cini._create_url()
-        assert result == "https://cir.nii.ac.jp/naid/test_naid.json"
+        with patch("weko_items_autofill.api.CiNiiURL._create_endpoint",return_value="naid/test_naid.json"):
+            cini = CiNiiURL("test_naid")
+            result = cini._create_url()
+            assert result == "https://cir.nii.ac.jp/naid/test_naid.json"
 
 
 #     def url(self):
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_api.py::TestCiNiiURL::test_url -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
     def test_url(self):
-        patch("weko_items_autofill.api.CiNiiURL._create_url",return_value="https://ci.nii.ac.jp/naid/test_naid.json")
-        cini = CiNiiURL("test_naid")
-        result = cini.url
-        assert result == "https://ci.nii.ac.jp/naid/test_naid.json"
+        with patch("weko_items_autofill.api.CiNiiURL._create_url",return_value="https://ci.nii.ac.jp/naid/test_naid.json"):
+            cini = CiNiiURL("test_naid")
+            result = cini.url
+            assert result == "https://ci.nii.ac.jp/naid/test_naid.json"
 
 
 #     def _do_http_request(self):
 # .tox/c1/bin/pytest --cov=weko_items_autofill tests/test_api.py::TestCiNiiURL::test_do_http_request -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-autofill/.tox/c1/tmp
-    def test_do_http_request(self):
-        mock_get = patch("weko_items_autofill.api.requests.get")
+    def test_do_http_request(self,mocker):
+        mock_get = mocker.patch("weko_items_autofill.api.requests.get")
         cini = CiNiiURL("test_naid")
         cini._do_http_request()
         mock_get.assert_called_with("https://cir.nii.ac.jp/crid/test_naid.json",
@@ -174,7 +171,7 @@ class TestCiNiiURL:
             with patch("weko_items_autofill.api.CiNiiURL._do_http_request",return_value=res):
                 result = cini.get_data()
                 assert result == {"response":"","error":""}
-            
+
             # raise Exception
             with patch("weko_items_autofill.api.CiNiiURL._do_http_request",side_effect=Exception("request error")):
                 result = cini.get_data()

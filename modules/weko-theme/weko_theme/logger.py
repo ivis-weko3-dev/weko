@@ -13,7 +13,7 @@ from flask import current_app
 WEKO_THEME_MESSAGE = {
     'WEKO_THEME_FAILED_SEARCH_ITEM': {
         'msgid': 'WEKO_THEME_E_0001',
-        'msgstr': "FAILED to search item: {query}",
+        'msgstr': "FAILED to search item: %(query)s",
         'loglevel': 'ERROR',
     },
     'WEKO_THEME_FAILED_ADD_SEARCH_CONDITION': {
@@ -38,7 +38,7 @@ WEKO_THEME_MESSAGE = {
     },
     'WEKO_THEME_FAILED_SETTINGS_FACETED_SEARCH': {
         'msgid': 'WEKO_THEME_E_0006',
-        'msgstr': "FAILED to change faceted search settings to {set_value}.",
+        'msgstr': "FAILED to change faceted search settings to %(set_value)s.",
         'loglevel': 'ERROR',
     },
     'WEKO_THEME_FAILED_CHANGE_ITEM_DISPLAY_SETTINGS': {
@@ -63,7 +63,7 @@ WEKO_THEME_MESSAGE = {
     },
     'WEKO_THEME_SEARCH_ITEM': {
         'msgid': 'WEKO_THEME_I_0001',
-        'msgstr': "Search item: {query}, result: {num}",
+        'msgstr': "Search item: %(query)s, result: %(num)s",
         'loglevel': 'INFO',
     },
     'WEKO_THEME_ADD_SEARCH_CONDITION': {
@@ -83,18 +83,18 @@ WEKO_THEME_MESSAGE = {
     },
     'WEKO_THEME_INDEX_SEARCH_RESULT': {
         'msgid': 'WEKO_THEME_I_0005',
-        'msgstr': "index search : {query}, results: {num} items",
+        'msgstr': "index search : %(query)s, results: %(num)s items",
         'loglevel': 'INFO',
     },
     'WEKO_THEME_SETTINGS_FACETED_SEARCH': {
         'msgid': 'WEKO_THEME_I_0006',
-        'msgstr': "Faceted search settings have been changed to {set_value}.",
+        'msgstr': "Faceted search settings have been changed to %(set_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_THEME_DETAIL_SETTINGS_FACETED_SEARCH': {
         'msgid': 'WEKO_THEME_I_0007',
-        'msgstr': "Faceted search settings have been changed {section} to "\
-            "{set_value}.",
+        'msgstr': "Faceted search settings have been changed %(section)s to "\
+            "%(set_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_THEME_CHANGE_ITEM_DISPLAY_SETTINGS': {
@@ -109,13 +109,13 @@ WEKO_THEME_MESSAGE = {
     },
     'WEKO_THEME_CHANGED_RSS_FEEDS_SETTING': {
         'msgid': 'WEKO_THEME_I_0010',
-        'msgstr': "The RSS feeds has been changed to {configuration_value}.",
+        'msgstr': "The RSS feeds has been changed to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_THEME_CHANGED_RSS_FEEDS_DETAILS_SETTING': {
         'msgid': 'WEKO_THEME_I_0011',
-        'msgstr': "The RSS feeds has been changed {section} to "\
-            "{configuration_value}.",
+        'msgstr': "The RSS feeds has been changed %(section)s to "\
+            "%(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_THEME_OUTPUT_RSS_DOCUMENT': {

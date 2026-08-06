@@ -23,70 +23,70 @@ WEKO_RECORDS_UI_MESSAGE = {
     },
     'WEKO_RECORDS_UI_FAILED_UPDATE_ITEM': {
         'msgid': 'WEKO_RECORDS_UI_E_0003',
-        'msgstr': "FAILED to update item: {pid}",
+        'msgstr': "FAILED to update item: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_RECORDS_UI_FAILED_DELETE_ITEM': {
         'msgid': 'WEKO_RECORDS_UI_E_0004',
-        'msgstr': "FAILED to delete item: {pid}",
+        'msgstr': "FAILED to delete item: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_RECORDS_UI_FAILED_ITEM_PROCESS': {
         'msgid': 'WEKO_RECORDS_UI_E_0005',
-        'msgstr': "FAILED item process: {pid}",
+        'msgstr': "FAILED item process: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_RECORDS_UI_FAILED_FILE_UPLOAD': {
         'msgid': 'WEKO_RECORDS_UI_E_0006',
-        'msgstr': "FAILED file upload: {file_id}",
+        'msgstr': "FAILED file upload: %(file_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_RECORDS_UI_UPDATE_ITEMS_IN_BULK': {
         'msgid': 'WEKO_RECORDS_UI_I_0001',
-        'msgstr': "Items updated in bulk: {pid}",
+        'msgstr': "Items updated in bulk: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_RECORDS_UI_CHANGE_DISPLAY_SETTINGS_SEARCH_RESULTS': {
         'msgid': 'WEKO_RECORDS_UI_I_0002',
         'msgstr': "The display setting for search results has been changed "\
-            "to {configuration_value}.",
+            "to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_RECORDS_UI_CHANGE_DISPLAY_DETAIL_SETTINGS_SEARCH_RESULTS': {
         'msgid': 'WEKO_RECORDS_UI_I_0003',
         'msgstr': "The display setting for search results has been changed "\
-            "{section} to {configuration_value}.",
+            "%(section)s to %(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_RECORDS_UI_UPDATE_ITEM': {
         'msgid': 'WEKO_RECORDS_UI_I_0004',
-        'msgstr': "Update item: {pid}",
+        'msgstr': "Update item: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_RECORDS_UI_DELETE_ITEM': {
         'msgid': 'WEKO_RECORDS_UI_I_0005',
-        'msgstr': "Delete item: {pid}",
+        'msgstr': "Delete item: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_RECORDS_UI_CREATE_ITEM': {
         'msgid': 'WEKO_RECORDS_UI_I_0006',
-        'msgstr': "Create item: {pid}",
+        'msgstr': "Create item: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_RECORDS_UI_UPLOAD_FILE': {
         'msgid': 'WEKO_RECORDS_UI_I_0007',
-        'msgstr': "Upload file: {file_id}",
+        'msgstr': "Upload file: %(file_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_RECORDS_UI_QUIT_FILE_UPLOAD': {
         'msgid': 'WEKO_RECORDS_UI_I_0008',
-        'msgstr': "File upload has been quitted: {file_id}",
+        'msgstr': "File upload has been quitted: %(file_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_RECORDS_UI_CHANGE_SETTINGS_MULTIPART_UPLOAD': {
         'msgid': 'WEKO_RECORDS_UI_I_0009',
         'msgstr': "The multipart upload function setting has been changed to "\
-            "{configuration_value}.",
+            "%(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_RECORDS_UI_USER_AUTH_EXISTS': {

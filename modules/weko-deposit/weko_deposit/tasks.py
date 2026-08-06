@@ -161,20 +161,14 @@ def update_items_by_authorInfo( user_id, target, origin_pkid_list=[], origin_id_
         data_from = 0
         data_size = current_app.config['WEKO_SEARCH_MAX_RESULT']
         counter = 0
-        weko_logger(key='WEKO_COMMON_WHILE_START')
         while True:
             current_app.logger.debug("process data from {}.".format(data_from))
             c, next = _process(data_size, data_from, process_counter, target, origin_pkid_list, key_map, author_prefix, affiliation_id, force_change)
             counter += c
             data_from += data_size
             if not next:
-                weko_logger(key='WEKO_COMMON_IF_ENTER',
-                            branch="next is false")
                 break
-        weko_logger(key='WEKO_COMMON_WHILE_END')
         if update_gather_flg:
-            weko_logger(key='WEKO_COMMON_IF_ENTER',
-                        branch="update_gather_flg is not empty")
             process_counter[ORIGIN_LABEL] = get_origin_data(origin_pkid_list)
             update_db_search_data(origin_pkid_list, origin_id_list)
     except (DisconnectionError, TimeoutError, ConnectionError) as e:
@@ -571,12 +565,10 @@ def update_db_search_data(origin_pkid_list, origin_id_list):
     try:
         # update DB of Author
         with db.session.begin_nested():
-            weko_logger(key='WEKO_COMMON_FOR_START')
             for j in origin_pkid_list:
                 author_data = Authors.query.filter_by(id=j).one()
                 author_data.gather_flg = 1
                 db.session.merge(author_data)
-            weko_logger(key='WEKO_COMMON_FOR_END')
         db.session.commit()
 
         # update Search of Author
@@ -589,19 +581,14 @@ def update_db_search_data(origin_pkid_list, origin_id_list):
         }
 
         indexer = RecordIndexer()
-        weko_logger(key='WEKO_COMMON_FOR_START')
-        for i, t in enumerate(origin_id_list):
-            weko_logger(key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                        count=i, element=t)
+        for t in origin_id_list:
             q = json.dumps(update_author_q).replace("@id", t)
             q = json.loads(q)
             res = indexer.client.search(
                 index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
                 body=q
             )
-            for i, h in enumerate(res.get("hits").get("hits")):
-                weko_logger(key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                            count=i, element=h)
+            for h in res.get("hits").get("hits"):
                 body = {
                     'doc': {
                         'gather_flg': 1
@@ -612,7 +599,6 @@ def update_db_search_data(origin_pkid_list, origin_id_list):
                     id=h.get("_id"),
                     body=body
                 )
-        weko_logger(key='WEKO_COMMON_FOR_END')
     except SQLAlchemyError as ex:
         weko_logger(key='WEKO_COMMON_DB_SOME_ERROR', ex=ex)
         db.session.rollback()
@@ -638,12 +624,8 @@ def make_stats_file(raw_stats):
     file_format = current_app.config.get('WEKO_ADMIN_OUTPUT_FORMAT', 'tsv').lower()
     file_output = StringIO()
     if file_format == 'csv':
-        weko_logger(key='WEKO_COMMON_IF_ENTER',
-                    branch="file format is csv")
         writer = csv.writer(file_output, delimiter=",", lineterminator="\n")
     else:
-        weko_logger(key='WEKO_COMMON_IF_ENTER',
-                    branch="file format is not csv")
         writer = csv.writer(file_output, delimiter="\t", lineterminator="\n")
     writer.writerow(["[TARGET]"])
     writer.writerow(list(raw_stats.get(TARGET_LABEL, {}).keys()))
@@ -651,49 +633,29 @@ def make_stats_file(raw_stats):
     writer.writerow("")
 
     writer.writerow(["[ORIGIN]"])
-    weko_logger(key='WEKO_COMMON_FOR_START')
-    for i, o in enumerate(raw_stats.get(ORIGIN_LABEL, [])):
-        weko_logger(key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                    count=i, element=o)
+    for o in raw_stats.get(ORIGIN_LABEL, []):
         writer.writerow(list(o.keys()))
         writer.writerow(list(o.values()))
-    weko_logger(key='WEKO_COMMON_FOR_END')
     writer.writerow("")
 
     writer.writerow(["[SUCCESS]"])
     if raw_stats.get(SUCCESS_LABEL, []):
-        weko_logger(key='WEKO_COMMON_IF_ENTER',
-                    branch="raw stats is not empty")
         writer.writerow(TITLE_LIST)
-        weko_logger(key='WEKO_COMMON_FOR_START')
-        for i, item in enumerate(raw_stats.get(SUCCESS_LABEL, [])):
-            weko_logger(key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                        count=i, element=item)
+        for item in raw_stats.get(SUCCESS_LABEL, []):
             term = []
-            for i, name in enumerate(TITLE_LIST):
-                weko_logger(key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                            count=i, element=name)
+            for name in TITLE_LIST:
                 term.append(item.get(name))
             writer.writerow(term)
-        weko_logger(key='WEKO_COMMON_FOR_END')
     writer.writerow("")
 
     writer.writerow(["[FAIL]"])
     if raw_stats.get(FAIL_LABEL, []):
-        weko_logger(key='WEKO_COMMON_IF_ENTER',
-                    branch="raw stats is not empty")
         writer.writerow(TITLE_LIST)
-        weko_logger(key='WEKO_COMMON_FOR_START')
-        for i, item in enumerate(raw_stats.get(FAIL_LABEL, [])):
-            weko_logger(key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                        count=i, element=item)
+        for item in raw_stats.get(FAIL_LABEL, []):
             term = []
-            for i, name in enumerate(TITLE_LIST):
-                weko_logger(key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                            count=i, element=name)
+            for name in TITLE_LIST:
                 term.append(item.get(name))
             writer.writerow(term)
-        weko_logger(key='WEKO_COMMON_FOR_END')
     return file_output
 
 
