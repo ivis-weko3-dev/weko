@@ -49,8 +49,7 @@ class WekoDeposit(object):
             app (:obj:`flask.Flask`): The Flask application. Default to `None`.
         """
         self.init_config(app)
-        if blueprint.name not in app.blueprints:
-            app.register_blueprint(blueprint)
+        app.register_blueprint(blueprint)
         app.extensions['weko-deposit'] = self
 
     def init_config(self, app):
