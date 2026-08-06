@@ -1291,7 +1291,7 @@ function toObject(arr) {
                                 var provide_form = get_subitem(filemeta_form.items, 'provide');
                                 var role_form = get_subitem(provide_form.items, 'role');
                                 role_form['titleMap'] = [];
-                                var roles = dataInit['init_roles'];
+                                var roles = dataInit['logged_roles'];
                                 for (let key in roles) {
                                     role_schema['enum'].push(roles[key]['id'].toString());
                                     role_form['titleMap'].push({
