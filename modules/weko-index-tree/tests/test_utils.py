@@ -10,8 +10,9 @@ from flask_babel import get_locale
 from flask_babel import gettext as _
 from flask_babel import to_user_timezone, to_utc
 from flask_login import current_user, login_user, LoginManager
-from mock import patch, MagicMock, Mock
+from unittest.mock import patch, MagicMock, Mock
 from functools import wraps
+from opensearchpy import helpers
 from operator import itemgetter
 
 from redis import sentinel

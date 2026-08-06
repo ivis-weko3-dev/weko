@@ -149,9 +149,7 @@ def base_app(instance_path):
         SERVER_NAME='TEST_SERVER',
         LOGIN_DISABLED=False,
         INDEXER_FILE_DOC_TYPE='content',
-        INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format(
-            'test'
-        ),
+        INDEXER_DEFAULT_INDEX="weko-item-v1.0.0",
         INDEX_IMG='indextree/36466818-image.jpg',
         INDEXER_MQ_QUEUE = Queue("indexer", exchange=Exchange("indexer", type="direct"), routing_key="indexer",queue_arguments={"x-queue-type":"quorum"}),
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
@@ -177,7 +175,7 @@ def base_app(instance_path):
         DEPOSIT_REST_ENDPOINTS=DEPOSIT_REST_ENDPOINTS,
         DEPOSIT_DEFAULT_STORAGE_CLASS=DEPOSIT_DEFAULT_STORAGE_CLASS,
         # SEARCH_UI_SEARCH_INDEX=SEARCH_UI_SEARCH_INDEX,
-        SEARCH_UI_SEARCH_INDEX="test-weko",
+        SEARCH_UI_SEARCH_INDEX="weko",
         # SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
         SEARCH_INDEX_PREFIX="{}-".format('test'),
         # SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
