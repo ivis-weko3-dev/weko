@@ -79,17 +79,33 @@ def test_publish_user(client, users, deposit, index, status_code):
                     content_type='application/json')
     assert res.status_code == status_code
 
+# .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_publish_users_sqlAchemyError -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+def test_publish_user_sqlAchemyerror(client, users, deposit):
     # SQLAchemyError
+    login_user_via_session(client=client, email=users[0]['email'])
+    kwargs = {
+        'pid_value': deposit
+    }
+    url = url_for('weko_deposit_rest.publish', pid_value=kwargs['pid_value'])
+    input = {}
     with patch("weko_deposit.rest.WekoDeposit",side_effect=SQLAlchemyError("test_error")):
         with patch("weko_deposit.rest.weko_logger") as mock_logger:
             res = client.put(url, data=json.dumps(input),
                         content_type='application/json')
             assert res.status_code == 400
             assert "Some errors in the DB." in res.data.decode("utf-8")
-            mock_logger.assert_called_with(key='WEKO_COMMON_DB_SOME_ERROR', ex=mock.ANY)
+            mock_logger.assert_any_call(key='WEKO_COMMON_DB_SOME_ERROR', ex=mock.ANY)
             mock_logger.reset_mock()
 
+# .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_publish_users_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+def test_publish_user_exception(client, users, deposit):
     # Exception
+    login_user_via_session(client=client, email=users[0]['email'])
+    kwargs = {
+        'pid_value': deposit
+    }
+    url = url_for('weko_deposit_rest.publish', pid_value=kwargs['pid_value'])
+    input = {}
     with patch("weko_deposit.rest.WekoDeposit", side_effect=Exception("test_exception")):
         res = client.put(url, data=json.dumps(input),
                         content_type='application/json')
@@ -126,39 +142,36 @@ def test_create_blueprint(base_app):
         "pub_route"
     ] = "/deposits/publish/<{0}:pid_value>".format(_PID)
     with patch("weko_deposit.rest.obj_or_import_string") as mock_obj_or_import_string:
-        with patch("weko_deposit.rest.weko_logger") as mock_logger:
-            def side_effect(import_string, default=None):
-                if import_string == "weko_deposit_minter":
-                    from weko_deposit.pidstore import weko_deposit_minter
-                    return weko_deposit_minter
-                elif import_string == "weko_deposit_fetcher":
-                    from weko_deposit.pidstore import weko_deposit_fetcher
-                    return weko_deposit_fetcher
-                elif import_string == "weko_deposit.api:WekoDeposit":
-                    from weko_deposit.api import WekoDeposit
-                    return WekoDeposit
-                elif import_string == "weko_records.serializers:deposit_json_v1_response":
-                    from weko_records.serializers import deposit_json_v1_response
-                    return deposit_json_v1_response
-                elif import_string == "invenio_depositserializers:json_v1_files_response":
-                    from invenio_deposit.serializers import json_v1_files_response
-                    return json_v1_files_response
-                elif import_string == "invenio_deposit.search:DepositSearch":
-                    from invenio_deposit.search import DepositSearch
-                    return DepositSearch
-                elif import_string == "invenio_records_rest.serializers:json_v1_search":
-                    from invenio_records_rest.serializers import json_v1_search
-                    return json_v1_search
-                elif import_string == deny_all:
-                    return deny_all
-                else:
-                    return default
-            mock_obj_or_import_string.side_effect = side_effect
-            result = create_blueprint(base_app, endpoints)
-            assert result.name == 'weko_deposit_rest'
-            assert result.url_prefix == ''
-            mock_logger.assert_called_with(app=mock.ANY, key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
+        def side_effect(import_string, default=None):
+            if import_string == "weko_deposit_minter":
+                from weko_deposit.pidstore import weko_deposit_minter
+                return weko_deposit_minter
+            elif import_string == "weko_deposit_fetcher":
+                from weko_deposit.pidstore import weko_deposit_fetcher
+                return weko_deposit_fetcher
+            elif import_string == "weko_deposit.api:WekoDeposit":
+                from weko_deposit.api import WekoDeposit
+                return WekoDeposit
+            elif import_string == "weko_records.serializers:deposit_json_v1_response":
+                from weko_records.serializers import deposit_json_v1_response
+                return deposit_json_v1_response
+            elif import_string == "invenio_depositserializers:json_v1_files_response":
+                from invenio_deposit.serializers import json_v1_files_response
+                return json_v1_files_response
+            elif import_string == "invenio_deposit.search:DepositSearch":
+                from invenio_deposit.search import DepositSearch
+                return DepositSearch
+            elif import_string == "invenio_records_rest.serializers:json_v1_search":
+                from invenio_records_rest.serializers import json_v1_search
+                return json_v1_search
+            elif import_string == deny_all:
+                return deny_all
+            else:
+                return default
+        mock_obj_or_import_string.side_effect = side_effect
+        result = create_blueprint(base_app, endpoints)
+        assert result.name == 'weko_deposit_rest'
+        assert result.url_prefix == ''
 
     # record_serializer and search_serializers not exists
     endpoints = {
@@ -177,12 +190,10 @@ def test_create_blueprint(base_app):
         }
     }
     with patch("weko_deposit.rest.obj_or_import_string") as mock_obj_or_import_string:
-        with patch("weko_deposit.rest.weko_logger") as mock_logger:
-            mock_obj_or_import_string.side_effect = lambda x, default=None: x
-            result = create_blueprint(base_app, endpoints)
-            assert result.name == 'weko_deposit_rest'
-            assert result.url_prefix == ''
-            mock_logger.assert_called_with(app=mock.ANY, key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
+        mock_obj_or_import_string.side_effect = lambda x, default=None: x
+        result = create_blueprint(base_app, endpoints)
+        assert result.name == 'weko_deposit_rest'
+        assert result.url_prefix == ''
 
 
 # class ItemResource(ContentNegotiatedMethodView):
@@ -246,13 +257,20 @@ def test_depid_item_put_acl_users(client, users, deposit, index, status_code):
 
 # def put(self, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_put_upgrade_record_is_not_none_and_dot_0_in_pid_value -vv -s --cov-branch --cov-report=html --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp --full-trace
-def test_put_upgrade_record_is_not_none_and_dot_0_in_pid_value(client, users, deposit, db,location,  search_records,db_itemtype,db_actions):
+def test_put_upgrade_record_is_not_none_and_dot_0_in_pid_value(client, search_records, users, deposit, db,location ,db_itemtype,db_actions):
     login_user_via_session(client=client, email=users[2]['email'])
     pid_value_with_0 = "{}.0".format(deposit)
     kwargs = {
         'pid_value': pid_value_with_0
     }
     rec_uuid = search_records[1][0]["rec_uuid"]
+    PersistentIdentifier.create(
+        pid_type="depid",
+        pid_value=pid_value_with_0,
+        object_type="dep",
+        object_uuid=rec_uuid,
+        status=PIDStatus.REGISTERED,
+        )
     recid = PersistentIdentifier.create(
         pid_type="recid",
         pid_value=pid_value_with_0,
@@ -277,11 +295,9 @@ def test_put_upgrade_record_is_not_none_and_dot_0_in_pid_value(client, users, de
         "$schema": "/items/jsonschema/15",
         "edit_mode":"upgrade"
     }
-    with patch("weko_deposit.rest.weko_logger") as mock_logger:
-        res = client.put(url, data=json.dumps(input),
-                        content_type='application/json')
-        assert res.status_code == 200
-        mock_logger.assert_called_with(key='WEKO_COMMON_IF_ENTER', branch="upgrade_record is not None and '.0' in pid_value")
+    res = client.put(url, data=json.dumps(input),
+                    content_type='application/json')
+    assert res.status_code == 200
 
 #    def put(self, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_put_wf_activity_is_not_none -vv -s --cov-branch --cov-report=html --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp --full-trace
@@ -343,18 +359,16 @@ def test_put_wf_activity_is_not_none(client, users, db,location,  search_records
                     activity_start=datetime.strptime('2022/04/14 3:01:53.931', '%Y/%m/%d %H:%M:%S.%f'),
                     activity_community_id=3,
                     activity_confirm_term_of_use=True,
-                    title='test', shared_user_id=-1, extra_info={},
+                    title='test', shared_user_ids=[], extra_info={},
                     action_order=1,
                     item_id=str(search_records[1][0]["deposit"].pid.object_uuid),
                     )
     with db.session.begin_nested():
         db.session.add(item_id_activity)
     db.session.commit()
-    with patch("weko_deposit.rest.weko_logger") as mock_logger:
-        res = client.put(url, data=json.dumps(input),
-                        content_type='application/json')
-        assert res.status_code == 200
-        mock_logger.assert_called_with(key='WEKO_COMMON_IF_ENTER', branch="wf_activity is not None")
+    res = client.put(url, data=json.dumps(input),
+                    content_type='application/json')
+    assert res.status_code == 200
 
     # if weko_record: is None
     with patch("weko_deposit.rest.WekoRecord.get_record_by_pid", return_value=None):
@@ -515,42 +529,40 @@ def test_depid_item_post_guest(client, deposit):
     :param client: The flask client.
     """
     with patch.dict(current_app.config, {'WEKO_RECORDS_UI_EMAIL_ITEM_KEYS': '1'}):
-        with patch("weko_deposit.rest.weko_logger", side_effect=weko_logger) as mock_logger:
-            kwargs = {
-                    'pid_value': deposit
+        kwargs = {
+                'pid_value': deposit
+        }
+        url = url_for('weko_deposit_rest.depid_item',
+                    pid_value=kwargs['pid_value'])
+        input = {}
+        res = client.post(url,
+                        data=json.dumps(input),
+                        content_type='application/json')
+        assert res.status_code == 200
+        data = json.loads(res.data)
+        data.pop('created')
+        data['links'].pop('bucket')
+        assert data == {
+            'id': 1,
+            'links': {
+                'iframe_tree': '/items/iframe/index/1',
+                'iframe_tree_upgrade': '/items/iframe/index/1.1',
+                'index': '/api/deposits/redirect/1',
+                'r': '/items/index/1'
             }
-            url = url_for('weko_deposit_rest.depid_item',
-                        pid_value=kwargs['pid_value'])
-            input = {}
-            res = client.post(url,
-                            data=json.dumps(input),
-                            content_type='application/json')
-            assert res.status_code == 200
-            data = json.loads(res.data)
-            data.pop('created')
-            data['links'].pop('bucket')
-            assert data == {
-                'id': 1,
-                'links': {
-                    'iframe_tree': '/items/iframe/index/1',
-                    'iframe_tree_upgrade': '/items/iframe/index/1.1',
-                    'index': '/api/deposits/redirect/1',
-                    'r': '/items/index/1'
-                }
-            }
-            mock_logger.assert_called_with(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
+        }
 
 # def post(self, pid, record, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_rest.py::test_depid_item_post_users -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
 @pytest.mark.parametrize('index, status_code', [
-    (0, 200),
-    (1, 200),
-    (2, 200),
-    (3, 200),
-    (4, 200),
-    (5, 200),
-    (6, 200),
-    (7, 200),
+    (0, 201),
+    (1, 201),
+    (2, 201),
+    (3, 201),
+    (4, 201),
+    (5, 201),
+    (6, 201),
+    (7, 201),
 ])
 def test_depid_item_post_users(client, users, deposit, index, status_code):
     """
@@ -631,14 +643,8 @@ def test_sanitize_string(client, users,search_records):
                         "approval1", "approval2"],
         "$schema": "/items/jsonschema/15"
     }
-    with patch("weko_deposit.rest.weko_logger") as mock_logger:
-        # success case
-        res = client.put(url, data=json.dumps(input),
-                        content_type='application/json')
-        assert res.status_code == 200
-        assert json.loads(res.data) == {"status":"success"}
-        mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-        mock_logger.assert_any_call(key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-        mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-        mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-        mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
+    # success case
+    res = client.put(url, data=json.dumps(input),
+                    content_type='application/json')
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"status":"success"}

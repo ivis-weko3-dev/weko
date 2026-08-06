@@ -29,7 +29,7 @@ import tempfile
 import time
 import uuid
 
-from datetime import datetime
+from datetime import datetime,timedelta
 from flask import Flask
 from flask_menu import Menu
 from flask_babel import Babel
@@ -92,7 +92,7 @@ from weko_index_tree.models import Index
 from weko_items_ui import WekoItemsUI
 from weko_logging.audit import WekoLoggingUserActivity
 from weko_records import WekoRecords
-from weko_records.api import ItemsMetadata, WekoRecord
+from weko_records.api import ItemsMetadata
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
 from weko_records.utils import get_options_and_order_list
 from weko_redis.redis import RedisConnection
@@ -182,7 +182,7 @@ def base_app(instance_path):
         WEKO_INDEX_TREE_REST_ENDPOINTS=WEKO_INDEX_TREE_REST_ENDPOINTS,
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English"),("da", "Danish")],
         SERVER_NAME="TEST_SERVER",
-        SEARCH_INDEX_PREFIX="test-",
+        SEARCH_INDEX_PREFIX="",
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME=WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
         WEKO_SCHEMA_DDI_SCHEMA_NAME=WEKO_SCHEMA_DDI_SCHEMA_NAME,
         WEKO_PERMISSION_SUPER_ROLE_USER=[
@@ -201,7 +201,6 @@ def base_app(instance_path):
             'conference object':'conference output',
         },
         WEKO_AUTHORS_SEARCH_INDEX_NAME="test-authors",
-        WEKO_MIMETYPE_WHITELIST_FOR_SEARCH=_WEKO_MIMETYPE_WHITELIST_FOR_SEARCH,
         WEKO_DEPOSIT_BIBLIOGRAPHIC_INFO_SYS_KEY=_WEKO_DEPOSIT_BIBLIOGRAPHIC_INFO_SYS_KEY,
         SEARCH_OPENSEARCH_HOSTS=os.environ.get(
             'SEARCH_OPENSEARCH_HOSTS', 'opensearch'
@@ -216,7 +215,17 @@ def base_app(instance_path):
             ),
             "use_ssl": True,
             "verify_certs": False
-        }
+        },
+        WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT= {
+                    "prefix":"jc",
+                    "sysadm_group":"jc_roles_sysadm",
+                    "role_keyword":"ro",
+                    "role_mapping":{
+                        "radm":"Repository Administrator",
+                        "cadm":"Community Administrator",
+                        "cont":"Contributor",
+                    }
+                }
     )
     # with ESTestServer(timeout=30) as server:
     Babel(app_)
@@ -248,7 +257,6 @@ def base_app(instance_path):
     Menu(app_)
     app_.register_blueprint(invenio_files_rest_blueprint)  # invenio_files_rest
     WekoDeposit(app_)
-    WekoDepositREST(app_)
     WekoLoggingUserActivity(app_)
     return app_
 
@@ -269,6 +277,7 @@ def app(base_app):
         http_auth=search_client_config['http_auth'],
         use_ssl=search_client_config['use_ssl'],
         verify_certs=search_client_config['verify_certs'],
+        timeout=60
     )
 
     open_search.indices.create(
@@ -535,7 +544,7 @@ def users(app, db):
                             description=("this is test community"),
                             root_node_id=index.id)
     db.session.commit()
-    
+
     yield [
         {"email": contributor.email, "id": contributor.id, "obj": contributor},
         {"email": repoadmin.email, "id": repoadmin.id, "obj": repoadmin},
@@ -568,12 +577,12 @@ def deposit(app, location):
         deleted=False,
         location=location,
     )
-    deposit = aWekoDeposit.create({})
+    deposit = aWekoDeposit.create({},recid=10)
     return deposit.pid.pid_value
 
 
 @pytest.fixture()
-def db_index(client,db, users):
+def db_index(user_activity_log_partition_table, client, db, users):
     index_metadata = {
         "id": 1,
         "parent": 0,
@@ -672,6 +681,7 @@ def db_itemtype(app, db):
     with db.session.begin_nested():
         db.session.add(item_type_name)
         db.session.add(item_type)
+        db.session.flush()
         db.session.add(item_type_mapping)
     db.session.commit()
     db.session.refresh(item_type)
@@ -720,6 +730,7 @@ def db_itemtype2(app, db):
     with db.session.begin_nested():
         db.session.add(item_type_name)
         db.session.add(item_type)
+        db.session.flush()
         db.session.add(item_type_mapping)
 
     return {
@@ -728,7 +739,7 @@ def db_itemtype2(app, db):
         "item_type_mapping": item_type_mapping,
     }
 @pytest.fixture()
-def search_records(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records(app, user_activity_log_partition_table, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
     indexer.get_search_index()
@@ -738,8 +749,8 @@ def search_records(app, db, db_index, location, db_itemtype,db_oaischema):
 
     with app.test_request_context():
         for i in range(1, 10):
-            record_data =  {"_oai": {"id": "oai:weko3.example.org:000000{:02d}".format(i), "sets": ["{}".format((i % 2) + 1)]}, "path": ["{}".format((i % 2) + 1)], "owner": "1", "recid": "{}".format(i), "title": ["title"], "pubdate": {"attribute_name": "PubDate", "attribute_value": "2022-08-20"}, "_buckets": {"deposit": "3e99cfca-098b-42ed-b8a0-20ddd09b3e02","content":[{"test":"content"},{"file":"test"}]}, "_deposit": {"id": "{}".format(i), "pid": {"type": "depid", "value": "{}".format(i), "revision_id": 0}, "owner": "1", "owners": [1], "status": "draft", "created_by": 1, "owners_ext": {"email": "wekosoftware@nii.ac.jp", "username": "", "displayname": ""}}, "item_title": "title", "author_link": [], "item_type_id": "1", "publish_date": "2022-08-20", "publish_status": "0", "weko_shared_id": -1, "item_1617186331708": {"attribute_name": "Title", "attribute_value_mlt": [{"subitem_1551255647225": "タイトル", "subitem_1551255648112": "ja"},{"subitem_1551255647225": "title", "subitem_1551255648112": "en"}]}, "item_1617258105262": {"attribute_name": "Resource Type","content":[{"test":"content"},{"file":"test"}], "attribute_value_mlt": [{"resourceuri": "http://purl.org/coar/resource_type/c_5794", "resourcetype": "conference paper"}]}, "relation_version_is_last": True, 'item_1617605131499': {'attribute_name': 'File', 'attribute_type': 'file', 'attribute_value_mlt': [{'url': {'url': 'https://weko3.example.org/record/{}/files/hello.txt'.format(i)}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-07'}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_access', 'version_id': '', 'mimetype': 'application/pdf',"file": "",}]}}
-            item_data = {"id": "{}".format(i), "pid": {"type": "depid", "value": "{}".format(i), "revision_id": 0}, "lang": "ja", "owner": "1", "title": "title", "owners": [1], "status": "published", "$schema": "/items/jsonschema/1", "pubdate": "2022-08-20", "created_by": 1, "owners_ext": {"email": "wekosoftware@nii.ac.jp", "username": "", "displayname": ""}, "shared_user_id": -1, "item_1617186331708": [{"subitem_1551255647225": "タイトル", "subitem_1551255648112": "ja"},{"subitem_1551255647225": "title", "subitem_1551255648112": "en"}], "item_1617258105262": {"resourceuri": "http://purl.org/coar/resource_type/c_5794", "resourcetype": "conference paper"}}
+            record_data =  {"_oai": {"id": "oai:weko3.example.org:000000{:02d}".format(i), "sets": ["{}".format((i % 2) + 1)]}, "path": ["{}".format((i % 2) + 1)], "owner": "1", "weko_shared_ids": [], "recid": "{}".format(i), "title": ["title"], "pubdate": {"attribute_name": "PubDate", "attribute_value": "2022-08-20"}, "_buckets": {"deposit": "3e99cfca-098b-42ed-b8a0-20ddd09b3e02","content":[{"test":"content"},{"file":"test"}]}, "_deposit": {"id": "{}".format(i), "pid": {"type": "depid", "value": "{}".format(i), "revision_id": 0}, "owner": "1", "owners": [1], "status": "draft", "created_by": 1, "owners_ext": {"email": "wekosoftware@nii.ac.jp", "username": "", "displayname": ""}}, "item_title": "title", "author_link": [], "item_type_id": "1", "publish_date": "2022-08-20", "publish_status": "0", "weko_shared_id": -1, "item_1617186331708": {"attribute_name": "Title", "attribute_value_mlt": [{"subitem_1551255647225": "タイトル", "subitem_1551255648112": "ja"},{"subitem_1551255647225": "title", "subitem_1551255648112": "en"}]}, "item_1617258105262": {"attribute_name": "Resource Type","content":[{"test":"content"},{"file":"test"}], "attribute_value_mlt": [{"resourceuri": "http://purl.org/coar/resource_type/c_5794", "resourcetype": "conference paper"}]}, "relation_version_is_last": True, 'item_1617605131499': {'attribute_name': 'File', 'attribute_type': 'file', 'attribute_value_mlt': [{'url': {'url': 'https://weko3.example.org/record/{}/files/hello.txt'.format(i)}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-07'}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_access', 'version_id': '', 'mimetype': 'application/pdf',"file": "",}]}}
+            item_data = {"id": "{}".format(i), "pid": {"type": "depid", "value": "{}".format(i), "revision_id": 0}, "lang": "ja", "owner": "1", "title": "title", "owners": [1], "status": "published", "$schema": "/items/jsonschema/1", "pubdate": "2022-08-20", "created_by": 1, "owners_ext": {"email": "wekosoftware@nii.ac.jp", "username": "", "displayname": ""}, "shared_user_ids": [], "item_1617186331708": [{"subitem_1551255647225": "タイトル", "subitem_1551255648112": "ja"},{"subitem_1551255647225": "title", "subitem_1551255648112": "en"}], "item_1617258105262": {"resourceuri": "http://purl.org/coar/resource_type/c_5794", "resourcetype": "conference paper"}}
 
             rec_uuid = uuid.uuid4()
 
@@ -764,7 +775,6 @@ def search_records(app, db, db_index, location, db_itemtype,db_oaischema):
             bucket = Bucket.create()
             record_buckets = RecordsBuckets.create(record=record.model, bucket=bucket)
             stream = BytesIO(b'Hello, World')
-            record.files['hello.txt'] = stream
             obj=ObjectVersion.create(bucket=bucket.id, key='hello.txt',stream=stream)
             record['item_1617605131499']['attribute_value_mlt'][0]['file'] = (base64.b64encode(stream.getvalue())).decode('utf-8')
             deposit = aWekoDeposit(record, record.model)
@@ -782,7 +792,7 @@ def search_records(app, db, db_index, location, db_itemtype,db_oaischema):
 
 
 @pytest.fixture()
-def search_records_1(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_1(app, user_activity_log_partition_table, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
     indexer.get_search_index()
@@ -817,7 +827,6 @@ def search_records_1(app, db, db_index, location, db_itemtype,db_oaischema):
             bucket = Bucket.create()
             record_buckets = RecordsBuckets.create(record=record.model, bucket=bucket)
             stream = BytesIO(b'Hello, World')
-            record.files['hello.txt'] = stream
             obj=ObjectVersion.create(bucket=bucket.id, key='hello.txt',stream=stream)
             record['item_1617605131499']['attribute_value_mlt'][0]['file'] = (base64.b64encode(stream.getvalue())).decode('utf-8')
             deposit = aWekoDeposit(record, record.model)
@@ -836,7 +845,7 @@ def search_records_1(app, db, db_index, location, db_itemtype,db_oaischema):
 
 
 @pytest.fixture()
-def search_records_2(app, db, db_index, location, db_itemtype2,db_oaischema):
+def search_records_2(app, user_activity_log_partition_table, db, db_index, location, db_itemtype2,db_oaischema):
 
     indexer = WekoIndexer()
     indexer.get_search_index()
@@ -892,7 +901,6 @@ def search_records_2(app, db, db_index, location, db_itemtype2,db_oaischema):
             bucket = Bucket.create()
             record_buckets = RecordsBuckets.create(record=record.model, bucket=bucket)
             stream = BytesIO(b'Hello, World')
-            record.files['hello.txt'] = stream
             obj=ObjectVersion.create(bucket=bucket.id, key='hello.txt',stream=stream)
             record['item_1617605131499']['attribute_value_mlt'][0]['file'] = (base64.b64encode(stream.getvalue())).decode('utf-8')
             deposit = aWekoDeposit(record, record.model)
@@ -908,7 +916,7 @@ def search_records_2(app, db, db_index, location, db_itemtype2,db_oaischema):
     return indexer, results
 
 @pytest.fixture()
-def search_records_3(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_3(app, user_activity_log_partition_table, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
     indexer.get_search_index()
@@ -931,7 +939,6 @@ def search_records_3(app, db, db_index, location, db_itemtype,db_oaischema):
             bucket = Bucket.create()
             record_buckets = RecordsBuckets.create(record=record.model, bucket=bucket)
             stream = BytesIO(b'Hello, World')
-            record.files['hello.txt'] = stream
             obj=ObjectVersion.create(bucket=bucket.id, key='hello.txt',stream=stream)
             deposit = aWekoDeposit(record, record.model)
             deposit.commit()
@@ -940,18 +947,22 @@ def search_records_3(app, db, db_index, location, db_itemtype,db_oaischema):
             indexer.upload_metadata(record_data, rec_uuid, 1, False)
             item = ItemsMetadata.create(item_data, id_=rec_uuid)
 
-        parent = PersistentIdentifier.create('parent', "parent:1",object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
-        for recid in recids:
-            rel = PIDRelation.create(parent,recid,0,0)
-            db.session.add(rel)
-        db.session.commit()
-
+        parent = PersistentIdentifier.create('parent', "parent:10",object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
+        results.append({
+        "record": record,
+        "deposit": deposit,
+        "item": item,
+        "record_data": record_data,
+        "item_data": item_data,
+        "rec_uuid": rec_uuid,
+        "version_id": obj.version_id,
+    })
     time.sleep(3)
     return indexer, results
 
 
 @pytest.fixture()
-def search_records_4(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_4(app, user_activity_log_partition_table, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
     indexer.get_search_index()
@@ -975,7 +986,6 @@ def search_records_4(app, db, db_index, location, db_itemtype,db_oaischema):
             bucket = Bucket.create()
             record_buckets = RecordsBuckets.create(record=record.model, bucket=bucket)
             stream = BytesIO(b'Hello, World')
-            record.files['hello.txt'] = stream
             obj=ObjectVersion.create(bucket=bucket.id, key='hello.txt',stream=stream)
             deposit = aWekoDeposit(record, record.model)
             deposit.commit()
@@ -989,7 +999,7 @@ def search_records_4(app, db, db_index, location, db_itemtype,db_oaischema):
 
 
 @pytest.fixture()
-def search_records_5(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_5(app, user_activity_log_partition_table, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
     indexer.get_search_index()
@@ -1068,7 +1078,6 @@ def search_records_5(app, db, db_index, location, db_itemtype,db_oaischema):
             bucket = Bucket.create()
             record_buckets = RecordsBuckets.create(record=record.model, bucket=bucket)
             stream = BytesIO(b'Hello, World')
-            record.files['hello.txt'] = stream
             obj=ObjectVersion.create(bucket=bucket.id, key='hello.txt',stream=stream)
             record['item_1617605131499']['attribute_value_mlt'][0]['file'] = (base64.b64encode(stream.getvalue())).decode('utf-8')
             deposit = aWekoDeposit(record, record.model)
@@ -1086,7 +1095,7 @@ def search_records_5(app, db, db_index, location, db_itemtype,db_oaischema):
 
 
 @pytest.fixture()
-def search_records_6(app, db, db_index, location, db_itemtype2, db_oaischema):
+def search_records_6(app, user_activity_log_partition_table, db, db_index, location, db_itemtype2, db_oaischema):
 
     indexer = WekoIndexer()
     indexer.get_search_index()
@@ -1142,7 +1151,7 @@ def search_records_6(app, db, db_index, location, db_itemtype2, db_oaischema):
             }
 
             rec_uuid = uuid.uuid4()
-
+            rec_uuid_0 = uuid.uuid4()
             recid = PersistentIdentifier.create('recid', str(i), object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
             depid = PersistentIdentifier.create('depid', str(i), object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
             recid_0 = PersistentIdentifier.create('recid', str(i) + ".0", object_type='rec', object_uuid=rec_uuid_0,status=PIDStatus.REGISTERED)
@@ -1170,6 +1179,7 @@ def search_records_6(app, db, db_index, location, db_itemtype2, db_oaischema):
                 hdl = PersistentIdentifier.create('hdl', "https://hdl.handle.net/0000/{}".format((str(i)).zfill(10)),object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
 
             record = WekoRecord.create(record_data, id_=rec_uuid)
+            record_0 = WekoRecord.create(record_data, id_=rec_uuid_0)
             # from io import BytesIO
             from invenio_files_rest.models import Bucket
             from invenio_records_files.models import RecordsBuckets
@@ -1178,7 +1188,6 @@ def search_records_6(app, db, db_index, location, db_itemtype2, db_oaischema):
             record_buckets = RecordsBuckets.create(record=record.model, bucket=bucket)
             record_buckets_0 = RecordsBuckets.create(record=record_0.model, bucket=bucket)
             stream = BytesIO(b'Hello, World')
-            record.files['hello.txt'] = stream
             record_0.files['hello.txt'] = stream
             obj=ObjectVersion.create(bucket=bucket.id, key='hello.txt',stream=stream)
             record['item_1617605131499']['attribute_value_mlt'][0]['file'] = (base64.b64encode(stream.getvalue())).decode('utf-8')
@@ -1191,9 +1200,7 @@ def search_records_6(app, db, db_index, location, db_itemtype2, db_oaischema):
             record['item_1617605131499']['attribute_value_mlt'][0]['version_id'] = str(obj.version_id)
 
             record_data['content']= [{"date":[{"dateValue":"2021-07-12","dateType":"Available"}],"accessrole":"open_access","displaytype" : "simple","filename" : "hello.txt","attachment" : {},"format" : "text/plain","mimetype" : "text/plain","filesize" : [{"value" : "1 KB"}],"version_id" : "{}".format(obj.version_id),"url" : {"url":"http://localhost/record/{}/files/hello.txt".format(i)},"file":(base64.b64encode(stream.getvalue())).decode('utf-8')}]
-            record_data_0['content']= [{"date":[{"dateValue":"2021-07-12","dateType":"Available"}],"accessrole":"open_access","displaytype" : "simple","filename" : "hello.txt","attachment" : {},"format" : "text/plain","mimetype" : "text/plain","filesize" : [{"value" : "1 KB"}],"version_id" : "{}".format(obj.version_id),"url" : {"url":"http://localhost/record/{}.0/files/hello.txt".format(i)},"file":(base64.b64encode(stream.getvalue())).decode('utf-8')}]
             indexer.upload_metadata(record_data, rec_uuid, 1, False)
-            indexer.upload_metadata(record_data_0, rec_uuid_0, 1, False)
             item = ItemsMetadata.create(item_data, id_=rec_uuid)
 
             results.append({"depid":depid, "recid":recid, "parent": parent, "doi":doi, "hdl": hdl,"record":record, "record_data":record_data,"item":item , "item_data":item_data,"deposit": deposit, "rec_uuid":rec_uuid, "version_id":obj.version_id})
@@ -1203,7 +1210,7 @@ def search_records_6(app, db, db_index, location, db_itemtype2, db_oaischema):
 
 
 @pytest.fixture()
-def search_records_7(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_7(app, user_activity_log_partition_table, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
     indexer.get_search_index()
@@ -1227,7 +1234,6 @@ def search_records_7(app, db, db_index, location, db_itemtype,db_oaischema):
             bucket = Bucket.create()
             record_buckets = RecordsBuckets.create(record=record.model, bucket=bucket)
             stream = BytesIO(b'Hello, World')
-            record.files['hello.txt'] = stream
             obj=ObjectVersion.create(bucket=bucket.id, key='hello.txt',stream=stream)
             deposit = aWekoDeposit(record, record.model)
             deposit.commit()
@@ -1243,7 +1249,7 @@ def search_records_7(app, db, db_index, location, db_itemtype,db_oaischema):
 
 
 @pytest.fixture()
-def search_records_8(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_8(app, user_activity_log_partition_table, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
     indexer.get_search_index()
@@ -1261,10 +1267,16 @@ def search_records_8(app, db, db_index, location, db_itemtype,db_oaischema):
 
             record = WekoRecord.create(record_data, id_=rec_uuid)
             from invenio_files_rest.models import Bucket
+            bucket = Bucket.create()
             from invenio_records_files.models import RecordsBuckets
+            record_buckets = RecordsBuckets.create(record=record.model, bucket=bucket)
             import base64
+            stream = BytesIO(b'Hello, World')
+            obj=ObjectVersion.create(bucket=bucket.id, key='hello.txt',stream=stream)
             deposit = aWekoDeposit(record, record.model)
             deposit.commit()
+            record_data['content']= [{"date":[{"dateValue":"2021-07-12","dateType":"Available"}],"accessrole":"open_access","displaytype" : "simple","filename" : "hello.txt","attachment" : {},"format" : "text/plain","mimetype" : "text/plain","filesize" : [{"value" : "1 KB"}],"version_id" : "{}".format(obj.version_id),"url" : {"url":"http://localhost/record/{}/files/hello.txt".format(i)}}]
+
             indexer.upload_metadata(record_data, rec_uuid, 1, False)
             item = ItemsMetadata.create(item_data, id_=rec_uuid)
 
@@ -1274,7 +1286,7 @@ def search_records_8(app, db, db_index, location, db_itemtype,db_oaischema):
     return indexer, results
 
 @pytest.fixture()
-def search_records_with_draft(app, db, db_index, location, db_itemtype,db_oaischema):
+def search_records_with_draft(app, user_activity_log_partition_table, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
     indexer.get_search_index()
@@ -1420,7 +1432,7 @@ def prepare_key_map():
             "affiliations_key": "creatorAffiliations",
             "affiliation_ids_key": "affiliationNameIdentifiers",
             "affiliation_id_key": "affiliationNameIdentifier",
-            "affiliation_id_uri_key": "affiliationNameIdentifierURI",            
+            "affiliation_id_uri_key": "affiliationNameIdentifierURI",
             "affiliation_id_scheme_key": "affiliationNameIdentifierScheme",
             "affiliation_names_key": "affiliationNames",
             "affiliation_name_key": "affiliationName",
@@ -1446,7 +1458,7 @@ def prepare_key_map():
             "affiliations_key": "contributorAffiliations",
             "affiliation_ids_key": "contributorAffiliationNameIdentifiers",
             "affiliation_id_key": "contributorAffiliationNameIdentifier",
-            "affiliation_id_uri_key": "contributorAffiliationURI",            
+            "affiliation_id_uri_key": "contributorAffiliationURI",
             "affiliation_id_scheme_key": "contributorAffiliationScheme",
             "affiliation_names_key": "contributorAffiliationNames",
             "affiliation_name_key": "contributorAffiliationName",
@@ -1472,7 +1484,7 @@ def prepare_key_map():
             "affiliations_key": "affiliations",
             "affiliation_ids_key": "nameIdentifiers",
             "affiliation_id_key": "nameIdentifier",
-            "affiliation_id_uri_key": "nameIdentifierURI",            
+            "affiliation_id_uri_key": "nameIdentifierURI",
             "affiliation_id_scheme_key": "nameIdentifierScheme",
             "affiliation_names_key": "affiliationNames",
             "affiliation_name_key": "affiliationName",
@@ -1950,3 +1962,21 @@ def db_user_profiles(db,users):
     db.session.add(all_data)
     db.session.commit()
     return all_data
+
+@pytest.fixture()
+def user_activity_log_partition_table(app, db):
+    """Create user activity log partition."""
+    # Create partition for current month
+    now = datetime.now()
+    start = now.date().replace(day=1)
+    end = (start + timedelta(days=31)).replace(day=1)
+    partition_name = f"user_activity_logs_{now.year}_{now.month:02d}"
+    create_partition_sql = f"""
+        CREATE TABLE IF NOT EXISTS {partition_name}
+        PARTITION OF user_activity_logs
+        FOR VALUES FROM ('{start}') TO ('{end}');
+    """
+
+    with db.session.begin_nested():
+        db.session.execute(create_partition_sql)
+    db.session.commit()
