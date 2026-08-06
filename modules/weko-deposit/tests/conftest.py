@@ -256,7 +256,6 @@ def base_app(instance_path):
     WekoIndexTreeREST(app_)
     Menu(app_)
     app_.register_blueprint(invenio_files_rest_blueprint)  # invenio_files_rest
-    WekoDeposit(app_)
     WekoLoggingUserActivity(app_)
     return app_
 
