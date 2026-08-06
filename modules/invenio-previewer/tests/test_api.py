@@ -1,12 +1,13 @@
 import pytest
 import os
-from mock import patch, MagicMock
+import errno
+from unittest.mock import patch, MagicMock
 
 from invenio_previewer.api import PreviewFile, convert_to, LibreOfficeError
 
 
-# class PreviewFile(object): 
-# def bucket(self): 
+# class PreviewFile(object):
+# def bucket(self):
 def test_bucket_PreviewFile(app):
     test = PreviewFile(
         pid=1,
@@ -19,7 +20,8 @@ def test_bucket_PreviewFile(app):
     assert test.bucket() != None
 
 
-# def convert_to(folder, source): 
+# def convert_to(folder, source):
+# .tox/c1/bin/pytest --cov=invenio_previewer tests/test_api.py::test_convert_to -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-previewer/.tox/c1/tmp
 def test_convert_to(app):
     folder = "folder"
     source = "middle/zzz/is_being_used"
@@ -35,7 +37,7 @@ def test_convert_to(app):
                 )
         except:
             pass
-    
+
         try:
             with patch('invenio_previewer.api.request.path', return_value="this/is/a/test/variable"):
                 with patch('invenio_previewer.api.subprocess.run', return_value=""):
@@ -46,7 +48,7 @@ def test_convert_to(app):
                         )
         except:
             pass
-        
+
         try:
             def exists():
                 return False
@@ -84,7 +86,15 @@ def test_convert_to(app):
                         convert_to(folder=folder, source=source)
         except:
             pass
-        
+
+        try:
+            with patch('invenio_previewer.api.request.path', return_value="this/is/a/test/variable"):
+                with patch('invenio_previewer.api.flash', return_value=""):
+                    with patch('invenio_previewer.api.subprocess.run', side_effect=OSError(errno.ENOSPC, "No space left on device")):
+                        convert_to(folder=folder, source=source)
+        except:
+            pass
+
 
 # class LibreOfficeError(Exception):
 def test_LibreOfficeError(app):

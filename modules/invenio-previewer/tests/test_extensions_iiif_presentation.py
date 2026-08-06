@@ -1,7 +1,7 @@
 import pytest
 import os
 import json
-from mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock, mock_open
 
 from invenio_previewer.api import PreviewFile
 from invenio_previewer.extensions.iiif_presentation import (
@@ -11,53 +11,48 @@ from invenio_previewer.extensions.iiif_presentation import (
 )
 
 
-# def validate_json(file): 
+# def validate_json(file):
+# .tox/c1/bin/pytest --cov=invenio_previewer tests/test_extensions_iiif_presentation.py::test_validate_json -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-previewer/.tox/c1/tmp
 def test_validate_json(app):
-    def read_func():
-        def decode_func(decode_item):
-            return json.dumps({
-                "@context": [
-                    "iiif",
-                    "presentation"
-                ],
-                "size": 999,
-                "file": "file_999"
-            })
 
-        read_magicmock = MagicMock()
-        read_magicmock.decode = decode_func
-        return read_magicmock
-
-    json_data = {
-        "@context": [
-            "iiif",
-            "presentation"
-        ],
-        "size": 999,
-        "file": "file_999"
-    }
+    def _mock_file(json_body, size):
+        file_mock = MagicMock()
+        file_mock.size = size
+        body = json_body if isinstance(json_body, str) else json.dumps(json_body)
+        fp_mock = MagicMock()
+        fp_mock.read.return_value.decode.return_value = body
+        file_mock.open.return_value.__enter__.return_value = fp_mock
+        return file_mock
 
     app.config['PREVIEWER_MAX_FILE_SIZE_BYTES'] = 1000
 
-    data1 = MagicMock()
-    data1.file = json_data
-    data1.size = app.config['PREVIEWER_MAX_FILE_SIZE_BYTES'] + 1
-    data1.__enter__().__iter().return_value = read_func
+    file_mock = _mock_file({}, size=1001)
+    assert validate_json(file=file_mock) is False
 
-    assert validate_json(file=data1) == False
+    file_mock = _mock_file(
+        {"@context": ["http://iiif.io/api/presentation/2/context.json"]},
+        size=999,
+    )
+    assert validate_json(file=file_mock) is True
 
-    data1.size = app.config['PREVIEWER_MAX_FILE_SIZE_BYTES'] - 1
+    file_mock = _mock_file(
+        {"@context": "http://iiif.io/api/presentation/3/context.json"},
+        size=999,
+    )
+    assert validate_json(file=file_mock) is True
 
-    # Exception coverage
-    try:
-        assert validate_json(file=data1) == False
-    except:
-        pass
+    file_mock = _mock_file({"@context": "not-matching"}, size=999)
+    assert validate_json(file=file_mock) is False
 
-    assert validate_json(file=data1) == False
+    file_mock = _mock_file({"foo": "bar"}, size=999)
+    assert validate_json(file=file_mock) is False
+
+    file_mock = _mock_file("not a json string", size=999)
+    assert validate_json(file=file_mock) is False
 
 
-# def can_preview(file): 
+
+# def can_preview(file):
 def test_can_preview(app):
     def is_local():
         return True
@@ -68,7 +63,7 @@ def test_can_preview(app):
 
     with patch("invenio_previewer.extensions.iiif_presentation.validate_json", return_value=True):
         assert can_preview(file=file) == True
-    
+
     with patch("invenio_previewer.extensions.iiif_presentation.validate_json", return_value=False):
         assert can_preview(file=file) == True
 
