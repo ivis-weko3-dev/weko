@@ -500,7 +500,7 @@ class TestShibUserExtra:
 # .tox/c1/bin/pytest --cov=weko_accounts tests/test_api.py::TestShibUserExtra::test_check_in -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-accounts/.tox/c1/tmp
     def test_check_in(self, extra_app, mocker):
         shibuser = ShibUser({})
-        shibuser.user = MagicMock(spec=User)
+        shibuser.user = MagicMock()
         shibuser.user.roles = MagicMock()
 
         with extra_app.app_context():

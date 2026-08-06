@@ -23,6 +23,7 @@
 import os, sys
 import shutil
 import tempfile
+from datetime import datetime, timedelta
 
 import pytest
 from flask import Flask
@@ -91,6 +92,10 @@ def base_app(instance_path):
             'HTTP_WEKOID': (False, 'shib_user_name'),
         },
         WEKO_ACCOUNTS_SHIB_IDP_LOGIN_URL='{}secure/login.py',
+        WEKO_ACCOUNTS_SHIB_ROLE_RELATION = {
+            '管理者': 'System Administrator',
+            '機関内のOrthros': 'Repository Administrator'
+        }
     )
     Babel(app_)
     InvenioI18N(app_)
@@ -351,7 +356,7 @@ def weko_roles(app):
 
     Args:
         app (Flask): Flask application.
-    
+
     Returns:
         dict: Dictionary of roles.
     """
@@ -366,3 +371,21 @@ def weko_roles(app):
         'contributor': contributor_role,
         'comadmin': comadmin_role
     }
+
+@pytest.fixture()
+def user_activity_log_partition_table(app, db):
+    """Create user activity log partition."""
+    # Create partition for current month
+    now = datetime.now()
+    start = now.date().replace(day=1)
+    end = (start + timedelta(days=31)).replace(day=1)
+    partition_name = f"user_activity_logs_{now.year}_{now.month:02d}"
+    create_partition_sql = f"""
+        CREATE TABLE IF NOT EXISTS {partition_name}
+        PARTITION OF user_activity_logs
+        FOR VALUES FROM ('{start}') TO ('{end}');
+    """
+
+    with db.session.begin_nested():
+        db.session.execute(create_partition_sql)
+    db.session.commit()
