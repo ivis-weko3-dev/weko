@@ -148,6 +148,19 @@ def test_initialize(location, s3_bucket, s3fs, file_size, inmemory_fs):
     assert inmemory_fs.storage[s3fs.fileurl] == b''
 
 
+def test_initialize_exception(s3fs, inmemory_fs, monkeypatch):
+    """Test initialize enters exception block when write fails."""
+    monkeypatch.setattr(
+        FakeFP,
+        'write',
+        lambda self, data: (_ for _ in ()).throw(Exception('Write failed')),
+        raising=True,
+    )
+
+    with pytest.raises(Exception, match='Write failed'):
+        s3fs.initialize(size=100)
+
+
 def test_initialize_failcleanup(location, monkeypatch, s3_bucket, s3fs):
     """Test basic cleanup on fail."""
     monkeypatch.setattr(S3File, 'write', lambda x: x, raising=True)
@@ -484,6 +497,7 @@ def test_send_file(base_app, location, s3fs, database, inmemory_fs):
         base_app.config['S3_SEND_FILE_DIRECTLY'] = False
         test_send_indirectly()
 
+        s3fs.location = None
         checksum = 'md5:value'
         test_send_indirectly()
 
