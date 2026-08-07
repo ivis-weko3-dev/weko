@@ -30,6 +30,8 @@ from invenio_db import InvenioDB, db
 
 from weko_user_profiles import WekoUserProfiles
 
+# .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_weko_user_profiles.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
+
 
 def test_version():
     """Test version import."""
@@ -41,7 +43,8 @@ def test_init():
     """Test extension initialization."""
     app = Flask('testapp')
     app.config.update(
-        ACCOUNTS_USE_CELERY=False
+        ACCOUNTS_USE_CELERY=False,
+        SECRET_KEY='testing_key'
     )
     Babel(app)
     Mail(app)
@@ -53,7 +56,8 @@ def test_init():
 
     app = Flask('testapp')
     app.config.update(
-        ACCOUNTS_USE_CELERY=False
+        ACCOUNTS_USE_CELERY=False,
+        SECRET_KEY='testing_key'
     )
     Babel(app)
     Mail(app)

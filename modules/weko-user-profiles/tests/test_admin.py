@@ -81,10 +81,10 @@ class TestUserProfileView:
 #        def page_size_url(s):
 #            default_page_size=self.page_size,
 # .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_admin.py::TestUserProfileView::test_index_view -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
-    def test_index_view(self,app,admin_app,client,users):
+    def test_index_view(self,app,admin_app,client,users,mocker):
         url = "/admin/userprofile/"
         login_user_via_session(client,email=users[0]["email"])
-        mock_render = patch("weko_user_profiles.admin.UserProfileView.render",return_value=make_response())
+        mock_render = mocker.patch("weko_user_profiles.admin.UserProfileView.render",return_value=make_response())
         client.get(url)
         logout(app,client)
         # can_delete is false

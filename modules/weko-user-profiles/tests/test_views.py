@@ -39,6 +39,7 @@ from invenio_accounts.testutils import login_user_via_session
 
 import weko_user_profiles
 from weko_user_profiles import WekoUserProfiles
+from weko_user_profiles.ext import finalize_app
 from weko_user_profiles.forms import ProfileForm,EmailProfileForm
 from weko_user_profiles.views import (
     blueprint_ui_init,
@@ -378,6 +379,7 @@ def test_get_profile_info(client,app,admin_app,register_bp,users,mocker,user_pro
 # def profile():
 # .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_views.py::test_profile -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
 def test_profile(app, client, register_bp, users, mocker):
+    finalize_app(app)
     with patch("sqlalchemy.orm.scoping.scoped_session.remove", return_value=None):
         url = url_for("weko_user_profiles.profile")
         # no login

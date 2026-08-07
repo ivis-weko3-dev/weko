@@ -74,6 +74,8 @@ def base_app(instance_path):
     app_.config.update(
         ACCOUNTS_USE_CELERY=False,
         LOGIN_DISABLED=False,
+        APP_THEME=["bootstrap3"],
+        THEME_ICONS={},
         SECRET_KEY='testing_key',
         SERVER_NAME='TEST_SERVER.localdomain',
         THEME_SITEURL="https://localhost",
@@ -158,7 +160,7 @@ def register_bp():
     current_app.register_blueprint(blueprint_ui_init)
     current_app.register_blueprint(blueprint_api_init)
 
-@pytest.fixture
+@pytest.fixture()
 def db(app):
     """Database fixture."""
     if not database_exists(str(db_.engine.url)):
@@ -170,7 +172,7 @@ def db(app):
     # drop_database(str(db_.engine.url))
 
 
-@pytest.fixture
+@pytest.fixture()
 def app_with_csrf(base_app):
     """Flask application with CSRF security enabled."""
     base_app.config.update(
