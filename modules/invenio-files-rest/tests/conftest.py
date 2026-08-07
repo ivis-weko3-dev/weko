@@ -224,6 +224,7 @@ def bucket(db, dummy_location):
 
 @pytest.fixture
 def bucket_with_record(db, bucket):
+    """Bucket associated with a record."""
     record = RecordMetadata(json={}, version_id=1)
     db.session.add(record)
     db.session.flush()
