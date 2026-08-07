@@ -25,7 +25,7 @@
 
 import pytest
 from flask import url_for, json,make_response, current_app, g, jsonify
-from mock import patch
+from unittest.mock import patch
 from flask_breadcrumbs import current_breadcrumbs
 from flask.json import JSONEncoder as BaseEncoder
 from flask_security import url_for_security
@@ -49,7 +49,7 @@ from weko_user_profiles.views import (
     init_ui
     )
 
-from tests.helpers import login, sign_up
+from .helpers import login, sign_up
 
 class TestJSONEncoder(BaseEncoder):
     def default(self, o):
@@ -66,6 +66,7 @@ def prefix(name, data):
     return data
 
 
+# .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_views.py::test_profile_in_registration -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
 def test_profile_in_registration(base_app,db):
     """Test accounts registration form."""
     base_app.config.update(USERPROFILES_EXTEND_SECURITY_FORMS=True)
@@ -115,6 +116,7 @@ def test_template_filter(app,db):
         db.session.commit()
 
 
+# .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_views.py::test_profile_view_not_accessible_without_login -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
 def test_profile_view_not_accessible_without_login(app,register_bp,db):
     """Test the user can't access profile settings page without logging in."""
     with app.test_request_context():
@@ -375,7 +377,7 @@ def test_get_profile_info(client,app,admin_app,register_bp,users,mocker,user_pro
 
 # def profile():
 # .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_views.py::test_profile -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
-def test_profile(client,register_bp,users):
+def test_profile(app, client, register_bp, users, mocker):
     with patch("sqlalchemy.orm.scoping.scoped_session.remove", return_value=None):
         url = url_for("weko_user_profiles.profile")
         # no login
@@ -383,24 +385,27 @@ def test_profile(client,register_bp,users):
         assert res.status_code == 302
         user = User.query.filter_by(email=users[0]["email"]).first()
         mocker.patch("invenio_accounts.models.User.get_id", return_value=users[0]["id"])
-        login_user_via_session(client=client,user=user)
+        login(app, client, obj=user)
 
-        patch("weko_user_profiles.views.profile_form_factory")
-        patch("weko_user_profiles.views.render_template",return_value=make_response())
-        mock_profile = patch("weko_user_profiles.views.handle_profile_form")
-        mock_verification = patch("weko_user_profiles.views.handle_verification_form")
+        mocker.patch("weko_user_profiles.views.profile_form_factory")
+        mocker.patch("weko_user_profiles.views.render_template",return_value=make_response())
+        mock_profile = mocker.patch("weko_user_profiles.views.handle_profile_form")
+        mock_verification = mocker.patch("weko_user_profiles.views.handle_verification_form")
 
         # not submit
-        client.post(url,data={})
+        res = client.post(url,data={})
+        assert res.status_code == 200
         mock_profile.assert_not_called()
         mock_verification.assert_not_called()
 
         # submit is profile
-        client.post(url,data={"submit":"profile"})
+        res = client.post(url,data={"submit":"profile"})
+        assert res.status_code == 200
         mock_profile.assert_called_once()
 
         # submit is verification
-        client.post(url,data={"submit":"verification"})
+        res = client.post(url,data={"submit":"verification"})
+        assert res.status_code == 200
         mock_verification.assert_called_once()
 
         # check submenu, breadcrumbs

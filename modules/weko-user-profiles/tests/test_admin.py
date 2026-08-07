@@ -36,22 +36,22 @@ from unittest.mock import patch
 # def test_admin(app):
 #     """Test flask-admin interace."""
 #     WekoUserProfiles(app)
-# 
+#
 #     assert isinstance(user_profile_adminview, dict)
-# 
+#
 #     assert 'model' in user_profile_adminview
 #     assert 'modelview' in user_profile_adminview
-# 
+#
 #     admin = Admin(app, name="Test")
-# 
+#
 #     user_model = user_profile_adminview.pop('model')
 #     user_view = user_profile_adminview.pop('modelview')
 #     admin.add_view(user_view(user_model, db.session,
 #                              **user_profile_adminview))
-# 
+#
 #     with app.test_request_context():
 #         request_url = url_for('userprofile.index_view')
-# 
+#
 #     with app.app_context():
 #         with app.test_client() as client:
 #             res = client.get(
@@ -95,56 +95,56 @@ class TestUserProfileView:
 
 #    def edit_view(self):
 # .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_admin.py::TestUserProfileView::test_edit_view -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
-    def test_edit_view(self,app,admin_app,client,users,user_profiles):
+    def test_edit_view(self, app, admin_app, client, users, user_profiles, mocker):
         url_base = "/admin/userprofile/edit/"
         # not self.can_edit
         login(app,client,obj=users[1]["obj"])
-        mock_redirect = patch("weko_user_profiles.admin.redirect",return_value=make_response())
+        mock_redirect = mocker.patch("weko_user_profiles.admin.redirect",return_value=make_response())
         res = client.post(url_base)
         mock_redirect.assert_called_with("/admin/userprofile/")
         logout(app,client)
         login(app,client,obj=users[0]["obj"])
         # not exist args
-        mock_redirect = patch("weko_user_profiles.admin.redirect",return_value=make_response())
+        mock_redirect = mocker.patch("weko_user_profiles.admin.redirect",return_value=make_response())
         res = client.post(url_base)
         mock_redirect.assert_called_with("/admin/userprofile/")
-        
+
         # model is none
         url = url_base+"?id=1"
-        mock_redirect = patch("weko_user_profiles.admin.redirect",return_value=make_response())
-        mock_flash = patch("weko_user_profiles.admin.flash")
+        mock_redirect = mocker.patch("weko_user_profiles.admin.redirect", return_value=make_response())
+        mock_flash = mocker.patch("weko_user_profiles.admin.flash")
         res = client.post(url)
         mock_redirect.assert_called_with("/admin/userprofile/")
         mock_flash.assert_called_with("Record does not exist.","error")
-        
+
         # not validate_form
         url = url_base+"?id={}".format(user_profiles[2].user_id)
-        mock_render = patch("weko_user_profiles.admin.UserProfileView.render",return_value=make_response())
+        mock_render = mocker.patch("weko_user_profiles.admin.UserProfileView.render",return_value=make_response())
         res = client.post(url)
         args,_ = mock_render.call_args
         assert args[0] == "admin/model/edit.html"
         #mock_redirect.assert_called_with("/admin/userprofile/")
-        
+
         # _add_another exist
         url = url_base+"?id={}".format(user_profiles[0].user_id)
-        mock_redirect = patch("weko_user_profiles.admin.redirect",return_value=make_response())
-        mock_flash = patch("weko_user_profiles.admin.flash")
+        mock_redirect = mocker.patch("weko_user_profiles.admin.redirect",return_value=make_response())
+        mock_flash = mocker.patch("weko_user_profiles.admin.flash")
         res = client.post(url,data={"_add_another":"value"})
         mock_redirect.assert_called_with("/admin/userprofile/new/?url=%2Fadmin%2Fuserprofile%2F")
         mock_flash.assert_called_with('Record was successfully saved.',"success")
-        
+
         # _continue_editing exist
         url = url_base+"?id={}".format(user_profiles[0].user_id)
-        mock_redirect = patch("weko_user_profiles.admin.redirect",return_value=make_response())
-        mock_flash = patch("weko_user_profiles.admin.flash")
+        mock_redirect = mocker.patch("weko_user_profiles.admin.redirect",return_value=make_response())
+        mock_flash = mocker.patch("weko_user_profiles.admin.flash")
         res = client.post(url,data={"_continue_editing":"value"})
         mock_redirect.assert_called_with("http://TEST_SERVER.localdomain/admin/userprofile/edit/?id=5")
         mock_flash.assert_called_with('Record was successfully saved.',"success")
-        
+
         # _add_another not exist, _continue_editing not exist
         url = url_base+"?id={}".format(user_profiles[0].user_id)
-        mock_redirect = patch("weko_user_profiles.admin.redirect",return_value=make_response())
-        mock_flash = patch("weko_user_profiles.admin.flash")
+        mock_redirect = mocker.patch("weko_user_profiles.admin.redirect",return_value=make_response())
+        mock_flash = mocker.patch("weko_user_profiles.admin.flash")
         res = client.post(url,data={})
         mock_redirect.assert_called_with("/admin/userprofile/")
         mock_flash.assert_called_with('Record was successfully saved.',"success")
@@ -157,7 +157,7 @@ class TestUserProfileView:
         result = UserProfileView(UserProfile,session).can_edit
         assert result == False
         logout_user()
-        
+
         login_user(users[0]["obj"])
         result = UserProfileView(UserProfile,session).can_edit
         assert result == True
@@ -170,7 +170,7 @@ class TestUserProfileView:
         result = UserProfileView(UserProfile,session).can_edit
         assert result == False
         logout_user()
-        
+
         login_user(users[0]["obj"])
         result = UserProfileView(UserProfile,session).can_edit
         assert result == True
