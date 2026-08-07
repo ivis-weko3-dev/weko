@@ -60,24 +60,17 @@ class WekoDeposit(object):
         """
         # Use theme's base template if theme is installed
         if 'BASE_TEMPLATE' in app.config:
-            weko_logger(app=app, key='WEKO_COMMON_IF_ENTER',
-                        branch="BASE_TEMPLATE in app.config")
-
             app.config.setdefault(
                 'WEKO_DEPOSIT_BASE_TEMPLATE',
                 app.config['BASE_TEMPLATE'],
             )
 
-        weko_logger(app=app, key='WEKO_COMMON_FOR_START')
-        for i, k in enumerate(dir(config)):
-            weko_logger(app=app, key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                        count=i, element=k)
+        for k in dir(config):
             if k.startswith('WEKO_DEPOSIT_'):
                 val=getattr(config, k)
                 app.config.setdefault(k, val)
 
                 weko_logger(app=app, key='WEKO_COMMON_INIT_CONFIG', config=k, value=val)
-        weko_logger(app=app, key='WEKO_COMMON_FOR_END')
 
         before_record_index.connect(append_file_content)
 

@@ -45,7 +45,7 @@ def image_path():
     """
     return join(dirname(__file__), u'data/image-public-domain.jpg')
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -86,18 +86,18 @@ def base_app(instance_path):
 
     yield app_
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app(base_app):
 
     with base_app.app_context():
         yield base_app
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client(app):
     with app.test_client() as client:
         yield client
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def db(app):
     # if not database_exists(str(db_.engine.url)) and \
     #         app.config['SQLALCHEMY_DATABASE_URI'] != 'sqlite://':

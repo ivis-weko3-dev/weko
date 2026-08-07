@@ -10,32 +10,32 @@
 WEKO_DEPOSIT_MESSAGE = {
     'WEKO_DEPOSIT_FAILED_UPDATE_ITEM': {
         'msgid': 'WEKO_DEPOSIT_E_0001',
-        'msgstr': "FAILED to update item: {pid}",
+        'msgstr': "FAILED to update item: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_DELETE_ITEM': {
         'msgid': 'WEKO_DEPOSIT_E_0002',
-        'msgstr': "FAILED to delete item: {pid}",
+        'msgstr': "FAILED to delete item: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_ITEM_PROCESS': {
         'msgid': 'WEKO_DEPOSIT_E_0003',
-        'msgstr': "FAILED item process: {pid}",
+        'msgstr': "FAILED item process: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_FILE_UPLOAD': {
         'msgid': 'WEKO_DEPOSIT_E_0004',
-        'msgstr': "FAILED file upload: {file_name}",
+        'msgstr': "FAILED file upload: %(file_name)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_REGISTER_INDEX': {
         'msgid': 'WEKO_DEPOSIT_E_0005',
-        'msgstr': "FAILED to register index designation: {pid}",
+        'msgstr': "FAILED to register index designation: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_ADD_AUTHOR': {
         'msgid': 'WEKO_DEPOSIT_E_0006',
-        'msgstr': "FAILED to add author: {author_id}",
+        'msgstr': "FAILED to add author: %(author_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_QUIT_ADD_AUTHOR': {
@@ -45,48 +45,48 @@ WEKO_DEPOSIT_MESSAGE = {
     },
     'WEKO_DEPOSIT_FAILED_SAVE_AUTHOR': {
         'msgid': 'WEKO_DEPOSIT_E_0008',
-        'msgstr': "FAILED to save author: {author_id}",
+        'msgstr': "FAILED to save author: %(author_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAIILED_DELETE_AUTHOR': {
         'msgid': 'WEKO_DEPOSIT_E_0009',
-        'msgstr': "FAILED to delete author: {author_id}",
+        'msgstr': "FAILED to delete author: %(author_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_MERGE_AUTHORID': {
         'msgid': 'WEKO_DEPOSIT_E_0010',
-        'msgstr': "FAILED to merge author ID:{author_id}",
+        'msgstr': "FAILED to merge author ID:%(author_id)s",
         'loglevel': 'ERROR',
     },
     'WeKO_DEPOSIT_FAILED_ENCODING_DECODING_FILE': {
         'msgid': 'WEKO_DEPOSIT_E_0011',
-        'msgstr': "FAILED to encode/decode file: {file_name}",
+        'msgstr': "FAILED to encode/decode file: %(file_name)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_DELETE_FILE_INDEX': {
         'msgid': 'WEKO_DEPOSIT_E_0012',
-        'msgstr': "FAILED to delete file index. Record id: {record_id}",
+        'msgstr': "FAILED to delete file index. Record id: %(record_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_DELETE_RECORD_BY_ID': {
         'msgid': 'WEKO_DEPOSIT_E_0013',
-        'msgstr': "FAILED to delete record by id. Record id: {uuid}",
+        'msgstr': "FAILED to delete record by id. Record id: %(uuid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_MERGE_CHANGE': {
         'msgid': 'WEKO_DEPOSIT_E_0014',
-        'msgstr': "FAILED to merge changes with latest published version. pid: {pid}",
+        'msgstr': "FAILED to merge changes with latest published version. pid: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_MAKE_PATH': {
         'msgid': 'WEKO_DEPOSIT_E_0015',
-        'msgstr': "FAILED to make path: {path}; "\
-            "Path length must be at least {length} characters.",
+        'msgstr': "FAILED to make path: %(path)s; "\
+            "Path length must be at least %(length)s characters.",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_UPLOAD_FILE_CONTENT_TO_SEARCH': {
         'msgid': 'WEKO_DEPOSIT_E_0016',
-        'msgstr': "FAILED to upload file content to Search. Uuid: {uuid}",
+        'msgstr': "FAILED to upload file content to Search. Uuid: %(uuid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_STORAGE_FACTORY':{
@@ -101,74 +101,74 @@ WEKO_DEPOSIT_MESSAGE = {
     },
     'WEKO_DEPOSIT_FAILED_UPLOAD_FILE_METADATA_TO_SEARCH': {
         'msgid': 'WEKO_DEPOSIT_E_0019',
-        'msgstr': "FAILED to upload file metadata to Search. File id: {file_id}",
+        'msgstr': "FAILED to upload file metadata to Search. File id: %(file_id)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_CONVERT_ITEM_METADATA': {
         'msgid': 'WEKO_DEPOSIT_E_0020',
-        'msgstr': "FAILED to convert item metadata. Pid: {pid}",
+        'msgstr': "FAILED to convert item metadata. Pid: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_ITEM_HAS_BEEN_DELETED': {
         'msgid': 'WEKO_DEPOSIT_E_0021',
-        'msgstr': "This item has been deleted: {pid}",
+        'msgstr': "This item has been deleted: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_PID_STATUS_NOT_REGISTERED': {
         'msgid': 'WEKO_DEPOSIT_E_0022',
-        'msgstr': "Pid status is not registered: {pid}",
+        'msgstr': "Pid status is not registered: %(pid)s",
         'loglevel': 'ERROR',
     },
     'WEKO_DEPOSIT_FAILED_PARSE_FILE_ITEM': {
         'msgid': 'WEKO_DEPOSIT_W_0001',
-        'msgstr': "FAILED to parse file from item {record_id}.",
+        'msgstr': "FAILED to parse file from item %(record_id)s.",
         'loglevel': 'WARN',
     },
     'WEKO_DEPOSIT_UPDATE_ITEM': {
         'msgid': 'WEKO_DEPOSIT_I_0001',
-        'msgstr': "Update item: {pid}",
+        'msgstr': "Update item: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_DEPOSIT_DELETE_ITEM': {
         'msgid': 'WEKO_DEPOSIT_I_0002',
-        'msgstr': "Delete item: {pid}",
+        'msgstr': "Delete item: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_DEPOSIT_CREATE_ITEM': {
         'msgid': 'WEKO_DEPOSIT_I_0003',
-        'msgstr': "Create item: {pid}",
+        'msgstr': "Create item: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_DEPOSIT_UPLOAD_FILE': {
         'msgid': 'WEKO_DEPOSIT_I_0004',
-        'msgstr': "Upload file: {file_id}",
+        'msgstr': "Upload file: %(file_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_DEPOSIT_QUIT_FILE_UPLOAD': {
         'msgid': 'WEKO_DEPOSIT_I_0005',
-        'msgstr': "File upload has been quitted: {file_id}",
+        'msgstr': "File upload has been quitted: %(file_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_DEPOSIT_CHANGE_MULTI_UPLOAD': {
         'msgid': 'WEKO_DEPOSIT_I_0006',
         'msgstr': "The multi-upload function has been changed to "\
-            "{configuration_value}.",
+            "%(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_DEPOSIT_CHANGE_MULTI_UPLOAD_DETAIL_SETTING': {
         'msgid': 'WEKO_DEPOSIT_I_0007',
-        'msgstr': "The multi-upload function has been changed {section} to "\
-            "{configuration_value}.",
+        'msgstr': "The multi-upload function has been changed %(section)s to "\
+            "%(configuration_value)s.",
         'loglevel': 'INFO',
     },
     'WEKO_DEPOSIT_REGISTER_INDEX': {
         'msgid': 'WEKO_DEPOSIT_I_0008',
-        'msgstr': "Destination index has been registered: {pid}",
+        'msgstr': "Destination index has been registered: %(pid)s",
         'loglevel': 'INFO',
     },
     'WEKO_DEPOSIT_ADD_AUTHOR': {
         'msgid': 'WEKO_DEPOSIT_I_0009',
-        'msgstr': "Author added: {author_id}",
+        'msgstr': "Author added: %(author_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_DEPOSIT_QUIT_ADD_AUTHOR': {
@@ -178,28 +178,28 @@ WEKO_DEPOSIT_MESSAGE = {
     },
     'WEKO_DEPOSIT_SAVE_AUTHOR': {
         'msgid': 'WEKO_DEPOSIT_I_0011',
-        'msgstr': "Author saved: {author_id}",
+        'msgstr': "Author saved: %(author_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_DEPOSIT_DELETE_AUTHOR': {
         'msgid': 'WEKO_DEPOSIT_I_0012',
-        'msgstr': "Delete author: {author_id}",
+        'msgstr': "Delete author: %(author_id)s",
         'loglevel': 'INFO',
     },
     'WEKO_DEPOSIT_SEARCH_AUTHOR': {
         'msgid': 'WEKO_DEPOSIT_I_0013',
-        'msgstr': "Search author: {query}, results: {num} authors",
+        'msgstr': "Search author: %(query)s, results: %(num)s authors",
         'loglevel': 'INFO',
     },
     'WEKO_DEPOSIT_MERGE_AUTHORID': {
         'msgid': 'WEKO_DEPOSIT_I_0014',
-        'msgstr': "Merged author ID: {author_id}",
+        'msgstr': "Merged author ID: %(author_id)s",
         'loglevel': 'INFO',
     },
     'WEKODEPOSIT_APPEND_FILE_CONTENT': {
         'msgid': 'WEKO_DEPOSIT_I_0015',
         'msgstr': "Append file content to record for reindexing "\
-            "Search: {recid}",
+            "Search: %(recid)s",
         'loglevel': 'INFO',
     },
 }

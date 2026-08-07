@@ -14,7 +14,7 @@ from flask import current_app, request
 from flask_iiif.api import IIIFImageAPIWrapper
 from flask_iiif.restful import current_iiif
 from iiif_prezi.factory import Image as PreziImage
-from iiif_prezi.factory import ManifestFactory as PrezyManifestFactory
+from iiif_prezi.factory import ManifestFactory as PrezyManifestFactory, RequirementError
 
 from invenio_files_rest.models import ObjectVersion
 from invenio_previewer.api import PreviewFile

@@ -200,7 +200,7 @@ def get_timezone(date):
             date = parts[0]
             tz = parts[1]
             tz_parts = tz.split(':')
-            if len(tz_parts > 1):
+            if len(tz_parts) > 1:
                 tz_hour = tz_parts[0]
                 tz_min = tz_parts[1]
                 offset = -(int(tz_hour) * 60 * 60 + int(tz_min) * 60)

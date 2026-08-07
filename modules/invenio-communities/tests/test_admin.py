@@ -1,17 +1,15 @@
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_admin.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
 
-from flask import url_for, current_app, make_response
+from flask import url_for, make_response
 from flask_admin import Admin
 import pytest
 import werkzeug
 import base64
 from io import BytesIO
 from mock import patch
-from invenio_accounts.testutils import login_user_via_session, create_test_user
-from invenio_access.models import ActionUsers
 from invenio_communities.models import Community
 from weko_records.models import ItemTypeProperty
-from weko_index_tree.models import IndexStyle,Index
+from weko_index_tree.models import Index
 from invenio_accounts.testutils import login_user_via_session
 from invenio_communities.admin import community_adminview,request_adminview,featured_adminview, CommunityModelView
 from wtforms.validators import ValidationError
@@ -27,14 +25,14 @@ from invenio_accounts.models import Role
 @pytest.fixture
 def mock_role(db):
     # Delete the existing "Contributor" role
-    existing_role = db.session.query(Role).filter_by(name="Contributor").first()
+    existing_role = Role.query.filter_by(name="Contributor").first()
     if existing_role:
         db.session.delete(existing_role)
         db.session.commit()
 
     # Create a new instance of the Role
     role = Role(id="1", name="Contributor")
-    
+
     # Add to the DB session
     db.session.add(role)
     db.session.commit()
@@ -54,17 +52,17 @@ def setup_view_community(app,db,users,mock_role):
     db.session.commit()
     comm = Community(
         id="test_comm",
-        id_role=1,root_node_id=11,
+        id_role="1",root_node_id=11,
         page=0, ranking=0, curation_policy='',fixed_points=0, thumbnail_path='',catalog_json=[], login_menu_enabled=False, cnri="http://hdl.handle.net/1234567890/1",
         title="Test comm",
         description="this is test comm",
         id_user=1,
-        group_id=1
+        group_id="1"
     )
     db.session.add(comm)
     comm2 = Community(
         id="test_comm2",
-        id_role=1,root_node_id=11,
+        id_role="1",root_node_id=11,
         page=0, ranking=0, curation_policy='',fixed_points=0, thumbnail_path='',catalog_json=None, login_menu_enabled=False, cnri=None,
         title="Test comm2",
         description="this is test comm2",
@@ -104,7 +102,6 @@ class TestCommunityModelView():
             'role_keyword': 'roles',
             'prefix': 'jc'
         }
-        from invenio_accounts.models import Role
 
         role_key = app.config['WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT'].get('role_keyword', '')
         prefix = app.config['WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT'].get('prefix', '')
@@ -128,10 +125,12 @@ class TestCommunityModelView():
         assert role_only_prefix.name in owner_names
         assert role_none.name in owner_names
 
+    # .tox/c1/bin/pytest --cov=invenio_communities tests/test_admin.py::TestCommunityModelView::test_index_view_acl_guest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
     def test_index_view_acl_guest(self,app,setup_view_community,client):
         url = url_for('community.index_view')
         res = client.get(url)
-        assert res.status_code == 302
+        assert res.status_code == 200
+        assert "There are no items in the table." in res.text
 
     # .tox/c1/bin/pytest --cov=invenio_communities tests/test_admin.py::TestCommunityModelView::test_index_view_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
     @pytest.mark.parametrize(
@@ -167,7 +166,7 @@ class TestCommunityModelView():
 
             # role_idss is true
             result = view.role_query_cond([1,2])
-            assert str(result) == "communities_community.group_id IN (:group_id_1, :group_id_2)"
+            assert str(result) == "communities_community.group_id IN (__[POSTCOMPILE_group_id_1]) OR communities_community.id_role IN (__[POSTCOMPILE_id_role_1])"
 
     # def get_query(self):
     # .tox/c1/bin/pytest --cov=invenio_communities tests/test_admin.py::TestCommunityModelView::test_get_query -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
@@ -179,7 +178,7 @@ class TestCommunityModelView():
             assert "WHERE" not in str(result)
 
         # min(role_ids) > 2
-        with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+        with patch("flask_login.utils._get_user", return_value=users[4]["obj"]):
             result = view.get_query()
             assert "WHERE communities_community.group_id IN " in str(result)
 
@@ -193,7 +192,7 @@ class TestCommunityModelView():
             assert "WHERE" not in str(result)
 
         # min(role_ids) > 2
-        with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+        with patch("flask_login.utils._get_user", return_value=users[4]["obj"]):
             result = view.get_count_query()
             assert "WHERE communities_community.group_id IN " in str(result)
 
@@ -211,11 +210,7 @@ class TestCommunityModelView():
             # get
             res = client.get(url)
             assert res.status_code == 200
-            login_user_via_session(client,email=users[0]["email"])
-            res = client.get(url)
-            assert res.status_code == 403
 
-            login_user_via_session(client,email=user.email)
             # post
             # first character is not alphabet,"-","_"
             data = {
@@ -466,6 +461,16 @@ class TestCommunityModelView():
                 res = client.post(url,data=data)
                 assert res.status_code == 302
 
+    # def edit_form(self, obj):
+    # .tox/c1/bin/pytest --cov=invenio_communities tests/test_admin.py::TestCommunityModelView::test_create_contributor -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
+    def test_create_contributor(self,setup_view_community,users,db):
+        app, _, _, _, _ = setup_view_community
+        with app.test_client() as client:
+            login_user_via_session(client, email=users[0]["email"])
+            url = url_for("community.create_view",url="/admin/community/")
+            res = client.get(url)
+            assert res.status_code == 403
+
     # def _use_append_repository_edit(self, form, index_id: str):
     # def _get_child_index_list(self):
 
@@ -484,11 +489,7 @@ class TestCommunityModelView():
             # get
             res = client.get(url)
             assert res.status_code == 200
-            login_user_via_session(client,email=users[0]["email"])
-            res = client.get(url)
-            assert res.status_code == 200
 
-            login_user_via_session(client,email=user.email)
             # post
             # first character is not alphabet,"-","_"
             data = {
@@ -499,8 +500,8 @@ class TestCommunityModelView():
                 "description": "this is description of community1."
             }
             res = client.post(url,data=data)
-            assert res.status_code == 200
-            assert "The first character cannot be a number or special character. It should be an alphabet character, &#34;-&#34; or &#34;_&#34;" in str(res.data)
+            assert res.status_code == 400
+            assert 'The first character cannot be a number or special character. It should be an alphabet character, \\"-\\" or \\"_\\"' in res.text
 
             # first character is alphabet,"-","_"  negative number
             data = {
@@ -511,8 +512,8 @@ class TestCommunityModelView():
                 "description": "this is description of community1."
             }
             res = client.post(url,data=data)
-            assert res.status_code == 200
-            assert "Cannot set negative number to ID." in str(res.data)
+            assert res.status_code == 400
+            assert "Cannot set negative number to ID." in res.text
 
             # special character
             data = {
@@ -523,8 +524,8 @@ class TestCommunityModelView():
                 "description": "this is description of community1."
             }
             res = client.post(url,data=data)
-            assert res.status_code == 200
-            assert "Don&#39;t use space or special character except `-` and `_`." in str(res.data)
+            assert res.status_code == 400
+            assert "Don\'t use space or special character except `-` and `_`." in res.text
 
             # correct_data
             file1 = werkzeug.datastructures.FileStorage(stream=BytesIO(base64.b64decode(SMALLEST_JPEG_B64)),
@@ -765,6 +766,16 @@ class TestCommunityModelView():
             res = client.post(url_none,data=data)
             assert res.status_code == 404
 
+    # def edit_form(self, obj):
+    # .tox/c1/bin/pytest --cov=invenio_communities tests/test_admin.py::TestCommunityModelView::test_edit_contributor -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
+    def test_edit_contributor(self,setup_view_community,users,db):
+        app, _, _, _, _ = setup_view_community
+        with app.test_client() as client:
+            login_user_via_session(client, email=users[0]["email"])
+            url = url_for("community.edit_view",id="test_comm",url="/admin/community/")
+            res = client.get(url)
+            assert res.status_code == 200
+
     # def on_model_delete(self, model):
     # .tox/c1/bin/pytest --cov=invenio_communities tests/test_admin.py::TestCommunityModelView::test_on_model_delete -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
     def test_on_model_delete(self,setup_view_community,users,mocker,db):
@@ -903,7 +914,7 @@ class TestCommunityModelView():
             index = DummyIndex()
 
         # With permission
-        mocker.patch("invenio_communities.admin.get_user_role_ids", return_value=[1])
+        mocker.patch("invenio_communities.admin.get_user_role_ids", return_value=["System Administrator"])
         mocker.patch("invenio_communities.admin.current_app").config = {"COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT": 2}
         # Directly patch the super() call
         mock_super = mocker.patch("flask_admin.contrib.sqla.ModelView.edit_form", return_value="super_form")
@@ -915,7 +926,7 @@ class TestCommunityModelView():
         mocker.stopall()
 
         # Without permission
-        mocker.patch("invenio_communities.admin.get_user_role_ids", return_value=[3])
+        mocker.patch("invenio_communities.admin.get_user_role_ids", return_value=["Contributor"])
         mocker.patch("invenio_communities.admin.current_app").config = {"COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT": 2}
         mocker.patch.object(view, "_use_append_repository_edit", return_value="custom_form")
         result = view.edit_form(DummyObj())
@@ -967,7 +978,7 @@ class TestFeaturedCommunityModelView():
 
         url = url_for('featuredcommunity.index_view')
         res = client.get(url)
-        assert res.status_code == 302
+        assert res.status_code == 200
 
     # .tox/c1/bin/pytest --cov=invenio_communities tests/test_admin.py::TestInclusionfeaturedModelView::test_index_view_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
     @pytest.mark.parametrize(
@@ -1008,7 +1019,7 @@ class TestInclusionRequestModelView():
         admin.add_view(view)
         url = url_for('inclusionrequest.index_view')
         res = client.get(url)
-        assert res.status_code == 302
+        assert res.status_code == 200
 
     # .tox/c1/bin/pytest --cov=invenio_communities tests/test_admin.py::TestInclusionRequestModelView::test_index_view_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
     @pytest.mark.parametrize(

@@ -20,7 +20,7 @@ import weko_authors.mappings.v2
 
 from celery import Celery
 from datetime import datetime
-from flask import Flask, url_for, Response
+from flask import Flask, Response
 from flask.cli import ScriptInfo
 from flask_babel import Babel
 from flask_menu import Menu
@@ -77,13 +77,13 @@ class TestSearch(RecordsSearch):
         self._extra.update(**{'_source': {'excludes': ['_access']}})
 
 
-@pytest.yield_fixture(scope='session')
+@pytest.fixture(scope='session')
 def search_class():
     """Search class."""
     yield TestSearch
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -92,16 +92,9 @@ def instance_path():
 
 
 class MockSearch():
-    def __init__(self, base_app,**keywargs):
-        search_hosts = base_app.config["SEARCH_OPENSEARCH_HOSTS"]
-        search_client_config = base_app.config["SEARCH_CLIENT_CONFIG"]
+    def __init__(self, **keywargs):
         self.indices = self.MockIndices()
-        self.open_search = OpenSearch(
-            hosts=[{'host': search_hosts, 'port': 9200}],
-            http_auth=search_client_config['http_auth'],
-            use_ssl=search_client_config['use_ssl'],
-            verify_certs=search_client_config['verify_certs'],
-        )
+        self.open_search = OpenSearch()
         self.cluster = self.MockCluster()
     def index(self, id="",version="",version_type="",index="",body="",**arguments):
         pass
@@ -134,7 +127,7 @@ class MockSearch():
             pass
         def delete_alias(self, index="", name="",ignore=""):
             pass
-        
+
     class MockCluster():
         def __init__(self,**kwargs):
             pass
@@ -147,7 +140,7 @@ def make_celery(app):
     return celery
 
 @pytest.fixture()
-def base_app(instance_path,search_class):
+def base_app(instance_path,search_class, request):
     """Flask application fixture for Search."""
     app_ = Flask('testapp', instance_path=instance_path)
     app_.config.update(
@@ -184,8 +177,9 @@ def base_app(instance_path,search_class):
         CACHE_REDIS_DB='0',
         CACHE_REDIS_HOST="redis",
         SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
+        SEARCH_HOSTS=os.environ.get('SEARCH_HOST', 'opensearch'),
         SEARCH_INDEX_PREFIX="{}-".format('test'),
-        SEARCH_CLIENT_CONFIG=dict(timeout=120, max_retries=10),
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         WEKO_AUTHORS_EXPORT_TARGET_CACHE_KEY="weko_authors_export_target",
         WEKO_AUTHORS_EXPORT_CACHE_STOP_POINT_KEY="weko_authors_export_stop_point",
         WEKO_AUTHORS_EXPORT_CACHE_TEMP_FILE_PATH_KEY="weko_authors_export_temp_file_path_key",
@@ -194,10 +188,12 @@ def base_app(instance_path,search_class):
         WEKO_AUTHORS_IMPORT_CACHE_RESULT_SUMMARY_KEY= "result_summary_key",
         WEKO_AUTHORS_IMPORT_CACHE_OVER_MAX_TASK_KEY = "authors_import_over_max_task",
         WEKO_PERMISSION_SUPER_ROLE_USER = ['System Administrator', 'Repository Administrator'],
-        WEKO_PERMISSION_ROLE_COMMUNITY = ['Community Administrator']
+        WEKO_PERMISSION_ROLE_COMMUNITY = ['Community Administrator'],
+        WEKO_DEPOSIT_ITEM_UPDATE_TASK_TTL = 60 * 60 * 24 * 30
     )
     Babel(app_)
     Menu(app_)
+    InvenioI18N(app_)
     InvenioDB(app_)
     InvenioCache(app_)
     InvenioAccounts(app_)
@@ -223,10 +219,30 @@ def base_app(instance_path,search_class):
 
     # app_.register_blueprint(blueprint)
     app_.register_blueprint(blueprint_api, url_prefix='/api/authors')
+
+    def delete_user_from_cache(exception):
+        """Delete user from `flask.g` when the request is tearing down.
+
+        Flask-login==0.6.2 changed the way the user is saved i.e uses `flask.g`.
+        Flask.g is pointing to the application context which is initialized per
+        request. That said, `pytest-flask` is pushing an application context on each
+        test initialization that causes problems as subsequent requests during a test
+        are detecting the active application request and not popping it when the
+        sub-request is tearing down. That causes the logged in user to remain cached
+        for the whole duration of the test. To fix this, we add an explicit teardown
+        handler that will pop out the logged in user in each request and it will force
+        the user to be loaded each time.
+        """
+        from flask import g
+
+        if "_login_user" in g:
+            del g._login_user
+
+    app_.teardown_request(delete_user_from_cache)
     return app_
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app(base_app):
     """Flask application fixture."""
     with base_app.app_context():
@@ -431,28 +447,48 @@ def base_app2(instance_path,search_class):
     # app_.register_blueprint(blueprint)
     app_.register_blueprint(blueprint_api, url_prefix='/api/authors')
     app_.celery = make_celery(app_)
+
+    def delete_user_from_cache(exception):
+        """Delete user from `flask.g` when the request is tearing down.
+
+        Flask-login==0.6.2 changed the way the user is saved i.e uses `flask.g`.
+        Flask.g is pointing to the application context which is initialized per
+        request. That said, `pytest-flask` is pushing an application context on each
+        test initialization that causes problems as subsequent requests during a test
+        are detecting the active application request and not popping it when the
+        sub-request is tearing down. That causes the logged in user to remain cached
+        for the whole duration of the test. To fix this, we add an explicit teardown
+        handler that will pop out the logged in user in each request and it will force
+        the user to be loaded each time.
+        """
+        from flask import g
+
+        if "_login_user" in g:
+            del g._login_user
+
+    app_.teardown_request(delete_user_from_cache)
     return app_
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app2(base_app2):
     """Flask application fixture."""
     with base_app2.app_context():
         yield base_app2
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def db(app):
     """Database fixture."""
     if not database_exists(str(db_.engine.url)):
         create_database(str(db_.engine.url))
-        db_.create_all()
+    db_.create_all()
     yield db_
     db_.session.remove()
-    # drop_database(str(db_.engine.url))
+    db_.drop_all()
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client(app):
     """Get test client."""
     with app.test_client() as client:
@@ -461,7 +497,7 @@ def client(app):
 @pytest.fixture()
 def search_index(app):
     current_search_client.indices.delete(index='test-*')
-    with open("tests/mock_module/mapping/v6/authors/author-v1.0.0.json","r") as f:
+    with open("tests/mock_module/mapping/os-v2/authors/author-v1.0.0.json","r") as f:
         mapping = json.load(f)
     with app.test_request_context():
         current_search_client.indices.create("test-authors-author-v1.0.0",body=mapping)
@@ -789,7 +825,7 @@ def client_model(client_api, users):
     db_.session.commit()
     return client_
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client_api(app):
     app.register_blueprint(create_blueprint(app.config['WEKO_AUTHORS_REST_ENDPOINTS']))
     with app.test_client() as client:

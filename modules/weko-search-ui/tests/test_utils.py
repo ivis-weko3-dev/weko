@@ -21,7 +21,6 @@ from invenio_accounts.testutils import login_user_via_session
 from invenio_db import db as iv_db
 from invenio_files_rest.models import FileInstance,Location
 from invenio_i18n import force_locale
-from invenio_i18n.babel import set_locale
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus, Redirect
 from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore.errors import PIDDoesNotExistError
@@ -505,7 +504,7 @@ def test_check_tsv_import_items2(app,test_importdata,mocker,db, order_if):
 
     mocker.patch("weko_records.serializers.utils.get_mapping",return_value=item_map)
     with app.test_request_context():
-        with set_locale('en'):
+        with force_locale('en'):
             mocker.patch("weko_search_ui.utils.unpackage_import_file", return_value=[{"item_type_id":1}])
             mocker.patch("weko_search_ui.utils.handle_check_exist_record", return_value=[{"item_type_id":1}])
             mocker.patch("weko_search_ui.utils.handle_item_title")
@@ -1076,7 +1075,7 @@ def test_handle_validate_item_import(app, mocker_itemtype, mocker):
         }
     ]
     with app.test_request_context():
-        with set_locale("en"):
+        with force_locale("en"):
             result = handle_validate_item_import(list_record, schema)
             warnings = result[0].get("warnings", [])
             target = list_record[0]["metadata"]['item_xxx']['subitem_yyy'][0]["subitem_zzz"]
@@ -1088,7 +1087,7 @@ def test_handle_validate_item_import(app, mocker_itemtype, mocker):
     list_record[0]["metadata"]['item_xxx']['subitem_yyy'][0]["subitem_zzz"] = 456
 
     with app.test_request_context():
-        with set_locale("ja"):
+        with force_locale("ja"):
             result = handle_validate_item_import(list_record, schema)
             warnings = result[0].get("warnings", [])
             assert any("へ置き換えました。" in w for w in warnings)
@@ -1126,12 +1125,12 @@ def test_handle_validate_item_import(app, mocker_itemtype, mocker):
         }
     ]
     with app.test_request_context():
-        with set_locale("en"):
+        with force_locale("en"):
             result = handle_validate_item_import(list_record, schema)
             assert "errors" in result[0]
 
     with app.test_request_context():
-        with set_locale("ja"):
+        with force_locale("ja"):
             result = handle_validate_item_import(list_record, schema)
             assert "errors" in result[0]
 
@@ -4851,7 +4850,7 @@ def test_handle_check_restricted_access_property_en(app, db, users, record_restr
     # 英語モード
     ################################
     with app.test_request_context():
-        with set_locale("en"):
+        with force_locale("en"):
             with patch("weko_admin.utils.get_restricted_access", return_value=restricted_access_json):
                 # 利用規約(terms)に存在しない利用規約が設定されている。提供(provide)が設定されていない。
                 list_record = [record_restricted[3]]
@@ -4889,7 +4888,7 @@ def test_handle_check_restricted_access_property_ja(app, db, users, record_restr
     # 日本語モード
     ################################
     with app.test_request_context():
-        with set_locale("ja"):
+        with force_locale("ja"):
             with patch("weko_admin.utils.get_restricted_access", return_value=restricted_access_json):
                 # 利用規約(terms)に存在しない利用規約が設定されている。提供(provide)が設定されていない。
                 list_record = [record_restricted[3]]

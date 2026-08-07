@@ -12,8 +12,8 @@ import unittest
 
 from flask import session, url_for,current_app
 from flask_babel import Babel
+from invenio_i18n import force_locale
 from invenio_i18n.ext import InvenioI18N, current_i18n
-from invenio_i18n.babel import set_locale
 from invenio_pidstore.errors import PIDDoesNotExistError
 
 from mock import MagicMock, patch, PropertyMock
@@ -257,7 +257,7 @@ def test_get_content_workflow():
 
 #     mocker.patch("weko_records.serializers.utils.get_mapping",return_value=item_map)
 #     with app.test_request_context():
-#         with set_locale('en'):
+#         with force_locale('en'):
 #             for file in test_importdata:
 #                 assert check_tsv_import_items(file,False,False)==''
 
@@ -283,7 +283,7 @@ def test_unpackage_import_file(app,mocker,mocker_itemtype):
 
     path = os.path.join(os.path.dirname(os.path.realpath(__file__)),"data", "unpackage_import_file")
     with app.test_request_context():
-        with set_locale('en'):
+        with force_locale('en'):
             assert unpackage_import_file(path,'items.csv','csv',False)==result
             assert unpackage_import_file(path,'items.csv','csv',True)==result_force_new
 
@@ -329,7 +329,7 @@ def test_handle_validate_item_import(app,mocker_itemtype):
         result = json.load(f)
 
     with app.test_request_context():
-        with set_locale('en'):
+        with force_locale('en'):
             assert handle_validate_item_import(list_record, data.get("item_type_schema", {}))==result
 
 # def represents_int(s):
@@ -380,7 +380,7 @@ def test_handle_check_exist_record(app):
         result = json.load(f)
 
     with app.test_request_context():
-        with set_locale('en'):
+        with force_locale('en'):
             case.assertCountEqual(handle_check_exist_record(list_record),result)
 
     # case 3 import items with id and uri
@@ -393,7 +393,7 @@ def test_handle_check_exist_record(app):
         result = json.load(f)
 
     with app.test_request_context():
-        with set_locale('en'):
+        with force_locale('en'):
             with patch("weko_deposit.api.WekoRecord.get_record_by_pid") as m:
                 m.return_value.pid.is_deleted.return_value = False
                 m.return_value.get.side_effect = [1,2,3,4,5,6,7,8,9,10]
@@ -409,7 +409,7 @@ def test_handle_check_exist_record(app):
         result = json.load(f)
 
     with app.test_request_context():
-        with set_locale('en'):
+        with force_locale('en'):
             case.assertCountEqual(handle_check_exist_record(list_record),result)
 
     # with open(filepath,encoding="utf-8", mode='wt') as f:
@@ -624,7 +624,7 @@ def test_handle_fill_system_item(app,test_list_records,mocker):
     #     items_result = json.load(f)
 
     with app.test_request_context():
-        with set_locale('en'):
+        with force_locale('en'):
             handle_fill_system_item(items)
             assert len(items)==len(items_result)
             assert items==items_result

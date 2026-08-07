@@ -13,7 +13,7 @@ from flask import current_app
 from pkg_resources import DistributionNotFound, get_distribution
 from time import sleep
 from werkzeug.utils import cached_property, import_string
-
+import importlib_metadata
 from . import config
 from .views import blueprint
 

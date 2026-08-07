@@ -46,7 +46,7 @@ def test_destroy_oaipmh_set(app,db):
                          id_user=user1.id, title='Title1',
                          description='Description1',
                          root_node_id=1,
-                         group_id=1)
+                         group_id=r.id)
 
     db.session.commit()
 

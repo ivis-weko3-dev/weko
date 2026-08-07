@@ -16,7 +16,6 @@ from . import config
 from .cli import files as files_cmd
 from .errors import MultipartNoPart
 from .utils import load_or_import_from_config, obj_or_import_string
-from .views import admin_blueprint, api_blueprint
 
 
 class _FilesRESTState(object):
@@ -25,7 +24,7 @@ class _FilesRESTState(object):
     def __init__(self, app):
         """Initialize state."""
         self.app = app
-    
+
     def upload_file_owner_factory(self):
         """Load default upload file owner factory."""
         return load_or_import_from_config(
@@ -104,6 +103,7 @@ class InvenioFilesREST(object):
 
     def init_app(self, app):
         """Flask application initialization."""
+        from .views import admin_blueprint, api_blueprint
         self.init_config(app)
         if hasattr(app, "cli"):
             app.cli.add_command(files_cmd)

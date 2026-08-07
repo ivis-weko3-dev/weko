@@ -1,7 +1,7 @@
 
 import click
 from click.testing import CliRunner
-from mock import patch
+from unittest.mock import patch
 
 from weko_authors.models import AuthorsPrefixSettings,AuthorsAffiliationSettings
 

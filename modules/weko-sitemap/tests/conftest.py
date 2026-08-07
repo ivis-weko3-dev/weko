@@ -40,6 +40,7 @@ from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus,RecordIdentifier
 from invenio_i18n import InvenioI18N
 from invenio_records_ui import InvenioRecordsUI
+from invenio_records_ui.views import create_blueprint_from_app
 from os.path import dirname, join
 from sqlalchemy_utils.functions import create_database, database_exists, drop_database
 
@@ -61,7 +62,7 @@ def celery_config():
     return {}
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -69,7 +70,7 @@ def instance_path():
     shutil.rmtree(path)
 
 
-@pytest.fixture()
+@pytest.fixture
 def create_app(instance_path):
     """Application factory fixture."""
     def factory(**config):
@@ -81,7 +82,8 @@ def create_app(instance_path):
         return app
     return factory
 
-@pytest.fixture()
+
+@pytest.fixture
 def base_app(instance_path):
     app_ = Flask('testapp', instance_path=instance_path, static_folder=os.path.join(instance_path, "static"),)
     app_.config.update({
@@ -129,16 +131,17 @@ def base_app(instance_path):
     WekoTheme(app_)
     WekoAdmin(app_)
     app_.register_blueprint(blueprint)
+    app_.register_blueprint(create_blueprint_from_app(app_))
     return app_
 
-@pytest.yield_fixture()
+@pytest.fixture
 def app(base_app):
     """Flask application fixture."""
     WekoSitemap(base_app)
     with base_app.app_context():
         yield base_app
 
-@pytest.yield_fixture()
+@pytest.fixture
 def db(app):
     """Get setup database."""
     if not database_exists(str(db_.engine.url)):
@@ -148,19 +151,19 @@ def db(app):
     db_.session.remove()
     db_.drop_all()
 
-@pytest.yield_fixture()
+@pytest.fixture
 def client(app):
     """Get test client."""
     with app.test_client() as client:
         yield client
 
-@pytest.fixture()
+@pytest.fixture
 def user(app, db):
     """Create a example user."""
     return create_test_user(email='test@test.org')
 
 
-@pytest.fixture()
+@pytest.fixture
 def users(app, db):
     """Create users."""
     ds = app.extensions['invenio-accounts'].datastore
@@ -285,14 +288,14 @@ def users(app, db):
         {'email': user.email, 'id': user.id, 'obj': user},
     ]
 
-@pytest.fixture()
+@pytest.fixture
 def db_sessionlifetime(app, db):
     session_lifetime = SessionLifetime(lifetime=60, is_delete=False)
     with db.session.begin_nested():
         db.session.add(session_lifetime)
 
 
-@pytest.fixture()
+@pytest.fixture
 def location(app, db):
     """Create default location."""
     tmppath = tempfile.mkdtemp()
@@ -310,7 +313,7 @@ def location(app, db):
     shutil.rmtree(tmppath)
 
 
-@pytest.fixture()
+@pytest.fixture
 def records(app, db, location):
     current_app.config.update(
         SEARCH_UI_SEARCH_INDEX="test-weko",

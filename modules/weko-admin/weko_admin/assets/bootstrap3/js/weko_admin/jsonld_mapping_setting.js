@@ -1,3 +1,5 @@
+import $ from 'jquery';
+
 const Successfully_Changed = document.getElementById('Successfully_Changed').value;
 const Failed_Changed = document.getElementById('Failed_Changed').value;
 const item_required_alert = document.getElementById('items_required_alert').value;
@@ -48,26 +50,6 @@ function isEmpty(value) {
   }
 }
 
-$('#workflow').change(function () {
-  // mapping set
-  const selectedOption = $(this).find('option:selected');
-  const select_item_type_id = selectedOption.data('itemtype');
-  $('#mapping').children().remove();
-  $('#mapping').append($('<option>').html("").val(""));
-  for (let i = 0; i < sword_item_type_mappings.length; i++) {
-    if (sword_item_type_mappings[i]['item_type_id'] === select_item_type_id) {
-      $('#mapping').append(
-        $('<option>')
-          .html(sword_item_type_mappings[i]['name'])
-          .val(sword_item_type_mappings[i]['id'])
-      );
-    }
-  }
-
-  // save button enable
-  save_button_state_change();
-});
-
 function save_button_state_change() {
   if ($('#mapping').val() !== '') {
     $('#save_button').prop('disabled', false);
@@ -86,7 +68,7 @@ async function saveDataFormat(event, type) {
 
   //Validate
   // required check
-  NGList = [];
+  let NGList = [];
   if (name_value === '') {
     NGList.push('Name');
     return showMsg(item_required_alert + NGList, false);
@@ -111,7 +93,7 @@ async function saveDataFormat(event, type) {
     itemtype_id: item_type_id_value,
   };
   let check = true;
-  url = '/admin/jsonld-mapping/validate';
+  let url = '/admin/jsonld-mapping/validate';
   await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

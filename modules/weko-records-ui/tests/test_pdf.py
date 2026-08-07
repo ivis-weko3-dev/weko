@@ -24,7 +24,7 @@ from weko_records_ui.pdf import get_east_asian_width_count,make_combined_pdf
 def test_get_east_asian_width_count():
     assert get_east_asian_width_count("日本語")==6
     assert get_east_asian_width_count("english")==7
-    
+
 
 def make_record(indexer, id, publisher, subjects, creator,affiliation, lang_langs, is_license=False):
     filepath = "tests/data/helloworld.pdf"
@@ -120,8 +120,8 @@ def make_record(indexer, id, publisher, subjects, creator,affiliation, lang_lang
             }
         ]
     }
-    
-    
+
+
     rec_uuid = uuid.uuid4()
 
     recid = PersistentIdentifier.create(
@@ -164,10 +164,9 @@ def make_record(indexer, id, publisher, subjects, creator,affiliation, lang_lang
         status=PIDStatus.REGISTERED,
     )
 
-    parent_pid = PIDNodeVersioning(pid=parent).parents.one_or_none()
-    h1 = PIDNodeVersioning(pid=parent_pid)
-    h1.insert_child(child=recid)
-    h1.insert_child(child=recid_v1)
+    h1 = PIDNodeVersioning(pid=parent)
+    h1.insert_child(child_pid=recid)
+    h1.insert_child(child_pid=recid_v1)
     PIDNodeDraft(pid=recid).insert_child(depid)
     PIDNodeDraft(pid=recid_v1).insert_child(depid_v1)
 
@@ -307,6 +306,7 @@ def test_make_combined_pdf(app, db, search_index, location, pdfcoverpagesetting,
     with db.session.begin_nested():
         db.session.add(item_type_name)
         db.session.add(item_type)
+        db.session.flush()
         db.session.add(itemtype_mapping)
     db.session.commit()
     indexer = WekoIndexer()
@@ -317,7 +317,7 @@ def test_make_combined_pdf(app, db, search_index, location, pdfcoverpagesetting,
     records.append(make_record(indexer, 3, {"val": ""              , "lang": "en"}, [{"val": "test_subject", "lang": "en"}, {"val": "テスト主題", "lang": "ja"}], {"val": ""          , "lang": "en"}, {"val": ""                , "lang": "en"}, ["fra", "jpn"],True))
     records.append(make_record(indexer, 4, {"val": "test_publisher", "lang": "en"}, [{"val": "", "lang": ""}], {"val": "test, taro", "lang": "en"}, {"val": "test_affiliation", "lang": "en"}, ["eng"]))
     db.session.commit()
-    
+
     tests = [
         (
             "Language: English\nPublisher: test_publisher\nDate of Publication: 2024-03-21\nKeywords: test_subject\nAuthor: test, taro\nE-mail: \nAffiliation: test_affiliation",
@@ -354,7 +354,7 @@ def test_make_combined_pdf(app, db, search_index, location, pdfcoverpagesetting,
         for i, record in enumerate(records):
             fileobj = record.files[filename]
             obj = fileobj.obj
-            # header_display_position=left, header_desplay_type=string, 
+            # header_display_position=left, header_desplay_type=string,
             mock_page_setting.header_output_image = "tests/data/image01.jpg"
             mock_page_setting.header_display_position = "left"
             mock_page_setting.header_display_type = "string"
@@ -364,7 +364,7 @@ def test_make_combined_pdf(app, db, search_index, location, pdfcoverpagesetting,
             assert args_list[2][0][3] == tests[i][0]
             mock_multi_cell.call_args_list.clear()
 
-            # header_display_position=center, header_output_image_name is exist, header_desplay_type=Image, 
+            # header_display_position=center, header_output_image_name is exist, header_desplay_type=Image,
             mock_page_setting.header_display_position = "center"
             mock_page_setting.header_output_image = "tests/data/image01.jpg"
             mock_page_setting.header_display_type = "Image"
@@ -374,7 +374,7 @@ def test_make_combined_pdf(app, db, search_index, location, pdfcoverpagesetting,
             assert args_list[1][0][3] == tests[i][1]
             mock_multi_cell.call_args_list.clear()
 
-            # header_display_position=center, header_output_image_name is not  exist, header_desplay_type=Image, 
+            # header_display_position=center, header_output_image_name is not  exist, header_desplay_type=Image,
             mock_page_setting.header_display_position = "center"
             mock_page_setting.header_output_image = ""
             mock_page_setting.header_display_type = "Image"
@@ -384,7 +384,7 @@ def test_make_combined_pdf(app, db, search_index, location, pdfcoverpagesetting,
             assert args_list[1][0][3] == tests[i][0]
             mock_multi_cell.call_args_list.clear()
 
-            # header_display_position=right, header_output_image_name is exist, header_desplay_type=string, 
+            # header_display_position=right, header_output_image_name is exist, header_desplay_type=string,
             mock_page_setting.header_display_position = "right"
             mock_page_setting.header_output_image = "tests/data/image01.jpg"
             mock_page_setting.header_display_type = "string"
@@ -393,7 +393,7 @@ def test_make_combined_pdf(app, db, search_index, location, pdfcoverpagesetting,
             assert args_list[2][0][3] == tests[i][0]
             mock_multi_cell.call_args_list.clear()
 
-            # header_display_position=right, header_output_image_name isnot  exist, header_desplay_type=string, 
+            # header_display_position=right, header_output_image_name isnot  exist, header_desplay_type=string,
             mock_page_setting.header_display_position = "right"
             mock_page_setting.header_output_image = ""
             mock_page_setting.header_display_type = "string"
@@ -402,7 +402,7 @@ def test_make_combined_pdf(app, db, search_index, location, pdfcoverpagesetting,
             assert args_list[2][0][3] == tests[i][0]
             mock_multi_cell.call_args_list.clear()
 
-            # header_display_position=left, header_output_image_name is not exist, header_desplay_type=string, 
+            # header_display_position=left, header_output_image_name is not exist, header_desplay_type=string,
             # item_setting_show_email is True
             mock_page_setting.header_display_position = "left"
             mock_page_setting.header_output_image = ""
@@ -412,7 +412,7 @@ def test_make_combined_pdf(app, db, search_index, location, pdfcoverpagesetting,
                 args_list = mock_multi_cell.call_args_list
                 assert args_list[2][0][3] == tests[i][2]
                 mock_multi_cell.call_args_list.clear()
-            
+
             # publisher, subject, creatorMail, creatorName, affiliationName are hide,
             # language is list
             hide_list = [
@@ -458,7 +458,7 @@ def test_make_combined_pdf(app, db, search_index, location, pdfcoverpagesetting,
             args_list = mock_multi_cell.call_args_list
             assert args_list[2][0][3] == tests[i][3]
             mock_multi_cell.call_args_list.clear()
-            
+
             # publisher, subject, creator are not exist
             item_map = {
                 "title.@value": "item_1711081249402.subitem_title",

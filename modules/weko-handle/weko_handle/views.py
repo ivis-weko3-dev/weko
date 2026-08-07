@@ -13,8 +13,8 @@
 from flask import Blueprint, current_app, jsonify, render_template, request
 from flask_babel import gettext as _
 from invenio_db import db
+from .api import Handle
 
-#from .api import Handle
 
 blueprint = Blueprint(
     'weko_handle',
@@ -44,11 +44,9 @@ def retrieve_handle():
     """Retrieve a handle."""
     try:
         handle = request.form['handle']
-        #handle_obj = Handle()
-        handle = None
+        handle_obj = Handle()
         if handle:
-            #return handle_obj.retrieve_handle(handle)
-            return jsonify()
+            return handle_obj.retrieve_handle(handle)
         else:
             return jsonify(code=0, msg='Retrieved handle not found!')
     except Exception as e:
@@ -60,12 +58,10 @@ def register_handle():
     """Register a handle."""
     try:
         location = request.form['location']
-        #handle_obj = Handle()
-        location = None
+        handle_obj = Handle()
         if location:
-            #handle = handle_obj.register_handle(location)
-            #return jsonify(handle)
-            return jsonify()
+            handle = handle_obj.register_handle(location)
+            return jsonify(handle)
 
         return jsonify({'code': -1, 'msg': 'error'})
     except Exception as e:
@@ -83,7 +79,7 @@ def delete_handle():
 
         return jsonify({'code': -1, 'msg': 'error'})
     except Exception as e:
-        current_app.logger.error('Unexpected error: ', e)
+        current_app.logger.error(f"Unexpected error: {e}")
 
 @blueprint.teardown_request
 @blueprint_api.teardown_request

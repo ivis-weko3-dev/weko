@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import patch
 import responses
 from datetime import datetime
+
 from weko_index_tree.models import Index
 from weko_admin.models import AdminLangSettings
 
@@ -22,7 +23,7 @@ from invenio_oaiharvester.api import (
 # def list_records(metadata_prefix=None, from_date=None, until_date=None,
 # .tox/c1/bin/pytest --cov=invenio_oaiharvester tests/test_api.py::test_list_records -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiharvester/.tox/c1/tmp
 @responses.activate
-def test_list_records(app,db,sample_list_xml_no_sets):
+def test_list_records(app,db,sample_list_xml_no_sets, mocker):
     source_name = "arXiv"
     source = OAIHarvestConfig(
         name=source_name,
@@ -33,7 +34,7 @@ def test_list_records(app,db,sample_list_xml_no_sets):
     source.save()
     db.session.commit()
 
-    patch("invenio_oaiharvester.api.get_info_by_oai_name",return_value=("http://export.arxiv.org/oai2","oai_dc","2023-01-10",""))
+    mocker.patch("invenio_oaiharvester.api.get_info_by_oai_name",return_value=("http://export.arxiv.org/oai2","oai_dc","2023-01-10",""))
     url = "http://export.arxiv.org/oai2"
     responses.add(
         responses.GET,
@@ -49,9 +50,9 @@ def test_list_records(app,db,sample_list_xml_no_sets):
 # def get_records(identifiers, metadata_prefix=None, url=None, name=None,
 # .tox/c1/bin/pytest --cov=invenio_oaiharvester tests/test_api.py::test_get_records -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiharvester/.tox/c1/tmp
 @responses.activate
-def test_get_records(app,db,sample_record_xml):
+def test_get_records(app,db,sample_record_xml, mocker):
 
-    patch("invenio_oaiharvester.api.get_info_by_oai_name",return_value=("http://export.arxiv.org/oai2","oai_dc","2023-01-10","physics"))
+    mocker.patch("invenio_oaiharvester.api.get_info_by_oai_name",return_value=("http://export.arxiv.org/oai2","oai_dc","2023-01-10","physics"))
     url = "http://export.arxiv.org/oai2"
     responses.add(
         responses.GET,
@@ -117,7 +118,7 @@ def test_get_info_by_oai_name(app,db):
 
 # def send_run_status_mail(harvesting, harvest_log):
 # .tox/c1/bin/pytest --cov=invenio_oaiharvester tests/test_api.py::test_send_run_status_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiharvester/.tox/c1/tmp
-def test_send_run_status_mail(app,db,users):
+def test_send_run_status_mail(app,db,users,mocker):
     index = Index()
     db.session.add(index)
     db.session.commit()
@@ -162,8 +163,8 @@ def test_send_run_status_mail(app,db,users):
     db.session.commit()
 
     # status is Successful
-    mock_send = patch("invenio_oaiharvester.api.send_mail")
-    mock_render = patch("invenio_oaiharvester.api.render_template",return_value="test_data")
+    mock_send = mocker.patch("invenio_oaiharvester.api.send_mail")
+    mock_render = mocker.patch("invenio_oaiharvester.api.render_template",return_value="test_data")
     send_run_status_mail(difference_harvest,success_logs)
     args,kwargs = mock_send.call_args
     assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
@@ -172,8 +173,8 @@ def test_send_run_status_mail(app,db,users):
     assert kwargs["update_style"] == "Difference"
 
     # status is Suspended
-    mock_send = patch("invenio_oaiharvester.api.send_mail")
-    mock_render = patch("invenio_oaiharvester.api.render_template",return_value="test_data")
+    mock_send = mocker.patch("invenio_oaiharvester.api.send_mail")
+    mock_render = mocker.patch("invenio_oaiharvester.api.render_template",return_value="test_data")
     send_run_status_mail(difference_harvest,suspended_logs)
     args,kwargs = mock_send.call_args
     assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
@@ -182,8 +183,8 @@ def test_send_run_status_mail(app,db,users):
     assert kwargs["update_style"] == "Difference"
 
     # status is Cancel
-    mock_send = patch("invenio_oaiharvester.api.send_mail")
-    mock_render = patch("invenio_oaiharvester.api.render_template",return_value="test_data")
+    mock_send = mocker.patch("invenio_oaiharvester.api.send_mail")
+    mock_render = mocker.patch("invenio_oaiharvester.api.render_template",return_value="test_data")
     send_run_status_mail(difference_harvest,cancel_logs)
     args,kwargs = mock_send.call_args
     assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
@@ -192,8 +193,8 @@ def test_send_run_status_mail(app,db,users):
     assert kwargs["update_style"] == "Difference"
 
     # status is Failed
-    mock_send = patch("invenio_oaiharvester.api.send_mail")
-    mock_render = patch("invenio_oaiharvester.api.render_template",return_value="test_data")
+    mock_send = mocker.patch("invenio_oaiharvester.api.send_mail")
+    mock_render = mocker.patch("invenio_oaiharvester.api.render_template",return_value="test_data")
     send_run_status_mail(difference_harvest,failed_logs)
     args,kwargs = mock_send.call_args
     assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
@@ -202,8 +203,8 @@ def test_send_run_status_mail(app,db,users):
     assert kwargs["update_style"] == "Difference"
 
     # status is Running
-    mock_send = patch("invenio_oaiharvester.api.send_mail")
-    mock_render = patch("invenio_oaiharvester.api.render_template",return_value="test_data")
+    mock_send = mocker.patch("invenio_oaiharvester.api.send_mail")
+    mock_render = mocker.patch("invenio_oaiharvester.api.render_template",return_value="test_data")
     send_run_status_mail(difference_harvest,running_logs)
     args,kwargs = mock_send.call_args
     assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])
@@ -212,8 +213,8 @@ def test_send_run_status_mail(app,db,users):
     assert kwargs["update_style"] == "Difference"
 
     # harvest is bulk
-    mock_send = patch("invenio_oaiharvester.api.send_mail")
-    mock_render = patch("invenio_oaiharvester.api.render_template",return_value="test_data")
+    mock_send = mocker.patch("invenio_oaiharvester.api.send_mail")
+    mock_render = mocker.patch("invenio_oaiharvester.api.render_template",return_value="test_data")
     send_run_status_mail(bulk_harvest,running_logs)
     args,kwargs = mock_send.call_args
     assert args == ("[WEKO3] Hervesting Result",["repoadmin@test.org","originalroleuser2@test.org","comadmin@test.org"])

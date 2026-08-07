@@ -1,3 +1,7 @@
+import $ from 'jquery';
+import React from 'react';
+import ReactDOM from 'react-dom';
+
 const { useState, useEffect } = React;
 
 // ドキュメントの読み込みが完了したら実行される関数

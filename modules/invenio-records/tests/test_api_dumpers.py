@@ -132,7 +132,7 @@ def test_esdumper_with_extensions(app, db, example_data):
 
 def test_esdumper_sa_datatypes(app, db):
     """Test to determine the data type of an SQLAlchemy field."""
-    class Model(db.Model, RecordMetadb):
+    class Model(db.Model, RecordMetadataBase):
         string = db.Column(db.String(255))
         text = db.Column(db.Text)
         biginteger = db.Column(db.BigInteger)

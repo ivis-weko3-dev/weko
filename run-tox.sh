@@ -12,7 +12,7 @@
 # :license: BSD, see LICENSE for details.
 
 date --iso-8601="minutes"
-pip install tox
+pip install "tox==3.28"
 pip install tox-setuptools-version
 pip install pytest-timeout
 for module_path in modules/*/; do
@@ -24,7 +24,7 @@ for module_path in modules/*/; do
     # if [[ ${module_path} =~ ^modules/(invenio-communities).+$ ]]; then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
-    # fi 
+    # fi
     # if [[ ${module_path} =~ ^modules/(invenio-db).+$ ]]; then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
@@ -37,14 +37,14 @@ for module_path in modules/*/; do
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
     # fi
-    # if [[ ${module_path} =~ ^modules/(invenio-iiif).+$ ]]; then    
+    # if [[ ${module_path} =~ ^modules/(invenio-iiif).+$ ]]; then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
     # fi
     # if [[ ${module_path} =~ ^modules/(invenio-indexer).+$ ]]; then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
-    # fi   
+    # fi
     # if [[ ${module_path} =~ ^modules/(invenio-mail).+$ ]]; then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
@@ -77,7 +77,7 @@ for module_path in modules/*/; do
     # if [[ ${module_path} =~ ^modules/(invenio-records).+$ ]]; then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
-    # fi 
+    # fi
     # if [[ ${module_path} =~ ^modules/(invenio-resourcesyncclient).+$ ]]; then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
@@ -110,18 +110,18 @@ for module_path in modules/*/; do
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
     # fi
-    # if [[ ${module_path} =~ ^modules/(weko-deposit).+$ ]];then  
+    # if [[ ${module_path} =~ ^modules/(weko-deposit).+$ ]];then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
     # fi
     # if [[ ${module_path} =~ ^modules/(weko-gridlayout).+$ ]];then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
-    # fi 
+    # fi
     # if [[ ${module_path} =~ ^modules/(weko-groups).+$ ]]; then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
-    # fi 
+    # fi
     # if [[ ${module_path} =~ ^modules/(weko-handle).+$ ]];then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
@@ -129,7 +129,7 @@ for module_path in modules/*/; do
     # if [[ ${module_path} =~ ^modules/(weko-index-tree).+$ ]];then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
-    # fi 
+    # fi
     # if [[ ${module_path} =~ ^modules/(weko-indextree-journal).+$ ]]; then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
@@ -143,6 +143,10 @@ for module_path in modules/*/; do
     #   continue
     # fi
     # if [[ ${module_path} =~ ^modules/(weko-itemtypes-ui).+$ ]];then
+    #   echo "### skip tests for ${module_path%?} ###"
+    #   continue
+    # fi
+    # if [[ ${module_path} =~ ^modules/(weko-notifications).+$ ]];then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
     # fi
@@ -166,6 +170,10 @@ for module_path in modules/*/; do
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
     # fi
+    # if [[ ${module_path} =~ ^modules/(weko-signposting).+$ ]]; then
+    #   echo "### skip tests for ${module_path%?} ###"
+    #   continue
+    # fi
     # if [[ ${module_path} =~ ^modules/(weko-sitemap).+$ ]]; then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
@@ -183,6 +191,10 @@ for module_path in modules/*/; do
     #   continue
     # fi
     # if [[ ${module_path} =~ ^modules/(weko-workflow).+$ ]]; then
+    #   echo "### skip tests for ${module_path%?} ###"
+    #   continue
+    # fi
+    # if [[ ${module_path} =~ ^modules/(weko-workspace).+$ ]]; then
     #   echo "### skip tests for ${module_path%?} ###"
     #   continue
     # fi

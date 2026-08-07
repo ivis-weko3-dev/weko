@@ -31,7 +31,7 @@ def test_cli_init(app,db,script_info,location):
     assert 'ucket with UUID 00000000-0000-0000-0000-000000000000 already exists.' in result.output
 
 # .tox/c1/bin/pytest --cov=invenio_communities tests/test_cli.py::test_addlogo -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-communities/.tox/c1/tmp
-def test_addlogo(script_info,app,db,communities,instance_path):
+def test_addlogo(script_info,app,db,communities,instance_path, mocker):
     from invenio_files_rest.models import Location, Bucket
     import os
     loc = Location(name='local', uri=instance_path, default=True)
@@ -47,13 +47,15 @@ def test_addlogo(script_info,app,db,communities,instance_path):
     db.session.commit()
 
     with patch("invenio_communities.cli.db.session.commit", side_effect=Exception('')):
+        rollback_spy = mocker.spy(db.session, "rollback")
         runner = CliRunner()
         result = runner.invoke(
             addlogo,
             ["comm1",file_path],
             obj=script_info
         )
-        assert result.exit_code == -1
+        assert result.exit_code == 0
+        rollback_spy.assert_called_once()
         assert Community.query.filter_by(id="comm1").one().logo_ext == None
 
     runner = CliRunner()
@@ -93,6 +95,7 @@ def test_request(script_info,db_records,communities,mocker):
             [community_id,record_id,"--accept"],
             obj=script_info
         )
+        mock_index.assert_called_once()
         args,_=mock_index.call_args
         assert str(args[0]) == record_id
         from invenio_records.models import RecordMetadata

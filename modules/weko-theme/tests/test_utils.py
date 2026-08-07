@@ -24,13 +24,13 @@ def test_get_weko_contents(i18n_app, users, client_request_args, communities, re
         index_style = MagicMock()
         index_style.index_link_enabled = False
         with patch('weko_theme.utils.IndexStyle.get', return_value=index_style):
-            result = get_weko_contents('comm1')
+            result = get_weko_contents({'c': 'comm1'})
             assert result
             assert not result['index_link_list']
 
             index_style.index_link_enabled = True
             with patch('weko_theme.utils.IndexStyle.get', return_value=index_style):
-                result = get_weko_contents('comm1')
+                result = get_weko_contents({'c': 'comm1'})
                 assert result
                 assert result['index_link_list']
 
@@ -79,6 +79,10 @@ def test_get_init_display_setting(i18n_app, users, client_request_args, communit
     i18n_app.config['WEKO_INDEXTREE_JOURNAL_FORM_JSON_FILE'] = "schemas/schemaform.json",
     i18n_app.config['WEKO_SEARCH_TYPE_DICT'] = {'INDEX': "WEKO_SEARCH_TYPE_DICT-INDEX"}
     i18n_app.config['COMMUNITIES_SORTING_OPTIONS'] = {'INDEX': "COMMUNITIES_SORTING_OPTIONS-INDEX"}
+    i18n_app.config["WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT"] = {
+        'role_keyword': 'roles',
+        'prefix': 'jc'
+    }
     test = MainScreenInitDisplaySetting()
 
     with patch('weko_theme.utils.SearchManagement.get', return_value=search_setting):
