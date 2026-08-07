@@ -521,6 +521,7 @@ def test__validation_ChangeListHandler(i18n_app):
 
 
 #     def get_change_dump_manifest_xml(self, record_id):
+# .tox/c1/bin/pytest --cov=invenio_resourcesyncserver tests/test_api.py::test_get_change_dump_manifest_xml_ChangeListHandler -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-resourcesyncserver/.tox/c1/tmp
 def test_get_change_dump_manifest_xml_ChangeListHandler(i18n_app):
     test_str = sample_ChangeListHandler("str")
     record_id = "8.9"
@@ -530,6 +531,9 @@ def test_get_change_dump_manifest_xml_ChangeListHandler(i18n_app):
 
     def _is_record_in_index(key):
         return "8.9"
+
+    test_str.index = MagicMock()
+    test_str.index.public_state = False
 
     assert not test_str.get_change_dump_manifest_xml(record_id)
 
@@ -785,6 +789,7 @@ def test__next_change_ChangeListHandler(i18n_app):
 
 
 #     def _get_record_changes_with_interval(self, from_date):
+# .tox/c1/bin/pytest --cov=invenio_resourcesyncserver tests/test_api.py::test__get_record_changes_with_interval_ChangeListHandler -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-resourcesyncserver/.tox/c1/tmp
 def test__get_record_changes_with_interval_ChangeListHandler(i18n_app):
     test_str = sample_ChangeListHandler("str")
 

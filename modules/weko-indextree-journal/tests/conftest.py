@@ -128,6 +128,7 @@ def base_app(request,instance_path):
                 delete_permission_factory_imp='weko_indextree_journal.permissions:indextree_journal_permission',
             )
         ),
+        WEKO_ITEMS_UI_ERROR_TEMPLATE = "weko_items_ui/error.html"
     )
     if hasattr(request, "param"):
         if "endpoint" in request.param:

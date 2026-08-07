@@ -93,7 +93,7 @@ class AdminResyncClient(BaseView):
         """Update Resync."""
         resync = ResyncHandler.get_resync(resync_id)
         if resync:
-            result = resync.update(request.get_json())
+            result = resync.update(request.get_json(silent=True))
             if result.get('success'):
                 return jsonify(
                     success=result.get('success'),
@@ -174,7 +174,7 @@ class AdminResyncClient(BaseView):
             "INVENIO_RESYNC_INDEXES_STATUS",
             INVENIO_RESYNC_INDEXES_STATUS
         ).get('automatic'):
-            result = resync.update(request.get_json())
+            result = resync.update(request.get_json(silent=True))
             if result.get('success'):
                 new_resync = result.get("data")
                 if new_resync.get('is_running'):

@@ -569,6 +569,7 @@ class ReportView(BaseView):
                                                       + zip_name
                 return resp
         except Exception as e:
+            traceback.print_exc()
             current_app.logger.error("Unexpected error: {}".format(e))
             flash(_('Unexpected error occurred.'), 'error')
         return redirect(url_for('report.index'))

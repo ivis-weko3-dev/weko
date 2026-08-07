@@ -68,7 +68,7 @@ from weko_logging.audit import WekoLoggingUserActivity
 from weko_search_ui import WekoSearchUI
 from weko_records_ui import WekoRecordsUI
 from weko_records_ui.config import (
-    WEKO_PERMISSION_SUPER_ROLE_USER, WEKO_PERMISSION_ROLE_COMMUNITY, 
+    WEKO_PERMISSION_SUPER_ROLE_USER, WEKO_PERMISSION_ROLE_COMMUNITY,
     EMAIL_DISPLAY_FLG)
 from weko_records import WekoRecords
 from weko_records.api import ItemTypes, Mapping
@@ -129,7 +129,11 @@ def base_app(instance_path):
                 'default_media_type': 'application/json',
             }
         },
-        WEKO_RECORDS_API_LIMIT_RATE_DEFAULT = ['100 per minute']
+        WEKO_RECORDS_API_LIMIT_RATE_DEFAULT = ['100 per minute'],
+        SEARCH_HOSTS=os.environ.get(
+            'SEARCH_HOST', 'opensearch'
+        ),
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False}
     )
 
     WekoRecords(app_)
@@ -1455,6 +1459,7 @@ def simple_item_type(db):
     with db.session.begin_nested():
         db.session.add(item_type_name)
         db.session.add(item_type)
+        db.session.flush()
         db.session.add(item_type_mapping)
         db.session.add(item_type_property)
     db.session.commit()
@@ -1465,3 +1470,21 @@ def simple_item_type(db):
         'item_type_property': item_type_property
     }
     return item_type_list
+
+@pytest.fixture()
+def user_activity_log_partition_table(app, db):
+    """Create user activity log partition."""
+    # Create partition for current month
+    now = datetime.now()
+    start = now.date().replace(day=1)
+    end = (start + timedelta(days=31)).replace(day=1)
+    partition_name = f"user_activity_logs_{now.year}_{now.month:02d}"
+    create_partition_sql = f"""
+        CREATE TABLE IF NOT EXISTS {partition_name}
+        PARTITION OF user_activity_logs
+        FOR VALUES FROM ('{start}') TO ('{end}');
+    """
+
+    with db.session.begin_nested():
+        db.session.execute(create_partition_sql)
+    db.session.commit()

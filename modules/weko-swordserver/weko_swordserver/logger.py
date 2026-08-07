@@ -13,42 +13,42 @@ from flask import current_app
 WEKO_SWORDSERVER_MESSAGE = {
     'WEKO_SWORDSERVER_FAILED_RETRIEVE_FILE': {
         'msgid': 'WEKO_SWORDSERVER_E_0001',
-        'msgstr': "FAILED to retrieve {file_type} file.",
+        'msgstr': "FAILED to retrieve %(file_type)s file.",
         'loglevel': 'ERROR',
     },
     'WEKO_SWORDSERVER_FAILED_UPDATE_FILE': {
         'msgid': 'WEKO_SWORDSERVER_E_0002',
-        'msgstr': "FAILED to update {file_type} file.",
+        'msgstr': "FAILED to update %(file_type)s file.",
         'loglevel': 'ERROR',
     },
     'WEKO_SWORDSERVER_FAILED_DELETE_FILE': {
         'msgid': 'WEKO_SWORDSERVER_E_0003',
-        'msgstr': "FAILED to delete {file_type} file.",
+        'msgstr': "FAILED to delete %(file_type)s file.",
         'loglevel': 'ERROR',
     },
     'WEKO_SWORDSERVER_FAILED_CREATE_FILE': {
         'msgid': 'WEKO_SWORDSERVER_E_0004',
-        'msgstr': "FAILED to create {file_type} file.",
+        'msgstr': "FAILED to create %(file_type)s file.",
         'loglevel': 'ERROR',
     },
     'WEKO_SWORDSERVER_RETRIEVE_FILE': {
         'msgid': 'WEKO_SWORDSERVER_I_0001',
-        'msgstr': "{file_name} file retrieved.",
+        'msgstr': "%(file_name)s file retrieved.",
         'loglevel': 'INFO',
     },
     'WEKO_SWORDSERVER_UPDATE_FILE': {
         'msgid': 'WEKO_SWORDSERVER_I_0002',
-        'msgstr': "{file_type} file updated.",
+        'msgstr': "%(file_type)s file updated.",
         'loglevel': 'INFO',
     },
     'WEKO_SWORDSERVER_DELETE_FILE': {
         'msgid': 'WEKO_SWORDSERVER_I_0003',
-        'msgstr': "{file_type} file deleted.",
+        'msgstr': "%(file_type)s file deleted.",
         'loglevel': 'INFO',
     },
     'WEKO_SWORDSERVER_CREATE_FILE': {
         'msgid': 'WEKO_SWORDSERVER_I_0004',
-        'msgstr': "{file_type} file created.",
+        'msgstr': "%(file_type)s file created.",
         'loglevel': 'INFO',
     },
 }

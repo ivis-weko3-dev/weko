@@ -90,7 +90,8 @@ def test_render_well_know_resourcesync(i18n_app):
 
 
 # def query_record_changes(repository_id,
-def test_query_record_changes(i18n_app, db, search_result, indices, open_search):
+# .tox/c1/bin/pytest --cov=invenio_resourcesyncserver tests/test_utils.py::test_query_record_changes -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-resourcesyncserver/.tox/c1/tmp
+def test_query_record_changes(i18n_app, db, search_result, indices, search):
     test = sample_ResourceListHandler()
 
     # db.session.add(test)
@@ -168,6 +169,7 @@ def test_parse_date(i18n_app):
 
 
 # def get_timezone(date):
+# .tox/c1/bin/pytest --cov=invenio_resourcesyncserver tests/test_admin.py::test_get_change_list_AdminChangeListView -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-resourcesyncserver/.tox/c1/tmp
 def test_get_timezone(i18n_app):
     date_1 = "1:1+1:1+1:1"
     date_2 = "1-1:1:1"

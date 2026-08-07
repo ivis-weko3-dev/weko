@@ -2,12 +2,14 @@
 """Pytest for weko_logging.audit."""
 
 import logging
+from flask import Flask
 from weko_logging.audit import WekoLoggingUserActivity, get_level_from_string
 from weko_logging.handler import UserActivityLogHandler
 
 # def init_app(self, app):
-# .tox/c1/bin/pytest --cov=weko_logging tests/test_audit.py::test_init_app -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging
-def test_init_app(app):
+# .tox/c1/bin/pytest --cov=weko_logging tests/test_audit.py::test_init_app -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging/.tox/c1/tmp
+def test_init_app(instance_path):
+    app = Flask('test_weko_logging_app', instance_path=instance_path)
     test = WekoLoggingUserActivity()
     test.init_app(app)
     logger_sample = logging.getLogger("weko-logging-activity")
@@ -15,7 +17,7 @@ def test_init_app(app):
 
 
 # def init_config(self, app):
-# .tox/c1/bin/pytest --cov=weko_logging tests/test_audit.py::test_init_config -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging
+# .tox/c1/bin/pytest --cov=weko_logging tests/test_audit.py::test_init_config -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging/.tox/c1/tmp
 def test_init_config(app):
     test = WekoLoggingUserActivity()
 
@@ -26,7 +28,7 @@ def test_init_config(app):
 
 
 # def init_logger(self, app):
-# .tox/c1/bin/pytest --cov=weko_logging tests/test_audit.py::test_init_logger -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging
+# .tox/c1/bin/pytest --cov=weko_logging tests/test_audit.py::test_init_logger -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging/.tox/c1/tmp
 def test_init_logger(app):
     test = WekoLoggingUserActivity()
     from logging import _checkLevel
@@ -55,7 +57,7 @@ def test_init_logger(app):
 
 
 # def get_level_from_string(level):
-# .tox/c1/bin/pytest --cov=weko_logging tests/test_audit.py::test_get_level_from_string -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging
+# .tox/c1/bin/pytest --cov=weko_logging tests/test_audit.py::test_get_level_from_string -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging/.tox/c1/tmp
 def test_get_level_from_string():
 
     # Test Case 1: When the log level is "ERROR"

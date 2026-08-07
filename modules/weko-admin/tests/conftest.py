@@ -28,6 +28,8 @@ import tempfile
 import uuid
 
 from datetime import datetime, timedelta
+from unittest.mock import patch
+
 from flask import Flask
 from flask_babel import Babel
 from flask_babel import lazy_gettext as _
@@ -88,6 +90,7 @@ from weko_records_ui import WekoRecordsUI
 from weko_records_ui.config import WEKO_PERMISSION_SUPER_ROLE_USER
 from weko_redis.redis import RedisConnection
 from weko_schema_ui import WekoSchemaUI
+from weko_search_ui import WekoSearchUI
 from weko_swordserver.models import SwordClientModel
 from weko_theme import WekoTheme
 from weko_workflow import WekoWorkflow
@@ -141,10 +144,13 @@ def base_app(instance_path, cache_config,request ,search_class):
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         #SEARCH_OPENSEARCH_HOSTS=os.environ.get(
         #    'SEARCH_OPENSEARCH_HOSTS', None),
-        SEARCH_OPENSEARCH_HOSTS = os.environ.get(
-            "SEARCH_OPENSEARCH_HOSTS",
-            "opensearch"
-        ),
+        SEARCH_OPENSEARCH_HOSTS = os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch"),
+        SEARCH_HOSTS=os.environ.get('SEARCH_HOST', 'opensearch'),
+        SEARCH_CLIENT_CONFIG={
+            "http_auth": (os.environ['INVENIO_OPENSEARCH_USER'], os.environ['INVENIO_OPENSEARCH_PASS']),
+            "use_ssl": True,
+            "verify_certs": False
+        },
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         SQLALCHEMY_ECHO=False,
         TEST_USER_EMAIL='test_user@example.com',
@@ -160,7 +166,7 @@ def base_app(instance_path, cache_config,request ,search_class):
         REDIS_PORT='6379',
         ACCOUNTS_SESSION_REDIS_DB_NO = 1,
         CACHE_TYPE="redis",
-        SEARCH_UI_SEARCH_INDEX="test-weko",
+        SEARCH_UI_SEARCH_INDEX="weko",
         WEKO_AUTHORS_SEARCH_INDEX_NAME="test_weko-authors",
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         INDEXER_FILE_DOC_TYPE="content",
@@ -274,7 +280,8 @@ def base_app(instance_path, cache_config,request ,search_class):
 @pytest.fixture()
 def app(base_app):
     """Flask application fixture."""
-
+    with patch.object(base_app, 'register_blueprint'):
+        WekoAdmin(base_app)
     with base_app.app_context():
         yield base_app
 
@@ -289,9 +296,6 @@ def i18n_app(app):
 
 @pytest.fixture()
 def db(app):
-    # if not database_exists(str(db_.engine.url)) and \
-    #         app.config['SQLALCHEMY_DATABASE_URI'] != 'sqlite://':
-    #     create_database(db_.engine.url)
     if database_exists(str(db_.engine.url)):
         drop_database(str(db_.engine.url))
     create_database(str(db_.engine.url))
@@ -367,15 +371,14 @@ def _database_setup(app, request):
     return app
 
 @pytest.fixture()
-def api(app):
-    app.register_blueprint(blueprint_api, url_prefix='/api/admin')
-    with app.test_client() as client:
+def api(base_app):
+    base_app.register_blueprint(blueprint_api, url_prefix='/api/admin')
+    with base_app.app_context(), base_app.test_client() as client:
         yield client
 
 @pytest.fixture()
 def client(app):
     """Get test client."""
-    WekoAdmin(app)
     with app.test_client() as client:
         yield client
 
@@ -425,8 +428,7 @@ def admin_db(admin_app):
 @pytest.fixture()
 def search_index(app):
     current_search_client.indices.delete(index="test-*")
-    with open("tests/data/item-v1.0.0.json","r") as f:
-        mapping = json.load(f)
+    mapping = json_data("data/item-v1.0.0.json")
 
     try:
         current_search_client.indices.create(

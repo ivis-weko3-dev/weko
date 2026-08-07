@@ -35,13 +35,16 @@ def test_version():
 def test_init():
     """Test extension initialization."""
     app = Flask("testapp", root_path="/code")
-    ext = WekoPlugins(app)
+    with app.app_context():
+        ext = WekoPlugins(app)
     assert "weko-plugins" in app.extensions
 
     app = Flask("testapp", root_path="/code")
-    ext = WekoPlugins()
+    with app.app_context():
+        ext = WekoPlugins()
     assert "weko-plugins" not in app.extensions
-    ext.init_app(app)
+    with app.app_context():
+        ext.init_app(app)
     assert "weko-plugins" in app.extensions
 
 

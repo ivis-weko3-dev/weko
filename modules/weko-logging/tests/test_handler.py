@@ -19,7 +19,10 @@ def test_init(app):
 
 # def emit(self, record):
 # .tox/c1/bin/pytest --cov=weko_logging tests/test_handler.py::test_emit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging/.tox/c1/tmp
-def test_emit(app, db, users, caplog, communities):
+def test_emit(
+    app, db, users, caplog, communities,
+    user_activity_log_partition_table
+):
     caplog.set_level(logging.DEBUG)
 
     # Test Case 1: ignored when error level is not ERROR or INFO
@@ -131,50 +134,51 @@ def test_emit(app, db, users, caplog, communities):
 # .tox/c1/bin/pytest --cov=weko_logging tests/test_handler.py::test_get_community_id_from_path -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging/.tox/c1/tmp
 def test_get_community_id_from_path(app, mocker):
 
-    mock_request = mocker.patch("weko_logging.handler.request")
+    with app.test_request_context():
+        mock_request = mocker.patch("weko_logging.handler.request")
 
-    # Test Case 1: When the path not contains "/c/"
-    mock_request.path = "https://test_server/cc/sample"
+        # Test Case 1: When the path not contains "/c/"
+        mock_request.path = "https://test_server/cc/sample"
 
-    community_id = UserActivityLogHandler.get_community_id_from_path(None)
-    assert community_id is None
+        community_id = UserActivityLogHandler.get_community_id_from_path(None)
+        assert community_id is None
 
-    # Test Case 2: When the path contains "/c/"
-    mock_request.path = "https://test_server/c/community_sample"
+        # Test Case 2: When the path contains "/c/"
+        mock_request.path = "https://test_server/c/community_sample"
 
-    community_id = UserActivityLogHandler.get_community_id_from_path(None)
-    assert community_id == "community_sample"
+        community_id = UserActivityLogHandler.get_community_id_from_path(None)
+        assert community_id == "community_sample"
 
-    # Test Case 3: When the path not contains "/c/" and the query param "community" exists
-    mock_request.path = "https://test_server/cc/sample"
-    mock_request.args = {"c": "community_sample2"}
+        # Test Case 3: When the path not contains "/c/" and the query param "community" exists
+        mock_request.path = "https://test_server/cc/sample"
+        mock_request.args = {"c": "community_sample2"}
 
-    community_id = UserActivityLogHandler.get_community_id_from_path(None)
-    assert community_id == "community_sample2"
+        community_id = UserActivityLogHandler.get_community_id_from_path(None)
+        assert community_id == "community_sample2"
 
-    # Test Case 4: When the path not contains "/c/" (with request_info)
-    request_info = {
-        "path": "https://test_server/cc/sample",
-    }
-    community_id = UserActivityLogHandler.get_community_id_from_path(request_info)
-    assert community_id is None
+        # Test Case 4: When the path not contains "/c/" (with request_info)
+        request_info = {
+            "path": "https://test_server/cc/sample",
+        }
+        community_id = UserActivityLogHandler.get_community_id_from_path(request_info)
+        assert community_id is None
 
-    # Test Case 5: When the path contains "/c/" (with request_info)
-    request_info = {
-        "path": "https://test_server/c/community_sample",
-    }
+        # Test Case 5: When the path contains "/c/" (with request_info)
+        request_info = {
+            "path": "https://test_server/c/community_sample",
+        }
 
-    community_id = UserActivityLogHandler.get_community_id_from_path(request_info)
-    assert community_id == "community_sample"
+        community_id = UserActivityLogHandler.get_community_id_from_path(request_info)
+        assert community_id == "community_sample"
 
-    # Test Case 6: When the path not contains "/c/" and the query param "community" exists (with request_info)
-    request_info = {
-        "path": "https://test_server/cc/sample",
-        "args": {"c": "community_sample2"},
-    }
+        # Test Case 6: When the path not contains "/c/" and the query param "community" exists (with request_info)
+        request_info = {
+            "path": "https://test_server/cc/sample",
+            "args": {"c": "community_sample2"},
+        }
 
-    community_id = UserActivityLogHandler.get_community_id_from_path(request_info)
-    assert community_id == "community_sample2"
+        community_id = UserActivityLogHandler.get_community_id_from_path(request_info)
+        assert community_id == "community_sample2"
 
 
 # def get_user_id(cls):
@@ -196,61 +200,62 @@ def test_get_user_id(app, users, mocker):
 # def get_summary_from_request(cls):
 # .tox/c1/bin/pytest --cov=weko_logging tests/test_handler.py::test_get_summary_from_request -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-logging/.tox/c1/tmp
 def test_get_summary_from_request(app, mocker):
-    # Test Case 1: request is None
-    actual1 = UserActivityLogHandler.get_summary_from_request()
-    assert actual1 == {}
+    with app.test_request_context():
+        # Test Case 1: request is not configured
+        actual1 = UserActivityLogHandler.get_summary_from_request()
+        assert actual1 == {"path": "/"}
 
-    mock_request = mocker.patch("weko_logging.handler.request")
-    mock_request.remote_addr = None
-    mock_request.headers = {}
-    mock_request.path = None
-    mock_request.oauth = None
-    mock_request.args = {}
+        mock_request = mocker.patch("weko_logging.handler.request")
+        mock_request.remote_addr = None
+        mock_request.headers = {}
+        mock_request.path = None
+        mock_request.oauth = None
+        mock_request.args = {}
 
-    # Test Case 2: request has remote_addr
-    mock_request.remote_addr = "172.0.0.1"
-    actual2 = UserActivityLogHandler.get_summary_from_request()
-    assert actual2 == {
-        "ip_address": "172.0.0.1",
-    }
+        # Test Case 2: request has remote_addr
+        mock_request.remote_addr = "172.0.0.1"
+        actual2 = UserActivityLogHandler.get_summary_from_request()
+        assert actual2 == {
+            "ip_address": "172.0.0.1",
+        }
 
-    # Test Case 3: request has X-Forwarded-For header
-    mock_request.remote_addr = None
-    mock_request.headers = MagicMock()
-    mock_request.headers.getlist.return_value = ["172.0.0.2"]
-    actual3 = UserActivityLogHandler.get_summary_from_request()
-    assert actual3 == {
-        "ip_address": "172.0.0.2",
-    }
+        # Test Case 3: request has X-Forwarded-For header
+        mock_request.remote_addr = None
+        mock_request.headers = MagicMock()
+        mock_request.headers.getlist.return_value = ["172.0.0.2"]
+        actual3 = UserActivityLogHandler.get_summary_from_request()
+        assert actual3 == {
+            "ip_address": "172.0.0.2",
+        }
 
-    # Test Case 4: request has path
-    mock_request.path = "https://test_server/cc/sample"
-    actual4 = UserActivityLogHandler.get_summary_from_request()
-    assert actual4 == {
-        "ip_address": "172.0.0.2",
-        "path": "https://test_server/cc/sample",
-    }
+        # Test Case 4: request has path
+        mock_request.path = "https://test_server/cc/sample"
+        actual4 = UserActivityLogHandler.get_summary_from_request()
+        assert actual4 == {
+            "ip_address": "172.0.0.2",
+            "path": "https://test_server/cc/sample",
+        }
 
-    # Test Case 5: request has oauth
-    mock_request.oauth = MagicMock()
-    mock_request.oauth.client.client_id = "test_client_id"
-    actual5 = UserActivityLogHandler.get_summary_from_request()
-    assert actual5 == {
-        "ip_address": "172.0.0.2",
-        "path": "https://test_server/cc/sample",
-        "client_id": "test_client_id",
-    }
+        # Test Case 5: request has oauth
+        mock_request.oauth = MagicMock()
+        mock_request.oauth.client.client_id = "test_client_id"
+        actual5 = UserActivityLogHandler.get_summary_from_request()
+        assert actual5 == {
+            "ip_address": "172.0.0.2",
+            "path": "https://test_server/cc/sample",
+            "client_id": "test_client_id",
+        }
 
-    # Test Case 6: request has args
-    mock_request.args = {
-        "c": "community_sample2",
-    }
-    actual6 = UserActivityLogHandler.get_summary_from_request()
-    assert actual6 == {
-        "ip_address": "172.0.0.2",
-        "path": "https://test_server/cc/sample",
-        "client_id": "test_client_id",
-        "args": {
+        # Test Case 6: request has args
+        mock_request.args = {
             "c": "community_sample2",
-        },
-    }
+        }
+        actual6 = UserActivityLogHandler.get_summary_from_request()
+        assert actual6 == {
+            "ip_address": "172.0.0.2",
+            "path": "https://test_server/cc/sample",
+            "client_id": "test_client_id",
+            "args": {
+                "c": "community_sample2",
+            },
+        }

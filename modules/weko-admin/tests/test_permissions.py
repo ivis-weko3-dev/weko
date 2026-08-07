@@ -1,6 +1,6 @@
 
 import pkg_resources
-from mock import patch
+from unittest.mock import patch
 
 from weko_admin.permissions import admin_permission_factory
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_permissions.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp

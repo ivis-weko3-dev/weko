@@ -26,7 +26,8 @@ import calendar
 from datetime import datetime, timedelta, timezone
 import traceback
 
-from celery import shared_task
+from celery import shared_task, current_app as current_celery_app
+from celery.app.control import Inspect
 from celery.utils.log import get_task_logger
 from flask import current_app, render_template
 from flask_babel import gettext as _
@@ -89,12 +90,9 @@ def is_reindex_running():
     if not check_celery_is_run():
         return False
 
-    inspect = current_app.extensions['invenio-celery'].celery.control.inspect()
-    
-    active = inspect.active()
-
+    inspect = current_celery_app.control.inspect()  # type: Inspect
     # Check for active tasks
-    if active:
+    if active := inspect.active():
         for tasks in active.values():
             for task in tasks:
                 current_app.logger.debug("active")
@@ -102,10 +100,9 @@ def is_reindex_running():
                 if task["name"] == "weko_admin.tasks.reindex":
                     current_app.logger.info("weko_admin.tasks.reindex is active")
                     return True
-                
-    reserved = inspect.reserved()
+
     # Check for reserved tasks
-    if reserved:
+    if reserved := inspect.reserved():
         for tasks in reserved.values():
             for task in tasks:
                 current_app.logger.debug("reserved")

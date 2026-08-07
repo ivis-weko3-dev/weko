@@ -50,22 +50,12 @@ def append_file_content(sender, json={}, record=None, index=None, **kwargs):
         holds = ['_created', '_updated']
         pops = []
 
-        weko_logger(key='WEKO_COMMON_FOR_START')
-        for i, key in enumerate(json):
-            weko_logger(key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                        count=i, element=key)
+        for key in json:
             if key not in holds:
-                weko_logger(key='WEKO_COMMON_IF_ENTER',
-                            branch=f'key:{key} not in holds')
                 pops.append(key)
-        weko_logger(key='WEKO_COMMON_FOR_END')
 
-        weko_logger(key='WEKO_COMMON_FOR_START')
-        for i, key in enumerate(pops):
-            weko_logger(key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                        count=i, element=key)
+        for key in pops:
             json.pop(key)
-        weko_logger(key='WEKO_COMMON_FOR_END')
 
         metadata = dep.item_metadata
         _, jrc, _ = json_loader(metadata, pid,
@@ -84,8 +74,6 @@ def append_file_content(sender, json={}, record=None, index=None, **kwargs):
         dep._convert_jpcoar_data_to_search()
         im.pop('recid')
         if record_metadata.status != PIDStatus.DELETED:
-            weko_logger(key='WEKO_COMMON_IF_ENTER',
-                        branch="record_metadata.status != PIDStatus.DELETED")
             dep.get_content_files()
 
         # Updated metadata's path
@@ -105,9 +93,6 @@ def append_file_content(sender, json={}, record=None, index=None, **kwargs):
         # Updated FeedbackMail List
         mail_list = FeedbackMailList.get_mail_list_by_item_id(record.id)
         if mail_list:
-            weko_logger(key='WEKO_COMMON_IF_ENTER',
-                        branch='mail_list is not empty')
-
             feedback_mail = {'feedback_mail_list': mail_list}
             json.update(feedback_mail)
 

@@ -2,11 +2,15 @@
 import os
 import calendar
 from datetime import datetime, timedelta, timezone
-from unittest.mock import ANY
+from unittest.mock import ANY, patch
 
 import pytest
-from flask import current_app
 
+from celery import Celery
+from flask import current_app
+from requests.models import Response
+
+from invenio_oaiserver.models import OAISet
 from weko_admin.models import AdminSettings
 from weko_admin.tasks import (
     send_all_reports,
@@ -18,12 +22,14 @@ from weko_admin.tasks import (
     check_send_site_access_report,
     clean_temp_info
 )
+from weko_admin.models import AdminSettings
+from weko_admin.tasks import is_reindex_running, reindex
 
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_tasks.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
 
 # def send_all_reports(report_type=None, year=None, month=None):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_tasks.py::test_send_all_reports -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_send_all_reports(app, users, statistic_email_addrs,mocker):
+def test_send_all_reports(app, users, statistic_email_addrs, mocker):
     current_app.config.update(
         WEKO_ADMIN_REPORT_EMAIL_TEMPLATE='weko_admin/email_templates/report.html'
     )
@@ -139,31 +145,32 @@ def test__get_start_end_date():
 
 # def check_send_all_reports():
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_tasks.py::test_check_send_all_reports -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_check_send_all_reports(app, admin_settings):
-    mock_send = patch("weko_admin.tasks.send_all_reports.delay")
+def test_check_send_all_reports(app, admin_settings, mocker):
+    AdminSettings.update("report_email_schedule_settings", {})
+    mock_send = mocker.patch("weko_admin.tasks.send_all_reports.delay")
     check_send_all_reports()
     mock_send.assert_not_called()
 
     AdminSettings.update("report_email_schedule_settings", {"Root Index": {"details":"","enabled":True,"frequency":"daily"}})
-    mock_send = patch("weko_admin.tasks.send_all_reports.delay")
+    mock_send = mocker.patch("weko_admin.tasks.send_all_reports.delay")
     check_send_all_reports()
     mock_send.assert_called()
     args, kwargs = mock_send.call_args
     assert kwargs["repository_id"] == "Root Index"
 
     AdminSettings.update("report_email_schedule_settings", {"Root Index": {"details":"","enabled":False,"frequency":"daily"}})
-    mock_send = patch("weko_admin.tasks.send_all_reports.delay")
+    mock_send = mocker.patch("weko_admin.tasks.send_all_reports.delay")
     check_send_all_reports()
     mock_send.assert_not_called()
 
 
 # def send_feedback_mail():
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_tasks.py::test_send_feedback_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_send_feedback_mail(app):
-    mock_send = patch("weko_admin.tasks.StatisticMail.send_mail_to_all")
-    setting=Mock()
+def test_send_feedback_mail(app, mocker):
+    mock_send = mocker.patch("weko_admin.tasks.StatisticMail.send_mail_to_all")
+    setting = mocker.Mock()
     setting.is_sending_feedback=True
-    patch("weko_admin.models.FeedbackMailSetting.get_feedback_email_setting_by_repo",return_value=[setting])
+    mocker.patch("weko_admin.models.FeedbackMailSetting.get_feedback_email_setting_by_repo",return_value=[setting])
     send_feedback_mail()
     mock_send.assert_called()
 
@@ -245,14 +252,14 @@ def test_is_end_of_month_leap_year():
 
 # def check_send_site_access_report():
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_tasks.py::test_check_send_site_access_report -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_check_send_site_access_report(client, admin_settings):
+def test_check_send_site_access_report(client, admin_settings, mocker):
 
     # site_license_mail_setting.auto_send_flag is False
     check_send_site_access_report()
 
     # site_license_mail_setting.auto_send_flag is True
     AdminSettings.update("site_license_mail_settings", {"Root Index": {"auto_send_flag": True}})
-    mock_send = patch("weko_admin.tasks.manual_send_site_license_mail")
+    mock_send = mocker.patch("weko_admin.tasks.manual_send_site_license_mail")
     check_send_site_access_report()
     mock_send.assert_called()
 
@@ -299,39 +306,44 @@ def test_clean_temp_info(instance_path):
                 {"expire":(datetime.now()+timedelta(days=-10)).strftime("%Y-%m-%d %H:%M:%S"), "is_export": True})
 
 
-from mock import patch, MagicMock, Mock
-from requests.models import Response
-from invenio_oaiserver.models import OAISet
-from weko_admin.models import AdminSettings
-
-from weko_admin.tasks import (is_reindex_running,reindex)
-
 INSPECT_RETURN_VALUE={'celery@d852e7dcb4da': [{'id': '0789eb75-2d50-45ba-b132-e85a70e71524', 'name': 'weko_admin.tasks.reindex', 'args': [False], 'kwargs': {}, 'type': 'weko_admin.tasks.reindex', 'hostname': 'celery@d852e7dcb4da', 'time_start': 1671494657.8838153, 'acknowledged': True, 'delivery_info': {'exchange': '', 'routing_key': 'celery', 'priority': 0, 'redelivered': False}, 'worker_pid': 264}]}
 
-def test_is_reindex_running_not_running(i18n_app ):
-    with patch("weko_search_ui.tasks.inspect.ping",return_value=False):
-        with patch("weko_admin.tasks.inspect.active",return_value=INSPECT_RETURN_VALUE):
-            with patch("weko_admin.tasks.inspect.reserved",return_value=[]):
-                assert is_reindex_running()==False
-def test_is_reindex_running_active(i18n_app):
-    with patch("weko_search_ui.tasks.inspect.ping",return_value=True):
-        with patch("weko_admin.tasks.inspect.active",return_value=INSPECT_RETURN_VALUE):
-            with patch("weko_admin.tasks.inspect.reserved",return_value=[]):
-                assert is_reindex_running()==True
-def test_is_reindex_running_reserved(i18n_app):
-    with patch("weko_search_ui.tasks.inspect.ping",return_value=True):
-        with patch("weko_admin.tasks.inspect.active",return_value=[]):
-            with patch("weko_admin.tasks.inspect.reserved",return_value=INSPECT_RETURN_VALUE):
-                assert is_reindex_running()==True
-def test_is_reindex_running_waiting(i18n_app):
-    with patch("weko_search_ui.tasks.inspect.ping",return_value=True):
-        with patch("weko_admin.tasks.inspect.active",return_value=MagicMock()):
-            with patch("weko_admin.tasks.inspect.reserved",return_value=MagicMock()):
-                assert is_reindex_running()==False
+def test_is_reindex_running_not_running(i18n_app, mocker):
+    mocker.patch("weko_admin.tasks.check_celery_is_run", return_value=False)
 
-def test_reindex_EStoES(i18n_app,admin_settings):
+    assert not is_reindex_running()
 
-    return_value = Mock(spec=Response)
+def test_is_reindex_running_active(i18n_app, mocker):
+    mocker.patch("weko_admin.tasks.check_celery_is_run", return_value=True)
+    mock_celery = mocker.MagicMock(spec=Celery)
+    mock_celery.control.inspect.return_value.active.return_value = INSPECT_RETURN_VALUE
+    mock_celery.control.inspect.return_value.reserved.return_value = []
+    mocker.patch("weko_admin.tasks.current_celery_app", new=mock_celery)
+
+    assert is_reindex_running()
+
+def test_is_reindex_running_reserved(i18n_app, mocker):
+    mocker.patch("weko_admin.tasks.check_celery_is_run", return_value=True)
+    mock_celery = mocker.MagicMock(spec=Celery)
+    mock_celery.control.inspect.return_value.active.return_value = []
+    mock_celery.control.inspect.return_value.reserved.return_value = INSPECT_RETURN_VALUE
+    mocker.patch("weko_admin.tasks.current_celery_app", new=mock_celery)
+
+    assert is_reindex_running()
+
+def test_is_reindex_running_waiting(i18n_app, mocker):
+    mocker.patch("weko_admin.tasks.check_celery_is_run", return_value=True)
+    mock_celery = mocker.MagicMock(spec=Celery)
+    mock_celery.control.inspect.return_value.active.return_value = []
+    mock_celery.control.inspect.return_value.reserved.return_value = []
+    mocker.patch("weko_admin.tasks.current_celery_app", new=mock_celery)
+
+    assert not is_reindex_running()
+
+
+def test_reindex_EStoES(i18n_app,admin_settings, mocker):
+
+    return_value = mocker.Mock(spec=Response)
     return_value.text = "test_mock"
     return_value.status_code = 200
 
@@ -342,9 +354,9 @@ def test_reindex_EStoES(i18n_app,admin_settings):
                     assert 'completed' == reindex(False)
 
 
-def test_reindex_DBtoES(i18n_app,admin_settings,reindex_settings):
+def test_reindex_DBtoES(i18n_app,admin_settings,reindex_settings, mocker):
 
-    return_value = Mock(spec=Response)
+    return_value = mocker.Mock(spec=Response)
     return_value.text = "test_mock"
     return_value.status_code = 200
 

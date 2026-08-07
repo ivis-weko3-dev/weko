@@ -4,7 +4,7 @@ invenio-app==1.5.0
 invenio-assets==2.0.1
 invenio-base==1.4.0
 invenio-cache==1.3.0
-invenio-celery==1.3.1
+-e git+https://github.com/ivis-weko3-dev/invenio-celery.git@nii_develop/W2026-31#egg=invenio-celery
 invenio-config==1.0.4
 invenio-formatter==2.0.3
 invenio-i18n==2.1.1

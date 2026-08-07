@@ -9,7 +9,7 @@ from io import StringIO
 
 from invenio_indexer.api import RecordIndexer
 from invenio_cache import current_cache
-from mock import patch
+from unittest.mock import patch
 from tests.helpers import json_data
 
 from weko_admin.config import WEKO_ADMIN_MANAGEMENT_OPTIONS, WEKO_ADMIN_RESTRICTED_ACCESS_SETTINGS
@@ -69,7 +69,7 @@ from weko_user_profiles import UserProfile
 
 # def get_response_json(result_list, n_lst):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_get_response_json -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_get_response_json(app,site_license,item_type):
+def test_get_response_json(app,site_license,item_type, mocker):
     # result_list is not list
     result = get_response_json("","")
     assert result == {}
@@ -637,7 +637,7 @@ def test_package_reports(client, mocker):
     mock_make_stats_file.assert_called_once_with("test_stats", "file_download", "2022-10-01_2022-10-07", True)
 
     # raise Exception
-    patch("weko_admin.utils.make_stats_file",side_effect=Exception("test_error"))
+    mocker.patch("weko_admin.utils.make_stats_file",side_effect=Exception("test_error"))
     with pytest.raises(Exception) as e:
         result = package_reports(all_stats,"2022","10")
 
@@ -645,7 +645,7 @@ def test_package_reports(client, mocker):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_make_stats_file -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
 def test_make_stats_file(client, roles, mocker):
     current_app.config.update(WEKO_ADMIN_OUTPUT_FORMAT="csv")
-    patch("weko_admin.utils.write_report_file_rows")
+    mocker.patch("weko_admin.utils.write_report_file_rows")
     raw_stats=""
     file_type = ""
     report_date = "2022-10"
@@ -880,9 +880,9 @@ def test_write_report_file_rows(db,users):
 
 # def reset_redis_cache(cache_key, value, ttl=None):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_reset_redis_cache -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_reset_redis_cache(redis_connect):
+def test_reset_redis_cache(redis_connect, mocker):
     redis_connect.put("test_cache",bytes("test_value","utf-8"))
-    patch("weko_admin.utils.RedisConnection.connection",return_value=redis_connect)
+    mocker.patch("weko_admin.utils.RedisConnection.connection",return_value=redis_connect)
     # cache_key exist, ttl is None
     reset_redis_cache("test_cache","new_value1")
     assert redis_connect.get("test_cache") == b"new_value1"
@@ -899,8 +899,8 @@ def test_reset_redis_cache(redis_connect):
 
 # def is_exists_key_or_empty_in_redis(key):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_is_exists_key_or_empty_in_redis -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_is_exists_key_or_empty_in_redis(redis_connect):
-    patch("weko_admin.utils.RedisConnection.connection",return_value=redis_connect)
+def test_is_exists_key_or_empty_in_redis(redis_connect, mocker):
+    mocker.patch("weko_admin.utils.RedisConnection.connection",return_value=redis_connect)
     redis_connect.put("test_key1",bytes("test_value1","utf-8"))
     result = is_exists_key_or_empty_in_redis("test_key1")
     assert result == True
@@ -917,8 +917,8 @@ def test_is_exists_key_or_empty_in_redis(redis_connect):
 
 # def get_redis_cache(cache_key):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_get_redis_cache -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_get_redis_cache(redis_connect):
-    patch("weko_admin.utils.RedisConnection.connection",return_value=redis_connect)
+def test_get_redis_cache(redis_connect, mocker):
+    mocker.patch("weko_admin.utils.RedisConnection.connection",return_value=redis_connect)
     redis_connect.delete("test_key")
     # cache_key is not exist
     result = get_redis_cache("test_key")
@@ -960,18 +960,18 @@ class TestStatisticMail:
 
 #     def send_mail_to_all(cls, list_mail_data=None, stats_date=None):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::TestStatisticMail::test_send_mail_to_all -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_send_mail_to_all(self,client,feedback_mail_settings,site_info):
+    def test_send_mail_to_all(self,client,feedback_mail_settings,site_info, mocker):
         setting = {
                 "data":[{"author_id":"2","email":"banned@test.org"}],
                 "error":"",
                 "is_sending_feedback":True,
                 "root_url":"http://test_server"
             }
-        patch("weko_admin.utils.FeedbackMail.get_feed_back_email_setting",return_value=setting)
-        patch("weko_admin.utils.StatisticMail.get_banned_mail",return_value=["banned@test.org"])
-        patch("weko_admin.utils.StatisticMail.get_send_time",return_value="2022-10")
-        patch("weko_admin.utils.StatisticMail.get_list_statistic_data")
-        patch("weko_admin.utils.FeedbackMailHistory.get_sequence",return_value="1")
+        mocker.patch("weko_admin.utils.FeedbackMail.get_feed_back_email_setting",return_value=setting)
+        mocker.patch("weko_admin.utils.StatisticMail.get_banned_mail",return_value=["banned@test.org"])
+        mocker.patch("weko_admin.utils.StatisticMail.get_send_time",return_value="2022-10")
+        mocker.patch("weko_admin.utils.StatisticMail.get_list_statistic_data")
+        mocker.patch("weko_admin.utils.FeedbackMailHistory.get_sequence",return_value="1")
         body = {
             "user_name":"テスト 太郎",
             "organization":"No Site Name",
@@ -982,10 +982,10 @@ class TestStatisticMail:
             "total_detail_view":3,
             "total_download":30
         }
-        patch("weko_admin.utils.StatisticMail.fill_email_data",return_value=body)
-        patch("weko_admin.utils.StatisticMail.send_mail",return_value=True)
-        patch("weko_admin.utils.get_system_default_language",return_value="en")
-        patch("weko_admin.utils.StatisticMail.build_statistic_mail_subject",return_value="[No Site Name]2022-10 利用統計レポート")
+        mocker.patch("weko_admin.utils.StatisticMail.fill_email_data",return_value=body)
+        mocker.patch("weko_admin.utils.StatisticMail.send_mail",return_value=True)
+        mocker.patch("weko_admin.utils.get_system_default_language",return_value="en")
+        mocker.patch("weko_admin.utils.StatisticMail.build_statistic_mail_subject",return_value="[No Site Name]2022-10 利用統計レポート")
 
         # is_sending_feedback is False, stats_date is None
         with patch("weko_admin.utils.FeedbackMail.get_feed_back_email_setting",return_value={"is_sending_feedback":False}):
@@ -1002,7 +1002,7 @@ class TestStatisticMail:
             "test.taro@test.org":{"author_id":"1","items":{}},
             "test.hanako@test.org":{"author_id":"2","items":{}}
         }
-        patch("weko_records.api.FeedbackMailList.get_feedback_mail_list", return_value=mail_data)
+        mocker.patch("weko_records.api.FeedbackMailList.get_feedback_mail_list", return_value=mail_data)
         # system_default_language is ja
         with patch("weko_admin.utils.get_system_default_language", return_value="ja"):
             result = StatisticMail.send_mail_to_all()
@@ -1053,7 +1053,7 @@ class TestStatisticMail:
 
 #     def get_list_statistic_data(cls, list_item_id, time, root_url):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::TestStatisticMail::test_get_list_statistic_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_get_list_statistic_data(self,records):
+    def test_get_list_statistic_data(self,records, mocker):
         list_item_id=[records[0][2].id,records[1][2].id]
         time = datetime.now().strftime("%Y-%m")
         root_url = "http://test.com"
@@ -1071,8 +1071,8 @@ class TestStatisticMail:
                 "file_download":{"test_file2_1.tsv":"10","test_file2_2.tsv":"20"}
             }
         ]
-        patch("weko_admin.utils.StatisticMail.get_item_information",side_effect=item_info)
-        patch("weko_admin.utils.StatisticMail.convert_download_count_to_int",side_effect=lambda x:int(x))
+        mocker.patch("weko_admin.utils.StatisticMail.get_item_information",side_effect=item_info)
+        mocker.patch("weko_admin.utils.StatisticMail.convert_download_count_to_int",side_effect=lambda x:int(x))
 
         test = {
             "data": [
@@ -1102,13 +1102,13 @@ class TestStatisticMail:
 
 #     def get_item_information(cls, item_id, time, root_url):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::TestStatisticMail::test_get_item_information -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_get_item_information(self,records):
+    def test_get_item_information(self,records, mocker):
         item_id = records[0][2].id
         time = datetime.now().strftime("%Y-%m")
         root_url = "http://test.com"
 
-        patch("weko_admin.utils.StatisticMail.get_item_view",return_value="2")
-        patch("weko_admin.utils.StatisticMail.get_item_download",return_value={"test_file.tsv":"10"})
+        mocker.patch("weko_admin.utils.StatisticMail.get_item_view",return_value="2")
+        mocker.patch("weko_admin.utils.StatisticMail.get_item_download",return_value={"test_file.tsv":"10"})
         test = {
             "title":"title",
             "url":"http://test.com/records/1",
@@ -1120,8 +1120,8 @@ class TestStatisticMail:
 
 #     def get_item_view(cls, item_id, time):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::TestStatisticMail::test_get_item_view -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_get_item_view(self,records):
-        patch("weko_admin.utils.QueryRecordViewCount.get_data",return_value={"total":1,"country":{},"period":[]})
+    def test_get_item_view(self,records, mocker):
+        mocker.patch("weko_admin.utils.QueryRecordViewCount.get_data",return_value={"total":1,"country":{},"period":[]})
         item_id = records[0][0].object_uuid
         time = datetime.now().strftime("%Y-%m")
         result = StatisticMail.get_item_view(item_id,time)
@@ -1130,12 +1130,12 @@ class TestStatisticMail:
 
 #     def get_item_download(cls, data, time):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::TestStatisticMail::test_get_item_download -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_get_item_download(self):
+    def test_get_item_download(self, mocker):
         with patch("weko_admin.utils.StatisticMail.get_file_in_item",return_value=None):
             result = StatisticMail.get_item_download("","")
             assert result == {}
-        patch("weko_admin.utils.StatisticMail.get_file_in_item",return_value={"list_file_key":["test_file1","test_file2"]})
-        patch("weko_admin.utils.QueryFileStatsCount.get_data",return_value={"download_total":10})
+        mocker.patch("weko_admin.utils.StatisticMail.get_file_in_item",return_value={"list_file_key":["test_file1","test_file2"]})
+        mocker.patch("weko_admin.utils.QueryFileStatsCount.get_data",return_value={"download_total":10})
         time = datetime.now().strftime("%Y-%m")
         data = {}
         result = StatisticMail.get_item_download(data,time)
@@ -1168,7 +1168,7 @@ class TestStatisticMail:
 
 #     def get_file_in_item(cls, data):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::TestStatisticMail::test_get_file_in_item -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_get_file_in_item(self):
+    def test_get_file_in_item(self, mocker):
         data = {
             "_buckets":{"deposit":"test_deposit_id"}
         }
@@ -1176,7 +1176,7 @@ class TestStatisticMail:
             keys = ["test_key1","test_key2"]
             for _key in keys:
                 yield _key
-        patch("weko_admin.utils.StatisticMail.find_value_in_dict",side_effect=mock_find_value)
+        mocker.patch("weko_admin.utils.StatisticMail.find_value_in_dict",side_effect=mock_find_value)
 
         result = StatisticMail.get_file_in_item(data)
         assert result == {"bucket_id":"test_deposit_id","list_file_key":["test_key1","test_key2"]}
@@ -1185,7 +1185,7 @@ class TestStatisticMail:
 
 #     def fill_email_data(cls, statistic_data, mail_data,
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::TestStatisticMail::test_fill_email_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_fill_email_data(self):
+    def test_fill_email_data(self, mocker):
         statistic_data = {
             "data":[{
                     "title":"title2",
@@ -1208,8 +1208,8 @@ class TestStatisticMail:
 
         # system_default_language is ja
         data_content_ja = '----------------------------------------\n[Title] : title2\n[URL] : http://test.com/records/2\n[DetailView] : 3\n[FileDownload] : \n    test_file2_1.tsv(10)\n    test_file2_2.tsv(20)\n'
-        patch("weko_admin.utils.StatisticMail.build_mail_data_to_string",return_value=data_content_ja)
-        mock_render = patch("weko_admin.utils.Template.render")
+        mocker.patch("weko_admin.utils.StatisticMail.build_mail_data_to_string",return_value=data_content_ja)
+        mock_render = mocker.patch("weko_admin.utils.Template.render")
         test = {
             "user_name":"テスト 太郎",
             "organization":"No Site Name",
@@ -1225,8 +1225,8 @@ class TestStatisticMail:
 
         # system_default_language is en
         data_content_en = '----------------------------------------\n[Title] : title2\n[URL] : http://test.com/records/2\n[DetailView] : 3\n[FileDownload] : \n    test_file2_1.tsv(10)\n    test_file2_2.tsv(20)\n'
-        patch("weko_admin.utils.StatisticMail.build_mail_data_to_string",return_value=data_content_en)
-        mock_render = patch("weko_admin.utils.Template.render")
+        mocker.patch("weko_admin.utils.StatisticMail.build_mail_data_to_string",return_value=data_content_en)
+        mock_render = mocker.patch("weko_admin.utils.Template.render")
         test = {
             "user_name":"テスト 太郎",
             "organization":"No Site Name",
@@ -1242,8 +1242,8 @@ class TestStatisticMail:
 
         # system_default_language is other
         data_content_en = '----------------------------------------\n[Title] : title2\n[URL] : http://test.com/records/2\n[DetailView] : 3\n[FileDownload] : \n    test_file2_1.tsv(10)\n    test_file2_2.tsv(20)\n'
-        patch("weko_admin.utils.StatisticMail.build_mail_data_to_string",return_value=data_content_en)
-        mock_render = patch("weko_admin.utils.Template.render")
+        mocker.patch("weko_admin.utils.StatisticMail.build_mail_data_to_string",return_value=data_content_en)
+        mock_render = mocker.patch("weko_admin.utils.Template.render")
         test = {
             "user_name":"テスト 太郎",
             "organization":"No Site Name",
@@ -1387,12 +1387,12 @@ class MockClient:
 class TestFeedbackMail:
 #     def search_author_mail(cls, request_data: dict) -> dict:
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::TestFeedbackMail::test_search_author_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_search_author_mail(self,client):
+    def test_search_author_mail(self,client, mocker):
         mock_indexer = RecordIndexer()
         data = json_data("data/test_authors.json")
         data.append({"authorIdInfo":None})
         mock_indexer.client=MockClient(data)
-        patch("weko_admin.utils.RecordIndexer",return_value=mock_indexer)
+        mocker.patch("weko_admin.utils.RecordIndexer",return_value=mock_indexer)
 
         request_data = {
             "searchKey":"",
@@ -1452,11 +1452,11 @@ class TestFeedbackMail:
 
 #     def update_feedback_email_setting(cls, data,
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::TestFeedbackMail::test_update_feedback_email_setting -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_update_feedback_email_setting(self,feedback_mail_settings):
-        patch("weko_admin.utils.FeedbackMail.handle_update_message",return_value={"error":""})
-        patch("weko_admin.utils.FeedbackMail.validate_feedback_mail_setting",return_value=None)
-        patch("weko_admin.utils.FeedbackMail.get_list_manual_email",return_value={"email":["test.manual@test.org"]})
-        patch("weko_admin.utils.FeedbackMail.convert_feedback_email_data_to_string",return_value="1,2")
+    def test_update_feedback_email_setting(self,feedback_mail_settings, mocker):
+        mocker.patch("weko_admin.utils.FeedbackMail.handle_update_message",return_value={"error":""})
+        mocker.patch("weko_admin.utils.FeedbackMail.validate_feedback_mail_setting",return_value=None)
+        mocker.patch("weko_admin.utils.FeedbackMail.get_list_manual_email",return_value={"email":["test.manual@test.org"]})
+        mocker.patch("weko_admin.utils.FeedbackMail.convert_feedback_email_data_to_string",return_value="1,2")
         data = [
             { "author_id": "1", "email": "test.taro@test.org" },
             { "author_id": "2", "email": "test.smith@test.org" },
@@ -1525,22 +1525,22 @@ class TestFeedbackMail:
 
 #     def validate_feedback_mail_setting(cls, data):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::TestFeedbackMail::test_validate_feedback_mail_setting -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_validate_feedback_mail_setting(self):
+    def test_validate_feedback_mail_setting(self, mocker):
         data = [
             { "author_id": "1", "email": "test.taro@test.org" },
             { "author_id": "2", "email": "test.smith@test.org" }
         ]
         # author is duplicated
-        patch("weko_admin.utils.FeedbackMail.convert_feedback_email_data_to_string",return_value="1,1")
+        mocker.patch("weko_admin.utils.FeedbackMail.convert_feedback_email_data_to_string",return_value="1,1")
         result = FeedbackMail.validate_feedback_mail_setting(data)
         assert result == "Author is duplicated."
 
         # duplicate email
-        patch("weko_admin.utils.FeedbackMail.convert_feedback_email_data_to_string",side_effect=["1,2","test@test.org,test@test.org"])
+        mocker.patch("weko_admin.utils.FeedbackMail.convert_feedback_email_data_to_string",side_effect=["1,2","test@test.org,test@test.org"])
         result = FeedbackMail.validate_feedback_mail_setting(data)
         assert result == "Duplicate Email Addresses."
 
-        patch("weko_admin.utils.FeedbackMail.convert_feedback_email_data_to_string",side_effect=["1,2","test.taro@test.org,test.smith@test.org"])
+        mocker.patch("weko_admin.utils.FeedbackMail.convert_feedback_email_data_to_string",side_effect=["1,2","test.taro@test.org,test.smith@test.org"])
         result = FeedbackMail.validate_feedback_mail_setting(data)
         assert result == None
 
@@ -1712,11 +1712,11 @@ class TestFeedbackMail:
 
 # def validation_site_info(site_info):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_validation_site_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_validation_site_info():
+def test_validation_site_info(mocker):
     lang_settings = [
         {"is_registered":True,"lang_code":"en","lang_name":"English","sequence":1},
         {"is_registered":True,"lang_code":"ja","lang_name":"日本語","sequence":2}]
-    patch("weko_admin.utils.get_admin_lang_setting",return_value=lang_settings)
+    mocker.patch("weko_admin.utils.get_admin_lang_setting",return_value=lang_settings)
 
     # not site_name
     result = validation_site_info({})
@@ -1939,9 +1939,9 @@ def test_build_init_display_index(app,indexes):
 
 # def get_init_display_index(init_disp_index: str) -> list:
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_get_init_display_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_get_init_display_index(app,indexes):
+def test_get_init_display_index(app,indexes, mocker):
     current_cache.delete("index_tree_json")
-    patch("weko_admin.utils.__build_init_display_index")
+    mocker.patch("weko_admin.utils.__build_init_display_index")
     with app.test_request_context(headers=[('Accept-Language', 'en')]):
         result = get_init_display_index("1")
         assert result == [{"id":"0","parent":"#","text":"Root Index","state":{"opened":True}}]
@@ -2325,8 +2325,8 @@ class TestUsageReport:
 
 #     def get_activities_per_page(
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::TestUsageReport::test_get_activities_per_page -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_get_activities_per_page(self, activities):
-        patch("weko_admin.utils.UsageReport._UsageReport__count_activities")
+    def test_get_activities_per_page(self, activities, mocker):
+        mocker.patch("weko_admin.utils.UsageReport._UsageReport__count_activities")
         usage_report = UsageReport()
         usage_report._UsageReport__activities_number = 1
         # activities_id is None, page> self.__page_number
@@ -2377,26 +2377,26 @@ class TestUsageReport:
 
 #     def send_reminder_mail(self, activities_id: list,
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::TestUsageReport::test_send_reminder_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-    def test_send_reminder_mail(self, app, activities):
+    def test_send_reminder_mail(self, app, activities, mocker):
         mail_template = current_app.config.get(
             "WEKO_WORKFLOW_REQUEST_FOR_REGISTER_USAGE_REPORT")
         def mock_email_and_url(activity):
             url = "http://test_server/workflow/activity/detail/{}".format(activity.id)
             return url, "test.test@test.org"
-        patch("weko_admin.utils.UsageReport._UsageReport__get_usage_report_email_and_url", side_effect=mock_email_and_url)
-        patch("weko_workflow.utils.get_mail_data", return_value=("test_subject", "test_body"))
-        patch("weko_workflow.utils.replace_characters", return_value="test_body")
+        mocker.patch("weko_admin.utils.UsageReport._UsageReport__get_usage_report_email_and_url", side_effect=mock_email_and_url)
+        mocker.patch("weko_workflow.utils.get_mail_data", return_value=("test_subject", "test_body"))
+        mocker.patch("weko_workflow.utils.replace_characters", return_value="test_body")
         usage_report = UsageReport()
         acts = [
             activities[1],# not exist item_id, extra_info
             activities[3], # exist item_id, extra_info
         ]
-        patch("weko_workflow.utils.send_mail", return_value=True)
+        mocker.patch("weko_workflow.utils.send_mail", return_value=True)
         result = usage_report.send_reminder_mail([],mail_template, acts)
         assert result == True
 
         # not exist activities and mail_template, failed send mail
-        patch("weko_workflow.utils.send_mail", return_value=False)
+        mocker.patch("weko_workflow.utils.send_mail", return_value=False)
         result = usage_report.send_reminder_mail(["1","2"],None, None)
         assert result == False
 
@@ -2799,7 +2799,7 @@ def test_create_aggregations_branch(mocker):
 
 # def store_facet_search_query_in_redis():
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_store_facet_search_query_in_redis -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_store_facet_search_query_in_redis():
+def test_store_facet_search_query_in_redis(mocker):
     has_permission = {
         "test-weko":{
             "aggs":{"Data Language":{"terms":{"field":"language","size":1000}},
@@ -2823,8 +2823,8 @@ def test_store_facet_search_query_in_redis():
                    'post_filters': {'Data Language': 'language',
                                     'Data Type': 'description.value'}},
     }
-    patch("weko_admin.utils.create_facet_search_query",return_value=(has_permission,no_permission))
-    patch("weko_admin.utils.reset_redis_cache")
+    mocker.patch("weko_admin.utils.create_facet_search_query",return_value=(has_permission,no_permission))
+    mocker.patch("weko_admin.utils.reset_redis_cache")
     store_facet_search_query_in_redis()
 
 
@@ -2840,8 +2840,8 @@ def test_get_query_key_by_permission():
 
 # def get_facet_search_query(has_permission=True):
 # .tox/c1/bin/pytest --cov=weko_admin tests/test_utils.py::test_get_facet_search_query -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-admin/.tox/c1/tmp
-def test_get_facet_search_query(app):
-    patch("weko_admin.utils.store_facet_search_query_in_redis")
+def test_get_facet_search_query(app, mocker):
+    mocker.patch("weko_admin.utils.store_facet_search_query_in_redis")
     cache_data = {
       "test-weko": {
         "aggs": {
@@ -2931,7 +2931,6 @@ def test_overwrite_the_memory_config_with_db(app,client,site_info):
 
     overwrite_the_memory_config_with_db(app, site_info_google2)
     assert app.config["GOOGLE_TRACKING_ID_USER"] == "test_tracking_id2"
-
 
 # def get_title_facets():
 def test_get_title_facets(app, users, facet_search_settings):
