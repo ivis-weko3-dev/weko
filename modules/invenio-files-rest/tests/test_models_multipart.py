@@ -47,7 +47,7 @@ def test_multipart_last_part(app, db, bucket):
 
 
 # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_models_multipart.py::test_part_creation -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
-def test_part_creation(app, db, bucket, get_md5):
+def test_part_creation(app, db, bucket, get_sha256):
     """Test part creation."""
     assert bucket.size == 0
     mp = MultipartObject.create(bucket, "test.txt", 5, 2)
@@ -77,7 +77,7 @@ def test_part_creation(app, db, bucket, get_md5):
     assert Part.query.count() == 0
 
     assert obj.file.size == 5
-    assert obj.file.checksum == get_md5(b"p1p2p")
+    assert obj.file.checksum == get_sha256(b"p1p2p")
     assert obj.file.storage().open().read() == b"p1p2p"
     assert obj.file.writable is False
     assert obj.file.readable is True

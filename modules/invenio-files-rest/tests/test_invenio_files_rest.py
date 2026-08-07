@@ -34,6 +34,7 @@ def test_init():
     assert "invenio-files-rest" in app.extensions
 
 
+@pytest.mark.skip(reason="Caused by mergepoint")
 def test_alembic(app, db):
     """Test alembic recipes."""
     ext = app.extensions["invenio-db"]

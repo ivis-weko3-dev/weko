@@ -566,7 +566,7 @@ def test_post_complete(
 
 # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_post_complete_fail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 def test_post_complete_fail(
-    client, headers, bucket, multipart, multipart_url, parts, get_json,
+    client, headers, bucket_with_record, multipart, multipart_url, parts, get_json,
     admin_user, mocker
 ):
     """Test completing multipart when merge fails."""
@@ -600,7 +600,7 @@ def test_post_complete_fail(
 
 # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_multipart.py::test_post_complete_timeout -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 def test_post_complete_timeout(
-    app, client, headers, bucket, multipart, multipart_url, parts, get_json,
+    app, client, headers, bucket_with_record, multipart, multipart_url, parts, get_json,
     admin_user, mocker
 ):
     """Test completing multipart when merge fails."""

@@ -109,13 +109,18 @@ def test_get(
         assert set(data["contents"][0].keys()) == {
             "checksum",
             "created",
+            "created_user_id",
             "delete_marker",
             "is_head",
+            "is_show",
+            "is_thumbnail",
             "key",
             "links",
             "mimetype",
             "size",
             "updated",
+            "updated_user_id",
+            "uploaded_owners",
             "version_id",
             "tags",
         }

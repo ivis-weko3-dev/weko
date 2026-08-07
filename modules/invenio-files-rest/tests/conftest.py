@@ -32,6 +32,8 @@ from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_db.utils import drop_alembic_version_table
 from invenio_i18n import Babel, InvenioI18N
+from invenio_records.models import RecordMetadata
+from invenio_records_files.models import RecordsBuckets
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.schema import DropConstraint, DropSequence, DropTable
 from sqlalchemy_utils.functions import create_database, database_exists
@@ -218,6 +220,23 @@ def bucket(db, dummy_location):
     b1 = Bucket.create()
     db.session.commit()
     return b1
+
+
+@pytest.fixture
+def bucket_with_record(db, bucket):
+    record = RecordMetadata(json={}, version_id=1)
+    db.session.add(record)
+    db.session.flush()
+
+    db.session.add(
+        RecordsBuckets(
+            record_id=record.id,
+            bucket_id=bucket.id,
+        )
+    )
+    db.session.commit()
+
+    return bucket
 
 
 @pytest.fixture
