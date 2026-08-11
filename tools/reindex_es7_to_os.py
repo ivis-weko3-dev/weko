@@ -8,6 +8,7 @@ import re
 import json
 from datetime import datetime, timedelta, timezone
 import traceback, copy
+import time
 
 now = datetime.now(timezone.utc)
 today_str = now.strftime("%Y-%m-%dT00:00:00")
@@ -22,7 +23,7 @@ def validate_date(date_str):
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description="Elasticsearch v6 から v7 に reindex するツール",
+        description="Elasticsearch es v7 から os に reindex するツール",
         formatter_class=argparse.RawTextHelpFormatter
     )
 
@@ -41,8 +42,8 @@ def parse_arguments():
     
     parser.add_argument(
         "--es7_port",
-        type=int,
-        default=9200,
+        type=str,
+        default="9200",
         help="Elasticsearch 7 のポート番号（デフォルト: 9200）"
     )
     
@@ -55,8 +56,8 @@ def parse_arguments():
     
     parser.add_argument(
         "--os_port",
-        type=int,
-        default=9200,
+        type=str,
+        default="9200",
         help="opensearch のポート番号（デフォルト: 9200）"
     )
     
@@ -153,13 +154,56 @@ print("# get indexes and aliases")
 organization_aliases = prefix+"-*"
 indexes = requests.get(f"{es7_url}{organization_aliases}",**req_args).json()
 indexes_alias = {} # indexとaliasのリスト
+es7_mappings_cache = {} # 冒頭取得済みのES7 mappingキャッシュ
 for index in indexes:
     aliases = indexes[index].get("aliases",{})
     indexes_alias[index] = aliases
+    es7_mappings_cache[index] = indexes[index].get("mappings", {})
 
 modules_dir = "/code/modules/"
 mappings = {}
 templates = {}
+
+def wait_for_shards_started(index_name, timeout=120):
+    """cluster health API で primary shard active かつ cluster state 確定を保証する。"""
+    res = requests.get(
+        os_url + f"/_cluster/health/{index_name}"
+        f"?wait_for_status=yellow&wait_for_active_shards=1&timeout={timeout}s",
+        **os_req_args
+    )
+    if res.status_code != 200 or res.json().get("timed_out"):
+        raise Exception(f"Timeout waiting for index to be ready: {index_name}")
+
+def _deep_merge_props(dst, src):
+    """ES7 properties を dst へ再帰的にマージする（dst に無いキーのみ追加）。"""
+    for field, field_def in src.items():
+        if field not in dst:
+            dst[field] = field_def
+        elif isinstance(field_def, dict) and "properties" in field_def:
+            dst[field].setdefault("properties", {})
+            _deep_merge_props(dst[field]["properties"], field_def["properties"])
+
+def merge_es7_mapping(index_name, base_definition):
+    """冒頭取得済みの ES7 mapping から不足フィールドを全階層でマージする。"""
+    es7_mappings = es7_mappings_cache.get(index_name, {})
+    if not es7_mappings:
+        print(f"## warn: no ES7 mapping cached for {index_name}, skipping merge")
+        return base_definition
+
+    if "properties" in es7_mappings:
+        es7_props = es7_mappings["properties"]
+    else:
+        first_type = next(iter(es7_mappings), None)
+        es7_props = es7_mappings[first_type].get("properties", {}) if first_type else {}
+
+    base_props = base_definition.setdefault("mappings", {}).setdefault("properties", {})
+    before_keys = set(base_props.keys())
+    _deep_merge_props(base_props, es7_props)
+    added = [k for k in base_props if k not in before_keys]
+    print(f"## merged ES7 mapping (top-level added: {len(added)}): {added}")
+    return base_definition
+
+had_errors = False
 
 # ファイルからマッピングデータを取得
 print("# get mapping from json file")
@@ -254,10 +298,11 @@ for index, mapping in mappings.items():
             print(f"## Index {index} already exists, skipping creation.")
         else:
             print(f"## Creating index: {index}")
+            base_index_definition = merge_es7_mapping(index, base_index_definition)
             res = requests.put(os_url + index + "?pretty", json=base_index_definition, **os_req_args)
             if res.status_code != 200:
                 raise Exception(res.text)
-            print("Created index: {index}")
+            print(f"## Created index: {index}")
 
 
             if json_data_set_aliases["actions"]:
@@ -280,39 +325,48 @@ for index, mapping in mappings.items():
             res = requests.put(os_url + index_percolator + "?pretty", json=percolator_definition, **os_req_args)
             if res.status_code != 200:
                 raise Exception(res.text)
-            print("Created index: {index}")
+            print(f"## Created index: {index_percolator}")
 
         res = requests.put(os_url + index + "/_settings?pretty", json=performance_setting_body, **os_req_args)
         if res.status_code != 200:
             raise Exception(res.text)
         print("## speed-up setting for reindex")
+        wait_for_shards_started(index)
+        print("## shard ready")
 
 
         if "author" not in index:
             if gte_date:
                 json_data_to_os["source"]["query"]["bool"]["must"] = [query_after_specific_date]
+                print(f"## start reindex {index} (>= today 00:00:00)")
                 res = requests.post(url=reindex_url, json=json_data_to_os, **os_req_args)
                 if res.status_code != 200:
                     raise Exception(res.text)
+                print(f"## end reindex {index} (>= today 00:00:00)")
                 json_data_to_os["source"]["query"]["bool"]["must"] = []
                 json_data_to_os["dest"]["index"] = index_percolator
                 json_data_to_os["source"]["index"] = index_percolator
+                print(f"## start reindex {index_percolator} (>= today 00:00:00)")
                 res = requests.post(url=reindex_url, json=json_data_to_os, **os_req_args)
                 if res.status_code != 200:
                     raise Exception(res.text)
-                print("## Second reindex from ES6 to ES7 (>= today 00:00:00)")
+                print(f"## end reindex {index_percolator} (>= today 00:00:00)")
             else:
+                print(f"## start reindex {index} (<= yesterday 23:59:59)")
                 res = requests.post(url=reindex_url, json=json_data_to_os, **os_req_args)
                 if res.status_code != 200:
                     raise Exception(res.text)
+                print(f"## end reindex {index} (<= yesterday 23:59:59)")
                 json_data_to_os["dest"]["index"] = index_percolator
                 json_data_to_os["source"]["index"] = index_percolator
+                print(f"## start reindex {index_percolator} (<= yesterday 23:59:59)")
                 res = requests.post(url=reindex_url, json=json_data_to_os, **os_req_args)
                 if res.status_code != 200:
                     raise Exception(res.text)
-                print("## First reindex from ES6 to ES7 (<= yesterday 23:59:59)")
+                print(f"## end reindex {index_percolator} (<= yesterday 23:59:59)")
         else:
             if gte_date:
+                print(f"## start reindex {index} all")
                 res = requests.post(url=reindex_url, json=json_data_to_os, **os_req_args)
                 if res.status_code != 200:
                     raise Exception(res.text)
@@ -321,16 +375,17 @@ for index, mapping in mappings.items():
                 res = requests.post(url=reindex_url, json=json_data_to_os, **os_req_args)
                 if res.status_code != 200:
                     raise Exception(res.text)
-                print("## [Author] Reindex from ES6 to ES7 ALL")
+                print(f"## end reindex {index} all")
             else:
-                print("## [Author] Reindex next time")
+                print(f"## {index} Reindex next time")
 
         res = requests.put(os_url + index + "/_settings?pretty", json=restore_setting_body, **os_req_args)
         if res.status_code != 200:
             raise Exception(res.text)
-
+        print(f"## reset speed-up setting")
         print("# end reindex: {}\n".format(index))
     except Exception as e:
+        had_errors = True
         print("##raise error: {}".format(index))
         print(traceback.format_exc())
 
@@ -348,14 +403,14 @@ def stats_reindex(index_name):
     # 対象のインデックスのリストを取得
     index_perttern = f"{prefix}-{index_name}-*"
 
-    indexes = requests.get(f"{es7_url}{index_perttern}",**os_req_args).json()
+    indexes = requests.get(f"{es7_url}{index_perttern}",**req_args).json()
     for index in indexes:
         # ないなら作成。
         res = requests.get(os_url + index, **os_req_args)
         if res.status_code == 200:
             print(f"## Index {index} already exists, skipping creation.")
         else:
-            print("### craete index")
+            print(f"## craete index: {index}")
             res = requests.put(os_url+index+"?pretty",**os_req_args)
             if res.status_code!=200:
                 print("## raise error: create index")
@@ -405,10 +460,15 @@ def stats_reindex(index_name):
                 "index": index
             }
         }
+        print(f"## start reindex {index}")
         res = requests.post(url=reindex_url, json=body, **os_req_args)
         if res.status_code != 200:
-            print(f"### raise error: reindex: {index}")
+            print(f"## raise error: reindex: {index}")
             raise Exception(res.text)
-
+        print(f"## end reindex {index}")
 for stats_index in stats_indexes:
     stats_reindex(stats_index)
+
+if had_errors:
+    print("## Completed with errors")
+    sys.exit(1)

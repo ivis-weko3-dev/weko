@@ -9,6 +9,7 @@ import re
 import json
 from datetime import datetime, timedelta, timezone
 import traceback, copy
+import time
 
 now = datetime.now(timezone.utc)
 today_str = now.strftime("%Y-%m-%dT00:00:00")
@@ -23,7 +24,10 @@ def validate_date(date_str):
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description="Elasticsearch v6 から v7 に reindex するツール",
+        description=(
+            "Elasticsearch v6 から v7 に reindex するツール\n"
+            "運用想定: ある時点で一度実行し、後日に --date で差分(指定日以降)を処理する"
+        ),
         formatter_class=argparse.RawTextHelpFormatter
     )
 
@@ -32,11 +36,16 @@ def parse_arguments():
         choices=["http", "https"],
         help="Elasticsearch に接続するプロトコル（http または https）"
     )
-    
+    parser.add_argument(
+        "--es6_host",
+        type=str,
+        default="elasticsearch",
+        help="Elasticsearch 6 のコンテナ名"
+    )
     parser.add_argument(
         "--es6_port",
-        type=int,
-        default=9200,
+        type=str,
+        default="9200",
         help="Elasticsearch 6 のポート番号（デフォルト: 9200）"
     )
 
@@ -49,8 +58,8 @@ def parse_arguments():
     
     parser.add_argument(
         "--es7_port",
-        type=int,
-        default=9200,
+        type=str,
+        default="9200",
         help="Elasticsearch 7 のポート番号（デフォルト: 9200）"
     )
 
@@ -66,13 +75,25 @@ def parse_arguments():
         help="Elasticsearch のパスワード"
     )
 
-    parser.add_argument(
+    date_group = parser.add_mutually_exclusive_group()
+
+    date_group.add_argument(
         "--date",
         type=validate_date,
         default=None,
-        help="操作する日付（省略可能）\n"
-             "  ・日付なしで実行すると、前日23:59:59までのデータがreindexされる\n"
-             "  ・日付付きで実行すると、指定した日の23:59:59までのデータがreindexされる\n"
+        help="操作開始日（省略可能）\n"
+             "  ・指定時: 指定日00:00:00以降をreindexする\n"
+             "  ・形式: YYYY-MM-DD（例: 2024-02-14）"
+    )
+
+    date_group.add_argument(
+        "--until-date",
+        type=validate_date,
+        default=None,
+        help="操作終了日（省略可能）\n"
+             "  ・指定時: 指定日の前日23:59:59までをreindexする\n"
+             "  ・補足: 指定日当日にオプションなしで実行した場合と同じ範囲\n"
+             "  ・注意: 本オプションはテスト用途\n"
              "  ・形式: YYYY-MM-DD（例: 2024-02-14）"
     )
 
@@ -86,9 +107,13 @@ password = args.password
 es7_host = args.es7_host
 es7_port = args.es7_port
 gte_date = args.date
+until_date = args.until_date
 auth = HTTPBasicAuth(user, password) if user and password else None
 
-es6_host = os.environ.get('INVENIO_ELASTICSEARCH_HOST','localhost')
+if until_date:
+    print("## WARNING: --until-date is intended for test use only")
+
+es6_host = args.es6_host
 es6_port = args.es6_port
 version="v7"
 
@@ -127,13 +152,57 @@ print("# get indexes and aliases")
 organization_aliases = prefix+"-*"
 indexes = requests.get(f"{es6_url}{organization_aliases}",**req_args).json()
 indexes_alias = {} # indexとaliasのリスト
+es6_mappings_cache = {} # 冒頭取得済みのES6 mappingキャッシュ
 for index in indexes:
     aliases = indexes[index].get("aliases",{})
     indexes_alias[index] = aliases
+    es6_mappings_cache[index] = indexes[index].get("mappings", {})
 
 modules_dir = "/code/modules/"
 mappings = {}
 templates = {}
+
+def wait_for_shards_started(index_name, timeout=120):
+    """cluster health API で primary shard active かつ cluster state 確定を保証する。"""
+    res = requests.get(
+        es7_url + f"/_cluster/health/{index_name}"
+        f"?wait_for_status=yellow&wait_for_active_shards=1&timeout={timeout}s",
+        **req_args
+    )
+    if res.status_code != 200 or res.json().get("timed_out"):
+        raise Exception(f"Timeout waiting for index to be ready: {index_name}")
+
+def _deep_merge_props(dst, src):
+    """ES6 properties を dst へ再帰的にマージする（dst に無いキーのみ追加）。"""
+    for field, field_def in src.items():
+        if field not in dst:
+            dst[field] = field_def
+        elif isinstance(field_def, dict) and "properties" in field_def:
+            dst[field].setdefault("properties", {})
+            _deep_merge_props(dst[field]["properties"], field_def["properties"])
+
+def merge_es6_mapping(index_name, base_definition):
+    """冒頭取得済みの ES6 mapping から不足フィールドを全階層でマージする。"""
+    es6_mappings = es6_mappings_cache.get(index_name, {})
+    if not es6_mappings:
+        print(f"## warn: no ES6 mapping cached for {index_name}, skipping merge")
+        return base_definition
+
+    # ES6 は {_doc: {properties: ...}} 形式、ES6.8+ は直接 {properties: ...} の場合もある
+    if "properties" in es6_mappings:
+        es6_props = es6_mappings["properties"]
+    else:
+        first_type = next(iter(es6_mappings), None)
+        es6_props = es6_mappings[first_type].get("properties", {}) if first_type else {}
+
+    base_props = base_definition.setdefault("mappings", {}).setdefault("properties", {})
+    before_keys = set(base_props.keys())
+    _deep_merge_props(base_props, es6_props)
+    added = [k for k in base_props if k not in before_keys]
+    print(f"## merged ES6 mapping (top-level added: {len(added)}): {added}")
+    return base_definition
+
+had_errors = False
 
 # ファイルからマッピングデータを取得
 print("# get mapping from json file")
@@ -203,21 +272,30 @@ for index, mapping in mappings.items():
         }
     }
 
-    query_before_today = {
-        "range": {
-            "_updated": {
-                "lt": today_str
+    if gte_date:
+        updated_range_query = {
+            "range": {
+                "_updated": {
+                    "gte": gte_date
+                }
             }
         }
-    }
-
-    query_after_specific_date  = {
-        "range": {
-            "_updated": {
-                "gte": gte_date
+    elif until_date:
+        updated_range_query = {
+            "range": {
+                "_updated": {
+                    "lt": until_date
+                }
             }
         }
-    }
+    else:
+        updated_range_query = {
+            "range": {
+                "_updated": {
+                    "lt": today_str
+                }
+            }
+        }
 
     filter_id_starts_with  = {
         "script": {
@@ -257,6 +335,7 @@ for index, mapping in mappings.items():
             print(f"## Index {index} already exists, skipping creation.")
         else:
             print(f"## Creating index: {index}")
+            base_index_definition = merge_es6_mapping(index, base_index_definition)
             res = requests.put(es7_url + index + "?pretty", json=base_index_definition, **req_args)
             if res.status_code != 200:
                 print(f"raise error create index: {index}")
@@ -290,11 +369,12 @@ for index, mapping in mappings.items():
         if res.status_code != 200:
             raise Exception(res.text)
         print("## speed-up setting for reindex")
-
+        wait_for_shards_started(index)
+        print("## shard ready")
 
         if "author" not in index:
-            if gte_date:
-                json_data_to_es7["source"]["query"]["bool"]["must"] = [query_after_specific_date]
+            if gte_date or until_date:
+                json_data_to_es7["source"]["query"]["bool"]["must"] = [updated_range_query]
                 json_data_to_es7["source"]["query"]["bool"]["filter"] = [filter_id_not_starts_with]
                 res = requests.post(url=reindex_url, json=json_data_to_es7, **req_args)
                 if res.status_code != 200:
@@ -307,7 +387,7 @@ for index, mapping in mappings.items():
                     raise Exception(res.text)
                 print("## Second reindex from ES6 to ES7 (>= today 00:00:00)")
             else:
-                json_data_to_es7["source"]["query"]["bool"]["must"] = [query_before_today]
+                json_data_to_es7["source"]["query"]["bool"]["must"] = [updated_range_query]
                 json_data_to_es7["source"]["query"]["bool"]["filter"] = [filter_id_not_starts_with]
                 res = requests.post(url=reindex_url, json=json_data_to_es7, **req_args)
                 if res.status_code != 200:
@@ -323,6 +403,8 @@ for index, mapping in mappings.items():
                 if res.status_code != 200:
                     raise Exception(res.text)
                 print("## [Author] Reindex from ES6 to ES7 ALL")
+            elif until_date:
+                print("## [Author] Skip: --until-date is not supported because author documents have no timestamp field")
             else:
                 print("## [Author] Reindex next time")
 
@@ -332,6 +414,7 @@ for index, mapping in mappings.items():
 
         print("# end reindex: {}\n".format(index))
     except Exception as e:
+        had_errors = True
         print("##raise error: {}".format(index))
         print(traceback.format_exc())
 
@@ -438,6 +521,18 @@ def stats_reindex(stats_types, stats_prefix):
                     }
                 }
             }
+        elif until_date:
+            source_index = {
+                "remote": remote,
+                "index": from_reindex,
+                "query": {
+                    "range": {
+                        "timestamp": {
+                            "lt": until_date
+                        }
+                    }
+                }
+            }
         else:
             source_index = {
                 "remote": remote,
@@ -513,3 +608,7 @@ if alias_actions:
 
 stats_reindex(event_stats_types, "events-stats")
 stats_reindex(stats_types, "stats")
+
+if had_errors:
+    print("## Completed with errors")
+    sys.exit(1)

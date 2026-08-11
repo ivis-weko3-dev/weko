@@ -46,9 +46,9 @@ def upgrade():
         existing_nullable=True
     )
     op.create_foreign_key(
-        op.f("fk_communities_community_group_id_accounts_group"),
+        op.f("fk_communities_community_group_id_accounts_role"),
         "communities_community",
-        "accounts_group",
+        "accounts_role",
         ["group_id"],
         ["id"],
         ondelete="CASCADE",
@@ -83,9 +83,9 @@ def downgrade():
         existing_nullable=True
     )
     op.create_foreign_key(
-        op.f("fk_communities_community_group_id_accounts_group"),
+        op.f("fk_communities_community_group_id_accounts_role"),
         "communities_community",
-        "accounts_group",
+        "accounts_role",
         ["group_id"],
         ["id"],
         ondelete="CASCADE",
