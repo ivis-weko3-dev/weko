@@ -20,7 +20,8 @@ weko_itemtypes_ui = WebpackThemeBundle(
             dependencies={
                 "react": "~15.6.1",
                 "react-dom": "~15.6.1",
-                "jquery": "~2.1.3"
+                "jquery": "~2.1.3",
+                "create-react-class": "^15.7.0"
             }
         )
     }

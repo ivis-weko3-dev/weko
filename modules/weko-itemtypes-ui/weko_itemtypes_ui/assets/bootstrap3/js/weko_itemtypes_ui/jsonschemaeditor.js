@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import createReactClass from 'create-react-class';
 class JSONSchemaEditor {
   constructor(element, options) {
     if (!(element instanceof Element)) {
@@ -62,7 +63,7 @@ class JSONSchemaEditor {
 
 let localizationSettingsKey = 0;
 
-var SchemaText = React.createClass({
+var SchemaText = createReactClass({
   displayName: 'SchemaText',
   export: function _export() {
     return {
@@ -76,7 +77,7 @@ var SchemaText = React.createClass({
   }
 });
 
-var SchemaTextarea = React.createClass({
+var SchemaTextarea = createReactClass({
   displayName: 'SchemaTextarea',
   export: function _export() {
     return {
@@ -89,7 +90,7 @@ var SchemaTextarea = React.createClass({
   }
 });
 
-var SchemaDateTime = React.createClass({
+var SchemaDateTime = createReactClass({
   displayName: 'SchemaDateTime',
   export: function _export() {
     return {
@@ -102,7 +103,7 @@ var SchemaDateTime = React.createClass({
   }
 });
 
-var SchemaCheckboxes = React.createClass({
+var SchemaCheckboxes = createReactClass({
   displayName: 'SchemaCheckboxes',
 
   getInitialState: function getInitialState() {
@@ -173,7 +174,7 @@ var SchemaCheckboxes = React.createClass({
   }
 });
 
-var SchemaRadios = React.createClass({
+var SchemaRadios = createReactClass({
   displayName: 'SchemaRadios',
 
   getInitialState: function getInitialState() {
@@ -241,7 +242,7 @@ var SchemaRadios = React.createClass({
   }
 });
 
-var SchemaSelect = React.createClass({
+var SchemaSelect = createReactClass({
   displayName: 'SchemaSelect',
 
   getInitialState: function getInitialState() {
@@ -324,7 +325,7 @@ var mapping = function mapping(name, data, editor, changeHandler) {
   }[data.format];
 };
 
-var SchemaArray = React.createClass({
+var SchemaArray = createReactClass({
   displayName: 'SchemaArray',
 
   getInitialState: function getInitialState() {
@@ -350,7 +351,7 @@ var SchemaArray = React.createClass({
   }
 });
 
-var SchemaObject = React.createClass({
+var SchemaObject = createReactClass({
   displayName: 'SchemaObject',
   defaultDict: {
     required: { optionKey: "isRequired", disableKey: "requiredDisable" },
