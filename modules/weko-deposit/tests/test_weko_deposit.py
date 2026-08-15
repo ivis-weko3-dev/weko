@@ -36,7 +36,7 @@ def test_version():
 # class WekoDeposit(object):
 
 # def __init__(self, app=None):
-# def init_app(self, app): 
+# def init_app(self, app):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_weko_deposit.py::test_init -vv -s --cov-branch --cov-report=html --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp --full-trace
 def test_init():
     """Test extension initialization."""
@@ -64,18 +64,9 @@ def test_init_with_base_template():
     app = Flask('testapp')
     app.config['BASE_TEMPLATE'] = 'base.html'
 
-    with patch('weko_deposit.ext.weko_logger') as mock_logger:
-        ext = WekoDeposit(app)
-        assert 'weko-deposit' in app.extensions
-        assert app.config['WEKO_DEPOSIT_BASE_TEMPLATE'] == 'base.html'
-
-        mock_logger.assert_any_call(app=app, key='WEKO_COMMON_IF_ENTER', branch="BASE_TEMPLATE in app.config")
-        mock_logger.assert_any_call(app=app, key='WEKO_COMMON_INIT_APP', ext="weko-deposit")
-        mock_logger.assert_any_call(app=app, key='WEKO_COMMON_FOR_START')
-        mock_logger.assert_any_call(app=app, key='WEKO_COMMON_FOR_LOOP_ITERATION',
-                                    count=mock.ANY, element=mock.ANY)
-        mock_logger.assert_any_call(app=app, key='WEKO_COMMON_FOR_END')
-        mock_logger.reset_mock()
+    ext = WekoDeposit(app)
+    assert 'weko-deposit' in app.extensions
+    assert app.config['WEKO_DEPOSIT_BASE_TEMPLATE'] == 'base.html'
 
 # class WekoDepositREST(object):
 

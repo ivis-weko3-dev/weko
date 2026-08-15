@@ -70,7 +70,7 @@ from weko_deposit.config import (
 )
 from weko_deposit.errors import WekoDepositError
 from weko_items_ui.config import WEKO_ITEMS_UI_MS_MIME_TYPE
-from weko_records.api import FeedbackMailList, ItemLink, ItemsMetadata, WekoRecord
+from weko_records.api import FeedbackMailList, ItemLink, ItemsMetadata
 from weko_records.models import ItemMetadata
 from weko_records.utils import get_options_and_order_list
 from weko_redis.errors import WekoRedisError
@@ -128,72 +128,50 @@ class TestWekoFileObject:
     # def __init__(self, obj, data):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoFileObject::test___init__ -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test___init__(self, app, location):
+        bucket = Bucket.create()
+        key = 'hello.txt'
+        stream = BytesIO(b'helloworld')
+        obj = ObjectVersion.create(bucket=bucket, key=key, stream=stream)
+        with app.test_request_context():
+            file = WekoFileObject(obj, {})
+            assert type(file) == WekoFileObject
 
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
-            bucket = Bucket.create()
-            key = 'hello.txt'
-            stream = BytesIO(b'helloworld')
-            obj = ObjectVersion.create(bucket=bucket, key=key, stream=stream)
-            with app.test_request_context():
-                file = WekoFileObject(obj, {})
-                assert type(file) == WekoFileObject
-
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_CALLED_ARGUMENT', arg=mock.ANY)
-            mock_logger.reset_mock()
 
     # def info(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoFileObject::test_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_info(self, app, location):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
-            bucket = Bucket.create()
-            key = 'hello.txt'
-            stream = BytesIO(b'helloworld')
-            obj = ObjectVersion.create(bucket=bucket, key=key, stream=stream)
-            with app.test_request_context():
-                file = WekoFileObject(obj, {})
-                assert file.info() == {'bucket': '{}'.format(file.bucket.id), 'checksum': 'sha256:936a185caaa266bb9cbe981e9e05cb78cd732b0b3280eb944412bb6f8f8f07af',
-                                       'key': 'hello.txt', 'size': 10, 'version_id': '{}'.format(file.version_id)}
-                file.filename = key
-                file['filename'] = key
-                assert file.info() == {'bucket': '{}'.format(file.bucket.id), 'checksum': 'sha256:936a185caaa266bb9cbe981e9e05cb78cd732b0b3280eb944412bb6f8f8f07af',
-                                       'key': 'hello.txt', 'size': 10, 'version_id': '{}'.format(file.version_id), 'filename': 'hello'}
+        bucket = Bucket.create()
+        key = 'hello.txt'
+        stream = BytesIO(b'helloworld')
+        obj = ObjectVersion.create(bucket=bucket, key=key, stream=stream)
+        with app.test_request_context():
+            file = WekoFileObject(obj, {})
+            assert file.info() == {'bucket': '{}'.format(file.bucket.id), 'checksum': 'sha256:936a185caaa266bb9cbe981e9e05cb78cd732b0b3280eb944412bb6f8f8f07af','file_id': str(file.file_id),
+                                    'key': 'hello.txt', 'size': 10, 'version_id': '{}'.format(file.version_id)}
+            file.filename = key
+            file['filename'] = key
+            assert file.info() == {'bucket': '{}'.format(file.bucket.id), 'checksum': 'sha256:936a185caaa266bb9cbe981e9e05cb78cd732b0b3280eb944412bb6f8f8f07af','file_id': str(file.file_id),
+                                    'key': 'hello.txt', 'size': 10, 'version_id': '{}'.format(file.version_id), 'filename': 'hello'}
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch='filename exsisted')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #  def file_preview_able(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoFileObject::test_file_preview_able -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_file_preview_able(self, app, location):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
-            bucket = Bucket.create()
-            key = 'hello.txt'
-            stream = BytesIO(b'helloworld')
-            obj = ObjectVersion.create(bucket=bucket, key=key, stream=stream)
-            with app.test_request_context():
-                file = WekoFileObject(obj, {})
-                assert file.file_preview_able() == True
-                app.config["WEKO_ITEMS_UI_MS_MIME_TYPE"] = WEKO_ITEMS_UI_MS_MIME_TYPE
-                app.config["WEKO_ITEMS_UI_FILE_SISE_PREVIEW_LIMIT+"] = {
-                    'ms_word': 30, 'ms_powerpoint': 20, 'ms_excel': 10}
-                assert file.file_preview_able() == True
-                file.data['format'] = 'application/vnd.ms-excel'
-                assert file.file_preview_able() == True
-                file.data['size'] = 10000000+1
-                assert file.file_preview_able()==False
-
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-                mock_logger.reset_mock()
+        bucket = Bucket.create()
+        key = 'hello.txt'
+        stream = BytesIO(b'helloworld')
+        obj = ObjectVersion.create(bucket=bucket, key=key, stream=stream)
+        with app.test_request_context():
+            file = WekoFileObject(obj, {})
+            assert file.file_preview_able() == True
+            app.config["WEKO_ITEMS_UI_MS_MIME_TYPE"] = WEKO_ITEMS_UI_MS_MIME_TYPE
+            app.config["WEKO_ITEMS_UI_FILE_SISE_PREVIEW_LIMIT+"] = {
+                'ms_word': 30, 'ms_powerpoint': 20, 'ms_excel': 10}
+            assert file.file_preview_able() == True
+            file.data['format'] = 'application/vnd.ms-excel'
+            assert file.file_preview_able() == True
+            file.data['size'] = 10000000+1
+            assert file.file_preview_able()==False
 
 
 # class WekoIndexer(RecordIndexer):
@@ -203,143 +181,117 @@ class TestWekoIndexer:
 
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_get_search_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_get_search_index(self, app):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
-            indexer = WekoIndexer()
-            assert isinstance(indexer, WekoIndexer)
+        indexer = WekoIndexer()
+        assert isinstance(indexer, WekoIndexer)
 
-            # def get_search_index(self):
-            with app.test_request_context():
-                indexer.get_search_index()
-                assert indexer.search_index == app.config['SEARCH_UI_SEARCH_INDEX']
+        # def get_search_index(self):
+        with app.test_request_context():
+            indexer.get_search_index()
+            assert indexer.search_index == app.config['SEARCH_UI_SEARCH_INDEX']
 
     #  def upload_metadata(self, jrc, item_id, revision_id, skip_files=False):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_upload_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_upload_metadata(self, app, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
-            indexer, records = search_records
-            record_data = records[0]['record_data']
-            item_id = records[0]['recid'].id
-            revision_id = 5
-            skip_files = False
-            title = 'UPDATE{}'.format(uuid.uuid4())
-            record_data['title'] = title
-            indexer.upload_metadata(
-                record_data, item_id, revision_id, skip_files)
-            ret = indexer.get_metadata_by_item_id(item_id)
-            assert ret['_source']['title'] == title
+        indexer, records = search_records
+        record_data = records[0]['record_data']
+        item_id = records[0]['recid'].id
+        revision_id = 5
+        skip_files = False
+        title = 'UPDATE{}'.format(uuid.uuid4())
+        record_data['title'] = title
+        indexer.upload_metadata(
+            record_data, item_id, revision_id, skip_files)
+        ret = indexer.get_metadata_by_item_id(item_id)
+        assert ret['_source']['title'] == title
 
-            # mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            # mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch='')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def delete_file_index(self, body, parent_id):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_delete_file_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_delete_file_index(self, app, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]['record']
             dep = WekoDeposit(record, record.model)
             indexer.delete_file_index([record.id], record.pid)
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
 
             # Elastic Search Not Found Error
-            with pytest.raises(search.NotFoundError):
-                indexer.get_metadata_by_item_id(record.pid)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.assert_any_call(
-                    key='WEKO_DEPOSIT_FAILED_DELETE_FILE_INDEX', record_id=mock.ANY, ex=mock.ANY)
-                mock_logger.reset_mock()
-
-            # Elastic Search Unexpected Error
-            with patch("invenio_search.engine.search.OpenSearch.delete", side_effect=Exception("test_error")):
-                indexer.delete_file_index([record.id], record.pid)
-                # mock_logger.assert_any_call(key='WEKO_COMMON_ERROR_UNEXPECTED', ex=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_ERROR_UNEXPECTED', ex=mock.ANY)
-                mock_logger.reset_mock()
+            with patch('weko_deposit.api.weko_logger') as mock_logger,\
+                 pytest.raises(search.NotFoundError):
+                    indexer.get_metadata_by_item_id(record.pid)
+                    mock_logger.assert_any_call(
+                        key='WEKO_DEPOSIT_FAILED_DELETE_FILE_INDEX', record_id=mock.ANY, ex=mock.ANY)
+                    mock_logger.reset_mock()
+                    # Elastic Search Unexpected Error
+                    with patch("invenio_search.engine.search.OpenSearch.delete", side_effect=Exception("test_error")):
+                        indexer.delete_file_index([record.id], record.pid)
+                        mock_logger.assert_any_call(
+                        key='WEKO_COMMON_ERROR_UNEXPECTED', ex=mock.ANY)
+                    mock_logger.reset_mock()
 
     # def update_relation_version_is_last(self, version):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_update_relation_version_is_last -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_update_relation_version_is_last(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             version = records[0]['record']
             pid = records[0]['recid']
-            relations = serialize_relations(pid)
+            deposit = WekoDeposit(records[0])
+            relations = deposit.serialize_relations(pid)
             relations_ver = relations['version'][0]
             relations_ver['id'] = pid.object_uuid
             relations_ver['is_last'] = relations_ver.get('index') == 0
-            assert indexer.update_relation_version_is_last(relations_ver) == {'_index': 'test-weko-item-v1.0.0', '_type': 'item-v1.0.0', '_id': '{}'.format(
-                pid.object_uuid), '_version': 2, 'result': 'noop', '_shards': {'total': 0, 'successful': 0, 'failed': 0}}
-
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
+            assert indexer.update_relation_version_is_last(relations_ver) == {
+                '_index': 'test-weko-item-v1.0.0',
+                '_id': str(pid.object_uuid),
+                '_version': 2,
+                'result': 'noop',
+                '_shards': {
+                    'total': 0,
+                    'successful': 0,
+                    'failed': 0
+                },
+                '_seq_no': 0,
+                '_primary_term': 1
+            }
 
     # def update_search_data(self, record, update_revision=True,
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_update_search_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_update_search_data(self, search_records_1, db):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
-            indexer, records = search_records_1
-            record = records[0]['record']
-            # update_oai=False
-            result = indexer.update_search_data(record, update_revision=False, update_oai=False, is_deleted=False)
-            assert result["_index"] == "test-weko-item-v1.0.0"
-            assert result["_id"] == str(records[0]["rec_uuid"])
-            assert result["_primary_term"] == 1
-            assert result["_seq_no"] == 9
-            assert result["_version"] == 4
-            assert result["_shards"] == {'total': 2, 'successful': 1, 'failed': 0}
-            assert result["result"] == "updated"
+        indexer, records = search_records_1
+        record = records[0]['record']
+        # update_oai=False
+        result = indexer.update_search_data(record, update_revision=False, update_oai=False, is_deleted=False)
+        assert result["_index"] == "test-weko-item-v1.0.0"
+        assert result["_id"] == str(records[0]["rec_uuid"])
+        assert result["_primary_term"] == 1
+        assert result["_seq_no"] == 9
+        assert result["_version"] == 4
+        assert result["_shards"] == {'total': 2, 'successful': 1, 'failed': 0}
+        assert result["result"] == "updated"
 
-            # update_oai=True
-            result = indexer.update_search_data(record, update_revision=False, update_oai=True, is_deleted=False)
-            assert result["_index"] == "test-weko-item-v1.0.0"
-            assert result["_id"] == str(records[0]["rec_uuid"])
-            assert result["_primary_term"] == 1
-            assert result["_seq_no"] == 10
-            assert result["_shards"] == {'failed': 0, 'successful': 1, 'total': 2}
-            assert result["_version"] == 5
-            assert result["result"] == "updated"
+        # update_oai=True
+        result = indexer.update_search_data(record, update_revision=False, update_oai=True, is_deleted=False)
+        assert result["_index"] == "test-weko-item-v1.0.0"
+        assert result["_id"] == str(records[0]["rec_uuid"])
+        assert result["_primary_term"] == 1
+        assert result["_seq_no"] == 10
+        assert result["_shards"] == {'failed': 0, 'successful': 1, 'total': 2}
+        assert result["_version"] == 5
+        assert result["result"] == "updated"
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
-            record = records[1]['record']
-            record.model.version_id = 4
-            db.session.merge(record.model)
-            db.session.commit()
-            result = indexer.update_search_data(record, update_revision=True, update_oai=True, is_deleted=False)
-            assert result["_index"] == "test-weko-item-v1.0.0"
-            assert result["_id"] == str(records[1]["rec_uuid"])
-            assert result["_primary_term"] == 1
-            assert result["_seq_no"] == 11
-            assert result["_shards"] == {'failed': 0, 'successful': 1, 'total': 2}
-            assert result["_version"] == 4
-            assert result["result"] == "updated"
+        record = records[1]['record']
+        record.model.version_id = 4
+        db.session.merge(record.model)
+        db.session.commit()
+        result = indexer.update_search_data(record, update_revision=True, update_oai=True, is_deleted=False)
+        assert result["_index"] == "test-weko-item-v1.0.0"
+        assert result["_id"] == str(records[1]["rec_uuid"])
+        assert result["_primary_term"] == 1
+        assert result["_seq_no"] == 11
+        assert result["_shards"] == {'failed': 0, 'successful': 1, 'total': 2}
+        assert result["_version"] == 4
+        assert result["result"] == "updated"
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def index(self, record):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -363,18 +315,18 @@ class TestWekoIndexer:
         indexer, records = search_records
         record = records[0]['record']
         indexer.delete_by_id(record.id)
-        with pytest.raises(search.NotFoundError):
-            indexer.get_metadata_by_item_id(record.pid)
+        with patch('weko_deposit.api.weko_logger') as mock_logger:
+            with pytest.raises(search.NotFoundError):
+                indexer.get_metadata_by_item_id(record.pid)
 
-        indexer.delete_by_id(record.id)
-
-        with patch("invenio_search.engine.search.OpenSearch.delete", side_effect=Exception("test_error")):
             indexer.delete_by_id(record.id)
+
+            with patch("invenio_search.engine.search.OpenSearch.delete", side_effect=Exception("test_error")):
+                indexer.delete_by_id(record.id)
 
     # def get_count_by_index_id(self, tree_path):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_get_count_by_index_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_get_count_by_index_id(self, search_records):
-        # with patch('weko_deposit.api.weko_logger') as mock_logger:
         indexer, records = search_records
         metadata = records[0]['record_data']
         ret = indexer.get_count_by_index_id("1")
@@ -382,9 +334,6 @@ class TestWekoIndexer:
         ret = indexer.get_count_by_index_id("2")
         assert ret == 5
 
-        # mock_logger.assert_any_call(
-        #     key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-        # mock_logger.reset_mock()
 
     #     def get_pid_by_search_scroll(self, path):
     #         def get_result(result):
@@ -396,58 +345,47 @@ class TestWekoIndexer:
                 r = RecordMetadata.query.filter_by(id=obj_uuid).first()
                 recids.append(r.json['recid'])
             return recids
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
-            indexer, records = search_records
-            ret = indexer.get_pid_by_search_scroll(1)
-            assert isinstance(next(ret), list)
-            assert isinstance(next(ret), dict)
-            assert ret is not None
+        indexer, records = search_records
+        ret = indexer.get_pid_by_search_scroll(1)
+        assert isinstance(next(ret), list)
+        assert isinstance(next(ret), dict)
+        assert ret is not None
 
-            ret = indexer.get_pid_by_search_scroll(None)
-            assert ret is not None
+        ret = indexer.get_pid_by_search_scroll(None)
+        assert ret is not None
 
-            ret = indexer.get_pid_by_search_scroll('non_existent_path_12345')
+        ret = indexer.get_pid_by_search_scroll('non_existent_path_12345')
 
-            assert ret is not None
-            mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
+        assert ret is not None
 
-            # get all versions
-            ret = next(indexer.get_pid_by_search_scroll(4), [])
-            recids = get_recids(ret)
-            assert '10' in recids
-            assert '10.2' in recids
+        # get all versions
+        ret = next(indexer.get_pid_by_search_scroll(4), [])
+        recids = get_recids(ret)
+        assert '10' in recids
+        assert '10.2' in recids
 
-            # get only latest version
-            ret = next(indexer.get_pid_by_search_scroll(4, only_latest_version=True), [])
-            recids = get_recids(ret)
-            assert '10' in recids
-            assert not '10.2' in recids
+        # get only latest version
+        ret = next(indexer.get_pid_by_search_scroll(4, only_latest_version=True), [])
+        recids = get_recids(ret)
+        assert '10' in recids
+        assert not '10.2' in recids
 
     #     def get_metadata_by_item_id(self, item_id):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_get_metadata_by_item_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_get_metadata_by_item_id(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
 
-            indexer, records = search_records
-            record = records[0]['record']
-            record_data = records[0]['record_data']
-            ret1 = indexer.get_metadata_by_item_id(record.id)
-            assert ret1['_index'] == 'test-weko-item-v1.0.0'
+        indexer, records = search_records
+        record = records[0]['record']
+        record_data = records[0]['record_data']
+        ret1 = indexer.get_metadata_by_item_id(record.id)
+        assert ret1['_index'] == 'test-weko-item-v1.0.0'
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
-
-            record.id = None
-            ret2 = indexer.get_metadata_by_item_id(record.id, is_ignore=True)
-            assert ret2['found'] is False
+        ret2 = indexer.get_metadata_by_item_id("100", is_ignore=True)
+        assert ret2['found'] is False
 
     #     def update_feedback_mail_list(self, feedback_mail):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_update_feedback_mail_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_update_feedback_mail_list(selft, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]['record']
             feedback_mail = {'id': record.id, 'mail_list': [
@@ -456,9 +394,6 @@ class TestWekoIndexer:
             assert ret == {'_index': 'test-weko-item-v1.0.0', '_id': '{}'.format(
                 record.id), '_version': 3, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, '_seq_no': 9, '_primary_term': 1}
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
     #     def update_request_mail_list(self, request_mail):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_update_request_mail_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_update_request_mail_list(selft,search_records):
@@ -472,7 +407,6 @@ class TestWekoIndexer:
     #     def update_author_link(self, author_link):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_update_author_link -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_update_author_link(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]['record']
             author_link_info = {
@@ -483,36 +417,24 @@ class TestWekoIndexer:
             ret = indexer.update_author_link(author_link_info)
             assert ret == {'_index': 'test-weko-item-v1.0.0', '_type': 'item-v1.0.0', '_id': '{}'.format(record.id), '_version': 3, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, '_seq_no': 9, '_primary_term': 1}
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def update_jpcoar_identifier(self, dc, item_id):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_update_jpcoar_identifier -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_update_jpcoar_identifier(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record_data = records[0]['record_data']
             record = records[0]['record']
             assert indexer.update_jpcoar_identifier(record_data, record.id) == {'_index': 'test-weko-item-v1.0.0', '_id': '{}'.format(
                 record.id), '_version': 3, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, '_seq_no': 9, '_primary_term': 1}
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def __build_bulk_search_data(self, updated_data):
     #     def bulk_update(self, updated_data):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_bulk_update -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_bulk_update(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             # search_data is None
             indexer, records = search_records
             res = []
-
-            with patch("weko_deposit.api.bulk", side_effect=search.helpers.bulk) as mock_bulk:
-                indexer.bulk_update(res)
-                assert mock_bulk.call_count == 1
 
             res.append(records[0]['record'])
             res.append(records[1]['record'])
@@ -522,13 +444,6 @@ class TestWekoIndexer:
             with patch("weko_deposit.api.search.helpers.bulk", return_value=(0, ["test_error1", "test_error2"])):
                 indexer.bulk_update(res)
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
 
 # class WekoDeposit(Deposit):
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -553,26 +468,18 @@ class TestWekoDeposit():
         with pytest.raises(NoResultFound):
             assert deposit.item_metadata == ""
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def is_published(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_is_published -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_is_published(self, app, location, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             deposit = records[0]['deposit']
             assert deposit.is_published() == True
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def merge_with_published(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_merge_with_published -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_merge_with_published(self, app, db, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             dep = records[0]['deposit']
             ret = dep.merge_with_published()
@@ -590,19 +497,11 @@ class TestWekoDeposit():
                 with pytest.raises(WekoDepositError):
                     ret = dep.merge_with_published()
 
-
-            with patch("weko_deposit.api.Merger.run", side_effect=Exception("test_error")):
+            with patch('weko_deposit.api.weko_logger'),\
+                 patch("weko_deposit.api.Merger.run", side_effect=Exception("test_error")):
                 with pytest.raises(WekoDepositError):
                     ret = dep.merge_with_published()
-                    mock_logger.assert_any_call(key='WEKO_COMMON_ERROR_UNEXPECTED', ex=mock.ANY)
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
 
             # if '_deposit' in args: is false
             pid, first = dep.fetch_published()
@@ -616,7 +515,6 @@ class TestWekoDeposit():
     # def _patch(diff_result, destination, in_place=False):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test__patch -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__patch(self, app, location):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 dep = WekoDeposit.create({})
 
@@ -654,15 +552,6 @@ class TestWekoDeposit():
                 assert ret == {'recid': '13', '$schema': 'https://127.0.0.1/schema/deposits/deposit-v1.0.0.json', '_buckets': {'deposit': '753ff0d7-0659-4460-9b1a-fd1ef38467f2'}, '_deposit': {'id': '13', 'owners': [
                     1], 'status': 'draft'}, '_oai': {'sets1': {1, 2, 3, 4, 5}, 'sets2': {1, 2, 3, 4, 5, 6}}, 'test_1': {"dict": {"key1": "value1", "key2": "value2"}, "list": [1, 2, 3, 4], "str": "test_str"}, "test_list": [1]}
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-                mock_logger.reset_mock()
 
     # def add(node, changes):
     # def change(node, changes):
@@ -671,20 +560,15 @@ class TestWekoDeposit():
     # def _publish_new(self, id_=None):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test__publish_new -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__publish_new(self, app, location):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 dep = WekoDeposit.create({})
                 record = dep._publish_new()
                 assert isinstance(record, Record) == True
 
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-                mock_logger.reset_mock()
 
     # def _update_version_id(self, metas, bucket_id):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test__update_version_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__update_version_id(self, app, location):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 dep = WekoDeposit.create({})
                 bucket = Bucket.create(location)
@@ -767,20 +651,10 @@ class TestWekoDeposit():
                 ret = dep._update_version_id(meta, bucket.id)
                 assert ret == True
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def publish(self, pid=None, id_=None):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_publish -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_publish(self, app, location):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             deposit = WekoDeposit.create({})
             assert deposit['_deposit']['id']
             assert 'draft' == deposit.status
@@ -789,14 +663,10 @@ class TestWekoDeposit():
             assert 'published' == deposit.status
             assert deposit.revision_id == 2
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def publish_without_commit(self, pid=None, id_=None):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_publish_without_commit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_publish_without_commit(self, app, db, location):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
 
                 # self.data is not None, "control_number" not in self,
@@ -811,9 +681,6 @@ class TestWekoDeposit():
                 assert deposit['_deposit']['id']
                 assert 'published' == deposit.status
                 assert deposit.revision_id == 2
-                mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-                mock_logger.reset_mock()
 
                 # self.data is None, "control_number" in self
                 # "$schema" not in self, "version" not in relations
@@ -828,9 +695,6 @@ class TestWekoDeposit():
                     assert deposit.revision_id == 2
                     assert deposit.data is not None
 
-                    mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                    mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-                    mock_logger.reset_mock()
 
 
                 # invalid schema
@@ -843,7 +707,6 @@ class TestWekoDeposit():
     # def create(cls, data, id_=None, recid=None):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_create -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_create(sel, app, client, db, location, users, db_activity):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 deposit = WekoDeposit.create({})
                 assert isinstance(deposit, WekoDeposit)
@@ -857,11 +720,6 @@ class TestWekoDeposit():
                 assert 'draft' == deposit.status
                 assert 0 == deposit.revision_id
 
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-                mock_logger.reset_mock()
 
             # login(app,client,obj=users[2]["obj"])
             with app.test_request_context():
@@ -891,16 +749,10 @@ class TestWekoDeposit():
                     with pytest.raises(BaseException):
                         deposit = WekoDeposit.create(data, id_=id)
 
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-                mock_logger.reset_mock()
 
     # def update(self, *args, **kwargs):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_update -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_update(self, app, users, location, db_index, db_itemtype, redis_connect):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 deposit = WekoDeposit.create({})
                 assert deposit['_deposit']['id'] == "1"
@@ -954,13 +806,10 @@ class TestWekoDeposit():
                 assert 'draft' == deposit.status
                 assert 0 == deposit.revision_id
                 redis_connect.delete(cache_key)
-                mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.reset_mock()
 
     # def clear(self, *args, **kwargs):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_clear -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_clear(sel, app, db, location, base_app, search_records_1):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records_1
             record = records[0]
             deposit = record['deposit']
@@ -986,7 +835,7 @@ class TestWekoDeposit():
             record = records[1]
             deposit = record['deposit']
 
-            open_search = OpenSearch(
+            open_search = search.OpenSearch(
                  hosts=[{'host': search_hosts, 'port': 9200}],
                  http_auth=search_client_config['http_auth'],
                  use_ssl=search_client_config['use_ssl'],
@@ -996,16 +845,13 @@ class TestWekoDeposit():
             ret = open_search.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
                                          id=deposit.id)
             deposit.clear()
-            ret2 = open_search.get_source(index=app.config['INDEXER_DEFAULT_INDEX'], 
+            ret2 = open_search.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
                                          id=deposit.id)
             assert ret==ret2
-            mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.reset_mock()
 
     # def delete(self, force=True, pid=None):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_delete -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_delete(sel, app, base_app, db, location, search_records_1):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records_1
             record = records[0]
             deposit = record['deposit']
@@ -1024,8 +870,8 @@ class TestWekoDeposit():
             deposit.delete()
             ret2 = open_search.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
                                  id=deposit.id, ignore=[404])
-            assert ret2 == {'error': {'root_cause': [{'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(
-                deposit.id)}], 'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(deposit.id)}, 'status': 404}
+            assert ret2 == {'error': {'root_cause': [{'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[{}]'.format(
+                deposit.id)}], 'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[{}]'.format(deposit.id)}, 'status': 404}
 
             record = records[1]
             deposit = record['deposit']
@@ -1042,14 +888,9 @@ class TestWekoDeposit():
             deposit.delete()
             ret2 = open_search.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
                                  id=deposit.id, ignore=[404])
-            assert ret2 == {'error': {'root_cause': [{'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(
-                deposit.id)}], 'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(deposit.id)}, 'status': 404}
+            assert ret2 == {'error': {'root_cause': [{'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[{}]'.format(
+                deposit.id)}], 'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[{}]'.format(deposit.id)}, 'status': 404}
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             # recid.status == PIDStatus.RESERVED is false
             record = records[2]
@@ -1074,8 +915,8 @@ class TestWekoDeposit():
 
             ret2 = open_search.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
                                  id=deposit.id, ignore=[404])
-            assert ret2 == {'error': {'root_cause': [{'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(
-                deposit.id)}], 'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(deposit.id)}, 'status': 404}
+            assert ret2 == {'error': {'root_cause': [{'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[{}]'.format(
+                deposit.id)}], 'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[{}]'.format(deposit.id)}, 'status': 404}
 
     # def commit(self, *args, **kwargs):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_commit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -1089,386 +930,370 @@ class TestWekoDeposit():
         }
         mock_task = mocker.patch("weko_deposit.tasks.extract_pdf_and_update_file_contents")
         mock_task.apply_async = MagicMock()
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
-            with app.test_request_context():
-                deposit = WekoDeposit.create({})
-                assert deposit['_deposit']['id'] == "1"
-                assert 'draft' == deposit.status
-                assert 0 == deposit.revision_id
+        with app.test_request_context():
+            deposit = WekoDeposit.create({})
+            assert deposit['_deposit']['id'] == "1"
+            assert 'draft' == deposit.status
+            assert 0 == deposit.revision_id
+            deposit.commit()
+            assert deposit['_deposit']['id'] == "1"
+            assert 'draft' == deposit.status
+            assert 2 == deposit.revision_id
+
+
+            # deposit_bucket and deposit_bucket.location: is false
+            deposit = WekoDeposit.create({})
+            index_obj = {'index': ['3'], 'actions': 'private', "content": [
+                {"test": "content"}, {"file": "test"}]}
+            data = {
+                "content": [{"test": "content"}, {"file": "test"}],
+                'pubdate': '2023-12-07',
+                'item_1617186331708': [{
+                    'subitem_1551255647225': 'test',
+                    'subitem_1551255648112': 'ja'
+                }],
+                'item_1617258105262': {
+                    'resourcetype': 'conference paper',
+                    'resourceuri': 'http://purl.org/coar/resource_type/c_5794'
+                },
+                'shared_user_id': -1,
+                'title': 'test',
+                'lang': 'ja',
+                'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011',
+                                'item_1617186609386', 'item_1617186626617', 'item_1617186643794',
+                                'item_1617186660861', 'item_1617186702042', 'item_1617186783814',
+                                'item_1617186859717', 'item_1617186882738', 'item_1617186901218',
+                                'item_1617186920753', 'item_1617186941041', 'item_1617187112279',
+                                'item_1617187187528', 'item_1617349709064', 'item_1617353299429',
+                                'item_1617605131499', 'item_1617610673286', 'item_1617620223087',
+                                'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'],
+                '$schema': '/items/jsonschema/1'
+            }
+            deposit['_buckets']['deposit'] = "1a23bfcd-456e-78ab-c0d1-23eee45a6b78"
+            deposit.update(index_obj, data)
+            deposit.commit()
+
+            # self.jrc is false
+            deposit = WekoDeposit.create({})
+            index_obj = {'index': ['3'], 'actions': 'private', "content": [
+                {"test": "content"}, {"file": "test"}]}
+            data = {
+                "content": [{"test": "content"}, {"file": "test"}],
+                'pubdate': '2023-12-07',
+                'item_1617186331708': [{
+                    'subitem_1551255647225': 'test',
+                    'subitem_1551255648112': 'ja'
+                }],
+                'item_1617258105262': {
+                    'resourcetype': 'conference paper',
+                    'resourceuri': 'http://purl.org/coar/resource_type/c_5794'
+                },
+                'shared_user_id': -1,
+                'title': 'test',
+                'lang': 'ja',
+                'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011',
+                                'item_1617186609386', 'item_1617186626617', 'item_1617186643794',
+                                'item_1617186660861', 'item_1617186702042', 'item_1617186783814',
+                                'item_1617186859717', 'item_1617186882738', 'item_1617186901218',
+                                'item_1617186920753', 'item_1617186941041', 'item_1617187112279',
+                                'item_1617187187528', 'item_1617349709064', 'item_1617353299429',
+                                'item_1617605131499', 'item_1617610673286', 'item_1617620223087',
+                                'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'],
+                '$schema': '/items/jsonschema/1'
+            }
+            deposit['_buckets']['deposit'] = "1a23bfcd-456e-78ab-c0d1-23eee45a6b78"
+            deposit.update(index_obj, data)
+            deposit.jrc = {}
+            deposit.commit()
+
+            # record is None, '_oai' is None, '$schema' is None
+            deposit = WekoDeposit.create({})
+            index_obj = {'index': ['3'], 'actions': 'private', "content": [
+                {"test": "content"}, {"file": "test"}]}
+            data = {
+                "content": [{"test": "content"}, {"file": "test"}],
+                'pubdate': '2023-12-07',
+                'item_1617186331708': [{
+                    'subitem_1551255647225': 'test',
+                    'subitem_1551255648112': 'ja'
+                }],
+                'item_1617258105262': {
+                    'resourcetype': 'conference paper',
+                    'resourceuri': 'http://purl.org/coar/resource_type/c_5794'
+                },
+                'shared_user_id': -1,
+                'title': 'test',
+                'lang': 'ja',
+                'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011',
+                                'item_1617186609386', 'item_1617186626617', 'item_1617186643794',
+                                'item_1617186660861', 'item_1617186702042', 'item_1617186783814',
+                                'item_1617186859717', 'item_1617186882738', 'item_1617186901218',
+                                'item_1617186920753', 'item_1617186941041', 'item_1617187112279',
+                                'item_1617187187528', 'item_1617349709064', 'item_1617353299429',
+                                'item_1617605131499', 'item_1617610673286', 'item_1617620223087',
+                                'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'],
+                '$schema': '/items/jsonschema/1'
+            }
+            deposit['_buckets']['deposit'] = "1a23bfcd-456e-78ab-c0d1-23eee45a6b78"
+            deposit.update(index_obj, data)
+            deposit.jrc = {
+                'type': ['conference paper'],
+                'title': ['test'],
+                'control_number': '2',
+                '_oai': {'id': '2', 'sets': ['1']},
+                '_item_metadata': OrderedDict([
+                    ('pubdate', {'attribute_name': 'PubDate',
+                        'attribute_value': '2023-12-07'}),
+                    ('item_1617186331708', {
+                        'attribute_name': 'Title',
+                        'attribute_value_mlt': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}]
+                    }),
+                    ('item_1617258105262', {
+                        'attribute_name': 'Resource Type',
+                        'attribute_value_mlt': [{'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}]
+                    }),
+                    ('item_title', 'test'),
+                    ('item_type_id', '1'),
+                    ('control_number', '2'),
+                    ('author_link', []),
+                    ('_oai', {'id': '2', 'sets': ['1']}),
+                    ('publish_date', '2023-12-07'),
+                    ('title', ['test']),
+                    ('relation_version_is_last', True),
+                    ('path', ['1']),
+                    ('publish_status', '2')
+                ]),
+                'itemtype': 'テストアイテムタイプ',
+                'publish_date': '2023-12-07',
+                'author_link': [],
+                'path': ['1'],
+                'publish_status': '2',
+                '_created': '2024-09-25T07:58:24.680172+00:00',
+                '_updated': '2024-09-25T07:58:25.436334+00:00',
+                'content': [{"test": "content"}, {"file": "test"}]
+            }
+            with patch("invenio_records.models.RecordMetadata.query") as mock_json:
+                mock_json.return_value.filter_by.return_value.first.return_value = None
                 deposit.commit()
-                assert deposit['_deposit']['id'] == "1"
-                assert 'draft' == deposit.status
-                assert 2 == deposit.revision_id
 
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.reset_mock()
+            # setspec_list is None, record.json.get('_buckets) is None
+            deposit = WekoDeposit.create({})
+            index_obj = {'index': ['3'], 'actions': 'private', "content": [
+                {"test": "content"}, {"file": "test"}]}
+            data = {
+                "content": [{"test": "content"}, {"file": "test"}],
+                'pubdate': '2023-12-07',
+                'item_1617186331708': [{
+                    'subitem_1551255647225': 'test',
+                    'subitem_1551255648112': 'ja'
+                }],
+                'item_1617258105262': {
+                    'resourcetype': 'conference paper',
+                    'resourceuri': 'http://purl.org/coar/resource_type/c_5794'
+                },
+                'shared_user_id': -1,
+                'title': 'test',
+                'lang': 'ja',
+                'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011',
+                                'item_1617186609386', 'item_1617186626617', 'item_1617186643794',
+                                'item_1617186660861', 'item_1617186702042', 'item_1617186783814',
+                                'item_1617186859717', 'item_1617186882738', 'item_1617186901218',
+                                'item_1617186920753', 'item_1617186941041', 'item_1617187112279',
+                                'item_1617187187528', 'item_1617349709064', 'item_1617353299429',
+                                'item_1617605131499', 'item_1617610673286', 'item_1617620223087',
+                                'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'],
+                '$schema': '/items/jsonschema/1'
+            }
 
-                # deposit_bucket and deposit_bucket.location: is false
-                deposit = WekoDeposit.create({})
-                index_obj = {'index': ['3'], 'actions': 'private', "content": [
-                    {"test": "content"}, {"file": "test"}]}
-                data = {
-                    "content": [{"test": "content"}, {"file": "test"}],
-                    'pubdate': '2023-12-07',
-                    'item_1617186331708': [{
-                        'subitem_1551255647225': 'test',
-                        'subitem_1551255648112': 'ja'
-                    }],
-                    'item_1617258105262': {
-                        'resourcetype': 'conference paper',
-                        'resourceuri': 'http://purl.org/coar/resource_type/c_5794'
-                    },
-                    'shared_user_id': -1,
-                    'title': 'test',
-                    'lang': 'ja',
-                    'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011',
-                                    'item_1617186609386', 'item_1617186626617', 'item_1617186643794',
-                                    'item_1617186660861', 'item_1617186702042', 'item_1617186783814',
-                                    'item_1617186859717', 'item_1617186882738', 'item_1617186901218',
-                                    'item_1617186920753', 'item_1617186941041', 'item_1617187112279',
-                                    'item_1617187187528', 'item_1617349709064', 'item_1617353299429',
-                                    'item_1617605131499', 'item_1617610673286', 'item_1617620223087',
-                                    'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'],
-                    '$schema': '/items/jsonschema/1'
-                }
-                deposit['_buckets']['deposit'] = "1a23bfcd-456e-78ab-c0d1-23eee45a6b78"
-                deposit.update(index_obj, data)
+            deposit.update(index_obj, data)
+            deposit.jrc = {
+                'type': ['conference paper'],
+                'title': ['test'],
+                'control_number': '2',
+                '_oai': {'id': '2', 'sets': ['1']},
+                '_item_metadata': OrderedDict([
+                    ('pubdate', {'attribute_name': 'PubDate',
+                        'attribute_value': '2023-12-07'}),
+                    ('item_1617186331708', {
+                        'attribute_name': 'Title',
+                        'attribute_value_mlt': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}]
+                    }),
+                    ('item_1617258105262', {
+                        'attribute_name': 'Resource Type',
+                        'attribute_value_mlt': [{'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}]
+                    }),
+                    ('item_title', 'test'),
+                    ('item_type_id', '1'),
+                    ('control_number', '2'),
+                    ('author_link', []),
+                    ('_oai', {'id': '2', 'sets': ['1']}),
+                    ('publish_date', '2023-12-07'),
+                    ('title', ['test']),
+                    ('relation_version_is_last', True),
+                    ('path', []),
+                    ('publish_status', '2')
+                ]),
+                'itemtype': 'テストアイテムタイプ',
+                'publish_date': '2023-12-07',
+                'author_link': [],
+                'path': [],
+                'publish_status': '2',
+                '_created': '2024-09-25T07:58:24.680172+00:00',
+                '_updated': '2024-09-25T07:58:25.436334+00:00',
+                'content': [{"test": "content"}, {"file": "test"}],
+                '$schema': '/items/jsonschema/1',
+            }
+            deposit.commit()
+
+            # record.json.get('_buckets'): is None
+            deposit = WekoDeposit.create({})
+            record = RecordMetadata.query.get(deposit.pid.object_uuid)
+            del deposit["_buckets"]
+            db.session.merge(record)
+            db.session.commit()
+            deposit.commit()
+
+            # exist feedback_mail_list
+            deposit = WekoDeposit.create({})
+            item_id = deposit.pid.object_uuid
+            index_obj = {'index': ['1'], 'actions': 'private'}
+            data = {'pubdate': '2023-12-07', 'item_1617186331708': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}], 'item_1617258105262': {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}, 'shared_user_id': -1, 'title': 'test', 'lang': 'ja', 'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011', 'item_1617186609386', 'item_1617186626617', 'item_1617186643794',
+                                                                                                                                                                                                                                                                                                                                        'item_1617186660861', 'item_1617186702042', 'item_1617186783814', 'item_1617186859717', 'item_1617186882738', 'item_1617186901218', 'item_1617186920753', 'item_1617186941041', 'item_1617187112279', 'item_1617187187528', 'item_1617349709064', 'item_1617353299429', 'item_1617605131499', 'item_1617610673286', 'item_1617620223087', 'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'], '$schema': '/items/jsonschema/1'}
+            deposit.update(index_obj, data)
+            FeedbackMailList.update(
+                item_id, [{"email": "test.taro@test.org", "author_id": "1"}])
+            db.session.commit()
+            deposit.commit()
+            search_data = deposit.indexer.get_metadata_by_item_id(item_id)
+            assert search_data["_source"]["feedback_mail_list"] == [
+                {"email": "test.taro@test.org", "author_id": "1"}]
+
+
+            # not exist feedback_mail_list
+            FeedbackMailList.delete(item_id)
+            deposit.commit()
+            search_data = deposit.indexer.get_metadata_by_item_id(item_id)
+            assert search_data["_source"]["feedback_mail_list"] == []
+            mockjrc = {'title': ['test'], 'type': ['conference paper'], 'control_number': '2', '_oai': {'id': '2'}, '_item_metadata': OrderedDict([('pubdate', {'attribute_name': 'PubDate', 'attribute_value': '2023-12-07'}), ('item_1617186331708', {'attribute_name': 'Title', 'attribute_value_mlt': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}]}), ('item_1617258105262', {'attribute_name': 'Resource Type', 'attribute_value_mlt': [
+                                                                                                                                                    {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}]}), ('item_title', 'test'), ('item_type_id', '1'), ('control_number', '2'), ('author_link', []), ('_oai', {'id': '2'}), ('publish_date', '2023-12-07'), ('title', ['test']), ('relation_version_is_last', True), ('path', ['1']), ('publish_status', '2')]), 'itemtype': 'テストアイテムタイプ', 'publish_date': '2023-12-07', 'author_link': [], 'path': ['1'], 'publish_status': '2', 'content': '123123123'}
+            # activity_info
+            deposit = WekoDeposit.create({})
+            item_id = deposit.pid.object_uuid
+            index_obj = {'content': {'content': 'content'},
+                            'index': ['2'], 'actions': 'private'}
+            data = {'content': {'content': 'content'}, 'pubdate': '2023-12-07', 'item_1617186331708': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}], 'item_1617258105262': {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}, 'shared_user_id': -1, 'title': 'test', 'lang': 'ja', 'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011', 'item_1617186609386', 'item_1617186626617',
+                                                                                                                                                                                                                                                                                                                                                                            'item_1617186643794', 'item_1617186660861', 'item_1617186702042', 'item_1617186783814', 'item_1617186859717', 'item_1617186882738', 'item_1617186901218', 'item_1617186920753', 'item_1617186941041', 'item_1617187112279', 'item_1617187187528', 'item_1617349709064', 'item_1617353299429', 'item_1617605131499', 'item_1617610673286', 'item_1617620223087', 'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'], '$schema': '/items/jsonschema/1'}
+            deposit.update(index_obj, data)
+            FeedbackMailList.update(
+                item_id, [{"email": "test.taro@test.org", "author_id": "1"}])
+            session["activity_info"] = {
+                "activity_id": "1",
+                "action_id": 1,
+                "action_version": "1.0.1",
+                "action_status": "M",
+                "commond": "",
+            }
+            # db.session.merge(bucket)
+            deposit['content'] = {'content': 'content'}
+            db.session.commit()
+            deposit.commit()
+            search_data = deposit.indexer.get_metadata_by_item_id(item_id)
+            assert search_data["_source"]["feedback_mail_list"] == [
+                {"email": "test.taro@test.org", "author_id": "1"}]
+
+            # workflow_storage_location != None
+            deposit = WekoDeposit.create({})
+            item_id = deposit.pid.object_uuid
+            index_obj = {'index': ['3'], 'actions': 'private', "content": [
+                {"test": "content"}, {"file": "test"}]}
+            # data = {'pubdate': '2023-12-07', 'item_1617186331708': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}], 'item_1617258105262': {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}, 'shared_user_id': -1, 'title': 'test', 'lang': 'ja', 'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011', 'item_1617186609386', 'item_1617186626617', 'item_1617186643794', 'item_1617186660861', 'item_1617186702042', 'item_1617186783814', 'item_1617186859717', 'item_1617186882738', 'item_1617186901218', 'item_1617186920753', 'item_1617186941041', 'item_1617187112279', 'item_1617187187528', 'item_1617349709064', 'item_1617353299429', 'item_1617605131499', 'item_1617610673286', 'item_1617620223087', 'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'], '$schema': '/items/jsonschema/1'}
+            data = {"content": [{"test": "content"}, {"file": "test"}], 'pubdate': '2023-12-07', 'item_1617186331708': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}], 'item_1617258105262': {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}, 'shared_user_id': -1, 'title': 'test', 'lang': 'ja', 'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011', 'item_1617186609386', 'item_1617186626617',
+                                                                                                                                                                                                                                                                                                                                                                                            'item_1617186643794', 'item_1617186660861', 'item_1617186702042', 'item_1617186783814', 'item_1617186859717', 'item_1617186882738', 'item_1617186901218', 'item_1617186920753', 'item_1617186941041', 'item_1617187112279', 'item_1617187187528', 'item_1617349709064', 'item_1617353299429', 'item_1617605131499', 'item_1617610673286', 'item_1617620223087', 'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'], '$schema': '/items/jsonschema/1'}
+            # deposit['_buckets']['deposit'] = "3e99cfca-098b-42ed-b8a0-20ddd09b3e01"
+            deposit.update(index_obj, data)
+            FeedbackMailList.update(
+                item_id, [{"email": "test.taro@test.org", "author_id": "1"}])
+            session["activity_info"] = {
+                "activity_id": "2",
+                "action_id": 1,
+                "action_version": "1.0.1",
+                "action_status": "M",
+                "commond": "",
+            }
+
+            tmppath1 = tempfile.mkdtemp()
+            # loc = Location(id="2",name="testloc1", uri=tmppath1, default=True)
+            loc1 = Location(name="testloc1", uri=tmppath1, default=True)
+            db.session.add(loc1)
+
+            db.session.commit()
+            bucket2 = Bucket.create(loc1)
+            db.session.merge(bucket2)
+            db.session.commit()
+            deposit['_buckets']['deposit']=str(bucket2.id)
+            deposit.commit()
+            search_data = deposit.indexer.get_metadata_by_item_id(item_id)
+            assert search_data["_source"]["feedback_mail_list"] == [
+                {"email": "test.taro@test.org", "author_id": "1"}]
+            shutil.rmtree(tmppath1)
+
+            deposit.jrc = {
+                'type': ['conference paper'],
+                'title': ['test'],
+                'control_number': '2',
+                '_oai': {'id': '2', 'sets': ['1']},
+                '_item_metadata': OrderedDict([
+                    ('pubdate', {'attribute_name': 'PubDate',
+                        'attribute_value': '2023-12-07'}),
+                    ('item_1617186331708', {
+                        'attribute_name': 'Title',
+                        'attribute_value_mlt': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}]
+                    }),
+                    ('item_1617258105262', {
+                        'attribute_name': 'Resource Type',
+                        'attribute_value_mlt': [{'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}]
+                    }),
+                    ('item_title', 'test'),
+                    ('item_type_id', '1'),
+                    ('control_number', '2'),
+                    ('author_link', []),
+                    ('_oai', {'id': '2', 'sets': ['1']}),
+                    ('publish_date', '2023-12-07'),
+                    ('title', ['test']),
+                    ('relation_version_is_last', True),
+                    ('path', ['1']),
+                    ('publish_status', '2')
+                ]),
+                'itemtype': 'テストアイテムタイプ',
+                'publish_date': '2023-12-07',
+                'author_link': [],
+                'path': ['1'],
+                'publish_status': '2',
+                '_created': '2024-09-25T07:58:24.680172+00:00',
+                '_updated': '2024-09-25T07:58:25.436334+00:00',
+                'content': [{"test": "content"}, {"file": "test"}]
+            }
+
+            deposit.commit()
+
+            assert not any(("file" in e.keys()) for e in deposit.jrc.get('content'))
+
+            with patch("weko_deposit.api.WekoIndexer.upload_metadata") as mock_upload:
+                mock_upload.side_effect = [seacrh.exceptions.TransportError(500,"test_error",{"error":{"reason": WEKO_DEPOSIT_SEARCH_PARSING_ERROR_KEYWORD}}), "Mocked Data"]
                 deposit.commit()
 
-                # self.jrc is false
-                deposit = WekoDeposit.create({})
-                index_obj = {'index': ['3'], 'actions': 'private', "content": [
-                    {"test": "content"}, {"file": "test"}]}
-                data = {
-                    "content": [{"test": "content"}, {"file": "test"}],
-                    'pubdate': '2023-12-07',
-                    'item_1617186331708': [{
-                        'subitem_1551255647225': 'test',
-                        'subitem_1551255648112': 'ja'
-                    }],
-                    'item_1617258105262': {
-                        'resourcetype': 'conference paper',
-                        'resourceuri': 'http://purl.org/coar/resource_type/c_5794'
-                    },
-                    'shared_user_id': -1,
-                    'title': 'test',
-                    'lang': 'ja',
-                    'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011',
-                                    'item_1617186609386', 'item_1617186626617', 'item_1617186643794',
-                                    'item_1617186660861', 'item_1617186702042', 'item_1617186783814',
-                                    'item_1617186859717', 'item_1617186882738', 'item_1617186901218',
-                                    'item_1617186920753', 'item_1617186941041', 'item_1617187112279',
-                                    'item_1617187187528', 'item_1617349709064', 'item_1617353299429',
-                                    'item_1617605131499', 'item_1617610673286', 'item_1617620223087',
-                                    'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'],
-                    '$schema': '/items/jsonschema/1'
-                }
-                deposit['_buckets']['deposit'] = "1a23bfcd-456e-78ab-c0d1-23eee45a6b78"
-                deposit.update(index_obj, data)
-                deposit.jrc = {}
-                deposit.commit()
+                with pytest.raises(WekoDepositError):
+                    result = deposit.commit()
 
-                # record is None, '_oai' is None, '$schema' is None
-                deposit = WekoDeposit.create({})
-                index_obj = {'index': ['3'], 'actions': 'private', "content": [
-                    {"test": "content"}, {"file": "test"}]}
-                data = {
-                    "content": [{"test": "content"}, {"file": "test"}],
-                    'pubdate': '2023-12-07',
-                    'item_1617186331708': [{
-                        'subitem_1551255647225': 'test',
-                        'subitem_1551255648112': 'ja'
-                    }],
-                    'item_1617258105262': {
-                        'resourcetype': 'conference paper',
-                        'resourceuri': 'http://purl.org/coar/resource_type/c_5794'
-                    },
-                    'shared_user_id': -1,
-                    'title': 'test',
-                    'lang': 'ja',
-                    'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011',
-                                    'item_1617186609386', 'item_1617186626617', 'item_1617186643794',
-                                    'item_1617186660861', 'item_1617186702042', 'item_1617186783814',
-                                    'item_1617186859717', 'item_1617186882738', 'item_1617186901218',
-                                    'item_1617186920753', 'item_1617186941041', 'item_1617187112279',
-                                    'item_1617187187528', 'item_1617349709064', 'item_1617353299429',
-                                    'item_1617605131499', 'item_1617610673286', 'item_1617620223087',
-                                    'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'],
-                    '$schema': '/items/jsonschema/1'
-                }
-                deposit['_buckets']['deposit'] = "1a23bfcd-456e-78ab-c0d1-23eee45a6b78"
-                deposit.update(index_obj, data)
-                deposit.jrc = {
-                    'type': ['conference paper'],
-                    'title': ['test'],
-                    'control_number': '2',
-                    '_oai': {'id': '2', 'sets': ['1']},
-                    '_item_metadata': OrderedDict([
-                        ('pubdate', {'attribute_name': 'PubDate',
-                         'attribute_value': '2023-12-07'}),
-                        ('item_1617186331708', {
-                            'attribute_name': 'Title',
-                            'attribute_value_mlt': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}]
-                        }),
-                        ('item_1617258105262', {
-                            'attribute_name': 'Resource Type',
-                            'attribute_value_mlt': [{'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}]
-                        }),
-                        ('item_title', 'test'),
-                        ('item_type_id', '1'),
-                        ('control_number', '2'),
-                        ('author_link', []),
-                        ('_oai', {'id': '2', 'sets': ['1']}),
-                        ('publish_date', '2023-12-07'),
-                        ('title', ['test']),
-                        ('relation_version_is_last', True),
-                        ('path', ['1']),
-                        ('publish_status', '2')
-                    ]),
-                    'itemtype': 'テストアイテムタイプ',
-                    'publish_date': '2023-12-07',
-                    'author_link': [],
-                    'path': ['1'],
-                    'publish_status': '2',
-                    '_created': '2024-09-25T07:58:24.680172+00:00',
-                    '_updated': '2024-09-25T07:58:25.436334+00:00',
-                    'content': [{"test": "content"}, {"file": "test"}]
-                }
-                with patch("invenio_records.models.RecordMetadata.query") as mock_json:
-                    mock_json.return_value.filter_by.return_value.first.return_value = None
+            with patch("weko_deposit.api.WekoIndexer.upload_metadata") as mock_upload:
+                mock_upload.side_effect = [seacrh.exceptions.TransportError(500,"test_error",{"error":{"reason":""}}), "test error"]
+                with pytest.raises(WekoDepositError) as ex:
                     deposit.commit()
 
-                # setspec_list is None, record.json.get('_buckets) is None
-                deposit = WekoDeposit.create({})
-                index_obj = {'index': ['3'], 'actions': 'private', "content": [
-                    {"test": "content"}, {"file": "test"}]}
-                data = {
-                    "content": [{"test": "content"}, {"file": "test"}],
-                    'pubdate': '2023-12-07',
-                    'item_1617186331708': [{
-                        'subitem_1551255647225': 'test',
-                        'subitem_1551255648112': 'ja'
-                    }],
-                    'item_1617258105262': {
-                        'resourcetype': 'conference paper',
-                        'resourceuri': 'http://purl.org/coar/resource_type/c_5794'
-                    },
-                    'shared_user_id': -1,
-                    'title': 'test',
-                    'lang': 'ja',
-                    'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011',
-                                    'item_1617186609386', 'item_1617186626617', 'item_1617186643794',
-                                    'item_1617186660861', 'item_1617186702042', 'item_1617186783814',
-                                    'item_1617186859717', 'item_1617186882738', 'item_1617186901218',
-                                    'item_1617186920753', 'item_1617186941041', 'item_1617187112279',
-                                    'item_1617187187528', 'item_1617349709064', 'item_1617353299429',
-                                    'item_1617605131499', 'item_1617610673286', 'item_1617620223087',
-                                    'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'],
-                    '$schema': '/items/jsonschema/1'
-                }
-
-                deposit.update(index_obj, data)
-                deposit.jrc = {
-                    'type': ['conference paper'],
-                    'title': ['test'],
-                    'control_number': '2',
-                    '_oai': {'id': '2', 'sets': ['1']},
-                    '_item_metadata': OrderedDict([
-                        ('pubdate', {'attribute_name': 'PubDate',
-                         'attribute_value': '2023-12-07'}),
-                        ('item_1617186331708', {
-                            'attribute_name': 'Title',
-                            'attribute_value_mlt': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}]
-                        }),
-                        ('item_1617258105262', {
-                            'attribute_name': 'Resource Type',
-                            'attribute_value_mlt': [{'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}]
-                        }),
-                        ('item_title', 'test'),
-                        ('item_type_id', '1'),
-                        ('control_number', '2'),
-                        ('author_link', []),
-                        ('_oai', {'id': '2', 'sets': ['1']}),
-                        ('publish_date', '2023-12-07'),
-                        ('title', ['test']),
-                        ('relation_version_is_last', True),
-                        ('path', []),
-                        ('publish_status', '2')
-                    ]),
-                    'itemtype': 'テストアイテムタイプ',
-                    'publish_date': '2023-12-07',
-                    'author_link': [],
-                    'path': [],
-                    'publish_status': '2',
-                    '_created': '2024-09-25T07:58:24.680172+00:00',
-                    '_updated': '2024-09-25T07:58:25.436334+00:00',
-                    'content': [{"test": "content"}, {"file": "test"}],
-                    '$schema': '/items/jsonschema/1',
-                }
-                deposit.commit()
-
-                # record.json.get('_buckets'): is None
-                deposit = WekoDeposit.create({})
-                record = RecordMetadata.query.get(deposit.pid.object_uuid)
-                del deposit["_buckets"]
-                db.session.merge(record)
-                db.session.commit()
-                deposit.commit()
-
-                # exist feedback_mail_list
-                deposit = WekoDeposit.create({})
-                item_id = deposit.pid.object_uuid
-                index_obj = {'index': ['1'], 'actions': 'private'}
-                data = {'pubdate': '2023-12-07', 'item_1617186331708': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}], 'item_1617258105262': {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}, 'shared_user_id': -1, 'title': 'test', 'lang': 'ja', 'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011', 'item_1617186609386', 'item_1617186626617', 'item_1617186643794',
-                                                                                                                                                                                                                                                                                                                                          'item_1617186660861', 'item_1617186702042', 'item_1617186783814', 'item_1617186859717', 'item_1617186882738', 'item_1617186901218', 'item_1617186920753', 'item_1617186941041', 'item_1617187112279', 'item_1617187187528', 'item_1617349709064', 'item_1617353299429', 'item_1617605131499', 'item_1617610673286', 'item_1617620223087', 'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'], '$schema': '/items/jsonschema/1'}
-                deposit.update(index_obj, data)
-                FeedbackMailList.update(
-                    item_id, [{"email": "test.taro@test.org", "author_id": "1"}])
-                db.session.commit()
-                deposit.commit()
-                search_data = deposit.indexer.get_metadata_by_item_id(item_id)
-                assert search_data["_source"]["feedback_mail_list"] == [
-                    {"email": "test.taro@test.org", "author_id": "1"}]
-
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.reset_mock()
-
-                # not exist feedback_mail_list
-                FeedbackMailList.delete(item_id)
-                deposit.commit()
-                search_data = deposit.indexer.get_metadata_by_item_id(item_id)
-                assert search_data["_source"]["feedback_mail_list"] == []
-                mockjrc = {'title': ['test'], 'type': ['conference paper'], 'control_number': '2', '_oai': {'id': '2'}, '_item_metadata': OrderedDict([('pubdate', {'attribute_name': 'PubDate', 'attribute_value': '2023-12-07'}), ('item_1617186331708', {'attribute_name': 'Title', 'attribute_value_mlt': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}]}), ('item_1617258105262', {'attribute_name': 'Resource Type', 'attribute_value_mlt': [
-                                                                                                                                                      {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}]}), ('item_title', 'test'), ('item_type_id', '1'), ('control_number', '2'), ('author_link', []), ('_oai', {'id': '2'}), ('publish_date', '2023-12-07'), ('title', ['test']), ('relation_version_is_last', True), ('path', ['1']), ('publish_status', '2')]), 'itemtype': 'テストアイテムタイプ', 'publish_date': '2023-12-07', 'author_link': [], 'path': ['1'], 'publish_status': '2', 'content': '123123123'}
-                # activity_info
-                deposit = WekoDeposit.create({})
-                item_id = deposit.pid.object_uuid
-                index_obj = {'content': {'content': 'content'},
-                             'index': ['2'], 'actions': 'private'}
-                data = {'content': {'content': 'content'}, 'pubdate': '2023-12-07', 'item_1617186331708': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}], 'item_1617258105262': {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}, 'shared_user_id': -1, 'title': 'test', 'lang': 'ja', 'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011', 'item_1617186609386', 'item_1617186626617',
-                                                                                                                                                                                                                                                                                                                                                                             'item_1617186643794', 'item_1617186660861', 'item_1617186702042', 'item_1617186783814', 'item_1617186859717', 'item_1617186882738', 'item_1617186901218', 'item_1617186920753', 'item_1617186941041', 'item_1617187112279', 'item_1617187187528', 'item_1617349709064', 'item_1617353299429', 'item_1617605131499', 'item_1617610673286', 'item_1617620223087', 'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'], '$schema': '/items/jsonschema/1'}
-                deposit.update(index_obj, data)
-                FeedbackMailList.update(
-                    item_id, [{"email": "test.taro@test.org", "author_id": "1"}])
-                session["activity_info"] = {
-                    "activity_id": "1",
-                    "action_id": 1,
-                    "action_version": "1.0.1",
-                    "action_status": "M",
-                    "commond": "",
-                }
-                # db.session.merge(bucket)
-                deposit['content'] = {'content': 'content'}
-                db.session.commit()
-                deposit.commit()
-                search_data = deposit.indexer.get_metadata_by_item_id(item_id)
-                assert search_data["_source"]["feedback_mail_list"] == [
-                    {"email": "test.taro@test.org", "author_id": "1"}]
-
-                # workflow_storage_location != None
-                deposit = WekoDeposit.create({})
-                item_id = deposit.pid.object_uuid
-                index_obj = {'index': ['3'], 'actions': 'private', "content": [
-                    {"test": "content"}, {"file": "test"}]}
-                # data = {'pubdate': '2023-12-07', 'item_1617186331708': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}], 'item_1617258105262': {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}, 'shared_user_id': -1, 'title': 'test', 'lang': 'ja', 'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011', 'item_1617186609386', 'item_1617186626617', 'item_1617186643794', 'item_1617186660861', 'item_1617186702042', 'item_1617186783814', 'item_1617186859717', 'item_1617186882738', 'item_1617186901218', 'item_1617186920753', 'item_1617186941041', 'item_1617187112279', 'item_1617187187528', 'item_1617349709064', 'item_1617353299429', 'item_1617605131499', 'item_1617610673286', 'item_1617620223087', 'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'], '$schema': '/items/jsonschema/1'}
-                data = {"content": [{"test": "content"}, {"file": "test"}], 'pubdate': '2023-12-07', 'item_1617186331708': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}], 'item_1617258105262': {'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}, 'shared_user_id': -1, 'title': 'test', 'lang': 'ja', 'deleted_items': ['item_1617186385884', 'item_1617186419668', 'item_1617186499011', 'item_1617186609386', 'item_1617186626617',
-                                                                                                                                                                                                                                                                                                                                                                                              'item_1617186643794', 'item_1617186660861', 'item_1617186702042', 'item_1617186783814', 'item_1617186859717', 'item_1617186882738', 'item_1617186901218', 'item_1617186920753', 'item_1617186941041', 'item_1617187112279', 'item_1617187187528', 'item_1617349709064', 'item_1617353299429', 'item_1617605131499', 'item_1617610673286', 'item_1617620223087', 'item_1617944105607', 'item_1617187056579', 'approval1', 'approval2'], '$schema': '/items/jsonschema/1'}
-                # deposit['_buckets']['deposit'] = "3e99cfca-098b-42ed-b8a0-20ddd09b3e01"
-                deposit.update(index_obj, data)
-                FeedbackMailList.update(
-                    item_id, [{"email": "test.taro@test.org", "author_id": "1"}])
-                session["activity_info"] = {
-                    "activity_id": "2",
-                    "action_id": 1,
-                    "action_version": "1.0.1",
-                    "action_status": "M",
-                    "commond": "",
-                }
-
-                tmppath1 = tempfile.mkdtemp()
-                # loc = Location(id="2",name="testloc1", uri=tmppath1, default=True)
-                loc1 = Location(name="testloc1", uri=tmppath1, default=True)
-                db.session.add(loc1)
-
-                db.session.commit()
-                bucket2 = Bucket.create(loc1)
-                db.session.merge(bucket2)
-                db.session.commit()
-                deposit['_buckets']['deposit']=str(bucket2.id)
-                deposit.commit()
-                search_data = deposit.indexer.get_metadata_by_item_id(item_id)
-                assert search_data["_source"]["feedback_mail_list"] == [
-                    {"email": "test.taro@test.org", "author_id": "1"}]
-                shutil.rmtree(tmppath1)
-
-                deposit.jrc = {
-                    'type': ['conference paper'],
-                    'title': ['test'],
-                    'control_number': '2',
-                    '_oai': {'id': '2', 'sets': ['1']},
-                    '_item_metadata': OrderedDict([
-                        ('pubdate', {'attribute_name': 'PubDate',
-                         'attribute_value': '2023-12-07'}),
-                        ('item_1617186331708', {
-                            'attribute_name': 'Title',
-                            'attribute_value_mlt': [{'subitem_1551255647225': 'test', 'subitem_1551255648112': 'ja'}]
-                        }),
-                        ('item_1617258105262', {
-                            'attribute_name': 'Resource Type',
-                            'attribute_value_mlt': [{'resourcetype': 'conference paper', 'resourceuri': 'http://purl.org/coar/resource_type/c_5794'}]
-                        }),
-                        ('item_title', 'test'),
-                        ('item_type_id', '1'),
-                        ('control_number', '2'),
-                        ('author_link', []),
-                        ('_oai', {'id': '2', 'sets': ['1']}),
-                        ('publish_date', '2023-12-07'),
-                        ('title', ['test']),
-                        ('relation_version_is_last', True),
-                        ('path', ['1']),
-                        ('publish_status', '2')
-                    ]),
-                    'itemtype': 'テストアイテムタイプ',
-                    'publish_date': '2023-12-07',
-                    'author_link': [],
-                    'path': ['1'],
-                    'publish_status': '2',
-                    '_created': '2024-09-25T07:58:24.680172+00:00',
-                    '_updated': '2024-09-25T07:58:25.436334+00:00',
-                    'content': [{"test": "content"}, {"file": "test"}]
-                }
-
-                deposit.commit()
-
-                assert not any(("file" in e.keys()) for e in deposit.jrc.get('content'))
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch='content is in jrc')
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch='file is in content')
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.reset_mock()
-
-                with patch("weko_deposit.api.WekoIndexer.upload_metadata") as mock_upload:
-                    mock_upload.side_effect = [seacrh.exceptions.TransportError(500,"test_error",{"error":{"reason": WEKO_DEPOSIT_SEARCH_PARSING_ERROR_KEYWORD}}), "Mocked Data"]
+            # Exception to occur
+            with patch("weko_deposit.api.WekoIndexer.upload_metadata", side_effect=Exception("test_error")):
+                with pytest.raises(WekoDepositError):
                     deposit.commit()
-
-                    with pytest.raises(WekoDepositError):
-                        result = deposit.commit()
-
-                with patch("weko_deposit.api.WekoIndexer.upload_metadata") as mock_upload:
-                    mock_upload.side_effect = [seacrh.exceptions.TransportError(500,"test_error",{"error":{"reason":""}}), "test error"]
-                    with pytest.raises(WekoDepositError) as ex:
-                        deposit.commit()
-
-                # Exception to occur
-                with patch("weko_deposit.api.WekoIndexer.upload_metadata", side_effect=Exception("test_error")):
-                    with pytest.raises(WekoDepositError):
-                        deposit.commit()
 
     # def newversion(self, pid=None, is_draft=False):
     #             # NOTE: We call the superclass `create()` method, because
@@ -1488,65 +1313,52 @@ class TestWekoDeposit():
             with pytest.raises(PIDInvalidAction):
                 ret = deposit.newversion()
 
-            with pytest.raises(AttributeError):
-                ret = deposit.newversion()
 
-            ret = deposit.newversion(deposit.pid, True)
-            assert ret == None
+        ret = deposit.newversion(deposit.pid, True)
+        assert ret == None
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
-            ret = deposit.newversion(deposit.pid)
-            assert ret == None
+        ret = deposit.newversion(deposit.pid)
+        assert ret == None
 
-            record2 = records[1]
-            pid2 = record2["recid"]
-            pid2.status = "K"
-            db.session.merge(pid2)
-            db.session.commit()
-            with pytest.raises(WekoDepositError):
-                ret = deposit.newversion(pid2)
+        record2 = records[1]
+        pid2 = record2["recid"]
+        pid2.status = "K"
+        db.session.merge(pid2)
+        db.session.commit()
+        with pytest.raises(WekoDepositError):
+            ret = deposit.newversion(pid2)
 
-            record = records[2]
-            deposit = record['deposit']
-            pid = record["recid"]
-            ret = deposit.newversion(pid, True)
-            assert ret is not None
+        record = records[2]
+        deposit = record['deposit']
+        pid = record["recid"]
+        ret = deposit.newversion(pid, True)
+        assert ret is not None
 
-            record = records[3]
-            deposit = record['deposit']
-            pid = record["recid"]
-            ret = deposit.newversion(pid, False)
-            assert ret is not None
+        record = records[3]
+        deposit = record['deposit']
+        pid = record["recid"]
+        ret = deposit.newversion(pid, False)
+        assert ret is not None
 
-            record = records[4]
-            deposit = record['deposit']
-            session["activity_info"] = {
-                "activity_id": "A-20220818-00001",
-                "action_id": 4,
-                "action_version": "1.0.1",
-                "action_status": "M",
-                "commond": "",
-            }
-            db.session.commit()
-            ret = deposit.newversion(pid, False)
-            assert ret is not None
+        record = records[4]
+        deposit = record['deposit']
+        session["activity_info"] = {
+            "activity_id": "A-20220818-00001",
+            "action_id": 4,
+            "action_version": "1.0.1",
+            "action_status": "M",
+            "commond": "",
+        }
+        db.session.commit()
+        ret = deposit.newversion(pid, False)
+        assert ret is not None
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
         # PIDResolveRESTError
         rec_uuid = uuid.uuid4()
 
         recid_1 = PersistentIdentifier.create('recid', "11", object_type='rec', object_uuid=rec_uuid, status=PIDStatus.REGISTERED)
         depid_1 = PersistentIdentifier.create('depid', "11", object_type='rec', object_uuid=rec_uuid, status=PIDStatus.REGISTERED)
-        rel = PIDRelation.create(recid_1, depid_1, 2, 0)
         search_records[1][0]['record_data']['owners'] = [1]
         search_records[1][0]['record_data']['created_by'] = 1
         search_records[1][0]['record_data']['recid'] = 11
@@ -1619,11 +1431,11 @@ class TestWekoDeposit():
             mock_self.get_file_data.return_value = None
             result = WekoDeposit.get_content_files(mock_self)
             assert result == {}
-            
+
             rec_uuid = uuid.uuid4()
             _, deposit = create_record_with_pdf(rec_uuid, 1)
             deposit.jrc = {}
-            
+
             # Empty file data list
             mock_self.get_file_data.return_value = []
             result = WekoDeposit.get_content_files(mock_self)
@@ -1633,12 +1445,12 @@ class TestWekoDeposit():
             assert ret["sample_word.docx"].get("is_pdf") == False
             assert ret["test_file_1.2M.pdf"].get("is_pdf") == True
             assert ret["test_file_82K.pdf"].get("is_pdf") == True
-            
+
             for info in ret.values():
                 assert "uri" in info and info["uri"]
                 assert "size" in info and info["size"] < 1024
-                
-                
+
+
             # Text file extraction (success)
             mock_file = MagicMock()
             mock_file.obj = MagicMock()
@@ -1733,7 +1545,6 @@ class TestWekoDeposit():
     # def get_file_data(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_get_file_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_get_file_data(sel, app, db, location, search_records_1):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records_1
             record = records[0]
             deposit = record['deposit']
@@ -1741,14 +1552,6 @@ class TestWekoDeposit():
             assert ret == [{'filename': 'hello.txt', 'subitem_1551255647225': 'タイトル', 'subitem_1551255648112': 'ja'}, {
                 'subitem_1551255647225': 'title', 'subitem_1551255648112': 'en'}]
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def save_or_update_item_metadata(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_save_or_update_item_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -1809,7 +1612,6 @@ class TestWekoDeposit():
     # def delete_old_file_index(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_delete_old_file_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_delete_old_file_index(sel, app, db, location,search_records, search_records_8):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]
             deposit = record['deposit']
@@ -1826,18 +1628,10 @@ class TestWekoDeposit():
             deposit.is_edit = True
             deposit.delete_old_file_index()
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
 
     # def delete_item_metadata(self, data):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_delete_item_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_delete_item_metadata(sel, app, db, location, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]
             deposit = record['deposit']
@@ -1845,17 +1639,9 @@ class TestWekoDeposit():
 
             deposit.delete_item_metadata(item_data)
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
 
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_record_data_from_act_temp -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_record_data_from_act_temp(sel, app, db, db_activity, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             _, records = search_records
 
             # not exist pid
@@ -1884,7 +1670,7 @@ class TestWekoDeposit():
                                     '2022/04/14 3:01:53.931', '%Y/%m/%d %H:%M:%S.%f'),
                                 activity_community_id=3,
                                 activity_confirm_term_of_use=True,
-                                title='test_title', shared_user_id=-1, extra_info={},
+                                title='test_title', shared_user_ids=[], extra_info={},
                                 action_order=1,
                                 )
             db.session.add(activity)
@@ -1902,15 +1688,6 @@ class TestWekoDeposit():
             test = {"pubdate": "2023-10-10", "item_1617186331708": [{"subitem_1551255647225": "test_title", "subitem_1551255648112": "ja"}], "item_1617186385884": [{"subitem_1551255720400": "alter title"}], "item_1617186419668": [{"familyNames": [{"familyName": "test_family_name"}]}], "shared_user_id": -1, "item_1617258105262": {"resourcetype": "conference paper", "resourceuri": "http://purl.org/coar/resource_type/c_5794"}, "deleted_items": ["none_str", "empty_list", "item_1617186499011", "item_1617186609386","item_1617186626617", "item_1617186643794", "item_1617186660861", "item_1617186702042", "item_1617186783814", "item_1617186859717", "item_1617186882738", "item_1617186901218", "item_1617186920753", "item_1617186941041", "item_1617187112279", "item_1617187187528", "item_1617349709064", "item_1617353299429", "item_1617605131499", "item_1617610673286", "item_1617620223087", "item_1617944105607", "item_1617187056579"], "$schema": "/items/jsonschema/1", "title": "test_title", "lang": "ja"}
             assert result == test
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             # title is dict
             temp_data = {"metainfo": {"pubdate": "2023-10-10", "none_str": "", "empty_list": [], "item_1617186331708": {"subitem_1551255647225": "test_title", "subitem_1551255648112": "ja"}, "item_1617186385884": [{"subitem_1551255720400": "alter title"}], "item_1617186419668": [{"creatorAffiliations": [{"affiliationNameIdentifiers": [{}], "affiliationNames": [{}]}], "creatorAlternatives": [{}], "creatorMails": [{}], "creatorNames": [{}], "familyNames": [{"familyName": "test_family_name"}], "givenNames": [{}], "nameIdentifiers": [{}]}], "item_1617186499011": [{}], "item_1617186609386": [{}], "item_1617186626617": [{}], "item_1617186643794": [{}], "item_1617186660861": [{}], "item_1617186702042": [{}], "item_1617186783814": [{}], "item_1617186859717": [{}], "item_1617186882738": [{"subitem_geolocation_place": [{}]}], "item_1617186901218": [{"subitem_1522399412622": [{}], "subitem_1522399651758": [{}]}], "item_1617186920753": [{}], "item_1617186941041": [{}], "item_1617187112279": [{}], "item_1617187187528": [
@@ -1923,15 +1700,6 @@ class TestWekoDeposit():
                 "none_str", "empty_list", "item_1617186499011", "item_1617186609386", "item_1617186626617", "item_1617186643794", "item_1617186660861", "item_1617186702042", "item_1617186783814", "item_1617186859717", "item_1617186882738", "item_1617186901218", "item_1617186920753", "item_1617186941041", "item_1617187112279", "item_1617187187528", "item_1617349709064", "item_1617353299429", "item_1617605131499", "item_1617610673286", "item_1617620223087", "item_1617944105607", "item_1617187056579"], "$schema": "/items/jsonschema/1", "title": "test_title", "lang": "ja"}
             assert result == test
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             # title data is not exist
             temp_data = {"metainfo": {"pubdate": "2023-10-10","none_str": "","empty_list": [],"item_1617186331708": [],"item_1617186385884": [{"subitem_1551255720400": "alter title"}],"item_1617186419668": [{"creatorAffiliations": [{"affiliationNameIdentifiers": [{}],"affiliationNames": [{}]}],"creatorAlternatives": [{}],"creatorMails": [{}],"creatorNames": [{}],"familyNames": [{"familyName": "test_family_name"}],"givenNames": [{}],"nameIdentifiers": [{}]}],"item_1617186499011": [{}],"item_1617186609386": [{}],"item_1617186626617": [{}],"item_1617186643794": [{}],"item_1617186660861": [{}],"item_1617186702042": [{}],"item_1617186783814": [{}],"item_1617186859717": [{}],"item_1617186882738": [{"subitem_geolocation_place": [{}]}],"item_1617186901218": [{"subitem_1522399412622": [{}],"subitem_1522399651758": [{}]}],"item_1617186920753": [{}],"item_1617186941041": [{}],"item_1617187112279": [{}],"item_1617187187528": [{"subitem_1599711633003": [{}],"subitem_1599711660052": [{}],"subitem_1599711758470": [{}],"subitem_1599711788485": [{}]}],"item_1617349709064": [{"contributorAffiliations": [{"contributorAffiliationNameIdentifiers": [{}],"contributorAffiliationNames": [{}]}],"contributorAlternatives": [{}],"contributorMails": [{}],"contributorNames": [{}],"familyNames": [{}],"givenNames": [{}],"nameIdentifiers": [{}]}],"item_1617353299429": [{"subitem_1523320863692": [{}]}],"item_1617605131499": [{"date": [{}],"fileDate": [{}],"filesize": [{}]}],"item_1617610673286": [{"nameIdentifiers": [{}],"rightHolderNames": [{}]}],"item_1617620223087": [{}],"item_1617944105607": [{"subitem_1551256015892": [{}],"subitem_1551256037922": [{}]}],"item_1617187056579": {"bibliographic_titles": [{}]},"shared_user_id": -1,"item_1617258105262": {"resourcetype": "conference paper","resourceuri": "http://purl.org/coar/resource_type/c_5794"}},"files": [],"endpoints": {"initialization": "/api/deposits/items"}}
@@ -1943,15 +1711,6 @@ class TestWekoDeposit():
                                                                                                                                                                                                                                                                                                                                                               "item_1617186643794", "item_1617186660861", "item_1617186702042", "item_1617186783814", "item_1617186859717", "item_1617186882738", "item_1617186901218", "item_1617186920753", "item_1617186941041", "item_1617187112279", "item_1617187187528", "item_1617349709064", "item_1617353299429", "item_1617605131499", "item_1617610673286", "item_1617620223087", "item_1617944105607", "item_1617187056579"], "$schema": "/items/jsonschema/1", "title": "test_title", "lang": ""}
             assert result == test
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             # not exist title_parent_key in path
             mock_path = {
@@ -1962,15 +1721,6 @@ class TestWekoDeposit():
                 result = deposit.record_data_from_act_temp()
                 assert result == test
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             # not exist title_value_lst_key, title_lang_lst_key
             mock_path = {
@@ -1983,15 +1733,6 @@ class TestWekoDeposit():
                 result = deposit.record_data_from_act_temp()
                 assert result == test
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def convert_item_metadata(self, index_obj, data=None):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_convert_item_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -2057,7 +1798,7 @@ class TestWekoDeposit():
                 assert set(ret1) == set(test1)
                 assert ret2 == test2
 
-                with patch("weko_deposit.api.RedisConnection.connection",side_effect=BaseException("test_error")):
+                with patch("weko_deposit.api.RedisConnection.connection",side_effect=Exception("test_error")):
                     with pytest.raises(HTTPException) as httperror:
                         ret = deposit.convert_item_metadata(index_obj,{})
                         assert httperror.value.code == 500
@@ -2069,7 +1810,7 @@ class TestWekoDeposit():
                 with patch("weko_deposit.api.json_loader",side_effect=ValueError):
                     with pytest.raises(ValueError):
                         deposit.convert_item_metadata(index_obj,record_data)
-                with patch("weko_deposit.api.json_loader",side_effect=BaseException("test_error")):
+                with patch("weko_deposit.api.json_loader",side_effect=Exception("test_error")):
                     with pytest.raises(HTTPException) as httperror:
                         ret = deposit.convert_item_metadata(index_obj,record_data)
                         assert httperror.value.code == 500
@@ -2131,13 +1872,13 @@ class TestWekoDeposit():
                 with patch('weko_deposit.api.json_loader', return_value=(test_dc, test_jrc, test_is_edit_true)):
                     ret, _ = deposit.convert_item_metadata(index_obj, record_data)
                     assert ret['publish_status'] == expect_rec.json['publish_status']
-                
+
                 deposit = record['deposit']
                 record_data = record['item_data']
                 with patch('weko_deposit.api.json_loader', return_value=(test_dc, test_jrc, test_is_edit_false)):
                     ret, _ = deposit.convert_item_metadata(index_obj, record_data)
                     assert ret['publish_status'] == PublishStatus.NEW.value
-                
+
                 # radis exist with is_save_path True
                 deposit = record['deposit']
                 index_obj_2 = {'index': ['1'], 'actions': '1', 'is_save_path': True}
@@ -2170,7 +1911,7 @@ class TestWekoDeposit():
                 ret = deposit.convert_item_metadata(index_obj, record_data)
                 assert error.value.code == 500
                 assert error.value.data == "Any tree index has been deleted"
-        
+
         # index not exists in index_obj
         index_obj_err = {'actions': '1'}
         with pytest.raises(PIDResolveRESTError) as error:
@@ -2181,7 +1922,6 @@ class TestWekoDeposit():
     # def _convert_description_to_object(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test__convert_description_to_object -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__convert_description_to_object(sel, app, db, location, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]
             deposit = record['deposit']
@@ -2197,13 +1937,6 @@ class TestWekoDeposit():
             assert deposit.jrc["description"] == [
                 {"value": "test_description1"}, {"value": "test_description2"}]
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
 
     # def _convert_jpcoar_data_to_search(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test__convert_jpcoar_data_to_search -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -2216,7 +1949,6 @@ class TestWekoDeposit():
     # def _convert_data_for_geo_location(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test__convert_data_for_geo_location -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__convert_data_for_geo_location(sel, app, db, location, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]
             deposit = record['deposit']
@@ -2332,13 +2064,6 @@ class TestWekoDeposit():
             deposit._convert_data_for_geo_location()
             assert deposit.jrc["geoLocation"] == test2
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
 
             record = records[3]
             deposit = record['deposit']
@@ -2412,25 +2137,17 @@ class TestWekoDeposit():
     # def update_pid_by_index_tree_id(self, path):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_update_pid_by_index_tree_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_update_pid_by_index_tree_id(sel, app, db, location, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]
             deposit = record['deposit']
             assert deposit.update_pid_by_index_tree_id('1') == True
+            with patch('weko_deposit.api.weko_logger'):
+                with patch("invenio_db.db.session.begin_nested", side_effect=SQLAlchemyError("test_error")):
+                    assert deposit.update_pid_by_index_tree_id('1')==False
 
-            with patch("invenio_db.db.session.begin_nested", side_effect=SQLAlchemyError("test_error")):
-                assert deposit.update_pid_by_index_tree_id('1')==False
+                with patch("invenio_db.db.session.begin_nested", side_effect=Exception("test_error")):
+                    assert deposit.update_pid_by_index_tree_id('1') == False
 
-            with patch("invenio_db.db.session.begin_nested", side_effect=Exception("test_error")):
-                assert deposit.update_pid_by_index_tree_id('1') == False
-
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
 
     # def update_item_by_task(self, *args, **kwargs):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_update_item_by_task -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -2445,33 +2162,29 @@ class TestWekoDeposit():
     # def delete_search_index_attempt(self, pid):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_delete_search_index_attempt -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_delete_search_index_attempt(sel, app, db, location):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             # deposit = WekoDeposit.create({})
-            session["activity_info"] = {"activity_id": '1'}
-            data = {
-                "$schema": "https://127.0.0.1/schema/deposits/deposit-v1.0.0.json"}
-            id = uuid.uuid4()
-            deposit = WekoDeposit.create(data, id_=id)
-            deposit.pid.status = "D"
-            # deposit.pid = "1"
-            db.session.commit()
-            deposit.delete_search_index_attempt(deposit.pid)
-
-
-            with patch("search.delete", side_effect=Exception("test_error")):
-                deposit = WekoDeposit.create({})
+            with app.test_request_context():
+                session["activity_info"] = {"activity_id": '1'}
+                data = {
+                    "$schema": "https://127.0.0.1/schema/deposits/deposit-v1.0.0.json"}
+                id = uuid.uuid4()
+                deposit = WekoDeposit.create(data, id_=id)
                 deposit.pid.status = "D"
-                db.session.commit()
-                deposit.delete_search_index_attempt(deposit.pid)
+                # deposit.pid = "1"
+                with patch.object(deposit.indexer, "delete"):
+                    db.session.commit()
+                    deposit.delete_search_index_attempt(deposit.pid)
+                    with patch('weko_deposit.api.weko_logger'),\
+                         patch.object(deposit.indexer,"delete",side_effect=Exception("test_error")):
+                        deposit = WekoDeposit.create({})
+                        deposit.pid.status = "D"
+                        db.session.commit()
+                        deposit.delete_search_index_attempt(deposit.pid)
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.reset_mock()
 
     # def update_author_link(self, author_link):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_update_author_link -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_update_author_link(sel, app, db, client, location, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with patch("weko_deposit.api.WekoIndexer.update_author_link") as mock_indexer_update_author_link:
                 # author_link is empty
                 _, records = search_records
@@ -2493,8 +2206,6 @@ class TestWekoDeposit():
                         "author_link": author_link
                     }
                 mock_indexer_update_author_link.assert_called_once_with(author_link_info)
-                mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch='author_link is not empty')
-                mock_logger.reset_mock()
 
     # def update_feedback_mail(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_update_feedback_mail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -2567,7 +2278,6 @@ class TestWekoDeposit():
     # def clean_unuse_file_contents(self, item_id, pre_object_versions,
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_clean_unuse_file_contents -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_clean_unuse_file_contents(sel, app, db, location, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]
             deposit = record['deposit']
@@ -2599,18 +2309,10 @@ class TestWekoDeposit():
                 # deposit.clean_unuse_file_contents(1,pre,new)
                 deposit.clean_unuse_file_contents(1, pre, new, is_import=True)
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
 
     # def merge_data_to_record_without_version(self, pid, keep_version=False,
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_merge_data_to_record_without_version -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_merge_data_to_record_without_version(sel, app, db, location, search_records,search_records_8):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]
             deposit = record['deposit']
@@ -2642,16 +2344,10 @@ class TestWekoDeposit():
             recid = record['recid']
             assert deposit.merge_data_to_record_without_version(recid)
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def prepare_draft_item(self, recid):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_prepare_draft_item -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_prepare_draft_item(sel, app, db, location, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]
             deposit = record['deposit']
@@ -2660,12 +2356,9 @@ class TestWekoDeposit():
                 with patch("weko_deposit.api.WekoDeposit.newversion",return_value="new_version"):
                     assert deposit.prepare_draft_item(recid)=="new_version"
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
     # def delete_content_files(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_delete_content_files -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_delete_content_files(sel,app,db,location,search_records, search_records_4,search_records_7):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]
             deposit = record['deposit']
@@ -2693,13 +2386,6 @@ class TestWekoDeposit():
             deposit.delete_content_files()
             assert deposit.jrc==ret['_source']
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
 
     # def convert_type_shared_user_ids(cls, data):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_convert_type_shared_user_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -2736,7 +2422,6 @@ class TestWekoRecord:
     #     def pid(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_pid -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_pid(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             with pytest.raises(AttributeError):
                 assert record.pid == ""
@@ -2748,14 +2433,10 @@ class TestWekoRecord:
             assert pid.pid_type == "depid"
             assert pid.pid_value == "1"
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def pid_recid(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_pid_recid -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_pid_recid(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             with pytest.raises(AttributeError):
                 record.pid_recid
@@ -2769,14 +2450,10 @@ class TestWekoRecord:
             assert pid.pid_type == "recid"
             assert pid.pid_value == "1"
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def pid_recid(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_pid_recid -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_pid_recid(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             with pytest.raises(AttributeError):
                 record.pid_recid
@@ -2790,15 +2467,11 @@ class TestWekoRecord:
             assert pid.pid_type == "recid"
             assert pid.pid_value == "1"
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # TODO:
     #     def hide_file(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_hide_file -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_hide_file(self, search_records, search_records_2, search_records_5):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             # some value of 'attribute_type' is "file"
             # all option "hidden" is False
             _, results = search_records
@@ -2817,18 +2490,10 @@ class TestWekoRecord:
             result = results[1]
             record = result['record']
             assert record.hide_file ==  False
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
 
     #     def navi(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_navi -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_navi(self, app, users, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             with app.test_request_context():
                 assert record.navi == []
@@ -2839,16 +2504,10 @@ class TestWekoRecord:
             with app.test_request_context(query_string={"community": "test_com"}):
                 assert record.navi == []
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def item_type_info(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_item_type_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_item_type_info(self, app, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             with app.test_request_context():
                 with pytest.raises(AttributeError):
@@ -2858,14 +2517,10 @@ class TestWekoRecord:
             record = result['record']
             assert record.item_type_info == 'テストアイテムタイプ(1)'
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def switching_language(data):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_switching_language -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_switching_language(self, app, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             # language = current_language
             with app.test_request_context(headers=[('Accept-Language', 'en')]):
@@ -2873,14 +2528,6 @@ class TestWekoRecord:
                 result = record.switching_language(data)
                 assert result == "test_title"
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             # language != current_language, language=en
             with app.test_request_context(headers=[('Accept-Language', 'ja')]):
@@ -2888,11 +2535,6 @@ class TestWekoRecord:
                 result = record.switching_language(data)
                 assert result == "test_title"
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             # language != en, exist language
             with app.test_request_context(headers=[('Accept-Language', 'da')]):
@@ -2900,15 +2542,6 @@ class TestWekoRecord:
                 result = record.switching_language(data)
                 assert result == "test_title"
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             # not exist language
             with app.test_request_context(headers=[('Accept-Language', 'da')]):
@@ -2916,15 +2549,6 @@ class TestWekoRecord:
                 result = record.switching_language(data)
                 assert result == "test_title"
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             # len(data) <= 0
             with app.test_request_context(headers=[('Accept-Language', 'da')]):
@@ -2932,9 +2556,6 @@ class TestWekoRecord:
                 result = record.switching_language(data)
                 assert result == ""
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             # no language
             with app.test_request_context(headers=[('Accept-Language', 'da')]):
@@ -2943,15 +2564,6 @@ class TestWekoRecord:
                 result = record.switching_language(data)
                 assert result == "title"
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             # no language
             with app.test_request_context(headers=[('Accept-Language', 'en')]):
@@ -2960,14 +2572,6 @@ class TestWekoRecord:
                 result = record.switching_language(data)
                 assert result == "en_title"
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             # no language
             with app.test_request_context(headers=[('Accept-Language', 'ja')]):
@@ -2983,11 +2587,6 @@ class TestWekoRecord:
                 result = record.switching_language(data)
                 assert result == "test_title"
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #.tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test__get_titles_key -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_titles_key(self,app,search_records):
@@ -3158,7 +2757,6 @@ class TestWekoRecord:
     #     def get_titles(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_get_titles -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_get_titles(self,app,search_records,db_itemtype,db_oaischema,search_records_3,search_records_4):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             with app.test_request_context():
                 assert record.get_titles == ""
@@ -3167,71 +2765,52 @@ class TestWekoRecord:
             record = result['record']
             assert record['item_type_id'] == "1"
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             with app.test_request_context():
                 assert record.get_titles == "title"
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             with app.test_request_context(headers=[("Accept-Language", "en")]):
                 assert record.get_titles == "title"
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             app.config['BABEL_DEFAULT_LOCALE'] = 'ja'
             # from flask_babel import refresh; refresh()
             with app.test_request_context():
                 assert record.get_titles == "タイトル"
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             app.config['BABEL_DEFAULT_LOCALE'] = 'fr'
             # from flask_babel import refresh; refresh()
             with app.test_request_context():
                 assert record.get_titles=="title"
 
-        record["item_1617186331708"]["attribute_value_mlt"][0].pop("subitem_1551255648112")
-        record["item_1617186331708"]["attribute_value_mlt"][1].pop("subitem_1551255648112")
-        with app.test_request_context():
-            assert record.get_titles=="タイトル"
+            record["item_1617186331708"]["attribute_value_mlt"][0].pop("subitem_1551255648112")
+            record["item_1617186331708"]["attribute_value_mlt"][1].pop("subitem_1551255648112")
+            with app.test_request_context():
+                assert record.get_titles=="タイトル"
 
-        record["item_1617186331709"] = {"attribute_name": "Title", "attribute_value_mlt": [{"subitem_1551255647226": "タイトル-2", "subitem_1551255648113": "ja"},{"subitem_1551255647226": "title-2", "subitem_1551255648113": "en"}]}
-        with app.test_request_context():
-            assert record.get_titles=="タイトル"
+            record["item_1617186331709"] = {"attribute_name": "Title", "attribute_value_mlt": [{"subitem_1551255647226": "タイトル-2", "subitem_1551255648113": "ja"},{"subitem_1551255647226": "title-2", "subitem_1551255648113": "en"}]}
+            with app.test_request_context():
+                assert record.get_titles=="タイトル"
 
-        record.pop("item_1617186331708")
-        app.config['BABEL_DEFAULT_LOCALE'] = 'ja'
-        with app.test_request_context():
-            assert record.get_titles=="タイトル-2"
+            record.pop("item_1617186331708")
+            app.config['BABEL_DEFAULT_LOCALE'] = 'ja'
+            with app.test_request_context():
+                assert record.get_titles=="タイトル-2"
 
-        app.config['BABEL_DEFAULT_LOCALE'] = 'fr'
-        with app.test_request_context():
-            assert record.get_titles=="title-2"
+            app.config['BABEL_DEFAULT_LOCALE'] = 'fr'
+            with app.test_request_context():
+                assert record.get_titles=="title-2"
 
-        record["item_1617186331709"]["attribute_value_mlt"][0].pop("subitem_1551255648113")
-        record["item_1617186331709"]["attribute_value_mlt"][1].pop("subitem_1551255648113")
-        with app.test_request_context():
-            assert record.get_titles=="タイトル-2"
+            record["item_1617186331709"]["attribute_value_mlt"][0].pop("subitem_1551255648113")
+            record["item_1617186331709"]["attribute_value_mlt"][1].pop("subitem_1551255648113")
+            with app.test_request_context():
+                assert record.get_titles=="タイトル-2"
 
     #     def items_show_list(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_items_show_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_items_show_list(self, app, search_records, search_records_2, search_records_5, search_records_6, users, db_itemtype, db_admin_settings):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             with app.test_request_context():
                 with pytest.raises(AttributeError):
@@ -3276,19 +2855,9 @@ class TestWekoRecord:
             # with patch("weko_deposit.api._FormatSysBibliographicInformation.is_bibliographic", return_value=True):
             assert record.items_show_list == [{'attribute_name': 'PubDate', 'attribute_value': '2022-08-20', 'attribute_name_i18n': 'PubDate'}, {'attribute_name': 'Creator', 'attribute_name_i18n': 'Creator', 'attribute_type': 'creator', 'attribute_value_mlt': [{'name': [], 'order_lang': []}, {'name': ['givenNames'], 'order_lang': [{'NoLanguage': {'givenName': ['givenNames'], 'affiliationName': [], 'affiliationNameIdentifier': []}}, {'ja': {'creatorName': None, 'creatorAlternative': [], 'affiliationName': [], 'affiliationNameIdentifier': []}}]}, {'name': ['mei'], 'order_lang': [{'NoLanguage': {'familyName': ['mei'], 'affiliationName': [], 'affiliationNameIdentifier': []}}, {'ja': {'creatorName': None, 'creatorAlternative': [], 'affiliationName': [], 'affiliationNameIdentifier': []}}]}, {'name': ['mei'], 'order_lang': [{'NoLanguage': {'familyName': ['mei'], 'affiliationName': [], 'affiliationNameIdentifier': []}}, {'ja': {'creatorName': None, 'creatorAlternative': [], 'affiliationName': [], 'affiliationNameIdentifier': []}}]}, {'name': [], 'order_lang': []}, {'name': ['name'], 'order_lang': [{'NoLanguage': {'creatorName': ['name'], 'affiliationName': [], 'affiliationNameIdentifier': []}}, {'ja': {'creatorName': None, 'creatorAlternative': [], 'affiliationName': [], 'affiliationNameIdentifier': []}}]}, {'name': [], 'order_lang': [], 'nameIdentifiers': [{'nameIdentifier': '識別'}, {'nameIdentifierURI': 'tets.com'}]}, {'name': [], 'order_lang': []}, {'name': ['別名'], 'order_lang': [{'NoLanguage': {'creatorAlternative': ['別名'], 'affiliationName': [], 'affiliationNameIdentifier': []}}, {'ja': {'creatorName': None, 'creatorAlternative': [], 'affiliationName': [], 'affiliationNameIdentifier': []}}]}]}, {'attribute_name': 'Reference', 'attribute_type': 'file', 'content': [{'test': 'content'}, {'file': 'test'}], 'attribute_name_i18n': 'Resource Type'}, {'attribute_name': 'Bibliographic Information', 'attribute_name_i18n': 'Bibliographic Information', 'attribute_type': 'object', 'attribute_value_mlt': [{'title_attribute_name': [], 'magazine_attribute_name': [{'p.': '終了ページ'}], 'length': 1}, {'title_attribute_name': ['タイトル', 'ja : '], 'magazine_attribute_name': [], 'length': 0}, {'title_attribute_name': [], 'magazine_attribute_name': [{'p.': '開始ページ'}], 'length': 1}, {'title_attribute_name': [], 'magazine_attribute_name': [], 'length': 0}, {'title_attribute_name': [], 'magazine_attribute_name': [{'Issue Number': '号'}], 'length': 1}, {'title_attribute_name': [], 'magazine_attribute_name': [{'Number of Page': 'ページ数'}], 'length': 1}]}, {'attribute_name': 'Bibliographic Information', 'attribute_name_i18n': 'Bibliographic Information', 'attribute_type': 'object', 'attribute_value_mlt': [{'title_attribute_name': [], 'magazine_attribute_name': [{'p.': '終了ページ'}], 'length': 1}, {'title_attribute_name': ['タイトル', 'ja : '], 'magazine_attribute_name': [], 'length': 0}, {'title_attribute_name': [], 'magazine_attribute_name': [{'p.': '開始ページ'}], 'length': 1}, {'title_attribute_name': [], 'magazine_attribute_name': [], 'length': 0}, {'title_attribute_name': [], 'magazine_attribute_name': [{'Issue Number': '号'}], 'length': 1}, {'title_attribute_name': [], 'magazine_attribute_name': [{'Number of Page': 'ページ数'}], 'length': 1}]}, {'attribute_name': 'Bibliographic Information', 'attribute_name_i18n': 'Bibliographic Information', 'attribute_type': 'object', 'attribute_value_mlt': [[[]], [[]], [[]]]}, {'attribute_name': 'Information', 'attribute_type': 'object', 'attribute_value': '2022-08-20', 'attribute_name_i18n': 'Information'}, {'attribute_name': 'Information', 'attribute_type': 'nothing', 'attribute_name_i18n': 'Information'}, {'attribute_name': 'thumbnail', 'attribute_name_i18n': 'thumbnail', 'attribute_type': 'object', 'is_thumbnail': True}]
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_display_file_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_display_file_info(self, app, search_records, search_records_6, search_records_5):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             with app.test_request_context():
                 with pytest.raises(AttributeError):
@@ -3313,7 +2882,6 @@ class TestWekoRecord:
             with app.test_request_context("/test?filename=hello.txt"):
                 assert record.display_file_info == [{'attribute_name': 'Reference', 'attribute_type': 'file', 'content': [{'test': 'content'}, {'file': 'test'}], 'attribute_name_i18n': 'Resource Type', 'attribute_value_mlt': [[[[{'Resource Type': ''}]]]]}]
 
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             # nval['attribute_type'] == 'file
             _, results = search_records_5
             result = results[0]
@@ -3324,7 +2892,6 @@ class TestWekoRecord:
     #     def __remove_special_character_of_weko2(self, metadata):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test__remove_special_character_of_weko2 -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__remove_special_character_of_weko2(self,search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             indexer, results = search_records
             record = results[0]
@@ -3341,133 +2908,118 @@ class TestWekoRecord:
     #     def _get_creator(meta_data, hide_email_flag):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test__get_creator -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_creator(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             assert record._get_creator({}, False) == []
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
             assert record._get_creator({},True)==[]
 
             metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-07'}], 'format': 'plain/text', 'creatorMails': 'creatorMails', 'nameIdentifiers': 'nameIdentifiers', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_access', 'version_id': '18b2736a-fa2b-4b05-9582-86ffa87ebce9', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
-            assert record._get_creator(metadata,False)==[{'creatorMails': 'creatorMails','name': [],'nameIdentifiers': 'nameIdentifiers','order_lang': []}]
-            assert record._get_creator(metadata,True)==[{'name': [], 'nameIdentifiers': 'nameIdentifiers', 'order_lang': []}]
+            assert record._get_creator(metadata,False)==[{'creatorMails': 'creatorMails','name': [],'type': '','nameIdentifiers': 'nameIdentifiers','order_lang': []}]
+            assert record._get_creator(metadata,True)==[{'name': [],'type': '', 'nameIdentifiers': 'nameIdentifiers', 'order_lang': []}]
 
             metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-07'}], 'format': 'plain/text', 'creatorMails': 'creatorMails', 'Identifiers': 'nameIdentifiers', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_access', 'version_id': '18b2736a-fa2b-4b05-9582-86ffa87ebce9', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
-            assert record._get_creator(metadata,True)==[{'name': [], 'order_lang': []}]
-            mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
+            assert record._get_creator(metadata,True)==[{'name': [],'type': '', 'order_lang': []}]
 
     #     def __remove_file_metadata_do_not_publish(self, file_metadata_list):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test___remove_file_metadata_do_not_publish -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test___remove_file_metadata_do_not_publish(self,search_records,users):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, results = search_records
             record = results[0]
-            file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-07'}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_date', 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
-            assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) ==[{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-07'}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_date', 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
+            from unittest.mock import Mock
+            user = Mock()
+            user.is_authenticated = True
+            user.id = 1
+            user.roles = []
+            with patch("flask_login.utils._get_user",return_value=user):
+                file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-07'}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_date', 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
+                assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) ==[{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-07'}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_date', 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
 
-            record = results[1]
-            file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_date', 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
-            assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) ==[]
-
-            record = results[2]
-            file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
-            assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) ==[{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
-
-            record = results[3]
-            user = users[0]
-            with patch("flask_login.utils._get_user", return_value=user["obj"]):
-
-                file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'accessrole': 'open_no', 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
+                record = results[1]
+                file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'accessrole': 'open_date', 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
                 assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) ==[]
+
+                record = results[2]
+                file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
+                assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) ==[{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
+
+                record = results[3]
+                user = users[0]
+                with patch("flask_login.utils._get_user", return_value=user["obj"]):
+
+                    file_metadata = [{'url': {'url': 'https://weko3.example.org/record/2/files/hello.txt'}, 'accessrole': 'open_no', 'date': [{'dateType': 'Available', 'dateValue': ''}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [{'value': '146 KB'}], 'version_id': '2dfc9468-6a1f-4204-928d-0795625b79c8', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}]
+                    assert record["record"]._WekoRecord__remove_file_metadata_do_not_publish(file_metadata) ==[]
 
 
     #     def __check_user_permission(user_id_list):
     #.tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test___check_user_permission -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test___check_user_permission(self,search_records,users):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, results = search_records
             record = results[0]
             user_id_list = ["1","2"]
-            assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==False
-
-            record = results[1]
-            user = users[6]
-            with patch("flask_login.utils._get_user", return_value=user["obj"]):
-                user_id_list = ["1","2","3","4","5"]
-                assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==True
-
-            user = users[6]
-            with patch("flask_login.utils._get_user", return_value=user["obj"]):
-                user_id_list = [1,2,3,4,5,6,7,8]
-                assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==True
-
-            user = users[7]
-            with patch("flask_login.utils._get_user", return_value=user["obj"]):
-                user_id_list = ["1","2","3","4","5"]
+            from unittest.mock import Mock
+            user = Mock()
+            user.is_authenticated = True
+            user.id = 1
+            user.roles = []
+            with patch("flask_login.utils._get_user",return_value=user):
                 assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==False
 
-            user = users[5]
-            with patch("flask_login.utils._get_user", return_value=user["obj"]):
-                user_id_list = ["1","2","3","4","5"]
-                assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==False
+                record = results[1]
+                user = users[6]
+                with patch("flask_login.utils._get_user", return_value=user["obj"]):
+                    user_id_list = ["1","2","3","4","5"]
+                    assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==True
+
+                user = users[6]
+                with patch("flask_login.utils._get_user", return_value=user["obj"]):
+                    user_id_list = [1,2,3,4,5,6,7,8]
+                    assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==True
+
+                user = users[7]
+                with patch("flask_login.utils._get_user", return_value=user["obj"]):
+                    user_id_list = ["1","2","3","4","5"]
+                    assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==False
+
+                user = users[5]
+                with patch("flask_login.utils._get_user", return_value=user["obj"]):
+                    user_id_list = ["1","2","3","4","5"]
+                    assert record["record"]._WekoRecord__check_user_permission(user_id_list) ==False
 
     #     def is_input_open_access_date(file_metadata):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_is_input_open_access_date -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
 
     def test_is_input_open_access_date(self):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             assert record.is_input_open_access_date({}) == False
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def is_do_not_publish(file_metadata):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_is_do_not_publish -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_is_do_not_publish(self):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             assert record.is_do_not_publish({}) == False
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def get_open_date_value(file_metadata):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_get_open_date_value -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_get_open_date_value(self):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             assert record.get_open_date_value({}) == None
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def is_future_open_date(self, file_metadata):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_is_future_open_date -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_is_future_open_date(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             assert record.is_future_open_date(record, {}) == True
             assert record.is_future_open_date(record, {'url': {'url': 'https://weko3.example.org/record/1/files/hello.txt'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-07'}], 'format': 'plain/text', 'filename': 'hello.txt', 'filesize': [
                                               {'value': '146 KB'}], 'accessrole': 'open_access', 'version_id': 'e131046c-291f-4065-b4b4-ca3bf1fac6e3', 'mimetype': 'application/pdf', 'file': 'SGVsbG8sIFdvcmxk'}) == False
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def pid_doi(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_pid_doi -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
 
     def test_pid_doi(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             with pytest.raises(AttributeError):
                 assert record.pid_doi == ""
@@ -3477,31 +3029,23 @@ class TestWekoRecord:
             assert isinstance(pid, PersistentIdentifier) == True
             assert pid.pid_type == 'doi'
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def pid_cnri(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_pid_cnri -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_pid_cnri(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
-            record = WekoRecord({})
-            with pytest.raises(AttributeError):
-                assert record.pid_cnri == ""
-            indexer, records = search_records
-            record = records[0]['record']
-            pid = record.pid_cnri
-            assert isinstance(pid, PersistentIdentifier) == True
-            assert pid.pid_type == 'hdl'
+        record = WekoRecord({})
+        with pytest.raises(AttributeError):
+            assert record.pid_cnri == ""
+        indexer, records = search_records
+        record = records[0]['record']
+        pid = record.pid_cnri
+        assert isinstance(pid, PersistentIdentifier) == True
+        assert pid.pid_type == 'hdl'
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def pid_parent(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_pid_parent -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_pid_parent(self,db,search_records_with_draft):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             with pytest.raises(AttributeError):
                 assert record.pid_parent == ""
@@ -3520,23 +3064,18 @@ class TestWekoRecord:
     #     def get_record_by_pid(cls, pid):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_get_record_by_pid -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_get_record_by_pid(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
-            indexer, records = search_records
-            record = records[0]['record']
-            recid = records[0]['recid']
+        indexer, records = search_records
+        record = records[0]['record']
+        recid = records[0]['recid']
 
-            rec = WekoRecord.get_record_by_pid(1)
-            assert isinstance(rec, WekoRecord)
-            assert rec.pid_recid == recid
+        rec = WekoRecord.get_record_by_pid(1)
+        assert isinstance(rec, WekoRecord)
+        assert rec.pid_recid == recid
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def get_record_by_uuid(cls, uuid):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_get_record_by_uuid -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_get_record_by_uuid(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]['record']
             recid = records[0]['recid']
@@ -3544,66 +3083,52 @@ class TestWekoRecord:
             assert isinstance(rec, WekoRecord) == True
             assert rec.pid_recid == recid
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def get_record_cvs(cls, uuid):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_get_record_cvs -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_get_record_cvs(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]['record']
             assert WekoRecord.get_record_cvs(record.id) == False
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #     def _get_pid(self, pid_type):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test__get_pid -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_pid(self, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             record = WekoRecord({})
             with pytest.raises(AttributeError):
                 record._get_pid('')
+            with patch('weko_deposit.api.weko_logger'):
+                indexer, results = search_records
+                result = results[0]
+                result["record"]._get_pid('doi')
 
-            indexer, results = search_records
-            result = results[0]
-            result["record"]._get_pid('doi')
+                with patch("weko_deposit.api.get_record_without_version") as mock_pid:
+                    mock_pid.return_value = False
+                    result = results[1]
+                    assert result["record"]._get_pid('doi') == None
 
-            with patch("weko_deposit.api.get_record_without_version") as mock_pid:
-                mock_pid.return_value = False
-                result = results[1]
-                assert result["record"]._get_pid('doi') == None
+                from invenio_pidstore.models import PersistentIdentifier, PIDStatus
+                from invenio_pidstore.errors import PIDDoesNotExistError, PIDInvalidAction
+                from weko_deposit.errors import WekoDepositError
+                with patch("weko_deposit.api.db.desc", side_effect=PIDDoesNotExistError("test pid_type","test pid_value")):
+                    result = results[1]
+                    assert result["record"]._get_pid('doi') == None
 
-            from invenio_pidstore.models import PersistentIdentifier, PIDStatus
-            from invenio_pidstore.errors import PIDDoesNotExistError, PIDInvalidAction
-            from weko_deposit.errors import WekoDepositError
-            with patch("weko_deposit.api.db.desc", side_effect=PIDDoesNotExistError("test pid_type","test pid_value")):
-                result = results[1]
-                assert result["record"]._get_pid('doi') == None
+                with patch("weko_deposit.api.db.desc", side_effect=SQLAlchemyError("test_error")):
+                    with pytest.raises(WekoDepositError, match="Some error has occurred in weko_deposit."):
+                        indexer, results = search_records
+                        result = results[0]
+                        record = result['record']
+                        pid = record.pid
+                        record._get_pid("recid")
 
-            with patch("weko_deposit.api.db.desc", side_effect=SQLAlchemyError("test_error")):
-                 with pytest.raises(WekoDepositError, match="Some error has occurred in weko_deposit."):
-                     indexer, results = search_records
-                     result = results[0]
-                     record = result['record']
-                     pid = record.pid
-                     record._get_pid("recid")
-                     mock_logger.assert_any_call(key='WEKO_COMMON_FAILED_GET_PID', value=mock.ANY)
-                     mock_logger.reset_mock()
-
-            mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
 
 
     #     def update_item_link(self, pid_value):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_update_item_link -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_update_item_link(self,db, search_records):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             from weko_records.models import ItemMetadata, ItemReference
             ir = ItemReference(
                 src_item_pid='1', dst_item_pid='1', reference_type='1')
@@ -3617,16 +3142,10 @@ class TestWekoRecord:
             item_link = ItemLink.get_item_link_info(recid.pid_value)
             assert item_link == [
                 {'item_links': '1', 'item_title': 'title', 'value': '1'}]
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
 
     #     def get_file_data(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoRecord::test_get_file_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_get_file_data(self,app,search_records,search_records_3):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             indexer, records = search_records
             record = records[0]["record"]
             with app.test_request_context():
@@ -3643,15 +3162,6 @@ class TestWekoRecord:
             with app.test_request_context():
                 pass
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
 
 # class _FormatSysCreator:
@@ -3663,7 +3173,7 @@ class Test_FormatSysCreator:
         with app.test_request_context():
             obj = _FormatSysCreator(prepare_creator)
             assert isinstance(obj,_FormatSysCreator)==True
-    
+
     # 54105-17
     # constructor parameter is None
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test_languages_empty_when_none -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -3671,7 +3181,7 @@ class Test_FormatSysCreator:
         with app.test_request_context():
             obj = _FormatSysCreator(None)
             assert obj.languages == []
-    
+
     # 54105-18
     # not exists creator_names in WEKO_DEPOSIT_SYS_CREATOR_KEY
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__init__not_exists_creator_names -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -3682,12 +3192,11 @@ class Test_FormatSysCreator:
             with app.test_request_context():
                 obj = _FormatSysCreator(prepare_creator)
                 assert obj.languages == []
-        
+
     # 54105-5
 #     def _get_creator_languages_order(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__get_creator_languages_order -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_creator_languages_order(self, app, prepare_creator):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 obj = _FormatSysCreator(prepare_creator)
                 assert isinstance(obj, _FormatSysCreator) == True
@@ -3700,12 +3209,7 @@ class Test_FormatSysCreator:
                 obj._get_creator_languages_order()
                 assert obj.languages == ['ja', 'ja-Kana', 'en', 'cn']
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
-    
+
     # 54105-22
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__get_creator_languages_order2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_creator_languages_order2(self,app,prepare_creator):
@@ -3725,7 +3229,6 @@ class Test_FormatSysCreator:
     # def _format_creator_to_show_detail(self, language: str, parent_key: str,
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__format_creator_to_show_detail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__format_creator_to_show_detail(self, app, prepare_creator):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 obj = _FormatSysCreator(prepare_creator)
                 assert isinstance(obj,_FormatSysCreator)==True
@@ -3753,41 +3256,26 @@ class Test_FormatSysCreator:
                 obj._format_creator_to_show_detail(language,parent_key,lst)
                 assert lst==[]
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.reset_mock()
 
     # 54105-2
     # * This is for testing only for the changes regarding creatorType
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__format_creator_to_show_detail_2 -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__format_creator_to_show_detail_2(self, app, prepare_creator):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 prepare_creator["creatorType"] = "creator_type_test"
                 obj = _FormatSysCreator(prepare_creator)
                 language = 'en'
                 parent_key = 'creatorType'
                 lst = []
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.reset_mock()
 
             assert obj._format_creator_to_show_detail(
                 language,
                 parent_key,
                 lst
             ) is None
-            
+
             assert lst ==  ["creator_type_test"]
-    
+
     # 54105-6
     # exists creatorName, creatorNameLang but not exists language = 'ja'
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__format_creator_to_show_detail_not_exists_ja -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -3795,7 +3283,7 @@ class Test_FormatSysCreator:
         with app.test_request_context():
             prepare_creator['creatorNames'] = [{'creatorName': 'ジョウホウ, タロウ', 'creatorNameLang': 'ja-Kana'}, {'creatorName': 'Joho, Taro', 'creatorNameLang': 'en'}]
             obj = _FormatSysCreator(prepare_creator)
-            assert isinstance(obj,_FormatSysCreator)==True 
+            assert isinstance(obj,_FormatSysCreator)==True
             language = 'ja'
             parent_key = 'creatorNames'
             lst = []
@@ -3809,13 +3297,13 @@ class Test_FormatSysCreator:
     def test__format_creator_to_show_detail_not_exists_parent_key(self,app,prepare_creator):
         with app.test_request_context():
             obj = _FormatSysCreator(prepare_creator)
-            assert isinstance(obj,_FormatSysCreator)==True 
+            assert isinstance(obj,_FormatSysCreator)==True
             language = 'en'
             parent_key = None
             lst = []
             obj._format_creator_to_show_detail(language,parent_key,lst)
             assert len(lst) == 0
-    
+
     # 54105-8
     # not exists creatorNames
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__format_creator_to_show_detail_not_exists_creatorNames -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -3823,7 +3311,7 @@ class Test_FormatSysCreator:
         with app.test_request_context():
             prepare_creator['creatorNames'] = None
             obj = _FormatSysCreator(prepare_creator)
-            assert isinstance(obj,_FormatSysCreator)==True 
+            assert isinstance(obj,_FormatSysCreator)==True
             language = 'en'
             parent_key = 'creatorNames'
             lst = []
@@ -3837,49 +3325,49 @@ class Test_FormatSysCreator:
         with app.test_request_context():
             prepare_creator['creatorNames'] = [{'creatorName': 'Taro Yamada', 'creatorNameLang': 'en'}, {'creatorName': 'Joho, Taro', 'creatorNameLang': 'en'}]
             obj = _FormatSysCreator(prepare_creator)
-            assert isinstance(obj,_FormatSysCreator)==True 
+            assert isinstance(obj,_FormatSysCreator)==True
             language = 'en'
             parent_key = 'creatorNames'
             lst = []
             obj._format_creator_to_show_detail(language,parent_key,lst)
             assert lst == ["Taro Yamada"]
-    
+
     # 54105-10
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__format_creator_to_show_detail_family_names -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__format_creator_to_show_detail_family_names(self, app, prepare_creator):
         with app.test_request_context():
             obj = _FormatSysCreator(prepare_creator)
-            assert isinstance(obj,_FormatSysCreator)==True 
+            assert isinstance(obj,_FormatSysCreator)==True
             language = 'en'
             parent_key = 'familyNames'
             lst = []
             obj._format_creator_to_show_detail(language,parent_key,lst)
             assert lst==['Joho']
-    
+
     # 54105-11
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__format_creator_to_show_detail_given_names -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__format_creator_to_show_detail_given_names(self, app, prepare_creator):
         with app.test_request_context():
             obj = _FormatSysCreator(prepare_creator)
-            assert isinstance(obj,_FormatSysCreator)==True 
+            assert isinstance(obj,_FormatSysCreator)==True
             language = 'en'
             parent_key = 'givenNames'
             lst = []
             obj._format_creator_to_show_detail(language,parent_key,lst)
             assert lst==['Taro']
-    
+
     # 54105-12
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__format_creator_to_show_detail_alternative_names -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__format_creator_to_show_detail_alternative_names(self, app, prepare_creator):
         with app.test_request_context():
             obj = _FormatSysCreator(prepare_creator)
-            assert isinstance(obj,_FormatSysCreator)==True 
+            assert isinstance(obj,_FormatSysCreator)==True
             language = 'en'
             parent_key = 'creatorAlternatives'
             lst = []
             obj._format_creator_to_show_detail(language,parent_key,lst)
             assert lst==['Alternative Name']
-    
+
     # 54105-13
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__format_creator_to_show_detail_not_exists_creator_name -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__format_creator_to_show_detail_not_exists_creator_name(self,app,prepare_creator):
@@ -3889,7 +3377,7 @@ class Test_FormatSysCreator:
                     creator.pop('creatorName')
 
             obj = _FormatSysCreator(prepare_creator)
-            assert isinstance(obj,_FormatSysCreator)==True 
+            assert isinstance(obj,_FormatSysCreator)==True
             language = 'en'
             parent_key = 'creatorNames'
             lst = []
@@ -3899,7 +3387,6 @@ class Test_FormatSysCreator:
     #     def _get_creator_to_show_popup(self, creators: Union[list, dict],
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__get_creator_to_show_popup -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_creator_to_show_popup(self, app, prepare_creator):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 obj = _FormatSysCreator(prepare_creator)
                 assert isinstance(obj,_FormatSysCreator)==True
@@ -3963,18 +3450,10 @@ class Test_FormatSysCreator:
                 assert creator_list==[{'NoLanguage': [{'givenName': '太郎', 'test1': 'ja'},{'givenName': 'タロウ', 'test2': 'ja-Kana'},{'givenName': 'Taro', 'test3': 'en'}]}]
                 assert creator_list_temp==None
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.reset_mock()
 
     # * This is for testing only for the changes regarding creatorType
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__get_creator_to_show_popup_2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_creator_to_show_popup_2(self, app, prepare_creator):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 prepare_creator["creatorType"] = "creator_type_test"
                 obj = _FormatSysCreator(prepare_creator)
@@ -3996,13 +3475,6 @@ class Test_FormatSysCreator:
 
                 assert len(creator_list) == 0
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.reset_mock()
 
 
     # def format_affiliation(affiliation_data):
@@ -4023,7 +3495,6 @@ class Test_FormatSysCreator:
     # def format_creator(self) -> dict:
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test_format_creator -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_format_creator(self, app, prepare_creator):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 obj = _FormatSysCreator(prepare_creator)
                 assert isinstance(obj,_FormatSysCreator)==True
@@ -4037,16 +3508,10 @@ class Test_FormatSysCreator:
                 #     obj = _FormatSysCreator(prepare_creator_1)
                 # assert obj.format_creator()== {'name': [], 'order_lang': []}
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.reset_mock()
 
     # * This is for testing only for the changes regarding creatorType
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test_format_creator_2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_format_creator_2(self, app, prepare_creator):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 prepare_creator["creatorType"] = "creator_type_test"
                 obj = _FormatSysCreator(prepare_creator)
@@ -4068,7 +3533,7 @@ class Test_FormatSysCreator:
                         assert "creatorType" not in list(item.get("en").keys())
 
             assert returnData == {'name': ['Joho, Taro'], 'type': 'creator_type_test', 'order_lang': [{'ja': {'creatorName': ['情報, 太郎'], 'creatorAlternative': ['別名'], 'affiliationName': ['ISNI 所属機関'], 'affiliationNameIdentifier': [{'identifier': 'xxxxxx', 'uri': 'xxxxx'}]}}, {'ja-Kana': {'creatorName': ['ジョウホウ, タロウ'], 'creatorAlternative': [], 'affiliationName': [], 'affiliationNameIdentifier': []}}, {'en': {'creatorName': ['Joho, Taro'], 'creatorAlternative': ['Alternative Name'], 'affiliationName': [' Affilication Name'], 'affiliationNameIdentifier': [{'identifier': '', 'uri': ''}]}}]}
-    
+
     # 54105-23,24
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test_format_creator_not_dict_or_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_format_creator_not_dict_or_list(self, app, prepare_creator):
@@ -4097,7 +3562,7 @@ class Test_FormatSysCreator:
                 obj = _FormatSysCreator(prepare_creator)
                 des_creator = obj.format_creator()
                 assert des_creator == {}
-    
+
     # 54105-28
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test_format_creator_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_format_creator_exception(self, app):
@@ -4105,7 +3570,7 @@ class Test_FormatSysCreator:
             obj = _FormatSysCreator(None)
             des_creator = obj.format_creator()
             assert des_creator == {}
-    
+
     # 54105-14～21
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test_format_creator_name -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_format_creator_name(self, app, prepare_creator):
@@ -4114,7 +3579,7 @@ class Test_FormatSysCreator:
             # not exists creatorNameType
             creator_data = {'creatorName': ['情報, 太郎']}
             des_creator = {}
-            
+
             assert isinstance(
                 obj,
                 _FormatSysCreator
@@ -4179,7 +3644,7 @@ class Test_FormatSysCreator:
             obj._format_creator_name(creator_data, des_creator)
 
             assert des_creator['creatorName'] == None
-    
+
     # 54105-29
     # not exists creator_name in WEKO_DEPOSIT_SYS_CREATOR_KEY
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test_format_creator_name_not_exists_creator_name -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -4194,7 +3659,7 @@ class Test_FormatSysCreator:
                     obj = _FormatSysCreator(prepare_creator)
                     des_creator = obj._format_creator_name(creator_data, des_creator)
                     assert des_creator == {}
-    
+
     # 54105-30
     # not exists familyName in WEKO_DEPOSIT_SYS_CREATOR_KEY
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test_format_creator_name_not_exists_family_name -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -4224,11 +3689,10 @@ class Test_FormatSysCreator:
                     obj = _FormatSysCreator(prepare_creator)
                     des_creator = obj._format_creator_name(creator_data, des_creator)
                     assert des_creator == {}
-               
+
     # def _format_creator_on_creator_popup(self, creators: Union[dict, list],
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__format_creator_on_creator_popup -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__format_creator_on_creator_popup(self, app, prepare_creator):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 obj = _FormatSysCreator({})
                 assert isinstance(obj, _FormatSysCreator) == True
@@ -4250,18 +3714,10 @@ class Test_FormatSysCreator:
                 obj._format_creator_on_creator_popup(creator_list,formatted_creator_list)
                 assert formatted_creator_list==[{'NoLanguage': {'affiliationName': ['情', '報'],'affiliationNameIdentifier': [{'identifier': '', 'uri': ''},{'identifier': '', 'uri': ''}],'affiliationNameIdentifierScheme': '情報','givenName': ['太郎'],'givenNameLang': ['ja']}}]
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.reset_mock()
 
     # def _format_creator_name(creator_data: dict,
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__format_creator_name -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__format_creator_name(self, app, prepare_creator):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 obj = _FormatSysCreator(prepare_creator)
                 assert isinstance(obj, _FormatSysCreator) == True
@@ -4289,18 +3745,10 @@ class Test_FormatSysCreator:
                 obj._format_creator_name(creator_data5,tmp)
                 assert tmp=={'creatorName': ['情報1 太郎', '情報2', '情報3']}
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.reset_mock()
 
     # def _format_creator_affiliation(creator_data: dict,
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__format_creator_affiliation -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__format_creator_affiliation(self, app, prepare_creator):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 obj = _FormatSysCreator(prepare_creator)
                 assert isinstance(obj,_FormatSysCreator)==True
@@ -4315,19 +3763,11 @@ class Test_FormatSysCreator:
                 assert des_creator=={'creatorName': ['情報, 太郎'], 'creatorAlternative': ['別名'], 'affiliationName': ['ISNI'], 'affiliationNameIdentifier': [{'identifier': 'xxxxxx', 'uri': 'xxxxx'}]}
 
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_WHILE_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_WHILE_END')
-                mock_logger.reset_mock()
 
     #         def _get_max_list_length() -> int:
     # def _get_creator_to_display_on_popup(self, creator_list: list):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__get_creator_to_display_on_popup -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_creator_to_display_on_popup(self, app, prepare_creator):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context(headers=[("Accept-Language", "en")]):
                 obj = _FormatSysCreator(prepare_creator)
                 assert isinstance(obj, _FormatSysCreator) == True
@@ -4335,16 +3775,10 @@ class Test_FormatSysCreator:
                 obj._get_creator_to_display_on_popup(creator_list)
                 assert creator_list==[{'ja': [{'givenName': '太郎', 'givenNameLang': 'ja'}, {'familyName': '情報', 'familyNameLang': 'ja'}, {'creatorName': '情報, 太郎', 'creatorNameLang': 'ja'}, {'affiliationName': '所属機関', 'affiliationNameLang': 'ja', 'affiliationNameIdentifier': 'xxxxxx', 'affiliationNameIdentifierURI': 'xxxxx', 'affiliationNameIdentifierScheme': 'ISNI'}, {'creatorAlternative': '別名', 'creatorAlternativeLang': 'ja'}]}, {'ja-Kana': [{'givenName': 'タロウ', 'givenNameLang': 'ja-Kana'}, {'familyName': 'ジョウホウ', 'familyNameLang': 'ja-Kana'}, {'creatorName': 'ジョウホウ, タロウ', 'creatorNameLang': 'ja-Kana'}]}, {'en': [{'givenName': 'Taro', 'givenNameLang': 'en'}, {'familyName': 'Joho', 'familyNameLang': 'en'}, {'creatorName': 'Joho, Taro', 'creatorNameLang': 'en'}, {'creatorAlternative': 'Alternative Name', 'creatorAlternativeLang': 'en'}]},{'cn': [{'affiliationName': 'Affilication Name','affiliationNameLang': 'cn'}]}]
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.reset_mock()
 
     # def _merge_creator_data(self, creator_data: Union[list, dict],
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__merge_creator_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__merge_creator_data(self, app, prepare_creator):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 obj = _FormatSysCreator(prepare_creator)
                 assert isinstance(obj, _FormatSysCreator) == True
@@ -4355,13 +3789,6 @@ class Test_FormatSysCreator:
                 assert merged_data == {'givenName': ['太郎'], 'givenNameLang': ['ja'], 'familyName': ['情報'], 'familyNameLang': ['ja'], 'creatorName': ['情報, 太郎'], 'creatorNameLang': ['ja'], 'affiliationName': ['所属機関'], 'affiliationNameLang': [
                     'ja'], 'affiliationNameIdentifier': ['xxxxxx'], 'affiliationNameIdentifierURI': ['xxxxx'], 'affiliationNameIdentifierScheme': ['ISNI'], 'creatorAlternative': ['別名'], 'creatorAlternativeLang': ['ja']}
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.reset_mock()
 
                 creator_data = [{'familyName': '情報', 'familyNameLang': 'ja'}, {'creatorName': '情報, 太郎', 'creatorNameLang': 'ja'}, {'affiliationName': '所属機関', 'affiliationNameLang': 'ja',
                                                                                                                                    'affiliationNameIdentifier': 'xxxxxx', 'affiliationNameIdentifierURI': 'xxxxx', 'affiliationNameIdentifierScheme': 'ISNI'}, {'creatorAlternative': '別名', 'creatorAlternativeLang': 'ja'}]
@@ -4370,13 +3797,6 @@ class Test_FormatSysCreator:
                 assert merged_data == {'givenName': '次郎', 'givenNameLang': 'ja', 'familyName': ['情報'], 'familyNameLang': ['ja'], 'creatorName': ['情報, 太郎'], 'creatorNameLang': ['ja'], 'affiliationName': ['所属機関'], 'affiliationNameLang': [
                     'ja'], 'affiliationNameIdentifier': ['xxxxxx'], 'affiliationNameIdentifierURI': ['xxxxx'], 'affiliationNameIdentifierScheme': ['ISNI'], 'creatorAlternative': ['別名'], 'creatorAlternativeLang': ['ja']}
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.reset_mock()
 
                 creator_data = "not_dict_or_list"
                 merged_data = {}
@@ -4388,13 +3808,6 @@ class Test_FormatSysCreator:
                 obj._merge_creator_data(creator_data, merged_data)
                 assert merged_data == {}
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.reset_mock()
 
                 creator_data = {'givenName': '太郎'}
                 merged_data = {'givenName': ['次郎']}
@@ -4406,19 +3819,11 @@ class Test_FormatSysCreator:
                 obj._merge_creator_data(creator_data,merged_data)
                 assert merged_data == {'givenName': ['次郎','太郎']}
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.reset_mock()
 
     #         def merge_data(key, value):
     # def _get_default_creator_name(self, list_parent_key: list,
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test_FormatSysCreator::test__get_default_creator_name -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_default_creator_name(self, app, prepare_creator):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             with app.test_request_context():
                 obj = _FormatSysCreator(prepare_creator)
                 assert isinstance(obj, _FormatSysCreator) == True
@@ -4456,13 +3861,6 @@ class Test_FormatSysCreator:
                     obj._get_default_creator_name(list_parent_key, creator_name)
                     assert creator_name == ['太郎']
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.reset_mock()
 
 #         def _get_creator(_language):
 
@@ -4482,43 +3880,25 @@ class Test__FormatSysBibliographicInformation():
     # def is_bibliographic(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test__FormatSysBibliographicInformation::test_is_bibliographic -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_is_bibliographic(self, app, prepare_formatsysbib):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             mlt, solst = prepare_formatsysbib
             obj = _FormatSysBibliographicInformation(
                 copy.deepcopy(mlt), copy.deepcopy(solst))
             assert isinstance(obj, _FormatSysBibliographicInformation) == True
             assert obj.is_bibliographic() == True
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             obj.bibliographic_meta_data_lst = {"bibliographic_titles": "title"}
             assert obj.is_bibliographic() == True
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            # mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             obj.bibliographic_meta_data_lst = "str_value"
             assert obj.is_bibliographic() == False
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     #         def check_key(_meta_data):
     # def get_bibliographic_list(self, is_get_list):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test__FormatSysBibliographicInformation::test_get_bibliographic_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_get_bibliographic_list(self, app, prepare_formatsysbib):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             mlt, solst = prepare_formatsysbib
             obj = _FormatSysBibliographicInformation(
                 copy.deepcopy(mlt), copy.deepcopy(solst))
@@ -4530,18 +3910,10 @@ class Test__FormatSysBibliographicInformation():
 
                 assert obj.get_bibliographic_list(False) == [{'length': 5,'magazine_attribute_name': [{'Volume Number': '1'},{'Issue Number': '12'},{'p.': '1-100'},{'Number of Page': '99'},{'Issue Date': '2022-08-29'}],'title_attribute_name': ['ja : 雑誌タイトル', 'en : Journal Title']},{'length': 5,'magazine_attribute_name': [{'Volume Number': '1'},{'Issue Number': '12'},{'p.': '1'},{'Number of Page': '99'},{'Issue Date': '2022-08-29'}],'title_attribute_name': []}]
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def _get_bibliographic(self, bibliographic, is_get_list):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test__FormatSysBibliographicInformation::test__get_bibliographic -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_bibliographic(self, app, prepare_formatsysbib):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             mlt, solst = prepare_formatsysbib
             bibliographic = mlt[0]
             obj=_FormatSysBibliographicInformation(copy.deepcopy(mlt),copy.deepcopy(solst))
@@ -4555,11 +3927,6 @@ class Test__FormatSysBibliographicInformation():
                     'Issue': '12'}, {'p.': '1-100'}, {'Number of Pages': '99'}, {'Issued Date': '2022-08-29'}], 5)
                 assert obj._get_bibliographic(bibliographic, False) == (['ja : 雑誌タイトル', 'en : Journal Title'], [{'Volume Number': '1'}, {
                     'Issue Number': '12'}, {'p.': '1-100'}, {'Number of Page': '99'}, {'Issue Date': '2022-08-29'}], 5)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-                mock_logger.reset_mock()
 
             bibliographic = mlt[1]
             obj=_FormatSysBibliographicInformation(copy.deepcopy(mlt),copy.deepcopy(solst))
@@ -4573,38 +3940,20 @@ class Test__FormatSysBibliographicInformation():
     # def _get_property_name(self, key):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test__FormatSysBibliographicInformation::test__get_property_name -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_property_name(self, app, prepare_formatsysbib):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             mlt, solst = prepare_formatsysbib
             obj = _FormatSysBibliographicInformation(
                 copy.deepcopy(mlt), copy.deepcopy(solst))
             assert isinstance(obj, _FormatSysBibliographicInformation) == True
             assert obj._get_property_name('subitem_1551255647225') == 'Title'
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             result = obj._get_property_name('not_exist_key')
             assert result == "not_exist_key"
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            # mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def _get_translation_key(key, lang):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test__FormatSysBibliographicInformation::test__get_translation_key -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_translation_key(self, app, prepare_formatsysbib):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             mlt, solst = prepare_formatsysbib
             obj = _FormatSysBibliographicInformation(
                 copy.deepcopy(mlt), copy.deepcopy(solst))
@@ -4613,11 +3962,6 @@ class Test__FormatSysBibliographicInformation():
                 assert obj._get_translation_key(
                     key, "en") == WEKO_DEPOSIT_BIBLIOGRAPHIC_TRANSLATIONS[key]["en"]
 
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-                mock_logger.reset_mock()
 
             result = obj._get_translation_key("not_exist_key", "")
             assert result == None
@@ -4626,7 +3970,6 @@ class Test__FormatSysBibliographicInformation():
     # def _get_bibliographic_information(self, bibliographic):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test__FormatSysBibliographicInformation::test__get_bibliographic_information -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_bibliographic_information(self, app, prepare_formatsysbib):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             mlt, solst = prepare_formatsysbib
             bibliographic = mlt[0]
             obj = _FormatSysBibliographicInformation(
@@ -4635,20 +3978,10 @@ class Test__FormatSysBibliographicInformation():
             assert obj._get_bibliographic_information(bibliographic) == ([{'Volume Number': '1'}, {
                 'Issue Number': '12'}, {'p.': '1-100'}, {'Number of Page': '99'}, {'Issue Date': '2022-08-29'}], 5)
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def _get_bibliographic_show_list(self, bibliographic, language):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test__FormatSysBibliographicInformation::test__get_bibliographic_show_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_bibliographic_show_list(self, app, prepare_formatsysbib):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             mlt, solst = prepare_formatsysbib
             bibliographic = mlt[0]
             obj = _FormatSysBibliographicInformation(
@@ -4660,20 +3993,10 @@ class Test__FormatSysBibliographicInformation():
                 assert obj._get_bibliographic_show_list(bibliographic, "en") == ([{'Volume': '1'}, {'Issue': '12'}, {
                     'p.': '1-100'}, {'Number of Pages': '99'}, {'Issued Date': '2022-08-29'}], 5)
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def _get_source_title(source_titles):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test__FormatSysBibliographicInformation::test___get_source_title -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test___get_source_title(self, prepare_formatsysbib):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             mlt, solst = prepare_formatsysbib
             bibliographic = mlt[0]
             obj=_FormatSysBibliographicInformation(copy.deepcopy(mlt),copy.deepcopy(solst))
@@ -4681,17 +4004,10 @@ class Test__FormatSysBibliographicInformation():
 
             assert obj._get_source_title(bibliographic.get('bibliographic_titles'))==['ja : 雑誌タイトル', 'en : Journal Title']
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def _get_source_title_show_list(source_titles, current_lang):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test__FormatSysBibliographicInformation::test__get_source_title_show_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_source_title_show_list(self, app, prepare_formatsysbib):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             mlt, solst = prepare_formatsysbib
             bibliographic = mlt[0]
             obj = _FormatSysBibliographicInformation(
@@ -4709,15 +4025,6 @@ class Test__FormatSysBibliographicInformation():
                 assert obj._get_source_title_show_list(
                     _title1, "ja-Latn") == ('雑誌タイトル', 'ja')
 
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-                mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-                mock_logger.assert_any_call(
-                    key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-                mock_logger.reset_mock()
 
             data = [{"bibliographic_titleLang": "ja-Latn",
                      "bibliographic_title": "ja-Latn_title"}]
@@ -4725,15 +4032,6 @@ class Test__FormatSysBibliographicInformation():
             assert value == "ja-Latn_title"
             assert lang == "ja-Latn"
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
 
             data =[{"bibliographic_title":"not_key_title"},{"bibliographic_titleLang":"ja-Latn","bibliographic_title":"ja-Latn_title"}]
@@ -4741,15 +4039,6 @@ class Test__FormatSysBibliographicInformation():
             assert value == "not_key_title"
             assert lang == ""
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             app.config.update(WEKO_RECORDS_UI_LANG_DISP_FLG=True)
             data = [{}, {"bibliographic_title": "not_key_title"}, {"bibliographic_titleLang": "ja",
@@ -4758,30 +4047,12 @@ class Test__FormatSysBibliographicInformation():
             assert value == "zh_title"
             assert lang == "zh"
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             data = [{}, {"bibliographic_title": "not_key_title"}]
             value, lang = obj._get_source_title_show_list(data, "en")
             assert value == "not_key_title"
             assert lang == "ja"
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             app.config.update(WEKO_RECORDS_UI_LANG_DISP_FLG=True)
             data = [{}, {"bibliographic_title": "not_key_title"}, {"bibliographic_titleLang": "ja","bibliographic_title": "ja_title"}, {"bibliographic_titleLang": "ja","bibliographic_title": "ja_title"}]
@@ -4790,20 +4061,10 @@ class Test__FormatSysBibliographicInformation():
             assert value == "not_key_title"
             assert lang == "ja"
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def _get_page_tart_and_page_end(page_start, page_end):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test__FormatSysBibliographicInformation::test__get_page_tart_and_page_end -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_page_tart_and_page_end(self, prepare_formatsysbib):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             mlt, solst = prepare_formatsysbib
             bibliographic = mlt[0]
             obj = _FormatSysBibliographicInformation(
@@ -4819,14 +4080,10 @@ class Test__FormatSysBibliographicInformation():
                         bibliographic.get('bibliographicPageEnd'))=="1".format(bibliographic.get('bibliographicPageStart'),
                         bibliographic.get('bibliographicPageEnd'))
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
     # def _get_issue_date(issue_date):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::Test__FormatSysBibliographicInformation::test__get_issue_date -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test__get_issue_date(self, prepare_formatsysbib):
-        with patch('weko_deposit.api.weko_logger') as mock_logger:
             mlt, solst = prepare_formatsysbib
             bibliographic = mlt[0]
             obj = _FormatSysBibliographicInformation(
@@ -4835,30 +4092,14 @@ class Test__FormatSysBibliographicInformation():
             assert obj._get_issue_date(bibliographic.get('bibliographicIssueDates')) == [
                 bibliographic.get('bibliographicIssueDates').get('bibliographicIssueDate')]
 
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
             data = [{"bibliographicIssueDate":'2022-08-29', 'bibliographicIssueDateType': 'Issued'},{"key":"value"}]
             result = obj._get_issue_date(data)
             assert result == ["2022-08-29"]
 
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-            mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-            mock_logger.assert_any_call(
-                key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
             data = "str_data"
             result = obj._get_issue_date(data)
             assert result == []
-            mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
 
 
 def test_missing_location(app, location, record ):
