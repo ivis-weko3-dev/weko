@@ -21,7 +21,7 @@ def test_index():
 
     with app.app_context():
         with app.test_client() as client:
-            mock_render = patch("weko_bulkupdate.views.render_template",return_value=make_response())
-            res = client.get(url_for("weko_bulkupdate.index"))
-            assert res.status_code == 200
-            mock_render.assert_called_with("weko_bulkupdate/index.html",module_name="WEKO-Bulkupdate")
+            with patch("weko_bulkupdate.views.render_template",return_value=make_response()) as mock_render:
+                res = client.get(url_for("weko_bulkupdate.index"))
+                assert res.status_code == 200
+                mock_render.assert_called_with("weko_bulkupdate/index.html",module_name="WEKO-Bulkupdate")
