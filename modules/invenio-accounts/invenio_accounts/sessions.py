@@ -18,6 +18,7 @@ from flask import after_this_request, current_app, request, session
 from geolite2 import geolite2
 from invenio_db import db
 from invenio_rest.csrf import reset_token
+from simplekv.memory.redisstore import RedisStore
 from ua_parser import user_agent_parser
 from werkzeug.local import LocalProxy
 
@@ -195,9 +196,11 @@ def default_session_store_factory(app):
     return DictStore()
 
 def session_update(app):
-    
+
     @app.teardown_request
     def session_ttl_update(arg):
+        if not isinstance(_sessionstore, RedisStore) and not hasattr(_sessionstore, "redis"):
+            return
         if '_user_id' not in session and hasattr(session, 'sid_s'):
             if request.path == '/ping':
                 _sessionstore.redis.expire(session.sid_s, 1)
