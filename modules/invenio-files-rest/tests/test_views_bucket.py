@@ -15,6 +15,7 @@ from .testutils import login_user
 from invenio_files_rest.models import ObjectVersion
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_bucket.py::test_head -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user, expected",
     [
@@ -25,8 +26,10 @@ from invenio_files_rest.models import ObjectVersion
         ("location", 200),
     ],
 )
-def test_head(client, headers, bucket, permissions, user, expected):
+def test_head(client, headers, bucket, permissions, user, expected, mocker):
     """Test checking existence of bucket."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
     login_user(client, permissions[user])
 
     # Existing bucket
@@ -47,8 +50,12 @@ def test_head(client, headers, bucket, permissions, user, expected):
     )
 
 
-def test_head_locked_deleted(client, db, headers, bucket, permissions):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_bucket.py::test_head_locked_deleted -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_head_locked_deleted(client, db, headers, bucket, permissions, mocker):
     """Test checking existence of bucket."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     bucket_url = url_for("invenio_files_rest.bucket_api", bucket_id=bucket.id)
 
     login_user(client, permissions["location"])
@@ -64,6 +71,7 @@ def test_head_locked_deleted(client, db, headers, bucket, permissions):
     assert client.head(bucket_url).status_code == 404
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_bucket.py::test_get -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user, expected",
     [
@@ -74,8 +82,14 @@ def test_head_locked_deleted(client, db, headers, bucket, permissions):
         ("location", 200),
     ],
 )
-def test_get(client, headers, permissions, bucket, objects, get_json, user, expected):
+def test_get(
+    client, headers, permissions, bucket, objects, get_json,
+    user, expected, mocker
+):
     """Test listing objects."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     login_user(client, permissions[user])
     # Existing bucket
     resp = client.get(
@@ -95,13 +109,18 @@ def test_get(client, headers, permissions, bucket, objects, get_json, user, expe
         assert set(data["contents"][0].keys()) == {
             "checksum",
             "created",
+            "created_user_id",
             "delete_marker",
             "is_head",
+            "is_show",
+            "is_thumbnail",
             "key",
             "links",
             "mimetype",
             "size",
             "updated",
+            "updated_user_id",
+            "uploaded_owners",
             "version_id",
             "tags",
         }
@@ -128,6 +147,7 @@ def test_get(client, headers, permissions, bucket, objects, get_json, user, expe
     assert resp.status_code == 404
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_bucket.py::test_get_empty_bucket -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user, expected",
     [
@@ -143,11 +163,12 @@ def test_get_versions(
 ):
     """Test listing objects."""
     login_user(client, permissions[user])
+    bucket_id = bucket.id
 
     resp = client.get(
         url_for(
             "invenio_files_rest.bucket_api",
-            bucket_id=bucket.id,
+            bucket_id=bucket_id,
             versions="1",
         ),
         headers=headers,
@@ -157,7 +178,7 @@ def test_get_versions(
     if resp.status_code == 200:
         data = get_json(resp)
         assert len(data["contents"]) == 4
-        assert data["id"] == str(bucket.id)
+        assert data["id"] == str(bucket_id)
 
 
 @pytest.mark.parametrize(

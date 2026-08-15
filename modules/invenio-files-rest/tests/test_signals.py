@@ -16,12 +16,15 @@ from .testutils import login_user
 from invenio_files_rest.signals import file_deleted, file_uploaded
 
 
-def test_signals(app, client, headers, bucket, permissions):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_signals.py::test_signals -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_signals(app, client, headers, bucket_with_record, permissions, user_activity_log_partition_table, mocker):
     """Test file_uploaded and file_deleted signals."""
+
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
     login_user(client, permissions["bucket"])
     key = "myfile.txt"
     data = b"content of my file"
-    object_url = url_for("invenio_files_rest.object_api", bucket_id=bucket.id, key=key)
+    object_url = url_for("invenio_files_rest.object_api", bucket_id=bucket_with_record.id, key=key)
 
     calls = []
 
