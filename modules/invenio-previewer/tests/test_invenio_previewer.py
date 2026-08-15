@@ -58,7 +58,8 @@ def test_init():
     assert "invenio-previewer" in app.extensions
 
 
-@patch("set(importlib_metadata.entry_points", _mock_entry_points)
+# .tox/c1/bin/pytest --cov=invenio_previewer tests/test_invenio_previewer.py::test_entrypoint_previewer -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-previewer/.tox/c1/tmp
+@patch("importlib_metadata.entry_points", _mock_entry_points)
 def test_entrypoint_previewer():
     """Test the entry points."""
     app = Flask("testapp")

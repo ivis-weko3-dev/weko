@@ -9,6 +9,7 @@
 """View method for Invenio-Records-UI for previewing files."""
 
 from flask import Blueprint, abort, current_app, request
+from invenio_db import db
 
 from .api import PreviewFile
 from .extensions import default
