@@ -459,9 +459,11 @@ class TestReportView:
             }
         }
         data = {
-            "report":json.dumps(stats_json),"year":"2022","month":"10","send_email":"False"
+            "type":"all","year":"2022","month":"10","send_email":"False"
         }
-        mocker.patch("weko_admin.admin.package_reports",return_value=io.BytesIO())
+        magicmock = MagicMock(return_value=io.BytesIO())
+        mocker.patch("weko_admin.admin.get_reports", return_value=stats_json)
+        mocker.patch("weko_admin.admin.package_reports", magicmock)
         result = client.post(url,data=data)
         assert result.headers["Content-Type"] == "application/x-zip-compressed"
         assert result.headers["Content-Disposition"] == "attachment; filename=logReport_2022-10.zip"
@@ -469,7 +471,7 @@ class TestReportView:
 
         # send_email is "True"
         data = {
-            "report":json.dumps(stats_json),"year":"2022","month":"10","send_email":"True"
+            "type":"all","year":"2022","month":"10","send_email":"True"
         }
         ## send_mail is true
         mocker.patch("weko_admin.admin.render_template",return_value="2022-10 Log report.")

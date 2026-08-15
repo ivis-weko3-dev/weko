@@ -355,21 +355,21 @@ msgstr ""
 msgid "Log Analysis"
 msgstr ""
 
-#: weko_admin/admin.py:2529
-#: weko_admin/templates/weko_admin/admin/site_info.html:52
+#: weko_admin/admin.py:2436
+#: weko_admin/templates/weko_admin/admin/site_info.html:50
 msgid "Language"
 msgstr ""
 
-#: weko_admin/admin.py:2538
+#: weko_admin/admin.py:2445
 msgid "WebAPI Account"
 msgstr ""
 
-#: weko_admin/admin.py:2547
+#: weko_admin/admin.py:2454
 msgid "Ranking"
 msgstr ""
 
-#: weko_admin/admin.py:2556
-#: weko_admin/templates/weko_admin/admin/feedback_mail.html:63
+#: weko_admin/admin.py:2463
+#: weko_admin/templates/weko_admin/admin/feedback_mail.html:61
 msgid "Search"
 msgstr ""
 
@@ -378,19 +378,19 @@ msgstr ""
 msgid "Site License"
 msgstr ""
 
-#: weko_admin/admin.py:2583
+#: weko_admin/admin.py:2490
 msgid "File Preview"
 msgstr ""
 
-#: weko_admin/admin.py:2592
+#: weko_admin/admin.py:2499
 msgid "Item Export"
 msgstr ""
 
-#: weko_admin/admin.py:2601
+#: weko_admin/admin.py:2508
 msgid "Site Info"
 msgstr ""
 
-#: weko_admin/admin.py:2610
+#: weko_admin/admin.py:2517
 msgid "Restricted Access"
 msgstr ""
 
@@ -398,75 +398,71 @@ msgstr ""
 msgid "Communities Page"
 msgstr ""
 
-#: weko_admin/admin.py:2628
+#: weko_admin/admin.py:2526
 msgid "Identifier"
 msgstr ""
 
-#: weko_admin/admin.py:2636
+#: weko_admin/admin.py:2534
 msgid "Faceted Search"
 msgstr ""
 
-#: weko_admin/admin.py:2643
+#: weko_admin/admin.py:2541
 msgid "Maintenance"
 msgstr ""
 
-#: weko_admin/admin.py:2644
+#: weko_admin/admin.py:2542
 msgid "ElasticSearch Index"
 msgstr ""
 
-#: weko_admin/admin.py:2653
+#: weko_admin/admin.py:2551
 msgid "Advanced"
 msgstr ""
 
-#: weko_admin/admin.py:2654
+#: weko_admin/admin.py:2552
 msgid "Profile Settings"
 msgstr ""
 
-#: weko_admin/admin.py:2662 weko_admin/admin.py:2670
+#: weko_admin/admin.py:2560 weko_admin/admin.py:2568
 msgid "SWORD API"
 msgstr ""
 
-#: weko_admin/admin.py:2663
+#: weko_admin/admin.py:2561
 msgid "TSV/XML"
 msgstr ""
 
-#: weko_admin/admin.py:2671
+#: weko_admin/admin.py:2569
 msgid "JSON-LD"
 msgstr ""
 
-#: weko_admin/admin.py:2678
+#: weko_admin/admin.py:2576
 msgid "Item Types"
 msgstr ""
 
-#: weko_admin/admin.py:2679
+#: weko_admin/admin.py:2577
 msgid "JSON-LD Mapping"
 msgstr ""
 
-#: weko_admin/admin.py:2687
+#: weko_admin/admin.py:2585
 msgid "CRIS Linkage"
 msgstr ""
 
-#: weko_admin/api.py:154
+#: weko_admin/api.py:153
 msgid "statistics report"
 msgstr ""
 
-#: weko_admin/config.py:176
-msgid "No. Of File Downloads"
-msgstr ""
-
-#: weko_admin/config.py:177
-msgid "No. Of File Previews"
-msgstr ""
-
-#: weko_admin/config.py:178
-msgid "No. Of Paid File Downloads"
-msgstr ""
-
-#: weko_admin/config.py:179
-msgid "No. Of Paid File Previews"
-msgstr ""
-
 #: weko_admin/config.py:180
+msgid "Number of File Downloads"
+msgstr "Number of File Downloads"
+
+#: weko_admin/config.py:181
+msgid "Number of File Previews"
+msgstr "Number of File Previews"
+
+#: weko_admin/config.py:182
+msgid "Number of Paid File Downloads"
+msgstr "Number of Paid File Downloads"
+
+#: weko_admin/config.py:169
 msgid "Detail Views Per Index"
 msgstr ""
 
@@ -495,17 +491,17 @@ msgstr ""
 msgid "Access Count By Site License"
 msgstr ""
 
-#: weko_admin/config.py:191
-msgid "Open-Access No. Of File Downloads"
-msgstr ""
+#: weko_admin/config.py:194
+msgid "Number of Open-Access File Downloads"
+msgstr "Number of Open-Access File Downloads"
 
-#: weko_admin/config.py:192
-msgid "Open-Access No. Of File Previews"
-msgstr ""
+#: weko_admin/config.py:195
+msgid "Number of Open-Access File Previews"
+msgstr "Number of Open-Access File Previews"
 
-#: weko_admin/config.py:193
+#: weko_admin/config.py:196
 msgid "Access Number Breakdown By Site License"
-msgstr ""
+msgstr "Access Number Breakdown By Site License"
 
 #: weko_admin/config.py:199 weko_admin/config.py:204
 msgid "File Name"
@@ -519,13 +515,13 @@ msgstr ""
 msgid "No. Of Times Downloaded"
 msgstr ""
 
-#: weko_admin/config.py:200 weko_admin/config.py:205
-msgid "Non-Logged In User"
-msgstr ""
+#: weko_admin/config.py:203 weko_admin/config.py:208
+msgid "Non-Logged in User"
+msgstr "Non-Logged in User"
 
-#: weko_admin/config.py:201 weko_admin/config.py:206
-msgid "Logged In User"
-msgstr ""
+#: weko_admin/config.py:204 weko_admin/config.py:209
+msgid "Logged in User"
+msgstr "Logged in User"
 
 #: weko_admin/config.py:201 weko_admin/config.py:206
 msgid "Admin"
@@ -777,11 +773,11 @@ msgstr ""
 #: weko_admin/templates/weko_admin/admin/search_management_settings.html:589
 #: weko_admin/templates/weko_admin/admin/site_info.html:53
 #: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:181
-#: weko_admin/templates/weko_admin/admin/site_license_settings.html:204
+#: weko_admin/templates/weko_admin/admin/site_license_settings.html:208
 #: weko_admin/templates/weko_admin/admin/stats_settings.html:71
 #: weko_admin/templates/weko_admin/admin/sword_api_settings.html:113
 #: weko_admin/templates/weko_admin/admin/web_api_account.html:71
-#: weko_admin/templates/weko_admin/partials/email_schedule.html:88
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:92
 msgid "Save"
 msgstr ""
 
@@ -816,6 +812,7 @@ msgstr ""
 #: weko_admin/templates/weko_admin/admin/ranking_settings.html:151
 #: weko_admin/templates/weko_admin/admin/site_info.html:61
 #: weko_admin/templates/weko_admin/admin/site_license_settings.html:70
+#: weko_admin/templates/weko_admin/admin/site_license_settings.html:135
 msgid "Delete"
 msgstr ""
 
@@ -1022,10 +1019,6 @@ msgstr ""
 msgid "Error"
 msgstr ""
 
-#: weko_admin/templates/weko_admin/admin/feedback_mail.html:58
-msgid "List of authors who failed to send"
-msgstr ""
-
 #: weko_admin/templates/weko_admin/admin/feedback_mail.html:60
 msgid "Resend"
 msgstr ""
@@ -1073,7 +1066,7 @@ msgstr ""
 #: weko_admin/templates/weko_admin/admin/item_export_settings.html:78
 #: weko_admin/templates/weko_admin/admin/ranking_settings.html:48
 #: weko_admin/templates/weko_admin/admin/stats_settings.html:59
-#: weko_admin/templates/weko_admin/partials/email_schedule.html:75
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:79
 msgid "On"
 msgstr ""
 
@@ -1081,7 +1074,7 @@ msgstr ""
 #: weko_admin/templates/weko_admin/admin/item_export_settings.html:84
 #: weko_admin/templates/weko_admin/admin/ranking_settings.html:53
 #: weko_admin/templates/weko_admin/admin/stats_settings.html:64
-#: weko_admin/templates/weko_admin/partials/email_schedule.html:80
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:84
 msgid "Off"
 msgstr ""
 
@@ -1535,7 +1528,7 @@ msgid "Please set the sort of search results ."
 msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/search_management_settings.html:135
-#: weko_admin/templates/weko_admin/admin/site_license_settings.html:165
+#: weko_admin/templates/weko_admin/admin/site_license_settings.html:169
 msgid "Allow"
 msgstr ""
 
@@ -1544,7 +1537,7 @@ msgid "[[opt_sort_allow.contents]]"
 msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/search_management_settings.html:155
-#: weko_admin/templates/weko_admin/admin/site_license_settings.html:170
+#: weko_admin/templates/weko_admin/admin/site_license_settings.html:174
 msgid "Deny"
 msgstr ""
 
@@ -1784,8 +1777,13 @@ msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:86
 msgid ""
-"Select \"Send\" to automatically send a use of site license statistics "
+"Select \"Enable\" to automatically send a use of site license statistics "
 "email to the checked the organization."
+msgstr ""
+
+#: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:93
+#: weko_admin/templates/weko_admin/admin/sword_api_jsonld_settings.html:207
+msgid "Enable"
 msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:114
@@ -1793,6 +1791,10 @@ msgid ""
 "When manually send a use of site license statistics email to the checked "
 "the organization, select the aggregation period and press the [Manual "
 "Send] button."
+msgstr ""
+
+#: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:119
+msgid "Aggregation period"
 msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/site_license_send_mail_settings.html:205
@@ -1827,20 +1829,20 @@ msgstr ""
 msgid "(from - to)"
 msgstr ""
 
-#: weko_admin/templates/weko_admin/admin/site_license_settings.html:135
-msgid "Please input a correct number"
+#: weko_admin/templates/weko_admin/admin/site_license_settings.html:137
+msgid "Please input a correct number."
 msgstr ""
 
-#: weko_admin/templates/weko_admin/admin/site_license_settings.html:136
-msgid "The range of ipAddress is not correct"
-msgstr ""
+#: weko_admin/templates/weko_admin/admin/site_license_settings.html:138
+msgid "The range of ipAddress is not correct."
+msgstr "IP Address range is not correct."
 
-#: weko_admin/templates/weko_admin/admin/site_license_settings.html:142
-#: weko_admin/templates/weko_admin/admin/site_license_settings.html:153
+#: weko_admin/templates/weko_admin/admin/site_license_settings.html:146
+#: weko_admin/templates/weko_admin/admin/site_license_settings.html:157
 msgid "More Input Row"
 msgstr ""
 
-#: weko_admin/templates/weko_admin/admin/site_license_settings.html:160
+#: weko_admin/templates/weko_admin/admin/site_license_settings.html:164
 msgid "Please specify item type to be excluded from the site license"
 msgstr ""
 
@@ -1872,6 +1874,19 @@ msgstr ""
 msgid "Duplicate Check"
 msgstr ""
 
+#: weko_admin/templates/weko_admin/admin/sword_api_jsonld_settings.html:180
+msgid "Metadata Retrieve API"
+msgstr ""
+
+#: weko_admin/templates/weko_admin/admin/sword_api_jsonld_settings.html:191
+msgid "Disable"
+msgstr ""
+
+#: weko_admin/templates/weko_admin/admin/sword_api_jsonld_settings.html:237
+msgid "\"Original\" means the original metadata received via the SWORD API."
+msgstr ""
+
+
 #: weko_admin/templates/weko_admin/admin/web_api_account.html:39
 msgid "Input Type"
 msgstr ""
@@ -1900,10 +1915,6 @@ msgstr ""
 msgid "Attached file"
 msgstr ""
 
-#: weko_admin/templates/weko_admin/email_templates/site_license_report.html:22
-msgid "Aggregation"
-msgstr ""
-
 #: weko_admin/templates/weko_admin/macros/sword_api_tabs_selector.html:22
 msgid "TSV/CSV"
 msgstr ""
@@ -1924,6 +1935,14 @@ msgstr ""
 msgid "Frequency"
 msgstr ""
 
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:23
+msgid "Send Date"
+msgstr ""
+
+#: weko_admin/templates/weko_admin/partials/email_schedule.html:58
+msgid "End of Month"
+msgstr ""
+
 #: weko_admin/templates/weko_admin/settings/lifetime.html:30
 msgid "Life Time"
 msgstr ""
@@ -1939,5 +1958,5 @@ msgstr ""
 
 #: weko_admin/templates/weko_admin/settings/lifetime.html:59
 msgid "Update"
-msgstr ""
+msgstr "Update"
 

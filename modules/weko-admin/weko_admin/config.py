@@ -20,9 +20,10 @@
 
 """Configuration for weko-admin."""
 
-from flask_babel import gettext as _
 
-WEKO_ADMIN_DEFAULT_AGGREGATION_MONTH = 2
+from flask_babel import lazy_gettext as _
+
+WEKO_ADMIN_DEFAULT_AGGREGATION_MONTH = 1
 """default aggregation month for site license mail."""
 
 WEKO_ADMIN_DEFAULT_LIFETIME = 60
@@ -168,15 +169,28 @@ WEKO_ADMIN_CACHE_PREFIX = 'admin_cache_{name}_{user_id}'
 WEKO_ADMIN_OUTPUT_FORMAT = 'tsv'
 """Output file format."""
 
+WEKO_ADMIN_REPORT_TYPES = [
+    'file_download',
+    'file_preview',
+    'billing_file_download',
+    'detail_view',
+    'index_access',
+    'file_using_per_user',
+    'top_page_access',
+    'search_count',
+    'user_roles',
+    'site_access'
+]
+"""Types for the report"""
+
 #プロフィール設定テンプレートを格納
 WEKO_ADMIN_PROFILE_SETTING_TEMPLATE  = 'weko_admin/admin/profiles_settings.html'
 """Language template."""
 
 WEKO_ADMIN_REPORT_HEADERS = {
-    'file_download': _('No. Of File Downloads'),
-    'file_preview': _('No. Of File Previews'),
-    'billing_file_download': _('No. Of Paid File Downloads'),
-    'billing_file_preview': _('No. Of Paid File Previews'),
+    'file_download': _('Number of File Downloads'),
+    'file_preview': _('Number of File Previews'),
+    'billing_file_download': _('Number of Paid File Downloads'),
     'index_access': _('Detail Views Per Index'),
     'detail_view': _('Detail Views Count'),
     'file_using_per_user': _('Usage Count By User'),
@@ -188,8 +202,8 @@ WEKO_ADMIN_REPORT_HEADERS = {
 """Headers for the report .csv files"""
 
 WEKO_ADMIN_REPORT_SUB_HEADERS = {
-    'file_download': _('Open-Access No. Of File Downloads'),
-    'file_preview': _('Open-Access No. Of File Previews'),
+    'file_download': _('Number of Open-Access File Downloads'),
+    'file_preview': _('Number of Open-Access File Previews'),
     'site_access': _('Access Number Breakdown By Site License')
 }
 """Sub-Headers for the report .csv files"""
@@ -197,13 +211,13 @@ WEKO_ADMIN_REPORT_SUB_HEADERS = {
 WEKO_ADMIN_REPORT_COLS = {
     'file_download': [
         _('File Name'), _('Registered Index Name'),
-        _('No. Of Times Downloaded'), _('Non-Logged In User'),
-        _('Logged In User'), _('Site License'), _('Admin'),
+        _('No. Of Times Downloaded'), _('Non-Logged in User'),
+        _('Logged in User'), _('Site License'), _('Admin'),
         _('Registrar')],
     'file_preview': [
         _('File Name'), _('Registered Index Name'),
-        _('No. Of Times Viewed'), _('Non-Logged In User'),
-        _('Logged In User'), _('Site License'), _('Admin'),
+        _('No. Of Times Viewed'), _('Non-Logged in User'),
+        _('Logged in User'), _('Site License'), _('Admin'),
         _('Registrar')],
     'index_access': [_('Index'), _('No. Of Views')],
     'detail_view': [
@@ -225,17 +239,16 @@ WEKO_ADMIN_REPORT_COLS = {
 """Columns for the report .csv files"""
 
 WEKO_ADMIN_REPORT_FILE_NAMES = {
-    'file_download': _('FileDownload_'),
-    'file_preview': _('FilePreview_'),
-    'billing_file_download': _('PayFileDownload_'),
-    'billing_file_preview': _('PayFilePreview_'),
-    'index_access': _('IndexAccess_'),
-    'detail_view': _('DetailView_'),
-    'file_using_per_user': _('FileUsingPerUser_'),
-    'search_count': _('SearchCount_'),
-    'user_roles': _('UserAffiliate_'),
-    'site_access': _('SiteAccess_'),
-    'top_page_access': _('TopPageAccess_'),
+    'file_download': 'FileDownload_',
+    'file_preview': 'FilePreview_',
+    'billing_file_download': 'PayFileDownload_',
+    'index_access': 'IndexAccess_',
+    'detail_view': 'DetailView_',
+    'file_using_per_user': 'FileUsingPerUser_',
+    'search_count': 'SearchCount_',
+    'user_roles': 'UserAffiliate_',
+    'site_access': 'SiteAccess_',
+    'top_page_access': 'TopPageAccess_',
 }
 """File names for the report .csv files"""
 
