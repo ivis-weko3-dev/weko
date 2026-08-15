@@ -1,12 +1,9 @@
-import pytest
-from mock import patch
+import xml.etree.ElementTree as ET
 
-from lxml import etree
+from unittest.mock import patch
 
 # .tox/c1/bin/pytest --cov=weko_schema_ui tests/test_WekoBibTexSerializer.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-schema-ui/.tox/c1/tmp
 
-
-    
 # class BibTexTypes(Enum):
 # .tox/c1/bin/pytest --cov=weko_schema_ui tests/test_WekoBibTexSerializer.py::test_bibtextypes -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-schema-ui/.tox/c1/tmp
 def test_bibtextypes(app,db,db_oaischema):
@@ -25,7 +22,7 @@ def test_bibtextypes(app,db,db_oaischema):
     assert BibTexTypes.PROCEEDINGS.value == 'proceedings'
     assert BibTexTypes.TECHREPORT.value == 'techreport'
     assert BibTexTypes.UNPUBLISHED.value == 'unpublished'
-    
+
 
 # class BibTexFields(Enum):
 def test_bibtexfields(app,db,db_oaischema):
@@ -242,7 +239,35 @@ def test_wekobibtexserializer(app, records, db_oaischema, itemtypes, search_inde
     )
 
     record.update({'@export_schema_type': 'ddi'})
+    expected = ET.fromstring(
+        '<metadata xmlns="http://www.openarchives.org/OAI/2.0/" '
+        'xmlns:dc="http://purl.org/dc/terms/" '
+        'xmlns:fn="http://www.w3.org/2005/xpath-functions" '
+        'xmlns:saxon="http://xml.apache.org/xslt" '
+        'xmlns:xhtml="http://www.w3.org/1999/xhtml" '
+        'xmlns:xs="http://www.w3.org/2001/XMLSchema" '
+        'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+        '<codeBook xmlns="ddi:codebook:2_5" '
+        'xsi:schemaLocation="https://ddialliance.org/Specification/DDI-Codebook/2.5/XMLSchema/codebook.xsd"/>'
+        '</metadata>'
+    )
     serializer = WekoXMLSerializer()
-    data = serializer.serialize(pid, record)
-    assert b'<metadata>\n        <codeBook xmlns:dc="http://purl.org/dc/terms/" xmlns:fn="http://www.w3.org/2005/xpath-functions" xmlns:saxon="http://xml.apache.org/xslt" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="ddi:codebook:2_5" xsi:schemaLocation="https://ddialliance.org/Specification/DDI-Codebook/2.5/XMLSchema/codebook.xsd"/>\n      </metadata>' in data
 
+    ret = serializer.serialize(pid, record)
+
+    metadata_root = ET.fromstring(ret)
+    metadata_elem = metadata_root.find(
+        "{http://www.openarchives.org/OAI/2.0/}GetRecord/"
+        "{http://www.openarchives.org/OAI/2.0/}record/"
+        "{http://www.openarchives.org/OAI/2.0/}metadata"
+    )
+    assert metadata_elem is not None
+    assert metadata_elem.tag == expected.tag
+    assert metadata_elem.attrib == expected.attrib
+    assert (metadata_elem.text or "").strip() == (expected.text or "").strip()
+    assert (metadata_elem.tail or "").strip() == (expected.tail or "").strip()
+    for actual_child, expected_child in zip(list(metadata_elem), list(expected)):
+        assert actual_child.tag == expected_child.tag
+        assert actual_child.attrib == expected_child.attrib
+        assert (actual_child.text or "").strip() == (expected_child.text or "").strip()
+        assert (actual_child.tail or "").strip() == (expected_child.tail or "").strip()
