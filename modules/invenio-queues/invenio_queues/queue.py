@@ -90,6 +90,7 @@ class Queue(object):
             with self.producer(conn) as producer:
                 yield producer
 
+    @contextmanager
     def create_consumer(self):
         """Context manager that yields an instance of ``Consumer``."""
         with self.connection_pool.acquire(block=True) as conn:
