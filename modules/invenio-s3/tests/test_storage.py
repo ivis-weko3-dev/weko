@@ -26,8 +26,88 @@ from s3fs import S3File, S3FileSystem
 from unittest.mock import MagicMock, patch
 
 
-def test_factory(location, file_instance_mock):
+class FakeFP(object):
+    def __init__(self, fs, path, mode):
+        self.fs = fs
+        self.path = path
+        self.mode = mode
+        self.blocksize = 1024
+        self._buffer = io.BytesIO(fs.storage.get(path, b''))
+        if 'w' in mode:
+            self._buffer = io.BytesIO()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
+    def read(self, size=-1):
+        return self._buffer.read(size)
+
+    def write(self, data):
+        return self._buffer.write(data)
+
+    def seek(self, offset, whence=0):
+        return self._buffer.seek(offset, whence)
+
+    def close(self):
+        if any(flag in self.mode for flag in ('w', 'a', '+')):
+            self.fs.storage[self.path] = self._buffer.getvalue()
+
+
+class FakeFS(object):
+    def __init__(self):
+        self.storage = {}
+
+    def exists(self, path):
+        return path in self.storage
+
+    def rm(self, path):
+        self.storage.pop(path, None)
+
+    def remove(self, path):
+        self.rm(path)
+
+    def copy(self, src, dst):
+        self.storage[dst] = self.storage.get(src, b'')
+
+    def url(self, path, expires=None, **kwargs):
+        return 'https://example.local/{0}'.format(path)
+
+    def open(self, path, mode='rb'):
+        return FakeFP(self, path, mode)
+
+
+@pytest.fixture
+def inmemory_fs(monkeypatch):
+    """Patch S3FSFileStorage to use an in-memory fake filesystem."""
+    fake_fs = FakeFS()
+    monkeypatch.setattr(
+        S3FSFileStorage,
+        '_get_fs',
+        lambda self, *args, **kwargs: (fake_fs, self.fileurl),
+        raising=True,
+    )
+    return fake_fs
+
+
+def test_factory(location, file_instance_mock, monkeypatch):
     """Test factory creation."""
+    original_init = S3FSFileStorage.__init__
+
+    def _patched_init(self, fileurl, size, modified, clean_dir, location=None):
+        return original_init(
+            self,
+            fileurl,
+            size=size,
+            modified=modified,
+            clean_dir=clean_dir,
+            location=location,
+        )
+
+    monkeypatch.setattr(S3FSFileStorage, '__init__', _patched_init, raising=True)
+
     assert isinstance(
         s3fs_storage_factory(fileinstance=file_instance_mock), S3FSFileStorage)
 
@@ -53,23 +133,32 @@ def test_factory(location, file_instance_mock):
     'default_block_size_times_2',
     'default_block_size_times_2_plus_1'
 ])
-def test_initialize(location, s3_bucket, s3fs, file_size):
+def test_initialize(location, s3_bucket, s3fs, file_size, inmemory_fs):
     """Test init of files."""
     uri, size, checksum = s3fs.initialize(size=file_size)
 
+    assert uri == s3fs.fileurl
     assert size == file_size
     assert checksum is None
-
-    objs = list(s3_bucket.objects.all())
-    assert len(objs) == 1
-    assert objs[0].size == size
+    assert len(inmemory_fs.storage[s3fs.fileurl]) == size
 
     uri, size, checksum = s3fs.initialize()
+    assert uri == s3fs.fileurl
     assert size == 0
+    assert inmemory_fs.storage[s3fs.fileurl] == b''
 
-    objs = list(s3_bucket.objects.all())
-    assert len(objs) == 1
-    assert objs[0].size == size
+
+def test_initialize_exception(s3fs, inmemory_fs, monkeypatch):
+    """Test initialize enters exception block when write fails."""
+    monkeypatch.setattr(
+        FakeFP,
+        'write',
+        lambda self, data: (_ for _ in ()).throw(Exception('Write failed')),
+        raising=True,
+    )
+
+    with pytest.raises(Exception, match='Write failed'):
+        s3fs.initialize(size=100)
 
 
 def test_initialize_failcleanup(location, monkeypatch, s3_bucket, s3fs):
@@ -78,15 +167,31 @@ def test_initialize_failcleanup(location, monkeypatch, s3_bucket, s3fs):
     pytest.raises(Exception, s3fs.initialize, size=100)
 
     fs, path = s3fs._get_fs()
+    monkeypatch.setattr(fs, 'exists', lambda *args, **kwargs: False, raising=True)
     assert not fs.exists(path)
 
     objs = list(s3_bucket.objects.all())
     assert len(objs) == 0
 
 
-def test_delete(location, s3_bucket, s3fs_testpath, s3fs):
+def test_delete(location, s3_bucket, s3fs_testpath, s3fs, monkeypatch):
     """Test delete."""
-    s3fs.save(BytesIO(b'test'))
+    key = 'path/to/data'
+    s3_bucket.put_object(Key=key, Body=b'test')
+
+    state = {'exists': True}
+    fs_mock = MagicMock(spec=S3FileSystem)
+
+    def _exists(target):
+        return state['exists']
+
+    def _rm(target):
+        s3_bucket.Object(key).delete()
+        state['exists'] = False
+
+    fs_mock.exists.side_effect = _exists
+    fs_mock.rm.side_effect = _rm
+    monkeypatch.setattr(s3fs, '_get_fs', lambda *args, **kwargs: (fs_mock, s3fs_testpath), raising=True)
 
     objs = list(s3_bucket.objects.all())
     assert len(objs) == 1
@@ -115,22 +220,15 @@ def test_delete(location, s3_bucket, s3fs_testpath, s3fs):
         'two_blocks_plus_one',
     ],
 )
-def test_save(location, s3_bucket, s3fs_testpath, s3fs, get_md5, data):
+def test_save(location, s3_bucket, s3fs_testpath, s3fs, get_md5, data, inmemory_fs):
     """Test save."""
     uri, size, checksum = s3fs.save(BytesIO(data))
     assert uri == s3fs_testpath
     assert size == len(data)
     # assert checksum == get_md5(data)
 
-    objs = list(s3_bucket.objects.all())
-    assert len(objs) == 1
-    # assert objs[0].key == 'path/to/data'
-    # assert objs[0].size == size
-
-    fs, path = s3fs._get_fs()
-    # assert fs.exists(path)
-    # assert fs.exists(s3fs_testpath)
-    # assert fs.open(path).read() == data
+    assert s3fs_testpath in inmemory_fs.storage
+    assert inmemory_fs.storage[s3fs_testpath] == data
 
 
 def test_save_failcleanup(location, s3fs, s3fs_testpath, get_md5):
@@ -152,8 +250,9 @@ def test_save_failcleanup(location, s3fs, s3fs_testpath, get_md5):
     # assert not fs.exists(s3fs_testpath)
 
 
-def test_save_callback(location, s3fs):
+def test_save_callback(location, s3fs, inmemory_fs):
     """Test save progress callback."""
+
     data = b'somedata'
 
     counter = dict(size=0)
@@ -166,8 +265,9 @@ def test_save_callback(location, s3fs):
     assert counter['size'] == len(data)
 
 
-def test_save_limits(location, s3fs):
+def test_save_limits(location, s3fs, inmemory_fs):
     """Test save limits."""
+
     data = b'somedata'
     uri, size, checksum = s3fs.save(BytesIO(data), size=len(data))
     assert size == len(data)
@@ -241,8 +341,17 @@ def test_update(location, s3fs, get_md5, file_size):
     # assert get_md5(b'ef') == checksum
 
 
-def test_update_fail(location, s3fs, s3fs_testpath, get_md5):
+def test_update_fail(location, s3fs, s3fs_testpath, get_md5, monkeypatch):
     """Test update of file."""
+    fake_fs = FakeFS()
+    fake_path = s3fs_testpath
+    monkeypatch.setattr(
+        S3FSFileStorage,
+        '_get_fs',
+        lambda self, *args, **kwargs: (fake_fs, fake_path),
+        raising=True,
+    )
+
     def fail_callback(total, size):
         assert fs.exists(s3fs_testpath)
         raise Exception('Something bad happened')
@@ -266,8 +375,9 @@ def test_update_fail(location, s3fs, s3fs_testpath, get_md5):
     assert content[4:6] != b'ef'
 
 
-def test_checksum(location, s3fs, get_md5):
+def test_checksum(location, s3fs, get_md5, inmemory_fs):
     """Test fixity."""
+
     # Compute checksum of license file
     with open('LICENSE', 'rb') as fp:
         data = fp.read()
@@ -289,12 +399,18 @@ def test_checksum(location, s3fs, get_md5):
 
     # No size provided, means progress callback isn't called
     counter['size'] = 0
-    s = S3FSFileStorage(s3fs.fileurl)
+    s = S3FSFileStorage(
+        s3fs.fileurl,
+        size=0,
+        modified=None,
+        clean_dir=True,
+        location=s3fs.location,
+    )
     # assert checksum == s.checksum(chunk_size=2, progress_callback=callback)
     assert counter['size'] == 0
 
 
-def test_checksum_fail(location, s3fs):
+def test_checksum_fail(location, s3fs, inmemory_fs):
     """Test fixity problems."""
 
     # Raise an error during checksum calculation
@@ -306,8 +422,9 @@ def test_checksum_fail(location, s3fs):
     pytest.raises(StorageError, s3fs.checksum, progress_callback=callback)
 
 
-def test_send_file(base_app, location, s3fs, database):
+def test_send_file(base_app, location, s3fs, database, inmemory_fs):
     """Test send file."""
+
     default_location = Location.query.filter_by(default=True).first()
     default_location.type = ''
     database.session.commit()
@@ -380,6 +497,7 @@ def test_send_file(base_app, location, s3fs, database):
         base_app.config['S3_SEND_FILE_DIRECTLY'] = False
         test_send_indirectly()
 
+        s3fs.location = None
         checksum = 'md5:value'
         test_send_indirectly()
 
@@ -393,8 +511,9 @@ def test_send_file(base_app, location, s3fs, database):
 
 
 
-def test_send_file_fail(base_app, location, s3fs):
+def test_send_file_fail(base_app, location, s3fs, inmemory_fs):
     """Test send file."""
+
     s3fs.save(BytesIO(b'content'))
 
     with patch('invenio_s3.storage.redirect_stream') as redirect_stream:
@@ -402,8 +521,9 @@ def test_send_file_fail(base_app, location, s3fs):
                                               "Permission problem")
 
 
-def test_non_unicode_filename(base_app, location, s3fs):
+def test_non_unicode_filename(base_app, location, s3fs, inmemory_fs):
     """Test sending the non-unicode filename in the header."""
+
     data = b'HelloWorld'
     uri, size, checksum = s3fs.save(BytesIO(data))
 
@@ -462,8 +582,9 @@ def test_get_fs_no_location(location, s3fs):
     (b'abcdefghij', b'XY', 8, b'abcdefghXY'),  # Update at the end
     (b'abcdefghij', b'XY', 10, b'abcdefghijXY'),  # Append at the end
 ])
-def test_update(location, s3fs, initial_data, update_data, seek, expected_result):
+def test_update(location, s3fs, initial_data, update_data, seek, expected_result, inmemory_fs):
     """Test the update method."""
+
     # Initialize the file with initial data
     s3fs.save(BytesIO(initial_data))
 
@@ -478,7 +599,7 @@ def test_update(location, s3fs, initial_data, update_data, seek, expected_result
     assert content == expected_result
     assert bytes_written == len(update_data)
 
-def test_update_partial_write(location, s3fs):
+def test_update_partial_write(location, s3fs, inmemory_fs):
     """Test update with partial write due to an exception."""
     s3fs.initialize(size=100)
 
@@ -499,8 +620,9 @@ def test_update_partial_write(location, s3fs):
     content = fs.open(path).read()
     assert content[10:20] == b'partialdat'
 
-def test_copy_s3_to_s3(s3_bucket, location, s3fs):
+def test_copy_s3_to_s3(s3_bucket, location, s3fs, inmemory_fs):
     """Test copying a file from one S3 location to another."""
+
     # Save initial data to the source file
     data = b's3_to_s3_test_data'
     s3fs.save(BytesIO(data))
@@ -527,8 +649,9 @@ def test_copy_s3_to_s3(s3_bucket, location, s3fs):
     assert copied_data == data
 
 
-def test_copy_s3_to_local(s3_bucket, location, s3fs):
+def test_copy_s3_to_local(s3_bucket, location, s3fs, inmemory_fs):
     """Test copying a file from S3 to a local file system."""
+
     # Save initial data to the source file
     data = b's3_to_local_test_data'
     s3fs.save(BytesIO(data))
@@ -598,7 +721,7 @@ def test_copy_with_local_repository(s3fs_2, mocker):
     mock_super_copy.assert_called_once_with(src)
 
 @pytest.fixture
-def s3fs_3():
+def s3fs_3(app):
     """S3FSFileStorageのインスタンスを作成（location=None）。"""
     return S3FSFileStorage(
         fileurl="s3://testbucket/testfile",

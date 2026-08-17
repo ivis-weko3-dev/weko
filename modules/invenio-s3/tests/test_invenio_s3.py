@@ -19,7 +19,7 @@ def test_version():
 # .tox/c1/bin/pytest --cov=invenio_s3 tests/test_invenio_s3.py::test_init -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-s3/.tox/c1/tmp
 def test_init(base_app, location, database):
     """Test extension initialization."""
-    assert 'invenio-s3' in appctx.extensions
+    assert 'invenio-s3' in base_app.extensions
 
     default_location = Location.query.filter_by(default=True).first()
     default_location.type = ''

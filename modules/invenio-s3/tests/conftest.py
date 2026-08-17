@@ -15,6 +15,9 @@ import shutil
 import tempfile
 
 from flask import Flask, current_app
+from moto import mock_aws
+from sqlalchemy_utils.functions import create_database, database_exists
+
 from invenio_app.factory import create_api
 from invenio_db import InvenioDB
 from invenio_db import db as db_
@@ -22,8 +25,6 @@ from invenio_db.utils import drop_alembic_version_table
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location
 from invenio_s3 import InvenioS3, S3FSFileStorage
-from moto import mock_aws
-from sqlalchemy_utils.functions import create_database, database_exists
 
 from weko_deposit.config import (
     WEKO_BUCKET_QUOTA_SIZE,
