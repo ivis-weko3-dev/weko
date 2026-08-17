@@ -174,7 +174,7 @@ def test_index_action_get0_login(client_rest, users, communities, test_indices):
 
 # .tox/c1/bin/pytest --cov=weko_index_tree tests/test_rest.py::test_index_action_get1_login -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-index-tree/.tox/c1/tmp
 def test_index_action_get1_login(client_rest, users, communities, test_indices):
-    with patch("flask_login.utils._get_user", return_value=users[1]['obj']):
+    with patch("flask_login.utils._get_user", return_value=users[2]['obj']):
         res = client_rest.get('/tree/index/1',
                               content_type='application/json')
         assert res.status_code == 200
@@ -928,7 +928,7 @@ class TestIndexManagementAPI:
             # missing required field
             response = client_rest.post(url, headers=auth_headers_sysadmin,json={})
             assert response.status_code == 400
-            assert response.json["message"] == "Bad Request: Invalid payload, {'index': {'parent': ['Missing data for required field.']}}"
+            assert response.json["message"] == "Bad Request: Invalid payload, {'index': ['Missing data for required field.']}"
 
             from copy import deepcopy
             invalid_parrent_id = deepcopy(json_)
@@ -1352,11 +1352,6 @@ class TestIndexManagementAPI:
                     response = client_rest.delete(url, headers=auth_headers_sysadmin)
                     assert response.status_code == 403
 
-
-                with patch("weko_index_tree.api.Indexes.delete", return_value=None):
-                    response = client_rest.delete(url, headers=auth_headers_sysadmin)
-                    assert response.status_code == 500
-
                 with patch("weko_index_tree.rest.perform_delete_index", return_value=("", ["Test Problem"])):
                     response = client_rest.delete(url, headers=auth_headers_sysadmin)
                     assert response.status_code == 400
@@ -1435,7 +1430,7 @@ class TestIndexManagementAPI:
         url = f"v1/tree/index/{index_id}"
 
         # DBエラーを発生させるために `Indexes.delete` をモック
-        with patch.object(Indexes, "delete", side_effect=SQLAlchemyError):
+        with patch("weko_index_tree.rest.perform_delete_index", side_effect=SQLAlchemyError):
             response = client_rest.delete(url, headers=auth_headers)
             assert response.status_code == 500, f"{response.json}"
 

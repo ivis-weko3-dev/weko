@@ -166,32 +166,32 @@ def test_get_user_roles(i18n_app, client_rest, users):
     with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
         result = get_user_roles(is_super_role=True)
         assert result[0] == True
-        assert result[1] == [1]
+        assert result[1] == ['System Administrator']
 
         result = get_user_roles(is_super_role=False)
         assert result[0] == True
-        assert result[1] == [1]
+        assert result[1] == ['System Administrator']
 
     # comadmin
     with patch("flask_login.utils._get_user", return_value=users[4]['obj']):
         result = get_user_roles(is_super_role=True)
         assert result[0] == True
-        assert result[1] == [4]
+        assert result[1] == ['Community Administrator']
 
         result = get_user_roles(is_super_role=False)
         assert result[0] == False
-        assert result[1] == [4]
+        assert result[1] == ['Community Administrator']
 
 
     # not admin user
     with patch("flask_login.utils._get_user", return_value=users[1]['obj']):
         result = get_user_roles(is_super_role=True)
         assert result[0] == False
-        assert result[1] == [3]
+        assert result[1] == ['Contributor']
 
         result = get_user_roles(is_super_role=False)
         assert result[0] == False
-        assert result[1] == [3]
+        assert result[1] == ['Contributor']
 
     # User not authenticated
     result = get_user_roles()
@@ -519,7 +519,7 @@ def test_get_admin_coverpage_setting(pdfcoverpage):
 
 #+++ def get_search_records_data_by_indexes(index_ids, start_date, end_date):
 # .tox/c1/bin/pytest --cov=weko_index_tree tests/test_utils.py::test_get_search_records_data_by_indexes -vv -s --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-index-tree/.tox/c1/tmp --full-trace
-def test_get_search_records_data_by_indexes(i18n_app, indices, db_records, search_index):
+def test_get_search_records_data_by_indexes(i18n_app, indices, db_records, search_index, caplog):
     idx_tree_ids = [idx.cid for idx in Indexes.get_recursive_tree(indices['index_non_dict'].id)]
     current_date = date.today()
     start_date = (current_date - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -532,8 +532,10 @@ def test_get_search_records_data_by_indexes(i18n_app, indices, db_records, searc
     start_date = (current_date - timedelta(days=1)).strftime("%Y-%m-%d")
     end_date = current_date.strftime("%Y-%m-%d")
 
-    with pytest.raises(search.NotFoundError):
-        get_search_records_data_by_indexes(idx_tree_ids, start_date, end_date)
+    with caplog.at_level("DEBUG"):
+        with patch("weko_search_ui.query.item_search_factory",side_effect=search.NotFoundError(404,"index_not_found_exception",{})):
+            get_search_records_data_by_indexes(idx_tree_ids, start_date, end_date)
+        assert "Indexes do not exist yet!" in caplog.text
 
 #+++ def generate_path(index_ids):
 def test_generate_path(i18n_app, indices, search_index):

@@ -72,7 +72,7 @@ def test_set_expand_guest(client_api, users):
 
 # def create_index():
 # .tox/c1/bin/pytest --cov=weko_index_tree tests/test_views.py::test_create_index -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-index-tree/.tox/c1/tmp
-def test_create_index(client_api, db, users, auth_headers):
+def test_create_index(client_api, db, users, auth_headers, user_activity_log_partition_table):
     def _request_process(data):
         return client_api.post(
             "/api/indextree/create",
