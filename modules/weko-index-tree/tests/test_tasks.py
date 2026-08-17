@@ -35,7 +35,7 @@ def test_update_oaiset_setting(i18n_app, client_api, indices, db, users, without
         search_pattern='test search',
         system_created=True
     )
-     
+
     test_set_three = OAISet(
         id=33,
         spec='33',
@@ -44,7 +44,7 @@ def test_update_oaiset_setting(i18n_app, client_api, indices, db, users, without
         search_pattern='test search',
         system_created=True
     )
-           
+
     test_set_three_child = OAISet(
         id=44,
         spec='44',
@@ -53,7 +53,7 @@ def test_update_oaiset_setting(i18n_app, client_api, indices, db, users, without
         search_pattern='test search',
         system_created=True
     )
-    
+
     test_set_private = OAISet(
         id=55,
         spec='55',
@@ -87,17 +87,17 @@ def test_update_oaiset_setting(i18n_app, client_api, indices, db, users, without
     assert res.name=="testIndexThree"
     assert res.description=="testIndexThree"
     assert res.search_pattern=='path:"33"'
-    assert res.system_created==True    
+    assert res.system_created==True
     assert res.spec=="33"
 
     update_oaiset_setting(index_info_two[0], data_two)
     res = OAISet.query.filter_by(id=44).one_or_none()
     assert res==None
-    
+
     update_oaiset_setting(index_info_three_child[0], data_three_child)
     res = OAISet.query.filter_by(id=44).one_or_none()
     assert res==None
-    
+
     update_oaiset_setting(index_info_private[0], data_private)
     res = OAISet.query.filter_by(id=55).one_or_none()
     assert res==None
@@ -124,7 +124,7 @@ def test_update_oaiset_setting(i18n_app, client_api, indices, db, users, without
     assert res.description=="testIndexThree"
     assert res.search_pattern=='path:"33"'
     assert res.spec=="33"
- 
+
     _data_six = {
         "public_state": True,
         "harvest_public_state": True,
@@ -143,18 +143,20 @@ def test_update_oaiset_setting(i18n_app, client_api, indices, db, users, without
     # assert res is None
     assert res.name=="testData"
     assert res.description=="testData"
-    assert res.search_pattern=='path:"66"' 
+    assert res.search_pattern=='path:"66"'
     assert res.spec=="66"
 
 
 # def delete_oaiset_setting(id_list):
+# .tox/c1/bin/pytest --cov=weko_index_tree tests/test_tasks.py::test_delete_oaiset_setting -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/weko-index-tree/.tox/c1/tmp
 def test_delete_oaiset_setting(i18n_app, indices, db_oaischema, without_oaiset_signals):
     test_set_one = OAISet(
         id=33,
         spec='33',
         name='test_name_33',
         description='some test description',
-        search_pattern='test search'
+        search_pattern='test search',
+        system_created=True
     )
 
     test_set_two = OAISet(
@@ -162,9 +164,10 @@ def test_delete_oaiset_setting(i18n_app, indices, db_oaischema, without_oaiset_s
         spec='44',
         name='test_name_44',
         description='some test description',
-        search_pattern='test search'
+        search_pattern='test search',
+        system_created=True
     )
-    
+
     db.session.add(test_set_one)
     db.session.add(test_set_two)
 
@@ -210,7 +213,7 @@ def test_delete_index_handle(i18n_app, indices, db):
 
         with patch("weko_handle.api.Handle.delete_handle", return_value='1234567890/1'):
             delete_index_handle([10000])
-            
+
         with patch("weko_handle.api.Handle.delete_handle", return_value=None):
             delete_index_handle([999, 1000])
 

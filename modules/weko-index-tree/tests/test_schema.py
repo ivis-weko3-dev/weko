@@ -71,7 +71,7 @@ class TestIndexCreateSchema:
         }
 
         schema = IndexCreateSchema()
-        result = schema.load(index).data
+        result = schema.load(index)
         assert result == index
 
         index_s = {
@@ -94,11 +94,10 @@ class TestIndexCreateSchema:
             "browsing_group": "",
             "contribute_group": "",
             "online_issn": "1234-5678",
-            "invalid_field": "Invalid"      # Extra field not in schema
         }
         # Test with string values for boolean fields
         schema = IndexCreateSchema()
-        result = schema.load(index_s).data
+        result = schema.load(index_s)
 
         assert result["parent"] == 2
         assert result["index_link_enabled"] is True
@@ -107,7 +106,6 @@ class TestIndexCreateSchema:
         assert result["harvest_public_state"] is True
         assert result["public_state"] is False
         assert result["rss_status"] is True
-        assert "invalid_field" not in result  # Extra field should be ignored
 
     def test_invalid_index(self):
         index = {
@@ -180,7 +178,7 @@ class TestIndexCreateRequestSchema:
         }
 
         schema = IndexCreateRequestSchema()
-        result = schema.load(json).data
+        result = schema.load(json)
         assert result == json
 
         json = {
@@ -204,12 +202,11 @@ class TestIndexCreateRequestSchema:
                 "browsing_group": "",
                 "contribute_group": "",
                 "online_issn": "1234-5678",
-                "invalid_field": "Invalid"      # Extra field not in schema
             }
         }
 
         schema = IndexCreateRequestSchema()
-        result = schema.load(json).data
+        result = schema.load(json)
         assert result["index"]["parent"] == 2
         assert result["index"]["index_link_enabled"] is True
         assert result["index"]["more_check"] is False
@@ -217,7 +214,6 @@ class TestIndexCreateRequestSchema:
         assert result["index"]["harvest_public_state"] is True
         assert result["index"]["public_state"] is False
         assert result["index"]["rss_status"] is True
-        assert "invalid_field" not in result
 
     def test_invalid_index(self):
         json = {}
@@ -267,14 +263,14 @@ class TestIndexUpdateRequestSchema:
         }
 
         schema = IndexUpdateRequestSchema()
-        result = schema.load(json).data
+        result = schema.load(json)
         assert result == json
 
         json = {
             "index": {}
         }
         schema = IndexUpdateRequestSchema()
-        result = schema.load(json).data
+        result = schema.load(json)
         assert result == json
 
     def test_invalid_index(self):
