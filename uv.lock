@@ -3297,6 +3297,26 @@ wheels = [
 ]
 
 [[package]]
+name = "moto"
+version = "5.0.16"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "boto3" },
+    { name = "botocore" },
+    { name = "cryptography" },
+    { name = "jinja2" },
+    { name = "python-dateutil" },
+    { name = "requests" },
+    { name = "responses" },
+    { name = "werkzeug" },
+    { name = "xmltodict" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/26/72/f7ec295a6a0b7211b5784efba783c1225c56e998a14d608abf5b2715d7b5/moto-5.0.16.tar.gz", hash = "sha256:f4afb176a964cd7a70da9bc5e053d43109614ce3cab26044bcbb53610435dff4", size = 5483357, upload-time = "2024-09-29T13:31:25.876Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/06/59/2c3fc0d622f3db4a475103e36b96a8430b8780297e3c187e7971e0deaa2b/moto-5.0.16-py2.py3-none-any.whl", hash = "sha256:4ce1f34830307f7b3d553d77a7ef26066ab3b70006203d4226b048c9d11a3be4", size = 3687351, upload-time = "2024-09-29T13:31:24.03Z" },
+]
+
+[[package]]
 name = "msgpack"
 version = "1.0.8"
 source = { registry = "https://pypi.org/simple" }
@@ -4179,6 +4199,20 @@ wheels = [
 ]
 
 [[package]]
+name = "responses"
+version = "0.26.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f0/1a/4af3e6d659394b809838490b144e4ab8d7ed3b9fecc7ca78f5d2f79b1a3d/responses-0.26.2.tar.gz", hash = "sha256:9c9259b46a8349197edebf43cfa68a87e1a2802ef503ff8b2fecbabc0b45afd8", size = 84030, upload-time = "2026-07-03T16:44:50.325Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7c/28/693e1d9ebf72baa062ded80d837a035b86ce75eda5a269379e9e2b1008a8/responses-0.26.2-py3-none-any.whl", hash = "sha256:6fdfeabd58e5ec473b98dfe02e6d46d3173bd8dd573eff2ccccf1a05a5135364", size = 35609, upload-time = "2026-07-03T16:44:49.1Z" },
+]
+
+[[package]]
 name = "resync"
 version = "2.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -5034,6 +5068,7 @@ build = [
 ]
 dev = [
     { name = "cookiecutter" },
+    { name = "moto" },
     { name = "pytest" },
     { name = "tox" },
     { name = "tox-setuptools-version" },
@@ -5234,6 +5269,7 @@ requires-dist = [
 build = [{ name = "setuptools", specifier = "==71.0.3" }]
 dev = [
     { name = "cookiecutter", specifier = "==1.6.0" },
+    { name = "moto", specifier = "==5.0.16" },
     { name = "pytest", specifier = "==7.4.4" },
     { name = "tox", specifier = "==3.28.0" },
     { name = "tox-setuptools-version", specifier = ">=0.0.0.3" },

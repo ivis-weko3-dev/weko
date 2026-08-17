@@ -136,6 +136,7 @@ dev = [
     "pytest==7.4.4",
     "tox==3.28.0",
     "tox-setuptools-version>=0.0.0.3",
+    "moto==5.0.16",
 ]
 invenio = [
     "invenio-access==2.0.0",

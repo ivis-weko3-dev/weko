@@ -78,7 +78,6 @@ COPY --chown=invenio:invenio scripts /code/scripts
 COPY --chown=invenio:invenio tools /code/tools
 COPY --chown=invenio:invenio modules /code/modules
 #COPY --chown=invenio:invenio others /code/others
-COPY --chown=invenio:invenio packages.txt /code/packages.txt
 COPY --chown=invenio:invenio pyproject.toml /code/pyproject.toml
 COPY --chown=invenio:invenio uv.lock /code/uv.lock
 COPY --chown=invenio:invenio invenio /code/invenio
