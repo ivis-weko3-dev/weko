@@ -22,6 +22,7 @@
 
 import copy
 import json
+import traceback
 from collections import OrderedDict
 from collections.abc import Iterable
 from functools import partial
@@ -166,6 +167,7 @@ class SchemaConverter:
             schema_data = xmlschema.XMLSchema(schema_file)
         except Exception as ex:
             current_app.logger.error(ex)
+            traceback.print_exc()
             abort(
                 400, "Error creating Schema: "
                      "Can not open xsd file. Please check it!")

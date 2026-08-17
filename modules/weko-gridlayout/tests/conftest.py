@@ -103,8 +103,6 @@ def base_app(instance_path):
         WEKO_GRIDLAYOUT_ADMIN_WIDGET_DESIGN = 'weko_gridlayout/admin/widget_design.html',
         SERVER_NAME="TEST_SERVER",
         SEARCH_INDEX_PREFIX='test-',
-        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
-            'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         INDEXER_DEFAULT_DOC_TYPE='testrecord',
         SEARCH_UI_SEARCH_INDEX='test-weko',
         SECRET_KEY='SECRET_KEY',
@@ -122,7 +120,10 @@ def base_app(instance_path):
         FILES_REST_DEFAULT_MAX_FILE_SIZE=None,
         FILES_REST_OBJECT_KEY_MAX_LEN=255,
         BABEL_DEFAULT_TIMEZONE='Asia/Tokyo',
-        WEKO_PERMISSION_SUPER_ROLE_USER=WEKO_PERMISSION_SUPER_ROLE_USER
+        WEKO_PERMISSION_SUPER_ROLE_USER=WEKO_PERMISSION_SUPER_ROLE_USER,
+        SEARCH_HOSTS=os.environ.get('SEARCH_HOST', 'opensearch'),
+        SEARCH_OPENSEARCH_HOSTS = os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch"),
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False}
     )
     Babel(app_)
     InvenioDB(app_)
@@ -537,7 +538,6 @@ def communities(app, db, user, indices):
 
 @pytest.yield_fixture()
 def es(app):
-    current_search_client.indices.delete(index='test-*')
     # top_view aggr
     aggr_top_view_mapping = json_data("data/mapping/top_view/v6/aggr-top-view-v1.json")
     aggr_top_view_mapping.update({'aliases':

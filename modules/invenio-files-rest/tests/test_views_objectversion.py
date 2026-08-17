@@ -21,6 +21,7 @@ from invenio_files_rest.models import FileInstance, ObjectVersion
 from invenio_files_rest.tasks import remove_file_data
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_get_not_found -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user, expected",
     [
@@ -31,13 +32,13 @@ from invenio_files_rest.tasks import remove_file_data
         ("location", 404),
     ],
 )
-def test_get_not_found(client, headers, bucket, permissions, user, expected):
+def test_get_not_found(client, headers, bucket_with_record, permissions, user, expected):
     """Test getting a non-existing object."""
     login_user(client, permissions[user])
     resp = client.get(
         url_for(
             "invenio_files_rest.object_api",
-            bucket_id=bucket.id,
+            bucket_id=bucket_with_record.id,
             key="non-existing.pdf",
         ),
         headers=headers,
@@ -45,6 +46,7 @@ def test_get_not_found(client, headers, bucket, permissions, user, expected):
     assert resp.status_code == expected
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_get -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user, expected",
     [
@@ -55,14 +57,15 @@ def test_get_not_found(client, headers, bucket, permissions, user, expected):
         ("objects", 200),
     ],
 )
-def test_get(client, headers, bucket, objects, permissions, user, expected):
+def test_get(client, headers, bucket_with_record, objects, permissions, user, expected, mocker):
     """Test getting an object."""
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
     login_user(client, permissions[user])
 
     for obj in objects:
         object_url = url_for(
             "invenio_files_rest.object_api",
-            bucket_id=bucket.id,
+            bucket_id=bucket_with_record.id,
             key=obj.key,
         )
 
@@ -83,12 +86,17 @@ def test_get(client, headers, bucket, objects, permissions, user, expected):
             assert resp.get_etag()[0] == obj.file.checksum
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_get_with_x_sendfile -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 def test_get_with_x_sendfile(
-    client, headers, bucket, objects, permissions, offload_file_serving
+    client, headers, bucket_with_record, objects, permissions,
+    offload_file_serving, user_activity_log_partition_table, mocker
 ):
     """Test getting a redirect to an object."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
 
     login_user(client, permissions["bucket"])
+    bucket = bucket_with_record
 
     for obj in objects:
         object_url = url_for(
@@ -125,13 +133,15 @@ def test_get_with_x_sendfile(
         assert resp.status_code == 404
 
 
-def test_get_download(client, headers, bucket, objects, permissions):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_get_download -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_get_download(client, headers, bucket_with_record, objects, permissions, mocker):
     """Test getting an object."""
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
     login_user(client, permissions["objects"])
 
     for obj in objects:
         object_url = url_for(
-            "invenio_files_rest.object_api", bucket_id=bucket.id, key=obj.key
+            "invenio_files_rest.object_api", bucket_id=bucket_with_record.id, key=obj.key
         )
 
         # Get specifying version (of latest obj).
@@ -148,12 +158,20 @@ def test_get_download(client, headers, bucket, objects, permissions):
         )
 
 
-def test_last_modified_utc_conversion(client, headers, bucket, permissions):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_last_modified_utc_conversion -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_last_modified_utc_conversion(
+    client, headers, bucket_with_record, permissions,
+    user_activity_log_partition_table, mocker
+):
     """Test date conversion of the DB object 'updated' timestamp (UTC) to a
     correct Last-Modified date (also UTC) in the response header.
 
     This test makes sure that DB timestamps are not treated as localtime.
     """
+    # Prevent session from being removed after request
+    bucket = bucket_with_record
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     key = "last_modified_test.txt"
     data = b"some_new_content"
     object_url = url_for("invenio_files_rest.object_api", bucket_id=bucket.id, key=key)
@@ -173,7 +191,8 @@ def test_last_modified_utc_conversion(client, headers, bucket, permissions):
     assert abs(last_modified - updated) < timedelta(seconds=1)
 
 
-def test_get_unreadable_file(client, headers, bucket, objects, db, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_get_unreadable_file -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_get_unreadable_file(client, headers, bucket_with_record, objects, db, admin_user):
     """Test getting an object with an unreadable file."""
     login_user(client, admin_user)
 
@@ -185,13 +204,14 @@ def test_get_unreadable_file(client, headers, bucket, objects, db, admin_user):
     resp = client.get(
         url_for(
             "invenio_files_rest.object_api",
-            bucket_id=bucket.id,
+            bucket_id=bucket_with_record.id,
             key=obj.key,
         )
     )
     assert resp.status_code == 503
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_get_versions -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user, expected",
     [
@@ -202,8 +222,10 @@ def test_get_unreadable_file(client, headers, bucket, objects, db, admin_user):
         ("location", 200),
     ],
 )
-def test_get_versions(client, headers, bucket, versions, permissions, user, expected):
+def test_get_versions(client, headers, bucket_with_record, versions,
+                      permissions, user, expected, mocker):
     """Test object version getting."""
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
     login_user(client, permissions[user])
 
     for obj in versions:
@@ -212,7 +234,7 @@ def test_get_versions(client, headers, bucket, versions, permissions, user, expe
         resp = client.get(
             url_for(
                 "invenio_files_rest.object_api",
-                bucket_id=bucket.id,
+                bucket_id=bucket_with_record.id,
                 key=obj.key,
             ),
             query_string=dict(versionId=obj.version_id),
@@ -223,6 +245,7 @@ def test_get_versions(client, headers, bucket, versions, permissions, user, expe
             assert resp.get_etag()[0] == obj.file.checksum
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_get_versions_invalid -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user",
     [
@@ -233,8 +256,13 @@ def test_get_versions(client, headers, bucket, versions, permissions, user, expe
         "location",
     ],
 )
-def test_get_versions_invalid(client, headers, bucket, objects, permissions, user):
+def test_get_versions_invalid(
+    client, headers, bucket_with_record, objects, permissions, user, mocker
+):
     """Test object version getting."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     versions = [
         ("c1057411-ad8a-4e4f-ac0e-f6f8b395d277", 404),
         ("invalid", 422),  # Not a UUID
@@ -246,7 +274,7 @@ def test_get_versions_invalid(client, headers, bucket, objects, permissions, use
             resp = client.get(
                 url_for(
                     "invenio_files_rest.object_api",
-                    bucket_id=bucket.id,
+                    bucket_id=bucket_with_record.id,
                     key=obj.key,
                 ),
                 query_string=dict(versionId=v),
@@ -254,6 +282,7 @@ def test_get_versions_invalid(client, headers, bucket, objects, permissions, use
             assert resp.status_code == expected
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_post -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user,expected",
     [
@@ -289,13 +318,18 @@ def test_post(client, headers, permissions, bucket, user, expected):
         ("location", 200),
     ],
 )
-def test_put(client, bucket, permissions, get_sha256, get_json, user, expected):
+def test_put(
+    client, bucket_with_record, permissions, get_sha256, get_json, user,
+    expected, user_activity_log_partition_table, mocker
+):
     """Test upload of an object."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
 
     key = "test.txt"
     data = b"updated_content"
     checksum = get_sha256(data, prefix=True)
-    object_url = url_for("invenio_files_rest.object_api", bucket_id=bucket.id, key=key)
+    object_url = url_for("invenio_files_rest.object_api", bucket_id=bucket_with_record.id, key=key)
 
     login_user(client, permissions[user])
     resp = client.put(
@@ -311,8 +345,10 @@ def test_put(client, bucket, permissions, get_sha256, get_json, user, expected):
         assert resp.status_code == 200
         assert resp.data == data
 
+
 # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_put_fail -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
-def test_put_fail(client, bucket, permissions, get_sha256, get_json):
+def test_put_fail(client, bucket, permissions, get_sha256,
+                  get_json, user_activity_log_partition_table):
     """Test upload of an object."""
     key = 'test.txt'
     data = b'updated_content'
@@ -329,8 +365,14 @@ def test_put_fail(client, bucket, permissions, get_sha256, get_json):
         assert resp.status_code == 200
 
 
-def test_put_versioning(client, bucket, permissions, get_json):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_put_versioning -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_put_versioning(client, bucket_with_record, permissions,
+                        get_json, user_activity_log_partition_table, mocker):
     """Test versioning feature."""
+    bucket = bucket_with_record
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     key = "test.txt"
     files = [b"v1", b"v2"]
     object_url = url_for("invenio_files_rest.object_api", bucket_id=bucket.id, key=key)
@@ -357,6 +399,7 @@ def test_put_versioning(client, bucket, permissions, get_json):
         assert client.get(item["links"]["self"]).status_code == 200
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_put_file_size_errors -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "quota_size, max_file_size, expected, err",
     [
@@ -367,9 +410,13 @@ def test_put_versioning(client, bucket, permissions, get_json):
     ],
 )
 def test_put_file_size_errors(
-    client, db, bucket, quota_size, max_file_size, expected, err, admin_user
+    client, db, bucket, quota_size, max_file_size, expected, err,
+    admin_user, user_activity_log_partition_table, mocker
 ):
     """Test that file size errors are properly raised."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     login_user(client, admin_user)
 
     filedata = b"a" * 75
@@ -396,7 +443,8 @@ def test_put_file_size_errors(
         assert resp.status_code == 400
 
 
-def test_put_invalid_key(client, db, bucket, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_put_invalid_key -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_put_invalid_key(client, db, bucket, admin_user, user_activity_log_partition_table):
     login_user(client, admin_user)
 
     """Test invalid key name."""
@@ -421,8 +469,13 @@ def test_put_zero_size(client, bucket, admin_user):
     assert resp.status_code == 400
 
 
-def test_put_deleted_locked(client, db, bucket, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_put_deleted_locked -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_put_deleted_locked(client, db, bucket, admin_user,
+                             user_activity_log_partition_table, mocker):
     """Test that file size errors are properly raised."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     login_user(client, admin_user)
 
     object_url = url_for(
@@ -446,7 +499,8 @@ def test_put_deleted_locked(client, db, bucket, admin_user):
     assert resp.status_code == 404
 
 
-def test_put_error(client, bucket, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_put_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_put_error(client, bucket, admin_user, user_activity_log_partition_table):
     """Test upload - cancelled by user."""
     login_user(client, admin_user)
 
@@ -464,7 +518,8 @@ def test_put_error(client, bucket, admin_user):
     assert len(list(fs.walk("."))) == 3
 
 
-def test_put_multipartform(client, bucket, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_put_multipartform -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_put_multipartform(client, bucket, admin_user, user_activity_log_partition_table):
     """Test upload via multipart/form-data."""
     login_user(client, admin_user)
 
@@ -485,6 +540,7 @@ def test_put_multipartform(client, bucket, admin_user):
     assert res.status_code == 200
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_delete -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user, expected",
     [
@@ -495,8 +551,15 @@ def test_put_multipartform(client, bucket, admin_user):
         ("location", 204),
     ],
 )
-def test_delete(client, db, bucket, objects, permissions, user, expected):
+def test_delete(
+    client, db, bucket_with_record, objects, permissions, user,
+    expected, user_activity_log_partition_table, mocker
+):
     """Test deleting an object."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+    bucket = bucket_with_record
+
     login_user(client, permissions[user])
     for obj in objects:
         # Valid object
@@ -534,6 +597,7 @@ def test_delete(client, db, bucket, objects, permissions, user, expected):
         )
 
 
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_delete_versions -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "user, expected",
     [
@@ -544,8 +608,15 @@ def test_delete(client, db, bucket, objects, permissions, user, expected):
         ("location", 204),
     ],
 )
-def test_delete_versions(client, db, bucket, versions, permissions, user, expected):
+def test_delete_versions(
+    client, db, bucket_with_record, versions, permissions, user,
+    expected, user_activity_log_partition_table, mocker
+):
     """Test deleting an object."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+    bucket = bucket_with_record
+
     login_user(client, permissions[user])
     for obj in versions:
         # Valid delete
@@ -575,8 +646,11 @@ def test_delete_versions(client, db, bucket, versions, permissions, user, expect
         )
 
 
-def test_delete_versions_head_reset(client, db, bucket, versions, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_delete_versions_head_reset -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_delete_versions_head_reset(client, db, bucket_with_record, versions,
+                                    admin_user,user_activity_log_partition_table, mocker):
     """Test head setting after deletion."""
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
     login_user(client, admin_user)
     key = "LICENSE"
     versions_to_delete = [version for version in versions if version.key == key]
@@ -590,7 +664,7 @@ def test_delete_versions_head_reset(client, db, bucket, versions, admin_user):
     res = client.delete(
         url_for(
             "invenio_files_rest.object_api",
-            bucket_id=bucket.id,
+            bucket_id=bucket_with_record.id,
             key=version_to_delete.key,
             versionId=version_to_delete.version_id,
         )
@@ -599,8 +673,15 @@ def test_delete_versions_head_reset(client, db, bucket, versions, admin_user):
     assert new_head_obj.is_head
 
 
-def test_delete_locked_deleted(client, db, bucket, versions, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_delete_locked_deleted -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_delete_locked_deleted(
+    client, db, bucket_with_record, versions, admin_user, user_activity_log_partition_table, mocker
+):
     """Test a deleted/locked bucket."""
+    bucket = bucket_with_record
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
     obj = versions[0]
     object_url = url_for(
         "invenio_files_rest.object_api", bucket_id=bucket.id, key=obj.key
@@ -634,8 +715,11 @@ def test_delete_locked_deleted(client, db, bucket, versions, admin_user):
     assert resp.status_code == 404
 
 
-def test_delete_unwritable(client, db, bucket, versions, admin_user):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_delete_unwritable -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_delete_unwritable(client, db, bucket_with_record, versions,
+                           admin_user, user_activity_log_partition_table, mocker):
     """Test deleting a file which is not writable."""
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
     obj = versions[0]
 
     # Unwritable file.
@@ -649,7 +733,7 @@ def test_delete_unwritable(client, db, bucket, versions, admin_user):
         resp = client.delete(
             url_for(
                 "invenio_files_rest.object_api",
-                bucket_id=bucket.id,
+                bucket_id=bucket_with_record.id,
                 key=obj.key,
                 versionId=obj.version_id,
             ),
@@ -663,13 +747,16 @@ def test_delete_unwritable(client, db, bucket, versions, admin_user):
     assert FileInstance.query.count() == 4
 
 
-def test_put_header_tags(app, client, bucket, permissions, get_md5, get_json):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_put_header_tags -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_put_header_tags(app, client, bucket, permissions, get_md5,
+                         get_json, user_activity_log_partition_table, mocker):
     """Test upload of an object with tags in the headers."""
     key = "test.txt"
     headers = {
         app.config["FILES_REST_FILE_TAGS_HEADER"]: ("key1=val1&key2=val2&key3=val3")
     }
 
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
     login_user(client, permissions["bucket"])
     resp = client.put(
         url_for("invenio_files_rest.object_api", bucket_id=bucket.id, key=key),
@@ -684,8 +771,13 @@ def test_put_header_tags(app, client, bucket, permissions, get_md5, get_json):
     assert tags["key3"] == "val3"
 
 
-def test_put_header_invalid_tags(app, client, bucket, permissions, get_md5, get_json):
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_views_objectversion.py::test_put_header_invalid_tags -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_put_header_invalid_tags(app, client, bucket, permissions, get_md5, get_json, mocker):
     """Test upload of an object with tags in the headers."""
+    # Prevent session from being removed after request
+    mocker.patch("sqlalchemy.orm.scoping.scoped_session.remove")
+
+    bucket_id = bucket.id
     header_name = app.config["FILES_REST_FILE_TAGS_HEADER"]
     invalid = [
         # We don't test zero-length values/keys, because they are filtered out
@@ -698,7 +790,7 @@ def test_put_header_invalid_tags(app, client, bucket, permissions, get_md5, get_
     # Invalid key or values
     for k, v in invalid:
         resp = client.put(
-            url_for("invenio_files_rest.object_api", bucket_id=bucket.id, key="k"),
+            url_for("invenio_files_rest.object_api", bucket_id=bucket_id, key="k"),
             input_stream=BytesIO(b"updated_content"),
             headers={header_name: "{}={}".format(k, v)},
         )
@@ -706,7 +798,7 @@ def test_put_header_invalid_tags(app, client, bucket, permissions, get_md5, get_
 
     # Duplicate key
     resp = client.put(
-        url_for("invenio_files_rest.object_api", bucket_id=bucket.id, key="k"),
+        url_for("invenio_files_rest.object_api", bucket_id=bucket_id, key="k"),
         input_stream=BytesIO(b"updated_content"),
         headers={header_name: "a=1&a=2"},
     )

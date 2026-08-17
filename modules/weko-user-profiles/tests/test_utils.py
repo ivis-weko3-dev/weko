@@ -1,25 +1,23 @@
-
-
+import pytest
 from flask import current_app,Flask
 from flask_wtf import FlaskForm
 from flask_login.utils import login_user
 from wtforms import SubmitField
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+
+from invenio_accounts.models import User
+from invenio_accounts.testutils import login_user_via_session
 
 from weko_user_profiles.forms import EmailProfileForm, ProfileForm
 from weko_user_profiles.api import current_userprofile
 from weko_user_profiles.config import WEKO_USERPROFILES_POSITION_LIST
+from weko_user_profiles.models import UserProfile
 from weko_user_profiles.utils import (
     get_user_profile_info,
     handle_verification_form,
     handle_profile_form,
     get_role_by_position
 )
-import pytest
-from unittest.mock import patch, MagicMock
-from weko_user_profiles.models import UserProfile
-from invenio_accounts.models import User
-from flask_sqlalchemy import SQLAlchemy
 
 # def get_user_profile_info(user_id):
 # .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_utils.py::test_get_user_profile_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
@@ -201,20 +199,21 @@ def test_get_user_profile_info(setup_data):
 
 # def handle_verification_form(form):
 # .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_utils.py::test_handle_verification_form -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
-def test_handle_verification_form(app):
-    patch("weko_user_profiles.utils.send_confirmation_instructions")
+def test_handle_verification_form(app, mocker):
+    mocker.patch("weko_user_profiles.utils.send_confirmation_instructions")
     class TestForm(FlaskForm):
         send_verification_email = SubmitField('Resend verification email')
     with app.test_request_context(method="POST",data={"send_verification_email":"test@test.org"}):
         form = TestForm(formdata=None,prefix="verification")
-        mock_flash = patch("weko_user_profiles.utils.flash")
+        mock_flash = mocker.patch("weko_user_profiles.utils.flash")
         handle_verification_form(form)
-        mock_flash.assert_called_with("Verification email sent.",category="success")
+        mock_flash.assert_called_with("Sent a Verification email", category="success")
 
 
 # def handle_profile_form(form):
 # .tox/c1/bin/pytest --cov=weko_user_profiles tests/test_utils.py::test_handle_profile_form -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-user-profiles/.tox/c1/tmp
 def test_handle_profile_form(app, db_admin_setting, users, user_profiles, mocker):
+
     # WEKO_USERPROFILES_ROLE_MAPPING_ENABLED is false
     data = {
         "profile-username": "test_sysadmin",
@@ -265,7 +264,7 @@ def test_handle_profile_form(app, db_admin_setting, users, user_profiles, mocker
         mocker.patch.object(form, 'validate_on_submit', return_value=True)
         mock_flash = mocker.patch("weko_user_profiles.utils.flash")
         handle_profile_form(form)
-        mock_flash.assert_called_with('Profile was updated.', category="success")
+        mock_flash.assert_called_with('Updated your profile', category="success")
         assert userprofile.timezone == "Etc/GMT"
         assert userprofile._username == "sysadmin"
 

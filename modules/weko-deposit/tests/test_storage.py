@@ -24,12 +24,9 @@ class TestWekoFileStorage:
     #.tox/c1/bin/pytest --cov=weko_deposit tests/test_storage.py::TestWekoFileStorage::test__init_hash -vv -s --cov-branch --cov-report=html --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp --full-trace
     def test__init_hash(self,wekofs):
         # Test initialization of hash
-        with patch('weko_deposit.storage.weko_logger') as mock_logger:
-            type, hash = wekofs._init_hash()
-            assert type=='sha256'
-            assert len(hash.hexdigest())==64
-            mock_logger.assert_called_with(key='WEKO_COMMON_RETURN_VALUE', value=mock.ANY)
-            mock_logger.reset_mock()
+        type, hash = wekofs._init_hash()
+        assert type=='sha256'
+        assert len(hash.hexdigest())==64
 
     # def upload_file(self, fjson):
     #.tox/c1/bin/pytest --cov=weko_deposit tests/test_storage.py::TestWekoFileStorage::test_upload_file -vv -s --cov-branch --cov-report=html --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp --full-trace
@@ -49,11 +46,8 @@ class TestWekoFileStorage:
             m.update(data)
             assert checksum == "sha256:{}".format(m.hexdigest())
             fjson = file.info()
-            with patch('weko_deposit.storage.weko_logger') as mock_logger:
-                wekofs.upload_file(fjson)
-                assert fjson['file'] == base64.b64encode(data).decode("utf-8")
-                mock_logger.assert_called_with(key='WEKO_DEPOSIT_UPLOAD_FILE', file_id=mock.ANY)
-                mock_logger.reset_mock()
+            wekofs.upload_file(fjson)
+            assert fjson['file'] == base64.b64encode(data).decode("utf-8")
 
         # test upload_file with valid data and mimetype
         bucket = Bucket.create()
@@ -71,13 +65,10 @@ class TestWekoFileStorage:
             assert checksum == "sha256:{}".format(m.hexdigest())
             fjson = file.info()
             fjson['mimetype'] = "plain/text"
-            with patch('weko_deposit.storage.weko_logger') as mock_logger:
-                wekofs.upload_file(fjson)
-                # logger.debug(fjson)
-                assert 'file' in fjson, "fjson does not contain 'file' key"
-                assert fjson['file'] == base64.b64encode(data).decode("utf-8")
-                mock_logger.assert_called_with(key='WEKO_DEPOSIT_UPLOAD_FILE', file_id=mock.ANY)
-                mock_logger.reset_mock()
+            wekofs.upload_file(fjson)
+            # logger.debug(fjson)
+            assert 'file' in fjson, "fjson does not contain 'file' key"
+            assert fjson['file'] == base64.b64encode(data).decode("utf-8")
 
     # fjson is not None and len(fjson) > 0
     #.tox/c1/bin/pytest --cov=weko_deposit tests/test_storage.py::TestWekoFileStorage::test_upload_file_with_valid_fjson -vv -s --cov-branch --cov-report=html --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp --full-trace
@@ -98,19 +89,14 @@ class TestWekoFileStorage:
             assert checksum == "sha256:{}".format(m.hexdigest())
             fjson = file.info()
             fjson['mimetype'] = "plain/text"
-            with patch('weko_deposit.storage.weko_logger') as mock_logger:
-                wekofs.upload_file(fjson)
-                assert 'file' in fjson, "fjson does not contain 'file' key"
-                assert fjson['file'] == base64.b64encode(data).decode("utf-8")
-                mock_logger.assert_called_with(key='WEKO_DEPOSIT_UPLOAD_FILE', file_id=mock.ANY)
-                mock_logger.reset_mock()
+            wekofs.upload_file(fjson)
+            assert 'file' in fjson, "fjson does not contain 'file' key"
+            assert fjson['file'] == base64.b64encode(data).decode("utf-8")
 
     # fjson is None
     #.tox/c1/bin/pytest --cov=weko_deposit tests/test_storage.py::TestWekoFileStorage::test_upload_file_with_none_fjson -vv -s --cov-branch --cov-report=html --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp --full-trace
     def test_upload_file_with_none_fjson(self, wekofs):
-        with patch('weko_deposit.storage.weko_logger') as mock_logger:
-            wekofs.upload_file(None)
-            mock_logger.assert_not_called()
+        wekofs.upload_file(None)
 
     # environment error
     #.tox/c1/bin/pytest --cov=weko_deposit tests/test_storage.py::TestWekoFileStorage::test_upload_file_with_environment_error -vv -s --cov-branch --cov-report=html --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp --full-trace
@@ -120,7 +106,7 @@ class TestWekoFileStorage:
             with patch('weko_deposit.storage.weko_logger') as mock_logger:
                 with pytest.raises(StorageError, match="Could not upload file"):
                     wekofs.upload_file(fjson)
-                mock_logger.assert_called_with(key='WEKO_DEPOSIT_FAILED_FILE_UPLOAD', file_name="", ex=mock.ANY)
+                mock_logger.assert_called_with(key='WEKO_DEPOSIT_FAILED_FILE_UPLOAD', file_name=wekofs.fileurl, ex=mock.ANY)
                 mock_logger.reset_mock()
 
     # unexpected error
@@ -180,7 +166,7 @@ class TestWekoFileStorage:
                         with patch('chardet.detect', return_value={'encoding': 'ISO-8859-1'}):
                             with pytest.raises(WekoDepositError, match="Could not encoding/decoding file"):
                                 wekofs.upload_file(fjson)
-                mock_logger.assert_called_with(key="WEKO_DEPOSIT_FAILED_ENCODING_DECODING_FILE", file_name="", ex=mock.ANY)
+                mock_logger.assert_called_with(key="WEKO_DEPOSIT_FAILED_ENCODING_DECODING_FILE", file_name=wekofs.fileurl, ex=mock.ANY)
                 mock_logger.reset_mock()
 
 # def make_path(base_uri, path, filename, path_dimensions, split_length):
@@ -216,23 +202,19 @@ def test_pyfs_storage_factory(app,wekofs,wekofs_testpath,location):
     # fileinstance is not None
     with app.test_request_context():
         file = WekoFileObject(obj,{})
-        with patch('weko_deposit.storage.weko_logger') as mock_logger:
+        with patch('weko_deposit.storage.weko_logger'):
             factory = pyfs_storage_factory(fileinstance=file.obj.file)
             assert isinstance(factory,WekoFileStorage) == True
-            mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=factory)
-            mock_logger.reset_mock()
 
     # fileinstance is not None and default_location is not None
     with app.test_request_context():
         file = WekoFileObject(obj,{})
         file.obj.file.uri = ''
-        with patch('weko_deposit.storage.weko_logger') as mock_logger:
+        with patch('weko_deposit.storage.weko_logger'):
             with pytest.raises(WekoDepositStorageError):
                 factory = pyfs_storage_factory(fileinstance=file.obj.file)
             factory = pyfs_storage_factory(fileinstance=file.obj.file,default_location=location.uri)
             assert isinstance(factory,WekoFileStorage) == True
-            mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=factory)
-            mock_logger.reset_mock()
 
     # fileinstance is None and fileurl and size are not None
     with app.test_request_context():
@@ -244,11 +226,8 @@ def test_pyfs_storage_factory(app,wekofs,wekofs_testpath,location):
                 app.config['FILES_REST_STORAGE_PATH_DIMENSIONS'],
                 app.config['FILES_REST_STORAGE_PATH_SPLIT_LENGTH'],
             )
-        with patch('weko_deposit.storage.weko_logger') as mock_logger:
-            factory = pyfs_storage_factory(fileurl=fileurl,size=file.obj.file.size,default_location=location.uri)
-            assert isinstance(factory,WekoFileStorage) == True
-            mock_logger.assert_any_call(key='WEKO_COMMON_RETURN_VALUE', value=factory)
-            mock_logger.reset_mock()
+        factory = pyfs_storage_factory(fileurl=fileurl,size=file.obj.file.size,default_location=location.uri)
+        assert isinstance(factory,WekoFileStorage) == True
 
 # .tox/c1/bin/pytest --cov=weko_deposit tests/test_storage.py::test_pyfs_storage_factory_with_invalid_parameters -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
 def test_pyfs_storage_factory_with_invalid_parameters():

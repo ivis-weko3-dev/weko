@@ -267,9 +267,6 @@ msgstr ""
 #~ msgid "More_Display"
 #~ msgstr "More Display"
 
-#~ msgid "Send"
-#~ msgstr "Send"
-
 #~ msgid "Choose_Processing"
 #~ msgstr "Please choose processing about index and items!"
 

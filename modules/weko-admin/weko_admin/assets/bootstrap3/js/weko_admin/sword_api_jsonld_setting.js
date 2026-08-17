@@ -532,3 +532,7 @@ window.onload = function () {
 
 
 componentDidMount();
+
+// expose to global scope for inline HTML event handlers
+window.changeRegistrationType = changeRegistrationType;
+window.saveDataFormat = saveDataFormat;

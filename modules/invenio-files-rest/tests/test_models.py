@@ -1080,7 +1080,9 @@ def test_fileinstance_copy_contents_invalid(app, db, dummy_location):
 
 
 # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_models.py::test_fileinstance_send_file -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
-def test_fileinstance_send_file(app, db, dummy_location,dummy_s3_location):
+def test_fileinstance_send_file(
+    app, db, dummy_location, dummy_s3_location, mocker
+):
     """Test file instance send file."""
     f = FileInstance.create()
     # File not readable
@@ -1120,7 +1122,11 @@ def test_fileinstance_send_file(app, db, dummy_location,dummy_s3_location):
                 mock_convert.assert_called_with("/var/tmp/pdf_dir/1","/var/tmp/convert_1/test_file.docx")
                 shutil.rmtree("/var/tmp/pdf_dir/1")
 
-def test_fileinstance_send_file_s3_path1(app, db, dummy_location,dummy_s3_location,mocker):
+
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_models.py::test_fileinstance_send_file_s3_path1 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_fileinstance_send_file_s3_path1(
+    app, db, dummy_location, dummy_s3_location, mocker
+):
     """Test file instance send file."""
     f = FileInstance.create()
     # File not readable
@@ -1160,7 +1166,11 @@ def test_fileinstance_send_file_s3_path1(app, db, dummy_location,dummy_s3_locati
                 mock_convert.assert_called_with("/var/tmp/pdf_dir/1","/var/tmp/convert_1/test_file.docx")
                 shutil.rmtree("/var/tmp/pdf_dir/1")
 
-def test_fileinstance_send_file_s3_path2(app, db, dummy_location,dummy_s3_location,mocker):
+
+# .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_models.py::test_fileinstance_send_file_s3_path2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
+def test_fileinstance_send_file_s3_path2(
+    app, db, dummy_location, dummy_s3_location, mocker
+):
     """Test file instance send file."""
     f = FileInstance.create()
     # File not readable

@@ -10,6 +10,7 @@
 
 """Pytest configuration."""
 
+from datetime import datetime, timedelta
 import hashlib
 import os
 import shutil
@@ -31,6 +32,8 @@ from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_db.utils import drop_alembic_version_table
 from invenio_i18n import Babel, InvenioI18N
+from invenio_records.models import RecordMetadata
+from invenio_records_files.models import RecordsBuckets
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.schema import DropConstraint, DropSequence, DropTable
 from sqlalchemy_utils.functions import create_database, database_exists
@@ -118,7 +121,7 @@ def base_app():
     return app_
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def app(base_app):
     """Flask application fixture."""
     InvenioI18N(base_app)
@@ -134,7 +137,7 @@ def app(base_app):
         yield base_app
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def db(app):
     """Get setup database."""
     if not database_exists(str(db_.engine.url)):
@@ -146,14 +149,14 @@ def db(app):
     drop_alembic_version_table()
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def client(app):
     """Get test client."""
     with app.test_client() as client:
         yield client
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def dummy_location(db):
     """File system location."""
     tmppath = tempfile.mkdtemp()
@@ -167,7 +170,7 @@ def dummy_location(db):
     shutil.rmtree(tmppath)
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def dummy_s3_location(db):
     tmppath = tempfile.mkdtemp()
     loc = Location(
@@ -185,19 +188,19 @@ def dummy_s3_location(db):
     shutil.rmtree(tmppath)
 
 
-@pytest.fixture()
+@pytest.fixture
 def pyfs_testpath(dummy_location):
     """Temporary path for PyFS."""
     return os.path.join(dummy_location.uri, "subpath/data")
 
 
-@pytest.fixture()
+@pytest.fixture
 def pyfs(dummy_location, pyfs_testpath):
     """Instance of PyFSFileStorage."""
     return PyFSFileStorage(pyfs_testpath)
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def extra_location(db):
     """File system location."""
     tmppath = tempfile.mkdtemp()
@@ -211,7 +214,7 @@ def extra_location(db):
     shutil.rmtree(tmppath)
 
 
-@pytest.fixture()
+@pytest.fixture
 def bucket(db, dummy_location):
     """File system location."""
     b1 = Bucket.create()
@@ -219,7 +222,25 @@ def bucket(db, dummy_location):
     return b1
 
 
-@pytest.fixture()
+@pytest.fixture
+def bucket_with_record(db, bucket):
+    """Bucket associated with a record."""
+    record = RecordMetadata(json={}, version_id=1)
+    db.session.add(record)
+    db.session.flush()
+
+    db.session.add(
+        RecordsBuckets(
+            record_id=record.id,
+            bucket_id=bucket.id,
+        )
+    )
+    db.session.commit()
+
+    return bucket
+
+
+@pytest.fixture
 def multipart(db, bucket):
     """Multipart object."""
     mp = MultipartObject.create(bucket, "mykey", 110, 20)
@@ -227,7 +248,7 @@ def multipart(db, bucket):
     return mp
 
 
-@pytest.fixture()
+@pytest.fixture
 def multipart_url(multipart):
     """File system location."""
     return url_for(
@@ -238,7 +259,7 @@ def multipart_url(multipart):
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def parts(db, multipart):
     """All parts for a multipart object."""
     items = []
@@ -257,7 +278,7 @@ def parts(db, multipart):
     return items
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def objects(db, bucket):
     """File system location."""
     # Create older versions first
@@ -277,7 +298,7 @@ def objects(db, bucket):
     yield objs
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def versions(objects):
     """Get objects with all their versions."""
     versions = []
@@ -287,7 +308,7 @@ def versions(objects):
     yield versions
 
 
-@pytest.fixture()
+@pytest.fixture
 def users_data(db):
     """User data fixture."""
     return [
@@ -296,7 +317,7 @@ def users_data(db):
     ]
 
 
-@pytest.fixture()
+@pytest.fixture
 def users(db, users_data):
     """Create test users."""
     return [
@@ -305,7 +326,7 @@ def users(db, users_data):
     ]
 
 
-@pytest.fixture()
+@pytest.fixture
 def headers():
     """Get standard Invenio REST API headers."""
     return {
@@ -314,7 +335,7 @@ def headers():
     }
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def permissions(db, bucket):
     """Permission for users."""
     users = {
@@ -371,7 +392,7 @@ def permissions(db, bucket):
     yield users
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def admin_user(db):
     """Permission for admin users."""
     perms = [
@@ -409,7 +430,7 @@ def admin_user(db):
     yield admin_user
 
 
-@pytest.fixture()
+@pytest.fixture
 def get_md5():
     """Get MD5 of data."""
 
@@ -421,7 +442,7 @@ def get_md5():
     return inner
 
 
-@pytest.fixture()
+@pytest.fixture
 def get_json():
     """Get JSON from response."""
 
@@ -433,7 +454,7 @@ def get_json():
     return inner
 
 
-@pytest.fixture()
+@pytest.fixture
 def get_sha256():
     """Get sha256 of data."""
     def inner(data, prefix=True):
@@ -443,9 +464,28 @@ def get_sha256():
     return inner
 
 
-@pytest.fixture()
+@pytest.fixture
 def offload_file_serving(app):
     """Serve a redirect instead of streaming the file."""
     app.config["FILES_REST_XSENDFILE_ENABLED"] = True
     yield app
     app.config["FILES_REST_XSENDFILE_ENABLED"] = False
+
+
+@pytest.fixture
+def user_activity_log_partition_table(app, db):
+    """Create user activity log partition."""
+    # Create partition for current month
+    now = datetime.now()
+    start = now.date().replace(day=1)
+    end = (start + timedelta(days=31)).replace(day=1)
+    partition_name = f"user_activity_logs_{now.year}_{now.month:02d}"
+    create_partition_sql = f"""
+        CREATE TABLE IF NOT EXISTS {partition_name}
+        PARTITION OF user_activity_logs
+        FOR VALUES FROM ('{start}') TO ('{end}');
+    """
+
+    with db.session.begin_nested():
+        db.session.execute(create_partition_sql)
+    db.session.commit()

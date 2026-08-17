@@ -21,6 +21,8 @@ from flask_webpackext import current_webpack
 from invenio_accounts import InvenioAccounts
 from invenio_app import InvenioApp
 from invenio_assets import InvenioAssets
+from invenio_communities import InvenioCommunities
+from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
 from invenio_config import InvenioConfigDefault
 from invenio_db import InvenioDB
 from invenio_files_rest import InvenioFilesREST
@@ -47,6 +49,7 @@ def app():
         'testapp', static_folder=instance_path, instance_path=instance_path)
     app_.config.update(
         TESTING=True,
+        APP_THEME=["bootstrap3"],
         SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
@@ -69,9 +72,18 @@ def app():
                 view_imp='invenio_records_files.utils.file_download_ui',
                 record_class='invenio_records_files.api:Record',
             ),
+            recid_file_preview=dict(
+                pid_type='recid',
+                route='/record/<pid_value>/file_preview/<path:filename>',
+                view_imp='weko_records_ui.fd.file_preview_ui',
+                record_class='weko_deposit.api:WekoRecord',
+                permission_factory_imp='weko_records_ui.permissions'
+                                    ':page_permission_factory',
+            ),
         ),
         SERVER_NAME='localhost',
-        SECRET_KEY="SECRET_KEY"
+        SECRET_KEY="SECRET_KEY",
+        WEKO_THEME_INSTANCE_DATA_DIR="data",
     )
     Babel(app_)
     assets_ext = InvenioAssets(app_)
@@ -81,6 +93,10 @@ def app():
     InvenioRecordsUI(app_)
     InvenioFilesREST(app_)
     InvenioAccounts(app_)
+
+    app_.register_blueprint(create_blueprint_from_app(app_))
+    InvenioCommunities(app_)
+    app_.register_blueprint(invenio_communities_blueprint)
 
     # Add base assets bundles for jQuery and Bootstrap
     # Note: These bundles aren't included by default since package consumers
@@ -174,18 +190,26 @@ def webassets(testapp):
     current_webpack.project.create()
     current_webpack.project.install()
 
-    # create a fake theme config file from the example one
-    _assets = os.path.join(testapp.instance_path, "assets")
-    example = os.path.join(_assets, "less", "invenio_theme", "theme.config.example")
-    with open(example, "r") as fi:
-        with open(os.path.join(_assets, THEME_CONFIG_PATH), "w") as fo:
-            for line in fi:
-                if line.startswith("@siteFolder"):
-                    # use default theme as site theme instead of `my-site/site` as
-                    # in `invenio-theme`
-                    fo.write("@siteFolder: 'default';")
-                else:
-                    fo.write(line)
+    if testapp.config["APP_THEME"] == ["bootstrap3"]:
+        scss_dir = os.path.join(testapp.instance_path, testapp.config['WEKO_THEME_INSTANCE_DATA_DIR'])
+        os.makedirs(scss_dir, exist_ok=True)
+        scss_file = os.path.join(scss_dir, '_variables.scss')
+        with open(scss_file, "w") as f:
+            f.write("$body-bg: #ffff;\n$panel-bg: #ffff;\n$footer-default-bg: #0d5f89;\n$navbar-default-bg: #0d5f89;\n$panel-default-border: #dddddd;\n$input-bg-transparent: rgba(255, 255, 255, 0);")
+    else:
+        # create a fake theme config file from the example one
+        # theme.config.example only exists for semantic-ui theme
+        _assets = os.path.join(testapp.instance_path, "assets")
+        example = os.path.join(_assets, "less", "invenio_theme", "theme.config.example")
+        with open(example, "r") as fi:
+            with open(os.path.join(_assets, THEME_CONFIG_PATH), "w") as fo:
+                for line in fi:
+                    if line.startswith("@siteFolder"):
+                        # use default theme as site theme instead of `my-site/site` as
+                        # in `invenio-theme`
+                        fo.write("@siteFolder: 'default';")
+                    else:
+                        fo.write(line)
 
     current_webpack.project.build()
 
@@ -260,7 +284,7 @@ def db(app):
     """Database fixture."""
     if not database_exists(str(db_.engine.url)):
         create_database(str(db_.engine.url))
-        db_.create_all()
+    db_.create_all()
     yield db_
     db_.session.remove()
-    # db_.drop_all()
+    db_.drop_all()

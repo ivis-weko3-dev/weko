@@ -263,9 +263,17 @@ def pyfs_storage_factory(
                 current_app.config["FILES_REST_STORAGE_PATH_DIMENSIONS"],
                 current_app.config["FILES_REST_STORAGE_PATH_SPLIT_LENGTH"],
             )
+        
+        location = next((loc for loc in locationList if str(loc.uri) == str(default_location)), None)
 
-    return filestorage_class(fileurl, size=size, modified=modified, clean_dir=clean_dir)
+    if location is None:
+        location = next((loc for loc in locationList if str(loc.uri) in str(fileurl)), None)
+        if location is None:
+            # if not match fileurl with location, then get default location
+            location = next((loc for loc in locationList if loc.default == True), None)
 
+    return filestorage_class(
+        fileurl, size=size, modified=modified, clean_dir=clean_dir, location=location)
 
 def remove_dir_with_file(path):
     """Remove the directory that contains the all files in the directory."""

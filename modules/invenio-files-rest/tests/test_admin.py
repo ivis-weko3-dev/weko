@@ -540,11 +540,12 @@ class TestLocationModelView():
             db.session.commit()
 
 
+    # .tox/c1/bin/pytest --cov=invenio_files_rest tests/test_admin.py::TestLocationModelView::test_get_count_query -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-files-rest/.tox/c1/tmp
     def test_get_count_query(self, app, db, monkeypatch):
         """Test get_count_query filters locations based on user roles."""
         monkeypatch.setenv('INVENIO_ROLE_SYSTEM', 'System Administrator')
         monkeypatch.setenv('INVENIO_ROLE_REPOSITORY', 'Repository Administrator')
-        
+
         # Create test locations
         default_loc = Location(name='default-loc-count', uri='/tmp/default-count', default=True)
         non_default_loc1 = Location(name='non-default-loc-1', uri='/tmp/non-default-1', default=False)
@@ -553,10 +554,12 @@ class TestLocationModelView():
         db.session.add(non_default_loc1)
         db.session.add(non_default_loc2)
         db.session.commit()
-        
+
         try:
             mock_user = MagicMock()
-            
+            all_location_count = db.session.query(Location).count()
+            non_default_count = db.session.query(Location).filter_by(default=False).count()
+
             # Test Case: System Administrator sees count of all locations (including default)
             mock_role_sysad = MagicMock()
             mock_role_sysad.name = 'System Administrator'
@@ -564,11 +567,11 @@ class TestLocationModelView():
             with patch('invenio_files_rest.admin.current_user', mock_user):
                 view = LocationModelView(Location, db.session)
                 query = view.get_count_query()
-                count = query.count()
+                # Get the count from the query (SELECT COUNT(*) FROM ...)
+                count = query.scalar()
                 # Should see all locations in the database
-                total_locations = db.session.query(Location).count()
-                assert count == total_locations
-            
+                assert count == all_location_count
+
             # Test Case: Repository Administrator sees count excluding default locations
             mock_role_repoad = MagicMock()
             mock_role_repoad.name = 'Repository Administrator'
@@ -576,11 +579,10 @@ class TestLocationModelView():
             with patch('invenio_files_rest.admin.current_user', mock_user):
                 view = LocationModelView(Location, db.session)
                 query = view.get_count_query()
-                count = query.count()
+                count = query.scalar()
                 # Should only see non-default locations
-                non_default_count = db.session.query(Location).filter_by(default=False).count()
                 assert count == non_default_count
-            
+
             # Test Case: Community Administrator sees count excluding default locations
             mock_role_commad = MagicMock()
             mock_role_commad.name = 'Community Administrator'
@@ -588,19 +590,17 @@ class TestLocationModelView():
             with patch('invenio_files_rest.admin.current_user', mock_user):
                 view = LocationModelView(Location, db.session)
                 query = view.get_count_query()
-                count = query.count()
+                count = query.scalar()
                 # Should only see non-default locations
-                non_default_count = db.session.query(Location).filter_by(default=False).count()
                 assert count == non_default_count
-            
+
             # Test Case: User without role sees count excluding default locations
             mock_user.roles = []
             with patch('invenio_files_rest.admin.current_user', mock_user):
                 view = LocationModelView(Location, db.session)
                 query = view.get_count_query()
-                count = query.count()
+                count = query.scalar()
                 # Should only see non-default locations
-                non_default_count = db.session.query(Location).filter_by(default=False).count()
                 assert count == non_default_count
         finally:
             # Clean up test locations

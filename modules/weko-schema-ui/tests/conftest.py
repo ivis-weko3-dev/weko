@@ -22,37 +22,31 @@
 
 import copy
 import json
-import traceback
-import mimetypes
 import os
 import pytest
 import shutil
 import tempfile
-import time
 import uuid
 
-from collections import OrderedDict
-from datetime import datetime, timedelta
-from os.path import dirname, exists, join
+from io import BytesIO
+from os.path import join
 from unittest.mock import patch
 
-from click.testing import CliRunner
-from flask import Blueprint, Flask
-from flask_assets import assets
+from flask import Flask
 from flask_babel import Babel
-from flask_login import LoginManager, UserMixin
 from flask_menu import Menu
+from opensearchpy import OpenSearch
+from opensearchpy.client.ingest import IngestClient
+from sqlalchemy_utils.functions import create_database, database_exists, drop_database
+
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.models import Role, User
-from invenio_accounts.testutils import create_test_user, login_user_via_session
+from invenio_accounts.testutils import create_test_user
 from invenio_admin import InvenioAdmin
-from invenio_admin.views import blueprint as invenio_admin_blueprint
 from invenio_assets import InvenioAssets
-from invenio_assets.cli import collect
 from invenio_cache import InvenioCache
-from invenio_communities import InvenioCommunities
 from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_deposit import InvenioDeposit
@@ -61,138 +55,58 @@ from invenio_files_rest.models import Bucket, Location, ObjectVersion
 from invenio_files_rest.views import blueprint as invenio_files_rest_blueprint
 from invenio_i18n import InvenioI18N
 from invenio_indexer import InvenioIndexer
-from invenio_jsonschemas import InvenioJSONSchemas
 from invenio_oaiserver import InvenioOAIServer
-from invenio_oaiserver.models import Identify
 from invenio_oaiserver.views.server import blueprint as invenio_oaiserver_blueprint
 from invenio_oauth2server import InvenioOAuth2Server
 from invenio_pidrelations import InvenioPIDRelations
 from invenio_pidrelations.contrib.draft import PIDNodeDraft
 from invenio_pidrelations.contrib.versioning import PIDNodeVersioning
-from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore import InvenioPIDStore
-from invenio_pidstore.models import PersistentIdentifier, PIDStatus, Redirect
-from invenio_previewer import InvenioPreviewer
+from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records import InvenioRecords
 from invenio_records_files.models import RecordsBuckets
 from invenio_records_rest import InvenioRecordsREST
 from invenio_records_rest.utils import PIDConverter
 from invenio_records_ui import InvenioRecordsUI
-from invenio_rest import InvenioREST
 from invenio_search import InvenioSearch, current_search_client
+from invenio_search.utils import build_alias_name
 from invenio_search_ui import InvenioSearchUI
-from invenio_stats import InvenioStats
-from invenio_stats.config import SEARCH_INDEX_PREFIX as index_prefix
-from invenio_theme import InvenioTheme
-from io import BytesIO
-from opensearchpy import OpenSearch
-from opensearchpy.client.ingest import IngestClient
-from simplekv.memory.redisstore import RedisStore
-from sqlalchemy_utils.functions import (
-    create_database, database_exists, drop_database)
 
 from weko_admin import WekoAdmin
-from weko_admin.models import AdminSettings, RankingSettings, SessionLifetime
+from weko_admin.models import SessionLifetime
 from weko_deposit import WekoDeposit, WekoDepositREST
 from weko_deposit.api import WekoDeposit as aWekoDeposit
-from weko_deposit.api import (
-    WekoIndexer, WekoRecord, _FormatSysBibliographicInformation)
+from weko_deposit.api import WekoIndexer, WekoRecord
 from weko_deposit.config import _PID
 from weko_deposit.config import DEPOSIT_REST_ENDPOINTS
-from weko_deposit.config import (
-    DEPOSIT_REST_ENDPOINTS as _DEPOSIT_REST_ENDPOINTS)
-from weko_deposit.config import WEKO_BUCKET_QUOTA_SIZE
-from weko_deposit.config import WEKO_DEPOSIT_REST_ENDPOINTS
-from weko_deposit.config import (
-    WEKO_DEPOSIT_REST_ENDPOINTS as _WEKO_DEPOSIT_REST_ENDPOINTS,
-)
-from weko_deposit.storage import WekoFileStorage
-from weko_deposit.views import blueprint
-from weko_groups import WekoGroups
 from weko_index_tree import WekoIndexTree, WekoIndexTreeREST
 from weko_index_tree.api import Indexes
-from weko_index_tree.config import (
-    WEKO_INDEX_TREE_REST_ENDPOINTS as _WEKO_INDEX_TREE_REST_ENDPOINTS,
-)
-from weko_index_tree.models import Index, IndexStyle
+from weko_index_tree.config import WEKO_INDEX_TREE_REST_ENDPOINTS as _WEKO_INDEX_TREE_REST_ENDPOINTS
+from weko_index_tree.models import Index
 from weko_items_ui import WekoItemsUI
-from weko_items_ui.config import (
-    WEKO_ITEMS_UI_FILE_SISE_PREVIEW_LIMIT,
-    WEKO_ITEMS_UI_MS_MIME_TYPE,
-)
-from weko_items_ui.views import blueprint as weko_items_ui_blueprint
-from weko_items_ui.views import blueprint_api as weko_items_ui_blueprint_api
 from weko_logging.audit import WekoLoggingUserActivity
 from weko_records import WekoRecords
 from weko_records.api import ItemsMetadata, ItemLink
-from weko_records.models import (
-    FeedbackMailList,
-    ItemType,
-    ItemTypeMapping,
-    ItemTypeName,
-    SiteLicenseInfo,
-    SiteLicenseIpAddress,
-)
-from weko_records.utils import get_options_and_order_list
-from weko_records_ui import WekoRecordsCitesREST, WekoRecordsUI
+from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
+from weko_records_ui import WekoRecordsUI
 from weko_records_ui.config import (
-    FOOTER_HEIGHT,
-    HEADER_HEIGHT,
-    JPAEXG_TTF_FILEPATH,
-    JPAEXM_TTF_FILEPATH,
-    METADATA_HEIGHT,
-    PDF_COVERPAGE_LANG_FILENAME,
-    PDF_COVERPAGE_LANG_FILEPATH,
     RECORDS_UI_ENDPOINTS,
     RECORDS_UI_EXPORT_FORMATS,
-    TITLE_HEIGHT,
-    URL_OA_POLICY_HEIGHT,
-    WEKO_ADMIN_PDFCOVERPAGE_TEMPLATE,
-    WEKO_PERMISSION_ROLE_COMMUNITY,
     WEKO_RECORDS_UI_CITES_REST_ENDPOINTS,
-    WEKO_RECORDS_UI_DOWNLOAD_DAYS,
-    WEKO_RECORDS_UI_EMAIL_ITEM_KEYS,
-    WEKO_RECORDS_UI_GOOGLE_SCHOLAR_OUTPUT_RESOURCE_TYPE,
-    WEKO_RECORDS_UI_ONETIME_DOWNLOAD_PATTERN,
-    WEKO_RECORDS_UI_SECRET_KEY,
-)
-from weko_records_ui.models import (
-    FileOnetimeDownload,
-    FilePermission,
-    PDFCoverPageSettings,
 )
 from weko_records_ui.views import blueprint as weko_records_ui_blueprint
-from weko_search_ui import WekoSearchREST, WekoSearchUI
+from weko_search_ui import WekoSearchUI
 from weko_search_ui.config import WEKO_SEARCH_MAX_RESULT, RESOURCE_TYPE_URI
-from weko_theme import WekoTheme
-from weko_theme.views import blueprint as weko_theme_blueprint
-from weko_user_profiles.models import UserProfile
-from weko_workflow import WekoWorkflow
-from weko_workflow.models import (
-    Action,
-    ActionStatus,
-    ActionStatusPolicy,
-    Activity,
-    FlowAction,
-    FlowDefine,
-    GuestActivity,
-    WorkFlow,
-)
-from weko_workflow.views import workflow_blueprint as weko_workflow_blueprint
-from werkzeug.local import LocalProxy
 
-from tests.helpers import create_record, json_data
 from weko_schema_ui import WekoSchemaUI
-from weko_schema_ui.config import (
-    WEKO_SCHEMA_DDI_SCHEMA_NAME,
-    WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
-)
+from weko_schema_ui.config import WEKO_SCHEMA_DDI_SCHEMA_NAME, WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME
 from weko_schema_ui.models import OAIServerSchema
 from weko_schema_ui.rest import create_blueprint
-from weko_schema_ui.views import blueprint as weko_schema_ui_blueprint
+
+from .helpers import json_data
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def instance_path():
     """Temporary instance path."""
     path = tempfile.mkdtemp()
@@ -200,7 +114,7 @@ def instance_path():
     shutil.rmtree(path)
 
 
-@pytest.fixture()
+@pytest.fixture
 def base_app(instance_path):
     """Flask application fixture."""
     app_ = Flask(
@@ -254,14 +168,15 @@ def base_app(instance_path):
         BASE_EDIT_TEMPLATE="weko_theme/edit.html",
         WEKO_SCHEMA_UI_ADMIN_LIST="weko_schema_ui/admin/list.html",
         WEKO_SCHEMA_UI_ADMIN_UPLOAD="weko_schema_ui/admin/upload.html",
-        INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
-        SEARCH_UI_SEARCH_INDEX="{}-weko-item-v1.0.0".format("test"),
+        INDEXER_DEFAULT_INDEX="weko-item-v1.0.0",
+        SEARCH_UI_SEARCH_INDEX="weko-item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
-        SEARCH_OPENSEARCH_HOSTS=os.environ.get('SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
+        SEARCH_OPENSEARCH_HOSTS = os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch"),
+        SEARCH_HOSTS=os.environ.get('SEARCH_HOST', 'opensearch'),
         SEARCH_CLIENT_CONFIG={
-            "http_auth":(os.environ.get('INVENIO_OPENSEARCH_USER', 'invenio'),os.environ.get('INVENIO_OPENSEARCH_PASS', 'openpass123!')),
-            "use_ssl":True,
-            "verify_certs":False
+            "http_auth": (os.environ.get('INVENIO_OPENSEARCH_USER', "invenio"), os.environ.get('INVENIO_OPENSEARCH_PASS', "openpass123!")),
+            "use_ssl": True,
+            "verify_certs": False
         },
         SEARCH_INDEX_PREFIX="test-",
         WEKO_BUCKET_QUOTA_SIZE=50 * 1024 * 1024 * 1024,
@@ -278,7 +193,7 @@ def base_app(instance_path):
         RESOURCE_TYPE_URI=RESOURCE_TYPE_URI,
     )
     InvenioAccounts(app_)
-    InvenioAssets(app_)
+    invenio_assets = InvenioAssets(app_)
     InvenioAccess(app_)
     InvenioAdmin(app_)
     InvenioDB(app_)
@@ -314,121 +229,18 @@ def base_app(instance_path):
     app_.register_blueprint(invenio_files_rest_blueprint)  # invenio_files_rest
     app_.register_blueprint(invenio_oaiserver_blueprint)
 
-    current_assets = LocalProxy(lambda: app_.extensions["invenio-assets"])
-    current_assets.collect.collect()
+    invenio_assets.collect.collect()
 
     return app_
 
-@pytest.fixture()
-def base_app2(instance_path):
-    app_ = Flask(
-        "testapp",
-        instance_path=instance_path,
-        static_folder=join(instance_path, "static"),
-    )
-    app_.url_map.converters["pid"] = PIDConverter
-    WEKO_INDEX_TREE_REST_ENDPOINTS = copy.deepcopy(_WEKO_INDEX_TREE_REST_ENDPOINTS)
-    WEKO_INDEX_TREE_REST_ENDPOINTS["tid"]["index_route"] = "/tree/index/<int:index_id>"
-    WEKO_DEPOSIT_REST_ENDPOINTS = copy.deepcopy(DEPOSIT_REST_ENDPOINTS)
-    WEKO_DEPOSIT_REST_ENDPOINTS["depid"]["rdc_route"] = "/deposits/redirect/<{0}:pid_value>".format(_PID)
-    WEKO_DEPOSIT_REST_ENDPOINTS["depid"]["pub_route"] = "/deposits/publish/<{0}:pid_value>".format(_PID)
-    app_.config.update(
-        SECRET_KEY="SECRET_KEY",
-        SERVER_NAME="test_server",
-        TESTING=True,
-        SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
-                                           'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
-        CACHE_REDIS_URL=os.environ.get("CACHE_REDIS_URL", "redis://redis:6379/0"),
-        CACHE_TYPE="redis",
-        CACHE_REDIS_DB=0,
-        CACHE_REDIS_HOST="redis",
-        REDIS_PORT="6379",
-        WEKO_SCHEMA_CACHE_PREFIX="cache_{schema_name}",
-        RECORDS_UI_ENDPOINTS=RECORDS_UI_ENDPOINTS,
-        RECORDS_UI_EXPORT_FORMATS=RECORDS_UI_EXPORT_FORMATS,
-        WEKO_RECORDS_UI_CITES_REST_ENDPOINTS=WEKO_RECORDS_UI_CITES_REST_ENDPOINTS,
-        WEKO_PERMISSION_ROLE_USER=[
-            "System Administrator",
-            "Repository Administrator",
-            "Contributor",
-            "General",
-            "Community Administrator",
-        ],
-        WEKO_PERMISSION_SUPER_ROLE_USER=[
-            "System Administrator",
-            "Repository Administrator",
-        ],
-        THEME_SITEURL = 'https://localhost',
-        WEKO_SCHEMA_REST_XSD_LOCATION_FOLDER="{0}/data/xsd/",
-        BASE_EDIT_TEMPLATE="weko_theme/edit.html",
-        WEKO_SCHEMA_UI_ADMIN_LIST="weko_schema_ui/admin/list.html",
-        WEKO_SCHEMA_UI_ADMIN_UPLOAD="weko_schema_ui/admin/upload.html",
-        INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
-        SEARCH_UI_SEARCH_INDEX="{}-weko-item-v1.0.0".format("test"),
-        INDEXER_FILE_DOC_TYPE="content",
-        SEARCH_OPENSEARCH_HOSTS="opensearch",
-        SEARCH_INDEX_PREFIX="test-",
-        WEKO_BUCKET_QUOTA_SIZE=50 * 1024 * 1024 * 1024,
-        WEKO_MAX_FILE_SIZE=50 * 1024 * 1024 * 1024,
-        INDEX_IMG="indextree/36466818-image.jpg",
-        WEKO_SEARCH_MAX_RESULT=WEKO_SEARCH_MAX_RESULT,
-        WEKO_DEPOSIT_REST_ENDPOINTS=WEKO_DEPOSIT_REST_ENDPOINTS,
-        WEKO_INDEX_TREE_UPATED=True,
-        WEKO_INDEX_TREE_REST_ENDPOINTS=WEKO_INDEX_TREE_REST_ENDPOINTS,
-        I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English")],
-        WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME=WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
-        WEKO_SCHEMA_DDI_SCHEMA_NAME=WEKO_SCHEMA_DDI_SCHEMA_NAME,
-        OAISERVER_XSL_URL=None,
-        RESOURCE_TYPE_URI=RESOURCE_TYPE_URI,
-        WEKO_SCHEMA_JPCOAR_V1_NAMEIDSCHEME_REPLACE=None,
-        WEKO_SCHEMA_JPCOAR_V2_NAMEIDSCHEME_REPLACE=None,
-    )
-    InvenioAccounts(app_)
-    InvenioAssets(app_)
-    InvenioAccess(app_)
-    InvenioAdmin(app_)
-    InvenioDB(app_)
-    InvenioCache(app_)
-    InvenioOAuth2Server(app_)
-    InvenioPIDStore(app_)
-    InvenioPIDRelations(app_)
-    InvenioSearch(app_)
-    InvenioOAIServer(app_)
-    InvenioSearchUI(app_)
-    InvenioDeposit(app_)
-    InvenioFilesREST(app_)
-    InvenioIndexer(app_)
-    InvenioRecords(app_)
-    InvenioRecordsUI(app_)
-    InvenioRecordsREST(app_)
-    Babel(app_)
-    Menu(app_)
-    WekoRecords(app_)
-    WekoItemsUI(app_)
-    WekoRecordsUI(app_)
-    WekoAdmin(app_)
-    WekoSearchUI(app_)
-    WekoIndexTree(app_)
-    WekoIndexTreeREST(app_)
-    WekoLoggingUserActivity(app_)
-    WekoSchemaUI(app_)
-    WekoDeposit(app_)
-    WekoDepositREST(app_)
-    app_.register_blueprint(weko_records_ui_blueprint)
-    app_.register_blueprint(invenio_files_rest_blueprint)
-    app_.register_blueprint(invenio_oaiserver_blueprint)
-    current_assets = LocalProxy(lambda: app_.extensions["invenio-assets"])
-    current_assets.collect.collect()
-    return app_
-
-@pytest.yield_fixture()
+@pytest.fixture
 def app(base_app):
     """Flask application fixture."""
     with base_app.app_context():
         yield base_app
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def client_rest(app):
     config = {
         "depid": {
@@ -454,7 +266,7 @@ def client_rest(app):
         yield client
 
 
-@pytest.yield_fixture()
+@pytest.fixture
 def client_rest2(app):
     config = {
         "depid": {
@@ -475,17 +287,18 @@ def client_rest2(app):
         yield client
 
 
-@pytest.fixture()
+@pytest.fixture
 def db(app):
-    if not database_exists(str(db_.engine.url)):
-        create_database(str(db_.engine.url))
+    if database_exists(str(db_.engine.url)):
+        drop_database(str(db_.engine.url))
+    create_database(str(db_.engine.url))
     db_.create_all()
     yield db_
     db_.session.remove()
     db_.drop_all()
 
 
-@pytest.fixture()
+@pytest.fixture
 def users(app, db):
     """Create users."""
     ds = app.extensions["invenio-accounts"].datastore
@@ -613,7 +426,7 @@ def users(app, db):
     ]
 
 
-@pytest.fixture()
+@pytest.fixture
 def db_oaischema(app, db):
 
     schema_name = "ddi_mapping"
@@ -738,7 +551,7 @@ def db_oaischema(app, db):
     db.session.commit()
 
 
-@pytest.fixture()
+@pytest.fixture
 def db_itemtype(app, db):
     item_type_name = ItemTypeName(
         name="テストアイテムタイプ", has_site_license=True, is_active=True
@@ -772,15 +585,18 @@ def db_itemtype(app, db):
 
     item_type_mapping = ItemTypeMapping(item_type_id=1, mapping=item_type_mapping)
 
-    with db.session.begin_nested():
-        db.session.add(item_type_name)
-        db.session.add(item_type)
-        db.session.add(item_type_mapping)
+    # with db.session.begin_nested():
+    db.session.add(item_type_name)
+    db.session.add(item_type)
+    db.session.commit()
+
+    db.session.add(item_type_mapping)
+    db.session.commit()
 
     return {"item_type_name": item_type_name, "item_type": item_type}
 
 
-@pytest.fixture()
+@pytest.fixture
 def db_itemtype_jdcat(app, db):
     item_type_name = ItemTypeName(
         name="テストアイテムタイプ", has_site_license=True, is_active=True
@@ -821,36 +637,37 @@ def db_itemtype_jdcat(app, db):
 
     return {"item_type_name": item_type_name, "item_type": item_type}
 
-@pytest.fixture()
+@pytest.fixture
 def db_sessionlifetime(app, db):
     session_lifetime = SessionLifetime(lifetime=60, is_delete=False)
     with db.session.begin_nested():
         db.session.add(session_lifetime)
 
-@pytest.yield_fixture()
+@pytest.fixture
 def client(app):
     with app.test_client() as client:
         yield client
 
 
-@pytest.fixture()
+@pytest.fixture
 def search_index(app):
     current_search_client.indices.delete(index="test-*")
     # print(app.config["INDEXER_DEFAULT_INDEX"])
-    with open("tests/data/mappings/v6/weko/item-v1.0.0.json", "r") as f:
-        mapping = json.load(f)
+    mapping = json_data("data/mappings/os-v2/weko/item-v1.0.0.json")
+    index_name = build_alias_name(app.config["INDEXER_DEFAULT_INDEX"])
     try:
         current_search_client.indices.create(
-            app.config["INDEXER_DEFAULT_INDEX"], body=mapping
+            index_name, body=mapping
         )
         current_search_client.indices.put_alias(
-            index=app.config["INDEXER_DEFAULT_INDEX"], name="test-weko"
+            index=index_name, name="test-weko"
         )
 
         open_search = OpenSearch(
-            [app.config['SEARCH_OPENSEARCH_HOSTS']],
-            scheme="http",
-            port=9200
+            [{"host": app.config['SEARCH_OPENSEARCH_HOSTS'], "port": 9200}],
+            http_auth=app.config["SEARCH_CLIENT_CONFIG"]['http_auth'],
+            use_ssl=app.config["SEARCH_CLIENT_CONFIG"]['use_ssl'],
+            verify_certs=app.config["SEARCH_CLIENT_CONFIG"]['verify_certs'],
         )
         p = IngestClient(open_search)
         p.put_pipeline(id='item-file-pipeline', body={
@@ -883,9 +700,9 @@ def search_index(app):
                     }
                 ]})
     except:
-        current_search_client.indices.create("test-weko-items", body=mapping)
+        current_search_client.indices.create(index_name, body=mapping)
         current_search_client.indices.put_alias(
-            index="test-weko-items", name="test-weko"
+            index=index_name, name="test-weko"
         )
     try:
         # print index mapping
@@ -895,7 +712,7 @@ def search_index(app):
         current_search_client.indices.delete(index="test-*")
 
 
-@pytest.fixture()
+@pytest.fixture
 def indextree(client, users):
     index_metadata = {
         "id": 1,
@@ -946,7 +763,7 @@ def indextree(client, users):
         index.harvest_public_state = False
 
 
-@pytest.fixture()
+@pytest.fixture
 def location(app, db):
     """Create default location."""
     tmppath = tempfile.mkdtemp()
@@ -964,7 +781,7 @@ def location(app, db):
     shutil.rmtree(tmppath)
 
 
-@pytest.fixture()
+@pytest.fixture
 def itemtypes(app, db):
     item_type_name = ItemTypeName(
         id=1, name="テストアイテムタイプ", has_site_license=True, is_active=True
@@ -999,10 +816,11 @@ def itemtypes(app, db):
 
     item_type_mapping = ItemTypeMapping(id=1, item_type_id=1, mapping=item_type_mapping)
 
-    with db.session.begin_nested():
-        db.session.add(item_type_name)
-        db.session.add(item_type)
-        db.session.add(item_type_mapping)
+    db.session.add(item_type_name)
+    db.session.add(item_type)
+    db.session.commit()
+    db.session.add(item_type_mapping)
+    db.session.commit()
 
     return {
         "item_type_name": item_type_name,
@@ -1011,7 +829,7 @@ def itemtypes(app, db):
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def records(app, db, search_index, indextree, location, itemtypes, db_oaischema):
     indexer = WekoIndexer()
     indexer.get_search_index()
@@ -1044,6 +862,11 @@ def records(app, db, search_index, indextree, location, itemtypes, db_oaischema)
     # open_search = OpenSearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
     # print(open_search.cat.indices())
     return indexer, results
+
+
+@pytest.fixture(autouse=True)
+def activity_log(app, mocker):
+    mocker.patch("weko_logging.activity_logger.UserActivityLogger", return_value=mocker.Mock())
 
 
 def make_record(db, indexer, i, filepath, filename, mimetype):
@@ -2392,7 +2215,7 @@ def make_record(db, indexer, i, filepath, filename, mimetype):
         "obj": obj,
     }
 
-@pytest.fixture()
+@pytest.fixture
 def record_jpcoar_v1():
     record = [
         {
@@ -2538,7 +2361,7 @@ def record_jpcoar_v1():
     ]
     return record
 
-@pytest.fixture()
+@pytest.fixture
 def record_jpcoar_v2():
     record = [
         {

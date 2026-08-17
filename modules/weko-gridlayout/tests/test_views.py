@@ -613,7 +613,7 @@ def test__add_url_rule(app):
     assert _add_url_rule(url_or_urls) == None
 
 # .tox/c1/bin/pytest --cov=weko_gridlayout tests/test_views.py::test_get_access_counter_record -vv -s -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-gridlayout/.tox/c1/tmp
-def test_get_access_counter_record(i18n_app, db, open_search, monkeypatch):
+def test_get_access_counter_record(i18n_app, db, es, monkeypatch):
     current_cache.delete("access_counter")
     # not exist count_start_date
     widget_design_setting_settings = [
@@ -719,7 +719,7 @@ def test_get_access_counter_record(i18n_app, db, open_search, monkeypatch):
     db.session.commit()
 
     uuid1=uuid.uuid4()
-    open_search.index(
+    es.index(
         index='{}stats-top-view-0001'.format(i18n_app.config['SEARCH_INDEX_PREFIX']),
         id=uuid1,
         body={
@@ -733,7 +733,7 @@ def test_get_access_counter_record(i18n_app, db, open_search, monkeypatch):
         refresh='true'
     )
     uuid2=uuid.uuid4()
-    open_search.index(
+    es.index(
         index='{}stats-top-view-0001'.format(i18n_app.config['SEARCH_INDEX_PREFIX']),
         id=uuid2,
         body={
@@ -747,7 +747,7 @@ def test_get_access_counter_record(i18n_app, db, open_search, monkeypatch):
         refresh='true'
     )
     uuid3=uuid.uuid4()
-    open_search.index(
+    es.index(
         index='{}stats-top-view-0001'.format(i18n_app.config['SEARCH_INDEX_PREFIX']),
         id=uuid3,
         body={

@@ -38,14 +38,17 @@ from invenio_accounts import InvenioAccounts
 #from invenio_accounts.views import blueprint as accounts_blueprint
 from invenio_accounts.models import User, Role
 from invenio_accounts.testutils import create_test_user
+from invenio_accounts.views.settings import create_settings_blueprint
 from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_communities.models import Community
 from invenio_i18n import InvenioI18N
 
+from weko_accounts import WekoAccounts
 from weko_admin.models import AdminSettings
 from weko_index_tree.models import Index
 from weko_notifications import WekoNotifications
+from weko_theme import WekoTheme
 
 from weko_user_profiles import WekoUserProfiles
 from weko_user_profiles.views import blueprint_ui_init,blueprint_api_init
@@ -56,14 +59,14 @@ from weko_user_profiles.config import USERPROFILES_LANGUAGE_DEFAULT, \
 from weko_user_profiles.admin import user_profile_adminview
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def instance_path():
     path = tempfile.mkdtemp()
     yield path
     shutil.rmtree(path)
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def base_app(instance_path):
     """Flask application fixture."""
     app_ = Flask(__name__, instance_path=instance_path)
@@ -71,6 +74,8 @@ def base_app(instance_path):
     app_.config.update(
         ACCOUNTS_USE_CELERY=False,
         LOGIN_DISABLED=False,
+        APP_THEME=["bootstrap3"],
+        THEME_ICONS={},
         SECRET_KEY='testing_key',
         SERVER_NAME='TEST_SERVER.localdomain',
         THEME_SITEURL="https://localhost",
@@ -80,7 +85,13 @@ def base_app(instance_path):
         #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
         TEST_USER_EMAIL='test_user@example.com',
         TEST_USER_PASSWORD='test_password',
+        ACCOUNTS_BASE_TEMPLATE="invenio_accounts/base.html",
+        ACCOUNTS_COVER_TEMPLATE="invenio_accounts/base_cover.html",
         WEKO_ADMIN_PROFILE_SETTING_TEMPLATE = 'weko_admin/admin/profiles_settings.html',
+        WEKO_ACCOUNTS_SECURITY_LOGIN_USER_TEMPLATE = 'weko_accounts/login_user.html',
+        WEKO_ADMIN_ENABLE_LOGIN_INSTRUCTIONS = False,
+        WEB_HOST_NAME='localhost',
+        SECURITY_REGISTERABLE = True,
         TESTING=True,
         WTF_CSRF_ENABLED=False,
         WEKO_USERPROFILES_CUSTOMIZE_ENABLED=False,
@@ -112,12 +123,14 @@ def base_app(instance_path):
     InvenioI18N(app_)
     WekoUserProfiles(app_)
     WekoNotifications(app_)
+    WekoAccounts(app_)
+    WekoTheme(app_)
 
-    # app_.register_blueprint(accounts_blueprint)
+    app_.register_blueprint(create_settings_blueprint(app_))
 
     yield app_
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app(base_app):
     """Flask application."""
     with base_app.app_context():
@@ -132,12 +145,12 @@ def admin_app(app,db):
     admin.add_view(view(model,db.session,**data))
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def client(app):
     with app.test_client() as client:
         yield client
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def req_context(app):
     with app.test_request_context():
         yield app
@@ -147,7 +160,7 @@ def register_bp():
     current_app.register_blueprint(blueprint_ui_init)
     current_app.register_blueprint(blueprint_api_init)
 
-@pytest.yield_fixture
+@pytest.fixture()
 def db(app):
     """Database fixture."""
     if not database_exists(str(db_.engine.url)):
@@ -159,7 +172,7 @@ def db(app):
     # drop_database(str(db_.engine.url))
 
 
-@pytest.fixture
+@pytest.fixture()
 def app_with_csrf(base_app):
     """Flask application with CSRF security enabled."""
     base_app.config.update(

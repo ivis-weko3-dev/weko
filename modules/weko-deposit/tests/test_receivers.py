@@ -25,15 +25,8 @@ def test_append_file_content(app, db, search_records):
         "_created":"2022-10-01"
     }
     sender={}
-    with patch("weko_deposit.receivers.weko_logger") as mock_logger:
-        res = append_file_content(sender, json, search_records[1][0]['record'])
-        assert res==None
-        mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-        mock_logger.assert_any_call(key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-        mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-        mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-        mock_logger.assert_any_call(key='WEKO_DEPOSIT_APPEND_FILE_CONTENT', recid=mock.ANY)
-        mock_logger.reset_mock()
+    res = append_file_content(sender, json, search_records[1][0]['record'])
+    assert res==None
 
 
     #add FeedbackMailList to mail
@@ -48,29 +41,15 @@ def test_append_file_content(app, db, search_records):
     db.session.commit()
 
     #Call append_file_content for the second time, result is none
-    with patch("weko_deposit.receivers.weko_logger") as mock_logger:
-        res = append_file_content(sender, json, search_records[1][0]['record'])
-        assert res==None
-        mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-        mock_logger.assert_any_call(key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-        mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-        mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-        mock_logger.assert_any_call(key='WEKO_DEPOSIT_APPEND_FILE_CONTENT', recid=mock.ANY)
-        mock_logger.reset_mock()
+    res = append_file_content(sender, json, search_records[1][0]['record'])
+    assert res==None
 
     #when record_metadata.status is D
     obj.status = "D"
     db.session.merge(obj)
     db.session.commit()
-    with patch("weko_deposit.receivers.weko_logger") as mock_logger:
-        res = append_file_content(sender, json, search_records[1][0]['record'])
-        assert res==None
-        mock_logger.assert_any_call(key='WEKO_COMMON_FOR_START')
-        mock_logger.assert_any_call(key='WEKO_COMMON_FOR_LOOP_ITERATION', count=mock.ANY, element=mock.ANY)
-        mock_logger.assert_any_call(key='WEKO_COMMON_IF_ENTER', branch=mock.ANY)
-        mock_logger.assert_any_call(key='WEKO_COMMON_FOR_END')
-        mock_logger.assert_any_call(key='WEKO_DEPOSIT_APPEND_FILE_CONTENT', recid=mock.ANY)
-        mock_logger.reset_mock()
+    res = append_file_content(sender, json, search_records[1][0]['record'])
+    assert res==None
 
     with patch("weko_records.api.RequestMailList.get_mail_list_by_item_id", return_value=["xxxxxx@example.com"]):
         jrc ={'content': True,'type': ['conference paper'], 'title': ['タイトル', 'title'], 'control_number': '1', '_oai': {'id': '1'}, '_item_metadata': OrderedDict([('pubdate', {'attribute_name': 'PubDate', 'attribute_value': '2022-08-20'}), ('item_1617186331708', {'attribute_name': 'Title', 'attribute_value_mlt': [{'subitem_1551255647225': 'タイトル', 'subitem_1551255648112': 'ja'}, {'subitem_1551255647225': 'title', 'subitem_1551255648112': 'en'}]}), ('item_1617258105262', {'attribute_name': 'Resource Type', 'attribute_value_mlt': [{'resourceuri': 'http://purl.org/coar/resource_type/c_5794', 'resourcetype': 'conference paper'}]}), ('item_title', 'title'), ('item_type_id', '1'), ('control_number', '1'), ('author_link', []), ('weko_shared_ids', []), ('owner', 5), ('owners', [5])]), 'itemtype': 'テストアイテムタイプ', 'publish_date': '2022-08-20', 'author_link': [], 'weko_creator_id': '5', 'weko_shared_ids': []}

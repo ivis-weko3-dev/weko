@@ -21,12 +21,13 @@
 """Module tests."""
 
 from flask import json
+from flask import g
 
 from weko_accounts.errors import VersionNotFoundRESTError, UserAllreadyLoggedInError, UserNotFoundError, InvalidPasswordError, DisabledUserError
 
 
 # .tox/c1/bin/pytest --cov=weko_accounts tests/test_rest.py::test_WekoLogin_post -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-accounts/.tox/c1/tmp
-def test_WekoLogin_post(app, client, users_login):
+def test_WekoLogin_post(app, user_activity_log_partition_table, client, users_login):
     """Test WekoLogin.post method."""
 
     version = 'v1'
@@ -108,6 +109,11 @@ def test_WekoLogin_post(app, client, users_login):
         'email': users_login[5]['email'],
         'password': users_login[5]['obj'].password_plaintext,
     }
+
+
+    if "_login_user" in g:
+        del g._login_user
+
     res = client.post(
         f'/{version}/login',
         data=json.dumps(req_json),
@@ -119,7 +125,7 @@ def test_WekoLogin_post(app, client, users_login):
 
 
 # .tox/c1/bin/pytest --cov=weko_accounts tests/test_rest.py::test_WekoLogout_post -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-accounts/.tox/c1/tmp
-def test_WekoLogout_post(app, client, users_login):
+def test_WekoLogout_post(app, client, user_activity_log_partition_table, users_login):
     """Test WekoLogout.post method."""
 
     version = 'v1'
@@ -145,6 +151,10 @@ def test_WekoLogout_post(app, client, users_login):
         data=json.dumps(req_json),
         content_type='application/json',
     )
+
+    if "_login_user" in g:
+        del g._login_user
+
     res = client.post(
         f'/{version}/logout',
         data=json.dumps(None),

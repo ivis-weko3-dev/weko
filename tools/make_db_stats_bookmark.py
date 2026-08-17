@@ -1,6 +1,7 @@
 
 import os
 import sys
+import argparse
 import json
 from datetime import datetime
 import requests
@@ -10,22 +11,52 @@ import psycopg2.extras
 from uuid import uuid4
 import hashlib
 
-args = sys.argv
-args = sys.argv
-if len(args) == 4:
-    http_method = "https" if args[1] == "https" else "http"
-    user = args[2]
-    password = args[3]
-    auth = HTTPBasicAuth(user,password)
-elif len(args) == 2:
-    http_method = "https" if args[1] == "https" else "http"
-    auth = None
-else:
-    print("Usage: python reindex_all_index.py [http_method] [user] [password]")
-    sys.exit(1)
 
-ES_HOST = os.environ.get('INVENIO_ELASTICSEARCH_HOST','localhost')
-ES_PORT = 9200
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Reindex all index")
+    parser.add_argument(
+        "http_method", 
+        choices=["http", "https"],
+        help="http or https")
+    parser.add_argument(
+        "--es_host",
+        type=str,
+        default="elasticsearch",
+        help="Elasticsearch host"
+    )
+    parser.add_argument(
+        "--es6_port",
+        type=str,
+        default="9200",
+        help="Elasticsearch port"
+    )
+    parser.add_argument(
+        "--user",
+        type=str,
+        help="Elasticsearch のユーザー名"
+    )
+    parser.add_argument(
+        "--password",
+        type=str,
+        help="Elasticsearch のパスワード"
+    )
+    
+    args = parser.parse_args()
+    return args
+    
+
+args = parse_arguments()
+http_method = args.http_method
+user = args.user
+password = args.password
+es_host = args.es_host
+es_port = args.es6_port
+
+
+ES_HOST = es_host
+ES_PORT = es_port
 ES_VERIFY = False
 
 DB_HOST = os.environ['INVENIO_POSTGRESQL_HOST']
@@ -36,11 +67,13 @@ DB_PASSWORD = os.environ['INVENIO_POSTGRESQL_DBPASS']
 
 search_query = {"query": {"match_all": {}}}
 stats_bookmark_index = os.environ.get('SEARCH_INDEX_PREFIX')+"-stats-bookmarks"
-search_url = f"{http_method}://{ES_HOST}:9200/{stats_bookmark_index}/_search"
+search_url = f"{http_method}://{ES_HOST}:{ES_PORT}/{stats_bookmark_index}/_search"
 req_args = {"headers":{"Content-Type":"application/json"},"verify":ES_VERIFY}
+auth = None
+if user and password:
+    auth = HTTPBasicAuth(user, password)
 if auth:
     req_args["auth"] = auth
-    
 result = requests.get(search_url,json=search_query,**req_args)
 if result.status_code == 200:
     result = result.json()
