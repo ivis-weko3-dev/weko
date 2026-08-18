@@ -16,7 +16,7 @@ from invenio_communities.utils import (
     render_template_to_string, Pagination, save_and_validate_logo,
     initialize_communities_bucket, format_request_email_templ,
     send_community_request_email, get_user_role_ids, delete_empty,
-    get_repository_id_by_item_id)
+    get_repository_id_by_item_id, map_legacy_role_to_current_role)
 from invenio_files_rest.errors import FilesException
 from invenio_files_rest.models import Location, Bucket, ObjectVersion
 from invenio_records.api import Record
@@ -277,3 +277,19 @@ def test_get_repository_id_by_item_id(app, db, users, mocker):
     # item_id does not exist
     with pytest.raises(NoResultFound):
         repository_id = get_repository_id_by_item_id(999)
+
+
+def test_map_legacy_role_to_current_role(app):
+    app.config["WEKO_ACCOUNTS_LEGACY_ROLE_ID_MAP"] = {
+        "1": "System Administrator",
+        "2": "Repository Administrator",
+        "3": "Community Administrator",
+        "4": "Contributor",
+    }
+    
+    role_ids = ["1", "2", 3, 4, "new_str_role"]
+    
+    res = map_legacy_role_to_current_role(role_ids)
+    
+    assert res == ["System Administrator", "Repository Administrator", "Community Administrator", "Contributor", "new_str_role"]
+        

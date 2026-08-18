@@ -35,7 +35,7 @@ from wtforms.utils import unset_value
 from wtforms.validators import ValidationError, Length
 
 from .models import Community, FeaturedCommunity, InclusionRequest
-from .utils import get_user_role_ids, get_numeric_user_role_ids, delete_empty
+from .utils import get_user_role_ids, map_legacy_role_to_current_role, delete_empty
 
 
 def _(x):
@@ -568,9 +568,8 @@ class CommunityModelView(ModelView):
     def can_create(self):
         """Check permission for creating."""
         role_ids = get_user_role_ids()
-        numeric_role_ids = get_numeric_user_role_ids(role_ids)
-        return  min(numeric_role_ids, default=current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']+1) <= \
-                current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']
+        numeric_role_ids = map_legacy_role_to_current_role(role_ids)
+        return any(role_id in current_app.config["COMMUNITIES_INDEX_LIST_FULL_ACCESS_ROLES"] for role_id in numeric_role_ids)
 
     def role_query_cond(self, role_ids):
         """Query conditions by role_id and user_id."""
@@ -591,10 +590,9 @@ class CommunityModelView(ModelView):
         which is used when retrieving records for the edit view.
         """
         role_ids = get_user_role_ids()
-        numeric_role_ids = get_numeric_user_role_ids(role_ids)
+        new_role_ids = map_legacy_role_to_current_role(role_ids)
 
-        if (min(numeric_role_ids, default=current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']+1) <=
-                current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']):
+        if any(role_id in current_app.config["COMMUNITIES_INDEX_LIST_FULL_ACCESS_ROLES"] for role_id in new_role_ids):
             return self.session.query(self.model).filter()
         return self.session.query(
             self.model).filter(self.role_query_cond(role_ids))
@@ -606,10 +604,9 @@ class CommunityModelView(ModelView):
         subquery, so ``query(func.count('*'))`` should be used instead.
         """
         role_ids = get_user_role_ids()
-        numeric_role_ids = get_numeric_user_role_ids(role_ids)
+        new_role_ids = map_legacy_role_to_current_role(role_ids)
 
-        if (min(numeric_role_ids, default=current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']+1) <=
-                current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']):
+        if any(role_id in current_app.config["COMMUNITIES_INDEX_LIST_FULL_ACCESS_ROLES"] for role_id in new_role_ids):
 
             return self.session.query(func.count('*')).select_from(self.model)
 
@@ -626,10 +623,9 @@ class CommunityModelView(ModelView):
         :param obj: input object
         """
         role_ids = get_user_role_ids()
-        numeric_role_ids = get_numeric_user_role_ids(role_ids)
+        new_role_ids = map_legacy_role_to_current_role(role_ids)
 
-        if (min(numeric_role_ids, default=current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']+1) <=
-                current_app.config['COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT']):
+        if any(role_id in current_app.config["COMMUNITIES_INDEX_LIST_FULL_ACCESS_ROLES"] for role_id in new_role_ids):
             return super().edit_form(obj)
 
         return self._use_append_repository_edit(

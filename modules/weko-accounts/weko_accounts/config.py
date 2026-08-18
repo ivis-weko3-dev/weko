@@ -267,3 +267,10 @@ SECURITY_REGISTERABLE = False
 
 SECURITY_RECOVERABLE = False
 """Disable password recovery via WEKO-Accounts."""
+
+WEKO_ACCOUNTS_LEGACY_ROLE_ID_MAP={
+    "1": "System Administrator",
+    "2": "Repository Administrator",
+    "3": "Community Administrator",
+    "4": "Contributor",
+}

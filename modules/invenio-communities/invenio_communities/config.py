@@ -163,8 +163,11 @@ COMMUNITIES_ALLOWED_STYLES = [
 ]
 """List of allowed styles used to sanitize HTML output for communities."""
 
-COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT = 2
-"""Allowed Role's id higher than this number full access to list Indexes."""
+COMMUNITIES_INDEX_LIST_FULL_ACCESS_ROLES = [
+    "System Administrator",
+    "Repository Administrator",
+]
+"""This role has full access to the index list."""
 
 COMMUNITIES_LIST_THUMBNAIL_WIDTH = 256
 """community thumbnail width in community list."""
