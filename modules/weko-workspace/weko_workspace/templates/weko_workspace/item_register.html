@@ -104,7 +104,7 @@
               record='{{ records | tojson }}'
               schema="{{ jsonschema }}">
               <invenio-records-alert
-                template="{{ url_for('static', filename='node_modules/invenio-records-js/dist/templates/alert.html') }}">
+                template="/assets/node_modules/invenio-records-js/dist/templates/alert.html">
               </invenio-records-alert>
               <div class="row row-4" ng-cloak="" ng-hide="recordsVM.invenioRecordsLoading">
                 <div class="col-sm-12">
