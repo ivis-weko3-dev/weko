@@ -4,12 +4,13 @@
 name = "weko"
 version = "2.1.0"
 authors = [
-    { name = "National Institute of Informatics" }
+    { name = "National Institute of Informatics" },
+    { name = "Research Center for Open Science and Data Platform" },
 ]
 description = "Weko3 is a repository software based on inveno3."
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.12"
+requires-python = ">=3.12.0,<3.13"
 dependencies = [
     "angular-gettext-babel==0.3",
     "asn1crypto==0.23.0",
@@ -128,11 +129,17 @@ dependencies = [
 ]
 
 [dependency-groups]
+dev = [
+    "cookiecutter==1.6.0",
+    { include-group = "build" },
+    { include-group = "test" },
+    { include-group = "invenio" },
+    { include-group = "weko" },
+]
 build = [
     "setuptools==71.0.3",
 ]
-dev = [
-    "cookiecutter==1.6.0",
+test = [
     "pytest==7.4.4",
     "tox==3.28.0",
     "tox-setuptools-version>=0.0.0.3",

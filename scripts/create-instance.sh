@@ -129,8 +129,8 @@ cd "$scriptpathname/.."
 
 if [[ "$@" != *"--devel"* ]]; then
 # sphinxdoc-install-invenio-full-begin
-    uv sync --active --frozen --no-install-project --group invenio --group weko
+    uv sync --active --frozen --no-default-groups --no-group test --group build --group invenio --group weko
 # sphinxdoc-install-invenio-full-end
 else
-    uv sync --active --frozen --no-install-project --group dev --group invenio --group weko
+    uv sync --active --frozen --group dev
 fi
