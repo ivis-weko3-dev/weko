@@ -274,26 +274,28 @@ def delete_empty(data):
         else:
             return False, None
 
-def get_numeric_user_role_ids(role_ids):
+def map_legacy_role_to_current_role(role_ids):
+    """Get numeric role.id of current user.
+    
+    Args:
+        role_ids (list): List of role.id.
+    Returns:
+        results (list): List of role.id mapped to current role.id.
+    
     """
-    Get numeric role ID to prevent errors caused by model changes.
-    account_roles(id, name, description) -> account_roles(created, updated, id, name, description, is_managed, version_id)
-    In new data records, the id may be the same as the name or default to a UUID.
-    """
-    role_list = Role.query.order_by(Role.created).all()
-    legacy_list = []
-    new_list = []
-    for role in role_list:
-        role_id = role.id
-        if isinstance(role_id, int):
-            legacy_list.append(role_id)
-        elif isinstance(role_id, str):
-            if role_id.isdigit():
-                legacy_list.append(role_id)
+    
+    legacy_role_map = current_app.config.get("WEKO_ACCOUNTS_LEGACY_ROLE_ID_MAP", {})
+    results = []
+    for id in role_ids:
+        if isinstance(id, int):
+            role_id = legacy_role_map.get(str(id), str(id))
+        elif isinstance(id, str):
+            if id.isdigit():
+                role_id = legacy_role_map.get(id, id)
             else:
-                new_list.append(role_id)
-    full_list = legacy_list + new_list
-
-    numeric_id_list = [full_list.index(id) + 1 for id in role_ids if id in full_list]
-    return numeric_id_list
+                role_id = id
+        else:
+            role_id = str(id)
+        results.append(role_id)
+    return results
 

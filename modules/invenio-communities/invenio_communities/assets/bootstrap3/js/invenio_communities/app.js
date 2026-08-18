@@ -349,7 +349,7 @@ $(document).ready(function () {
   $('#content_policy').trumbowyg({
     autogrow: true,
     tagsToRemove: ['script', 'link'],
-    svgPath: '/static/node_modules/trumbowyg/dist/ui/icons.svg',
+    svgPath: '/assets/node_modules/trumbowyg/dist/ui/icons.svg',
     btns: [
       ["viewHTML"],
       ["undo", "redo"],

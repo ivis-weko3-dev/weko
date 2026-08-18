@@ -89,7 +89,10 @@ def base_app(instance_path, request):
         SEARCH_INDEX_PREFIX="test-",
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
-        COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT = 2,
+        COMMUNITIES_INDEX_LIST_FULL_ACCESS_ROLES = [
+            "System Administrator",
+            "Repository Administrator",
+        ],
         CACHE_REDIS_DB='0',
         CACHE_REDIS_HOST="redis",
         REDIS_PORT='6379',

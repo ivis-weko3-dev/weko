@@ -912,10 +912,12 @@ class TestCommunityModelView():
             id = 123
         class DummyObj:
             index = DummyIndex()
-
         # With permission
         mocker.patch("invenio_communities.admin.get_user_role_ids", return_value=["System Administrator"])
-        mocker.patch("invenio_communities.admin.current_app").config = {"COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT": 2}
+        mocker.patch("invenio_communities.admin.current_app").config = {"COMMUNITIES_INDEX_LIST_FULL_ACCESS_ROLES": [
+            "System Administrator",
+            "Repository Administrator",
+        ]}
         # Directly patch the super() call
         mock_super = mocker.patch("flask_admin.contrib.sqla.ModelView.edit_form", return_value="super_form")
         mocker.patch.object(view, "_use_append_repository_edit")
@@ -927,7 +929,10 @@ class TestCommunityModelView():
 
         # Without permission
         mocker.patch("invenio_communities.admin.get_user_role_ids", return_value=["Contributor"])
-        mocker.patch("invenio_communities.admin.current_app").config = {"COMMUNITIES_LIMITED_ROLE_ACCESS_PERMIT": 2}
+        mocker.patch("invenio_communities.admin.current_app").config = {"COMMUNITIES_INDEX_LIST_FULL_ACCESS_ROLES": [
+            "System Administrator",
+            "Repository Administrator",
+        ]}
         mocker.patch.object(view, "_use_append_repository_edit", return_value="custom_form")
         result = view.edit_form(DummyObj())
         assert result == "custom_form"
