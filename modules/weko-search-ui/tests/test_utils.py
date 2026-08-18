@@ -8,6 +8,7 @@ from datetime import datetime
 import uuid
 
 import pytest
+from elasticsearch.exceptions import NotFoundError
 from flask import current_app, make_response, request
 from flask_babelex import Babel
 from flask_login import current_user
