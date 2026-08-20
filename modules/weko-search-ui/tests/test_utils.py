@@ -24,6 +24,7 @@ from invenio_i18n import force_locale
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus, Redirect
 from invenio_pidrelations.models import PIDRelation
 from invenio_pidstore.errors import PIDDoesNotExistError
+from invenio_search.engine import search
 from io import StringIO
 from opensearchpy import helpers, OpenSearchException, NotFoundError
 from opensearch_dsl import Search
@@ -896,27 +897,29 @@ def test_make_file_info(tmpdir):
 
 
 # def getEncode(filepath):
-def test_getEncode():
-    csv_files = [
-        {"file": "eucjp_lf_items.csv", "enc": "euc-jp"},
-        {"file": "iso2022jp_lf_items.csv", "enc": "iso-2022-jp"},
-        {"file": "sjis_lf_items.csv", "enc": "shift_jis"},
-        {"file": "utf8_cr_items.csv", "enc": "utf-8"},
-        {"file": "utf8_crlf_items.csv", "enc": "utf-8"},
-        {"file": "utf8_lf_items.csv", "enc": "utf-8"},
-        {"file": "utf8bom_lf_items.csv", "enc": "utf-8-sig"},
-        {"file": "utf16be_bom_lf_items.csv", "enc": "utf-16"},
-        {"file": "utf16le_bom_lf_items.csv", "enc": "utf-16"},
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_getEncode -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+@pytest.mark.parametrize(
+    "file, expected_encoding", 
+    [
+        pytest.param("eucjp_lf_items.csv", "euc-jp", id="eucjp"),
+        pytest.param("iso2022jp_lf_items.csv", "iso-2022-jp", id="iso2022jp"),
+        pytest.param("sjis_lf_items.csv", "shift_jis", id="sjis"),
+        pytest.param("utf8_cr_items.csv", "utf-8", id="utf8_cr"),
+        pytest.param("utf8_crlf_items.csv", "utf-8", id="utf8_crlf"),
+        pytest.param("utf8_lf_items.csv", "utf-8", id="utf8_lf"),
+        pytest.param("utf8bom_lf_items.csv", "utf-8-sig", id="utf8bom_lf"),
+        pytest.param("utf16be_bom_lf_items.csv", "utf-16", id="utf16be_bom_lf"),
+        pytest.param("utf16le_bom_lf_items.csv", "utf-16", id="utf16le_bom_lf"),
         # {"file":"utf32be_bom_lf_items.csv","enc":"utf-32"},
         # {"file":"utf32le_bom_lf_items.csv","enc":"utf-32"},
-        {"file": "big5.txt", "enc": "tis-620"},
+        pytest.param("big5.txt", "tis-620", id="tis-620"),
     ]
-
-    for f in csv_files:
-        filepath = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "data", "csv", f["file"]
-        )
-        assert getEncode(filepath).lower() == f["enc"]
+)
+def test_getEncode(file, expected_encoding):
+    filepath = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "data", "csv", file
+    )
+    assert getEncode(filepath).lower() == expected_encoding
 
 
 # def read_stats_file(file_path: str, file_name: str, file_format: str) -> dict:
@@ -1195,7 +1198,7 @@ def test_handle_check_duplicate_record(app):
 
 # def handle_check_exist_record(list_record) -> list:
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_handle_check_exist_record -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_handle_check_exist_record(app):
+def test_handle_check_exist_record(app, db):
     case = unittest.TestCase()
     # case 1 import new items
     filepath = os.path.join(
@@ -1652,14 +1655,14 @@ def test_handle_metadata_amend_by_doi():
         assert item["metadata"] == metadata
 
 # def create_work_flow(item_type_id):
-# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_update_publish_status -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_create_work_flow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_create_work_flow(i18n_app, db_itemtype, db_workflow):
     # Doesn't return any value
     assert not create_work_flow(db_itemtype["item_type"].id)
 
 
 # def create_flow_define():
-# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_update_publish_status -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_create_flow_define -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_create_flow_define(i18n_app, db_workflow):
     # Doesn't return anything
     assert not create_flow_define()
@@ -4476,12 +4479,15 @@ def test_cancel_export_all(i18n_app, users, redis_connect, mocker):
         }
         datastore = redis_connect
         datastore.put(cache_key, "test_task_key".encode("utf-8"), ttl_secs=30)
+        # Create a mock control object and set it to current_app.control
+        mock_revoke = mocker.patch(
+            "celery.current_app.control.revoke", return_value=MagicMock()
+        )
 
         # export_status is True
         with patch("weko_search_ui.utils.get_export_status", return_value=(True,None,None,None,None,None,None)), \
                 patch("weko_search_ui.utils.shutil.rmtree") as mock_rmtree:
             datastore.put(file_cache_key, json.dumps(file_json).encode('utf-8'), ttl_secs=30)
-            mock_revoke = mocker.patch("weko_search_ui.utils.revoke")
             mock_delete_id = mocker.patch("weko_search_ui.utils.delete_task_id_cache_on_revoke.apply_async")
             result = cancel_export_all()
             assert result == True
@@ -4490,10 +4496,11 @@ def test_cancel_export_all(i18n_app, users, redis_connect, mocker):
             mock_revoke.assert_called_with("test_task_key",terminate=True)
             mock_delete_id.assert_called_with(args=("test_task_key","admin_cache_KEY_EXPORT_ALL_5"),countdown=60)
             mock_rmtree.assert_called_with('export/path/test.zip')
+
         # export_status is False
+        mock_revoke.reset_mock()
         with patch("weko_search_ui.utils.get_export_status", return_value=(False,None,None,None,None,None,None)):
             datastore.put(file_cache_key, json.dumps(file_json).encode('utf-8'), ttl_secs=30)
-            mock_revoke = mocker.patch("weko_search_ui.utils.revoke")
             mock_delete_id = mocker.patch("weko_search_ui.utils.delete_task_id_cache_on_revoke.apply_async")
             result = cancel_export_all()
             assert result == True
@@ -4811,7 +4818,8 @@ def test_check_index_access_permissions(i18n_app, client, client_request_args, u
         with pytest.raises(Forbidden):
             test_function()
 
-# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_check_index_access_permissions_issue_50659 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search_ui/.tox/c1/tmp
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_check_index_access_permissions_issue_50659 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_check_index_access_permissions_issue_50659(i18n_app, client_request_args, users):
     @check_index_access_permissions
     def test_function():

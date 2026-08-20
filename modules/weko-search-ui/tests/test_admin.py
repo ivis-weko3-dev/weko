@@ -152,11 +152,20 @@ class TestItemManagementBulkSearch:
             res = client.get(url)
             assert res.status == '500 INTERNAL SERVER ERROR'
 
+        # Test when query parameter item_management is "sort"
         url = url_for("items/search.index", item_management="sort",  _external=True)
         with patch("flask_login.utils._get_user", return_value=user):
             with patch("flask.templating._render", return_value=""):
-                res = client.get(url, query_string={"item_management": "update"})
+                res = client.get(url)
                 assert res.status == '200 OK'
+
+        # Test when query parameter item_management is "update"
+        url = url_for("items/search.index", item_management="update",  _external=True)
+        with patch("flask_login.utils._get_user", return_value=user):
+            with patch("flask.templating._render", return_value=""):
+                res = client.get(url)
+                assert res.status == '200 OK'
+
 
     # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_admin.py::TestItemManagementBulkSearch::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
     def test_index(self, i18n_app, users, indices2, mocker):
@@ -631,7 +640,7 @@ class TestItemRocrateImportView:
         # log group id is False
         with patch("weko_logging.activity_logger.UserActivityLogger.issue_log_group_id",
                    return_value=False):
-            res = client.post(url, data=json.dumps({}), content_type="application/json")
+            res = client.post(url, json=data)
             assert res.status_code == 200
             json_data = res.get_json()
             assert json_data["status"] == "success"
@@ -845,7 +854,7 @@ def test_ItemBulkExport_export_all(users, client, redis_connect, mocker):
 
     with patch("weko_search_ui.admin.get_export_status",
                 return_value=(True, '', '', '', 'STARTED', start_time_str, '')):
-        res = client.post(url)
+        res = client.post(url, json={})
         assert json.loads(res.data) == {'data': {
             'celery_is_run': True,
             'is_lifetime': True,
@@ -865,7 +874,7 @@ def test_ItemBulkExport_export_all(users, client, redis_connect, mocker):
     with patch("weko_search_ui.admin.get_export_status",
                 return_value=(True, 'test_uri', '', '', 'STARTED', start_time_str, '')):
         mocker.patch("weko_search_ui.utils.AsyncResult",side_effect=MockAsyncResult)
-        res = client.post(url)
+        res = client.post(url, json={})
         assert json.loads(res.data) == {'data': {
             'celery_is_run': True,
             'is_lifetime': True,
@@ -880,7 +889,7 @@ def test_ItemBulkExport_export_all(users, client, redis_connect, mocker):
 
     with patch("weko_search_ui.admin.get_export_status",
                 return_value=(False, '', '', '', 'STARTED', start_time_str, '')):
-        res = client.post(url)
+        res = client.post(url, json={})
         assert json.loads(res.data) == {'data': {
             'celery_is_run': True,
             'is_lifetime': True,

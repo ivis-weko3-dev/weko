@@ -53,7 +53,7 @@ def test_search_acl_guest(app,client,db_register2,index_style,users,db_register)
         assert ret.status_code == 404
 
 
-
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_views.py::test_search_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 @pytest.mark.parametrize(
     "id, status_code",
     [
@@ -67,7 +67,10 @@ def test_search_acl_guest(app,client,db_register2,index_style,users,db_register)
         # (7, 302),
     ],
 )
-def test_search_acl(app,client,db_register2,index_style,users,db_register,id,status_code):
+def test_search_acl(
+    app, client, db_register2, index_style, users, db_register,
+    without_remove_session, id, status_code,
+):
     url = url_for("weko_search_ui.search", _external=True)
     with patch("flask_login.utils._get_user", return_value=users[id]['obj']):
         with patch("flask.templating._render", return_value=""):

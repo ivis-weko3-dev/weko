@@ -102,6 +102,7 @@ from invenio_records_rest.utils import PIDConverter
 from invenio_records_rest.views import create_blueprint_from_app
 from invenio_records_ui import InvenioRecordsUI
 from invenio_records_ui.config import RECORDS_UI_ENDPOINTS
+from invenio_records_ui.views import create_blueprint_from_app as invenio_records_ui_create_blueprint
 from invenio_rest import InvenioREST
 from invenio_search import InvenioSearch, RecordsSearch, current_search, current_search_client
 from invenio_stats import InvenioStats
@@ -134,6 +135,7 @@ from weko_deposit.api import WekoDeposit
 from weko_deposit.api import WekoDeposit as aWekoDeposit
 from weko_deposit.api import WekoIndexer, WekoRecord
 from weko_deposit.config import (
+    PIDRELATIONS_RELATION_TYPES,
     WEKO_BUCKET_QUOTA_SIZE,
     WEKO_MAX_FILE_SIZE,
     WEKO_DEPOSIT_FILESIZE_LIMIT,
@@ -289,7 +291,7 @@ def base_app(instance_path, search_class, request):
         WEKO_SCHEMA_JPCOAR_V2_SCHEMA_NAME = 'jpcoar_mapping',
         WEKO_SCHEMA_DDI_SCHEMA_NAME = "ddi_mapping",
         INDEXER_FILE_DOC_TYPE="content",
-        INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
+        INDEXER_DEFAULT_INDEX="weko-item-v1.0.0",
         INDEX_IMG="indextree/36466818-image.jpg",
         # SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
         #                                   'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
@@ -318,7 +320,7 @@ def base_app(instance_path, search_class, request):
         },
         FILES_REST_OBJECT_KEY_MAX_LEN=255,
         # SEARCH_UI_SEARCH_INDEX=SEARCH_UI_SEARCH_INDEX,
-        SEARCH_UI_SEARCH_INDEX="test-weko",
+        SEARCH_UI_SEARCH_INDEX="weko",
         CHILD_INDEX_THUMBNAIL_WIDTH = CHILD_INDEX_THUMBNAIL_WIDTH,
         CHILD_INDEX_THUMBNAIL_HEIGHT = CHILD_INDEX_THUMBNAIL_HEIGHT,
         # SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
@@ -367,7 +369,7 @@ def base_app(instance_path, search_class, request):
                     fields=["year"],
                 )
             ),
-            "test-weko": {
+            "weko": {
                 "test-weko": {"fields": [1,2,3], "nested": 1},
                 'controlnumber': {'title': 'ID', 'fields': ['control_number'], 'default_order': 'asc', 'order': 2,}
             },
@@ -627,9 +629,8 @@ def base_app(instance_path, search_class, request):
                 pid_fetcher="recid",
                 pid_value="1.0",
                 search_class=RecordsSearch,
-                # search_index="test-weko",
                 # search_index=SEARCH_UI_SEARCH_INDEX,
-                search_index="test-weko",
+                search_index="weko",
                 search_type="item-v1.0.0",
                 search_factory_imp="weko_search_ui.query.weko_search_factory",
                 # record_class='',
@@ -695,7 +696,8 @@ def base_app(instance_path, search_class, request):
             "report part": "other",
             "conference object": "conference output",
         },
-        WEKO_COMMUNITIES_DEFAULT_PROPERTIES=WEKO_COMMUNITIES_DEFAULT_PROPERTIES
+        WEKO_COMMUNITIES_DEFAULT_PROPERTIES=WEKO_COMMUNITIES_DEFAULT_PROPERTIES,
+        PIDRELATIONS_RELATION_TYPES=PIDRELATIONS_RELATION_TYPES,
     )
     app_.url_map.converters["pid"] = PIDConverter
     app_.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_class"] = search_class
@@ -759,6 +761,9 @@ def base_app(instance_path, search_class, request):
     app_.register_blueprint(weko_theme_blueprint)
     from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
     app_.register_blueprint(invenio_communities_blueprint)
+    app_.register_blueprint(
+        invenio_records_ui_create_blueprint(app_)
+    )
 
     current_assets = LocalProxy(lambda: app_.extensions["invenio-assets"])
     current_assets.collect.collect()
@@ -1814,23 +1819,6 @@ def create_file_instance(db):
     return file_path
 
 
-@pytest.yield_fixture()
-def open_search(app):
-    """Provide OpenSearch access, create and clean indices.
-
-    Don't create template so that the test or another fixture can modify the
-    enabled events.
-    """
-    current_search_client.indices.delete(index="*")
-    current_search_client.indices.delete_template("*")
-    list(current_search.create())
-    try:
-        yield current_search_client
-    finally:
-        current_search_client.indices.delete(index="*")
-        current_search_client.indices.delete_template("*")
-
-
 def generate_events(
     app,
     index_id="33",
@@ -2400,20 +2388,6 @@ def terms(db):
 def item_render():
     data = json_data("data/itemtype1_render.json")
     return data
-
-
-@pytest.yield_fixture()
-def open_search(app):
-    """OpenSearch fixture."""
-    try:
-        list(current_search.create())
-    # except RequestError:
-    except:
-        list(current_search.delete(ignore=[404]))
-        list(current_search.create(ignore=[400]))
-    current_search_client.indices.refresh()
-    yield current_search_client
-    list(current_search.delete(ignore=[404]))
 
 
 @pytest.fixture()
@@ -3154,20 +3128,22 @@ def record_indexer_receiver(app, json=None, record=None, index=None,
     return json
 
 
-
-
-@pytest.yield_fixture()
+@pytest.fixture
 def open_search(app):
     """OpenSearch fixture."""
     try:
+        # delete alias to avoid "Invalid alias name [test-*] is already used as a concrete index" error
+        current_search_client.indices.delete_alias(
+            name="test-*", index="weko-*", ignore=[404, 400]
+        )
         current_search_client.indices.delete(index="test-*")
-        list(current_search.create())
+        current_search.create()
     except RequestError:
-        list(current_search.delete(ignore=[404]))
-        list(current_search.create(ignore=[400]))
+        current_search.delete(ignore=[404])
+        current_search.create(ignore=[400])
     current_search_client.indices.refresh()
     yield current_search_client
-    list(current_search.delete(ignore=[404]))
+    current_search.delete(ignore=[404])
 
 
 @pytest.yield_fixture()
@@ -4784,3 +4760,10 @@ def user_activity_log_partition_table(app, db):
     with db.session.begin_nested():
         db.session.execute(create_partition_sql)
     db.session.commit()
+
+
+@pytest.fixture
+def without_remove_session(app):
+    """Fixture to temporarily disable the removal of the database session."""
+    with patch("weko_workflow.views.db.session.remove"):
+        yield
