@@ -76,7 +76,7 @@ class PasswdSchema(Schema):
         strict = True
 
 class LockSchema(Schema):
-    locked_value = fields.String(required=True)
+    locked_value = fields.String()
     
 class LockedValueSchema(Schema):
     locked_value = fields.String(required=True)

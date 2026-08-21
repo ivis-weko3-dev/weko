@@ -1436,7 +1436,7 @@ class IndexManagementAPI(ContentNegotiatedMethodView):
             )
 
         try:
-            request_data = schema().load(request.json).data
+            request_data = schema().load(request.json)
         except ValidationError as ex:
             current_app.logger.error("Invalid payload for index creation.")
             traceback.print_exc()

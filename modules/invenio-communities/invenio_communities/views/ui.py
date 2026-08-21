@@ -24,7 +24,7 @@ from invenio_communities.forms import CommunityForm, DeleteCommunityForm, \
 from invenio_communities.models import Community, FeaturedCommunity
 from invenio_communities.proxies import current_permission_factory
 from invenio_communities.utils import Pagination, get_user_role_ids, \
-    get_numeric_user_role_ids, render_template_to_string
+    map_legacy_role_to_current_role, render_template_to_string
 from invenio_db import db
 from invenio_indexer.api import RecordIndexer
 from invenio_i18n.ext import current_i18n
@@ -242,7 +242,7 @@ def generic_item(community, template, **extra_ctx):
     # Check existence of community
     ctx = mycommunities_ctx()
     role_ids = get_user_role_ids()
-    numeric_role_ids = get_numeric_user_role_ids(role_ids)
+    numeric_role_ids = map_legacy_role_to_current_role(role_ids)
     role_id = role_ids[numeric_role_ids.index(min(numeric_role_ids))]
     ctx.update({
         'is_owner': community.id_role == role_id,

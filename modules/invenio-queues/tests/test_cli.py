@@ -22,6 +22,11 @@ def queues_exist(names):
     return all(result)
 
 
+def queue_message_count(name):
+    """Return queue message count without redeclaring queue type."""
+    return current_queues.queues[name].queue.queue_declare(passive=True).message_count
+
+
 @pytest.mark.parametrize(
     "declared",
     [
@@ -68,9 +73,9 @@ def test_purge(app, test_queues, purged):
         assert result.exit_code == 0
         for conf in test_queues:
             if conf["name"] in expected:
-                assert len(list(current_queues._queues[conf["name"]].consume())) == 0
+                assert queue_message_count(conf["name"]) == 0
             else:
-                assert list(current_queues.queues[conf["name"]].consume()) == data
+                assert queue_message_count(conf["name"]) == len(data)
 
 
 @pytest.mark.parametrize(
