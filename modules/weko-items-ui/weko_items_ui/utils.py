@@ -289,19 +289,9 @@ def get_user_information(user_id):
         result['username'] = user_info.get_username
         result['fullname'] = user_info.fullname
 
-    metadata = MetaData()
-    metadata.reflect(bind=db.engine)
-    table_name = 'accounts_user'
-
-    user_table = Table(table_name, metadata)
-    record = db.session.query(user_table)
-
-    data = record.all()
-
-    for item in data:
-        if item[0] == user_id:
-            result['email'] = item[1]
-            return result
+    account_user = User.query.get(user_id)
+    if account_user is not None:
+        result["email"] = account_user.email
 
     return result
 
