@@ -143,7 +143,7 @@ def get_search_itemlist():
         size = 10000
         search_index = current_app.config["WEKO_WORKSPACE_ITEM_SEARCH_INDEX"]
         search_obj = RecordsSearch(index=search_index)
-        search = search_obj.with_preference_param().params(version=True)
+        search_query = search_obj.with_preference_param().params(version=True)
 
         # Set the search query
         publish_status_match = dsl.Q("terms", publish_status=[
@@ -162,42 +162,42 @@ def get_search_itemlist():
         must = []
         must.append(dsl.Q("bool", should=shuld))
         must.append(dsl.Q("bool", must=dsl.Q("match", relation_version_is_last="true")))
-        search = search.filter(dsl.Q("bool", must=must))
-        search = search.query(dsl.Q("bool", must=dsl.Q("match_all")))
+        search_query = search_query.filter(dsl.Q("bool", must=must))
+        search_query = search_query.query(dsl.Q("bool", must=dsl.Q("match_all")))
 
         # Set size / Exclude content field from the source
         src = {
             "size": size,
             "_source": {"excludes": ["content"]}
         }
-        search._extra.update(src)
+        search_query._extra.update(src)
 
         # Set sorting
-        search = search.sort("-control_number")
+        search_query = search_query.sort("-control_number")
 
         # Execute search. Use search_after to retrieve all records
         records = []
-        current_app.logger.debug(f"[workspace] search obj: {search.to_dict()}")
-        page = search.execute().to_dict()
+        current_app.logger.debug(f"[workspace] search obj: {search_query.to_dict()}")
+        page = search_query.execute().to_dict()
         current_app.logger.debug(f"[workspace] search result: {page}")
         while page.get('hits', {}).get('hits', []):
             records.extend(page.get('hits', {}).get('hits', []))
             if len(page.get('hits', {}).get('hits', [])) < size:
                 break
-            search = search.extra(search_after=page.get('hits', {}).get('hits', [])[-1].get('sort'))
-            current_app.logger.debug(f"[workspace] search obj: {search.to_dict()}")
-            page = search.execute().to_dict()
+            search_query = search_query.extra(search_after=page.get('hits', {}).get('hits', [])[-1].get('sort'))
+            current_app.logger.debug(f"[workspace] search obj: {search_query.to_dict()}")
+            page = search_query.execute().to_dict()
             current_app.logger.debug(f"[workspace] search result: {page}")
         return records
 
     except search.TransportError as e:
         traceback.print_exc()
         current_app.logger.error(f"Failed to get workflow item list from search: {e} / {search.to_dict()}")
-        return None
+        return []
     except Exception as e:
         traceback.print_exc()
         current_app.logger.error(e)
-        return None
+        return []
 
 
 def get_workspace_status_management(recid: str):
