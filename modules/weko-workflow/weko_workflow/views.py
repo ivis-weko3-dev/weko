@@ -1979,14 +1979,6 @@ def next_action(activity_id='0', action_id=0, json_data=None):
     )
     if for_delete and del_reject_flg:
         work_activity.notify_about_activity(activity_id, "deletion_rejected")
-    if 'end_action' == next_action_endpoint:
-        new_activity_id = None
-        new_activity_id = handle_finish_workflow(deposit,
-                                                 current_pid,
-                                                 recid)
-        if new_activity_id is None:
-            res = ResponseMessageSchema().load({"code":-1, "msg":_("error")})
-            return jsonify(res), 500
 
     if next_action_endpoint == "approval":
         if for_delete:
@@ -4060,7 +4052,7 @@ def edit_item_direct_after_login(pid_value):
     item_uuid = latest_pid.object_uuid
     post_workflow = activity.get_workflow_activity_by_item_id(item_uuid)
 
-    
+
     is_begin_edit = check_item_is_being_edit(recid, post_workflow, activity)
     if is_begin_edit:
         return render_template("weko_theme/error.html",
