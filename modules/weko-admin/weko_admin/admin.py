@@ -480,7 +480,7 @@ class ReportView(BaseView):
             if aggs_results and aggs_results.get(
                     'aggregations', {}).get('aggs_public'):
 
-                total_hits = aggs_results["hits"]["total"]["value"]
+                total_hits = aggs_results['hits']['total']
                 if isinstance(total_hits, dict):
                     total = total_hits['value']
                 else:
