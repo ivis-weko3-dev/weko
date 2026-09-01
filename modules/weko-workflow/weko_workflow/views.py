@@ -30,6 +30,7 @@ from invenio_pidstore.errors import PIDDoesNotExistError,PIDDeletedError
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_rest import ContentNegotiatedMethodView
 from marshmallow.exceptions import ValidationError
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from typing import List
 from urllib.parse import urljoin
@@ -1598,8 +1599,8 @@ def next_action(activity_id='0', action_id=0, json_data=None):
         activity_detail.flow_define.flow_id, action_id, action_order)
     if current_flow_action is None:
         current_app.logger.error("next_action: can not get current_flow_action")
-        res = ResponseMessageSchema().load({"code":-1, "msg":"can not get curretn_flow_action"})
-        return jsonify(res.data), 500
+        res = ResponseMessageSchema().load({"code":-1, "msg":"can not get current_flow_action"})
+        return jsonify(res), 500
     next_flow_action = flow.get_next_flow_action(
         activity_detail.flow_define.flow_id, action_id, action_order)
     if not isinstance(next_flow_action, list) or len(next_flow_action) <= 0:
@@ -2003,7 +2004,7 @@ def next_action(activity_id='0', action_id=0, json_data=None):
             )
             if new_item_id is None:
                 res = ResponseMessageSchema().load({"code":-1, "msg":_("error")})
-                return jsonify(res.data), 500
+                return jsonify(res), 500
 
             activity.update(
                 action_id=next_action_id,
@@ -2928,16 +2929,21 @@ def get_request_maillist(activity_id='0'):
     check_flg = type_null_check(activity_id, str)
     if not check_flg:
         current_app.logger.error("get_request_maillist: argument error")
-        res = ResponseMessageSchema().load({"code":-1, "msg":"arguments error"})
-        return jsonify(res.data), 400
+        error_payload = ResponseMessageSchema().load({"code":-1, "msg":"arguments error"})
+        return jsonify(error_payload), 400
     try:
         activity_request_mail = WorkActivity().get_activity_request_mail(
             activity_id=activity_id)
         if activity_request_mail:
             request_mail_list = activity_request_mail.request_maillist
             if not isinstance(request_mail_list, list):
-                res = ResponseMessageSchema().load({"code":-1,"msg":"mail_list is not list"})
-                return jsonify(res.data), 400
+                error_payload = ResponseMessageSchema().load(
+                    {
+                        "code":-1,
+                        "msg":"mail_list is not list"
+                    }
+                )
+                return jsonify(error_payload), 400
             temp_list = []
             added_user = []
             for mail in request_mail_list.copy():
@@ -2952,20 +2958,23 @@ def get_request_maillist(activity_id='0'):
                         ]
                         added_user.append(aid)
             request_mail_list += temp_list
-            res = GetRequestMailListSchema().load({
+            request_mails_payload = GetRequestMailListSchema().load({
                 'code':1,
                 'msg':_('Success'),
                 'request_maillist': request_mail_list,
                 'is_display_request_button': activity_request_mail.display_request_button
             })
-            return jsonify(res.data), 200
+            return jsonify(request_mails_payload), 200
         else:
-            res = ResponseMessageSchema().load({'code':0,'msg':'Empty!'})
-            return jsonify(res.data), 200
+            empty_data_payload = ResponseMessageSchema().load(
+                {"code": 0,"msg": "Empty!"}
+            )
+            return jsonify(empty_data_payload), 200
     except Exception:
         current_app.logger.exception("Unexpected error:")
-    res = ResponseMessageSchema().load({'code':-1,'msg':_('Error')})
-    return jsonify(res.data), 400
+
+    error_payload = ResponseMessageSchema().load({'code':-1,'msg':_('Error')})
+    return jsonify(error_payload), 400
 
 
 @workflow_blueprint.route('/activity/unlocks/<string:activity_id>',methods=["POST"])
@@ -3098,26 +3107,28 @@ def get_item_application(activity_id='0'):
     check_flg = type_null_check(activity_id, str)
     if not check_flg:
         current_app.logger.error("get_item_application: argument error")
-        res = ResponseMessageSchema().load({"code":-1, "msg":"arguments error"})
-        return jsonify(res.data), 400
+        error_payload = ResponseMessageSchema().load({"code":-1, "msg":"arguments error"})
+        return jsonify(error_payload), 400
     try:
         item_application_and_button = WorkActivity().get_activity_item_application(
             activity_id=activity_id)
         if item_application_and_button:
-            res = GetItemApplicationSchema().load({
+            item_application_payload = GetItemApplicationSchema().load({
                 'code':1,
                 'msg':_('Success'),
                 'item_application': item_application_and_button.item_application,
                 'is_display_item_application_button': item_application_and_button.display_item_application_button
             })
-            return jsonify(res.data), 200
+            return jsonify(item_application_payload), 200
         else:
-            res = ResponseMessageSchema().load({'code':0,'msg':'Empty!'})
-            return jsonify(res.data), 200
+            empty_data_payload = ResponseMessageSchema().load(
+                {"code": 0,"msg": "Empty!"}
+            )
+            return jsonify(empty_data_payload), 200
     except Exception:
         current_app.logger.exception("Unexpected error:")
-    res = ResponseMessageSchema().load({'code':-1,'msg':_('Error')})
-    return jsonify(res.data), 400
+    error_payload = ResponseMessageSchema().load({'code':-1,'msg':_('Error')})
+    return jsonify(error_payload), 400
 
 @workflow_blueprint.route('/activity/lock/<string:activity_id>', methods=['POST'])
 @login_required
@@ -3303,7 +3314,7 @@ def unlock_activity(activity_id="0"):
     except ValidationError as err:
         res = ResponseMessageSchema().load({'code':-1, 'msg':str(err)})
         return jsonify(res), 400
-    msg = delete_lock_activity_cache(activity_id, data.data)
+    msg = delete_lock_activity_cache(activity_id, data)
     res = ResponseUnlockSchema().load({'code':200,'msg':msg or _('Not unlock')})
     return jsonify(res), 200
 
@@ -3502,16 +3513,27 @@ def get_data_init():
     init_workflows = get_workflows()
     init_roles = get_roles()
     init_terms = get_terms()
-    roles = Role.query.all()
-    logged_roles = []
-    for role in roles:
-        if role.id > 2:
-            logged_roles.append({'id': role.id, 'name': role.name})
+
+    # Get super role names from the current app configuration
+    super_role_names = [
+        current_app.config["WEKO_ADMIN_PERMISSION_ROLE_SYSTEM"],
+        current_app.config["WEKO_ADMIN_PERMISSION_ROLE_REPO"]
+    ]
+
+    # Query the database for roles that are not superuser roles
+    non_superuser_roles = db.session.scalars(
+        select(Role).where(~Role.name.in_(super_role_names))
+    ).all()
+    restricted_record_access_roles = [
+        {"id": role.id, "name": role.name} for role in non_superuser_roles
+    ]
+
     return jsonify(
         init_workflows=init_workflows,
         init_roles=init_roles,
-        logged_roles = logged_roles,
-        init_terms=init_terms)
+        logged_roles=restricted_record_access_roles,
+        init_terms=init_terms,
+    )
 
 
 @workflow_blueprint.route('/download_activitylog/', methods=['GET','POST'])
