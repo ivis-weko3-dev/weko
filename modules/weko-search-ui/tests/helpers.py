@@ -14,6 +14,7 @@ from invenio_pidstore.models import PersistentIdentifier, PIDStatus, RecordIdent
 
 from weko_deposit.api import WekoDeposit, WekoRecord
 from invenio_pidrelations.models import PIDRelation
+from invenio_pidrelations.utils import resolve_relation_type_config
 
 def json_data(filename):
     with open(join(dirname(__file__),filename), "r") as f:
@@ -23,24 +24,28 @@ def json_data(filename):
 def create_record(record_data, item_data):
     """Create a test record."""
     with db.session.begin_nested():
+        # resolve relation type
+        relation_type_version = resolve_relation_type_config("version")
+        relation_type_draft = resolve_relation_type_config("record_draft")
+
         record_data = copy.deepcopy(record_data)
         item_data = copy.deepcopy(item_data)
         rec_uuid = uuid.uuid4()
 
         recid = PersistentIdentifier.create('recid', record_data["recid"],object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
         depid = PersistentIdentifier.create('depid', record_data["recid"],object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
-        rel = PIDRelation.create(recid,depid,3)
+        rel = PIDRelation.create(recid, depid, relation_type_draft.id)
         db.session.add(rel)
         parent = None
         doi = None
         if not ('.' in record_data["recid"]):
             parent = PersistentIdentifier.create('parent', "parent:{}".format(record_data["recid"]),object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
-            rel = PIDRelation.create(parent,recid,2,0)
+            rel = PIDRelation.create(parent, recid, relation_type_version.id, 0)
             db.session.add(rel)
             doi = PersistentIdentifier.create('doi', " https://doi.org/10.xyz/{}".format((str(record_data["recid"])).zfill(10)),object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
         else:
             parent = PersistentIdentifier.get('parent','parent:{}'.format((str(record_data["recid"])).split('.')[0]))
-            rel = PIDRelation.create(parent,recid,2,(str(record_data["recid"])).split('.')[1])
+            rel = PIDRelation.create(parent, recid, relation_type_version.id, (str(record_data["recid"])).split('.')[1])
             db.session.add(rel)
 
         record = WekoRecord.create(record_data, id_=rec_uuid)
@@ -55,12 +60,16 @@ def create_record(record_data, item_data):
 
 def create_record2(record_data, item_data):
     with db.session.begin_nested():
+        # resolve relation type
+        relation_type_version = resolve_relation_type_config("version")
+        relation_type_draft = resolve_relation_type_config("record_draft")
+
         record_data = copy.deepcopy(record_data)
         item_data = copy.deepcopy(item_data)
         rec_uuid = uuid.uuid4()
         recid = PersistentIdentifier.create('recid', record_data["recid"],object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
         depid = PersistentIdentifier.create('depid', record_data["recid"],object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
-        rel = PIDRelation.create(recid,depid,3)
+        rel = PIDRelation.create(recid, depid, relation_type_draft.id)
         db.session.add(rel)
         parent=None
         doi = None
@@ -68,10 +77,10 @@ def create_record2(record_data, item_data):
         if '.' in record_data["recid"]:
             parent = PersistentIdentifier.get("recid",int(float(record_data["recid"])))
             recid_p = PIDRelation.get_child_relations(parent).one_or_none()
-            PIDRelation.create(recid_p.parent, recid,2)
+            PIDRelation.create(recid_p.parent, recid, relation_type_version.id)
         else:
             parent = PersistentIdentifier.create('parent', "parent:{}".format(record_data["recid"]),object_type='rec', object_uuid=rec_uuid,status=PIDStatus.REGISTERED)
-            rel = PIDRelation.create(parent, recid,2,0)
+            rel = PIDRelation.create(parent, recid, relation_type_version.id, 0)
             db.session.add(rel)
             RecordIdentifier.next()
         if record_data.get("_oai").get("id"):

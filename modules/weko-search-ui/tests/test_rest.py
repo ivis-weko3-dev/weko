@@ -154,13 +154,15 @@ def test_create_blueprint(i18n_app, app, users):
         endpoints = app.config['WEKO_SEARCH_REST_ENDPOINTS']
         assert create_blueprint(app, endpoints)
 
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_rest.py::test_IndexSearchResource_get_facet -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_IndexSearchResource_get_facet(i18n_app,client_rest, db, users, item_type, facet_search_setting):
     i18n_app.config['WEKO_SEARCH_TYPE_INDEX'] = 'index'
     sname = current_app.config["SERVER_NAME"]
     def dummy_response(data):
         if isinstance(data, str):
             data = json_data(data)
-        dummy=response.Response(Search(), data)
+        dummy=dsl.response.Response(dsl.Search(), data)
         return dummy
     param = {"page":"1",
             "size":"20",
@@ -441,11 +443,12 @@ def test_IndexSearchResourceAPI(client_rest, db_register2, db_rocrate_mapping):
         with open('tests/data/rocrate/search_result.json', 'r') as f:
             search_result = json.load(f)
         search = MagicMock()
-        search.execute = lambda: DummySearchResult(search_result)
+        search.params.return_value = search
+        search.execute.return_value = DummySearchResult(search_result)
         mock_search_factory.return_value = (search, '')
         with patch('weko_search_ui.rest.get_facet_search_query') as mock_get_facet_search_query:
             search.aggs = {}
-            mock_get_facet_search_query.return_value = {"test-weko": {"aggs": {"Data Type": {"filter": {}} }}}
+            mock_get_facet_search_query.return_value = {"weko": {"aggs": {"Data Type": {"filter": {}} }}}
             res = client_rest.get(target_url)
             assert res.status_code == 200
             assert search.aggs == {'Data Type': {'filter': {}}}
