@@ -370,7 +370,8 @@ def link_error_handler(request, exc, traceback):
 
 def is_harvest_running(id, task_id):
     """Check harvest running."""
-    inspect = current_celery_app.control.inspect()
+    timeout=current_app.config.get("CELERY_GET_STATUS_TIMEOUT", 3.0)
+    inspect = current_celery_app.control.inspect(timeout=timeout)
     actives = inspect.active()
     for worker in actives:
         for task in actives[worker]:

@@ -248,7 +248,7 @@ class QueryFileReportsHelper(object):
         """Create response object for file_stats_reports."""
         mapper = {}
         for i in res["buckets"]:
-            key_str = f"{i["file_key"]}_{i["index_list"]}"
+            key_str = f"{i['file_key']}_{i['index_list']}"
             if key_str in mapper:
                 data = data_list[mapper[key_str]]
             else:
@@ -516,7 +516,7 @@ class QuerySearchReportHelper(object):
                 all.append(current_report)
             all = sorted(all, key=lambda x:x['count'], reverse=True)
             result['all'] = all
-        except es_exceptions.NotFoundError as e:
+        except search.NotFoundError as e:
             traceback.print_exc()
             current_app.logger.debug(
                 "Indexes do not exist yet:" + str(e.info['error']))

@@ -1599,7 +1599,7 @@ def next_action(activity_id='0', action_id=0, json_data=None):
     if current_flow_action is None:
         current_app.logger.error("next_action: can not get current_flow_action")
         res = ResponseMessageSchema().load({"code":-1, "msg":"can not get curretn_flow_action"})
-        return jsonify(res.data), 500
+        return jsonify(res), 500
     next_flow_action = flow.get_next_flow_action(
         activity_detail.flow_define.flow_id, action_id, action_order)
     if not isinstance(next_flow_action, list) or len(next_flow_action) <= 0:
@@ -2003,7 +2003,7 @@ def next_action(activity_id='0', action_id=0, json_data=None):
             )
             if new_item_id is None:
                 res = ResponseMessageSchema().load({"code":-1, "msg":_("error")})
-                return jsonify(res.data), 500
+                return jsonify(res), 500
 
             activity.update(
                 action_id=next_action_id,
@@ -2929,7 +2929,7 @@ def get_request_maillist(activity_id='0'):
     if not check_flg:
         current_app.logger.error("get_request_maillist: argument error")
         res = ResponseMessageSchema().load({"code":-1, "msg":"arguments error"})
-        return jsonify(res.data), 400
+        return jsonify(res), 400
     try:
         activity_request_mail = WorkActivity().get_activity_request_mail(
             activity_id=activity_id)
@@ -2937,7 +2937,7 @@ def get_request_maillist(activity_id='0'):
             request_mail_list = activity_request_mail.request_maillist
             if not isinstance(request_mail_list, list):
                 res = ResponseMessageSchema().load({"code":-1,"msg":"mail_list is not list"})
-                return jsonify(res.data), 400
+                return jsonify(res), 400
             temp_list = []
             added_user = []
             for mail in request_mail_list.copy():
@@ -2958,14 +2958,14 @@ def get_request_maillist(activity_id='0'):
                 'request_maillist': request_mail_list,
                 'is_display_request_button': activity_request_mail.display_request_button
             })
-            return jsonify(res.data), 200
+            return jsonify(res), 200
         else:
             res = ResponseMessageSchema().load({'code':0,'msg':'Empty!'})
-            return jsonify(res.data), 200
+            return jsonify(res), 200
     except Exception:
         current_app.logger.exception("Unexpected error:")
     res = ResponseMessageSchema().load({'code':-1,'msg':_('Error')})
-    return jsonify(res.data), 400
+    return jsonify(res), 400
 
 
 @workflow_blueprint.route('/activity/unlocks/<string:activity_id>',methods=["POST"])
@@ -3099,7 +3099,7 @@ def get_item_application(activity_id='0'):
     if not check_flg:
         current_app.logger.error("get_item_application: argument error")
         res = ResponseMessageSchema().load({"code":-1, "msg":"arguments error"})
-        return jsonify(res.data), 400
+        return jsonify(res), 400
     try:
         item_application_and_button = WorkActivity().get_activity_item_application(
             activity_id=activity_id)
@@ -3110,14 +3110,14 @@ def get_item_application(activity_id='0'):
                 'item_application': item_application_and_button.item_application,
                 'is_display_item_application_button': item_application_and_button.display_item_application_button
             })
-            return jsonify(res.data), 200
+            return jsonify(res), 200
         else:
             res = ResponseMessageSchema().load({'code':0,'msg':'Empty!'})
-            return jsonify(res.data), 200
+            return jsonify(res), 200
     except Exception:
         current_app.logger.exception("Unexpected error:")
     res = ResponseMessageSchema().load({'code':-1,'msg':_('Error')})
-    return jsonify(res.data), 400
+    return jsonify(res), 400
 
 @workflow_blueprint.route('/activity/lock/<string:activity_id>', methods=['POST'])
 @login_required
@@ -3303,7 +3303,7 @@ def unlock_activity(activity_id="0"):
     except ValidationError as err:
         res = ResponseMessageSchema().load({'code':-1, 'msg':str(err)})
         return jsonify(res), 400
-    msg = delete_lock_activity_cache(activity_id, data.data)
+    msg = delete_lock_activity_cache(activity_id, data)
     res = ResponseUnlockSchema().load({'code':200,'msg':msg or _('Not unlock')})
     return jsonify(res), 200
 
