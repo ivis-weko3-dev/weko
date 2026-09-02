@@ -1,3 +1,9 @@
+import $ from 'jquery';
+import moment from 'moment';
+import React from 'react';
+import * as ReactBootstrap from 'react-bootstrap';
+import ReactDOM from 'react-dom';
+
 const import_label = document.getElementById("import_label").value;
 const list = document.getElementById("list").value;
 const select_file = document.getElementById("select_file").value;
@@ -362,7 +368,9 @@ class MainLayout extends React.Component {
           {
             tabs.map((item, key) => {
               return (
-                <li role="presentation" className={`${item.tab_key === tab ? 'active' : ''}`} onClick={() => this.handleChangeTab(item.tab_key)}><a href="#">{item.tab_name}</a></li>
+                <li role="presentation" className={`${item.tab_key === tab ? 'active' : ''}`} onClick={() => this.handleChangeTab(item.tab_key)}>
+                  <button>{item.tab_name}</button>
+                </li>
               )
             })
           }
@@ -809,8 +817,11 @@ class TreeNode extends React.Component {
     return (
       <div className="tree-node">
         <div
+          role="button"
+          tabIndex={0}
           className={`folding ${data.children.length ? isCollabsed ? 'node-collapsed' : 'node-expanded' : 'weko-node-empty'}`}
           onClick={() => { data.children.length && this.handleShow() }}
+          onKeyDown={() => { }}
         >
         </div>
         <div className='node-value'>

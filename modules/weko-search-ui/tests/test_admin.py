@@ -30,7 +30,10 @@ from werkzeug.datastructures import FileStorage
 # class ItemManagementBulkDelete(BaseView):
 #     def index(self):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_admin.py::test_ItemManagementBulkDelete_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_ItemManagementBulkDelete_index(i18n_app, open_search, users, indices, mocker):
+def test_ItemManagementBulkDelete_index(
+    i18n_app, open_search, users, indices,
+    user_activity_log_partition_table, mocker
+):
     i18n_app.config['WEKO_SEARCH_TYPE_INDEX'] = 'index'
     with i18n_app.test_client() as client:
         with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
@@ -149,11 +152,20 @@ class TestItemManagementBulkSearch:
             res = client.get(url)
             assert res.status == '500 INTERNAL SERVER ERROR'
 
+        # Test when query parameter item_management is "sort"
         url = url_for("items/search.index", item_management="sort",  _external=True)
         with patch("flask_login.utils._get_user", return_value=user):
             with patch("flask.templating._render", return_value=""):
-                res = client.get(url, query_string={"item_management": "update"})
+                res = client.get(url)
                 assert res.status == '200 OK'
+
+        # Test when query parameter item_management is "update"
+        url = url_for("items/search.index", item_management="update",  _external=True)
+        with patch("flask_login.utils._get_user", return_value=user):
+            with patch("flask.templating._render", return_value=""):
+                res = client.get(url)
+                assert res.status == '200 OK'
+
 
     # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_admin.py::TestItemManagementBulkSearch::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
     def test_index(self, i18n_app, users, indices2, mocker):
@@ -166,7 +178,7 @@ class TestItemManagementBulkSearch:
                 with patch("flask.templating._render", return_value=""):
                     mock_execute_search_with_pagination = mocker.patch("weko_search_ui.utils.execute_search_with_pagination")
                     mock_execute_search_with_pagination.return_value = []
-                    
+
                     # management_type is bulk delete
                     res = client.get(url, query_string={"item_management": "delete", "q": 3})
                     assert res.status == '200 OK'
@@ -174,7 +186,7 @@ class TestItemManagementBulkSearch:
                     # management_type is bulk update
                     res = client.get(url, query_string={"item_management": "update"})
                     assert res.status == '200 OK'
-                    
+
                     # management_type is not found
                     res = client.get(url)
                     assert res.status == '500 INTERNAL SERVER ERROR'
@@ -235,7 +247,7 @@ class TestItemImportView:
             test = ItemImportView()
             task = MagicMock()
             task.task_id = 1
-            with patch("weko_search_ui.tasks.check_import_items_task.apply_async",return_Value=task):
+            with patch("weko_search_ui.tasks.check_import_items_task.apply_async",return_value=task):
                 assert test.check()
 
     #     def get_check_status(self) -> jsonify: ~ GOOD
@@ -307,14 +319,22 @@ class TestItemImportView:
                 assert res.status_code == 200
 
     #     def download_check(self): ~ GOOD
+    # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_admin.py::TestItemImportView::test_ItemImportView_download_check -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
     def test_ItemImportView_download_check(self, i18n_app, users, client_request_args, db_records2):
         with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
-            test = ItemImportView()
-            assert test.download_check()
+            download_check_url = url_for("items/import.download_check", _external=True)
+            response = client_request_args.post(
+                download_check_url, json={}
+            )
+            assert response.status_code == 200
+
 
     #     def import_items(self) -> jsonify: ~ GOOD
     # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_admin.py::TestItemImportView::test_ItemImportView_import_items -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-    def test_ItemImportView_import_items(self, i18n_app, users, client, client_request_args, db_records2, mocker):
+    def test_ItemImportView_import_items(
+        self, i18n_app, users, client, client_request_args, db_records2,
+        user_activity_log_partition_table, mocker
+    ):
         mocker.patch("flask_login.utils._get_user", return_value=users[3]['obj'])
         mocker.patch("weko_search_ui.admin.create_flow_define")
         mocker.patch("weko_search_ui.admin.handle_workflow")
@@ -355,16 +375,28 @@ class TestItemImportView:
 
 
     #     def get_status(self): ~ GOOD
+    # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_admin.py::TestItemImportView::test_ItemImportView_get_status -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
     def test_ItemImportView_get_status(self, i18n_app, users, client_request_args, db_records2):
         with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
-            test = ItemImportView()
-            assert test.get_status()
+            get_status_url = url_for("items/import.get_status", _external=True)
+            response = client_request_args.post(
+                get_status_url, json={},
+            )
+            assert response.status_code == 200
+
 
     #     def download_import(self): ~ GOOD
+    # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_admin.py::TestItemImportView::test_ItemImportView_download_import -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
     def test_ItemImportView_download_import(self, i18n_app, users, client_request_args, db_records2):
         with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
-            test = ItemImportView()
-            assert test.download_import()
+            download_import_url = url_for(
+                "items/import.download_import", _external=True
+            )
+            response = client_request_args.post(
+                download_import_url, json={},
+            )
+            assert response.status_code == 200
+
 
     #     def get_disclaimer_text(self): ~ GOOD
     def test_ItemImportView_get_disclaimer_text(self, i18n_app, users, client_request_args, db_records2):
@@ -384,6 +416,13 @@ class TestItemImportView:
                                 data=json.dumps(_data),
                                 content_type="application/json")
                 assert res.status_code==200
+                content = res.get_data(as_text=True)
+                rows = content.lstrip("\ufeff").splitlines()
+                assert rows[1].startswith('\t'.join(i18n_app.config['WEKO_EXPORT_TEMPLATE_BASIC_ID']))
+                assert rows[2].startswith('\t'.join(i18n_app.config['WEKO_EXPORT_TEMPLATE_BASIC_NAME']))
+                assert rows[4].startswith('\t'.join(i18n_app.config['WEKO_EXPORT_TEMPLATE_BASIC_OPTION']))
+                assert len(rows[1].split('\t')) == len(rows[2].split('\t'))
+                assert len(rows[1].split('\t')) == len(rows[4].split('\t'))
 
 
     #     def check_import_available(self): ~ GETS STUCK
@@ -562,7 +601,9 @@ class TestItemRocrateImportView:
 
     #     def import_items(self) -> jsonify: ~ GOOD
     # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_admin.py::TestItemRocrateImportView::test_ItemRocrateImportView_import_items -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-    def test_ItemRocrateImportView_import_items(self, i18n_app, users, client, mocker):
+    def test_ItemRocrateImportView_import_items(
+        self, i18n_app, users, client, user_activity_log_partition_table, mocker
+    ):
         mocker.patch("flask_login.utils._get_user", return_value=users[3]['obj'])
         mocker.patch("weko_search_ui.admin.create_flow_define")
         mocker.patch("weko_search_ui.admin.handle_workflow")
@@ -606,7 +647,7 @@ class TestItemRocrateImportView:
         # log group id is False
         with patch("weko_logging.activity_logger.UserActivityLogger.issue_log_group_id",
                    return_value=False):
-            res = client.post(url, data=json.dumps({}), content_type="application/json")
+            res = client.post(url, json=data)
             assert res.status_code == 200
             json_data = res.get_json()
             assert json_data["status"] == "success"
@@ -820,7 +861,7 @@ def test_ItemBulkExport_export_all(users, client, redis_connect, mocker):
 
     with patch("weko_search_ui.admin.get_export_status",
                 return_value=(True, '', '', '', 'STARTED', start_time_str, '')):
-        res = client.post(url)
+        res = client.post(url, json={})
         assert json.loads(res.data) == {'data': {
             'celery_is_run': True,
             'is_lifetime': True,
@@ -840,7 +881,7 @@ def test_ItemBulkExport_export_all(users, client, redis_connect, mocker):
     with patch("weko_search_ui.admin.get_export_status",
                 return_value=(True, 'test_uri', '', '', 'STARTED', start_time_str, '')):
         mocker.patch("weko_search_ui.utils.AsyncResult",side_effect=MockAsyncResult)
-        res = client.post(url)
+        res = client.post(url, json={})
         assert json.loads(res.data) == {'data': {
             'celery_is_run': True,
             'is_lifetime': True,
@@ -855,7 +896,7 @@ def test_ItemBulkExport_export_all(users, client, redis_connect, mocker):
 
     with patch("weko_search_ui.admin.get_export_status",
                 return_value=(False, '', '', '', 'STARTED', start_time_str, '')):
-        res = client.post(url)
+        res = client.post(url, json={})
         assert json.loads(res.data) == {'data': {
             'celery_is_run': True,
             'is_lifetime': True,
@@ -906,7 +947,7 @@ class TestItemBulkExport:
         url = url_for("items/bulk-export.check_export_status")
         res = client.get(url)
         assert res.status_code == 302
-        
+
         with patch("flask_login.utils._get_user", return_value=users[3]["obj"]):
             url = url_for("items/bulk-export.check_export_status")
             with patch('weko_search_ui.admin.get_export_status',

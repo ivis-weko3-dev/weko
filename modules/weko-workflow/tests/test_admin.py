@@ -117,20 +117,24 @@ class TestFlowSettingView:
                 mock_args=mocker.patch("flask.templating._render",return_value=make_response())
                 url = '/admin/flowsetting/{}'.format(flow_define.flow_id)
                 res =  client.get(url)
-                args,kwargs = mock_args.call_args
+                args, kwargs = mock_args.call_args
+                # args = (Flask, Template, Context)
+                _, _, context = args
                 assert res.status_code == status_code
-                assert args[1]['actions'][0].action_role.specify_property== "test"
-                assert args[1]['actions'][0].action_role.action_item_registrant == True
+                assert context['actions'][0].action_role.specify_property== "test"
+                assert context['actions'][0].action_role.action_item_registrant == True
 
         with patch("weko_admin.models.AdminSettings.get",return_value={"edit_mail_templates_enable": False,"display_request_form": False}):
             with patch("weko_workflow.api.Flow.get_flow_detail", return_value=mock_flow):
                 mock_args=mocker.patch("flask.templating._render",return_value=make_response())
                 url = '/admin/flowsetting/{}'.format(flow_define.flow_id)
                 res =  client.get(url)
-                args,kwargs = mock_args.call_args
+                args, kwargs = mock_args.call_args
+                # args = (Flask, Template, Context)
+                _, _, context = args
                 assert res.status_code == status_code
-                assert args[1]['actions'][0].action_role.specify_property== None
-                assert args[1]['actions'][0].action_role.action_item_registrant == False
+                assert context['actions'][0].action_role.specify_property== None
+                assert context['actions'][0].action_role.action_item_registrant == False
 
     # def flow_detail(self, flow_id='0'):
     # .tox/c1/bin/pytest --cov=weko_workflow tests/test_admin.py::TestFlowSettingView::test_flow_detail_return_repositories -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
@@ -142,7 +146,8 @@ class TestFlowSettingView:
             res =  client.get(url)
             assert res.status_code == 200
             args, kwargs = mock_render.call_args
-            assert len(args[1]["repositories"]) == 2
+            # Note: args = (Flask, Template, context)
+            assert len(args[2]["repositories"]) == 2
 
         url = '/admin/flowsetting/{}'.format(0)
         login(client=client, email=users[3]['email'])
@@ -150,7 +155,8 @@ class TestFlowSettingView:
             res =  client.get(url)
             assert res.status_code == 200
             args, kwargs = mock_render.call_args
-            assert len(args[1]["repositories"]) == 1
+            # Note: args = (Flask, Template, context)
+            assert len(args[2]["repositories"]) == 1
 
     # def flow_detail(self, flow_id='0'):
     # def new_flow(self, flow_id='0'):
@@ -212,7 +218,8 @@ class TestFlowSettingView:
         with patch("flask.templating._render", return_value=b"") as mock_render:
             response = client.get('/admin/flowsetting/0')
             args, kwargs = mock_render.call_args
-            context = args[1]
+            # args = (Flask, Template, Context)
+            _, _, context = args
             filtered_role_names = [role.name for role in context['roles']]
             assert "jc_xxx_roles_contributor" not in filtered_role_names
             assert "jc_xxx_groups_yyy" in filtered_role_names
@@ -227,86 +234,98 @@ class TestFlowSettingView:
 #     def update_flow(flow_id):
 #     def new_flow(self, flow_id='0'):
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_admin.py::TestFlowSettingView::test_new_flow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-    def test_new_flow(self,app,client,action_data,users):
-        login(client=client, email=users[1]['email'])
-        url = '/admin/flowsetting/{}'.format(0)
+    def test_new_flow(self, app, client, action_data, users, mocker):
+        repoadmin_user_email = users[1]["email"]
+        mocker.patch("flask.templating._render", return_value="dummy")
+        login(client=client, email=repoadmin_user_email)
+
+        # Check that no flows exist initially
         q = FlowDefine.query.all()
         assert len(q) == 0
 
-        with patch("flask.templating._render", return_value=""):
-            res =  client.post(url)
+        # Test: Create a new flow with exception raised in the Flow class
+        with patch(
+            "weko_workflow.admin.Flow.create_flow",
+            side_effect=Exception("Simulated error")
+        ):
+            new_flow_url = url_for("flowsetting.new_flow", flow_id=str(0))
+            res =  client.post(new_flow_url, json={})
             assert res.status_code == 500
         q = FlowDefine.query.all()
         assert len(q) == 0
 
+        # Test: Create a new flow with missing required fields
         data = {"flow": "test1"}
-        login(client=client, email=users[1]['email'])
-        url = '/admin/flowsetting/{}'.format(0)
-        with patch("flask.templating._render", return_value=""):
-            res =  client.post(url, data=json.dumps(data), headers=[('Content-Type', 'application/json')])
-            assert res.status_code == 400
+        login(client=client, email=repoadmin_user_email)
+        new_flow_url = url_for("flowsetting.new_flow", flow_id=str(0))
+        res =  client.post(new_flow_url, json=data)
+        assert res.status_code == 400
         q = FlowDefine.query.all()
         assert len(q) == 0
 
+        # Test: Create a new flow with valid data
         data = {"flow_name": "test1", "repository_id": "Root Index"}
-        login(client=client, email=users[1]['email'])
-        url = '/admin/flowsetting/{}'.format(0)
-        with patch("flask.templating._render", return_value=""):
-            res =  client.post(url, data=json.dumps(data), headers=[('Content-Type', 'application/json')])
-            assert res.status_code == 200
+        login(client=client, email=repoadmin_user_email)
+        new_flow_url = url_for("flowsetting.new_flow", flow_id=str(0))
+        res =  client.post(new_flow_url, json=data)
+        assert res.status_code == 200
         q = FlowDefine.query.all()
         assert len(q) == 1
 
+        # Test: Attempt to create a duplicate flow with the same name and repository
         data = {"flow_name": "test1", "repository_id": "Root Index"}
-        login(client=client, email=users[1]['email'])
-        url = '/admin/flowsetting/{}'.format(0)
-        with patch("flask.templating._render", return_value=""):
-            res =  client.post(url, data=json.dumps(data), headers=[('Content-Type', 'application/json')])
-            assert res.status_code == 400
+        login(client=client, email=repoadmin_user_email)
+        new_flow_url = url_for("flowsetting.new_flow", flow_id=str(0))
+        res =  client.post(new_flow_url, json=data)
+        assert res.status_code == 400
         q = FlowDefine.query.all()
         assert len(q) == 1
 
+        # Test: Update the existing flow with a new name
         flow_id = q[0].flow_id
         data = {"flow_name": "test2", "repository_id": "Root Index"}
-        login(client=client, email=users[1]['email'])
-        url = '/admin/flowsetting/{}'.format(flow_id)
-        with patch("flask.templating._render", return_value=""):
-            res =  client.post(url, data=json.dumps(data), headers=[('Content-Type', 'application/json')])
-            assert res.status_code == 200
+        login(client=client, email=repoadmin_user_email)
+        new_flow_url = url_for("flowsetting.new_flow", flow_id=str(flow_id))
+        res =  client.post(new_flow_url, json=data)
+        assert res.status_code == 200
         q = FlowDefine.query.first()
         assert q.flow_name == 'test2'
 
+        # Test: Attempt to update the flow with invalid data (missing required fields)
         data = {"flow": "test3"}
-        login(client=client, email=users[1]['email'])
-        url = '/admin/flowsetting/{}'.format(flow_id)
-        with patch("flask.templating._render", return_value=""):
-            res =  client.post(url, data=json.dumps(data), headers=[('Content-Type', 'application/json')])
-            assert res.status_code == 400
+        login(client=client, email=repoadmin_user_email)
+        new_flow_url = url_for("flowsetting.new_flow", flow_id=flow_id)
+        res =  client.post(new_flow_url, json=data)
+        assert res.status_code == 400
         q = FlowDefine.query.first()
         assert q.flow_name == 'test2'
 
+        # Test: Create a new flow with the same name and repository as an existed flow
         data = {"flow_name": "test1", "repository_id": "Root Index"}
-        login(client=client, email=users[1]['email'])
-        url = '/admin/flowsetting/{}'.format(0)
-        with patch("flask.templating._render", return_value=""):
-            res =  client.post(url, data=json.dumps(data), headers=[('Content-Type', 'application/json')])
-            assert res.status_code == 200
+        login(client=client, email=repoadmin_user_email)
+        new_flow_url = url_for("flowsetting.new_flow", flow_id=0)
+        res =  client.post(new_flow_url, json=data)
+        assert res.status_code == 200
         q = FlowDefine.query.all()
         assert len(q) == 2
 
+        # Test: Attempt to update the existing flow with a name that already exists for another flow
         data = {"flow_name": "test1", "repository_id": "Root Index"}
-        login(client=client, email=users[1]['email'])
-        url = '/admin/flowsetting/{}'.format(flow_id)
-        with patch("flask.templating._render", return_value=""):
-            res =  client.post(url, data=json.dumps(data), headers=[('Content-Type', 'application/json')])
-            assert res.status_code == 400
+        login(client=client, email=repoadmin_user_email)
+        new_flow_url = url_for("flowsetting.new_flow", flow_id=flow_id)
+        res =  client.post(new_flow_url, json=data)
+        assert res.status_code == 400
         q = FlowDefine.query.first()
         assert q.flow_name == 'test2'
 
-        login(client=client, email=users[1]['email'])
-        url = '/admin/flowsetting/{}'.format(flow_id)
-        with patch("flask.templating._render", return_value=""):
-            res =  client.post(url)
+        # Test: Simulate an exception during the update process
+        login(client=client, email=repoadmin_user_email)
+        with mocker.patch(
+            "weko_workflow.admin.Flow.upt_flow",
+            side_effect=Exception("Simulated error")
+        ):
+            new_flow_url = url_for("flowsetting.new_flow", flow_id=flow_id)
+            res =  client.post(new_flow_url, json={})
             assert res.status_code == 500
         q = FlowDefine.query.first()
         assert q.flow_name == 'test2'
@@ -508,7 +527,11 @@ class TestWorkFlowSettingView:
         (5, 403),
         (6, 200),
     ])
-    def test_index_acl(self,client,db_register2,users,users_index,status_code):
+    def test_index_acl(
+        self, client, db_register2, users, users_index, status_code, mocker
+    ):
+        # mock render_template
+        mocker.patch("flask_admin.base.render_template", return_value="dummy")
         login(client=client, email=users[users_index]['email'])
         url = url_for('workflowsetting.index',_external=True)
         res =  client.get(url)
@@ -541,7 +564,7 @@ class TestWorkFlowSettingView:
         res = client.get(url)
         assert res.status_code == 200
         args, kwargs = mock_render.call_args
-        context = args[1]
+        context = args[2]
         display_names = context['workflows'][0].display.replace(',<br>', ',').split(',')
         assert "jc_xxx_roles_contributor" not in display_names
         assert "test_role" in display_names
@@ -564,7 +587,10 @@ class TestWorkFlowSettingView:
         # (5, 200),
         # (6, 200),
     ])
-    def test_workflow_detail_acl(self,app ,client,db_register_full_action,workflow_open_restricted, db_register2,users,users_index,status_code,mocker):
+    def test_workflow_detail_acl(
+        self, app, client, db_register_full_action, workflow_open_restricted,
+        db_register2, users, users_index, status_code, mocker
+    ):
         login(client=client, email=users[users_index]['email'])
         url = url_for('workflowsetting.workflow_detail',workflow_id='0',_external=True)
         mock_render =mocker.patch("flask.templating._render", return_value=make_response())
@@ -572,8 +598,9 @@ class TestWorkFlowSettingView:
         assert res.status_code == status_code
         is_sysadmin = users_index == 2
         args, kwargs = mock_render.call_args
+        render_context = args[2]
         # 81
-        assert args[1]["is_sysadmin"] == is_sysadmin
+        assert render_context["is_sysadmin"] == is_sysadmin
 
         wf:WorkFlow = workflow_open_restricted[0]["workflow"]
         flows_id = wf.flows_id
@@ -581,9 +608,10 @@ class TestWorkFlowSettingView:
         is_sysadmin = users_index == 2
         res =  client.get(url)
         args, kwargs = mock_render.call_args
-        assert args[1]["is_sysadmin"] == is_sysadmin
+        render_context = args[2]
+        assert render_context["is_sysadmin"] == is_sysadmin
         assert res.status_code == status_code
-        assert args[1]['is_display_restricted_access_checkbox'] == False
+        assert render_context['is_display_restricted_access_checkbox'] == False
 
         current_app.config.update(WEKO_ADMIN_RESTRICTED_ACCESS_DISPLAY_FLAG = True)
         url = url_for('workflowsetting.workflow_detail',workflow_id='0',_external=True)
@@ -592,8 +620,9 @@ class TestWorkFlowSettingView:
         assert res.status_code == status_code
         is_sysadmin = users_index == 2
         args, kwargs = mock_render.call_args
+        render_context = args[2]
         # 81
-        assert args[1]["is_sysadmin"] == is_sysadmin
+        assert render_context["is_sysadmin"] == is_sysadmin
 
         wf:WorkFlow = workflow_open_restricted[0]["workflow"]
         flows_id = wf.flows_id
@@ -601,13 +630,14 @@ class TestWorkFlowSettingView:
         is_sysadmin = users_index == 2
         res =  client.get(url)
         args, kwargs = mock_render.call_args
-        assert args[1]["is_sysadmin"] == is_sysadmin
+        render_context = args[2]
+        assert render_context["is_sysadmin"] == is_sysadmin
         if is_sysadmin:
             assert res.status_code == status_code
-            assert args[1]['is_display_restricted_access_checkbox'] == True
+            assert render_context['is_display_restricted_access_checkbox'] == True
         else:
             assert res.status_code == 403
-            assert args[1]['is_display_restricted_access_checkbox'] == False
+            assert render_context['is_display_restricted_access_checkbox'] == False
 
         #117
         wf:WorkFlow = db_register_full_action["workflow"]
@@ -619,19 +649,27 @@ class TestWorkFlowSettingView:
 
     # .tox/c1/bin/pytest --cov=weko_workflow tests/test_admin.py::TestWorkFlowSettingView::test_workflow_detail_return_repositories -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
     def test_workflow_detail_return_repositories(self,app ,client, users, workflow, mocker):
-        login(client=client, email=users[2]['email'])
+        # System Administrator can see all repositories
+        sysadmin_user_email = users[2]["email"]
+        login(client=client, email=sysadmin_user_email)
         url = url_for('workflowsetting.workflow_detail',workflow_id='0')
         mock_render =mocker.patch("flask.templating._render", return_value=make_response())
-        res =  client.get(url)
+        _ =  client.get(url)
         args, kwargs = mock_render.call_args
-        assert len(args[1]["repositories"]) == 2
+        # Note: args = (Flask, Template, context)
+        render_context = args[2]
+        assert len(render_context["repositories"]) == 2
 
-        login(client=client, email=users[3]['email'])
+        # Community Administrator can see repositories they have access to
+        comadmin_user_email = users[3]["email"]
+        login(client=client, email=comadmin_user_email)
         url = url_for('workflowsetting.workflow_detail',workflow_id='0')
         mock_render =mocker.patch("flask.templating._render", return_value=make_response())
-        res =  client.get(url)
+        _ =  client.get(url)
         args, kwargs = mock_render.call_args
-        assert len(args[1]["repositories"]) == 1
+        # Note: args = (Flask, Template, context)
+        render_context = args[2]
+        assert len(render_context["repositories"]) == 2
 
 
     #     def update_workflow(self, workflow_id='0'):
@@ -648,8 +686,8 @@ class TestWorkFlowSettingView:
     # .tox/c1/bin/pytest --cov=weko_workflow tests/test_admin.py::TestWorkFlowSettingView::test_update_workflow_acl -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
     @pytest.mark.parametrize('users_index, status_code', [
         # (0, 403),
-        (1, 200),
-        (2, 200),
+        (1, 200),   # Repository Administrator
+        (2, 200),   # System Administrator
         # (3, 200),
         # (4, 200),
         # (5, 200),
@@ -762,31 +800,53 @@ class TestWorkFlowSettingView:
 
     #     def update_workflow(self, workflow_id='0'):
     # .tox/c1/bin/pytest --cov=weko_workflow tests/test_admin.py::TestWorkFlowSettingView::test_update_workflow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-    def test_update_workflow(self,client,db,db_register2,users,workflow):
+    def test_update_workflow(
+        self, client, db, db_register2, users, workflow,
+        user_activity_log_partition_table
+    ):
         login(client=client, email=users[1]['email'])
         define = workflow["flow"]
         wflow : WorkFlow = workflow["workflow"]
-        url = url_for('workflowsetting.update_workflow',workflow_id=wflow.flows_id,_external=True)
+        url = url_for(
+            "workflowsetting.update_workflow",
+            workflow_id=wflow.flows_id, _external=True
+        )
         with patch("flask.templating._render", return_value=""):
-            res =  client.post(url
-                                , headers=[('Content-Type', 'application/json')
-                                            ,('Accept', 'application/json')]
-                                , data=json.dumps({'id': wflow.id,'flow_id': define.id
-                                                   })
-                                )
-            assert res.status_code == 200
+            response =  client.post(
+                url, headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                json={
+                    "id": wflow.id,
+                    "flow_id": define.id,
+                    "itemtype_id": wflow.itemtype_id,
+                    "is_gakuninrdm": False,
+                }
+            )
+            assert response.status_code == 200
             wf : WorkFlow = db.session.query(WorkFlow).filter_by(id = wflow.id).one_or_none()
             assert wf.open_restricted == False
 
-            url = url_for('workflowsetting.update_workflow',workflow_id='0',_external=True)
-            res =  client.post(url
-                                    , headers=[('Content-Type', 'application/json')
-                                                ,('Accept', 'application/json')]
-                                    , data=json.dumps({'id': wflow.id,'flow_id': define.id
-                                                    ,'itemtype_id' :wflow.itemtype_id
-                                                    ,'flows_id' : wflow.flows_id
-                                                    ,'is_gakuninrdm' : False})
-                                    )
+            url = url_for(
+                "workflowsetting.update_workflow",
+                workflow_id="0", _external=True
+            )
+            response =  client.post(
+                url, headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                json={
+                    "id": wflow.id,
+                    "flow_id": define.id,
+                    "itemtype_id": wflow.itemtype_id,
+                    "flows_id": wflow.flows_id,
+                    "is_gakuninrdm": False
+                }
+            )
+            assert response.status_code == 200
+
 
     # .tox/c1/bin/pytest --cov=weko_workflow tests/test_admin.py::TestWorkFlowSettingView::test_workflow_detail_roles_filter -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
     def test_workflow_detail_roles_filter(self, client, db, users):
@@ -817,7 +877,8 @@ class TestWorkFlowSettingView:
         with patch("flask.templating._render", return_value=b"") as mock_render:
             response = client.get('/admin/workflowsetting/0')
             args, kwargs = mock_render.call_args
-            context = args[1]
+            # Note: args: Flask, Template, context, kwargs
+            context = args[2]
             filtered_role_names = [role.name for role in context['display_list']]
             assert "jc_xxx_roles_contributor" not in filtered_role_names
             assert "jc_xxx_groups_yyy" in filtered_role_names
@@ -912,16 +973,22 @@ class TestWorkFlowSettingView:
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_admin.py::TestActivitySettingsView -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 class TestActivitySettingsView:
     # .tox/c1/bin/pytest --cov=weko_workflow tests/test_admin.py::TestActivitySettingsView::test_index_get_request -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-    def test_index_get_request(self, client, db_register2, users):
+    def test_index_get_request(self, client, db_register2, users, mocker):
         """Test GET request for ActivitySettingsView.index."""
+        # mock render_template to avoid webpack issues during testing
+        mocker.patch("flask_admin.base.render_template", return_value="dummy")
         login(client=client, email=users[2]['email'])
         url = url_for("activity.index", _external=True)
         res = client.get(url)
         assert res.status_code == 200
 
     # .tox/c1/bin/pytest --cov=weko_workflow tests/test_admin.py::TestActivitySettingsView::test_index_post_request_valid_form -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-    def test_index_post_request_valid_form(self, client, app, db_register2, users):
+    def test_index_post_request_valid_form(
+        self, client, app, db_register2, users, mocker
+    ):
         """Test POST request with valid form for ActivitySettingsView.index."""
+        # mock render_template to avoid webpack issues during testing
+        mocker.patch("flask_admin.base.render_template", return_value="dummy")
         login(client=client, email=users[2]['email'])
         app.config["WEKO_WORKFLOW_APPROVER_EMAIL_COLUMN_VISIBLE"] = True
         AdminSettings.update("activity_display_settings", {"activity_display_flg": "1"})
@@ -930,8 +997,12 @@ class TestActivitySettingsView:
         assert res.status_code == 200
 
     # .tox/c1/bin/pytest --cov=weko_workflow tests/test_admin.py::TestActivitySettingsView::test_index_post_request_invalid_form -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-    def test_index_post_request_invalid_form(self, client, app, db_register2, users):
+    def test_index_post_request_invalid_form(
+        self, client, app, db_register2, users, mocker
+    ):
         """Test POST request with invalid form for ActivitySettingsView.index."""
+        # mock render_template to avoid webpack issues during testing
+        mocker.patch("flask_admin.base.render_template", return_value="dummy")
         login(client=client, email=users[2]['email'])
         app.config["WEKO_WORKFLOW_APPROVER_EMAIL_COLUMN_VISIBLE"] = True
         AdminSettings.update("activity_display_settings", {"activity_display_flg": "1"})
@@ -940,8 +1011,12 @@ class TestActivitySettingsView:
         assert res.status_code == 200
 
     # .tox/c1/bin/pytest --cov=weko_workflow tests/test_admin.py::TestActivitySettingsView::test_index_activity_display_settings_not_found -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-    def test_index_activity_display_settings_not_found(self, client, app, db_register2, users):
+    def test_index_activity_display_settings_not_found(
+        self, client, app, db_register2, users, mocker
+    ):
         """Test GET request when activity_display_settings is not found."""
+        # mock render_template to avoid webpack issues during testing
+        mocker.patch("flask_admin.base.render_template", return_value="dummy")
         login(client=client, email=users[2]['email'])
         app.config["WEKO_WORKFLOW_APPROVER_EMAIL_COLUMN_VISIBLE"] = True
         AdminSettings.update("activity_display_settings", None)
@@ -984,16 +1059,24 @@ class TestWorkSpaceWorkFlowSettingView:
         (5, 403),
         (6, 200),
     ])
-    def test_index_acl(self,client,db_register2,users,users_index,status_code):
+    def test_index_acl(
+        self, client, db_register2, users, users_index, status_code, mocker
+    ):
+        # mock render_template to avoid webpack issues during testing
+        mocker.patch("flask_admin.base.render_template", return_value="dummy")
         login(client=client, email=users[users_index]['email'])
         url = url_for('workspaceworkflowsetting.index',_external=True)
         res =  client.get(url)
         assert res.status_code == status_code
 
     # .tox/c1/bin/pytest --cov=weko_workflow tests/test_admin.py::TestWorkSpaceWorkFlowSettingView::test_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-    def test_index(self,client,db,admin_settings,app,users,db_register2,mocker):
+    def test_index(
+        self, client, db, admin_settings, app, users, db_register2, mocker
+    ):
         from invenio_accounts.testutils import login_user_via_session
         from flask_wtf import FlaskForm,Form
+        # mock render_template to avoid webpack issues during testing
+        mocker.patch("flask_admin.base.render_template", return_value="dummy")
         login_user_via_session(client,email=users[2]["email"])
         url = url_for('workspaceworkflowsetting.index')
         res =  client.get(url)

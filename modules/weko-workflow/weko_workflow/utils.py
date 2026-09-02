@@ -4213,8 +4213,11 @@ def process_send_mail_tpl(mail_info, mail_pattern_name):
 def cancel_expired_usage_reports():
     """Cancel expired usage reports."""
     expired_activities = GuestActivity.get_expired_activities()
-    if expired_activities:
-        WorkActivity().cancel_usage_report_activities(expired_activities)
+    expired_activity_ids = [
+        activity.activity_id for activity in expired_activities
+    ]
+    if expired_activity_ids:
+        WorkActivity().cancel_usage_report_activities(expired_activity_ids)
 
 
 def process_send_approval_mails(activity_detail, actions_mail_setting,
