@@ -208,3 +208,6 @@ function deleteBlockUser() {
   }
   updateBlockUserList();
 }
+
+window.addBlockUser = addBlockUser;
+window.deleteBlockUser = deleteBlockUser;
