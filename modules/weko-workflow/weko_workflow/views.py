@@ -3295,7 +3295,7 @@ def unlock_activity(activity_id="0"):
     except ValidationError as err:
         res = ResponseMessageSchema().load({'code':-1, 'msg':str(err)})
         return jsonify(res), 400
-    msg = delete_lock_activity_cache(activity_id, data.data)
+    msg = delete_lock_activity_cache(activity_id, data)
     res = ResponseUnlockSchema().load({'code':200,'msg':msg or _('Not unlock')})
     return jsonify(res), 200
 
