@@ -1,3 +1,4 @@
+import $ from 'jquery';
 $(document).ready(function () {
     let bucket_id = document.getElementById("bucket_id").innerText;
     let file_key = ''
@@ -7,7 +8,7 @@ $(document).ready(function () {
         file_key = encodeURIComponent(document.getElementById("file_url").innerText.replaceAll('/', '{URL_SLASH}'));
     }
 
-    statsurl = '/api/stats/' + bucket_id + '/' + file_key
+    let statsurl = '/api/stats/' + bucket_id + '/' + file_key;
     $.ajax({
         url: statsurl,
         type: 'GET',
@@ -20,14 +21,14 @@ $(document).ready(function () {
                 // period
                 let ddl = document.getElementById("file_period");
                 let ddlHtml = ddl.innerHTML;
-                for (period of data.period) {
+                for (let period of data.period) {
                     ddlHtml += '<option value=' + period + '>' + period + '</option>';
                 }
                 ddl.innerHTML = ddlHtml;
                 // country
                 let tableHtml = '';
                 for (let i in data.country_list) {
-                    d = data.country_list[i]
+                    let d = data.country_list[i]
                     tableHtml += '<tr><td>' + d.country + '</td><td>' + 
                         d.download_counts + '</td><td>' + 
                         d.preview_counts + '</td></tr>';
@@ -48,7 +49,7 @@ $(document).ready(function () {
 });
 
 function period_change(control) {
-    date = control.value;
+    let date = control.value;
     let bucket_id = document.getElementById("bucket_id").innerText;
     let file_key = document.getElementById("file_key").innerText;
     let statsurl = '/api/stats/' + bucket_id + '/' + file_key;
@@ -63,7 +64,7 @@ function period_change(control) {
                 document.getElementById("file_preview_num").innerHTML = data.preview_total;
                 let tableHtml = '';
                 for (let i in data.country_list) {
-                    d = data.country_list[i]
+                    let d = data.country_list[i];
                     tableHtml += '<tr><td>' + d.country + '</td><td>' +
                         d.download_counts + '</td><td>' +
                         d.preview_counts + '</td></tr>';
@@ -82,3 +83,4 @@ function period_change(control) {
         }
     });
 }
+window.period_change = period_change;

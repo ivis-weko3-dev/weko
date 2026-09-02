@@ -1,3 +1,4 @@
+import $ from 'jquery';
 $(document).ready(function () {
   $("#api_account_save").prop("disabled", true);
 

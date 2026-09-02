@@ -1,4 +1,4 @@
-
+import $ from 'jquery';
 $(document).ready(function () {
 
   const urlLoad = '/api/admin/load_lang';

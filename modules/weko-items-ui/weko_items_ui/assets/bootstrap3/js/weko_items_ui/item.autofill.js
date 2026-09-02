@@ -1,3 +1,5 @@
+import React from 'react';
+import ReactDOM from 'react-dom';
 class ModalHeader extends React.Component {
     render() {
         return (
