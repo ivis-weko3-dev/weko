@@ -8,6 +8,7 @@ $(document).ready(function () {
     $('#downloadReport').trigger('click');
   });
 
+  // Confirm schedule change
   $('#confirm_schedule_button').on('click', function () {
     let repositorySelect = $('#repository_select').val();
     $('<input>').attr({
@@ -18,7 +19,6 @@ $(document).ready(function () {
 
     $('#email_sched_form').submit();
   });
-
 
   // Change selectable options based on frequency
   $('#email_sched_frequency').on('change', function () {
