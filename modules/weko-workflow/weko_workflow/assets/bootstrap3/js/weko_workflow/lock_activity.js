@@ -1,6 +1,10 @@
 import $ from 'jquery';
 
-$(document).ready(function () {
+$(function () {
+  if (window.__weko_lock_activity_initialized) {
+    return;
+  }
+  window.__weko_lock_activity_initialized = true;
   $('#step_page').focus();
   $('#activity_locked').hide();
   $('#locked_msg').hide()
