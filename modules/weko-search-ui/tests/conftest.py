@@ -169,7 +169,19 @@ from weko_theme.config import THEME_BODY_TEMPLATE, WEKO_THEME_ADMIN_ITEM_MANAGEM
 from weko_workflow import WekoWorkflow
 from weko_workflow.models import Action, ActionStatus, ActionStatusPolicy, Activity, FlowAction, FlowDefine, WorkFlow
 from weko_search_ui import WekoSearchREST, WekoSearchUI
-from weko_search_ui.config import SEARCH_UI_SEARCH_INDEX, WEKO_SEARCH_TYPE_DICT, WEKO_SEARCH_UI_BASE_TEMPLATE, WEKO_SEARCH_KEYWORDS_DICT, CHILD_INDEX_THUMBNAIL_WIDTH, CHILD_INDEX_THUMBNAIL_HEIGHT, ROCRATE_METADATA_FILE, SWORD_METADATA_FILE
+from weko_search_ui.config import (
+    SEARCH_UI_SEARCH_INDEX,
+    WEKO_SEARCH_TYPE_DICT,
+    WEKO_SEARCH_UI_BASE_TEMPLATE,
+    WEKO_SEARCH_KEYWORDS_DICT,
+    CHILD_INDEX_THUMBNAIL_WIDTH,
+    CHILD_INDEX_THUMBNAIL_HEIGHT,
+    ROCRATE_METADATA_FILE,
+    SWORD_METADATA_FILE,
+    WEKO_EXPORT_TEMPLATE_BASIC_ID,
+    WEKO_EXPORT_TEMPLATE_BASIC_NAME,
+    WEKO_EXPORT_TEMPLATE_BASIC_OPTION
+)
 from weko_search_ui.rest import create_blueprint
 from weko_search_ui.views import blueprint_api
 from werkzeug.local import LocalProxy
@@ -698,6 +710,9 @@ def base_app(instance_path, search_class, request):
         },
         WEKO_COMMUNITIES_DEFAULT_PROPERTIES=WEKO_COMMUNITIES_DEFAULT_PROPERTIES,
         PIDRELATIONS_RELATION_TYPES=PIDRELATIONS_RELATION_TYPES,
+        WEKO_EXPORT_TEMPLATE_BASIC_ID=WEKO_EXPORT_TEMPLATE_BASIC_ID,
+        WEKO_EXPORT_TEMPLATE_BASIC_NAME=WEKO_EXPORT_TEMPLATE_BASIC_NAME,
+        WEKO_EXPORT_TEMPLATE_BASIC_OPTION=WEKO_EXPORT_TEMPLATE_BASIC_OPTION,
     )
     app_.url_map.converters["pid"] = PIDConverter
     app_.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_class"] = search_class

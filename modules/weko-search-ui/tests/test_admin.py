@@ -178,7 +178,7 @@ class TestItemManagementBulkSearch:
                 with patch("flask.templating._render", return_value=""):
                     mock_execute_search_with_pagination = mocker.patch("weko_search_ui.utils.execute_search_with_pagination")
                     mock_execute_search_with_pagination.return_value = []
-                    
+
                     # management_type is bulk delete
                     res = client.get(url, query_string={"item_management": "delete", "q": 3})
                     assert res.status == '200 OK'
@@ -186,7 +186,7 @@ class TestItemManagementBulkSearch:
                     # management_type is bulk update
                     res = client.get(url, query_string={"item_management": "update"})
                     assert res.status == '200 OK'
-                    
+
                     # management_type is not found
                     res = client.get(url)
                     assert res.status == '500 INTERNAL SERVER ERROR'
@@ -416,6 +416,13 @@ class TestItemImportView:
                                 data=json.dumps(_data),
                                 content_type="application/json")
                 assert res.status_code==200
+                content = res.get_data(as_text=True)
+                rows = content.lstrip("\ufeff").splitlines()
+                assert rows[1].startswith('\t'.join(i18n_app.config['WEKO_EXPORT_TEMPLATE_BASIC_ID']))
+                assert rows[2].startswith('\t'.join(i18n_app.config['WEKO_EXPORT_TEMPLATE_BASIC_NAME']))
+                assert rows[4].startswith('\t'.join(i18n_app.config['WEKO_EXPORT_TEMPLATE_BASIC_OPTION']))
+                assert len(rows[1].split('\t')) == len(rows[2].split('\t'))
+                assert len(rows[1].split('\t')) == len(rows[4].split('\t'))
 
 
     #     def check_import_available(self): ~ GETS STUCK
@@ -940,7 +947,7 @@ class TestItemBulkExport:
         url = url_for("items/bulk-export.check_export_status")
         res = client.get(url)
         assert res.status_code == 302
-        
+
         with patch("flask_login.utils._get_user", return_value=users[3]["obj"]):
             url = url_for("items/bulk-export.check_export_status")
             with patch('weko_search_ui.admin.get_export_status',
