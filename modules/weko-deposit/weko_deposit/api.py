@@ -2834,10 +2834,8 @@ class WekoRecord(Record):
             hide_list = get_hide_list_by_schema_form(schemaform=item_type.render.get('table_row_map', {}).get('form', []))
         else:
              meta_option, item_type_mapping = get_options_and_order_list(item_type_id)
-        print("マッピング",item_type_mapping)
         parent_key, title_key, language_key = self.__get_titles_key(
             item_type_mapping, meta_option, hide_list)
-        print("ペアレント",parent_key)
         attribute_value = []
         titles = []
         for pk in parent_key:
@@ -2848,7 +2846,6 @@ class WekoRecord(Record):
             if isinstance(attribute_value, list):
 
                 for attribute in attribute_value:
-                    print("アトリビュート",attribute)
                     tmp = dict()
                     if attribute.get(title_key.get(pk)):
                         tmp['title'] = attribute.get(title_key.get(pk))
@@ -2859,7 +2856,6 @@ class WekoRecord(Record):
             if titles:
                 break
         result = self.switching_language(titles)
-        print("リザルト",result)
         return result
 
     @property
