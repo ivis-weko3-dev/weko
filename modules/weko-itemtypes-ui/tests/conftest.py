@@ -931,7 +931,7 @@ def test_logging_level_config(app_):
 # This fixture needs a param to set the item type ID
 @pytest.fixture
 def create_item_type(db):
-    def _create_item_type(id=1):
+    def _create_item_type(id=1, escape_property=False):
         item_type_name = ItemTypeName(
             created = datetime(2024, 9, 6, 0, 0),
             updated = datetime(2024, 9, 6, 0, 0),
@@ -980,6 +980,22 @@ def create_item_type(db):
         with db.session.begin_nested():
             db.session.add(item_type_mapping)
         db.session.commit()
+
+        if escape_property:
+            escape_item_type_property = ItemTypeProperty(
+                created = datetime(2024, 9, 6, 0, 0),
+                updated = datetime(2024, 9, 6, 0, 0),
+                id=id+10000,
+                name='test property \\' + str(id),
+                schema={'type': 'string'},
+                form={'title_i18n': {'en': 'test property'}},
+                forms=['test form'],
+                delflg=False,
+                sort=None
+            )
+            with db.session.begin_nested():
+                db.session.add(escape_item_type_property)
+            db.session.commit()
 
         item_type_data = {
             'item_type_name': item_type_name,
