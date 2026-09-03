@@ -734,7 +734,7 @@ class QueryRecordViewPerIndexReportHelper(object):
     index_name_field = "record_index_list.index_name"
 
     @classmethod
-    def build_query(cls, start_date, end_date, event_type, after_key=None, index_list=None):
+    def build_query(cls, start_date, end_date, after_key=None, index_list=None):
         """Get nested aggregation by index id."""
         search_index_prefix = current_app.config["SEARCH_INDEX_PREFIX"].strip("-")
         agg_query = dsl.Search(
@@ -1518,9 +1518,9 @@ class StatsCliUtil:
             data = self.__get_stats_data_from_db(StatsEvents)
         else:
             data = self.__get_stats_data_from_db(StatsAggregation)
-        modified_data = self.__modify_restore_data(data)    
+        modified_data = self.__modify_restore_data(data)
         self.__cli_restore_search_data_from_db(modified_data)
-        
+
     def __modify_restore_data(self, data):
         """
         Modify restore data to meet the new requirements.
@@ -1534,12 +1534,12 @@ class StatsCliUtil:
         search_index_prefix = current_app.config["SEARCH_INDEX_PREFIX"].strip("-")
         stats_index = search_index_prefix + "-stats-index"
         event_stats_index = search_index_prefix + "-events-stats-index"
-        
+
         for doc in data:
             import json
             index = doc["_index"]
             document = doc["_source"]
-            
+
             if isinstance(document, str):
                 try:
                     document = json.loads(document)
@@ -1547,7 +1547,7 @@ class StatsCliUtil:
                     raise ValueError("The provided _index string is not valid JSON.")
             elif not isinstance(document, dict):
                 raise TypeError("The provided _index must be either a string or a dictionary.")
-            
+
             event_type = document.get("event_type", None)
             if not event_type:
                 if self.cli_type==self.EVENTS_TYPE:
@@ -1567,7 +1567,7 @@ class StatsCliUtil:
                 document["event_type"] = event_type
             doc["_source"] = document
             yield doc
-        
+
     def __prepare_search_indexes(self):
         """Prepare Search index data.
 
@@ -1585,7 +1585,7 @@ class StatsCliUtil:
                 _index = f"{search_index_prefix}-{self.index_prefix}-{prefix}"
             else:
                 _index = f"{search_index_prefix}-{prefix}"
-            
+
             yield _index, _type
 
     def __build_search_data(self, data_list: list) -> Generator:
