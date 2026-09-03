@@ -2788,33 +2788,29 @@ class WekoRecord(Record):
         language_key = {}
         if item_type_mapping:
             for mapping_key in item_type_mapping:
-                property_data = item_type_mapping.get(mapping_key).get(
-                    'jpcoar_mapping')
-                prop_hidden = (
-                    meta_option.get(mapping_key, {})
-                    .get('option', {}).get('hidden', False)
-                )
+                property_data = item_type_mapping.get(mapping_key).get('jpcoar_mapping')
+                prop_hidden = meta_option.get(mapping_key, {}).get('option', {}).get('hidden', False)
                 if (
                     isinstance(property_data, dict)
                     and property_data.get('title')
                     and not prop_hidden
                 ):
                     title = property_data.get('title')
-                    parent_key = mapping_key
-                    title_key = title.get("@value")
-                    language_key = title.get("@attributes", {}).get("xml:lang")
-
+                    _parent_key = mapping_key
+                    _title_key = title.get("@value")
+                    _language_key = title.get("@attributes", {}).get("xml:lang")
                     for h in hide_list:
-                        if parent_key in h and language_key in h:
-                            language_key = None
-                        if parent_key in h and title_key in h:
-                            title_key = None
-                            parent_key = None
-                    if parent_key and title_key and language_key:
-                        break
+                        if _parent_key in h and _language_key in h:
+                            _language_key = None
+                        if _parent_key in h and _title_key in h:
+                            _title_key = None
+                            _parent_key = None
+                    if _parent_key:
+                        parent_key.append(_parent_key)
+                        title_key[_parent_key] = _title_key
+                        language_key[_parent_key] = _language_key
+        return parent_key, title_key, language_key
 
-        result = (parent_key, title_key, language_key)
-        return result
 
     @property
     def get_titles(self):
@@ -2838,8 +2834,10 @@ class WekoRecord(Record):
             hide_list = get_hide_list_by_schema_form(schemaform=item_type.render.get('table_row_map', {}).get('form', []))
         else:
              meta_option, item_type_mapping = get_options_and_order_list(item_type_id)
+        print("マッピング",item_type_mapping)
         parent_key, title_key, language_key = self.__get_titles_key(
             item_type_mapping, meta_option, hide_list)
+        print("ペアレント",parent_key)
         attribute_value = []
         titles = []
         for pk in parent_key:
@@ -2850,6 +2848,7 @@ class WekoRecord(Record):
             if isinstance(attribute_value, list):
 
                 for attribute in attribute_value:
+                    print("アトリビュート",attribute)
                     tmp = dict()
                     if attribute.get(title_key.get(pk)):
                         tmp['title'] = attribute.get(title_key.get(pk))
@@ -2860,6 +2859,7 @@ class WekoRecord(Record):
             if titles:
                 break
         result = self.switching_language(titles)
+        print("リザルト",result)
         return result
 
     @property
