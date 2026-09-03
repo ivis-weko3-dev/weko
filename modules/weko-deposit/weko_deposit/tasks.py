@@ -251,13 +251,13 @@ def _process(data_size, data_from, process_counter, target, origin_pkid_list, ke
         "size": data_size,
         "from": data_from
     }
-    search = RecordsSearch(
+    search_obj = RecordsSearch(
         index=current_app.config['INDEXER_DEFAULT_INDEX'],). \
         update_from_dict(query_q).execute().to_dict()
 
     record_ids = []
     update_search_authorinfo = []
-    for item in search['hits']['hits']:
+    for item in search_obj['hits']['hits']:
         item_id = item['_source']['control_number']
         object_uuid, record_ids, author_link = \
             _update_author_data(item_id, record_ids, process_counter, target, origin_pkid_list, key_map, author_prefix, affiliation_id, force_change)
@@ -312,7 +312,7 @@ def _process(data_size, data_from, process_counter, target, origin_pkid_list, ke
                     sleep_time *= 2
             current_app.logger.debug("Updated records to Search. record_ids:{}".format(d['id']))
 
-    data_total = search["hits"]["total"]["value"]
+    data_total = search_obj["hits"]["total"]["value"]
     if data_total > data_size + data_from:
         return len(update_search_authorinfo), True
     else:

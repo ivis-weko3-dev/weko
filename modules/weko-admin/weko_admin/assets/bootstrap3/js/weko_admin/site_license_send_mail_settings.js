@@ -1,3 +1,5 @@
+import $ from 'jquery';
+
 $('#repository_select').on('change', function () {
   let repoId = document.getElementById("repository_select").value;
   $.ajax({

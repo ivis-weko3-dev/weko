@@ -40,6 +40,7 @@ def get_items_by_index_tree(index_tree_id):
     records_search = RecordsSearch()
     records_search = records_search.with_preference_param().params(
         version=False)
+    records_search = records_search.sort({"control_number": {"order": "asc"}})
     records_search._index[0] = build_alias_name(current_app.config['SEARCH_UI_SEARCH_INDEX'])
     search_instance = item_path_search_factory(
         search=records_search,

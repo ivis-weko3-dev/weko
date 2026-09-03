@@ -575,7 +575,7 @@ function searchResItemLinkCtrl($scope, $rootScope, $http, $location) {
                     let community_id = $('#community_id').text();
                     let redirectUrl = "/workflow/activity/detail/" + $("#activity_id").text().trim();
                     if (community_id) {
-                        redirectUrl += '?community=' + community_id;
+                        redirectUrl += '?c=' + community_id;
                     }
                     window.parent.document.location.href = redirectUrl;
                 } else {

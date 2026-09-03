@@ -35,7 +35,10 @@ weko_admin = WebpackThemeBundle(
                 "admin_css_profile_set_css": "./css/weko_admin/user-profiles-settings.css",
                 "admin_js_weko_admin_sword_api_jsonld_js": "./js/weko_admin/sword_api_jsonld_setting.js",
                 "admin_js_weko_admin_sword_api_settings_js": "./js/weko_admin/sword_api_settings.js",
-                "admin_css_language_css": "./css/weko_admin/language.css"
+                "admin_css_language_css": "./css/weko_admin/language.css",
+                "admin_lang_settings": "./js/weko_admin/lang_settings.js",
+                "admin_site_license_send_mail_settings": "./js/weko_admin/site_license_send_mail_settings.js",
+                "admin_web_api_account": "./js/weko_admin/web_api_account.js",
             },
             dependencies={
                 'admin-lte': '~2.3.6',

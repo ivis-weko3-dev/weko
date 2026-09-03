@@ -1,4 +1,4 @@
-
+import $ from 'jquery';
 $(document).ready(function () {  
     let record_id = document.getElementById("record_id").innerText;
     let statsurl = '/api/stats/' + record_id
@@ -60,3 +60,4 @@ function period_change (control) {
         }
     });
 }
+window.period_change = period_change;

@@ -21,7 +21,8 @@ weko_theme = WebpackThemeBundle(
                 "theme-schema-form": "./node_modules/angular-schema-form/dist/schema-form.min.js",
                 "theme-js-sidebar": "./js/weko_theme/sidebar.js",
                 "theme-css-sidebar": "./css/weko_theme/sidebar.css",
-                "theme-js-preview-widget": "./js/weko_theme/preview_widget.js"
+                "theme-js-preview-widget": "./js/weko_theme/preview_widget.js",
+                "theme-js-lang-combobox": "./js/weko_theme/lang_combobox.js",
             },
             dependencies={
                 "almond": "~0.3.1",

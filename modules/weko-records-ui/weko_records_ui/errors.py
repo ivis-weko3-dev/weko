@@ -137,7 +137,7 @@ class InternalServerError(RESTException):
     """Internal Server Error."""
 
     code = 500
-    description = 'Internal Server Error'
+    description = _('Internal Server Error.')
 
 """Custom errors for weko records ui."""
 

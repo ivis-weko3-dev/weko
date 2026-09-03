@@ -32,7 +32,8 @@ from invenio_cache import current_cache
 from invenio_db import db
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_search import RecordsSearch
-from invenio_search.engine import search, dsl
+from invenio_search.engine import search as search_engine
+from invenio_search.engine import dsl
 from jsonschema import validate, ValidationError
 from lxml import etree
 from sqlalchemy.exc import SQLAlchemyError
@@ -190,7 +191,7 @@ def get_search_itemlist():
             current_app.logger.debug(f"[workspace] search result: {page}")
         return records
 
-    except search.TransportError as e:
+    except search_engine.TransportError as e:
         traceback.print_exc()
         current_app.logger.error(f"Failed to get workflow item list from search: {e} / {search.to_dict()}")
         return []
