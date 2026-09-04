@@ -182,7 +182,7 @@ def _escape_like(value):
 
 
 def filter_shared_user_role(query, user_id_column):
-    """Restrict a query to users holding a shared-user role.
+    """Restrict a query to users NOT holding an excluded role.
 
     Args:
         query: A ``db.session.query(...)`` to extend.
@@ -190,12 +190,37 @@ def filter_shared_user_role(query, user_id_column):
             clause (``UserProfile.user_id`` or ``User.id``).
 
     Returns:
-        Query: The filtered query.
+        Query: The filtered query, excluding users who hold any role
+        listed in ``WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST``.
+        Users holding no role at all are included (not excluded).
     """
-    role_ids = current_app.config['WEKO_ITEMS_UI_SHARED_USER_ROLE_ID_LIST']
-    return query.join(
-        userrole, userrole.c.user_id == user_id_column
-    ).filter(userrole.c.role_id.in_(role_ids))
+    excluded_role_names = current_app.config[
+        'WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST'
+    ]
+    excluded_role_ids = db.session.query(Role.id).filter(
+        Role.name.in_(excluded_role_names)
+    )
+    excluded_user_ids = db.session.query(userrole.c.user_id).filter(
+        userrole.c.role_id.in_(excluded_role_ids),
+        userrole.c.user_id.isnot(None),
+    )
+    return query.filter(~user_id_column.in_(excluded_user_ids))
+
+
+def is_shared_user_role_allowed(user_id):
+    """Check whether a user is allowed as a shared/contributor user by role.
+
+    Args:
+        user_id (int): The user id to check.
+
+    Returns:
+        bool: True if the user does not hold any role listed in
+        WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST (or holds no
+        role at all), False otherwise.
+    """
+    return filter_shared_user_role(
+        db.session.query(User.id), User.id
+    ).filter(User.id == user_id).first() is not None
 
 
 def get_shared_user_info_by_username(username):

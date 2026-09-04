@@ -219,6 +219,16 @@ result. Set to 0 to disable expiration or a small value to reduce staleness."""
 WEKO_ITEMS_UI_SEARCH_RANK_KEY_FILTER = ['']
 
 WEKO_ITEMS_UI_SHARED_USER_ROLE_ID_LIST = [1,2,3]
+"""Role-id allow list used only by check_display_shared_user(), which
+backs the unrelated approval-workflow email validation feature
+(get_user_info_by_email -> validate_user_mail). Kept as-is; the
+contributor-suggest feature (filter_shared_user_role and everything
+built on it) uses WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST
+below instead."""
+
+WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST = ['System Administrator']
+"""Role names excluded from the shared/contributor user candidates (and
+from SWORD API On-Behalf-Of). An empty list excludes no one."""
 
 WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT = 50
 """Maximum number of shared-user suggestions returned per prefix search

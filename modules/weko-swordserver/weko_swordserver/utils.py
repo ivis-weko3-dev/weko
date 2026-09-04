@@ -26,7 +26,8 @@ from weko_admin.models import AdminSettings
 from weko_deposit.api import WekoDeposit, WekoRecord
 
 from weko_items_ui.utils import (
-    check_item_is_being_edit, send_mail_direct_registered, send_mail_item_deleted
+    check_item_is_being_edit, is_shared_user_role_allowed,
+    send_mail_direct_registered, send_mail_item_deleted
 )
 from weko_notifications.utils import notify_item_imported, notify_item_deleted
 from weko_records_ui.utils import soft_delete
@@ -137,6 +138,7 @@ def get_shared_ids_from_on_behalf_of(on_behalf_of):
         WekoSwordserverException:
             - If no user found by On-Behalf-Of.
             - If an error occurs while searching user by On-Behalf-Of.
+            - If the resolved user holds an excluded role (ErrorType.Forbidden).
     """
     shared_ids = []
     if on_behalf_of is None:
@@ -176,6 +178,14 @@ def get_shared_ids_from_on_behalf_of(on_behalf_of):
             "Failed to get shared ID from On-Behalf-Of.",
             errorType=ErrorType.ServerError
         ) from ex
+
+    if shared_ids and not is_shared_user_role_allowed(shared_ids[0]):
+        msg = "On-Behalf-Of user is not allowed by role."
+        current_app.logger.warning(msg)
+        raise WekoSwordserverException(
+            msg, errorType=ErrorType.Forbidden
+        )
+
     return shared_ids
 
 
