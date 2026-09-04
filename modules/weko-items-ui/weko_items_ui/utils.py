@@ -116,10 +116,11 @@ def search_username(prefix, limit=None):
 
     Returns:
         dict: A dict with ``query`` (str, echoes back ``prefix``),
-        ``results`` (list[str]), ``count`` (int, exact total match
-        count) and ``has_more`` (bool) keys.
+            ``results`` (list[str]), ``count`` (int, exact total match
+            count) and ``has_more`` (bool) keys.
     """
     limit = limit or current_app.config['WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT']
+
     base = db.session.query(
         UserProfile.username.label('username'), User.email.label('email')
     ).join(User, User.id == UserProfile.user_id)
@@ -130,9 +131,11 @@ def search_username(prefix, limit=None):
     )
     total = query.order_by(None).distinct().count()
     rows_query = query.order_by(User.email).distinct()
+
     if limit >= 0:
         rows_query = rows_query.limit(limit)
     rows = rows_query.all()
+
     return {
         'query': prefix,
         'results': [row.username for row in rows],
@@ -153,9 +156,10 @@ def search_email(prefix, limit=None):
 
     Returns:
         dict: A dict with ``query``, ``results`` (list[str]), ``count``
-        (int) and ``has_more`` (bool) keys.
+            (int) and ``has_more`` (bool) keys.
     """
     limit = limit or current_app.config['WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT']
+
     query = filter_shared_user_role(
         db.session.query(User.email.label('email')), User.id
     ).filter(
@@ -165,9 +169,11 @@ def search_email(prefix, limit=None):
     )
     total = query.order_by(None).distinct().count()
     rows_query = query.order_by(User.email).distinct()
+
     if limit >= 0:
         rows_query = rows_query.limit(limit)
     rows = rows_query.all()
+
     return {
         'query': prefix,
         'results': [row.email for row in rows],
@@ -191,8 +197,8 @@ def filter_shared_user_role(query, user_id_column):
 
     Returns:
         Query: The filtered query, excluding users who hold any role
-        listed in ``WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST``.
-        Users holding no role at all are included (not excluded).
+            listed in ``WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST``.
+            Users holding no role at all are included (not excluded).
     """
     excluded_role_names = current_app.config[
         'WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST'
@@ -215,8 +221,8 @@ def is_shared_user_role_allowed(user_id):
 
     Returns:
         bool: True if the user does not hold any role listed in
-        WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST (or holds no
-        role at all), False otherwise.
+            WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST (or holds no
+            role at all), False otherwise.
     """
     return filter_shared_user_role(
         db.session.query(User.id), User.id
@@ -233,11 +239,10 @@ def get_shared_user_info_by_username(username):
         username (str): The display name to search for.
 
     Returns:
-        dict or None: A dict with ``username``, ``user_id`` and ``email``
-        keys if a matching user with an allowed role is found, otherwise
-        ``None``.
+        dict | None: A dict with ``username``, ``user_id`` and ``email``
+            keys if a matching user with an allowed role is found, otherwise
+            ``None``.
     """
-    result = {}
     try:
         query = db.session.query(
             UserProfile.user_id,
@@ -246,11 +251,12 @@ def get_shared_user_info_by_username(username):
         ).join(User, User.id == UserProfile.user_id)
         query = filter_shared_user_role(query, UserProfile.user_id).filter(UserProfile.username == username)
         row = query.first()
+
         if row is None:
             return None
         return {'username': row.username, 'user_id': row.user_id, 'email': row.email}
-    except Exception as e:
-        result['error'] = str(e)
+    except Exception:
+        current_app.logger.error(traceback.format_exc())
 
 
 def get_shared_user_info_by_email(email):
@@ -264,12 +270,11 @@ def get_shared_user_info_by_email(email):
         email (str): The email address to search for.
 
     Returns:
-        dict or None: A dict with ``username`` (empty string if the user
-        has no profile or no display name set), ``user_id`` and
-        ``email`` keys if a matching user with an allowed role is
-        found, otherwise ``None``.
+        dict | None: A dict with ``username`` (empty string if the user
+            has no profile or no display name set), ``user_id`` and
+            ``email`` keys if a matching user with an allowed role is
+            found, otherwise ``None``.
     """
-    result = {}
     try:
         query = db.session.query(
             User.id,
@@ -278,11 +283,12 @@ def get_shared_user_info_by_email(email):
         ).outerjoin(UserProfile, UserProfile.user_id == User.id)
         query = filter_shared_user_role(query, User.id).filter(User.email == email)
         row = query.first()
+
         if row is None:
             return None
         return {'username': row.username or "", 'user_id': row.id, 'email': row.email}
-    except Exception as e:
-        result['error'] = str(e)
+    except Exception:
+        current_app.logger.error(traceback.format_exc())
 
 
 def validate_shared_user(username, email):
@@ -297,8 +303,8 @@ def validate_shared_user(username, email):
 
     Returns:
         dict: A dict with ``results`` (user info dict, or empty string
-        if not validated), ``validation`` (bool) and ``error`` (str)
-        keys.
+            if not validated), ``validation`` (bool) and ``error`` (str)
+            keys.
     """
     result = {'results': '', 'validation': False, 'error': ''}
     try:
@@ -314,12 +320,14 @@ def validate_shared_user(username, email):
             UserProfile.username == username, User.email == email
         )
         row = query.first()
+
         if row is not None:
             result['results'] = {
                 'username': username, 'user_id': row.user_id, 'email': email
             }
             result['validation'] = True
     except Exception as e:
+        current_app.logger.error(traceback.format_exc())
         result['error'] = str(e)
     return result
 
