@@ -156,94 +156,104 @@ def filter_shared_user_role(query, user_id_column):
     ).filter(userrole.c.role_id.in_(role_ids))
 
 
-def get_user_info_by_username(username):
-    """Get user information by username.
+def get_shared_user_info_by_username(username):
+    """Get shared/contributor user information by username.
 
-    Query database to get user id by using displayname
-    Get email from database using user id
-    Pack response data: user id, user name, email
+    Used by the shared-user (contributor) feature endpoints
+    (``validate_user_info``, ``validate_users_info``).
 
-    parameter:
-        username: The username
-    return: response pack
+    Args:
+        username (str): The display name to search for.
+
+    Returns:
+        dict or None: A dict with ``username``, ``user_id`` and ``email``
+        keys if a matching user with an allowed role is found, otherwise
+        ``None``.
     """
-    result = dict()
+    result = {}
     try:
-        user = UserProfile.get_by_displayname(username)
-        user_id = user.user_id
-
-        metadata = MetaData()
-        metadata.reflect(bind=db.engine)
-        table_name = 'accounts_user'
-
-        user_table = Table(table_name, metadata)
-        record = db.session.query(user_table)
-
-        data = record.all()
-
-        for item in data:
-            if item[0] == user_id and check_display_shared_user(user_id):
-                result['username'] = username
-                result['user_id'] = user_id
-                result['email'] = item[1]
-                return result
-        return None
+        query = db.session.query(
+            UserProfile.user_id,
+            UserProfile.username.label('username'),
+            User.email.label('email'),
+        ).join(User, User.id == UserProfile.user_id)
+        query = filter_shared_user_role(query, UserProfile.user_id).filter(UserProfile.username == username)
+        row = query.first()
+        if row is None:
+            return None
+        return {'username': row.username, 'user_id': row.user_id, 'email': row.email}
     except Exception as e:
         result['error'] = str(e)
 
 
-def validate_user(username, email):
-    """Validate user information.
+def get_shared_user_info_by_email(email):
+    """Get shared/contributor user information by email.
 
-    Get user id from database using username
-    Get user id from database using email
-    Compare 2 user id to validate user information
-    Pack responde data:
-        results: user information (username, user id, email)
-        validation: username is match with email or not
-        error: null if no error occurs
+    Used by the shared-user (contributor) feature endpoints
+    (``validate_user_info``, ``validate_users_info``,
+    ``get_userinfo_by_emails``).
 
-    param:
-        username: The username
-        email: The email
-    return: response data
+    Args:
+        email (str): The email address to search for.
+
+    Returns:
+        dict or None: A dict with ``username`` (empty string if the user
+        has no profile or no display name set), ``user_id`` and
+        ``email`` keys if a matching user with an allowed role is
+        found, otherwise ``None``.
     """
-    result = {
-        'results': '',
-        'validation': False,
-        'error': ''
-    }
+    result = {}
     try:
-        user = UserProfile.get_by_displayname(username)
-        user_id = 0
+        query = db.session.query(
+            User.id,
+            User.email.label('email'),
+            UserProfile.username.label('username'),
+        ).outerjoin(UserProfile, UserProfile.user_id == User.id)
+        query = filter_shared_user_role(query, User.id).filter(User.email == email)
+        row = query.first()
+        if row is None:
+            return None
+        return {'username': row.username or "", 'user_id': row.id, 'email': row.email}
+    except Exception as e:
+        result['error'] = str(e)
 
-        metadata = MetaData()
-        metadata.reflect(bind=db.engine)
-        table_name = 'accounts_user'
 
-        user_table = Table(table_name, metadata)
-        record = db.session.query(user_table)
+def validate_shared_user(username, email):
+    """Validate that a username and email refer to the same shared user.
 
-        data = record.all()
+    Dedicated to the shared-user (contributor) feature endpoints
+    (``validate_user_info``, ``validate_users_info``).
 
-        for item in data:
-            if item[1] == email:
-                user_id = item[0]
-                break
-        if user is None:
+    Args:
+        username (str): The display name to validate.
+        email (str): The email address to validate.
+
+    Returns:
+        dict: A dict with ``results`` (user info dict, or empty string
+        if not validated), ``validation`` (bool) and ``error`` (str)
+        keys.
+    """
+    result = {'results': '', 'validation': False, 'error': ''}
+    try:
+        profile = UserProfile.get_by_displayname(username)
+        if profile is None:
             result['error'] = 'User is not exist UserProfile'
             return result
-        if user.user_id == user_id and check_display_shared_user(user_id):
-            user_info = dict()
-            user_info['username'] = username
-            user_info['user_id'] = user_id
-            user_info['email'] = email
-            result['results'] = user_info
+
+        query = db.session.query(UserProfile.user_id).join(
+            User, User.id == UserProfile.user_id
+        )
+        query = filter_shared_user_role(query, UserProfile.user_id).filter(
+            UserProfile.username == username, User.email == email
+        )
+        row = query.first()
+        if row is not None:
+            result['results'] = {
+                'username': username, 'user_id': row.user_id, 'email': email
+            }
             result['validation'] = True
-        return result
     except Exception as e:
         result['error'] = str(e)
-
     return result
 
 
