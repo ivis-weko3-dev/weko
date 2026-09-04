@@ -462,6 +462,9 @@ STATS_QUERIES = {
             event_type='file-download',
             group_fields=['file_key', 'index_list', 'userrole',
                         'site_license_flag', 'count'],
+            required_filters=dict(
+                index_list='index_list',
+            ),
         )
     },
 
@@ -474,6 +477,7 @@ STATS_QUERIES = {
                         'site_license_flag', 'count'],
             required_filters=dict(
                 accessrole='accessrole',
+                index_list='index_list',
             ),
         )
     },
@@ -485,6 +489,9 @@ STATS_QUERIES = {
             event_type='file-preview',
             group_fields=['file_key', 'index_list', 'userrole',
                         'site_license_flag', 'count'],
+            required_filters=dict(
+                index_list='index_list',
+            ),
         )
     },
 
@@ -497,6 +504,7 @@ STATS_QUERIES = {
                         'site_license_flag', 'count'],
             required_filters=dict(
                 accessrole='accessrole',
+                index_list='index_list',
             ),
         )
     },
@@ -511,6 +519,7 @@ STATS_QUERIES = {
                         'user_group_names', 'count'],
             required_filters=dict(
                 is_billing_item='is_billing_item',
+                index_list='index_list',
             ),
         )
     },
@@ -525,6 +534,7 @@ STATS_QUERIES = {
                         'user_group_names', 'count'],
             required_filters=dict(
                 is_billing_item='is_billing_item',
+                index_list='index_list',
             ),
         )
     },
@@ -702,6 +712,9 @@ STATS_QUERIES = {
             index='stats-index',
             event_type='file-download',
             group_fields=['cur_user_id', 'count'],
+            required_filters=dict(
+                user_ids='cur_user_id',
+            ),
         )
     },
 
@@ -711,6 +724,9 @@ STATS_QUERIES = {
             index='stats-index',
             event_type='file-preview',
             group_fields=['cur_user_id', 'count'],
+            required_filters=dict(
+                user_ids='cur_user_id',
+            )
         )
     },
 
@@ -787,6 +803,9 @@ STATS_QUERIES = {
             index='stats-index',
             event_type='item-create',
             aggregated_fields=['timestamp'],
+            required_filters=dict(
+                item_ids='pid_value',
+            ),
         )
     },
 
@@ -799,6 +818,9 @@ STATS_QUERIES = {
                 count=('sum', 'count', {}),
             ),
             aggregated_fields=['remote_addr', 'hostname'],
+            required_filters=dict(
+                index_list='record_index_names',
+            ),
         )
     },
 
@@ -811,6 +833,9 @@ STATS_QUERIES = {
                 count=('sum', 'count', {}),
             ),
             aggregated_fields=['pid_value', 'record_name'],
+            required_filters=dict(
+                index_list='record_index_names',
+            ),
         )
     },
 
@@ -820,6 +845,9 @@ STATS_QUERIES = {
             index='stats-index',
             event_type='record-view',
             aggregated_fields=['timestamp'],
+            required_filters=dict(
+                index_list='record_index_names',
+            ),
         )
     },
 
@@ -832,6 +860,9 @@ STATS_QUERIES = {
                 count=('sum', 'count', {}),
             ),
             aggregated_fields=['remote_addr', 'hostname'],
+            required_filters=dict(
+                index_list='index_list',
+            ),
         )
     },
 
@@ -844,6 +875,9 @@ STATS_QUERIES = {
                 count=('sum', 'count', {}),
             ),
             aggregated_fields=['item_id', 'item_title'],
+            required_filters=dict(
+                index_list='index_list',
+            ),
         )
     },
 
@@ -853,6 +887,9 @@ STATS_QUERIES = {
             index='stats-index',
             event_type='file-download',
             aggregated_fields=['timestamp'],
+            required_filters=dict(
+                index_list='index_list',
+            ),
         )
     },
 
@@ -889,6 +926,9 @@ STATS_QUERIES = {
             index='stats-index',
             event_type='record-view',
             group_fields=['site_license_name', 'count'],
+            required_filters=dict(
+                index_list='record_index_names',
+            ),
         )
     },
 
@@ -907,6 +947,9 @@ STATS_QUERIES = {
             index='stats-index',
             event_type='file-download',
             group_fields=['site_license_name', 'count'],
+            required_filters=dict(
+                index_list='index_list',
+            ),
         )
     },
 
@@ -916,6 +959,9 @@ STATS_QUERIES = {
             index='stats-index',
             event_type='file-preview',
             group_fields=['site_license_name', 'count'],
+            required_filters=dict(
+                index_list='index_list',
+            ),
         )
     },
 
