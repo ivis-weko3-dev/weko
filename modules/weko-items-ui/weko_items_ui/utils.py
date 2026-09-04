@@ -103,132 +103,232 @@ def check_display_shared_user(user_id):
         userrole.c.role_id.in_(role_ids)
     ).first() is not None
 
-def get_list_username():
-    """Get list username.
 
-    Query database to get all available username
-    return: list of username
+def search_username(prefix, limit=None):
+    """Search usernames matching a prefix, restricted to shared-user roles.
+
+    Args:
+        prefix (str): The prefix string to match usernames against.
+        limit (int or None): The maximum number of results to return.
+            Defaults to ``WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT``. A negative
+            value (on the argument or on the config value; ``-1`` by
+            convention) means no limit.
+
+    Returns:
+        dict: A dict with ``query`` (str, echoes back ``prefix``),
+            ``results`` (list[str]), ``count`` (int, exact total match
+            count) and ``has_more`` (bool) keys.
     """
-    from weko_user_profiles.models import UserProfile
+    limit = limit or current_app.config['WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT']
 
-    users = UserProfile.query.all()
-    result = list()
-    for user in users:
-        if not check_display_shared_user(user.user_id):
-            continue
-        username = user.username
-        if username:
-            result.append(username)
+    base = db.session.query(
+        UserProfile.username.label('username'), User.email.label('email')
+    ).join(User, User.id == UserProfile.user_id)
+    query = filter_shared_user_role(base, UserProfile.user_id).filter(
+        UserProfile.username.isnot(None),
+        UserProfile.username != '',
+        UserProfile.username.ilike(_escape_like(prefix) + '%', escape='\\'),
+    )
+    total = query.order_by(None).distinct().count()
+    rows_query = query.order_by(User.email).distinct()
 
-    return result
+    if limit >= 0:
+        rows_query = rows_query.limit(limit)
+    rows = rows_query.all()
 
-
-def get_list_email():
-    """Get list email.
-
-    Query database to get all available email
-    return: list of email
-    """
-    result = list()
-    users = User.query.all()
-    for user in users:
-        if not check_display_shared_user(user.id):
-            continue
-        email = user.email
-        if email:
-            result.append(email)
-
-    return result
-
-
-def get_user_info_by_username(username):
-    """Get user information by username.
-
-    Query database to get user id by using displayname
-    Get email from database using user id
-    Pack response data: user id, user name, email
-
-    parameter:
-        username: The username
-    return: response pack
-    """
-    result = dict()
-    try:
-        user = UserProfile.get_by_displayname(username)
-        user_id = user.user_id
-
-        metadata = MetaData()
-        metadata.reflect(bind=db.engine)
-        table_name = 'accounts_user'
-
-        user_table = Table(table_name, metadata)
-        record = db.session.query(user_table)
-
-        data = record.all()
-
-        for item in data:
-            if item[0] == user_id and check_display_shared_user(user_id):
-                result['username'] = username
-                result['user_id'] = user_id
-                result['email'] = item[1]
-                return result
-        return None
-    except Exception as e:
-        result['error'] = str(e)
-
-
-def validate_user(username, email):
-    """Validate user information.
-
-    Get user id from database using username
-    Get user id from database using email
-    Compare 2 user id to validate user information
-    Pack responde data:
-        results: user information (username, user id, email)
-        validation: username is match with email or not
-        error: null if no error occurs
-
-    param:
-        username: The username
-        email: The email
-    return: response data
-    """
-    result = {
-        'results': '',
-        'validation': False,
-        'error': ''
+    return {
+        'query': prefix,
+        'results': [row.username for row in rows],
+        'count': total,
+        'has_more': limit >= 0 and total > limit,
     }
+
+
+def search_email(prefix, limit=None):
+    """Search emails matching a prefix, restricted to shared-user roles.
+
+    Args:
+        prefix (str): The prefix string to match email addresses against.
+        limit (int or None): The maximum number of results to return.
+            Defaults to ``WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT``. A negative
+            value (on the argument or on the config value; ``-1`` by
+            convention) means no limit.
+
+    Returns:
+        dict: A dict with ``query``, ``results`` (list[str]), ``count``
+            (int) and ``has_more`` (bool) keys.
+    """
+    limit = limit or current_app.config['WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT']
+
+    query = filter_shared_user_role(
+        db.session.query(User.email.label('email')), User.id
+    ).filter(
+        User.email.isnot(None),
+        User.email != '',
+        User.email.ilike(_escape_like(prefix) + '%', escape='\\'),
+    )
+    total = query.order_by(None).distinct().count()
+    rows_query = query.order_by(User.email).distinct()
+
+    if limit >= 0:
+        rows_query = rows_query.limit(limit)
+    rows = rows_query.all()
+
+    return {
+        'query': prefix,
+        'results': [row.email for row in rows],
+        'count': total,
+        'has_more': limit >= 0 and total > limit,
+    }
+
+
+def _escape_like(value):
+    """Escape LIKE/ILIKE wildcard characters in a user-supplied string."""
+    return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
+
+def filter_shared_user_role(query, user_id_column):
+    """Restrict a query to users NOT holding an excluded role.
+
+    Args:
+        query: A ``db.session.query(...)`` to extend.
+        user_id_column: The user id column present in ``query``'s FROM
+            clause (``UserProfile.user_id`` or ``User.id``).
+
+    Returns:
+        Query: The filtered query, excluding users who hold any role
+            listed in ``WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST``.
+            Users holding no role at all are included (not excluded).
+    """
+    excluded_role_names = current_app.config[
+        'WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST'
+    ]
+    excluded_role_ids = db.session.query(Role.id).filter(
+        Role.name.in_(excluded_role_names)
+    )
+    excluded_user_ids = db.session.query(userrole.c.user_id).filter(
+        userrole.c.role_id.in_(excluded_role_ids),
+        userrole.c.user_id.isnot(None),
+    )
+    return query.filter(~user_id_column.in_(excluded_user_ids))
+
+
+def is_shared_user_role_allowed(user_id):
+    """Check whether a user is allowed as a shared/contributor user by role.
+
+    Args:
+        user_id (int): The user id to check.
+
+    Returns:
+        bool: True if the user does not hold any role listed in
+            WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST (or holds no
+            role at all), False otherwise.
+    """
+    return filter_shared_user_role(
+        db.session.query(User.id), User.id
+    ).filter(User.id == user_id).first() is not None
+
+
+def get_shared_user_info_by_username(username):
+    """Get shared/contributor user information by username.
+
+    Used by the shared-user (contributor) feature endpoints
+    (``validate_user_info``, ``validate_users_info``).
+
+    Args:
+        username (str): The display name to search for.
+
+    Returns:
+        dict | None: A dict with ``username``, ``user_id`` and ``email``
+            keys if a matching user with an allowed role is found, otherwise
+            ``None``.
+    """
     try:
-        user = UserProfile.get_by_displayname(username)
-        user_id = 0
+        query = db.session.query(
+            UserProfile.user_id,
+            UserProfile.username.label('username'),
+            User.email.label('email'),
+        ).join(User, User.id == UserProfile.user_id)
+        query = filter_shared_user_role(query, UserProfile.user_id).filter(UserProfile.username == username)
+        row = query.first()
 
-        metadata = MetaData()
-        metadata.reflect(bind=db.engine)
-        table_name = 'accounts_user'
+        if row is None:
+            return None
+        return {'username': row.username, 'user_id': row.user_id, 'email': row.email}
+    except Exception:
+        current_app.logger.error(traceback.format_exc())
 
-        user_table = Table(table_name, metadata)
-        record = db.session.query(user_table)
 
-        data = record.all()
+def get_shared_user_info_by_email(email):
+    """Get shared/contributor user information by email.
 
-        for item in data:
-            if item[1] == email:
-                user_id = item[0]
-                break
-        if user is None:
+    Used by the shared-user (contributor) feature endpoints
+    (``validate_user_info``, ``validate_users_info``,
+    ``get_userinfo_by_emails``).
+
+    Args:
+        email (str): The email address to search for.
+
+    Returns:
+        dict | None: A dict with ``username`` (empty string if the user
+            has no profile or no display name set), ``user_id`` and
+            ``email`` keys if a matching user with an allowed role is
+            found, otherwise ``None``.
+    """
+    try:
+        query = db.session.query(
+            User.id,
+            User.email.label('email'),
+            UserProfile.username.label('username'),
+        ).outerjoin(UserProfile, UserProfile.user_id == User.id)
+        query = filter_shared_user_role(query, User.id).filter(User.email == email)
+        row = query.first()
+
+        if row is None:
+            return None
+        return {'username': row.username or "", 'user_id': row.id, 'email': row.email}
+    except Exception:
+        current_app.logger.error(traceback.format_exc())
+
+
+def validate_shared_user(username, email):
+    """Validate that a username and email refer to the same shared user.
+
+    Dedicated to the shared-user (contributor) feature endpoints
+    (``validate_user_info``, ``validate_users_info``).
+
+    Args:
+        username (str): The display name to validate.
+        email (str): The email address to validate.
+
+    Returns:
+        dict: A dict with ``results`` (user info dict, or empty string
+            if not validated), ``validation`` (bool) and ``error`` (str)
+            keys.
+    """
+    result = {'results': '', 'validation': False, 'error': ''}
+    try:
+        profile = UserProfile.get_by_displayname(username)
+        if profile is None:
             result['error'] = 'User is not exist UserProfile'
             return result
-        if user.user_id == user_id and check_display_shared_user(user_id):
-            user_info = dict()
-            user_info['username'] = username
-            user_info['user_id'] = user_id
-            user_info['email'] = email
-            result['results'] = user_info
-            result['validation'] = True
-        return result
-    except Exception as e:
-        result['error'] = str(e)
 
+        query = db.session.query(UserProfile.user_id).join(
+            User, User.id == UserProfile.user_id
+        )
+        query = filter_shared_user_role(query, UserProfile.user_id).filter(
+            UserProfile.username == username, User.email == email
+        )
+        row = query.first()
+
+        if row is not None:
+            result['results'] = {
+                'username': username, 'user_id': row.user_id, 'email': email
+            }
+            result['validation'] = True
+    except Exception as e:
+        current_app.logger.error(traceback.format_exc())
+        result['error'] = str(e)
     return result
 
 
