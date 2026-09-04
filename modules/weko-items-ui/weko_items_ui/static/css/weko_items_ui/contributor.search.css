@@ -36,18 +36,35 @@
     top: 100%;
     left: 0;
     right: 0;
+    max-height: 300px;
+    display: flex;
+    flex-direction: column;
   }
-  
-  .autocomplete-items div {
+
+  .autocomplete-scroll {
+    overflow-y: auto;
+    flex: 1 1 auto;
+  }
+
+  .autocomplete-count {
+    flex: 0 0 auto;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: #666;
+    border-top: 1px solid #d4d4d4;
+    background-color: #f7f7f7;
+  }
+
+  .autocomplete-items .autocomplete-suggest-item {
     padding: 10px;
     cursor: pointer;
-    background-color: #fff; 
-    border-bottom: 1px solid #d4d4d4; 
+    background-color: #fff;
+    border-bottom: 1px solid #d4d4d4;
   }
-  
+
   /*when hovering an item:*/
-  .autocomplete-items div:hover {
-    background-color: #fff; 
+  .autocomplete-items .autocomplete-suggest-item:hover {
+    background-color: #fff;
   }
   
   /*when navigating through the items using the arrow keys:*/

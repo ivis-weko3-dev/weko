@@ -220,6 +220,15 @@ WEKO_ITEMS_UI_SEARCH_RANK_KEY_FILTER = ['']
 
 WEKO_ITEMS_UI_SHARED_USER_ROLE_ID_LIST = [1,2,3]
 
+WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT = 50
+"""Maximum number of shared-user suggestions returned per prefix search
+(search_username/search_email). Set to -1 for no limit."""
+
+WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_DEBOUNCE_MS = 200
+"""Debounce time (milliseconds) before a contributor suggest search is
+sent to the server after the user stops typing. Rendered into a hidden
+input and read by app.js (not hardcoded client-side)."""
+
 WEKO_ITEMS_UI_RANKING_QUERY = dict(
     most_view_ranking = dict(
         query_class = ESWekoRankingQuery,

@@ -83,12 +83,12 @@ from .permissions import item_permission
 from .utils import (
     _get_max_export_items, check_item_is_being_edit,
     export_items, get_current_user, get_data_authors_prefix_settings,
-    get_data_authors_affiliation_settings, get_list_email, get_list_username,
+    get_data_authors_affiliation_settings,
     get_ranking, get_shared_user_info_by_email, get_shared_user_info_by_username,
-    get_user_info_by_email,
     get_user_information, get_workflow_by_item_type_id,
     hide_form_items, is_schema_include_key, remove_excluded_items_in_json_schema,
-    sanitize_input_data, save_title, set_multi_language_name, to_files_js,
+    sanitize_input_data, save_title, search_email, search_username,
+    set_multi_language_name, to_files_js,
     translate_schema_form, translate_validation_message, update_index_tree_for_record,
     update_json_schema_by_activity_id, update_schema_form_by_activity_id,
     update_sub_items_by_user_role, validate_form_input_data, validate_shared_user,
@@ -835,24 +835,19 @@ def index_upload():
 def get_search_data(data_type=''):
     """get_search_data.
 
-    Host the api provide search data:
-    Provide 2 search data: username and email
-
-    param:
-        data_type: type of response data (username, email)
-    return:
-        list of search data
-
+    Host the api that provides prefix-matched search data (username or
+    email) restricted to shared-user roles.
     """
     result = {
         'results': '',
         'error': '',
     }
     try:
+        q = request.args.get('q', '')
         if data_type == 'username':
-            result['results'] = get_list_username()
+            result.update(search_username(q))
         elif data_type == 'email':
-            result['results'] = get_list_email()
+            result.update(search_email(q))
         else:
             result['error'] = 'Invaid method'
     except Exception as e:

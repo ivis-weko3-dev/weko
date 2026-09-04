@@ -1,5 +1,8 @@
 const ITEM_SAVE_URL = $("#item_save_uri").val();
 const ITEM_SAVE_FREQUENCY = $("#item_save_frequency").val();
+const CONTRIBUTOR_SUGGEST_DEBOUNCE_MS = $("#contributor_suggest_debounce_ms").val();
+const CONTRIBUTOR_SUGGEST_COUNT_LABEL = $("#contributor_suggest_count_label").val();
+const CONTRIBUTOR_SUGGEST_COUNT_MORE_LABEL = $("#contributor_suggest_count_more_label").val();
 let isDuplicatePopupShown = false;
 let previousData = null;
 
@@ -261,7 +264,7 @@ function autocomplete(inp, arr) {
   var currentFocus;
 
   inp.addEventListener("input", function (e) {
-    var form_share_other_user, droplist_show_other_user, i, val = this.value;
+    var form_share_other_user, autocomplete_scroll, droplist_show_other_user, i, val = this.value;
     var mode = this.id;
     var flag = false;
     closeAllLists();
@@ -269,17 +272,22 @@ function autocomplete(inp, arr) {
       return false;
     }
     currentFocus = -1;
-    form_share_other_user = document.createElement("DIV");
+    form_share_other_user = document.createElement("div");
     form_share_other_user.setAttribute("id", this.id + "autocomplete-list");
     form_share_other_user.setAttribute("class", "autocomplete-items");
     this.parentNode.appendChild(form_share_other_user);
+
+    autocomplete_scroll = document.createElement("div");
+    autocomplete_scroll.setAttribute("class", "autocomplete-scroll");
+    form_share_other_user.appendChild(autocomplete_scroll);
 
     /*for each item in the array...*/
     for (i = 0; i < arr.length; i++) {
       /*check if the item starts with the same letters as the text field value:*/
       if (arr[i].substr(0, val.length).toUpperCase() == val.toUpperCase()) {
         /*create a DIV element for each matching element:*/
-        droplist_show_other_user = document.createElement("DIV");
+        droplist_show_other_user = document.createElement("div");
+        droplist_show_other_user.classList.add("autocomplete-suggest-item");
         /*make the matching letters bold:*/
         droplist_show_other_user.innerHTML = "<strong>" + arr[i].substr(0, val.length) + "</strong>";
         droplist_show_other_user.innerHTML += arr[i].substr(val.length);
@@ -302,23 +310,34 @@ function autocomplete(inp, arr) {
           closeAllLists();
         });
 
-        form_share_other_user.appendChild(droplist_show_other_user);
+        autocomplete_scroll.appendChild(droplist_show_other_user);
         flag = true;
       }
     }
     if (flag == false) {
-      if ($(".autocomplete-items div").length == 0) {
-        droplist_show_other_user = document.createElement("DIV");
+      if (autocomplete_scroll.children.length == 0) {
+        droplist_show_other_user = document.createElement("div");
+        droplist_show_other_user.classList.add("autocomplete-suggest-item");
         droplist_show_other_user.innerHTML = "<p>No result found" + "</p>";
         droplist_show_other_user.innerHTML += "<input type='hidden' value='No results found'>";
-        form_share_other_user.appendChild(droplist_show_other_user);
+        autocomplete_scroll.appendChild(droplist_show_other_user);
       }
+    }
+
+    var suggest_cache = (typeof contributorSuggestCache !== "undefined") ? contributorSuggestCache[this.id] : null;
+    if (suggest_cache) {
+      var autocomplete_count = document.createElement("div");
+      autocomplete_count.setAttribute("class", "autocomplete-count");
+      autocomplete_count.textContent = suggest_cache.hasMore ?
+        CONTRIBUTOR_SUGGEST_COUNT_MORE_LABEL.replace('{}', suggest_cache.limit) :
+        CONTRIBUTOR_SUGGEST_COUNT_LABEL.replace('{}', suggest_cache.count);
+      form_share_other_user.appendChild(autocomplete_count);
     }
   });
   inp.addEventListener("keydown", function (e) {
     var x = document.getElementById(this.id + "autocomplete-list");
     if (x) {
-      x = x.getElementsByTagName("div");
+      x = x.getElementsByClassName("autocomplete-suggest-item");
     }
     if (e.keyCode == 40) {
       /*If the arrow DOWN key is pressed,
@@ -359,6 +378,7 @@ function autocomplete(inp, arr) {
     if (currentFocus < 0) currentFocus = (x.length - 1);
     /*add class "autocomplete-active":*/
     x[currentFocus].classList.add("autocomplete-active");
+    x[currentFocus].scrollIntoView({ block: "nearest" });
   }
   function removeActive(x) {
     /*a function to remove the "active" class from all autocomplete items:*/
@@ -384,49 +404,79 @@ function autocomplete(inp, arr) {
   });
 }
 
-// 新規行の場合user_id=0 更新行の場合row_id=0
-get_search_data = function (keyword, row_id='share_'+keyword+'_0') {
-  get_search_data_url = '/api/items/get_search_data/' + keyword;
-  let id;
-  if (keyword == 'username') {
-    id = row_id.replace('share_username_', '');
-    $("#share_username_"+id).prop('readonly', true);
-    $("#id_spinners_username_"+id).css("display", "");
-  } else if(keyword == 'email') {
-    id = row_id.replace('share_email_', '');
-    $("#share_email_"+id).prop('readonly', true);
-    $("#id_spinners_email_"+id).css("display", "");
+function initContributorSuggest(inp) {
+  if (inp.dataset.contributorSuggestInit) return;
+  inp.dataset.contributorSuggestInit = "true";
+  inp.addEventListener("input", function () {
+    scheduleSuggestSearch(inp);
+  });
+}
+
+var contributorSuggestTimers = {};
+var contributorSuggestCache = {}; // inputId -> { query: string, hasMore: bool, count: number, limit: number }
+
+function scheduleSuggestSearch(inp) {
+  if (contributorSuggestTimers[inp.id]) {
+    clearTimeout(contributorSuggestTimers[inp.id]);
   }
+  contributorSuggestTimers[inp.id] = setTimeout(function () {
+    var value = inp.value;
+    if (!value) {
+      contributorSuggestCache[inp.id] = null;
+      autocomplete(inp, []);
+      return;
+    }
+    var keyword = inp.id.indexOf("share_username") === 0 ? "username" : "email";
+    var cache = contributorSuggestCache[inp.id];
+    if (cache && cache.hasMore === false && value.indexOf(cache.query) === 0) {
+      // The previous fetch already returned every match: skip the server
+      // request and let the local prefix filter (in autocomplete()) handle it.
+      return;
+    }
+    fetchContributorSuggestions(keyword, inp.id, value);
+  }, CONTRIBUTOR_SUGGEST_DEBOUNCE_MS);
+}
+
+function fetchContributorSuggestions(keyword, inputId, query) {
+  // inputId is either "share_username"/"share_email" (single-value fields,
+  // e.g. edit.html) or "share_username_<rowId>"/"share_email_<rowId>"
+  // (per-row fields, e.g. the iframe contributor list). Strip the base
+  // prefix (with an optional trailing "_") to recover "" or "<rowId>" so
+  // the same selector construction works for either naming scheme.
+  var id = inputId.replace(/^share_username_?/, '').replace(/^share_email_?/, '');
+  var suffix = id ? ("_" + id) : "";
+  $("#share_" + keyword + suffix).prop('readonly', true);
+  $("#id_spinners_" + keyword + suffix).css("display", "");
 
   $.ajax({
-    url: get_search_data_url,
+    url: '/api/items/get_search_data/' + keyword,
     method: "GET",
+    data: { q: query },
     success: function (data, status) {
+      $("#id_spinners_" + keyword + suffix).css("display", "none");
+      $("#share_" + keyword + suffix).prop('readonly', false);
       if (data.error) {
-        //alert("Some errors have occured!\nDetail:" + data.error);
         var modalcontent = "Some errors have occured!\nDetail:" + data.error;
         $("#inputModal").html(modalcontent);
         $("#allModal").modal("show");
-        return null;
-      } else {
-        if (keyword === 'username') {
-          $("#id_spinners_username_"+id).css("display", "none");
-          $("#share_username_"+id).prop('readonly', false);
-          username_arr = data.results;
-          // auto fill for username
-          autocomplete(document.getElementById("share_username_"+id), username_arr);
-        } else if(keyword === 'email') {
-          $("#id_spinners_email_"+id).css("display", "none");
-          $("#share_email_"+id).prop('readonly', false);
-          email_arr = data.results;
-          // auto fill for email input
-          autocomplete(document.getElementById("share_email_"+id), email_arr);
-        }
-        return data.results;
+        return;
       }
+      if (keyword === 'username') {
+        username_arr = data.results;
+      } else if (keyword === 'email') {
+        email_arr = data.results;
+      }
+      contributorSuggestCache[inputId] = {
+        query: data.query,
+        hasMore: data.has_more,
+        count: data.count,
+        limit: data.results.length
+      };
+      autocomplete(document.getElementById(inputId), data.results);
     },
     error: function (data, status) {
-      //alert("Cannot connect to server!");
+      $("#id_spinners_" + keyword + suffix).css("display", "none");
+      $("#share_" + keyword + suffix).prop('readonly', false);
       var modalcontent = "Cannot connect to server!";
       $("#inputModal").html(modalcontent);
       $("#allModal").modal("show");

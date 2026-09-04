@@ -103,40 +103,82 @@ def check_display_shared_user(user_id):
         userrole.c.role_id.in_(role_ids)
     ).first() is not None
 
-def get_list_username():
-    """Get the list of usernames eligible as a shared/contributor user.
+
+def search_username(prefix, limit=None):
+    """Search usernames matching a prefix, restricted to shared-user roles.
+
+    Args:
+        prefix (str): The prefix string to match usernames against.
+        limit (int or None): The maximum number of results to return.
+            Defaults to ``WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT``. A negative
+            value (on the argument or on the config value; ``-1`` by
+            convention) means no limit.
 
     Returns:
-        list[str]: Usernames of users matching the shared-user role
-            condition, excluding unset usernames, ordered by email ascending.
+        dict: A dict with ``query`` (str, echoes back ``prefix``),
+        ``results`` (list[str]), ``count`` (int, exact total match
+        count) and ``has_more`` (bool) keys.
     """
-    query = db.session.query(
-        UserProfile.username.label('username'),
-        User.email.label('email'),
+    limit = limit or current_app.config['WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT']
+    base = db.session.query(
+        UserProfile.username.label('username'), User.email.label('email')
     ).join(User, User.id == UserProfile.user_id)
-    query = filter_shared_user_role(query, UserProfile.user_id)
-    query = query.filter(
-        UserProfile.username.isnot(None), UserProfile.username != ''
+    query = filter_shared_user_role(base, UserProfile.user_id).filter(
+        UserProfile.username.isnot(None),
+        UserProfile.username != '',
+        UserProfile.username.ilike(_escape_like(prefix) + '%', escape='\\'),
     )
-    rows = query.order_by(User.email).distinct().all()
+    total = query.order_by(None).distinct().count()
+    rows_query = query.order_by(User.email).distinct()
+    if limit >= 0:
+        rows_query = rows_query.limit(limit)
+    rows = rows_query.all()
+    return {
+        'query': prefix,
+        'results': [row.username for row in rows],
+        'count': total,
+        'has_more': limit >= 0 and total > limit,
+    }
 
-    return [row.username for row in rows]
 
+def search_email(prefix, limit=None):
+    """Search emails matching a prefix, restricted to shared-user roles.
 
-def get_list_email():
-    """Get the list of emails eligible as a shared/contributor user.
+    Args:
+        prefix (str): The prefix string to match email addresses against.
+        limit (int or None): The maximum number of results to return.
+            Defaults to ``WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT``. A negative
+            value (on the argument or on the config value; ``-1`` by
+            convention) means no limit.
 
     Returns:
-        list[str]: Email addresses of users matching the shared-user
-        role condition, ordered by email ascending.
+        dict: A dict with ``query``, ``results`` (list[str]), ``count``
+        (int) and ``has_more`` (bool) keys.
     """
+    limit = limit or current_app.config['WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT']
     query = filter_shared_user_role(
         db.session.query(User.email.label('email')), User.id
+    ).filter(
+        User.email.isnot(None),
+        User.email != '',
+        User.email.ilike(_escape_like(prefix) + '%', escape='\\'),
     )
-    query = query.filter(User.email.isnot(None), User.email != '')
-    rows = query.order_by(User.email).distinct().all()
+    total = query.order_by(None).distinct().count()
+    rows_query = query.order_by(User.email).distinct()
+    if limit >= 0:
+        rows_query = rows_query.limit(limit)
+    rows = rows_query.all()
+    return {
+        'query': prefix,
+        'results': [row.email for row in rows],
+        'count': total,
+        'has_more': limit >= 0 and total > limit,
+    }
 
-    return [row.email for row in rows]
+
+def _escape_like(value):
+    """Escape LIKE/ILIKE wildcard characters in a user-supplied string."""
+    return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
 
 
 def filter_shared_user_role(query, user_id_column):
