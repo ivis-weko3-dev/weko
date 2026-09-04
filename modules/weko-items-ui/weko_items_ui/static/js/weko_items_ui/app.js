@@ -260,10 +260,40 @@ var filter = {
   filter_username: "",
   filter_email: ''
 }
-function autocomplete(inp, arr) {
-  var currentFocus;
+const suggestState = new Map(); // inputId -> candidates array
+
+function updateSuggestState(inputId, candidates) {
+  suggestState.set(inputId, candidates);
+}
+
+function closeAllLists(elmnt) {
+  /*close all autocomplete lists in the document,
+  except the one owned by the input that was clicked:*/
+  var lists = document.getElementsByClassName("autocomplete-items");
+  for (var i = lists.length - 1; i >= 0; i--) {
+    var list = lists[i];
+    var ownerInputId = list.id.slice(0, -("autocomplete-list".length));
+    var clickedOwnerInput = elmnt && elmnt.id === ownerInputId;
+    if (elmnt !== list && !clickedOwnerInput) {
+      list.parentNode.removeChild(list);
+    }
+  }
+}
+
+/*execute a function when someone clicks in the document
+  (registered once at script load, not once per initAutocomplete() call):*/
+document.addEventListener("click", function (e) {
+  closeAllLists(e.target);
+});
+
+function initAutocomplete(inp) {
+  if (inp.dataset.autocompleteInit) return;
+  inp.dataset.autocompleteInit = "true";
+
+  var currentFocus = -1;
 
   inp.addEventListener("input", function (e) {
+    var arr = suggestState.get(this.id) || [];
     var form_share_other_user, autocomplete_scroll, droplist_show_other_user, i, val = this.value;
     var mode = this.id;
     var flag = false;
@@ -386,22 +416,6 @@ function autocomplete(inp, arr) {
       x[i].classList.remove("autocomplete-active");
     }
   }
-
-  function closeAllLists(elmnt) {
-    /*close all autocomplete lists in the document,
-    except the one passed as an argument:*/
-    var x = document.getElementsByClassName("autocomplete-items");
-    for (var i = 0; i < x.length; i++) {
-      if (elmnt != x[i] && elmnt != inp) {
-        x[i].parentNode.removeChild(x[i]);
-      }
-    }
-  }
-
-  /*execute a function when someone clicks in the document:*/
-  document.addEventListener("click", function (e) {
-    closeAllLists(e.target);
-  });
 }
 
 function initContributorSuggest(inp) {
@@ -423,14 +437,15 @@ function scheduleSuggestSearch(inp) {
     var value = inp.value;
     if (!value) {
       contributorSuggestCache[inp.id] = null;
-      autocomplete(inp, []);
+      updateSuggestState(inp.id, []);
+      initAutocomplete(inp);
       return;
     }
     var keyword = inp.id.indexOf("share_username") === 0 ? "username" : "email";
     var cache = contributorSuggestCache[inp.id];
     if (cache && cache.hasMore === false && value.indexOf(cache.query) === 0) {
       // The previous fetch already returned every match: skip the server
-      // request and let the local prefix filter (in autocomplete()) handle it.
+      // request and let the local prefix filter (in initAutocomplete()) handle it.
       return;
     }
     fetchContributorSuggestions(keyword, inp.id, value);
@@ -472,7 +487,8 @@ function fetchContributorSuggestions(keyword, inputId, query) {
         count: data.count,
         limit: data.results.length
       };
-      autocomplete(document.getElementById(inputId), data.results);
+      updateSuggestState(inputId, data.results);
+      initAutocomplete(document.getElementById(inputId));
     },
     error: function (data, status) {
       $("#id_spinners_" + keyword + suffix).css("display", "none");
