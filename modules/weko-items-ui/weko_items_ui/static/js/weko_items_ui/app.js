@@ -460,8 +460,7 @@ function fetchContributorSuggestions(keyword, inputId, query) {
   // the same selector construction works for either naming scheme.
   var id = inputId.replace(/^share_username_?/, '').replace(/^share_email_?/, '');
   var suffix = id ? ("_" + id) : "";
-  $("#share_" + keyword + suffix).prop('readonly', true);
-  $("#id_spinners_" + keyword + suffix).css("display", "");
+  $("#id_spinners_" + keyword + suffix).css("display", "inline-block");
 
   $.ajax({
     url: '/api/items/get_search_data/' + keyword,
@@ -469,11 +468,17 @@ function fetchContributorSuggestions(keyword, inputId, query) {
     data: { q: query },
     success: function (data, status) {
       $("#id_spinners_" + keyword + suffix).css("display", "none");
-      $("#share_" + keyword + suffix).prop('readonly', false);
       if (data.error) {
         var modalcontent = "Some errors have occured!\nDetail:" + data.error;
         $("#inputModal").html(modalcontent);
         $("#allModal").modal("show");
+        return;
+      }
+      var inputElement = document.getElementById(inputId);
+      if (!inputElement || inputElement.value !== data.query) {
+        // The input was removed (e.g. its contributor row was deleted), or
+        // its value changed, while this request was in flight: discard the
+        // now-stale response instead of overwriting newer candidates.
         return;
       }
       if (keyword === 'username') {
@@ -488,11 +493,10 @@ function fetchContributorSuggestions(keyword, inputId, query) {
         limit: data.results.length
       };
       updateSuggestState(inputId, data.results);
-      initAutocomplete(document.getElementById(inputId));
+      initAutocomplete(inputElement);
     },
     error: function (data, status) {
       $("#id_spinners_" + keyword + suffix).css("display", "none");
-      $("#share_" + keyword + suffix).prop('readonly', false);
       var modalcontent = "Cannot connect to server!";
       $("#inputModal").html(modalcontent);
       $("#allModal").modal("show");

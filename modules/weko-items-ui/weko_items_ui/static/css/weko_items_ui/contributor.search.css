@@ -95,11 +95,13 @@
   .id_spinners_username {
     margin-left: -24px;
     margin-top: 8px;
+    display: none;
   }
 
   .id_spinners_email {
     margin-left: -24px;
     margin-top: 8px;
+    display: none;
   }
 
   #radio_form_share {
