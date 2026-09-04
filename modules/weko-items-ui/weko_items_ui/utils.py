@@ -104,41 +104,56 @@ def check_display_shared_user(user_id):
     ).first() is not None
 
 def get_list_username():
-    """Get list username.
+    """Get the list of usernames eligible as a shared/contributor user.
 
-    Query database to get all available username
-    return: list of username
+    Returns:
+        list[str]: Usernames of users matching the shared-user role
+            condition, excluding unset usernames, ordered by email ascending.
     """
-    from weko_user_profiles.models import UserProfile
+    query = db.session.query(
+        UserProfile.username.label('username'),
+        User.email.label('email'),
+    ).join(User, User.id == UserProfile.user_id)
+    query = filter_shared_user_role(query, UserProfile.user_id)
+    query = query.filter(
+        UserProfile.username.isnot(None), UserProfile.username != ''
+    )
+    rows = query.order_by(User.email).distinct().all()
 
-    users = UserProfile.query.all()
-    result = list()
-    for user in users:
-        if not check_display_shared_user(user.user_id):
-            continue
-        username = user.username
-        if username:
-            result.append(username)
-
-    return result
+    return [row.username for row in rows]
 
 
 def get_list_email():
-    """Get list email.
+    """Get the list of emails eligible as a shared/contributor user.
 
-    Query database to get all available email
-    return: list of email
+    Returns:
+        list[str]: Email addresses of users matching the shared-user
+        role condition, ordered by email ascending.
     """
-    result = list()
-    users = User.query.all()
-    for user in users:
-        if not check_display_shared_user(user.id):
-            continue
-        email = user.email
-        if email:
-            result.append(email)
+    query = filter_shared_user_role(
+        db.session.query(User.email.label('email')), User.id
+    )
+    query = query.filter(User.email.isnot(None), User.email != '')
+    rows = query.order_by(User.email).distinct().all()
 
-    return result
+    return [row.email for row in rows]
+
+
+def filter_shared_user_role(query, user_id_column):
+    """Restrict a query to users holding a shared-user role.
+
+    Args:
+        query: A ``db.session.query(...)`` to extend.
+        user_id_column: The user id column present in ``query``'s FROM
+            clause (``UserProfile.user_id`` or ``User.id``).
+
+    Returns:
+        Query: The filtered query.
+    """
+    role_ids = current_app.config['WEKO_ITEMS_UI_SHARED_USER_ROLE_ID_LIST']
+    return query.join(
+        userrole, userrole.c.user_id == user_id_column
+    ).filter(userrole.c.role_id.in_(role_ids))
 
 
 def get_user_info_by_username(username):
