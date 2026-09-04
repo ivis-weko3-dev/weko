@@ -253,22 +253,26 @@ class WekoLoggingFilter(logging.Filter):
             log record.
         """
         from weko_accounts.utils import get_remote_addr
+        from sqlalchemy.exc import OperationalError
+        try:
+            record.user_id = get_current_user_id()
+            record.ip_address = get_remote_addr()
 
-        record.user_id = get_current_user_id()
-        record.ip_address = get_remote_addr()
+            # If the user is not authenticated, set the user_id to 'Guest'
+            if (record.ip_address is not None) and (record.user_id is None):
+                record.user_id = 'Guest'
 
-        # If the user is not authenticated, set the user_id to 'Guest'
-        if (record.ip_address is not None) and (record.user_id is None):
-            record.user_id = 'Guest'
-
-        # Replace the attribute name of the log record
-        if hasattr(record, 'wpathname'):
-            record.pathname = record.wpathname
-        if hasattr(record, 'wlineno'):
-            record.lineno = record.wlineno
-        if hasattr(record, 'wfuncName'):
-            record.funcName = record.wfuncName
-
+            # Replace the attribute name of the log record
+            if hasattr(record, 'wpathname'):
+                record.pathname = record.wpathname
+            if hasattr(record, 'wlineno'):
+                record.lineno = record.wlineno
+            if hasattr(record, 'wfuncName'):
+                record.funcName = record.wfuncName
+        except OperationalError as ex:
+            print(f"PostgreSQL connection error: {ex}")
+            record.user_id = 'Unknown'
+            record.ip_address = 'Unknown'
         return True
 
 
