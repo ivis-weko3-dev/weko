@@ -499,15 +499,21 @@ function TermsList({termList, setTermList, currentTerm, setCurrentTerm}) {
             {
               termList.map((term) => (
                 <li className="tree-list" key={term.key}>
-                  <a
+                  <button
+                    type="button"
                     className={`list-group-item list-group-item-action ${currentTerm !== undefined && currentTerm.key === term.key ? 'active' : ''}`}
                     onClick={handleOnTermClick}
-                    id={term.key}>{term.content.en.title}
-                  </a>
-                  <a
+                    id={term.key}
+                  >
+                    {term.content.en.title}
+                  </button>
+                  <button
+                    type="button"
                     className="glyphicon glyphicon-remove glyphicon-remove-term pull-right"
                     id={term.key}
-                    key={term.key} onClick={handleRemoveTerm}/>
+                    key={term.key}
+                    onClick={handleRemoveTerm}
+                  ></button>
                 </li>
               ))
             }
@@ -1130,24 +1136,42 @@ function ModalBodyConfirm ({selectedActivityIds}) {
       <div className="row">
         <div className="text-center">
           <ul className="pagination">
-            <li className={currentPage === 1 ? 'disabled' : ''} cursor={currentPage === 1 ? 'not-allowed' : ''}
+            <li className={currentPage === 1 ? 'disabled' : ''}>
+              <button
+                type="button"
+                className="page-link"
+                disabled={currentPage === 1}
                 onClick={() => {
                   if (currentPage > 1) setCurrentPage(currentPage - 1)
-                }}>
-              <a>&lt;</a>
+                }}
+              >
+                &lt;
+              </button>
             </li>
             {Array.from(Array(totalPage), (e, i) => {
               return (
-                <li className={(i + 1 === currentPage) ? `active` : ''} onClick={onPageChanged}>
-                  <a>{i + 1}</a>
+                <li className={(i + 1 === currentPage) ? `active` : ''} key={i + 1}>
+                  <button
+                    type="button"
+                    className="page-link"
+                    onClick={onPageChanged}
+                  >
+                    {i + 1}
+                  </button>
                 </li>
               )
             })}
-            <li className={currentPage >= totalPage ? `disabled` : ''} cursor={currentPage >= totalPage ?
-              'not-allowed' : ''} onClick={() => {
-              if (currentPage < totalPage) setCurrentPage(currentPage + 1)
-            }}>
-              <a>&gt;</a>
+            <li className={currentPage >= totalPage ? `disabled` : ''}>
+              <button
+                type="button"
+                className="page-link"
+                disabled={currentPage >= totalPage}
+                onClick={() => {
+                  if (currentPage < totalPage) setCurrentPage(currentPage + 1)
+                }}
+              >
+                &gt;
+              </button>
             </li>
           </ul>
         </div>
@@ -1337,26 +1361,44 @@ function UsageReportList() {
             <div className="row">
               <div className="text-center">
                 <ul className="pagination">
-                  <li className={currentPage === 1 ? 'disabled' : ''}
+                  <li className={currentPage === 1 ? 'disabled' : ''}>
+                    <button
+                      type="button"
+                      className="page-link"
+                      disabled={currentPage === 1}
                       onClick={() => {
                         if (currentPage > 1) setCurrentPage(currentPage - 1)
-                      }}>
-                    <a>&lt;</a>
+                      }}
+                    >
+                      &lt;
+                    </button>
                   </li>
                   {
                     Array.from(Array(totalPage), (e, i) => {
                       return (
-                        <li className={(i + 1 === currentPage) ? `active` : ''} onClick={onChangePage}>
-                          <a>{i + 1}</a>
+                        <li className={(i + 1 === currentPage) ? `active` : ''} key={i + 1}>
+                          <button
+                            type="button"
+                            className="page-link"
+                            onClick={onChangePage}
+                          >
+                            {i + 1}
+                          </button>
                         </li>)
                     })
                   }
-                  <li className={currentPage >= totalPage ? `disabled` : ''} cursor={currentPage >= totalPage ?
-                    'not-allowed' : ''} onClick={() => {
-                    if (currentPage < totalPage)
-                      setCurrentPage(currentPage + 1)
-                  }}>
-                    <a>&gt;</a>
+                  <li className={currentPage >= totalPage ? `disabled` : ''}>
+                    <button
+                      type="button"
+                      className="page-link"
+                      disabled={currentPage >= totalPage}
+                      onClick={() => {
+                        if (currentPage < totalPage)
+                          setCurrentPage(currentPage + 1)
+                      }}
+                    >
+                      &gt;
+                    </button>
                   </li>
                 </ul>
               </div>
