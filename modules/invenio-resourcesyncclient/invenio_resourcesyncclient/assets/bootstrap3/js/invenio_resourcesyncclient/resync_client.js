@@ -449,7 +449,7 @@ class CreateResyncComponent extends React.Component {
     const { mode } = this.props
     return (
       <div className="create-resource">
-//repository_name
+        {/* repository_name */}
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
             <label htmlFor="repository_name">
@@ -471,7 +471,7 @@ class CreateResyncComponent extends React.Component {
             ></input>
           </div>
         </div>
-//base_url
+        {/* base_url */}
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
             <label htmlFor="base_url">
@@ -494,7 +494,7 @@ class CreateResyncComponent extends React.Component {
           </div>
         </div>
 
-//status
+        {/* status */}
         <div className="row form-group ">
           <div className="col-md-2 text-right">
             <label htmlFor="status">
@@ -528,7 +528,7 @@ class CreateResyncComponent extends React.Component {
             </div>
           </div>
         </div>
-//interval_by_day
+        {/* interval_by_day */}
         {
           status.automatic === state.status && (
 
@@ -556,7 +556,7 @@ class CreateResyncComponent extends React.Component {
           )
         }
         <div>
-//from_date
+          {/* from_date */}
           <div className="row form-group flex-baseline">
             <div className="col-md-2 text-right">
               <label htmlFor="from_date">
@@ -575,7 +575,7 @@ class CreateResyncComponent extends React.Component {
               />
             </div>
           </div>
-//to_date
+          {/* to_date */}
           <div className="row form-group flex-baseline">
             <div className="col-md-2 text-right">
               <label htmlFor="to_date">
@@ -595,7 +595,7 @@ class CreateResyncComponent extends React.Component {
             </div>
           </div>
         </div>
-//index_id
+        {/* index_id */}
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
             <label htmlFor="target_index">
@@ -620,7 +620,7 @@ class CreateResyncComponent extends React.Component {
             </select>
           </div>
         </div>
-//resync_mode
+        {/* resync_mode */}
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
             <label htmlFor="resync_mode">Resync Mode</label>
@@ -642,7 +642,7 @@ class CreateResyncComponent extends React.Component {
             </select>
           </div>
         </div>
-//saving_format
+        {/* saving_format */}
         <div className="row form-group flex-baseline">
           <div className="col-md-2 text-right">
             <label htmlFor="saving_format">Saving format</label>
