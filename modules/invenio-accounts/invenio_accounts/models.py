@@ -130,9 +130,7 @@ class User(db.Model, Timestamp, UserMixin):
         "Role", secondary=userrole, backref=db.backref("users", lazy="dynamic")
     )
     """List of the user's roles."""
-    
-    template = db.relationship('MailTemplateUsers', cascade='all, delete')
-    
+
     # Enables SQLAlchemy version counter
     version_id = db.Column(db.Integer, nullable=False)
     """Used by SQLAlchemy for optimistic concurrency control."""
@@ -332,7 +330,7 @@ class User(db.Model, Timestamp, UserMixin):
     def __str__(self):
         """Representation."""
         return "User <id={0.id}, email={0.email}>".format(self)
-    
+
     @classmethod
     def get_email_by_id(cls, id):
         """Get id, name by user_id. """
