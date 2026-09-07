@@ -21130,6 +21130,98 @@ def test_validate_user_info_guest(client_api, users):
     )
     assert res.status_code == 200
 
+
+# validate_user_info (singular) response body for the
+# username-only / email-only / both-specified branches, for both an
+# excluded-role user (sysadmin) and non-excluded-role users.
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_validate_user_info_response_body -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_validate_user_info_response_body(client_api, users, db_userprofile):
+    login_user_via_session(client=client_api, email=users[0]["email"])
+
+    # (a) username only, non-excluded role (contributor)
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "contributor", "email": ""}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {
+        "results": {
+            "username": "contributor",
+            "user_id": users[0]["id"],
+            "email": users[0]["email"],
+        },
+        "validation": True,
+        "error": "",
+    }
+
+    # (a) username only, excluded role (sysadmin): get_shared_user_info_by_username
+    # returns None, but validation stays True as-is (this branch never
+    # consults the excluded-role result for the "validation" flag)
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "sysadmin", "email": ""}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"results": None, "validation": True, "error": ""}
+
+    # (c) email only, non-excluded role (comadmin)
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "", "email": users[3]["email"]}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {
+        "results": {
+            "username": "comadmin",
+            "user_id": users[3]["id"],
+            "email": users[3]["email"],
+        },
+        "validation": True,
+        "error": "",
+    }
+
+    # (c) email only, excluded role (sysadmin): results is None, but
+    # validation stays True (same behavior as (a))
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "", "email": users[2]["email"]}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"results": None, "validation": True, "error": ""}
+
+    # (b) both username and email, matching pair, non-excluded role
+    # (repoadmin): validate_shared_user's own results/validation are used
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "repoadmin", "email": users[1]["email"]}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {
+        "results": {
+            "username": "repoadmin",
+            "user_id": users[1]["id"],
+            "email": users[1]["email"],
+        },
+        "validation": True,
+        "error": "",
+    }
+
+    # (b) both username and email, matching pair, excluded role (sysadmin):
+    # validate_shared_user itself returns validation=False
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "sysadmin", "email": users[2]["email"]}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"results": "", "validation": False, "error": ""}
+
+
 # def validate_users_info():
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_validate_users_info_login -vv --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
 def test_validate_users_info_login(client_api, users, db_userprofile, mocker):
