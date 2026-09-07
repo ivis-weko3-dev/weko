@@ -954,10 +954,12 @@ def db_itemtype(app, db):
 
     item_type_mapping = ItemTypeMapping(id=1,item_type_id=1, mapping=item_type_mapping)
 
-    with db.session.begin_nested():
-        db.session.add(item_type_name)
-        db.session.add(item_type)
-        db.session.add(item_type_mapping)
+    db.session.add(item_type_name)
+    db.session.add(item_type)
+    db.session.commit()
+
+    db.session.add(item_type_mapping)
+    db.session.commit()
 
     return {"item_type_name": item_type_name, "item_type": item_type, "item_type_mapping":item_type_mapping}
 

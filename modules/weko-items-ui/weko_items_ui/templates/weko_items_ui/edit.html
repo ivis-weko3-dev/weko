@@ -206,7 +206,7 @@
                               <div class="col-xs-2 col-sm-2 col-md-2 col-lg-2">
                                 <div class="autocomplete">
                                   <input id="share_username" autocomplete="off" type="text" name="share_username"
-                                    placeholder="Username" class="form-control" onclick="get_search_data('username')">
+                                    placeholder="Username" class="form-control" onclick="initContributorSuggest(this)">
                                   <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate"
                                     id="id_spinners_username"></span>
                                 </div>
@@ -219,7 +219,7 @@
                               <div class="col-xs-5 col-sm-5 col-md-5 col-lg-5">
                                 <div class="autocomplete">
                                   <input id="share_email" autocomplete="off" type="text" name="share_email"
-                                    placeholder="Email" class="form-control" onclick="get_search_data('email')">
+                                    placeholder="Email" class="form-control" onclick="initContributorSuggest(this)">
                                   <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate"
                                     id="id_spinners_email"></span>
                                 </div>
@@ -309,6 +309,9 @@
       <div class="modal-content">
         <div class="modal-body">
           <div id="meta-search-body"></div>
+          <input type="hidden" id="contributor_suggest_debounce_ms" name="contributor_suggest_debounce_ms" value='{{config.WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_DEBOUNCE_MS}}'>
+          <input type="hidden" id="contributor_suggest_count_label" value="{{ _('{} results') }}">
+          <input type="hidden" id="contributor_suggest_count_more_label" value="{{ _('{}+ results') }}">
           <input type="hidden" id="autofill_item_type_id" name="autofill_item_type_id" value="{{id}}">
           <input type="hidden" id="autofill_error_id" name="autofill_item_type_id" value="{{_('Please select the ID.')}}">
           <input type="hidden" id="autofill_error_input_value" name="autofill_item_type_id"

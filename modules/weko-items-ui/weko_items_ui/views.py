@@ -83,14 +83,15 @@ from .permissions import item_permission
 from .utils import (
     _get_max_export_items, check_item_is_being_edit,
     export_items, get_current_user, get_data_authors_prefix_settings,
-    get_data_authors_affiliation_settings, get_list_email, get_list_username,
-    get_ranking, get_user_info_by_email, get_user_info_by_username,
+    get_data_authors_affiliation_settings,
+    get_ranking, get_shared_user_info_by_email, get_shared_user_info_by_username,
     get_user_information, get_workflow_by_item_type_id,
     hide_form_items, is_schema_include_key, remove_excluded_items_in_json_schema,
-    sanitize_input_data, save_title, set_multi_language_name, to_files_js,
+    sanitize_input_data, save_title, search_email, search_username,
+    set_multi_language_name, to_files_js,
     translate_schema_form, translate_validation_message, update_index_tree_for_record,
     update_json_schema_by_activity_id, update_schema_form_by_activity_id,
-    update_sub_items_by_user_role, validate_form_input_data, validate_user,
+    update_sub_items_by_user_role, validate_form_input_data, validate_shared_user,
     validate_user_mail_and_index, is_duplicate_record, lock_item_will_be_edit,
     set_scheme_by_author_table
 )
@@ -834,24 +835,19 @@ def index_upload():
 def get_search_data(data_type=''):
     """get_search_data.
 
-    Host the api provide search data:
-    Provide 2 search data: username and email
-
-    param:
-        data_type: type of response data (username, email)
-    return:
-        list of search data
-
+    Host the api that provides prefix-matched search data (username or
+    email) restricted to shared-user roles.
     """
     result = {
         'results': '',
         'error': '',
     }
     try:
+        q = request.args.get('q', '')
         if data_type == 'username':
-            result['results'] = get_list_username()
+            result.update(search_username(q))
         elif data_type == 'email':
-            result['results'] = get_list_email()
+            result.update(search_email(q))
         else:
             result['error'] = 'Invaid method'
     except Exception as e:
@@ -919,16 +915,16 @@ def validate_user_info():
     try:
         if username != "":
             if email == "":
-                result['results'] = get_user_info_by_username(username)
+                result['results'] = get_shared_user_info_by_username(username)
                 result['validation'] = True
             else:
-                validate_data = validate_user(username, email)
+                validate_data = validate_shared_user(username, email)
                 result['results'] = validate_data['results']
                 result['validation'] = validate_data['validation']
             return jsonify(result)
 
         if email != "":
-            result['results'] = get_user_info_by_email(email)
+            result['results'] = get_shared_user_info_by_email(email)
 
             result['validation'] = True
             return jsonify(result)
@@ -986,12 +982,12 @@ def validate_users_info():
         try:
             if username != "":
                 if email == "":
-                    info['info'] = get_user_info_by_username(username)
+                    info['info'] = get_shared_user_info_by_username(username)
                     if not info['info']:
                         raise Exception('Not Found Username')
                     info['validation'] = True
                 else:
-                    validate_data = validate_user(username, email)
+                    validate_data = validate_shared_user(username, email)
                     info['info'] = validate_data['results']
                     info['validation'] = validate_data['validation']
                     if validate_data['error'] != "":
@@ -999,7 +995,7 @@ def validate_users_info():
                 result['results'].append(info)
 
             if email != "" and username == "":
-                info['info'] = get_user_info_by_email(email)
+                info['info'] = get_shared_user_info_by_email(email)
                 if not info['info']:
                     raise Exception('Not Found Email')
                 info['validation'] = True
@@ -1078,7 +1074,7 @@ def get_userinfo_by_emails():
     for email in emails :
         # Flaskのrequest.args.getでは記号「+」が空白になる為、変換する
         email = email.replace(' ', '+')
-        user_info = get_user_info_by_email(email)
+        user_info = get_shared_user_info_by_email(email)
         if not user_info or ('error' in user_info):
             raise ConnectionError("wrong email or Cannot connect to server!")
 

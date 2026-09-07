@@ -139,6 +139,20 @@ def test_get_shared_ids_from_on_behalf_of(app, db, users, personal_token):
     on_behalf_of = shib_user.shib_eppn
     assert get_shared_ids_from_on_behalf_of(on_behalf_of) == [users[3]["id"]]
 
+    # a user holding the excluded role (System Administrator, users[0]) is
+    # rejected, regardless of how the user is resolved
+    on_behalf_of = users[0].get("email")
+    with pytest.raises(WekoSwordserverException) as e:
+        get_shared_ids_from_on_behalf_of(on_behalf_of)
+    assert e.value.errorType == ErrorType.Forbidden
+    assert e.value.message == "On-Behalf-Of user is not allowed by role."
+
+    # a user holding a role other than the excluded one (Community
+    # Administrator, users[2]) must still be allowed as an On-Behalf-Of
+    # shared user, and no exception is raised
+    on_behalf_of = users[2].get("email")
+    assert get_shared_ids_from_on_behalf_of(on_behalf_of) == [users[2]["id"]]
+
     on_behalf_of = "invalid"
     with pytest.raises(WekoSwordserverException) as e:
         get_shared_ids_from_on_behalf_of(on_behalf_of)
