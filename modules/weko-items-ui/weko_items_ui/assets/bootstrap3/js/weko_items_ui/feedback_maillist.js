@@ -608,12 +608,9 @@ class MainLayout extends React.Component {
 
     removeEmailFromList(listData) {
         let listEmail = this.state.listEmail;
-        var listRemainEmail = [];
-        for (var index in listEmail) {
-            if (listData.indexOf(listEmail[index].email) == -1) {
-                listRemainEmail.push(listEmail[index])
-            }
-        }
+        const listRemainEmail = listEmail.filter(
+          item => !listData.includes(item.email)
+        );
         this.setState({ listEmail: listRemainEmail });
     }
 
