@@ -4081,7 +4081,7 @@ def edit_item_direct_after_login(pid_value):
                 error="This Item is being edited."), 400
 
     post_activity = '{"workflow_id": 0, "flow_id": 0, ' \
-        '"itemtype_id": 0, "community": 0, "post_workflow": 0}'
+        '"itemtype_id": 0, "community": null, "post_workflow": 0}'
     post_activity = json.loads(post_activity)
     if post_workflow:
         post_activity['workflow_id'] = post_workflow.workflow_id
