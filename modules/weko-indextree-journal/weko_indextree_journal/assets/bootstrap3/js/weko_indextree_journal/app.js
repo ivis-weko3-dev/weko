@@ -381,3 +381,5 @@ var CustomBSDatePicker = {
         });
     }
 }
+
+window.CustomBSDatePicker = CustomBSDatePicker;
