@@ -22,7 +22,7 @@
 
 {%- block css %}
   {{ super() }}
-  <link href="/assets/css/weko_workflow/style.css" rel="stylesheet">
+  {{webpack['workflow-css-workflow.css'] }}
 {%- endblock css %}
 
 {%- block page_header %}

@@ -1,3 +1,5 @@
+import React from "react";
+import ReactDOM from "react-dom";
 const {useState, useEffect} = React;
 const LABEL_NEW = document.getElementById("new").value;
 const SAVE_LABEL = document.getElementById('save_label').value;

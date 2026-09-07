@@ -16,6 +16,8 @@ weko_items_ui = WebpackThemeBundle(
                 "items_ui_js_request_maillist": "./js/weko_items_ui/request_maillist.js",
                 "items_ui_no_file_approval_js": "./js/weko_items_ui/no_file_approval.js",
                 "items_ui_oapolicy_js": "./js/weko_items_ui/oapolicy.js",
+                "items_ui_item_autofill_js": "./js/weko_items_ui/item.autofill.js",
+                "items_ui_contributor_search_css": "./css/weko_items_ui/contributor.search.css",
             },
             dependencies={
                 'angular': "~1.4.9",

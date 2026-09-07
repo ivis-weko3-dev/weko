@@ -1,3 +1,5 @@
+import $ from 'jquery';
+
 $('#repository_select').on('change', function () {
   let repoId = document.getElementById("repository_select").value;
   $.ajax({
@@ -49,7 +51,7 @@ $('#confirm_send_button').on('click', function () {
         alert('Selected period is wrong!');
         return;
     }
-    let start_month = $("#from_year_select").val() + '-' + paddingLeft($("#from_month_select").val(), 2); 
+    let start_month = $("#from_year_select").val() + '-' + paddingLeft($("#from_month_select").val(), 2);
     let end_month = $("#to_year_select").val() + '-' + paddingLeft($("#to_month_select").val(), 2);
     let repo_id = document.getElementById("repository_select").value;
     $.ajax({
@@ -95,12 +97,12 @@ $('#save_settings').on('click', function () {
         data: JSON.stringify(data),
         success: function (data) {
             alert('Update successfully');
-            location.reload();
+            window.location.reload();
         },
         error: function (error) {
             console.log(error);
             alert('Update erroneously');
-            location.reload();
+            window.location.reload();
         }
     });
 });

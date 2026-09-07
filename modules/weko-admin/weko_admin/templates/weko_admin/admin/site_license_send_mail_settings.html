@@ -27,7 +27,7 @@
 
 {% block javascript %}
   {{ super() }}
-  <script src="/assets/js/weko_admin/site_license_send_mail_settings.js"></script>
+  {{ webpack['admin_site_license_send_mail_settings.js']}}
 {% endblock %}
 
 {%- block body %}

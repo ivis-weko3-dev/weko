@@ -84,7 +84,7 @@ class ComponentExclusionTarget extends React.Component {
                 email: event.target.value.trim()
             }
             if (this.props.addEmailToList(new_email)) {
-                $('#custom_input_email').val('');
+                $('div#sltBoxListEmail>input#custom_input_email').val('');
                 $('#sltBoxListEmail').animate({
                     scrollTop: $("#custom_input_email").offset().top
                 }, 1000);
@@ -97,16 +97,30 @@ class ComponentExclusionTarget extends React.Component {
             <div class="list-group" className="style-selected-box" id="sltBoxListEmail">
                 {
                     listEmail.map((item, id) => {
-                        return (
-                            <button
-                                className={`list-group-item list-group-item-action ${this.state.selectedId.indexOf(id) > -1 ? 'active' : ''}`}
-                                onClick={() => { this.handleClick(id) }}
-                                onKeyDown={() => { }}
-                                key={id}
-                                value={item.author_id}>
-                                {item.email}
-                            </button>
-                        )
+                        let v = item.author_id + '_' + item.email
+                        if (item.author_id) {
+                            return (
+                                <button
+                                    className={`list-group-item list-group-item-action ${this.state.selectedId.indexOf(id) > -1 ? 'active' : ''}`}
+                                    onClick={() => { this.handleClick(id) }}
+                                    onKeyDown={() => { }}
+                                    key={id}
+                                    value={v}>
+                                    {item.email}&nbsp;&nbsp;(Author&nbsp;ID:&nbsp;{item.author_id})
+                                </button>
+                            )
+                        } else {
+                            return (
+                                <button
+                                    className={`list-group-item list-group-item-action ${this.state.selectedId.indexOf(id) > -1 ? 'active' : ''}`}
+                                    onClick={() => { this.handleClick(id) }}
+                                    onKeyDown={() => { }}
+                                    key={id}
+                                    value={v}>
+                                    {item.email}
+                                </button>
+                            )
+                        }
                     })
                 }
                 <input class="list-group-item list-group-item-action"
@@ -205,14 +219,20 @@ class TableUserEmailComponent extends React.Component {
                     name = familyName + firstName;
                 }
             }
-            if (row._source.emailInfo.length == 1) {
+            if (row._source.emailInfo.length >= 1) {
+                let mailData = [];
+                let mailList = [];
+                row._source.emailInfo.forEach(function(v, k) {
+                    mailData.push(<p>{v.email}</p>);
+                    mailList.push(v.email);
+                });
                 return (
                     <tr key={row._source.pk_id.toString()}>
                         <td>{name}</td>
-                        <td>{row._source.emailInfo[0].email}</td>
+                        <td>{mailData}</td>
                         <td className="text-right">
                             <button className="btn btn-info"
-                                onClick={(event) => this.importEmail(event, row._source.pk_id, row._source.emailInfo[0].email)}>
+                                onClick={(event) => this.importEmail(event, row._source.pk_id, mailList)}>
                                 &nbsp;&nbsp;{IMPORT_BUTTON_NAME}&nbsp;&nbsp;
                             </button>
                         </td>
@@ -240,18 +260,21 @@ class TableUserEmailComponent extends React.Component {
         )
     }
 
-    importEmail(event, pk_id, email) {
+    importEmail(event, pk_id, emails) {
         let listUser = [];
         $("#sltBoxListEmail > a").each(function () {
             listUser.push(this.value);
         });
         if (listUser.indexOf(pk_id) == -1) {
             event.target.disabled = true;
-            let data = {
-                "author_id": pk_id,
-                "email": email
-            }
-            this.props.addEmailToList(data);
+            var props = this.props;
+            emails.forEach(function(v, k) {
+                let data = {
+                    "author_id": pk_id,
+                    "email": v
+                }
+                props.addEmailToList(data);
+            });
         }
         else {
             alert(DUPLICATE_ERROR_MESSAGE);

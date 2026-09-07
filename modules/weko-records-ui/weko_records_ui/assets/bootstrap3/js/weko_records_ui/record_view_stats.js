@@ -1,5 +1,6 @@
+import $ from 'jquery';
 
-$(document).ready(function () {  
+$(document).ready(function () {
     let record_id = document.getElementById("record_id").innerText;
     let statsurl = '/api/stats/' + record_id
     $.ajax({
@@ -36,7 +37,7 @@ $(document).ready(function () {
 });
 
 function period_change (control) {
-    date = control.value;
+    let date = control.value;
     let record_id = document.getElementById("record_id").innerText;
     let statsurl = '/api/stats/' + record_id;
     $.ajax({
@@ -60,3 +61,4 @@ function period_change (control) {
         }
     });
 }
+window.period_change = period_change;

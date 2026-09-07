@@ -15,6 +15,7 @@ weko_search_ui = WebpackThemeBundle(
                 'search-ui-js-export': './js/weko_search_ui/export.js',
                 'search-ui-less-import': './css/weko_search_ui/import.less',
                 'search-ui-less-export': './css/weko_search_ui/export.less',
+                'search-ui-css-facet-chunk': './css/weko_search_ui/facet_chunk.css',
             },
             dependencies={
                 'angular': "~1.4.9",

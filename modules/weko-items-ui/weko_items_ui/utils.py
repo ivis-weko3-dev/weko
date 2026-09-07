@@ -2780,7 +2780,7 @@ def _get_metadata_dict_in_search(record_ids):
     metadata_dict = {}
     try:
         # Get metadata from OpenSearch
-        search = (
+        search_obj = (
             RecordsSearch(index=current_app.config["SEARCH_UI_SEARCH_INDEX"])
             .filter("terms", control_number=record_ids)
             .filter("term", relation_version_is_last=True)
@@ -2788,7 +2788,7 @@ def _get_metadata_dict_in_search(record_ids):
             .source(["title", "content"])
             .params(from_=0, size=100)
         )
-        search_result = search.execute().to_dict()
+        search_result = search_obj.execute().to_dict()
         record_list = search_result.get("hits", {}).get("hits", [])
         for record in record_list:
             [key] = record.get("sort")
@@ -2799,7 +2799,7 @@ def _get_metadata_dict_in_search(record_ids):
                 if file_content.get("attachment")
             ]
             metadata_dict.update({key: (title, extraction_file_list)})
-    except NotFoundError as e:
+    except search.NotFoundError as e:
         current_app.logger.error("Index do not exist yet: ", str(e))
 
     return metadata_dict

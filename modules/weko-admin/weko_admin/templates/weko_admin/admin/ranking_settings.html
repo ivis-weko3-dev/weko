@@ -24,7 +24,7 @@
 {% block css %}
 {{ super() }}
 <link href="/assets/css/weko_admin/quill.snow.css" rel="stylesheet">
-<link href="/assets/css/weko_admin/language.css" rel="stylesheet">
+{{ webpack["admin_css_language_css.css"] }}
 {% endblock %}
 
 {%- block javascript %}

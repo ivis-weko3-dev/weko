@@ -5,10 +5,10 @@ function printCatalogInfo(data) {
   }
   console.log(data);
 
-  string_contributors = ""
-  string_subjects = ""
+  let string_contributors = ""
+  let string_subjects = ""
   const cleanedString = data.replaceAll("&#39;", "\"");
-  jsonString = "\{\"catalog\":" + cleanedString + "\}";
+  const jsonString = "\{\"catalog\":" + cleanedString + "\}";
   const json = JSON.parse(jsonString);
 
   console.log(json.catalog);
