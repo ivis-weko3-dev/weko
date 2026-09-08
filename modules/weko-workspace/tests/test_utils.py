@@ -190,12 +190,12 @@ def test_get_workspace_filterCon(users, users_index, mock_setup, expected_respon
     (
         [],
         search.TransportError(500, 'Server Error'),
-        None
+        []
     ),
     (
         [],
         Exception("Unexpected error"),
-        None
+        []
     )
 ])
 def test_get_search_itemlist(app, mock_responses, mock_exception, expected_response):

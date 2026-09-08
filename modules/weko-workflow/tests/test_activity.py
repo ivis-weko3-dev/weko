@@ -1275,7 +1275,10 @@ class TestHeadlessActivity:
 
     # def _upload_files(self, files=None):
     # .tox/c1/bin/pytest --cov=weko_workflow tests/test_activity.py::TestHeadlessActivity::test__upload_files -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-    def test__upload_files(self, app, db, workflow, users, client, mocker):
+    def test__upload_files(
+        self, app, db, workflow, users, client,
+        user_activity_log_partition_table, mocker
+    ):
         activity = HeadlessActivity()
         activity._deposit = {"_buckets": {"deposit": uuid.uuid4()}}
         mocker.patch.object(Bucket, "query", new=Mock())
@@ -1345,7 +1348,10 @@ class TestHeadlessActivity:
 
     # def _delete_file(self, version_ids):
     # .tox/c1/bin/pytest --cov=weko_workflow tests/test_activity.py::TestHeadlessActivity::test__delete_file -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-    def test__delete_file(self, app, db, workflow, users, client, mocker):
+    def test__delete_file(
+        self, app, db, workflow, users, client,
+        user_activity_log_partition_table, mocker
+    ):
         version_ids = [uuid.uuid4(), uuid.uuid4(), uuid.uuid4()]
 
         mock_get = mocker.patch("weko_workflow.headless.activity.ObjectVersion.get")

@@ -71,18 +71,18 @@ class ResponseUnlockSchema(Schema):
 
 class PasswdSchema(Schema):
     passwd = fields.String(required=True)
-    
+
     class Meta:
         strict = True
 
 class LockSchema(Schema):
     locked_value = fields.String()
-    
+
 class LockedValueSchema(Schema):
     locked_value = fields.String(required=True)
     class Meta:
         strict = True
-    
+
 class GetFeedbackMailListSchema(ResponseSchema):
     data = fields.List(fields.Dict(),allow_none=True)
 
@@ -101,6 +101,7 @@ class SaveActivitySchema(Schema):
     shared_user_ids = fields.List(fields.Dict(allow_none=True))
     approval1 = fields.String(allow_none=True)
     approval2 = fields.String(allow_none=True)
+    owner = fields.Integer()
     class Meta:
         strict = True
 

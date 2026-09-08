@@ -16,9 +16,8 @@ from weko_search_ui.api import (
 
 ## class SearchSetting(object):
 # get_results_setting(cls):
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_api.py::test_get_results_setting -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_get_results_setting(i18n_app, users, db, app):
-    from sqlalchemy.sql import func
-    
     test_1 = SearchManagement(
         id=1,
         default_dis_sort_index="id",
@@ -30,15 +29,21 @@ def test_get_results_setting(i18n_app, users, db, app):
             ]
         }
     )
-    
-    assert SearchSetting.get_results_setting()[0] == app.config['RECORDS_REST_SORT_OPTIONS']
-    assert SearchSetting.get_results_setting()[1] == 20
+
+    actual = SearchSetting.get_results_setting()
+    assert isinstance(actual, tuple)
+    assert len(actual) == 2
+    assert actual[0] == app.config["RECORDS_REST_SORT_OPTIONS"]
+    assert actual[1] == 20
 
     db.session.add(test_1)
     db.session.commit()
 
-    assert SearchSetting.get_results_setting()[0] != app.config['RECORDS_REST_SORT_OPTIONS']
-    assert SearchSetting.get_results_setting()[1] == 20
+    actual2 = SearchSetting.get_results_setting()
+    assert isinstance(actual2, tuple)
+    assert len(actual2) == 2
+    assert actual2[0] != app.config["RECORDS_REST_SORT_OPTIONS"]
+    assert actual2[1] == 20
 
 # get_default_sort(cls, search_type, root_flag=False):
 def test_get_default_sort(i18n_app, users, db, app):
@@ -81,28 +86,62 @@ def test_get_default_sort(i18n_app, users, db, app):
     sort_key_str = ad_config.WEKO_ADMIN_MANAGEMENT_OPTIONS["dlt_index_sort_selected"]
     assert SearchSetting.get_default_sort(root_flag=True, search_type="keyword")[0] in sort_key_str
 
+
 # get_sort_key(cls, key_str):
-def test_get_sort_key(i18n_app, users, app):
-    sort_key = app.config['RECORDS_REST_SORT_OPTIONS']['test-weko']['test-weko']['fields'][0]
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_api.py::test_get_sort_key -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_get_sort_key(i18n_app, users):
+    search_index = i18n_app.config["SEARCH_UI_SEARCH_INDEX"]
+    sort_key = "test-sort-field"
+    sort_options = {
+        "fields": [1, 2, 3],
+        "nested": 2
+    }
+    # Check that the sort key is not present in the configuration
+    assert SearchSetting.get_sort_key(key_str=sort_key) is None
+    assert SearchSetting.get_sort_key(key_str=f"not-{sort_key}") is None
 
-    assert SearchSetting.get_sort_key(key_str="test-weko") == sort_key
-    assert SearchSetting.get_sort_key(key_str="not-test-weko") != sort_key
+    # Update the config to include a test sort option
+    i18n_app.config["RECORDS_REST_SORT_OPTIONS"] |= {
+        search_index: {
+            sort_key: sort_options,
+        },
+    }
 
+    # Check that the sort key is now present and returns the expected value
+    expected = sort_options["fields"][0]
+    assert SearchSetting.get_sort_key(key_str=sort_key) == expected
+    assert SearchSetting.get_sort_key(key_str=f"not-{sort_key}") is None
+
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_api.py::test_get_custom_sort -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 # get_custom_sort(cls, index_id, sort_type):
-def test_get_custom_sort(i18n_app, users, indices):
+@pytest.mark.parametrize("sort_type", ["asc", "desc"])
+def test_get_custom_sort(i18n_app, users, indices, sort_type):
     index_id = 33
 
-    assert SearchSetting.get_custom_sort(index_id, sort_type="asc")[0]['_script']['order'] == 'asc'
-    assert SearchSetting.get_custom_sort(index_id, sort_type="asc")[1]['_created']['order'] == 'desc'
-    assert SearchSetting.get_custom_sort(index_id, sort_type="desc")[0]['_script']['order'] == 'desc'
-    assert SearchSetting.get_custom_sort(index_id, sort_type="desc")[1]['_created']['order'] == 'asc'
+    assert SearchSetting.get_custom_sort(index_id, sort_type=sort_type)[0]['_script']['order'] == sort_type
+    assert SearchSetting.get_custom_sort(index_id, sort_type=sort_type)[1]['_created']['order'] == sort_type
+
 
 # get_nested_sorting(cls, key_str):
-def test_get_nested_sorting(i18n_app, users, app):
-    key_str = "test-weko"
-    check_key = app.config['RECORDS_REST_SORT_OPTIONS'][key_str][key_str]['nested']
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_api.py::test_get_nested_sorting -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_get_nested_sorting(i18n_app):
+    nested_field = "test-nested"
+    search_index = i18n_app.config["SEARCH_UI_SEARCH_INDEX"]
+    expected = 2
 
-    assert SearchSetting.get_nested_sorting(key_str) == check_key
+    i18n_app.config["RECORDS_REST_SORT_OPTIONS"] |= {
+        search_index: {
+            nested_field: {
+                "fields": [1, 2, 3],
+                "nested": expected,
+            },
+        },
+    }
+
+    # Check that the nested sorting is returned correctly for the existing key
+    assert SearchSetting.get_nested_sorting(nested_field) == expected
+    assert SearchSetting.get_nested_sorting(f"not-{nested_field}") is None
 
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_api.py::test_get_search_detail_keyword -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 # def get_search_detail_keyword(str):

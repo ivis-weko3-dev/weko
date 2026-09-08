@@ -749,9 +749,9 @@ def get_record_in_search_of_index(index_id, recursively=True):
         child_idx = [index_id]
 
     query_string = "relation_version_is_last:true"
-    search = RecordsSearch(
+    search_obj = RecordsSearch(
         index=current_app.config['SEARCH_UI_SEARCH_INDEX'])
-    search = search.sort({"control_number": {"order": "asc"}})
+    search_obj = search_obj.sort({"control_number": {"order": "asc"}})
     must_query = [
         dsl.query.QueryString(query=query_string),
         dsl.Q("terms", path=child_idx),
@@ -760,10 +760,10 @@ def get_record_in_search_of_index(index_id, recursively=True):
             PublishStatus.PRIVATE.value
         ])
     ]
-    search = search.query(
+    search_obj = search_obj.query(
         dsl.query.Bool(filter=must_query)
     )
-    return execute_search_with_pagination(search, max_result_size=-1)
+    return execute_search_with_pagination(search_obj, max_result_size=-1)
 
 
 def check_doi_in_list_record_search(index_id):
@@ -1006,19 +1006,19 @@ def check_doi_in_index_and_child_index(index_id, recursively=True):
         child_idx = [index_id]
 
     query_string = "relation_version_is_last:true AND publish_status: {}".format(PublishStatus.PUBLIC.value)
-    dsl.search = RecordsSearch(
+    search_obj = RecordsSearch(
         index=current_app.config['SEARCH_UI_SEARCH_INDEX'])
-    search = dsl.search.sort({"control_number": {"order": "asc"}})
+    search_obj = search_obj.sort({"control_number": {"order": "asc"}})
     must_query = [
         dsl.query.QueryString(query=query_string),
         dsl.Q("terms", path=child_idx),
         dsl.Q("nested", path="identifierRegistration",
               query=dsl.query.Exists(field="identifierRegistration"))
     ]
-    search = dsl.search.query(
+    search_obj = search_obj.query(
         dsl.query.Bool(filter=must_query)
     )
-    return execute_search_with_pagination(search, max_result_size=-1)
+    return execute_search_with_pagination(search_obj, max_result_size=-1)
 
 
 def __get_redis_store():
@@ -1388,7 +1388,7 @@ def get_all_records_in_index(index_id):
     child_idx = Indexes.get_child_list_recursive(index_id)
     query_string = "relation_version_is_last:true"
     size = 10000
-    search = RecordsSearch(
+    search_obj = RecordsSearch(
         index=current_app.config['SEARCH_UI_SEARCH_INDEX']
     ).query(
         dsl.query.Bool(filter=[
@@ -1402,13 +1402,13 @@ def get_all_records_in_index(index_id):
     ).sort('_doc').params(size=size)
     # Use search_after to retrieve all records
     records = []
-    page = search.execute().to_dict()
+    page = search_obj.execute().to_dict()
     while page.get('hits', {}).get('hits', []):
         records.extend(page.get('hits', {}).get('hits', []))
         if len(page.get('hits', {}).get('hits', [])) < size:
             break
-        search = search.extra(search_after=page.get('hits', {}).get('hits', [])[-1].get('sort'))
-        page = search.execute().to_dict()
+        search_obj = search_obj.extra(search_after=page.get('hits', {}).get('hits', [])[-1].get('sort'))
+        page = search_obj.execute().to_dict()
     return records
 
 def check_comadmin(roles, index_id):

@@ -102,6 +102,7 @@ from invenio_records_rest.utils import PIDConverter
 from invenio_records_rest.views import create_blueprint_from_app
 from invenio_records_ui import InvenioRecordsUI
 from invenio_records_ui.config import RECORDS_UI_ENDPOINTS
+from invenio_records_ui.views import create_blueprint_from_app as invenio_records_ui_create_blueprint
 from invenio_rest import InvenioREST
 from invenio_search import InvenioSearch, RecordsSearch, current_search, current_search_client
 from invenio_stats import InvenioStats
@@ -134,6 +135,7 @@ from weko_deposit.api import WekoDeposit
 from weko_deposit.api import WekoDeposit as aWekoDeposit
 from weko_deposit.api import WekoIndexer, WekoRecord
 from weko_deposit.config import (
+    PIDRELATIONS_RELATION_TYPES,
     WEKO_BUCKET_QUOTA_SIZE,
     WEKO_MAX_FILE_SIZE,
     WEKO_DEPOSIT_FILESIZE_LIMIT,
@@ -167,7 +169,19 @@ from weko_theme.config import THEME_BODY_TEMPLATE, WEKO_THEME_ADMIN_ITEM_MANAGEM
 from weko_workflow import WekoWorkflow
 from weko_workflow.models import Action, ActionStatus, ActionStatusPolicy, Activity, FlowAction, FlowDefine, WorkFlow
 from weko_search_ui import WekoSearchREST, WekoSearchUI
-from weko_search_ui.config import SEARCH_UI_SEARCH_INDEX, WEKO_SEARCH_TYPE_DICT, WEKO_SEARCH_UI_BASE_TEMPLATE, WEKO_SEARCH_KEYWORDS_DICT, CHILD_INDEX_THUMBNAIL_WIDTH, CHILD_INDEX_THUMBNAIL_HEIGHT, ROCRATE_METADATA_FILE, SWORD_METADATA_FILE
+from weko_search_ui.config import (
+    SEARCH_UI_SEARCH_INDEX,
+    WEKO_SEARCH_TYPE_DICT,
+    WEKO_SEARCH_UI_BASE_TEMPLATE,
+    WEKO_SEARCH_KEYWORDS_DICT,
+    CHILD_INDEX_THUMBNAIL_WIDTH,
+    CHILD_INDEX_THUMBNAIL_HEIGHT,
+    ROCRATE_METADATA_FILE,
+    SWORD_METADATA_FILE,
+    WEKO_EXPORT_TEMPLATE_BASIC_ID,
+    WEKO_EXPORT_TEMPLATE_BASIC_NAME,
+    WEKO_EXPORT_TEMPLATE_BASIC_OPTION
+)
 from weko_search_ui.rest import create_blueprint
 from weko_search_ui.views import blueprint_api
 from werkzeug.local import LocalProxy
@@ -289,7 +303,7 @@ def base_app(instance_path, search_class, request):
         WEKO_SCHEMA_JPCOAR_V2_SCHEMA_NAME = 'jpcoar_mapping',
         WEKO_SCHEMA_DDI_SCHEMA_NAME = "ddi_mapping",
         INDEXER_FILE_DOC_TYPE="content",
-        INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
+        INDEXER_DEFAULT_INDEX="weko-item-v1.0.0",
         INDEX_IMG="indextree/36466818-image.jpg",
         # SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
         #                                   'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
@@ -318,7 +332,7 @@ def base_app(instance_path, search_class, request):
         },
         FILES_REST_OBJECT_KEY_MAX_LEN=255,
         # SEARCH_UI_SEARCH_INDEX=SEARCH_UI_SEARCH_INDEX,
-        SEARCH_UI_SEARCH_INDEX="test-weko",
+        SEARCH_UI_SEARCH_INDEX="weko",
         CHILD_INDEX_THUMBNAIL_WIDTH = CHILD_INDEX_THUMBNAIL_WIDTH,
         CHILD_INDEX_THUMBNAIL_HEIGHT = CHILD_INDEX_THUMBNAIL_HEIGHT,
         # SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
@@ -367,7 +381,7 @@ def base_app(instance_path, search_class, request):
                     fields=["year"],
                 )
             ),
-            "test-weko": {
+            "weko": {
                 "test-weko": {"fields": [1,2,3], "nested": 1},
                 'controlnumber': {'title': 'ID', 'fields': ['control_number'], 'default_order': 'asc', 'order': 2,}
             },
@@ -627,9 +641,8 @@ def base_app(instance_path, search_class, request):
                 pid_fetcher="recid",
                 pid_value="1.0",
                 search_class=RecordsSearch,
-                # search_index="test-weko",
                 # search_index=SEARCH_UI_SEARCH_INDEX,
-                search_index="test-weko",
+                search_index="weko",
                 search_type="item-v1.0.0",
                 search_factory_imp="weko_search_ui.query.weko_search_factory",
                 # record_class='',
@@ -695,7 +708,11 @@ def base_app(instance_path, search_class, request):
             "report part": "other",
             "conference object": "conference output",
         },
-        WEKO_COMMUNITIES_DEFAULT_PROPERTIES=WEKO_COMMUNITIES_DEFAULT_PROPERTIES
+        WEKO_COMMUNITIES_DEFAULT_PROPERTIES=WEKO_COMMUNITIES_DEFAULT_PROPERTIES,
+        PIDRELATIONS_RELATION_TYPES=PIDRELATIONS_RELATION_TYPES,
+        WEKO_EXPORT_TEMPLATE_BASIC_ID=WEKO_EXPORT_TEMPLATE_BASIC_ID,
+        WEKO_EXPORT_TEMPLATE_BASIC_NAME=WEKO_EXPORT_TEMPLATE_BASIC_NAME,
+        WEKO_EXPORT_TEMPLATE_BASIC_OPTION=WEKO_EXPORT_TEMPLATE_BASIC_OPTION,
     )
     app_.url_map.converters["pid"] = PIDConverter
     app_.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_class"] = search_class
@@ -759,6 +776,9 @@ def base_app(instance_path, search_class, request):
     app_.register_blueprint(weko_theme_blueprint)
     from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
     app_.register_blueprint(invenio_communities_blueprint)
+    app_.register_blueprint(
+        invenio_records_ui_create_blueprint(app_)
+    )
 
     current_assets = LocalProxy(lambda: app_.extensions["invenio-assets"])
     current_assets.collect.collect()
@@ -885,17 +905,6 @@ def client_request_args_FULL_TEXT(app, file_instance_mock):
                 },
             )
         yield r
-
-@pytest.fixture()
-def location(app, db):
-    """Create default location."""
-    tmppath = tempfile.mkdtemp()
-    with db.session.begin_nested():
-        Location.query.delete()
-        loc = Location(name="local", uri=tmppath, default=True)
-        db.session.add(loc)
-    db.session.commit()
-    return location
 
 
 @pytest.fixture()
@@ -1202,7 +1211,7 @@ def es_authors_index(app):
 
 
 @pytest.fixture()
-def db_records(db, instance_path, users):
+def db_records(db, instance_path, users, user_activity_log_partition_table):
     with db.session.begin_nested():
         Location.query.delete()
         loc = Location(name="local", uri=instance_path, default=True)
@@ -1274,7 +1283,7 @@ def db_records2(db, instance_path, users):
 
 
 @pytest.fixture()
-def db_records3(db):
+def db_records3(db, location):
     record_data = json_data("data/test_records2.json")
     item_data = json_data("data/test_items2.json")
     record_num = len(record_data)
@@ -1823,23 +1832,6 @@ def create_file_instance(db):
     db.session.add(file)
     db.session.commit()
     return file_path
-
-
-@pytest.yield_fixture()
-def open_search(app):
-    """Provide OpenSearch access, create and clean indices.
-
-    Don't create template so that the test or another fixture can modify the
-    enabled events.
-    """
-    current_search_client.indices.delete(index="*")
-    current_search_client.indices.delete_template("*")
-    list(current_search.create())
-    try:
-        yield current_search_client
-    finally:
-        current_search_client.indices.delete(index="*")
-        current_search_client.indices.delete_template("*")
 
 
 def generate_events(
@@ -2413,20 +2405,6 @@ def item_render():
     return data
 
 
-@pytest.yield_fixture()
-def open_search(app):
-    """OpenSearch fixture."""
-    try:
-        list(current_search.create())
-    # except RequestError:
-    except:
-        list(current_search.delete(ignore=[404]))
-        list(current_search.create(ignore=[400]))
-    current_search_client.indices.refresh()
-    yield current_search_client
-    list(current_search.delete(ignore=[404]))
-
-
 @pytest.fixture()
 def deposit(app, open_search, users, location, db):
     """New deposit with files."""
@@ -2442,7 +2420,7 @@ def deposit(app, open_search, users, location, db):
 
 
 @pytest.fixture()
-def db_index(client, users):
+def db_index(client, users, user_activity_log_partition_table):
     index_metadata = {
         "id": 1,
         "parent": 0,
@@ -2959,7 +2937,7 @@ def search_records2(app, db, db_index, location, db_itemtype, db_oaischema):
     return {"indexer": indexer, "results": results}
 
 @pytest.fixture()
-def indextree(app, client, users):
+def indextree(app, client, users, user_activity_log_partition_table):
     from weko_index_tree.api import Indexes
 
     index_metadata = {
@@ -3165,20 +3143,22 @@ def record_indexer_receiver(app, json=None, record=None, index=None,
     return json
 
 
-
-
-@pytest.yield_fixture()
+@pytest.fixture
 def open_search(app):
     """OpenSearch fixture."""
     try:
+        # delete alias to avoid "Invalid alias name [test-*] is already used as a concrete index" error
+        current_search_client.indices.delete_alias(
+            name="test-*", index="weko-*", ignore=[404, 400]
+        )
         current_search_client.indices.delete(index="test-*")
-        list(current_search.create())
+        current_search.create()
     except RequestError:
-        list(current_search.delete(ignore=[404]))
-        list(current_search.create(ignore=[400]))
+        current_search.delete(ignore=[404])
+        current_search.create(ignore=[400])
     current_search_client.indices.refresh()
     yield current_search_client
-    list(current_search.delete(ignore=[404]))
+    current_search.delete(ignore=[404])
 
 
 @pytest.yield_fixture()
@@ -4340,6 +4320,8 @@ def make_itemtype(app,db):
             version_id=1,
             is_deleted=False,
         )
+        with db.session.begin_nested():
+            db.session.add(item_type)
 
         if "mapping" in datas:
             item_type_mapping = dict()
@@ -4348,8 +4330,6 @@ def make_itemtype(app,db):
             item_type_mapping = ItemTypeMapping(id=id, item_type_id=id, mapping=item_type_mapping)
             db.session.add(item_type_mapping)
             result["item_type_mapping"] = item_type_mapping
-        with db.session.begin_nested():
-            db.session.add(item_type)
 
         db.session.commit()
         result["item_type_name"] = item_type_name
@@ -4442,24 +4422,6 @@ def sample_config(app, db):
         source.save()
         db.session.commit()
     return source_name
-
-
-@pytest.fixture()
-def location(app, db):
-    """Create default location."""
-    tmppath = tempfile.mkdtemp()
-
-    location = Location.query.filter_by(name="testloc").count()
-    if location != 1:
-        loc = Location(name="testloc", uri=tmppath, default=True)
-        db.session.add(loc)
-        db.session.commit()
-    else:
-        loc = Location.query.filter_by(name="testloc").first()
-
-    yield loc
-
-    shutil.rmtree(tmppath)
 
 
 @pytest.fixture()
@@ -4607,11 +4569,15 @@ def location(app, db):
     """Create default location."""
     tmppath = tempfile.mkdtemp()
     with db.session.begin_nested():
+        # Delete existing locations to ensure a clean state
         Location.query.delete()
-        loc = Location(name='local', uri=tmppath, default=True)
+        loc = Location(name="local", uri=tmppath, default=True)
         db.session.add(loc)
     db.session.commit()
-    return loc
+    
+    yield loc
+    # Ensure the temporary directory is removed after the test
+    shutil.rmtree(tmppath)
 
 
 @pytest.fixture()
@@ -4648,11 +4614,15 @@ def db_itemtype_jpcoar(app, db):
         is_deleted=False,
     )
 
-    item_type_multiple_mapping = ItemTypeMapping(id=10, item_type_id=10, mapping=item_type_multiple_mapping)
-
     with db.session.begin_nested():
         db.session.add(item_type_multiple_name)
         db.session.add(item_type_multiple)
+
+    item_type_multiple_mapping = ItemTypeMapping(
+        id=10, item_type_id=item_type_multiple.id, mapping=item_type_multiple_mapping
+    )
+
+    with db.session.begin_nested():
         db.session.add(item_type_multiple_mapping)
     db.session.commit()
 
@@ -4786,3 +4756,29 @@ def ro_crate():
     shutil.make_archive(zip_path.replace(".zip", ""), 'zip', "tests/data/zip_crate/")
     yield zip_path
     shutil.rmtree(temp_dir)
+
+
+@pytest.fixture
+def user_activity_log_partition_table(app, db):
+    """Create user activity log partition."""
+    # Create partition for current month
+    now = datetime.now()
+    start = now.date().replace(day=1)
+    end = (start + timedelta(days=31)).replace(day=1)
+    partition_name = f"user_activity_logs_{now.year}_{now.month:02d}"
+    create_partition_sql = f"""
+        CREATE TABLE IF NOT EXISTS {partition_name}
+        PARTITION OF user_activity_logs
+        FOR VALUES FROM ('{start}') TO ('{end}');
+    """
+
+    with db.session.begin_nested():
+        db.session.execute(create_partition_sql)
+    db.session.commit()
+
+
+@pytest.fixture
+def without_remove_session(app):
+    """Fixture to temporarily disable the removal of the database session."""
+    with patch("weko_workflow.views.db.session.remove"):
+        yield

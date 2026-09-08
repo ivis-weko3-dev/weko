@@ -213,3 +213,6 @@ window.onload = function () {
 };
 
 componentDidMount();
+window.saveDataFormat = saveDataFormat;
+window.openDeleteModal = openDeleteModal;
+window.deleteData = deleteData;

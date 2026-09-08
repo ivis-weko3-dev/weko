@@ -160,9 +160,10 @@ class ComponentExclusionTarget extends React.Component {
 
     componentDidMount() {
         document.addEventListener('mousedown', this.handleClickOutside);
-        fetch(GET_FEEDBACK_MAIL_URL, { 
+        fetch(GET_FEEDBACK_MAIL_URL, {
             method: 'POST',
-            headers: { "Content-Type": "application/json" }
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({})
         })
             .then(res => res.json())
             .then((result) => {

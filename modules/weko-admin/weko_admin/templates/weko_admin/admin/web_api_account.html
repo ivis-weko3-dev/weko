@@ -28,7 +28,7 @@
 
 {%- block javascript %}
 {{ super() }}
-<script src="/assets/js/weko_admin/web_api_account.js"></script>
+{{ webpack['admin_web_api_account.js']}}
 {%- endblock javascript %}
 
 {%- block body %}

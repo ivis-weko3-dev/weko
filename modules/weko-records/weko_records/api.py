@@ -614,11 +614,11 @@ class ItemTypes(RecordBase):
         from weko_search_ui.utils import execute_search_with_pagination
         result = []
         try:
-            search = RecordsSearch(
+            search_obj = RecordsSearch(
                 index=current_app.config['SEARCH_UI_SEARCH_INDEX'])
-            search = search.query('term', **{"itemtype.keyword": item_type_name})
-            search = search.sort('-publish_date', '-_updated')
-            result = execute_search_with_pagination(search, -1)
+            search_obj = search_obj.query('term', **{"itemtype.keyword": item_type_name})
+            search_obj = search_obj.sort('-publish_date', '-_updated')
+            result = execute_search_with_pagination(search_obj, -1)
         except search.NotFoundError as e:
             current_app.logger.debug("Indexes do not exist yet: ", str(e))
         return result

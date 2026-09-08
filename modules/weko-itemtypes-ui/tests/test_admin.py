@@ -441,8 +441,8 @@ class TestItemTypeMetaDataView:
         # Setup
         login_user_via_session(client=client,email=users[0]['email'])
         item_type_data = create_item_type(id=1)
-        create_item_type(id=2)
-        test_datetime = '2024-09-06T00:00:00+00:00'
+        create_item_type(id=2, escape_property=True)
+        test_datetime = '2024-09-06T00:00:00'
         expected_files = [
             'ItemType.json',
             'ItemTypeName.json',
@@ -474,7 +474,7 @@ class TestItemTypeMetaDataView:
             'created': test_datetime,
             'updated': test_datetime,
             'id': 1,
-            'item_type_id': 1,
+            # 'item_type_id': 1,
             'mapping': {'test': 'test'},
             'version_id': 1
         }
@@ -495,6 +495,17 @@ class TestItemTypeMetaDataView:
                 'updated': test_datetime,
                 'id': 2,
                 'name': 'test property 2',
+                'schema': {'type': 'string'},
+                'form': {'title_i18n': {'en': 'test property'}},
+                'forms': ['test form'],
+                'delflg': False,
+                'sort': None,
+            },
+            {
+                'created': test_datetime,
+                'updated': test_datetime,
+                'id': 10002,
+                'name': 'test property \\2',
                 'schema': {'type': 'string'},
                 'form': {'title_i18n': {'en': 'test property'}},
                 'forms': ['test form'],

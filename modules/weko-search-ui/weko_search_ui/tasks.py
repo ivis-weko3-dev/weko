@@ -299,10 +299,17 @@ def is_import_running():
 
     celery_app = current_app.extensions.get('invenio-celery')
     _timeout = current_app.config.get("CELERY_GET_STATUS_TIMEOUT", 3.0)
-    inspect = celery_app.celery.control.inspect(timeout=_timeout)
 
-    if celery_app is None or not inspect.ping():
+    if celery_app is None:
         current_app.logger.error("Celery app is not initialized.")
+        return "celery_not_run"
+
+    # Check if Celery is running by pinging the workers
+    inspect = celery_app.celery.control.inspect(timeout=_timeout)
+    if not inspect.ping():
+        current_app.logger.error(
+            "Ping to Celery workers failed. Celery may not be running."
+        )
         return "celery_not_run"
 
     active = inspect.active()

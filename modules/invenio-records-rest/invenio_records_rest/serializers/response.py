@@ -15,7 +15,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 
 from flask import current_app, abort
 from weko_admin.models import AdminSettings
-from weko_records.api import ItemTypes, Mapping
+from weko_records.api import ItemTypes
 from weko_records.utils import sort_meta_data_by_options
 
 
@@ -104,21 +104,6 @@ def search_responsify(serializer, mimetype):
             item_type_dict[str(item_type.model.id)] = item_type
         return item_type_dict
 
-    def __get_item_type_mappings(ids: list) -> dict:
-        """Get item type mappings base on list of item type id.
-
-        Args:
-            ids (list): Item type identifier list.
-
-        Returns:
-            dict: Item Type mappings.
-
-        """
-        mappings = Mapping.get_mapping_by_item_type_ids(ids)
-        mapping_dict = {}
-        for mapping in mappings:
-            mapping_dict[str(mapping.model.item_type_id)] = mapping
-        return mapping_dict
 
     def view(
         pid_fetcher,

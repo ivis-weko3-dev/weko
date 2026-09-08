@@ -1,3 +1,8 @@
+import React from 'react';
+import ReactDOM from 'react-dom';
+import angular from 'angular';
+import axios from "axios";
+import $ from 'jquery';
 class ModalHeader extends React.Component {
     render() {
         return (
@@ -171,7 +176,7 @@ $(function () {
     let getValue = $("#autofill_get_value").val();
     let achievement_type = $("#autofill_achievement_type").val();
     let achievement_id = $("#autofill_achievement_id").val();
-    
+
     const autofill_parmalink = $("#autofill_parmalink").val();
     const autofill_published_papers = $("#autofill_published_papers").val();
     const autofill_misc = $("#autofill_misc").val();
@@ -184,9 +189,9 @@ $(function () {
     ReactDOM.render(
         <SearchMetaForm headerName={headerName}
             selectMeta={selectMeta}
-            getValue={getValue} 
+            getValue={getValue}
             achievement_type={achievement_type}
-            achievement_id={achievement_id} 
+            achievement_id={achievement_id}
             autofill_parmalink={autofill_parmalink}
             autofill_published_papers={autofill_published_papers}
             autofill_misc={autofill_misc}

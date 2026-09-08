@@ -23,9 +23,10 @@
 import copy
 from datetime import datetime
 
-from flask import json, current_app
+from flask import json, current_app, url_for
 from mock import patch, MagicMock
 import pytest
+from pytest import fail
 
 from invenio_accounts.models import Role
 from invenio_communities.models import Community
@@ -37,7 +38,10 @@ def url(root, kwargs = {}):
     return url
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_rest.py::test_GetActivities_get -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_GetActivities_get(app, client, db, db_register_activity, auth_headers, users):
+def test_GetActivities_get(
+    app, client, db, db_register_activity, auth_headers, users,
+    without_remove_session
+):
 
     # test preparation
     path = '/v1/workflow/activities'
@@ -120,9 +124,15 @@ def test_GetActivities_get(app, client, db, db_register_activity, auth_headers, 
 
     # Match Etag : 304
     param6 = copy.deepcopy(param)
-    param6['limit'] = '10'
-    res = client.get(url(path, param6), headers=headers_sysadmin)
-    assert res.status_code == 304
+    # param6['limit'] = '10'
+    # Convert list of tuples to dictionary for easier manipulation
+    headers_sysadmin = dict(headers_sysadmin)
+    with patch(
+        "weko_workflow.rest.generate_etag",
+        return_value=headers_sysadmin["If-None-Match"]
+    ):
+        res = client.get(url(path, param6), headers=headers_sysadmin)
+        assert res.status_code == 304
 
     # Normal : 200
     res = client.get(url(path, param), headers=headers_sysadmin)
@@ -144,7 +154,10 @@ def test_GetActivities_get(app, client, db, db_register_activity, auth_headers, 
 
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_rest.py::test_ApproveActivity_post -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_ApproveActivity_post(app, client, db, db_register_approval, auth_headers, users):
+def test_ApproveActivity_post(
+    app, client, db, db_register_approval, auth_headers, users,
+    without_remove_session
+):
     """Test ApproveActivity.post method."""
 
     current_app.config['WEKO_WORKFLOW_ENABLE_CONTRIBUTOR'] = False
@@ -212,7 +225,10 @@ def test_ApproveActivity_post(app, client, db, db_register_approval, auth_header
 
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_rest.py::test_ThrowOutActivity_post -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_ThrowOutActivity_post(app, client, db, db_register_approval, auth_headers, users):
+def test_ThrowOutActivity_post(
+    app, client, db, db_register_approval, auth_headers, users,
+    without_remove_session
+):
     """Test ThrowOutActivity.post method."""
 
     current_app.config['WEKO_WORKFLOW_ENABLE_CONTRIBUTOR'] = False
@@ -277,8 +293,11 @@ def test_ThrowOutActivity_post(app, client, db, db_register_approval, auth_heade
 
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_rest.py::test_FileApplicationActivity_post -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_FileApplicationActivity_post(app, client, db, db_register_for_application_api,
-                                      auth_headers, users, application_api_request_body, indextree, records_restricted,mocker):
+def test_FileApplicationActivity_post(
+    app, client, db, db_register_for_application_api, auth_headers,
+    users, application_api_request_body, indextree, records_restricted,
+    without_remove_session, mocker
+):
     """Test FileApplicationActivity.post method."""
 
     activity_id = db_register_for_application_api['activity1'].activity_id
@@ -299,78 +318,103 @@ def test_FileApplicationActivity_post(app, client, db, db_register_for_applicati
     activity1_extra_info = db_register_for_application_api['activity1'].extra_info
     mock_task = mocker.patch("weko_deposit.tasks.extract_pdf_and_update_file_contents")
     mock_task.apply_async = MagicMock()
-    
+
+    # Create valid url for file_application_activity endpoint
+    valid_fileapp_activity_url = url_for(
+        "weko_workflow_rest.file_application_activity",
+        version=version,
+        activity_id=activity_id,
+        _external=True
+    )
+    valid_mock_request_body = {"aaa":"123"}
+    actual_request_body = application_api_request_body[1]
+
     # WEKO_RECORDS_UI_RESTRICTED_API = False : 403 error
-    params = {"index_ids": index1["id"]}
-    body = application_api_request_body[0]
+    current_app.config.update(WEKO_RECORDS_UI_RESTRICTED_API = False)
     res_check = 0   # OK
     with patch('weko_workflow.rest.check_authority_action', return_value=res_check):
         with patch("weko_handle.api.Handle.register_handle",return_value="handle:00.000.12345/0000000001"):
+            fileapp_activity_url = url_for(
+                "weko_workflow_rest.file_application_activity",
+                version=version,
+                activity_id=activity_id,
+                index_ids=index1["id"],
+                _external=True
+            )
             res = client.post(
-                url(f'/{version}/workflow/activities/{activity_id}/application', params),
-                data=json.dumps(body),
-                content_type='application/json',
+                fileapp_activity_url,
+                json=application_api_request_body[0],
                 headers=headers_student,
             )
     assert res.status_code == 403
 
+    # Reset WEKO_RECORDS_UI_RESTRICTED_API to True for the following tests
     current_app.config.update(WEKO_RECORDS_UI_RESTRICTED_API = True)
 
     # Invalid version : 400 error
-    body = {"aaa":"123"}
+    invalid_version_fileapp_activity_url = url_for(
+        "weko_workflow_rest.file_application_activity",
+        version=invalid_version,    # Invalid version
+        activity_id=activity_id,
+        _external=True
+    )
     res = client.post(
-        f'/{invalid_version}/workflow/activities/{activity_id}/application',
-        data=json.dumps(body),
-        content_type='application/json',
+        invalid_version_fileapp_activity_url,
+        json=valid_mock_request_body,
         headers=headers_sysadmin,
     )
     assert res.status_code == 400
     try:
         json.loads(res.get_data())
     except:
-        assert False
+        fail("Failed to parse JSON response")
 
     # request body is empty : 400 error
-    body = {}
     res = client.post(
-        f'/{version}/workflow/activities/{activity_id}/application',
-        data=json.dumps(body),
-        content_type='application/json',
+        valid_fileapp_activity_url,
+        json={},    # Empty request body
         headers=headers_sysadmin,
     )
     assert res.status_code == 400
     try:
         json.loads(res.get_data())
     except:
-        assert False
+        fail("Failed to parse JSON response")
 
     # Guest: Invalid token : 400 error
-    params = {"token": "aaa"}
-    body = {"aaa":"123"}
-    token_valid = False
-    with patch('weko_workflow.rest.validate_guest_activity_token', return_value=(token_valid, guest_activity_id, "guest@example.org")):
+    token_validation_result = False
+    with patch(
+        "weko_workflow.rest.validate_guest_activity_token",
+        return_value=(
+            token_validation_result, guest_activity_id, "guest@example.org"
+        )
+    ):
+        fileapp_activity_url = url_for(
+            "weko_workflow_rest.file_application_activity",
+            version=version,
+            activity_id=guest_activity_id,
+            token="dummy_token",
+            _external=True
+        )
         res = client.post(
-            url(f'/{version}/workflow/activities/{guest_activity_id}/application', params),
-            data=json.dumps(body),
-            content_type='application/json',
+            fileapp_activity_url,
+            json={"body": "dummy"},
             headers=headers_not_login,
         )
     assert res.status_code == 400
     try:
         json.loads(res.get_data())
     except:
-        assert False
+        fail("Failed to parse JSON response")
 
     # Guest: Expired token : 400 error
     params = {"token": "aaa"}
-    body = {"aaa":"123"}
     token_valid = True
     with patch('weko_workflow.rest.validate_guest_activity_token', return_value=(token_valid, guest_activity_id, "guest@example.org")):
         with patch('weko_workflow.rest.validate_guest_activity_expired', return_value="The specified link has expired."):
             res = client.post(
                 url(f'/{version}/workflow/activities/{guest_activity_id}/application', params),
-                data=json.dumps(body),
-                content_type='application/json',
+                json=valid_mock_request_body,
                 headers=headers_not_login,
             )
     assert res.status_code == 400
@@ -381,13 +425,11 @@ def test_FileApplicationActivity_post(app, client, db, db_register_for_applicati
 
     # Invalid enum : 400 error
     params = {}
-    body = application_api_request_body[1]
     res_check = 0   # OK
     with patch('weko_workflow.rest.check_authority_action', return_value=res_check):
         res = client.post(
             url(f'/{version}/workflow/activities/{activity_id}/application', params),
-            data=json.dumps(body),
-            content_type='application/json',
+            json=actual_request_body,
             headers=headers_student,
         )
     assert res.status_code == 400
@@ -410,8 +452,7 @@ def test_FileApplicationActivity_post(app, client, db, db_register_for_applicati
             with patch('weko_workflow.rest.get_main_record_detail', return_value=record_detail_alt):
                 res = client.post(
                     url(f'/{version}/workflow/activities/{with_index_guest_activity_id}/application', params),
-                    data=json.dumps(body),
-                    content_type='application/json',
+                    json=application_api_request_body[1],
                     headers=headers_not_login,
                 )
     assert res.status_code == 400

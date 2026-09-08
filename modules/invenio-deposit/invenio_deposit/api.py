@@ -242,7 +242,7 @@ class Deposit(Record):
             data['weko_shared_ids'] = []
             data['_deposit']['weko_shared_ids'] = []
         
-        return super(Deposit, cls).create(data, id_=id_)
+        return super(Deposit, cls).create(data, id_=id_, with_bucket=with_bucket)
 
     @contextmanager
     def _process_files(self, record_id, data):

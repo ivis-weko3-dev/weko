@@ -331,6 +331,12 @@ class User(db.Model, Timestamp, UserMixin):
         """Representation."""
         return "User <id={0.id}, email={0.email}>".format(self)
 
+    @classmethod
+    def get_email_by_id(cls, id):
+        """Get id, name by user_id. """
+        query = db.session.query(cls).with_entities(cls.email).filter(cls.id == id)
+        return query.first()
+
 
 class LoginInformation(db.Model):
     """Login information for a user."""

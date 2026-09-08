@@ -14,7 +14,8 @@ invenio_communities = WebpackThemeBundle(
                 "communities_css_trumbowyg": "./scss/invenio_communities/css.css",
                 "communities_js_trumbowyg": "./js/invenio_communities/js.js",
                 "communities_js_app": "./js/invenio_communities/app.js",
-                "communities_css_extra_fields": "./scss/invenio_communities/extra_fields.css"
+                "communities_css_extra_fields": "./scss/invenio_communities/extra_fields.css",
+                "communities_js_communities_list": "./js/invenio_communities/communities_list.js",
             },
             dependencies={
                 "angular": "~1.4.9",

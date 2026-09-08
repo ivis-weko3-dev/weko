@@ -33,7 +33,11 @@ def test_check_import_items_task(i18n_app, users, mocker):
     list_record_has_error  = {"list_record": [{"id": 1, "errors": ["test_error"]}], "data_path": "/tmp/data"}
 
     mocker.patch("shutil.rmtree", return_value="")
-    mocker.patch("weko_search_ui.tasks.remove_temp_dir_task.apply_async", return_value="")
+    mock_apply_async = mocker.patch(
+        "weko_search_ui.tasks.remove_temp_dir_task.apply_async",
+        autospec=True
+    )
+    mock_apply_async.return_value = ""
 
     with patch("weko_search_ui.tasks.check_tsv_import_items", return_value=check_result_has_error):
         res = check_import_items_task(file_path=file_path, is_change_identifier=True, host_url="https://localhost")
@@ -56,7 +60,7 @@ def test_check_import_items_task(i18n_app, users, mocker):
 
     mock_datetime = mocker.patch('weko_search_ui.tasks.datetime', autospec=True)
     mock_datetime.now.return_value = datetime(2025, 4, 1, 12, 0, 0)
-    mock_apply_async = mocker.patch('weko_search_ui.tasks.remove_temp_dir_task.apply_async', autospec=True)
+    mock_apply_async.reset_mock()
     with patch("weko_search_ui.tasks.check_tsv_import_items", return_value=data):
         with patch("shutil.rmtree", return_value=""):
             result = check_import_items_task(file_path=file_path,is_change_identifier=True,host_url="https://localhost")
@@ -180,12 +184,23 @@ def test_import_item(i18n_app, users, mocker):
     mock_datetime = mocker.patch("weko_search_ui.tasks.datetime")
     mock_datetime.now.return_value = datetime(2025, 1, 1, 12, 00, 00)
     with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
-        with patch("weko_search_ui.tasks.import_items_to_system", return_value={}):
+        mock_success_data = {"success": True, "recid": 123}
+        with patch("weko_search_ui.tasks.import_items_to_system", return_value=mock_success_data):
             res = import_item({"item"}, "request_info")
-            assert res == {"start_date": "2025-01-01 12:00:00"}
+            # Check that the result contains the expected success data and the correct start date
+            assert res == {
+                **mock_success_data,
+                "start_date": "2025-01-01 12:00:00"
+            }
         with patch("weko_search_ui.tasks.import_items_to_system", side_effect=Exception("test error")):
             res = import_item({"item"}, "request_info")
-            assert res == None
+            # Check that the result contains the expected error message and the correct start date
+            # Note: The error message is "Internal server error" because the exception is caught and a generic error message is returned.
+            assert res == {
+                "success": False,
+                "error_id": "Internal server error",
+                "start_date": "2025-01-01 12:00:00"
+            }
 
 # def remove_temp_dir_task(path):
 def test_remove_temp_dir_task(i18n_app, users, indices):
@@ -392,33 +407,74 @@ def test_write_files_task(redis_connect, users, mocker):
 # def is_import_running():
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_tasks.py::test_is_import_running -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_is_import_running(i18n_app):
+    # Mock the Celery inspect.active and inspect.reserved methods to return different scenarios
     mock_task_valid = {"celery@worker1": [{"name": "weko_search_ui.tasks.import_item"}]}
     mock_task_invalid = {"celery@worker1": [{"name": "invalid_task_name"}]}
-    with patch("weko_search_ui.tasks.check_celery_is_run", return_value=True):
-        with patch("celery.task.control.inspect.active", return_value=MagicMock()):
-            with patch("celery.task.control.inspect.reserved", return_value=MagicMock()):
-                assert is_import_running() == None
-            with patch("celery.task.control.inspect.reserved", return_value=mock_task_valid):
-                assert is_import_running() == "is_import_running"
-            with patch("celery.task.control.inspect.reserved", return_value=mock_task_invalid):
-                assert is_import_running() == None
-        with patch("celery.task.control.inspect.active", return_value=mock_task_valid):
-            assert is_import_running() == "is_import_running"
-        with patch("celery.task.control.inspect.active", return_value=mock_task_invalid):
-            with patch("celery.task.control.inspect.reserved", return_value=MagicMock()):
-                assert is_import_running() == None
-    with patch("weko_search_ui.tasks.check_celery_is_run", return_value=False):
+
+    # Mock the Celery inspect.active method to return False
+    mock_inspect = MagicMock()
+    mock_inspect.active.return_value = MagicMock()
+    mock_inspect.reserved.return_value = MagicMock()
+    mock_inspect.ping.return_value = True
+
+    mock_ext = MagicMock()
+    mock_ext.celery.control.inspect.return_value = mock_inspect
+
+    with patch.dict(
+        i18n_app.extensions, {"invenio-celery": mock_ext}, clear=False
+    ):
+        # Test when the Celery inspect.active method and inspect.reserved returns MagicMock (no tasks running)
+        assert is_import_running() == False
+
+        # Test when the Celery inspect.active method returns a valid task
+        mock_inspect.reserved.return_value = mock_task_valid
+        assert is_import_running() == "is_import_running"
+
+        # Test when the Celery inspect.active method returns an invalid task
+        mock_inspect.reserved.return_value = mock_task_invalid
+        assert is_import_running() == False
+
+        # Test when the Celery inspect.active method returns a valid task and inspect.reserved returns an invalid task
+        mock_inspect.active.return_value = mock_task_valid
+        assert is_import_running() == "is_import_running"
+
+        # Test when the Celery inspect.active method returns an invalid task and inspect.reserved returns a valid task
+        mock_inspect.active.return_value = mock_task_invalid
+        mock_inspect.reserved.return_value = MagicMock()
+        assert is_import_running() == False
+
+    # Test when the "invenio-celery" extension is not present in i18n_app.extensions
+    with patch.dict(i18n_app.extensions, {"invenio-celery": None}, clear=False):
+        assert is_import_running() == "celery_not_run"
+
+    # Test when the Celery inspect.ping method returns False
+    mock_inspect.ping.return_value = False
+    with patch.dict(i18n_app.extensions, {"invenio-celery": mock_ext}, clear=False):
         assert is_import_running() == "celery_not_run"
 
 
 # def check_celery_is_run():
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_tasks.py::test_check_celery_is_run -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_check_celery_is_run(i18n_app):
-    with patch("celery.task.control.inspect.ping",return_value={'hostname': True}):
-        assert check_celery_is_run()==True
+    # Mock the Celery inspect.active method to return False
+    mock_inspect = MagicMock()
 
-    with patch("celery.task.control.inspect.ping",return_value={}):
-        assert check_celery_is_run()==False
+    mock_ext = MagicMock()
+    mock_ext.celery.control.inspect.return_value = mock_inspect
+
+    # Test when the Celery inspect.ping method returns True
+    mock_inspect.ping.return_value = True
+    with patch.dict(
+        i18n_app.extensions, {"invenio-celery": mock_ext}, clear=False
+    ):
+        assert check_celery_is_run() == True
+
+    # Test when the Celery inspect.ping method returns False
+    mock_inspect.ping.return_value = False
+    with patch.dict(
+        i18n_app.extensions, {"invenio-celery": mock_ext}, clear=False
+    ):
+        assert check_celery_is_run() == False
 
 
 class TestCheckSessionLifetime(unittest.TestCase):

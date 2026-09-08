@@ -11,9 +11,11 @@ weko_search_ui = WebpackThemeBundle(
                 'search-ui-js-js-dependencies-datepicker': './js/weko_search_ui/js_dependencies_datepicker.js',
                 'search-ui-js-weko-search-ui': './js/weko_search_ui/app.js',
                 'search-ui-js-import': './js/weko_search_ui/import.js',
+                'search-ui-js-rocrate-import': './js/weko_search_ui/rocrate_import.js',
                 'search-ui-js-export': './js/weko_search_ui/export.js',
                 'search-ui-less-import': './css/weko_search_ui/import.less',
                 'search-ui-less-export': './css/weko_search_ui/export.less',
+                'search-ui-css-facet-chunk': './css/weko_search_ui/facet_chunk.css',
             },
             dependencies={
                 'angular': "~1.4.9",

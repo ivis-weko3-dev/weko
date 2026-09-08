@@ -15,6 +15,10 @@ weko_records_ui = WebpackThemeBundle(
                 "records_ui_bootstrap_popover_css": "./css/weko_records_ui/bootstrap-popover-x.min.css",
                 "records_ui_bucket_js": "./js/weko_records_ui/bucket.js",
                 "records_ui_request_mail_js": "./js/weko_records_ui/request_mail.js",
+                "records_ui_pidstore_identifier_js": "./js/weko_records_ui/pidstore_identifier.js",
+                "records_ui_record_view_stats_js": "./js/weko_records_ui/record_view_stats.js",
+                "records_ui_file_stats_js": "./js/weko_records_ui/file_stats.js",
+                "records_ui_css_pidstore_identifier_css": "./css/weko_records_ui/pidstore_identifier.css",
             },
             dependencies={
                 "almond": "~0.3.1",

@@ -586,6 +586,7 @@ WEKO_EXPORT_TEMPLATE_BASIC_OPTION = [
     "",
     "",
     "",
+    "",
     "Required",
 ]
 

@@ -575,3 +575,6 @@ ENABLE_COOKIE_CONSENT = False
 
 WEKO_THEME_FETCH_SEARCH_FLG = True
 """ Enable DOM differential update functionality when searching. """
+
+WEKO_THEME_AUTO_CORRECT_LOCATION_HEADER = True
+""" Auto correct location header to be absolute URL when using reverse proxy. """

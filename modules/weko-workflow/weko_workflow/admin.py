@@ -257,6 +257,7 @@ class FlowSettingView(BaseView):
         """Update FlowAction Info."""
         if not self._check_auth(str(flow_id)) :
             abort(403)
+        actions = None
         try:
             actions = request.get_json()
             workflow = Flow()
