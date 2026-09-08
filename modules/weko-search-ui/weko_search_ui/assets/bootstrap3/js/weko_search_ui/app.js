@@ -1,5 +1,4 @@
 import angular from 'angular';
-import "bootstrap";
 import "bootstrap-datepicker"
 import $ from "jquery";
 

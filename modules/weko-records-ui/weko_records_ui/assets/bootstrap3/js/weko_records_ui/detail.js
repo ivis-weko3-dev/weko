@@ -1,6 +1,5 @@
 import $ from "jquery";
 import angular from "angular";
-import "bootstrap";
 
 $('#btn_back').on('click', function () {
   window.history.back();

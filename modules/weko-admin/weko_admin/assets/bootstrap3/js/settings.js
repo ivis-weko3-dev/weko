@@ -4,7 +4,6 @@
  */
 
 import $ from 'jquery';
-import 'bootstrap';
 import 'select2';
 
 // Pass a copied $ to functions using require(Must specify in files)
