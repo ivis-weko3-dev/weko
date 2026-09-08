@@ -10,6 +10,7 @@
 
 from __future__ import absolute_import, print_function
 
+import os
 import sys
 import uuid
 from os.path import getsize
@@ -926,6 +927,137 @@ def test_fileinstance_send_file(app, db, dummy_location):
     with app.test_request_context():
         res = f.send_file('test.txt')
         assert int(res.headers['Content-Length']) == len(data)
+
+
+def test_fileinstance_send_file_convert_to_pdf_local_failure(
+        app, db, dummy_location, monkeypatch):
+    """A test to ensure that, if the conversion of a stored local file fails,
+        the ``uri`` remains completely unaffected and
+        that the actual directory containing that file has not been deleted
+    """
+    f = FileInstance.create()
+    data = b('test file instance set contents')
+    f.set_contents(BytesIO(data), default_location=dummy_location.uri)
+    db.session.commit()
+
+    original_uri = f.uri
+    assert os.path.exists(os.path.dirname(original_uri))
+
+    f.json = {'filename': 'test.docx', 'mimetype': 'application/msword'}
+
+    def _raise_convert_to(pdf_dir, source_path):
+        raise RuntimeError('libreoffice failed')
+
+    monkeypatch.setattr(
+        'invenio_files_rest.models.convert_to', _raise_convert_to)
+
+    with app.test_request_context():
+        # The conversion error is caught and logged internally; the
+        # (unconverted) original file is still sent normally.
+        res = f.send_file('test.docx', convert_to_pdf=True)
+        assert int(res.headers['Content-Length']) == len(data)
+
+    # uri must be completely unchanged, and the real file/directory must
+    # still exist on disk.
+    assert f.uri == original_uri
+    assert os.path.exists(original_uri)
+    assert os.path.exists(os.path.dirname(original_uri))
+
+
+def test_fileinstance_send_file_convert_to_pdf_s3vh_failure(
+        app, db, monkeypatch):
+    """A conversion failure for an S3 Virtual Host file must leave
+    ``FileInstance.uri`` completely untouched.
+    """
+    f = FileInstance.create()
+    original_uri = (
+        'https://my-bucket.s3.us-east-1.amazonaws.com/ab/cd/data')
+    f.uri = original_uri
+    f.size = 4
+    f.readable = True
+    f.json = {'filename': 'test.docx', 'mimetype': 'application/msword'}
+    db.session.commit()
+
+    class FailingS3Storage(object):
+        """Fake storage whose read (``open``) fails, as a real S3
+        outage/permission error would during the temp-download step."""
+
+        def open(self, mode='rb'):
+            raise RuntimeError('s3 read failed')
+
+        def send_file(self, filename, **kwargs):
+            return 'sent:' + filename
+
+    monkeypatch.setattr(
+        FileInstance, 'storage',
+        lambda self, **kwargs: FailingS3Storage())
+
+    with app.test_request_context():
+        # send_file() must not propagate the conversion failure: it logs
+        # it and falls through to sending via the (fake) storage backend.
+        res = f.send_file('test.docx', convert_to_pdf=True)
+        assert res == 'sent:test.docx'
+
+    # The critical assertion: uri must be exactly the original https://
+    # value -- not the s3:// form, and not any other partially-converted
+    # value.
+    assert f.uri == original_uri
+
+
+def test_fileinstance_send_file_convert_to_pdf_s3vh_success(
+        app, db, monkeypatch, tmpdir):
+    """A successful conversion for an S3 Virtual Host file
+    still ends with ``uri`` pointing at the converted PDF, and the local
+    temp download directory used during conversion is cleaned up."""
+    f = FileInstance.create()
+    original_uri = (
+        'https://my-bucket.s3.us-east-1.amazonaws.com/ab/cd/data')
+    f.uri = original_uri
+    f.size = 4
+    f.readable = True
+    f.json = {'filename': 'test.docx', 'mimetype': 'application/msword'}
+    db.session.commit()
+
+    save_path = str(tmpdir.mkdir('pdf_save'))
+    app.config['FILES_REST_DEFAULT_PDF_SAVE_PATH'] = save_path
+    convert_dir = save_path + '/convert_' + str(f.id)
+    pdf_dir = save_path + '/pdf_dir/' + str(f.id)
+
+    class FakeS3Storage(object):
+        """Fake storage that returns the (tiny) source file content."""
+
+        def open(self, mode='rb'):
+            return BytesIO(b('data'))
+
+        def send_file(self, filename, **kwargs):
+            return 'sent:' + filename
+
+    monkeypatch.setattr(
+        FileInstance, 'storage', lambda self, **kwargs: FakeS3Storage())
+
+    def _fake_convert_to(pdf_dir_arg, source_path):
+        # The source must be the local temp download, not the https://
+        # or s3:// uri directly (libreoffice cannot open those).
+        assert source_path.startswith(convert_dir)
+        assert os.path.isfile(source_path)
+        os.makedirs(pdf_dir_arg)
+        with open(pdf_dir_arg + '/data.pdf', 'wb') as fh:
+            fh.write(b('%PDF-1.4 fake'))
+
+    monkeypatch.setattr(
+        'invenio_files_rest.models.convert_to', _fake_convert_to)
+
+    with app.test_request_context():
+        res = f.send_file('test.docx', convert_to_pdf=True)
+        assert res == 'sent:test.docx'
+
+    # uri/size were updated to the converted PDF on the success path.
+    assert f.uri == pdf_dir + '/data.pdf'
+    assert f.size == os.path.getsize(pdf_dir + '/data.pdf')
+    assert f.json['mimetype'] == 'application/pdf'
+    assert f.json['filename'] == 'test.pdf'
+    # the temp download directory must have been cleaned up.
+    assert not os.path.exists(convert_dir)
 
 
 def test_fileinstance_validation(app, db, dummy_location):

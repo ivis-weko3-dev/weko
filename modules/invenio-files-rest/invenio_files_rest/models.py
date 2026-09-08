@@ -953,13 +953,14 @@ class FileInstance(db.Model, Timestamp):
                         # https:// URL; normalize it to s3:// so the
                         # s3://-prefix check below can detect it uniformly
                         # with path-style S3 locations.
-                        self.uri = to_s3_uri(self.uri)
-                        target_uri = self.uri
+                        target_uri = to_s3_uri(self.uri)
 
+                    is_temp_download = False
                     if target_uri.startswith('s3://'):
                         # ``convert_to`` shells out to libreoffice, which
                         # can only operate on a local file path -- download
                         # the S3 object to a local temp file first.
+                        is_temp_download = True
                         convert_dir = path + '/convert_' + str(self.id)
                         target_uri = convert_dir + '/' + target_uri.split('/')[-1]
                         if os.path.exists(convert_dir):
@@ -976,8 +977,9 @@ class FileInstance(db.Model, Timestamp):
                     try:
                         convert_to(pdf_dir, target_uri)
                     finally:
-                        if target_uri != self.uri and os.path.exists(
-                                os.path.dirname(target_uri)):
+                        if (is_temp_download and target_uri != self.uri
+                                and os.path.exists(
+                                    os.path.dirname(target_uri))):
                             shutil.rmtree(os.path.dirname(target_uri))
 
                 self.uri = pdf_dir + pdf_filename
