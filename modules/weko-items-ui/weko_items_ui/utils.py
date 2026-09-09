@@ -269,15 +269,18 @@ def get_user_info_by_email(email):
 
 def get_user_information(user_id):
     """
-    Get user information user_id.
+    Get user information by user_id.
 
     Query database to get email by using user_id
     Get username from database using user id
     Pack response data: user id, user name, email
 
-    parameter:
-        user_id: The user_id
-    return: response
+    Args:
+        user_id (int): The ID of the user whose information is to be retrieved.
+
+    Returns:
+        dict: A dictionary containing the user's information,
+            including 'username', 'email', and 'fullname'.
     """
     result = {
         'username': '',
