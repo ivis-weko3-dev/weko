@@ -4965,7 +4965,9 @@ a:active,a:focus,a:hover {
     border: none;
     outline: 0;
     box-shadow: none;
-    -webkit-appearance: textfield
+    -webkit-appearance: textfield;
+    width: 88px !important;
+    min-width: 88px;
 }
 
 .select2-container--default .select2-results__option[role=group] {
