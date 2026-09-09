@@ -4,7 +4,6 @@
  */
 
 import $ from 'jquery';
-import 'bootstrap';
 import '../node_modules/select2/dist/js/select2.full.js';
 
 // Pass a copied $ to functions using require(Must specify in files)

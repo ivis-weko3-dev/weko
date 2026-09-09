@@ -1,4 +1,3 @@
-import "bootstrap";
 import $ from "jquery";
 
 $(document).ready(function () {
@@ -55,4 +54,3 @@ $(document).ready(function () {
         return Math.round(+number + 'e' + precision) / Math.pow(10, precision);
     }
 });
-

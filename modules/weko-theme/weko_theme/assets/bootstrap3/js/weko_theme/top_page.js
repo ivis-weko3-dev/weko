@@ -1,4 +1,3 @@
-import "bootstrap";
 import $ from "jquery";
 
 $('#body').on('load', function (event, data) {
