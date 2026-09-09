@@ -215,7 +215,7 @@ msgstr "このアイテムを編集中のワークフローがあります。"
 
 #: weko_items_ui/views.py:1121 weko_items_ui/views.py:1287
 msgid "Record does not exist."
-msgstr "レコードが存在しません"
+msgstr "レコードが存在しません。"
 
 #: weko_items_ui/views.py:1134 weko_items_ui/views.py:1300
 msgid "You are not allowed to edit this item."
