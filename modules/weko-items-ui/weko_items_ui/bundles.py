@@ -61,6 +61,7 @@ items_author_search_js = NpmBundle(
 
 js = Bundle(
     'js/weko_items_ui/app.js',
+    'js/weko_items_ui/contributor_suggest.js',
     output="gen/items_ui.%(version)s.js",
 )
 
