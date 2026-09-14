@@ -15,7 +15,7 @@
                        ng-value="item.value"
                        name="{{ form.key.slice(-1)[0] }}">
                 <span ng-if="item.fa_cls"><i ng-class="'fa fa-fw ' + item.fa_cls"></i></span>
-                <span ng-bind-html="item.name"></span>
+                <span ng-bind="item.name"></span>
             </label>
         </div>
         <div class="help-block" sf-message="form.description"></div>
