@@ -25,7 +25,11 @@
     </div>
     <div class="col-xs-2 col-sm-2 col-md-2 col-lg-2">
         <div class="autocomplete">
-            <input id="share_username_{{default_id}}" autocomplete="off" type="text" name="share_username_{{default_id}}" placeholder="Username" class="form-control" onclick="get_search_data('username', this.id)" forcusout="focusoutShareUsername(this.id)">
+            <input
+                id="share_username_{{default_id}}" autocomplete="off" type="text"
+                name="share_username_{{default_id}}" placeholder="Username" class="form-control"
+                onclick="initContributorSuggest(this)" forcusout="focusoutShareUsername(this.id)"
+            >
             <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate id_spinners_username" id="id_spinners_username_{{default_id}}"></span>
         </div>
     </div>
@@ -34,7 +38,11 @@
     </div>
     <div class="col-xs-5 col-sm-5 col-md-5 col-lg-5">
         <div class="autocomplete">
-            <input id="share_email_{{default_id}}" autocomplete="off" type="text" name="share_email_{{default_id}}" placeholder="Email" class="form-control" onclick="get_search_data('email', this.id)" foucusout="focusoutShareEmail(this.id)">
+            <input
+                id="share_email_{{default_id}}" autocomplete="off" type="text"
+                name="share_email_{{default_id}}" placeholder="Email" class="form-control"
+                onclick="initContributorSuggest(this)" foucusout="focusoutShareEmail(this.id)"
+            >
             <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate id_spinners_email" id="id_spinners_email_{{default_id}}"></span>
         </div>
     </div>
