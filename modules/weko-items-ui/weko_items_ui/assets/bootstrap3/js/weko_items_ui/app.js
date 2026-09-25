@@ -3903,7 +3903,7 @@ function toObject(arr) {
                     'valid_emails': [],
                     'invalid_emails': []
                 };
-                let emails = $(list_id).children('a');
+                let emails = $(list_id).children('button');
                 if (emails.length === 0) {
                     return mails_info;
                 }
