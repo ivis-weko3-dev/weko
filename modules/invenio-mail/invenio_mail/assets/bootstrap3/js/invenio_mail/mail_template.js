@@ -1,3 +1,4 @@
+import $ from "jquery";
 import React from "react";
 import ReactDOM from "react-dom";
 const {useState, useEffect} = React;
@@ -111,16 +112,20 @@ function TermsList({termList, setTermList, currentTerm, setCurrentTerm}) {
                   {
                     groupTemplates[key].items.map((term) => (
                       <li className="tree-list" key={term.key}>
-                        <a
+                        <button
                           className={`list-group-item list-group-item-action ${currentTerm !== undefined && currentTerm.key === term.key ? 'active' : ''}`}
                           onClick={handleOnTermClick}
                           id={term.key}>ID:{term.key} | {term.content.subject}
-                        </a>
+                        </button>
                         {term.flag === false ? (
-                          <a
+                          <button
+                            tabIndex={0}
                             className="glyphicon glyphicon-remove glyphicon-remove-term pull-right"
                             id={term.key}
-                            key={term.key} onClick={handleRemoveTerm} />
+                            key={term.key}
+                            onClick={handleRemoveTerm}
+                            onKeyDown={() => { }}
+                          />
                         ) : (
                           ""
                         )}
