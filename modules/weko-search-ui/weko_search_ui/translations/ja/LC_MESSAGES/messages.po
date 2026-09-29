@@ -561,7 +561,7 @@ msgstr "重複するアイテムリンクを作成することはできません
 
 #: weko_search_ui/utils.py:3431
 msgid "'wk:metadataReplace' flag cannot be used when registering an item."
-msgstr "RO-Crate インポートでは、`wk:metadataReplace`フラグを有効にできません。"
+msgstr "アイテム新規登録時には、`wk:metadataReplace`フラグを有効にできません。"
 
 #: weko_search_ui/utils.py:3748
 msgid ""
@@ -1226,4 +1226,3 @@ msgstr "マッピング"
 #: weko_search_ui/templates/weko_search_ui/admin/rocrate_import.html:99
 msgid "Failed to get mapping list."
 msgstr "マッピング定義リストの取得に失敗しました。"
-
