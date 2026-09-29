@@ -1524,12 +1524,10 @@ def get_count_item_link(pk_id):
         index=build_alias_name(current_app.config['SEARCH_UI_SEARCH_INDEX']),
         body=query_q
     )
-
-    if result_itemCnt \
-            and 'hits' in result_itemCnt \
-            and 'total' in result_itemCnt['hits'] \
-            and len(result_itemCnt['hits']['hits']) > 0:
-        count = result_itemCnt['hits']['total']['value']
+    if result_itemCnt and \
+            'hits' in result_itemCnt and \
+            len(result_itemCnt['hits']['hits']) > 0:
+        count = len(result_itemCnt['hits']['hits'])
     return count
 
 
