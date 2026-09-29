@@ -1062,13 +1062,13 @@ const queryUsageReportList = (method, data, setActivities, setTotalPage, extraPa
             data: JSON.stringify(data)
         });
     }
-    request.success(
+    request.done(
         function (result) {
             setActivities(result.activities)
             setTotalPage(result.number_of_pages)
         }
     )
-        .error(function (error) {
+        .fail(function (error) {
             console.log(error);
         })
 }
