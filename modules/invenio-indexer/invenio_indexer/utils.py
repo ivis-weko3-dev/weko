@@ -13,7 +13,7 @@ from functools import wraps
 
 from flask import current_app
 from invenio_search import current_search
-from invenio_search.utils import build_index_from_parts
+from invenio_search.utils import build_index_from_parts, build_alias_name
 
 
 def schema_to_index(schema, index_names=None):
@@ -63,4 +63,5 @@ def default_record_to_index(record):
 
     index = schema_to_index(schema, index_names=index_names)
 
-    return index or current_app.config["INDEXER_DEFAULT_INDEX"]
+    index = index or current_app.config["INDEXER_DEFAULT_INDEX"]
+    return build_alias_name(index)
