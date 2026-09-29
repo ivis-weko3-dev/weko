@@ -37,15 +37,9 @@ previewer = WebpackThemeBundle(
             entry={
                 "papaparse_csv": "./js/invenio_previewer/csv_previewer/init.js",
                 "previewer_theme": "./js/invenio_previewer/previewer_theme.js",
-                "fullscreen_js": "./js/invenio_previewer/fullscreen.js",
                 "prism_js": "./js/invenio_previewer/prismjs.js",
                 "prism_css": "./scss/invenio_previewer/prismjs.scss",
-                "pdfjs_js": "./js/invenio_previewer/pdfjs.js",
-                "pdfjs_css": "./scss/invenio_previewer/pdfjs.scss",
-                "zip_css": "./scss/invenio_previewer/zip.scss",
-                "open_pdf": "./js/invenio_previewer/open_pdf.js",
                 "simple_image_css": "./scss/invenio_previewer/simple_image.scss",
-                "txt_css": "./scss/invenio_previewer/txt.scss",
             },
             dependencies={
                 "bootstrap-sass": "~3.3.5",
@@ -53,24 +47,20 @@ previewer = WebpackThemeBundle(
                 "flightjs": "~1.5.1",
                 "font-awesome": "~4.5.0",
                 "jquery": "^3.3.1",
-                "pdfjs-dist": "^1.4.192",
+                "pdfjs-dist": "^4.0",
                 "prismjs": "^1.15.0",
             },
             aliases={
                 "@scss/invenio_previewer": "scss/invenio_previewer",
-            },
+            }
         ),
         "semantic-ui": dict(
             entry={
                 "papaparse_csv": "./js/invenio_previewer/csv_previewer/init.js",
                 "previewer_theme": "./js/invenio_previewer/previewer_theme.js",
-                "fullscreen_js": "./js/invenio_previewer/fullscreen.js",
                 "prism_js": "./js/invenio_previewer/prismjs.js",
                 "prism_css": "./scss/invenio_previewer/prismjs.scss",
-                "pdfjs_js": "./js/invenio_previewer/pdfjs.js",
-                "open_pdf": "./js/invenio_previewer/open_pdf.js",
                 "bottom_js": "./js/invenio_previewer/bottom.js",
-                "pdfjs_css": "./scss/invenio_previewer/pdfjs.scss",
                 "zip_css": "./scss/invenio_previewer/zip.scss",
                 "bottom_css": "./scss/invenio_previewer/bottom.scss",
                 "simple_image_css": "./scss/invenio_previewer/simple_image.scss",
@@ -84,10 +74,10 @@ previewer = WebpackThemeBundle(
                 "font-awesome": "~4.5.0",
                 "jquery": "^3.3.1",
                 "papaparse": "^5.4.1",
-                "pdfjs-dist": "^1.4.192",
                 "prismjs": "^1.15.0",
                 "video.js": "^8.6.1",
-            },
+                "pdfjs-dist": "^4.0",
+            }
         ),
     },
 )

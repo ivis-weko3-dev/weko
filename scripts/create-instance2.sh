@@ -153,6 +153,9 @@ ln -s ../static/templates templates
 \cp -pf "/code/scripts/webpack.config.js" "$(pwd)/build/webpack.config.js"
 # sphinxdoc-collect-and-build-assets-begin
 ${INVENIO_WEB_INSTANCE} collect -v
+cp -r node_modules/pdfjs-dist/build ../static/js/pdfjs/
+cp -r node_modules/pdfjs-dist/cmaps ../static/js/pdfjs/
+cp -r node_modules/pdfjs-dist/web ../static/js/pdfjs/
 ${INVENIO_WEB_INSTANCE} webpack build
 # sphinxdoc-collect-and-build-assets-end
 
