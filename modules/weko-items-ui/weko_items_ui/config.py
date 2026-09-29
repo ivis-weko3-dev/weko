@@ -210,7 +210,11 @@ WEKO_ITEMS_UI_RANKING_BUFFER = 100
 
 WEKO_ITEMS_UI_SEARCH_RANK_KEY_FILTER = ['']
 
-WEKO_ITEMS_UI_SHARED_USER_ROLE_ID_LIST = [1,2,3]
+WEKO_ITEMS_UI_SHARED_USER_ROLE_ID_LIST = [
+    "System Administrator",
+    "Repository Administrator",
+    "Contributor"
+]
 
 WEKO_ITEMS_UI_RANKING_QUERY = {
     'most_view_ranking': {
