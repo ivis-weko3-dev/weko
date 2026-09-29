@@ -83,49 +83,48 @@ def _adjust_shib_admin_DB():
     if current_app.config.get('TESTING', False):  # テスト環境では何もしない
         return
 
-    with _app.app_context():
-        if AdminSettings.query.filter_by(name='blocked_user_settings').first() is None:
-            max_id = db.session.query(db.func.max(AdminSettings.id)).scalar()
-            new_setting = AdminSettings(
-                id=max_id + 1,
-                name="blocked_user_settings",
-                settings={"blocked_ePPNs": []}
-            )
-            db.session.add(new_setting)
-            db.session.commit()
+    if AdminSettings.query.filter_by(name='blocked_user_settings').first() is None:
+        max_id = db.session.query(db.func.max(AdminSettings.id)).scalar()
+        new_setting = AdminSettings(
+            id=max_id + 1,
+            name="blocked_user_settings",
+            settings={"blocked_ePPNs": []}
+        )
+        db.session.add(new_setting)
+        db.session.commit()
 
-        if AdminSettings.query.filter_by(name='shib_login_enable').first() is None:
-            max_id = db.session.query(db.func.max(AdminSettings.id)).scalar()
-            new_setting = AdminSettings(
-                id=max_id + 1,
-                name="shib_login_enable",
-                settings={"shib_flg": _app.config['WEKO_ACCOUNTS_SHIB_LOGIN_ENABLED']}
-            )
-            db.session.add(new_setting)
-            db.session.commit()
+    if AdminSettings.query.filter_by(name='shib_login_enable').first() is None:
+        max_id = db.session.query(db.func.max(AdminSettings.id)).scalar()
+        new_setting = AdminSettings(
+            id=max_id + 1,
+            name="shib_login_enable",
+            settings={"shib_flg": _app.config['WEKO_ACCOUNTS_SHIB_LOGIN_ENABLED']}
+        )
+        db.session.add(new_setting)
+        db.session.commit()
 
-        if AdminSettings.query.filter_by(name='default_role_settings').first() is None:
-            max_id = db.session.query(db.func.max(AdminSettings.id)).scalar()
-            new_setting = AdminSettings(
-                id=max_id + 1,
-                name="default_role_settings",
-                settings={
-                    "gakunin_role": _app.config['WEKO_ACCOUNTS_GAKUNIN_ROLE']['defaultRole'],
-                    "orthros_outside_role": _app.config['WEKO_ACCOUNTS_ORTHROS_OUTSIDE_ROLE']['defaultRole'],
-                    "extra_role": _app.config['WEKO_ACCOUNTS_EXTRA_ROLE']['defaultRole']}
-            )
-            db.session.add(new_setting)
-            db.session.commit()
+    if AdminSettings.query.filter_by(name='default_role_settings').first() is None:
+        max_id = db.session.query(db.func.max(AdminSettings.id)).scalar()
+        new_setting = AdminSettings(
+            id=max_id + 1,
+            name="default_role_settings",
+            settings={
+                "gakunin_role": _app.config['WEKO_ACCOUNTS_GAKUNIN_ROLE']['defaultRole'],
+                "orthros_outside_role": _app.config['WEKO_ACCOUNTS_ORTHROS_OUTSIDE_ROLE']['defaultRole'],
+                "extra_role": _app.config['WEKO_ACCOUNTS_EXTRA_ROLE']['defaultRole']}
+        )
+        db.session.add(new_setting)
+        db.session.commit()
 
-        if AdminSettings.query.filter_by(name='attribute_mapping').first() is None:
-            max_id = db.session.query(db.func.max(AdminSettings.id)).scalar()
-            new_setting = AdminSettings(
-                id=max_id + 1,
-                name="attribute_mapping",
-                settings=_app.config['WEKO_ACCOUNTS_ATTRIBUTE_MAP']
-            )
-            db.session.add(new_setting)
-            db.session.commit()
+    if AdminSettings.query.filter_by(name='attribute_mapping').first() is None:
+        max_id = db.session.query(db.func.max(AdminSettings.id)).scalar()
+        new_setting = AdminSettings(
+            id=max_id + 1,
+            name="attribute_mapping",
+            settings=_app.config['WEKO_ACCOUNTS_ATTRIBUTE_MAP']
+        )
+        db.session.add(new_setting)
+        db.session.commit()
 
 
 def _redirect_method(has_next=False, ams_error=None):
