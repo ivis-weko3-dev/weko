@@ -758,10 +758,21 @@ WEKO_SEARCH_UI_BULK_EXPORT_RETRY_INTERVAL = 1
 
 WEKO_SEARCH_UI_REGEX_MAX_LENGTH = 1000
 
-WEKO_SEARCH_UI_IMPORT_REPLACE_RULES = {}
+WEKO_SEARCH_UI_IMPORT_REPLACE_RULES = {
+    "pipe_full_width": {
+        "from": "|",
+        "to": "｜",
+        "is_regex": False,
+        "target_path": []
+    }
+}
 """Strings to be replaced during item import."""
 
-WEKO_SEARCH_UI_IMPORT_REPLACE_RULE_MAP = {}
+WEKO_SEARCH_UI_IMPORT_REPLACE_RULE_MAP = {
+    "32001": [
+        "pipe_full_width"
+    ]
+}
 """Mapping of jsonld_mappings table 'id' to replacement rule keys."""
 
 CELERY_RESULT_PERSISTENT = True
