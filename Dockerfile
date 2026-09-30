@@ -24,7 +24,7 @@
 
 
 # Use Python-3.12:
-FROM python:3.12-slim-bullseye as stage_1
+FROM python:3.12-slim-trixie as stage_1
 
 ARG INVENIO_APP_THEME
 # Configure Weko instance:
