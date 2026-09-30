@@ -40,13 +40,7 @@
   {{ webpack['records_ui_js.js']}}
   {{ webpack['records_ui_preview_carousel.js']}}
   {{ webpack['records_ui_file_stats_js.js']}}
-<!-- start demo block-->
 
-<script type="text/javascript">var addthis_config = {"data_track_addressbar": true};</script>
-{%- set site_info = site_info|get_site_info %}
-{%- set addthis_user_id = site_info.get("addthis_user_id",config.ADDTHIS_USER_ID) %}
-<script type="text/javascript" src="//s7.addthis.com/js/300/addthis_widget.js#pubid={{ addthis_user_id }}"></script>
-<!-- end demo block -->
   {{ webpack['theme-widget.js']}}
 {%- endblock javascript %}
 
