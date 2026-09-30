@@ -411,7 +411,7 @@ msgid "Maintenance"
 msgstr ""
 
 #: weko_admin/admin.py:2542
-msgid "ElasticSearch Index"
+msgid "Search Index"
 msgstr ""
 
 #: weko_admin/admin.py:2551
