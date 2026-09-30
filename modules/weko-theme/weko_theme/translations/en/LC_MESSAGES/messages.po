@@ -892,8 +892,8 @@ msgid "Admin menu_Maintenance"
 msgstr "Maintenance"
 
 #: /weko-theme/weko_theme/templates/weko_theme/admin_layout.html:
-msgid "Admin menu_Maintenance_ElasticSearch Index"
-msgstr "ElasticSearch Index"
+msgid "Admin menu_Maintenance_Search Index"
+msgstr "Search Index"
 
 
 #: weko_admin/
