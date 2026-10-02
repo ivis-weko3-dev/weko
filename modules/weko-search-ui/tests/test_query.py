@@ -1,5 +1,7 @@
 import pytest
 import copy
+import pytz
+from datetime import datetime
 from flask import request, url_for, current_app
 from re import L
 from elasticsearch_dsl.query import Match, Range, Terms, Bool
@@ -27,7 +29,7 @@ from weko_search_ui.query import (
 class MockSearchPerm:
     def __init__(self):
         pass
-    
+
     def can(self):
         return True
 
@@ -126,7 +128,7 @@ def is_exist_recursive(target, search_list):
         for t_item in target:
             if is_exist_recursive(t_item, search_list):
                 return True
-        
+
     return False
 
 # def default_search_factory(self, search, query_parser=None, search_type=None):
@@ -515,7 +517,7 @@ def test_default_search_factory(db, app, users, communities, db_index2, item_typ
         result = (res.query()).to_dict()
         q_list = result['query']['bool']['filter'][0]['bool']['must']
         assert is_exist_recursive(q_list, expected)
-    # _default_parser_community 
+    # _default_parser_community
     _data = {
         'search_type': 0,
         'community': 'comm1',
@@ -960,21 +962,43 @@ def test_default_search_factory3(db, app, users, communities, db_index2, item_ty
 
 # def item_path_search_factory(self, search, index_id=None):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_query.py::test_item_path_search_factory -vv -s --cov-branch --cov-report=xml --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_item_path_search_factory(i18n_app, users, indices):
+def test_item_path_search_factory(app, users, indices):
     search = RecordsSearch()
-    i18n_app.config['WEKO_SEARCH_TYPE_INDEX'] = 'index'
-    i18n_app.config['OAISERVER_ES_MAX_CLAUSE_COUNT'] = 1
-    i18n_app.config['WEKO_ADMIN_MANAGEMENT_OPTIONS'] = WEKO_ADMIN_MANAGEMENT_OPTIONS
-    with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
-        mock_searchperm = MagicMock(side_effect=MockSearchPerm)
-        with patch('weko_search_ui.query.search_permission', mock_searchperm):
-            res = item_path_search_factory(self=None, search=search, index_id=33)
-            assert res
-            _rv = ([Bool(must=[Terms(path=[])], should=[Match(weko_creator_id='5'), Match(weko_shared_id='5'), Bool(must=[Match(publish_status='0'), Range(publish_date={'lte': 'now/d'})])]), Bool(must=[Match(relation_version_is_last='true')])], ['3', '4', '5'])
-            with patch('weko_search_ui.query.get_permission_filter', return_value=_rv):
-                res = item_path_search_factory(self=None, search=search, index_id=None)
-                assert res
+    app.config['WEKO_SEARCH_TYPE_INDEX'] = 'index'
+    app.config['OAISERVER_ES_MAX_CLAUSE_COUNT'] = 1
+    app.config['WEKO_ADMIN_MANAGEMENT_OPTIONS'] = WEKO_ADMIN_MANAGEMENT_OPTIONS
+    sysadmin_user = users[3]["obj"]
 
+    jst = pytz.timezone("Asia/Tokyo")
+    offset = jst.localize(datetime.now()).utcoffset()
+    offset_minutes = f"{int(offset.total_seconds() // 60)}m"
+    with app.test_request_context():
+        with patch("flask_login.utils._get_user", return_value=sysadmin_user):
+            with patch("weko_search_ui.query.get_item_type_aggs", return_value={}):
+                mock_searchperm = MagicMock(side_effect=MockSearchPerm)
+                with patch('weko_search_ui.query.search_permission', mock_searchperm):
+                    res = item_path_search_factory(self=None, search=search, index_id=33)
+                    assert res
+                    _rv = ([Bool(must=[Terms(path=[])], should=[Match(weko_creator_id='5'), Match(weko_shared_id='5'), Bool(must=[Match(publish_status='0'), Range(publish_date={'lte': 'now/d'})])]), Bool(must=[Match(relation_version_is_last='true')])], ['3', '4', '5'])
+                    with patch('weko_search_ui.query.get_permission_filter', return_value=_rv):
+                        res = item_path_search_factory(self=None, search=search, index_id=None)
+                        assert res
+    with patch("flask_login.utils._get_user",return_value=sysadmin_user):
+        url = "/test?page=1&size=20&sort=controlnumber&search_type=2&q=3"
+        with app.test_request_context(url):
+            mock_searchperm = MagicMock(side_effect=MockSearchPerm)
+            with patch("weko_search_ui.query.search_permission",mock_searchperm):
+                with patch("weko_search_ui.query.get_item_type_aggs",return_value={}):
+                    # child_list fits in one aggregation
+                    child_list = [str(i) for i in range(277)]
+                    with patch("weko_search_ui.query.Indexes.get_child_list_recursive",return_value=child_list):
+                        record_search, _ = item_path_search_factory(self=None,search=search,index_id=33)
+                        assert record_search.query().to_dict() == {"query": {"bool": {"must": [{"match": {"relation_version_is_last": "true"}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}, {"match_all": {}}]}}, "post_filter": {"bool": {"must": [{"terms": {"path": ["33"]}}, {"bool": {"should": [{"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"match": {"weko_creator_id": "5"}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"match": {"weko_shared_id": "5"}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}]}}]}}, "aggs": {"path": {"terms": {"field": "path", "include": "|".join(str(i) for i in range(277)), "size": "2"}, "aggs": {"date_range": {"filter": {"match": {"publish_status": "0"}}, "aggs": {"available": {"range": {"field": "publish_date", "ranges": [{"from": f"now+1d+{offset_minutes}/d"}, {"to": f"now+1d+{offset_minutes}/d"}]}}}}, "no_available": {"filter": {"bool": {"must_not": [{"match": {"publish_status": "0"}}]}}}}}}, "sort": [{None: {"order": "asc", "unmapped_type": "long"}}, {None: {"order": "asc", "unmapped_type": "long"}}, {None: {"order": "asc", "unmapped_type": "long"}}], "_source": {"excludes": ["content"]}}
+                    # child_list is split into multiple aggregations
+                    child_list = [str(i) for i in range(278)]
+                    with patch("weko_search_ui.query.Indexes.get_child_list_recursive",return_value=child_list):
+                        record_search, _ = item_path_search_factory(self=None,search=search,index_id=33)
+                        assert record_search.query().to_dict() == {"query": {"bool": {"must": [{"match": {"relation_version_is_last": "true"}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}, {"match_all": {}}]}}, "post_filter": {"bool": {"must": [{"terms": {"path": ["33"]}}, {"bool": {"should": [{"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"match": {"weko_creator_id": "5"}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"match": {"weko_shared_id": "5"}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}]}}]}}, "aggs": {"path_0": {"terms": {"field": "path", "include": "|".join(str(i) for i in range(277)), "size": "2"}, "aggs": {"date_range": {"filter": {"match": {"publish_status": "0"}}, "aggs": {"available": {"range": {"field": "publish_date", "ranges": [{"from": f"now+1d+{offset_minutes}/d"}, {"to": f"now+1d+{offset_minutes}/d"}]}}}}, "no_available": {"filter": {"bool": {"must_not": [{"match": {"publish_status": "0"}}]}}}}}, "path_1": {"terms": {"field": "path", "include": "277", "size": "2"}, "aggs": {"date_range": {"filter": {"match": {"publish_status": "0"}}, "aggs": {"available": {"range": {"field": "publish_date", "ranges": [{"from": f"now+1d+{offset_minutes}/d"}, {"to": f"now+1d+{offset_minutes}/d"}]}}}}, "no_available": {"filter": {"bool": {"must_not": [{"match": {"publish_status": "0"}}]}}}}}}, "sort": [{None: {"order": "asc", "unmapped_type": "long"}}, {None: {"order": "asc", "unmapped_type": "long"}}, {None: {"order": "asc", "unmapped_type": "long"}}, {None: {"order": "asc", "unmapped_type": "long"}}], "_source": {"excludes": ["content"]}}
 
 # def check_permission_user():
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_query.py::test_check_permission_user -vv -s --cov-branch --cov-report=xml --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
@@ -1056,7 +1080,7 @@ def test_function_issue35902(app, users, communities, mocker):
             result = (res.query()).to_dict()
             result = result["query"]["bool"]["filter"][0]["bool"]["must"]
             assert result == test1
-        
+
         # detail search
         data = {
             "page":"1","size":"20","sort":"-createdate","creator":"","subject":"","sbjscheme":"","id":"","id_attr":"","type":"","itemtype":"","lang":"",
@@ -1075,7 +1099,7 @@ def test_function_issue35902(app, users, communities, mocker):
             result = (res.query()).to_dict()
             result = result["query"]["bool"]["filter"][0]["bool"]["must"]
             assert result == test2
-            
+
         # full text search
         data = {
             "page":"1","size":"20","sort":"-createdate",
@@ -1095,7 +1119,7 @@ def test_function_issue35902(app, users, communities, mocker):
             result = (res.query()).to_dict()
             result = result["query"]["bool"]["filter"][0]["bool"]["must"]
             assert result == test3
-        
+
         # exist community
         test = [
             {"bool":{"should":[{"bool":{"must":[{"terms":{"publish_status":["0","1"]}},{"match":{"weko_creator_id":None}}]}},{"bool":{"must":[{"terms":{"publish_status":["0","1"]}},{"match":{"weko_shared_id":None}}]}},{"bool":{"must":[{"terms":{"publish_status":["0"]}},{"range":{"publish_date":{"lte":"now/d","time_zone":"UTC"}}}]}}],"must":[{"bool":{}}]}},
@@ -1126,7 +1150,7 @@ def test_function_issue35902(app, users, communities, mocker):
             result = (res.query()).to_dict()
             result = result["query"]["bool"]["filter"][0]["bool"]["must"]
             assert result == test1
-        
+
         # detail search
         data = {
             "page":"1","size":"20","sort":"-createdate","creator":"","subject":"","sbjscheme":"","id":"","id_attr":"","type":"","itemtype":"","lang":"",
@@ -1146,7 +1170,7 @@ def test_function_issue35902(app, users, communities, mocker):
             result = (res.query()).to_dict()
             result = result["query"]["bool"]["filter"][0]["bool"]["must"]
             assert result == test2
-            
+
         # full text search
         data = {
             "page":"1","size":"20","sort":"-createdate",

@@ -46,6 +46,21 @@ from .api import SearchSetting
 from .permissions import search_permission
 
 
+def get_item_type_aggs(search_index):
+    """Get item types aggregations.
+
+    Args:
+        search_index (str): Search index.
+
+    Returns:
+        dict: Aggregation dictionary.
+    """
+    from weko_admin.utils import get_facet_search_query
+
+    facets = get_facet_search_query(search_permission.can())
+    return facets.get(search_index).get("aggs", {})
+
+
 def get_permission_filter(index_id: str = None):
     """Check permission.
 
@@ -87,7 +102,7 @@ def get_permission_filter(index_id: str = None):
             terms = Q("terms", path=term_list)
     else:
         terms = Q("terms", path=is_perm_indexes)
-    
+
     if is_admin:
         mst.append(status)
     else:
@@ -1121,6 +1136,35 @@ def item_path_search_factory(self, search, index_id=None):
     :returns: Tuple with search instance and URL arguments.
     """
 
+    def _split_index_list(indexes, max_length=1000):
+        """Split index list into groups of indexes.
+
+        Args:
+            indexes (list): List of index ids(str).
+            max_length (int): Maximum length of each group.(default=1000)
+
+        Returns:
+            list: List of groups of indexes.example. ["1|2|3", "4|5|6"]
+
+        """
+        result = []
+        current_group = []
+        current_length = 0
+
+        for index in indexes:
+            regex_length = len(index) + (1 if current_group else 0)
+            if current_length + regex_length <= max_length:
+                current_group.append(index)
+                current_length += regex_length
+            else:
+                result.append("|".join(current_group))
+                current_group = [index]
+                current_length = len(index)
+
+        if current_group:
+            result.append("|".join(current_group))
+        return result
+
     def _get_index_earch_query():
         """Prepare search query.
 
@@ -1139,44 +1183,47 @@ def item_path_search_factory(self, search, index_id=None):
             "query": {
                 "bool": {"must": [{"match": {"relation_version_is_last": "true"}}]}
             },
-            "aggs": {
-                "path": {
-                    "terms": {
-                        "field": "path",
-                        "include": "@idxchild",
-                        "size": "@count",
-                    },
-                    "aggs": {
-                        "date_range": {
-                            "filter": {"match": {"publish_status": PublishStatus.PUBLIC.value}},
-                            "aggs": {
-                                "available": {
-                                    "range": {
-                                        "field": "publish_date",
-                                        "ranges": [
-                                            {"from": date_range},
-                                            {"to": date_range},
-                                        ],
-                                    },
-                                }
-                            },
-                        },
-                        "no_available": {
-                            "filter": {
-                                "bool": {
-                                    "must_not": [{"match": {"publish_status": PublishStatus.PUBLIC.value}}]
-                                }
-                            }
-                        },
-                    },
-                }
+            "aggs": {},
+            "post_filter":{}
+        }
+
+        aggs_template = {
+            "terms": {
+                "field": "path",
+                "include": "@idxchild",
+                "size": "@count",
             },
-            "post_filter": {},
+            "aggs": {
+                "date_range": {
+                    "filter": {"match": {"publish_status": PublishStatus.PUBLIC.value}},
+                    "aggs": {
+                        "available": {
+                            "range": {
+                                "field": "publish_date",
+                                "ranges": [
+                                    {"from": date_range},
+                                    {"to": date_range},
+                                ],
+                            },
+                        }
+                    },
+                },
+                "no_available": {
+                    "filter": {
+                        "bool": {
+                            "must_not": [{"match": {"publish_status": PublishStatus.PUBLIC.value}}]
+                        }
+                    }
+                },
+            },
         }
 
         q = request.values.get("q") or "0" if index_id is None else index_id
 
         if q != "0":
+            # add item type aggs
+            aggs_template["aggs"].update(get_item_type_aggs(search._index[0]))
+
             if q:
                 mut, is_perm_paths = get_permission_filter(q)
             else:
@@ -1197,7 +1244,6 @@ def item_path_search_factory(self, search, index_id=None):
             if q:
                 try:
                     child_idx = Indexes.get_child_list_recursive(q)
-                    child_idx_str = "|".join(child_idx)
                     max_clause_count = current_app.config.get(
                         "OAISERVER_ES_MAX_CLAUSE_COUNT", 1024
                     )
@@ -1231,14 +1277,24 @@ def item_path_search_factory(self, search, index_id=None):
                             }
                         })
 
-                    query_q = orjson.dumps(query_q).decode().replace("@idxchild", child_idx_str)
-                    query_q = orjson.loads(query_q)
+                    delta = current_app.config.get("WEKO_SEARCH_UI_REGEX_MAX_LENGTH", 1000)
+                    if len("|".join(child_idx)) <= delta:
+                        aggs = orjson.dumps(aggs_template).decode().replace(
+                            "@idxchild", "|".join(child_idx)
+                        )
+                        query_q["aggs"]["path"] = orjson.loads(aggs)
+                    else:
+                        regex_list = _split_index_list(child_idx,delta)
+                        for i, regex in enumerate(regex_list):
+                            aggs = orjson.dumps(aggs_template).decode().replace("@idxchild",regex)
+                            query_q["aggs"]["path_{}".format(i)] = orjson.loads(aggs)
                 except BaseException as ex:
                     current_app.logger.error(ex)
                     import traceback
 
                     traceback.print_exc(file=sys.stdout)
-
+            else:
+                query_q["aggs"]["path"] = aggs_template
             count = str(Indexes.get_index_count())
             query_q = orjson.dumps(query_q).decode().replace("@count", count)
             query_q = orjson.loads(query_q)
