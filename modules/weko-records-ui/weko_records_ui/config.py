@@ -618,3 +618,14 @@ WEKO_RECORDS_UI_DISPLAY_ITEM_TYPE = True
 
 WEKO_RECORDS_UI_Y_HANDLE_HOST = 'http://id.nii.ac.jp/'
 """Host server of Y_Handle"""
+
+WEKO_RECORDS_UI_CHARGE_STATE_TTL = 600
+"""TTL (seconds) of the charge reservation token and the charging lock.
+It must cover the time the user spends on the 3D Secure page."""
+
+WEKO_RECORDS_UI_CHARGE_ACCESS_TTL = 60
+"""TTL (seconds) of the AccessID passed from the 3D Secure callback
+to /charge/secure. It is consumed by the 303 redirect right away."""
+
+WEKO_RECORDS_UI_CHARGE_RETRY_AFTER = 60
+"""Retry-After header value (seconds) of 503 responses in charge processing."""

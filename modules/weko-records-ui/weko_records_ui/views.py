@@ -22,6 +22,8 @@
 
 import re
 import os
+import secrets
+from urllib import response
 import uuid
 
 import six
@@ -59,6 +61,8 @@ from weko_records.serializers import citeproc_v1
 from weko_records.serializers.utils import get_mapping
 from weko_records.utils import custom_record_medata_for_export, \
     remove_weko2_special_character, selected_value_by_language
+from redis.exceptions import RedisError
+from werkzeug.exceptions import ServiceUnavailable
 from weko_redis.redis import RedisConnection
 from weko_schema_ui.models import PublishStatus
 from weko_workflow.api import WorkFlow
@@ -75,7 +79,7 @@ from .permissions import check_content_clickable, check_created_id, \
 from .utils import get_billing_file_download_permission, \
     get_google_detaset_meta, get_google_scholar_meta, get_groups_price, \
     get_min_price_billing_file_download, get_record_permalink, hide_by_email, \
-    hide_by_itemtype, restore_session_info
+    hide_by_itemtype
 from .utils import restore as restore_imp
 from .utils import soft_delete as soft_delete_imp
 
@@ -1034,7 +1038,63 @@ def dbsession_clean(exception):
             db.session.rollback()
     db.session.remove()
 
+def _get_charge_redis():
+    """課金処理用の Redis クライアントを取得する。
+
+    Returns:
+        redis.StrictRedis: CACHE_REDIS_DB に接続したクライアント
+    """
+    redis_connection = RedisConnection()
+    return redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'])
+
+
+def _pop_charge_cache(redis_client, cache_key):
+    """キャッシュを取得し、同時に削除する。
+
+    Redis 4 系では GETDEL が使えないため、MULTI/EXEC で GET と DEL を
+    一体で実行する。同時に呼ばれても値を受け取れるのは 1 回だけになる。
+
+    Args:
+        redis_client : Redis クライアント
+        cache_key    : キャッシュキー
+
+    Returns:
+        dict: キャッシュの内容。存在しない場合は None
+    """
+    pipe = redis_client.pipeline(transaction=True)
+    pipe.get(cache_key)
+    pipe.delete(cache_key)
+    value, _deleted = pipe.execute()
+    if value is None:
+        return None
+    return orjson.loads(value)
+
+
+def _mask(value):
+    """ログ出力用に値の先頭 4 文字以外を伏せる。"""
+    value = str(value or '')
+    return value[:4] + '***' if value else ''
+
+
+def _charge_unavailable_json():
+    """課金予約で一時的な障害が起きたときの 503 レスポンスを返す。"""
+    response = jsonify({'status': 'error'})
+    response.status_code = 503
+    response.headers['Retry-After'] = str(
+        current_app.config['WEKO_RECORDS_UI_CHARGE_RETRY_AFTER'])
+    return response
+
+
+def _abort_charge_unavailable():
+    """3DS 認証後の処理で一時的な障害が起きたときに 503 で中断する。"""
+    response = ServiceUnavailable().get_response()
+    response.headers['Retry-After'] = str(
+        current_app.config['WEKO_RECORDS_UI_CHARGE_RETRY_AFTER'])
+    abort(response)
+
+
 @blueprint.route("/charge", methods=['GET'])
+@login_required
 def charge():
     '''課金処理を行う。
 
@@ -1048,118 +1108,244 @@ def charge():
         json:
             status:
                 already      : 課金済み
-                error        : 課金失敗
+                error        : 課金失敗(課金中を含む)
                 credit_error : 課金失敗(クレジットカード情報の不備)
         redirect:
             カード会社の3DS2.0画面へのリダイレクトURL
+        503:
+            Redis の障害など一時的な理由で課金予約できない
     '''
-    # Get session_id
-    session_id = request.cookies.get('session')
+    def release_lock():
+        try:
+            redis_client.delete(lock_key)
+        except RedisError as e:
+            current_app.logger.error(f'Redis error in charge (unlock): user: {user_id}, item_id: {item_id}')
+            current_app.logger.error(e)
+
+    def discard_state():
+        try:
+            redis_client.delete(state_key)
+        except RedisError as e:
+            current_app.logger.error(f'Redis error in charge (discard state): user: {user_id}, item_id: {item_id}')
+            current_app.logger.error(e)
 
     item_id = request.values.get('item_id')
     file_name = request.values.get('file_name')
     title = request.values.get('title')
     price = request.values.get('price')
-    file_url = current_app.config['THEME_SITEURL'] + f'/record/{item_id}/files/{file_name}'
-    ret_url = urljoin(
-        current_app.config['THEME_SITEURL'],
-        url_for('weko_records_ui.charge_secure', session_id=session_id.split('.')[0]),
-    )
-
-    # 課金中のアイテムIDをキャッシュから取得
-    redis_connection = RedisConnection()
-    datastore = redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'], kv=True)
-    cache_key = f'charge_{current_user.id}'
-    if datastore.redis.exists(cache_key):
-        # 課金中だったら課金しない
+    if not item_id or not str(item_id).isdigit():
         return jsonify({'status': 'error'})
+
+    user_id = current_user.id
+    state_ttl = current_app.config['WEKO_RECORDS_UI_CHARGE_STATE_TTL']
+    lock_key = f'charge_lock_{user_id}'
+
+    # 課金中ロックを取得する(SET NX で取得するため、同時に予約が走っても 1 件だけ通る)
+    try:
+        redis_client = _get_charge_redis()
+        if not redis_client.set(lock_key, str(item_id), nx=True, ex=state_ttl):
+            # 課金中だったら課金しない
+            return jsonify({'status': 'error'})
+    except RedisError as e:
+        current_app.logger.error(f'Redis error in charge (lock): user: {user_id}, item_id: {item_id}')
+        current_app.logger.error(e)
+        return _charge_unavailable_json()
 
     # 課金チェック
     try:
-        charge_result = check_charge(current_user.id, int(item_id))
+        charge_result = check_charge(user_id, int(item_id))
         if charge_result == 'already':
             # 課金済みだったら課金しない
+            release_lock()
             return jsonify({'status': 'already'})
     except Exception as e:
-        current_app.logger.error(f'Error in check_charge: user: {current_user.id}, item_id: {item_id}')
+        current_app.logger.error(f'Error in check_charge: user: {user_id}, item_id: {item_id}')
         current_app.logger.error(e)
-        return abort(500)
+        release_lock()
+        return _charge_unavailable_json()
+
+    # 3DS 認証後の戻り先で利用者を特定するためのトークンを発行する。
+    # トークンは推測できないよう乱数のみで作り、利用者との対応は Redis に持たせる。
+    token = secrets.token_urlsafe(32)
+    state_key = f'charge_state_{token}'
+    try:
+        redis_client.set(
+            state_key,
+            orjson.dumps({'user_id': user_id, 'item_id': str(item_id)}),
+            ex=state_ttl,
+        )
+    except RedisError as e:
+        current_app.logger.error(f'Redis error in charge (state): user: {user_id}, item_id: {item_id}')
+        current_app.logger.error(e)
+        release_lock()
+        return _charge_unavailable_json()
+
+    file_url = current_app.config['THEME_SITEURL'] + f'/record/{item_id}/files/{file_name}'
+    ret_url = urljoin(
+        current_app.config['THEME_SITEURL'],
+        url_for('weko_records_ui.charge_3ds_callback', token=token),
+    )
 
     # 課金予約
     try:
-        redirect_url = create_charge(current_user.id, int(item_id), price, title, file_url, ret_url)
-        if redirect_url in ['connection_error', 'api_error']:
-            # 課金失敗
-            return jsonify({'status': 'error'})
+        redirect_url = create_charge(user_id, int(item_id), price, title, file_url, ret_url)
+    except Exception as e:
+        current_app.logger.error(f'Error in create_charge: user: {user_id}, item_id: {item_id}, price: {price}, title: {title}, file_url: {file_url}')
+        current_app.logger.error(e)
+        discard_state()
+        release_lock()
+        return _charge_unavailable_json()
+
+    if redirect_url in ['connection_error', 'api_error', 'credit_error', 'already'] \
+            or not redirect_url:
+        # 3DS 画面へ進まないので、予約時に作ったキャッシュを片付ける
+        discard_state()
+        release_lock()
         if redirect_url == 'credit_error':
             # 課金失敗(クレジットカード情報の不備)
             return jsonify({'status': 'credit_error'})
         if redirect_url == 'already':
             # 課金済みだったら課金しない
             return jsonify({'status': 'already'})
-    except Exception as e:
-        current_app.logger.error(f'Error in create_charge: user: {current_user.id}, item_id: {item_id}, price: {price}, title: {title}, file_url: {file_url}')
-        current_app.logger.error(e)
-        return abort(500)
-
-    if not redirect_url:
         # 課金失敗
         return jsonify({'status': 'error'})
 
-    # 課金中のアイテムIDをキャッシュに保存
-    datastore.put(cache_key, str(item_id).encode('utf-8'), ttl_secs=300)
-
     return jsonify({'redirect_url': redirect_url})
 
-@blueprint.route('/charge/secure/<string:session_id>', methods=['POST'])
-def charge_secure(session_id):
-    """3DS2.0認証後の課金処理を行う。
+
+@blueprint.route("/charge/3ds-callback", methods=["POST"])
+def charge_3ds_callback():
+    """3Dセキュア認証後の決済コールバックを処理する。
+
+    課金予約時に発行したトークンで利用者を特定し、受け取った AccessID を
+    利用者ごとのキャッシュに短時間だけ保存して /charge/secure へ 303 で
+    リダイレクトする。AccessID は URL に載せない。
+
+    callback では nginx 側で Cookie をアプリケーションへ転送せず、
+    Set-Cookie もブラウザへ返さないことで、匿名セッション Cookie で
+    利用者のログイン Cookie が上書きされることを防ぐ。
 
     Request parameter:
-        session_id : セッションID(URLパラメータ)
-        AccessID : 課金予約時に取得したaccess_id(POSTパラメータ)
+        token    : 課金予約時に発行したトークン(クエリパラメータ)
+        AccessID : 3DS 認証の対象取引の AccessID(POST パラメータ)
 
-    Response parameter
-        json:
-            status:
-                success : 課金成功
-                error   : 課金失敗
+    Response:
+        303 : /charge/secure へのリダイレクト
+        400 : トークンが不正・期限切れ・使用済み、または AccessID がない
+        503 : Redis の障害
     """
-    access_id = request.values.get('AccessID')
-    redis_connection = RedisConnection()
+    token = request.args.get('token', '')
+    access_id = request.form.get('AccessID')
+    # 形式が不正なトークンは Redis に問い合わせずに拒否する
+    if not re.fullmatch(r'[A-Za-z0-9_-]{43}', token):
+        abort(400)
 
-    if not current_user.is_authenticated:
-        restore_session_info(session_id, redis_connection)
+    # トークンは使い捨て。取得と削除を一体で行う
+    try:
+        redis_client = _get_charge_redis()
+        state = _pop_charge_cache(redis_client, f'charge_state_{token}')
+    except RedisError as e:
+        current_app.logger.error(f'Redis error in charge_3ds_callback (state): token: {_mask(token)}')
+        current_app.logger.error(e)
+        _abort_charge_unavailable()
+    if not state:
+        # トークンがない場合も期限切れ・使用済みの場合も同じ応答にする
+        abort(400)
 
-    # 課金中のアイテムIDをキャッシュから取得
-    datastore = redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'], kv=True)
-    cache_key = f'charge_{current_user.id}'
-    if not datastore.redis.exists(cache_key):
-        return redirect('/')
+    user_id = state.get('user_id')
+    item_id = state.get('item_id')
+    if not access_id:
+        # 決済できないので課金中ロックを外して再課金できるようにする
+        current_app.logger.warning(f'No AccessID in charge_3ds_callback: user: {user_id}, item_id: {item_id}')
+        try:
+            redis_client.delete(f'charge_lock_{user_id}')
+        except RedisError as e:
+            current_app.logger.error(f'Redis error in charge_3ds_callback (unlock): user: {user_id}, item_id: {item_id}')
+            current_app.logger.error(e)
+        abort(400)
 
-    item_id = datastore.redis.get(cache_key).decode('utf-8')
+    try:
+        redis_client.set(
+            f'charge_{user_id}',
+            orjson.dumps({'access_id': access_id, 'item_id': item_id}),
+            ex=current_app.config['WEKO_RECORDS_UI_CHARGE_ACCESS_TTL'],
+        )
+    except RedisError as e:
+        # 決済は実行されていないので課金は発生しない。課金中ロックの期限切れ後に再課金できる
+        current_app.logger.error(f'Redis error in charge_3ds_callback (access): user: {user_id}, item_id: {item_id}, access_id: {_mask(access_id)}')
+        current_app.logger.error(e)
+        _abort_charge_unavailable()
+
+    return redirect(url_for('weko_records_ui.charge_secure'), code=303)
+
+
+@blueprint.route('/charge/secure', methods=["GET"])
+@login_required
+def charge_secure():
+    """3DS2.0認証後の課金処理を行う。
+
+    callback が保存した AccessID を current_user.id で取り出し、
+    3DS2.0 認証後決済と課金確定を行う。AccessID は取得と同時に削除するため、
+    再読み込みや同時リクエストで決済が二重に実行されることはない。
+
+    Response:
+        302 : /records/{item_id} へのリダイレクト(課金の成否によらない)
+        400 : AccessID がない(callback を経由していない、期限切れ、使用済み)
+        503 : Redis の障害、または課金 API 呼び出し中の予期しない例外
+    """
+    user_id = current_user.id
+    lock_key = f'charge_lock_{user_id}'
+
+    # キャッシュから AccessID・課金中のアイテムIDを取得し、同時に削除する
+    try:
+        redis_client = _get_charge_redis()
+        data = _pop_charge_cache(redis_client, f'charge_{user_id}')
+    except RedisError as e:
+        current_app.logger.error(f'Redis error in charge_secure (access): user: {user_id}')
+        current_app.logger.error(e)
+        _abort_charge_unavailable()
+    access_id = data.get('access_id') if data else None
+    item_id = data.get('item_id') if data else None
+    if not access_id or not item_id:
+        abort(400)
+
     redirect_url = '/records/{}'.format(item_id)
-    datastore.delete(cache_key)
+
+    # 以降で課金に失敗した場合、課金中ロックは外さずに期限切れを待つ。
+    # 通信エラーなどで決済の成否が分からないまま再課金されるのを防ぐため。
 
     # 3DS2.0認証後決済
     try:
-        trade_id = secure_charge(current_user.id, access_id)
-        if trade_id in ['connection_error', 'api_error']:
-            # 課金失敗
-            return redirect(redirect_url)
+        trade_id = secure_charge(user_id, access_id)
     except Exception as e:
-        current_app.logger.error(f'Error in secure_charge: user: {current_user.id}, access_id: {access_id}')
+        current_app.logger.error(f'Error in secure_charge: user: {user_id}, item_id: {item_id}, access_id: {_mask(access_id)}')
         current_app.logger.error(e)
-        return abort(500)
+        _abort_charge_unavailable()
+    if trade_id in ['connection_error', 'api_error']:
+        # 課金失敗(決済の成否が不明な場合を含むため、要確認としてログに残す)
+        current_app.logger.error(f'secure_charge failed ({trade_id}): user: {user_id}, item_id: {item_id}, access_id: {_mask(access_id)}')
+        return redirect(redirect_url)
 
     # 課金確定
     try:
-        close_charge(current_user.id, trade_id)
-        return redirect(redirect_url)
+        closed = close_charge(user_id, trade_id)
     except Exception as e:
-        current_app.logger.error(f'Error in close_charge: user: {current_user.id}, trade_id: {trade_id}')
+        current_app.logger.error(f'Error in close_charge (needs reconciliation): user: {user_id}, item_id: {item_id}, trade_id: {trade_id}')
         current_app.logger.error(e)
-        return abort(500)
+        _abort_charge_unavailable()
+    if not closed:
+        # 決済済みで確定できていない。課金 API 側との突き合わせが必要
+        current_app.logger.error(f'close_charge failed (needs reconciliation): user: {user_id}, item_id: {item_id}, trade_id: {trade_id}')
+        return redirect(redirect_url)
+
+    # 課金が確定したので課金中ロックを外す
+    try:
+        redis_client.delete(lock_key)
+    except RedisError as e:
+        current_app.logger.error(f'Redis error in charge_secure (unlock): user: {user_id}, item_id: {item_id}')
+        current_app.logger.error(e)
+    return redirect(redirect_url)
+
 
 @blueprint.route('/charge/show', methods=['GET'])
 def charge_show():
