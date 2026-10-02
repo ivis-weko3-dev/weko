@@ -552,7 +552,7 @@ def check_import_items(file, is_change_identifier: bool, is_gakuninrdm=False,
             for info in z.infolist():
                 try:
                     info.filename = info.orig_filename
-                    inf = chardet.detect(info.orig_filename)                    
+                    inf = chardet.detect(info.orig_filename)
                     if inf['encoding'] is not None and inf['encoding'] == 'cp437':
                         info.filename = info.orig_filename.encode("cp437").decode("cp932")
                         if os.sep != "/" and os.sep in info.filename:
@@ -3492,11 +3492,11 @@ def export_all(root_url, user_id, data, start_time):
                     _file_create_key,
                     orjson.dumps(write_file_json).decode()
                 )
-                
+
                 if len(record_ids) == 0:
                     item_types.remove(it)
                     continue
-                
+
                 for recid, uuid in record_ids:
                     if counter % current_app.config["WEKO_SEARCH_UI_BULK_EXPORT_LIMIT"] == 0 and item_datas:
                         # Create export info file
@@ -4377,7 +4377,11 @@ def combine_aggs(data, target="path"):
     aggregations = data.get("aggregations")
     if aggregations:
         keys = list(aggregations.keys())
-        new_agg = {"doc_count_error_upper_bound": "0","sum_order_doc_count":"0","buckets":[]}
+        new_agg = {
+            "doc_count_error_upper_bound": "0",
+            "sum_order_doc_count":"0",
+            "buckets":[]
+        }
         for key in keys:
             if target in key:
                 bucket = aggregations.pop(key)["buckets"]

@@ -102,7 +102,7 @@ def get_permission_filter(index_id: str = None):
             terms = Q("terms", path=term_list)
     else:
         terms = Q("terms", path=is_perm_indexes)
-    
+
     if is_admin:
         mst.append(status)
     else:
@@ -1136,6 +1136,35 @@ def item_path_search_factory(self, search, index_id=None):
     :returns: Tuple with search instance and URL arguments.
     """
 
+    def _split_index_list(indexes, max_length=1000):
+        """Split index list into groups of indexes.
+
+        Args:
+            indexes (list): List of index ids(str).
+            max_length (int): Maximum length of each group.(default=1000)
+
+        Returns:
+            list: List of groups of indexes.example. ["1|2|3", "4|5|6"]
+
+        """
+        result = []
+        current_group = []
+        current_length = 0
+
+        for index in indexes:
+            regex_length = len(index) + (1 if current_group else 0)
+            if current_length + regex_length <= max_length:
+                current_group.append(index)
+                current_length += regex_length
+            else:
+                result.append("|".join(current_group))
+                current_group = [index]
+                current_length = len(index)
+
+        if current_group:
+            result.append("|".join(current_group))
+        return result
+
     def _get_index_earch_query():
         """Prepare search query.
 
@@ -1248,17 +1277,16 @@ def item_path_search_factory(self, search, index_id=None):
                             }
                         })
 
-                    delta = 1000
-                    if len(child_idx)<=delta:
-                        aggs = orjson.dumps(aggs_template).decode().replace("@idxchild","|".join(child_idx))
+                    delta = current_app.config.get("WEKO_SEARCH_UI_REGEX_MAX_LENGTH", 1000)
+                    if len("|".join(child_idx)) <= delta:
+                        aggs = orjson.dumps(aggs_template).decode().replace(
+                            "@idxchild", "|".join(child_idx)
+                        )
                         query_q["aggs"]["path"] = orjson.loads(aggs)
                     else:
-                        for i in range(len(child_idx)//delta+1):
-                            to = i*delta+delta
-                            if len(child_idx) < to:
-                                to = len(child_idx)
-                            child_list = child_idx[i*delta:to]
-                            aggs = orjson.dumps(aggs_template).decode().replace("@idxchild","|".join(child_list))
+                        regex_list = _split_index_list(child_idx,delta)
+                        for i, regex in enumerate(regex_list):
+                            aggs = orjson.dumps(aggs_template).decode().replace("@idxchild",regex)
                             query_q["aggs"]["path_{}".format(i)] = orjson.loads(aggs)
                 except BaseException as ex:
                     current_app.logger.error(ex)
