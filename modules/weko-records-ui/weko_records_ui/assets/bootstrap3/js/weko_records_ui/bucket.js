@@ -279,3 +279,14 @@ function uploadFileToS3(file, signedUrl) {
       xhr.send(file);
   });
 }
+
+// Webpackモジュール内の関数をボタンのクリックイベントに登録する
+document.addEventListener('DOMContentLoaded', function () {
+  document
+    .getElementById('replace-file-button')
+    .addEventListener('click', replaceFile);
+
+  document
+    .getElementById('copy-file-button')
+    .addEventListener('click', openBucketCopyModal);
+});
