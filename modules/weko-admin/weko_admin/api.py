@@ -69,7 +69,7 @@ def is_restricted_user(user_info):
 def smart_search(pattern, text):
     """
     Smart search that handles both bytes and str types for pattern and text.
-    
+
     :param pattern: The regex pattern to search for (str or bytes).
     :param text: The text to search within (str or bytes).
     :return: Match object or None.
@@ -81,7 +81,7 @@ def smart_search(pattern, text):
     # textがstrなら、patternもstrにデコード（patternがbytesの場合）
     elif isinstance(text, str) and isinstance(pattern, bytes):
         pattern = pattern.decode('utf-8')
-        
+
     return re.search(pattern, text)
 
 def _is_crawler(user_info):
@@ -91,14 +91,14 @@ def _is_crawler(user_info):
 
     :return: Boolean.
     """
-    
+
     restricted_agent_lists = LogAnalysisRestrictedCrawlerList.get_all_active()
     for restricted_agent_list in restricted_agent_lists:
-        empty_list = False            
+        empty_list = False
         try:
             redis_connection = RedisConnection()
             connection = redis_connection.connection(db=current_app.config['CRAWLER_REDIS_DB'], kv = False)
-       
+
             if current_app.config['WEKO_ADMIN_USE_REGEX_IN_CRAWLER_LIST']:
                 bot_regex_str = connection.get(restricted_agent_list.list_url)
                 if not bot_regex_str:
@@ -121,10 +121,9 @@ def _is_crawler(user_info):
                 raw_res=""
             if not raw_res:
                 continue
-
-            crawler_list = raw_res.splitlines()
+            crawler_list = [agent.strip() for agent in raw_res.splitlines()]
             if current_app.config['WEKO_ADMIN_USE_REGEX_IN_CRAWLER_LIST']:
-                crawler_list = [agent for agent in crawler_list if not agent.startswith('#') and not agent.startswith('+')]
+                crawler_list = [agent for agent in crawler_list if agent and not agent.startswith('#') and not agent.startswith('+')]
                 bot_regex_str = '|'.join(crawler_list)
                 connection.set(restricted_agent_list.list_url, bot_regex_str)
                 connection.expire(restricted_agent_list.list_url, current_app.config["CRAWLER_REDIS_TTL"])
@@ -135,7 +134,7 @@ def _is_crawler(user_info):
                     connection.sadd(restricted_agent_list.list_url,restrict_ip)
                 connection.expire(restricted_agent_list.list_url, current_app.config["CRAWLER_REDIS_TTL"])
                 restrict_list = connection.smembers(restricted_agent_list.list_url)
-        
+
         if current_app.config['WEKO_ADMIN_USE_REGEX_IN_CRAWLER_LIST']:
             if bot_regex_str and (
                 smart_search(bot_regex_str, (user_info['user_agent']).encode('utf-8')) or
@@ -151,7 +150,7 @@ def _is_crawler(user_info):
 
 def send_site_license_mail(organization_name, mail_list, result, data):
     """Send site license statistics mail.
-    
+
     Args:
         organization_name (String): organization name.
         mail_list (list): send mail list.
@@ -178,7 +177,7 @@ def send_site_license_mail(organization_name, mail_list, result, data):
         site_name_ja = site_name_en
     if current_site_name == "":
         current_site_name = site_name_en
-    
+
     agg_date = result['date']
     try:
         # mail title
@@ -292,7 +291,7 @@ def validate_csrf_header(request,csrf_header="X-CSRFToken"):
         CSRFError: _description_
         CSRFError: _description_
         CSRFError: _description_
-    """    
+    """
     try:
         csrf_token = request.headers.get(csrf_header)
         validate_csrf(csrf_token)
@@ -307,4 +306,3 @@ def validate_csrf_header(request,csrf_header="X-CSRFToken"):
 
         if not same_origin(request.referrer, good_referrer):
             raise CSRFError("The referrer does not match the host.")
-        
