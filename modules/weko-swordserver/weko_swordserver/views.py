@@ -16,7 +16,7 @@ import sys
 import traceback
 import json
 
-from flask import Blueprint, current_app, jsonify, request, url_for, abort, Response
+from flask import Blueprint, current_app, jsonify, request, url_for, Response
 from flask_login import current_user
 from flask_limiter.errors import RateLimitExceeded
 from elasticsearch.exceptions import ConnectionError as ESConnectionError
@@ -58,9 +58,10 @@ from weko_workflow.scopes import activity_scope
 from .config import WEKO_SWORDSERVER_DEPOSIT_ROLE_ENABLE
 from .decorators import check_on_behalf_of, check_package_contents
 from .errors import (
-    ERROR_CODE_PREFIX, DataValidationException, ErrorType, InputHeaderException,
-    InternalProcessException, RateLimitException, ResourceStateException,
-    UnexpectedException, WekoSwordserverException
+    ERROR_CODE_PREFIX, AuthorizationException, ConcurrencyException,
+    DataValidationException, ErrorType, IncompleteProcessException,
+    InputHeaderException, InternalProcessException, RateLimitException,
+    ResourceStateException, UnexpectedException, WekoSwordserverException
 )
 from .utils import (
     check_import_file_format,
@@ -303,7 +304,7 @@ def post_service_document():
                 "Required scopes for activity are not satisfied: {}"
                 .format(required_scopes - token_scopes)
             )
-            abort(403)
+            raise AuthorizationException.ACTIVITY_SCOPE_INSUFFICIENT()
 
     if check_result.get("error"):
         current_app.logger.error(
@@ -380,6 +381,7 @@ def post_service_document():
                 current_app.logger.error(
                     f"Error in import_items_to_system: {import_result.get('error_id')}"
                 )
+                _raise_if_dependency_unavailable(import_result.get("error_id"))
                 error = str(import_result.get('error_id'))
             else:
                 recid = str(import_result.get("recid"))
@@ -416,9 +418,13 @@ def post_service_document():
             if file_format == "JSON":
                 update_item_ids(
                     check_result["list_record"], recid, item.get("_id"))
+        except WekoSwordserverException:
+            raise
+        except (OperationalError, InterfaceError, RedisConnectionError, RedisTimeoutError, ESConnectionError):
+            # let the blueprint handlers return 503 (3108-3110)
+            raise
         except Exception as ex:
-            current_app.logger.error(f"Unexpected error: {ex}")
-            traceback.print_exc()
+            current_app.logger.error(f"Unexpected error: {ex}", exc_info=True)
             warns.append((activity_id, recid, "Unexpected error"))
             continue  # Skip to the next iteration
 
@@ -429,30 +435,27 @@ def post_service_document():
 
     response = {}
     if len(warns) > 0:
-        if register_type == "Direct":
-            message = ", ".join([error for _, _, error in warns if error])
-        else:
-            message = "; ".join(
-                [
-                    "{error} Please open the following URL to continue "
-                    "with the remaining operations: {url}."
-                    .format(
-                        error=error,
-                        url=url_for(
-                            "weko_workflow.display_activity",
-                            activity_id=activity_id, _external=True
-                        )
-                    )
-                    for activity_id, recid, error in warns
-                ]
-            )
+        # internal_detail is for the log only; never put it in the response
+        internal_detail = ", ".join([error for _, _, error in warns if error])
         current_app.logger.error(
             "Failed to import item; {}. via SWORD api by {}."
-            .format(message, request.oauth.client.name)
+            .format(internal_detail, request.oauth.client.name)
         )
-        raise WekoSwordserverException(
-                f"Failed to import item; {message}", ErrorType.BadRequest
+        if register_type == "Direct":
+            if any(_is_unexpected_error(error) for _, _, error in warns):
+                raise UnexpectedException.INTERNAL_SERVER_ERROR()
+
+            raise InternalProcessException.IMPORT_FAILURE()
+
+        raise WekoSwordserverException.merge([
+            IncompleteProcessException.REGISTRATION_PENDING_COMPLETION(
+                url=url_for(
+                    "weko_workflow.display_activity",
+                    activity_id=activity_id, _external=True
+                )
             )
+            for activity_id, _, _ in warns
+        ])
 
     current_app.logger.info(
         "Items imported via SWORD api by {} (recid={})"
@@ -612,7 +615,7 @@ def put_object(recid):
                 "Required scopes for activity are not satisfied: {}"
                 .format(required_scopes - token_scopes)
             )
-            abort(403)
+            raise AuthorizationException.ACTIVITY_SCOPE_INSUFFICIENT()
 
     if check_result.get("error"):
         current_app.logger.error(
@@ -691,19 +694,20 @@ def put_object(recid):
         if not lock_item_will_be_edit(recid):
             msg = f"Item {recid} will be edited by another process."
             current_app.logger.error(msg)
-            raise WekoSwordserverException(msg, ErrorType.BadRequest)
+            raise ConcurrencyException.ITEM_LOCKED(recid=recid)
 
         import_result = import_items_to_system(item, request_info=request_info)
         if not import_result.get("success"):
             current_app.logger.error(
                 "Failed to update item {}: {}; via SWORD api by {}."
-                .format(recid, item.get("error_id"), request.oauth.client.name)
+                .format(
+                    recid, import_result.get("error_id"), request.oauth.client.name
+                )
             )
-            raise WekoSwordserverException(
-                "Failed to update item {}: {}."
-                .format(recid, import_result.get("error_id")),
-                ErrorType.BadRequest
-            )
+            _raise_if_dependency_unavailable(import_result.get("error_id"))
+            if _is_unexpected_error(import_result.get("error_id")):
+                raise UnexpectedException.INTERNAL_SERVER_ERROR()
+            raise InternalProcessException.UPDATE_FAILURE(recid=recid)
         notify_about_item(
             "update", recid, current_user.id, shared_ids=shared_ids
         )
@@ -722,16 +726,12 @@ def put_object(recid):
                 "Failed to update item {recid}: {error}; via SWORD api by {name}."
                 .format(recid=recid, error=error, name=request.oauth.client.name)
             )
-            raise WekoSwordserverException(
-                "Failed to update item {recid}: {error}. Please open the "
-                "following URL to continue with the remaining operations: {url}."
-                .format(recid=recid, error=error, url=url),
-                ErrorType.BadRequest
-            )
+            raise IncompleteProcessException.UPDATE_PENDING_COMPLETION(recid=recid, url=url)
         if error:
-            raise WekoSwordserverException(
-                f"Unexpected error: {error}.", ErrorType.ServerError
+            current_app.logger.error(
+                "Failed to update item {}: {}; via SWORD api by {}.".format(recid, error, request.oauth.client.name)
             )
+            raise InternalProcessException.UPDATE_FAILURE(recid=recid)
         response = jsonify(
             _get_status_workflow_document(activity_id, recid)
         ), 200 if action == "end_action" else 202
@@ -806,6 +806,9 @@ def _get_status_document(recid):
         resolver = Resolver(pid_type="recid", object_type="rec",
                         getter=record_class.get_record)
         pid, record = resolver.resolve(recid)
+    except (OperationalError, InterfaceError, RedisConnectionError, RedisTimeoutError, ESConnectionError):
+        # let the blueprint handlers return 503 (3108-3110)
+        raise
     except Exception:
         raise ResourceStateException.ITEM_NOT_FOUND(recid=recid)
 
@@ -1035,6 +1038,9 @@ def _get_status_workflow_document(activity_id, recid):
         resolver = Resolver(pid_type="recid", object_type="rec",
                         getter=record_class.get_record)
         pid, record = resolver.resolve(recid)
+    except (OperationalError, InterfaceError, RedisConnectionError, RedisTimeoutError, ESConnectionError):
+        # let the blueprint handlers return 503 (3108-3110)
+        raise
     except Exception:
         raise ResourceStateException.ITEM_NOT_FOUND(recid=recid)
     if not activity_id:
@@ -1174,6 +1180,26 @@ def _sort_links_for_status(links):
         return (group, order)
     return sorted(links, key=link_key)
 
+
+# Fixed error_id values returned by import_items_to_system for dependency failures.
+UNAVAILABLE_ID = {
+    "database_unavailable": InternalProcessException.DATABASE_UNAVAILABLE,
+    "redis_unavailable": InternalProcessException.REDIS_UNAVAILABLE,
+    "search_engine_unavailable": InternalProcessException.SEARCH_ENGINE_UNAVAILABLE,
+}
+
+
+def _raise_if_dependency_unavailable(error_id):
+    """Raise the 503 spec (3108/3109/3110) if error_id is a dependency-unavailable id."""
+    spec = UNAVAILABLE_ID.get(error_id)
+    if spec:
+        raise spec()
+
+def _is_unexpected_error(error):
+    """Whether the error string is the "unexpected error" marker."""
+    return error == "Unexpected error" or str(error).startswith("Unexpected error:")
+
+
 @blueprint.route("/deposit/<recid>", methods=["DELETE"])
 @oauth2.require_oauth()
 @limiter.limit("")
@@ -1231,7 +1257,7 @@ def delete_object(recid):
                 "Required scopes for activity are not satisfied: {}"
                 .format(required_scopes - token_scopes)
             )
-            abort(403)
+            raise AuthorizationException.ACTIVITY_SCOPE_INSUFFICIENT()
 
     owner = -1
     if current_user.is_authenticated:
@@ -1261,7 +1287,7 @@ def delete_object(recid):
             if not lock_item_will_be_edit(recid):
                 msg = f"Item {recid} will be edited by another process."
                 current_app.logger.error(msg)
-                raise WekoSwordserverException(msg, ErrorType.BadRequest)
+                raise ConcurrencyException.ITEM_LOCKED(recid=recid)
 
             delete_item_directly(recid, request_info=request_info)
             notify_about_item(
@@ -1275,8 +1301,12 @@ def delete_object(recid):
                 target_key=recid
             )
             response = Response(status=204)
+    except (OperationalError, InterfaceError,
+            RedisConnectionError, RedisTimeoutError,
+            ESConnectionError):
+        # DB / Redis / search engine failures: let the blueprint handlers return 503 (3108-3110)
+        raise
     except WekoSwordserverException as ex:
-        traceback.print_exc()
         exec_info = sys.exc_info()
         tb_info = traceback.format_tb(exec_info[2])
         UserActivityLogger.error(
@@ -1286,15 +1316,12 @@ def delete_object(recid):
         )
         raise
     except WekoWorkflowException as ex:
-        traceback.print_exc()
-        raise WekoSwordserverException(
-            f"Failed to delete item: {str(ex)}",
-            ErrorType.BadRequest
-        ) from ex
+        current_app.logger.error(f"Failed to delete item {recid}: {ex}", exc_info=True)
+        raise InternalProcessException.DELETE_FAILURE(recid=recid) from ex
     except Exception as ex:
-        msg = f"Unexpected error occurred during deletion: {ex}"
-        current_app.logger.error(msg)
-        traceback.print_exc()
+        current_app.logger.error(
+            f"Unexpected error occurred during deletion: {ex}", exc_info=True
+        )
         exec_info = sys.exc_info()
         tb_info = traceback.format_tb(exec_info[2])
         UserActivityLogger.error(
@@ -1302,7 +1329,7 @@ def delete_object(recid):
             target_key=recid,
             remarks=tb_info[0]
         )
-        raise WekoSwordserverException(msg, ErrorType.BadRequest)
+        raise UnexpectedException.UNEXPECTED_DURING_DELETION()
 
     return response
 
@@ -1394,16 +1421,22 @@ def _dependency_error_response(err):
         err.errorType.type, err.message, err.error_code
     )), err.errorType.code
 
+# NOTE: these classes are also re-raised explicitly by `except (...)` clauses in post_service_document,
+# delete_object and the _get_status_* functions; keep them in sync (grep OperationalError).
 @blueprint.errorhandler(OperationalError)
 @blueprint.errorhandler(InterfaceError)
 def handle_database_unavailable(ex):
     return _dependency_error_response(InternalProcessException.DATABASE_UNAVAILABLE())
 
+# NOTE: these classes are also re-raised explicitly by `except (...)` clauses in post_service_document,
+# delete_object and the _get_status_* functions; keep them in sync (grep OperationalError).
 @blueprint.errorhandler(RedisConnectionError)
 @blueprint.errorhandler(RedisTimeoutError)
 def handle_redis_unavailable(ex):
     return _dependency_error_response(InternalProcessException.REDIS_UNAVAILABLE())
 
+# NOTE: these classes are also re-raised explicitly by `except (...)` clauses in post_service_document,
+# delete_object and the _get_status_* functions; keep them in sync (grep OperationalError).
 @blueprint.errorhandler(ESConnectionError)
 def handle_search_engine_unavailable(ex):
     return _dependency_error_response(InternalProcessException.SEARCH_ENGINE_UNAVAILABLE())
