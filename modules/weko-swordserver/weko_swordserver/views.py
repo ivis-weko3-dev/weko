@@ -19,6 +19,11 @@ import json
 from flask import Blueprint, current_app, jsonify, request, url_for, abort, Response
 from flask_login import current_user
 from flask_limiter.errors import RateLimitExceeded
+from elasticsearch.exceptions import ConnectionError as ESConnectionError
+from redis.exceptions import (
+    ConnectionError as RedisConnectionError, TimeoutError as RedisTimeoutError,
+)
+from sqlalchemy.exc import InterfaceError, OperationalError
 from sword3common import (
     ServiceDocument, StatusDocument, constants, Error as sword3commonError
 )
@@ -52,7 +57,10 @@ from weko_workflow.scopes import activity_scope
 
 from .config import WEKO_SWORDSERVER_DEPOSIT_ROLE_ENABLE
 from .decorators import check_on_behalf_of, check_package_contents
-from .errors import ErrorType, WekoSwordserverException
+from .errors import (
+    ERROR_CODE_PREFIX, ErrorType, InternalProcessException, RateLimitException,
+    UnexpectedException, WekoSwordserverException
+)
 from .utils import (
     check_import_file_format,
     is_valid_file_hash,
@@ -1332,7 +1340,7 @@ def delete_object(recid):
     return response
 
 
-def _create_error_document(type, error):
+def _create_error_document(type, error, error_code=None):
     class Error(sword3commonError):
         # fix to timestamp coerce function not defined
         __SEAMLESS_STRUCT__ = {
@@ -1348,6 +1356,9 @@ def _create_error_document(type, error):
         @property
         def data(self):
             return self.__seamless__.data
+
+    if error_code is not None:
+        error = f"{ERROR_CODE_PREFIX}{error_code}: {error}"
 
     raw_data = {
         "@context": constants.JSON_LD_CONTEXT,
@@ -1374,22 +1385,61 @@ def handle_forbidden(ex):
 
 @blueprint.errorhandler(RateLimitExceeded)
 def handle_ratelimit(ex):
-    current_app.logger.error(ex)
-    return jsonify(_create_error_document(ErrorType.TooManyRequests.type, "Too many requests.")), ErrorType.TooManyRequests.code
+    current_app.logger.warning(ex)
+    err = RateLimitException.RATE_LIMIT_EXCEEDED()
+    return jsonify(_create_error_document(
+        err.errorType.type, err.message, err.error_code
+    )), err.errorType.code
 
 @blueprint.errorhandler(SeamlessException)
 def handle_seamless_exception(ex):
     current_app.logger.error(ex.message)
-    return jsonify(_create_error_document(ErrorType.ServerError.type, ex.message)), ErrorType.ServerError.code
+    err = UnexpectedException.INTERNAL_SERVER_ERROR()
+    return jsonify(_create_error_document(
+        err.errorType.type, err.message, err.error_code
+    )), err.errorType.code
 
 @blueprint.errorhandler(Exception)
 def handle_exception(ex):
     current_app.logger.error(str(ex), exc_info=True)
-    return jsonify(_create_error_document(ErrorType.ServerError.type, "Internal Server Error")), ErrorType.ServerError.code
+    err = UnexpectedException.INTERNAL_SERVER_ERROR()
+    return jsonify(_create_error_document(
+        err.errorType.type, err.message, err.error_code
+    )), err.errorType.code
 
 @blueprint.errorhandler(WekoSwordserverException)
 def handle_weko_swordserver_exception(ex):
-    return jsonify(_create_error_document(ex.errorType.type, ex.message)), ex.errorType.code
+    msg = f"[{ex.error_code}] {request.method} {request.path}: {ex.message}"
+    if ex.errorType.code >= 500:
+        current_app.logger.error(msg)
+    else:
+        current_app.logger.warning(msg)
+    return jsonify(_create_error_document(
+        ex.errorType.type, ex.message, ex.error_code
+    )), ex.errorType.code
+
+def _dependency_error_response(err):
+    current_app.logger.error(
+        f"[{err.error_code}] {request.method} {request.path}: {err.message}",
+        exc_info=True
+    )
+    return jsonify(_create_error_document(
+        err.errorType.type, err.message, err.error_code
+    )), err.errorType.code
+
+@blueprint.errorhandler(OperationalError)
+@blueprint.errorhandler(InterfaceError)
+def handle_database_unavailable(ex):
+    return _dependency_error_response(InternalProcessException.DATABASE_UNAVAILABLE())
+
+@blueprint.errorhandler(RedisConnectionError)
+@blueprint.errorhandler(RedisTimeoutError)
+def handle_redis_unavailable(ex):
+    return _dependency_error_response(InternalProcessException.REDIS_UNAVAILABLE())
+
+@blueprint.errorhandler(ESConnectionError)
+def handle_search_engine_unavailable(ex):
+    return _dependency_error_response(InternalProcessException.SEARCH_ENGINE_UNAVAILABLE())
 
 @blueprint.teardown_request
 def dbsession_clean(exception):
