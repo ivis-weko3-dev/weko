@@ -1,0 +1,245 @@
+# English translations for weko-swordserver.
+# Copyright (C) 2026 National Institute of Informatics
+# This file is distributed under the same license as the weko-swordserver
+# project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: weko-swordserver 1.1.0.dev20240214\n"
+"Report-Msgid-Bugs-To: wekosoftware@nii.ac.jp\n"
+"POT-Creation-Date: 2026-10-05 14:34+0900\n"
+"PO-Revision-Date: 2026-10-05 14:34+0900\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.9.1\n"
+
+#: weko_swordserver/errors.py:118
+msgid "ACTIVITY_SCOPE_INSUFFICIENT"
+msgstr "Not allowed operation in your token scope."
+
+#: weko_swordserver/errors.py:119
+msgid "ON_BEHALF_OF_NOT_ALLOWED"
+msgstr "Not support On-Behalf-Of."
+
+#: weko_swordserver/errors.py:120
+msgid "ON_BEHALF_OF_USER_NOT_FOUND"
+msgstr "No user found by On-Behalf-Of."
+
+#: weko_swordserver/errors.py:121
+msgid "ON_BEHALF_OF_USER_ROLE_FORBIDDEN"
+msgstr "On-Behalf-Of user is not allowed by role."
+
+#: weko_swordserver/errors.py:127
+msgid "FILE_PART_MISSING"
+msgstr "No file part."
+
+#: weko_swordserver/errors.py:128
+msgid "FILE_NOT_SELECTED"
+msgstr "No selected file."
+
+#: weko_swordserver/errors.py:129
+msgid "FILENAME_UNRESOLVABLE"
+msgstr "Cannot get filename by Content-Disposition."
+
+#: weko_swordserver/errors.py:130
+msgid "FILE_NOT_FOUND_IN_BODY"
+msgstr "Not found {filename} in request body."
+
+#: weko_swordserver/errors.py:131
+msgid "UPLOAD_SIZE_EXCEEDED"
+msgstr ""
+"Content size is too large. (request:{content_length}, "
+"maxUploadSize:{max_upload_size})"
+
+#: weko_swordserver/errors.py:132
+msgid "DIGEST_MISMATCH"
+msgstr "Failed to verify request body and digest."
+
+#: weko_swordserver/errors.py:138
+msgid "CONTENT_TYPE_NOT_ACCEPTABLE"
+msgstr "Not accept Content-Type: {failed_content_type}"
+
+#: weko_swordserver/errors.py:139
+msgid "PACKAGING_NOT_ACCEPTABLE"
+msgstr "Not accept packaging: {packaging}"
+
+#: weko_swordserver/errors.py:140
+msgid "PACKAGING_REQUIRED"
+msgstr "Packaging is required."
+
+#: weko_swordserver/errors.py:141
+msgid "SWORDBAGIT_METADATA_MISSING"
+msgstr "SWORDBagIt requires metadate/sword.json."
+
+#: weko_swordserver/errors.py:142
+msgid "SIMPLEZIP_UNEXPECTED_SWORD_JSON"
+msgstr "packaging format is SimpleZip, but sword.json is found."
+
+#: weko_swordserver/errors.py:143
+msgid "ROCRATE_METADATA_MISSING"
+msgstr "ro-crate-metadata.json is required in data/ directory."
+
+#: weko_swordserver/errors.py:144
+msgid "SIMPLEZIP_METADATA_FILE_MISSING"
+msgstr "SimpleZip requires ro-crate-metadata.json or other metadata file."
+
+#: weko_swordserver/errors.py:145
+msgid "PACKAGING_FORMAT_NOT_ACCEPTABLE"
+msgstr "Not accept packaging format: {packaging}"
+
+#: weko_swordserver/errors.py:146
+msgid "METADATA_IMPORT_DISABLED"
+msgstr "{file_format} metadata import is not enabled."
+
+#: weko_swordserver/errors.py:147
+msgid "XML_DIRECT_REGISTRATION_NOT_ALLOWED"
+msgstr "Direct registration is not allowed for XML metadata yet."
+
+#: weko_swordserver/errors.py:148
+msgid "UNSUPPORTED_FILE_FORMAT"
+msgstr "Unsupported file format: {file_format}"
+
+#: weko_swordserver/errors.py:154
+msgid "ITEM_CHECK_ERROR"
+msgstr "Item check error: {detail}"
+
+#: weko_swordserver/errors.py:155
+msgid "ITEM_ALREADY_REGISTERED"
+msgstr "This item is already registered: {item_title}."
+
+#: weko_swordserver/errors.py:156
+msgid "ITEM_DUPLICATE_SUSPECTED"
+msgstr "Some similar items are already registered: {list_url}."
+
+#: weko_swordserver/errors.py:157
+msgid "MULTIPLE_ITEMS_IN_PUT"
+msgstr ""
+"Multiple items found in import file. Only one item is allowed for PUT "
+"requests."
+
+#: weko_swordserver/errors.py:158
+msgid "ITEM_NOT_REGISTERED_FOR_PUT"
+msgstr "This item is not registered yet: {item_title}"
+
+#: weko_swordserver/errors.py:159
+msgid "ITEM_ID_MISMATCH"
+msgstr "Item id does not match. item: {item_id}, request: {recid}"
+
+#: weko_swordserver/errors.py:169
+msgid "ITEM_NOT_FOUND"
+msgstr "Item not found. (recid={recid})"
+
+#: weko_swordserver/errors.py:170
+msgid "RECORD_NOT_FOUND"
+msgstr "Record not found."
+
+#: weko_swordserver/errors.py:171
+msgid "SWORD_CLIENT_NOT_CONFIGURED"
+msgstr "No SWORD API setting found for client ID that you are using."
+
+#: weko_swordserver/errors.py:172
+msgid "WORKFLOW_NOT_FOUND"
+msgstr "Workflow not found for registration your item."
+
+#: weko_swordserver/errors.py:173
+msgid "WORKFLOW_NOT_FOR_REGISTRATION"
+msgstr "Workflow is not for item registration."
+
+#: weko_swordserver/errors.py:174
+msgid "ITEM_HAS_DOI"
+msgstr "Cannot delete item with DOI."
+
+#: weko_swordserver/errors.py:180
+msgid "ITEM_LOCKED"
+msgstr "Item {recid} will be edited by another process."
+
+#: weko_swordserver/errors.py:181
+msgid "ITEM_IMPORT_IN_PROGRESS"
+msgstr "Item cannot be deleted because it is in import progress."
+
+#: weko_swordserver/errors.py:182
+msgid "ITEM_BEING_EDITED"
+msgstr "Item cannot be deleted because it is being edited."
+
+#: weko_swordserver/errors.py:188
+msgid "RATE_LIMIT_EXCEEDED"
+msgstr "Too many requests."
+
+#: weko_swordserver/errors.py:194
+msgid "REGISTRATION_PENDING_COMPLETION"
+msgstr ""
+"Registration of item is pending completion. Please open the following URL"
+" to continue with the remaining operations: {url}."
+
+#: weko_swordserver/errors.py:195
+msgid "UPDATE_PENDING_COMPLETION"
+msgstr ""
+"Update of item {recid} is pending completion. Please open the following "
+"URL to continue with the remaining operations: {url}."
+
+#: weko_swordserver/errors.py:205
+msgid "DB_ACCESS_FAILURE"
+msgstr "Failed to get shared ID from On-Behalf-Of."
+
+#: weko_swordserver/errors.py:206
+msgid "INVALID_REGISTRATION_TYPE"
+msgstr "Invalid registration type: {register_type}"
+
+#: weko_swordserver/errors.py:207
+msgid "INVALID_REGISTER_FORMAT"
+msgstr "Invalid register format has been set for admin setting"
+
+#: weko_swordserver/errors.py:208
+msgid "IMPORT_FAILURE"
+msgstr ""
+"Failed to import item due to a server error. Please contact the "
+"administrator."
+
+#: weko_swordserver/errors.py:209
+msgid "UPDATE_FAILURE"
+msgstr ""
+"Failed to update item {recid} due to a server error. Please contact the "
+"administrator."
+
+#: weko_swordserver/errors.py:210
+msgid "DELETE_FAILURE"
+msgstr ""
+"Failed to delete item {recid} due to a server error. Please contact the "
+"administrator."
+
+#: weko_swordserver/errors.py:211
+msgid "ACTIVITY_NOT_FOUND_AFTER_CREATE"
+msgstr "Activity created, but not found."
+
+#: weko_swordserver/errors.py:212
+msgid "DATABASE_UNAVAILABLE"
+msgstr ""
+"Failed to access the database. Please retry later or contact the "
+"administrator."
+
+#: weko_swordserver/errors.py:213
+msgid "REDIS_UNAVAILABLE"
+msgstr ""
+"Failed to access the cache server. Please retry later or contact the "
+"administrator."
+
+#: weko_swordserver/errors.py:214
+msgid "SEARCH_ENGINE_UNAVAILABLE"
+msgstr ""
+"Failed to access the search service. Please retry later or contact the "
+"administrator."
+
+#: weko_swordserver/errors.py:220
+msgid "INTERNAL_SERVER_ERROR"
+msgstr "Internal Server Error"
+
+#: weko_swordserver/errors.py:221
+msgid "UNEXPECTED_DURING_DELETION"
+msgstr "Unexpected error occurred during deletion."
+
