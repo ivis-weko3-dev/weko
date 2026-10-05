@@ -121,6 +121,7 @@ def _is_crawler(user_info):
                 raw_res=""
             if not raw_res:
                 continue
+            crawler_list = raw_res.splitlines()
             if current_app.config['WEKO_ADMIN_USE_REGEX_IN_CRAWLER_LIST']:
                 crawler_list = [agent for agent in crawler_list if not agent.startswith('#') and not agent.startswith('+')]
                 bot_regex_str = '|'.join(crawler_list)
