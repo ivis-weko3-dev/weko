@@ -14,7 +14,10 @@ from invenio_oauth2server.decorators import (
     require_api_auth, require_oauth_scopes
 )
 
-from .errors import ErrorType, WekoSwordserverException
+from .errors import (
+    AuthorizationException, ContentFormatException, ErrorType,
+    InputHeaderException, WekoSwordserverException
+)
 
 
 def check_oauth(*scopes):
@@ -57,9 +60,7 @@ def check_on_behalf_of():
             if not allowOnBehalfOf and onBehalfOf:
                 current_app.logger.error(
                     "Not support On-Behalf-Of but request has it.")
-                raise WekoSwordserverException(
-                    "Not support On-Behalf-Of.", ErrorType.OnBehalfOfNotAllowed
-                )
+                raise AuthorizationException.ON_BEHALF_OF_NOT_ALLOWED()
 
             return f(*args, **kwargs)
         return decorated
@@ -72,15 +73,11 @@ def check_package_contents():
         def decorated(*args, **kwargs):
             if 'file' not in request.files:
                 current_app.logger.error("No file part.")
-                raise WekoSwordserverException(
-                    "No file part.", ErrorType.ContentMalformed
-                )
+                raise InputHeaderException.FILE_PART_MISSING()
             file = request.files['file']
             if file.filename == '':
                 current_app.logger.error("No selected file.")
-                raise WekoSwordserverException(
-                    "No selected file.", ErrorType.ContentMalformed
-                )
+                raise InputHeaderException.FILE_NOT_SELECTED()
 
             # Check Content-Length
             max_upload_size = current_app.config.get(
@@ -97,10 +94,9 @@ def check_package_contents():
                     "Content size is too large. "
                     f"(request:{content_length}, maxUploadSize:{max_upload_size})"
                 )
-                raise WekoSwordserverException(
-                    "Content size is too large. "
-                    f"(request:{content_length}, maxUploadSize:{max_upload_size})",
-                    ErrorType.MaxUploadSizeExceeded
+                raise InputHeaderException.UPLOAD_SIZE_EXCEEDED(
+                    content_length=content_length,
+                    max_upload_size=max_upload_size
                 )
 
             # Check Content-Type
@@ -124,9 +120,8 @@ def check_package_contents():
                 current_app.logger.error(
                     f"Not accept Content-Type: {failed_content_type}"
                 )
-                raise WekoSwordserverException(
-                    f"Not accept Content-Type: {failed_content_type}",
-                    ErrorType.ContentTypeNotAcceptable
+                raise ContentFormatException.CONTENT_TYPE_NOT_ACCEPTABLE(
+                    failed_content_type=failed_content_type
                 )
 
             # Check Packaging
@@ -137,18 +132,14 @@ def check_package_contents():
             if '*' not in accept_packaging:
                 if packaging not in accept_packaging:
                     current_app.logger.error(f"Not accept packaging: {packaging}")
-                    raise WekoSwordserverException(
-                        f"Not accept packaging: {packaging}",
-                        ErrorType.PackagingFormatNotAcceptable
+                    raise ContentFormatException.PACKAGING_NOT_ACCEPTABLE(
+                        packaging=packaging
                     )
             elif packaging is None:
                 current_app.logger.error(
                     "Packaging is required, but not contained in request headers."
                 )
-                raise WekoSwordserverException(
-                    "Packaging is required.",
-                    ErrorType.PackagingFormatNotAcceptable
-                )
+                raise ContentFormatException.PACKAGING_REQUIRED()
 
             return f(*args, **kwargs)
         return decorated
