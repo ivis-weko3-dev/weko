@@ -55,6 +55,7 @@ const is_withdraw_doi = document.getElementById("is_withdraw_doi").value;
 const item_is_deleted = document.getElementById("item_is_deleted").value;
 const item_is_being_edit = document.getElementById("item_is_being_edit").value;
 const failed_to_update_elasticsearch = document.getElementById("failed_to_update_elasticsearch").value;
+const search_engine_unavailable = document.getElementById("search_engine_unavailable").value;
 
 const file_format = $("#file_format").text() ? $("#file_format").text() : "tsv";
 const workflows = JSON.parse($("#workflows").text() ? $("#workflows").text() : "");
@@ -93,7 +94,8 @@ function getTaskResult(task_result) {
     is_withdraw_doi,
     item_is_deleted,
     item_is_being_edit,
-    failed_to_update_elasticsearch
+    failed_to_update_elasticsearch,
+    search_engine_unavailable
   };
   const msg = errorMessages[task_result.error_id] || '';
   return msg === '' ? '' : error + ': ' + msg;

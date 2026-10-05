@@ -72,7 +72,13 @@ from invenio_records.models import RecordMetadata
 from invenio_search import RecordsSearch
 
 from sqlalchemy import func as _func
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import (
+    DisconnectionError,
+    InterfaceError,
+    OperationalError,
+    SQLAlchemyError,
+    TimeoutError as SQLAlchemyTimeoutError,
+)
 from weko_admin.models import AdminSettings, SessionLifetime, FacetSearchSetting
 from weko_admin.utils import get_redis_cache, reset_redis_cache, get_restricted_access
 from weko_admin.api import TempDirInfo
@@ -994,26 +1000,28 @@ def check_jsonld_import_items(
                 "support import. Please specify a zip file."
             ).format(filename)
         })
-    except bagit.BagValidationError as ex:
+    except bagit.BagValidationError:
         current_app.logger.warning("Failed to validate import bagit file.")
         traceback.print_exc()
         check_result.update({
-            "error": str(ex)
+            "error": "Failed to validate import bagit file. Please check the "
+                "file structure and checksums, then resubmit."
         })
-    except (UnicodeDecodeError, UnicodeEncodeError) as ex:
+    except (UnicodeDecodeError, UnicodeEncodeError):
         current_app.logger.warning("Failed to decode import file.")
         traceback.print_exc()
         check_result.update({
-            "error": ex.reason
+            "error": "Failed to decode file. "
+                "Please ensure the file is encoded in UTF-8 and resubmit."
         })
     except json.JSONDecodeError as ex:
         current_app.logger.warning("Failed to decode import JSON-LD file.")
         traceback.print_exc()
         check_result.update({
-            "error": _("Failred to decode JSON-LD file: ") + str(ex)
+            "error": _("Failred to decode JSON-LD file: line {}, column {}. ").format(ex.lineno, ex.colno)
         })
-    except Exception as ex:
-        check_result.update({"error": _("Unexpected error occurred: ") + str(ex)})
+    except Exception:
+        check_result.update({"error": _("Unexpected error occurred.")})
         current_app.logger.error("Unexpected error occurred during import.")
         traceback.print_exc()
 
@@ -2321,7 +2329,13 @@ def import_items_to_system(
                 remarks=tb_info[0],
                 request_info=request_info,
             )
-            error_id = "sqlalchemy error: {}".format(type(ex).__name__)
+            if isinstance(ex, (
+                OperationalError, InterfaceError,
+                DisconnectionError, SQLAlchemyTimeoutError
+            )):
+                error_id = "database_unavailable"
+            else:
+                error_id = "sqlalchemy error: {}".format(type(ex).__name__)
             return {"success": False, "error_id": error_id}
         except ConnectionError as ex:
             current_app.logger.error("elasticsearch  error: %s", ex)
@@ -2337,7 +2351,7 @@ def import_items_to_system(
                 remarks=tb_info[0],
                 request_info=request_info,
             )
-            error_id = 'failed_to_update_elasticsearch'
+            error_id = 'search_engine_unavailable'
             return {"success": False, "error_id": error_id}
         except ElasticsearchException as ex:
             current_app.logger.error("elasticsearch  error: %s", ex)
@@ -2387,7 +2401,10 @@ def import_items_to_system(
                 remarks=tb_info[0],
                 request_info=request_info,
             )
-            error_id = "redis error: {}".format(type(ex).__name__)
+            if isinstance(ex, (redis.ConnectionError, redis.TimeoutError)):
+                error_id = "redis_unavailable"
+            else:
+                error_id = "redis error: {}".format(type(ex).__name__)
             return {"success": False, "error_id": error_id}
         except Exception as ex:
             current_app.logger.error("Unexpected error: %s", ex)
