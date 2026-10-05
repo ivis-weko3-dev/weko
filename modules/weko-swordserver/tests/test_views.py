@@ -7,13 +7,16 @@ from flask import url_for, request, abort
 from flask_limiter.errors import RateLimitExceeded
 from sword3common.lib.seamless import SeamlessException
 from werkzeug.datastructures import FileStorage
+from elasticsearch.exceptions import ConnectionTimeout as ESConnectionTimeout
+from redis.exceptions import TimeoutError as RedisTimeoutError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from invenio_accounts.testutils import login_user_via_session
 from invenio_files_rest.models import Location
 from weko_workflow.errors import WekoWorkflowException
 
 from weko_swordserver.errors import *
-from weko_swordserver.views import _get_status_workflow_document, blueprint, _get_status_document, _create_error_document
+from weko_swordserver.views import _get_status_workflow_document, blueprint, _get_status_document, _create_error_document, handle_weko_swordserver_exception
 
 from .helpers import calculate_hash
 
@@ -1694,8 +1697,8 @@ def test_delete_item(app, client, db, tokens, sword_client, users,es_records, mo
         assert res.json.get("error") == "Cannot delete item with DOI."
 
 
-# def _create_error_document(type, error):
-# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__create_error_document -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
+# def _create_error_document(type, error, error_code=None):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__create_error_document -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
 def test__create_error_document(mocker):
     mock_datetime = mocker.patch("weko_swordserver.views.datetime")
     mock_datetime.now.return_value=datetime.datetime(2022,10,1,2,3,4)
@@ -1705,7 +1708,13 @@ def test__create_error_document(mocker):
         "timestamp":"2022-10-01T02:03:04Z",
         "error":"this is test bad_request_error."
     }
+    # without error_code: no prefix
     result = _create_error_document("BadRequest","this is test bad_request_error.")
+    assert result == test
+
+    # with error_code: WEKO_SWORDSERVER_E_<code>: is prepended, same key set
+    result = _create_error_document("BadRequest","this is test bad_request_error.","2201")
+    test["error"] = "WEKO_SWORDSERVER_E_2201: this is test bad_request_error."
     assert result == test
 
 
@@ -1725,8 +1734,18 @@ def error_handle_test_view(error_type):
         raise SeamlessException("this is test SeamlessException")
     elif error_type == "Exception":
         raise Exception("test_exception")
+    elif error_type == "IntegrityError":
+        raise IntegrityError("stmt", {}, Exception("orig"))
     elif error_type == "WekoSwordserverException":
         raise WekoSwordserverException("this is test BadRequest exception", ErrorType.BadRequest)
+    elif error_type == "ItemLocked":
+        raise ConcurrencyException.ITEM_LOCKED(recid="1")
+    elif error_type == "DatabaseError":
+        raise OperationalError("stmt", {}, Exception("orig"))
+    elif error_type == "RedisError":
+        raise RedisTimeoutError("redis down")
+    elif error_type == "SearchError":
+        raise ESConnectionTimeout("N/A", "timed out", Exception("orig"))
 
 
 # def handle_unauthorized(ex):
@@ -1749,38 +1768,98 @@ def test_handle_forbidden(client,sessionlifetime):
         assert res.json == {"type":"Forbidden","msg":"Not allowed operation in your role or token scope."}
 
 # def handle_ratelimit(ex):
-# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_ratelimit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test_handle_ratelimit(client,sessionlifetime):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_ratelimit -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test_handle_ratelimit(app,client,sessionlifetime):
     url = url_for("weko_swordserver.error_handle_test_view",error_type="RateLimitExceeded")
-    with patch("weko_swordserver.views._create_error_document",side_effect=lambda x,y:{"type":x,"msg":y}):
+    with patch.object(app.logger,"warning") as mock_warning:
         res = client.get(url)
-        assert res.status_code == 429
-        assert res.json == {"type":"TooManyRequests","msg":"Too many requests."}
+    assert res.status_code == 429
+    assert res.json["@type"] == "TooManyRequests"
+    assert res.json["error"] == "WEKO_SWORDSERVER_E_2301: Too many requests."
+    mock_warning.assert_called_once()
 
 # def handle_seamless_exception(ex):
-# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_seamless_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test_handle_seamless_exception(client,sessionlifetime):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_seamless_exception -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test_handle_seamless_exception(app,client,sessionlifetime):
     url = url_for("weko_swordserver.error_handle_test_view",error_type="SeamlessException")
-    with patch("weko_swordserver.views._create_error_document",side_effect=lambda x,y:{"type":x,"msg":y}):
+    with patch.object(app.logger,"error") as mock_error:
         res = client.get(url)
-        assert res.status_code == 500
-        assert res.json == {"type":"ServerError","msg":"this is test SeamlessException"}
+    assert res.status_code == 501
+    assert res.json["@type"] == "NotImplemented"
+    # ex.message is logged only; the response uses a fixed message
+    assert res.json["error"] == "WEKO_SWORDSERVER_E_3201: Internal Server Error"
+    assert "this is test SeamlessException" not in res.get_data(as_text=True)
+    mock_error.assert_called_once_with("this is test SeamlessException")
 
 
 # def handle_exception(ex):
-# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test_handle_exception(client,sessionlifetime):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_exception -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test_handle_exception(app,client,sessionlifetime):
     url = url_for("weko_swordserver.error_handle_test_view",error_type="Exception")
-    with patch("weko_swordserver.views._create_error_document",side_effect=lambda x,y:{"type":x,"msg":y}):
+    with patch.object(app.logger,"error") as mock_error:
         res = client.get(url)
-        assert res.status_code == 500
-        assert res.json == {"type":"ServerError","msg":"Internal Server Error"}
+    assert res.status_code == 501
+    assert res.json["error"] == "WEKO_SWORDSERVER_E_3201: Internal Server Error"
+    mock_error.assert_called_once_with("test_exception", exc_info=True)
+
+    # non-dependency DB errors fall to the generic handler (501)
+    url = url_for("weko_swordserver.error_handle_test_view",error_type="IntegrityError")
+    res = client.get(url)
+    assert res.status_code == 501
+    assert res.json["error"] == "WEKO_SWORDSERVER_E_3201: Internal Server Error"
 
 # def handle_weko_swordserver_exception(ex):
-# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_weko_swordserver_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test_handle_weko_swordserver_exception(client,sessionlifetime):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_weko_swordserver_exception -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test_handle_weko_swordserver_exception(app,client,sessionlifetime):
+    # legacy form without error_code: no prefix, 400 logs WARNING
     url = url_for("weko_swordserver.error_handle_test_view",error_type="WekoSwordserverException")
-    with patch("weko_swordserver.views._create_error_document",side_effect=lambda x,y:{"type":x,"msg":y}):
+    with patch.object(app.logger,"warning") as mock_warning:
         res = client.get(url)
-        assert res.status_code == 400
-        assert res.json == {"type":"BadRequest","msg":"this is test BadRequest exception"}
+    assert res.status_code == 400
+    assert res.json["@type"] == "BadRequest"
+    assert res.json["error"] == "this is test BadRequest exception"
+    mock_warning.assert_called_once_with("[None] GET /sword/test_error/WekoSwordserverException: this is test BadRequest exception")
+
+    # with error_code: prefixed, 409 logs WARNING, log format "[code] METHOD path: message"
+    url = url_for("weko_swordserver.error_handle_test_view",error_type="ItemLocked")
+    with patch.object(app.logger,"warning") as mock_warning, patch.object(app.logger,"error") as mock_error:
+        res = client.get(url)
+    assert res.status_code == 409
+    assert res.json["error"].startswith("WEKO_SWORDSERVER_E_2201: ")
+    mock_error.assert_not_called()
+    msg = mock_warning.call_args[0][0]
+    assert msg.startswith("[2201] GET /sword/test_error/ItemLocked: ")
+    assert msg.endswith(res.json["error"].split(": ", 1)[1])
+
+
+# def handle_weko_swordserver_exception(ex):
+# 500 and above (501) logs ERROR
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_weko_swordserver_exception_error_level -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test_handle_weko_swordserver_exception_error_level(app,client,sessionlifetime):
+    ex = UnexpectedException.UNEXPECTED_DURING_DELETION()
+    with patch.object(app.logger,"warning") as mock_warning, patch.object(app.logger,"error") as mock_error:
+        with app.test_request_context("/sword/x"):
+            res = handle_weko_swordserver_exception(ex)
+    assert res[1] == 501
+    mock_warning.assert_not_called()
+    assert mock_error.call_args[0][0].startswith("[3202] GET /sword/x: ")
+
+# Dependency-failure handlers (DB/Redis/search)
+# def handle_database_unavailable(ex):
+# def handle_redis_unavailable(ex):
+# def handle_search_engine_unavailable(ex):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_dependency_unavailable -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+@pytest.mark.parametrize("error_type,code,text",[
+    ("DatabaseError","3108","Failed to access the database."),
+    ("RedisError","3109","Failed to access the cache server."),
+    ("SearchError","3110","Failed to access the search service."),
+])
+def test_handle_dependency_unavailable(app,client,sessionlifetime,error_type,code,text):
+    url = url_for("weko_swordserver.error_handle_test_view",error_type=error_type)
+    with patch.object(app.logger,"error") as mock_error:
+        res = client.get(url)
+    assert res.status_code == 503
+    assert res.json["@type"] == "ServiceUnavailable"
+    assert res.json["error"].startswith(f"WEKO_SWORDSERVER_E_{code}: {text}")
+    assert mock_error.call_args[0][0].startswith(f"[{code}] GET /sword/test_error/{error_type}: ")
+    assert mock_error.call_args[1] == {"exc_info": True}
