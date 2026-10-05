@@ -44,6 +44,7 @@ def test_check_oauth(app, client, users, tokens):
             res = check_oauth(write_scope.id)(lambda x, y: x + y)(x=1, y=2)
 
         assert e.value.errorType == ErrorType.AuthenticationFailed
+        assert e.value.error_code is None  # legacy form is kept
         assert e.value.message == "Authentication is failed."
 
 
@@ -69,6 +70,7 @@ def test_check_on_behalf_of(app):
         with pytest.raises(WekoSwordserverException) as e:
             res = check_on_behalf_of()(lambda x, y: x + y)(x=1, y=2)
         assert e.value.errorType == ErrorType.OnBehalfOfNotAllowed
+        assert e.value.error_code == "1202"
         assert e.value.message == "Not support On-Behalf-Of."
 
     # when not accept on behalf of , "On-Behalf-Of" did not set
@@ -122,6 +124,7 @@ def test_check_package_contents(app, client, make_crate, tokens, mocker):
             with pytest.raises(WekoSwordserverException) as e:
                 res = check_package_contents()(lambda x, y: x + y)(x=1, y=2)
             assert e.value.errorType == ErrorType.PackagingFormatNotAcceptable
+            assert e.value.error_code == "1402"
             assert e.value.message == f"Not accept packaging: XXXX"
         finally:
             request.files = original
@@ -163,6 +166,7 @@ def test_check_package_contents(app, client, make_crate, tokens, mocker):
             with pytest.raises(WekoSwordserverException) as e:
                 res = check_package_contents()(lambda x, y: x + y)(x=1, y=2)
             assert e.value.errorType == ErrorType.PackagingFormatNotAcceptable
+            assert e.value.error_code == "1403"
             assert e.value.message == "Packaging is required."
         finally:
             request.files = original
@@ -200,6 +204,7 @@ def test_check_package_contents(app, client, make_crate, tokens, mocker):
             with pytest.raises(WekoSwordserverException) as e:
                 res = check_package_contents()(lambda x, y: x + y)(x=1, y=2)
             assert e.value.errorType == ErrorType.ContentTypeNotAcceptable
+            assert e.value.error_code == "1401"
             assert e.value.message == f"Not accept Content-Type: application/json"
         finally:
             request.files = original
@@ -237,6 +242,7 @@ def test_check_package_contents(app, client, make_crate, tokens, mocker):
             with pytest.raises(WekoSwordserverException) as e:
                 res = check_package_contents()(lambda x, y: x + y)(x=1, y=2)
             assert e.value.errorType == ErrorType.ContentTypeNotAcceptable
+            assert e.value.error_code == "1401"
             assert e.value.message == f"Not accept Content-Type: application/json"
         finally:
             request.files = original
@@ -270,6 +276,7 @@ def test_check_package_contents(app, client, make_crate, tokens, mocker):
             with pytest.raises(WekoSwordserverException) as e:
                 res = check_package_contents()(lambda x, y: x + y)(x=1, y=2)
             assert e.value.errorType == ErrorType.MaxUploadSizeExceeded
+            assert e.value.error_code == "1305"
             assert (
                 e.value.message
                 == f"Content size is too large. (request:{size}, maxUploadSize:{maxSize})"
@@ -312,6 +319,7 @@ def test_check_package_contents(app, client, make_crate, tokens, mocker):
             with pytest.raises(WekoSwordserverException) as e:
                 res = check_package_contents()(lambda x, y: x + y)(x=1, y=2)
             assert e.value.errorType == ErrorType.MaxUploadSizeExceeded
+            assert e.value.error_code == "1305"
             assert e.value.message.startswith("Content size is too large.")
 
         finally:
@@ -323,6 +331,7 @@ def test_check_package_contents(app, client, make_crate, tokens, mocker):
             decorated_func = check_package_contents()(lambda x, y: x + y)
             decorated_func(x=1, y=2)
         assert e.value.errorType == ErrorType.ContentMalformed
+        assert e.value.error_code == "1301"
         assert e.value.message == "No file part."
 
     # error message:"No selected file
@@ -332,6 +341,7 @@ def test_check_package_contents(app, client, make_crate, tokens, mocker):
         with pytest.raises(WekoSwordserverException) as e:
             res = check_package_contents()(lambda x, y: x + y)(x=1, y=2)
         assert e.value.errorType == ErrorType.ContentMalformed
+        assert e.value.error_code == "1302"
         assert e.value.message == "No selected file."
 
     # success case

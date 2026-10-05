@@ -164,7 +164,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Not found invalid_payload.zip in request body."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1304: Not found invalid_payload.zip in request body."
 
     # invalid Content-Disposition
     login_user_via_session(client=client, email=users[0]["email"])
@@ -179,7 +179,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Cannot get filename by Content-Disposition."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1303: Cannot get filename by Content-Disposition."
 
     # Workflow registration, not have activity sqope
     login_user_via_session(client=client, email=users[0]["email"])
@@ -225,7 +225,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Item check error: Unexpected error."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1501: Item check error: Unexpected error."
 
     # error in item
     login_user_via_session(client=client, email=users[0]["email"])
@@ -249,7 +249,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
     result = client.post(url, data={"file": storage}, content_type=
                          "multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert "Item check error: Item check error." in result.json.get("error")
+    assert "WEKO_SWORDSERVER_E_1501: Item check error: Item check error." in result.json.get("error")
     assert "Test warning message" in result.json.get("error")
 
     # not new item
@@ -272,7 +272,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "This item is already registered: test_title."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1502: This item is already registered: test_title."
 
     # item duplicated
     login_user_via_session(client=client, email=users[0]["email"])
@@ -296,7 +296,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Some similar items are already registered: ['/records/2000001']."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1503: Some similar items are already registered: ['/records/2000001']."
 
     # failed to import to system
     login_user_via_session(client=client, email=users[0]["email"])
@@ -388,7 +388,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 412
-    assert result.json.get("error") == "Failed to verify request body and digest."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1306: Failed to verify request body and digest."
 
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_post_service_document_multi_recid -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
 def test_post_service_document_multi_recid(app, client, db, users, make_zip, tokens, mocker):
@@ -596,7 +596,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Not found invalid_payload.zip in request body."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1304: Not found invalid_payload.zip in request body."
 
     # invalid Content-Disposition
     login_user_via_session(client=client, email=users[0]["email"])
@@ -611,7 +611,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Cannot get filename by Content-Disposition."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1303: Cannot get filename by Content-Disposition."
 
     # Workflow registration, not have activity scope
     login_user_via_session(client=client, email=users[0]["email"])
@@ -657,7 +657,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Item check error: Unexpected error."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1501: Item check error: Unexpected error."
 
     # error in item
     login_user_via_session(client=client, email=users[0]["email"])
@@ -681,8 +681,20 @@ def test_put_object(
     result = client.put(url, data={"file": storage}, content_type=
                         "multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert "Item check error: Item check error." in result.json.get("error")
+    assert "WEKO_SWORDSERVER_E_1501: Item check error: Item check error." in result.json.get("error")
     assert "Test warning message" in result.json.get("error")
+
+    # multiple items in PUT
+    storage = FileStorage(filename="payload.zip", stream=make_zip())
+    mocker_check_item.return_value = {
+        "data_path": "/var/tmp/test",
+        "register_type": "Direct",
+        "list_record": [{"status": "keep"}, {"status": "keep"}],
+    }
+    result = client.put(url, data={"file": storage}, content_type=
+                        "multipart/form-data", headers=headers)
+    assert result.status_code == 400
+    assert result.json.get("error").startswith("WEKO_SWORDSERVER_E_1504: ")
 
     # new item
     login_user_via_session(client=client, email=users[0]["email"])
@@ -704,7 +716,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "This item is not registered yet: test_title"
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1505: This item is not registered yet: test_title"
 
     # item_id mismatch
     login_user_via_session(client=client, email=users[0]["email"])
@@ -726,7 +738,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Item id does not match. item: invalid, request: 1"
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1506: Item id does not match. item: invalid, request: 1"
 
     # item duplicated
     login_user_via_session(client=client, email=users[0]["email"])
@@ -750,7 +762,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Some similar items are already registered: ['/records/2000001']."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1503: Some similar items are already registered: ['/records/2000001']."
 
     # being edited
     login_user_via_session(client=client, email=users[0]["email"])
@@ -889,7 +901,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 412
-    assert result.json.get("error") == "Failed to verify request body and digest."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1306: Failed to verify request body and digest."
 
     # invalid registration type
     login_user_via_session(client=client, email=users[0]["email"])
@@ -912,7 +924,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 500
-    assert result.json.get("error") == "Invalid register format has been set for admin setting"
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_3103: Invalid register format has been set for admin setting"
 
     # invalid registration type with data_path exists
     zip, _ = make_crate()
@@ -921,7 +933,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 500
-    assert result.json.get("error") == "Invalid register format has been set for admin setting"
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_3103: Invalid register format has been set for admin setting"
     assert not os.path.exists("/var/tmp/test"), os.rmdir("/var/tmp/test")
 
 
@@ -1072,8 +1084,9 @@ def test__get_status_document(app,records):
         # raise WekoSwordserverException
         with pytest.raises(WekoSwordserverException) as e:
             _get_status_document("not_exist_recid")
-            assert e.message == "Item not found. (recid=not_exist_recid)"
-            assert e.errorType == ErrorType.NotFound
+        assert e.value.message == "Item not found. (recid=not_exist_recid)"
+        assert e.value.errorType == ErrorType.NotFound
+        assert e.value.error_code == "2101"
 
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_status_document_files_info_none -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
 def test_status_document_files_info_none(app, mocker):
@@ -1210,22 +1223,42 @@ def test__get_status_workflow_document(app, records):
         assert result == test_file
 
         # not exist recid
-        with pytest.raises(WekoSwordserverException):
-            _get_status_workflow_document(expected_activity_id, None)
-
-        # raise WekoSwordserverException
         with pytest.raises(WekoSwordserverException) as e:
-            _get_status_workflow_document(None, None)
-            assert e.message == "Activity created, but not found."
-            assert e.errorType == ErrorType.NotFound
+            _get_status_workflow_document(expected_activity_id, None)
+        assert e.value.message == "Item not found. (recid=None)"
+        assert e.value.errorType == ErrorType.NotFound
+        assert e.value.error_code == "2101"
 
         # not exist activity_id
         recid_valid = records[0][0].pid_value
         with app.test_request_context("/test_req"):
             with pytest.raises(WekoSwordserverException) as e:
                 _get_status_workflow_document(None, recid_valid)
-            assert e.value.errorType == ErrorType.NotFound
-            assert "Activity created, but not found" in e.value.message
+            assert e.value.errorType == ErrorType.NotImplemented
+            assert e.value.error_code == "3107"
+            assert e.value.message == "Activity created, but not found."
+
+# def _get_status_workflow_document(activity, recid):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_status_workflow_document_error_codes -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
+def test_status_workflow_document_error_codes(app, mocker):
+    # recid cannot be resolved
+    mocker.patch("weko_swordserver.views.Resolver.resolve", side_effect=Exception("not found"))
+    with app.test_request_context("/test_req"):
+        with pytest.raises(WekoSwordserverException) as e:
+            _get_status_workflow_document("A-1", "not_exist_recid")
+    assert e.value.errorType == ErrorType.NotFound
+    assert e.value.error_code == "2101"
+    assert e.value.message == "Item not found. (recid=not_exist_recid)"
+
+    # recid is resolved but the activity is not found after creation
+    mocker.patch("weko_swordserver.views.Resolver.resolve", return_value=(MagicMock(), MagicMock()))
+    with app.test_request_context("/test_req"):
+        with pytest.raises(WekoSwordserverException) as e:
+            _get_status_workflow_document(None, "1")
+    assert e.value.errorType == ErrorType.NotImplemented
+    assert e.value.error_code == "3107"
+    assert e.value.message == "Activity created, but not found."
+
 
 @pytest.mark.xfail(
     reason=(
@@ -1694,7 +1727,7 @@ def test_delete_item(app, client, db, tokens, sword_client, users,es_records, mo
     with patch("weko_swordserver.views.WekoRecord.get_record_by_pid", return_value=mock_record):
         res = client.delete(url, headers=headers)
         assert res.status_code == 400
-        assert res.json.get("error") == "Cannot delete item with DOI."
+        assert res.json.get("error") == "WEKO_SWORDSERVER_E_2106: Cannot delete item with DOI."
 
 
 # def _create_error_document(type, error, error_code=None):
