@@ -310,6 +310,8 @@ def post_service_document():
         current_app.logger.error(
             f"Error in item to import: {check_result.get('error')}"
         )
+        if _is_unexpected_error(check_result.get("error")):
+            raise UnexpectedException.INTERNAL_SERVER_ERROR()
         raise DataValidationException.ITEM_CHECK_ERROR(
             detail=check_result.get('error')
         )
@@ -621,6 +623,8 @@ def put_object(recid):
         current_app.logger.error(
             f"Error in check_import_items: {check_result.get('error')}"
         )
+        if _is_unexpected_error(check_result.get("error")):
+            raise UnexpectedException.INTERNAL_SERVER_ERROR()
         raise DataValidationException.ITEM_CHECK_ERROR(
             detail=check_result.get('error')
         )
@@ -1197,7 +1201,7 @@ def _raise_if_dependency_unavailable(error_id):
 
 def _is_unexpected_error(error):
     """Whether the error string is the "unexpected error" marker."""
-    return error == "Unexpected error" or str(error).startswith("Unexpected error:")
+    return error == "Unexpected error" or str(error).startswith("Unexpected error")
 
 
 @blueprint.route("/deposit/<recid>", methods=["DELETE"])
