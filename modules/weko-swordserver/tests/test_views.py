@@ -221,12 +221,19 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
         "register_type": "Direct",
-        "error": "Unexpected error.",
+        "error": "Failed to decode file.",
     }
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1501: Item check error: Unexpected error."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1501: Item check error: Failed to decode file."
+
+    # unexpected error from the check is mapped to 501 (3201)
+    mocker_check_item.return_value["error"] = "Unexpected error occurred."
+    storage = FileStorage(filename="payload.zip", stream=make_zip())
+    result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
+    assert result.status_code == 501
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_3201: Internal Server Error"
 
     # error in item
     login_user_via_session(client=client, email=users[0]["email"])
@@ -733,12 +740,19 @@ def test_put_object(
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
         "register_type": "Direct",
-        "error": "Unexpected error.",
+        "error": "Failed to decode file.",
     }
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1501: Item check error: Unexpected error."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1501: Item check error: Failed to decode file."
+
+    # unexpected error from the check is mapped to 501 (3201)
+    mocker_check_item.return_value["error"] = "Unexpected error occurred."
+    storage = FileStorage(filename="payload.zip", stream=make_zip())
+    result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
+    assert result.status_code == 501
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_3201: Internal Server Error"
 
     # error in item
     login_user_via_session(client=client, email=users[0]["email"])
@@ -1794,11 +1808,12 @@ def test__raise_if_dependency_unavailable(app):
 # def _is_unexpected_error(error):
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__is_unexpected_error -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
 def test__is_unexpected_error():
-    # exact match and "Unexpected error:" prefix are the marker
+    # exact match and "Unexpected error" prefix are the marker
     assert _is_unexpected_error("Unexpected error") is True
     assert _is_unexpected_error("Unexpected error: Exception") is True
-    # other strings, similar prefixes and None are not
-    assert _is_unexpected_error("Unexpected errors") is False
+    assert _is_unexpected_error("Unexpected error occurred.") is True
+    # other strings and None are not
+    assert _is_unexpected_error("Failed to parse JSON-LD file at line 1, column 2.") is False
     assert _is_unexpected_error("sqlalchemy error: x") is False
     assert _is_unexpected_error(None) is False
 
