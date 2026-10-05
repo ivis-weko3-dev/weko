@@ -48,6 +48,7 @@ nosetests.xml
 
 # Translations
 *.mo
+!weko_swordserver/translations/**/*.mo
 
 # Django stuff:
 *.log
