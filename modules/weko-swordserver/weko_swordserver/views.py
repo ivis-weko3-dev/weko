@@ -58,7 +58,8 @@ from weko_workflow.scopes import activity_scope
 from .config import WEKO_SWORDSERVER_DEPOSIT_ROLE_ENABLE
 from .decorators import check_on_behalf_of, check_package_contents
 from .errors import (
-    ERROR_CODE_PREFIX, ErrorType, InternalProcessException, RateLimitException,
+    ERROR_CODE_PREFIX, DataValidationException, ErrorType, InputHeaderException,
+    InternalProcessException, RateLimitException, ResourceStateException,
     UnexpectedException, WekoSwordserverException
 )
 from .utils import (
@@ -249,10 +250,7 @@ def post_service_document():
     filename = content_disposition_options.get("filename")
     if (content_disposition != "attachment" or filename is None):
         current_app.logger.error("Cannot get filename by Content-Disposition.")
-        raise WekoSwordserverException(
-            "Cannot get filename by Content-Disposition.",
-            ErrorType.BadRequest
-        )
+        raise InputHeaderException.FILENAME_UNRESOLVABLE()
 
     # Check import item
     file = None
@@ -261,9 +259,7 @@ def post_service_document():
             file = value
     if file is None:
         current_app.logger.error(f"Not found {filename} in request body.")
-        raise WekoSwordserverException(
-            f"Not found {filename} in request body.", ErrorType.BadRequest
-        )
+        raise InputHeaderException.FILE_NOT_FOUND_IN_BODY(filename=filename)
 
     # check packaging, "SimpleZip" or "SWORDBagIt"
     packaging = request.headers.get("Packaging")
@@ -283,10 +279,7 @@ def post_service_document():
             current_app.logger.error(
                 "Failed to verify request body and digest."
             )
-            raise WekoSwordserverException(
-                "Failed to verify request body and digest.",
-                ErrorType.DigestMismatch
-            )
+            raise InputHeaderException.DIGEST_MISMATCH()
 
     check_result = check_import_items(
         file, file_format, shared_ids=shared_ids,
@@ -316,9 +309,8 @@ def post_service_document():
         current_app.logger.error(
             f"Error in item to import: {check_result.get('error')}"
         )
-        raise WekoSwordserverException(
-            f"Item check error: {check_result.get('error')}",
-            ErrorType.ContentMalformed
+        raise DataValidationException.ITEM_CHECK_ERROR(
+            detail=check_result.get('error')
         )
 
     # Validate items in the check result
@@ -331,18 +323,14 @@ def post_service_document():
             )
             error_msg += f", 'warnings': [{', '.join(warning)}]" if warning else ""
             current_app.logger.error(f"Error in check_import_items: {error_msg}")
-            raise WekoSwordserverException(
-                f"Item check error: {error_msg}",
-                ErrorType.ContentMalformed
-            )
+            raise DataValidationException.ITEM_CHECK_ERROR(detail=error_msg)
 
         if item.get("status") != "new":
             current_app.logger.error(
                 f"This item is already registered: {item.get('item_title')}"
             )
-            raise WekoSwordserverException(
-                f"This item is already registered: {item.get('item_title')}.",
-                ErrorType.BadRequest,
+            raise DataValidationException.ITEM_ALREADY_REGISTERED(
+                item_title=item.get("item_title")
             )
 
         if check_result.get("duplicate_check", False):
@@ -352,9 +340,8 @@ def post_service_document():
                 current_app.logger.error(
                     f"New item appears to be a duplicate: {list_id}"
                 )
-                raise WekoSwordserverException(
-                    f"Some similar items are already registered: {list_url}.",
-                    ErrorType.BadRequest,
+                raise DataValidationException.ITEM_DUPLICATE_SUSPECTED(
+                    list_url=list_url
                 )
 
     # Prepare request information
@@ -572,10 +559,7 @@ def put_object(recid):
     filename = content_disposition_options.get("filename")
     if content_disposition != "attachment" or filename is None:
         current_app.logger.error("Cannot get filename by Content-Disposition.")
-        raise WekoSwordserverException(
-            "Cannot get filename by Content-Disposition.",
-            ErrorType.BadRequest
-        )
+        raise InputHeaderException.FILENAME_UNRESOLVABLE()
 
     # Check import item
     file = None
@@ -584,9 +568,7 @@ def put_object(recid):
             file = value
     if file is None:
         current_app.logger.error(f"Not found {filename} in request body.")
-        raise WekoSwordserverException(
-            f"Not found {filename} in request body.", ErrorType.BadRequest
-        )
+        raise InputHeaderException.FILE_NOT_FOUND_IN_BODY(filename=filename)
 
     # check packaging, "SimpleZip" or "SWORDBagIt"
     packaging = request.headers.get("Packaging")
@@ -606,10 +588,7 @@ def put_object(recid):
             current_app.logger.error(
                 "Failed to verify request body and digest."
             )
-            raise WekoSwordserverException(
-                "Failed to verify request body and digest.",
-                ErrorType.DigestMismatch
-            )
+            raise InputHeaderException.DIGEST_MISMATCH()
 
     check_result = check_import_items(
         file, file_format, shared_ids=shared_ids,
@@ -639,9 +618,8 @@ def put_object(recid):
         current_app.logger.error(
             f"Error in check_import_items: {check_result.get('error')}"
         )
-        raise WekoSwordserverException(
-            f"Item check error: {check_result.get('error')}",
-            ErrorType.ContentMalformed
+        raise DataValidationException.ITEM_CHECK_ERROR(
+            detail=check_result.get('error')
         )
 
     if len(check_result.get("list_record", [])) > 1:
@@ -650,7 +628,7 @@ def put_object(recid):
             "Only one item is allowed for PUT requests."
         )
         current_app.logger.error(msg)
-        raise WekoSwordserverException(msg, ErrorType.ContentMalformed)
+        raise DataValidationException.MULTIPLE_ITEMS_IN_PUT()
 
     # only first item
     item = (check_result.get("list_record") or [{}])[0]
@@ -662,26 +640,21 @@ def put_object(recid):
         )
         error_msg += f", 'warnings': [{', '.join(warning)}]" if warning else ""
         current_app.logger.error(f"Error in check_import_items: {error_msg}")
-        raise WekoSwordserverException(
-            f"Item check error: {error_msg}",
-            ErrorType.ContentMalformed
-        )
+        raise DataValidationException.ITEM_CHECK_ERROR(detail=error_msg)
 
     if item.get("status") == "new":
         current_app.logger.error(
             f"This item is not registered yet: {item.get('item_title')}"
         )
-        raise WekoSwordserverException(
-            f"This item is not registered yet: {item.get('item_title')}",
-            ErrorType.BadRequest,
+        raise DataValidationException.ITEM_NOT_REGISTERED_FOR_PUT(
+            item_title=item.get("item_title")
         )
     if item.get("id") != recid:
         current_app.logger.error(
             f"Item id does not match. item: {item.get('id')}, request: {recid}"
         )
-        raise WekoSwordserverException(
-            f"Item id does not match. item: {item.get('id')}, request: {recid}",
-            ErrorType.BadRequest,
+        raise DataValidationException.ITEM_ID_MISMATCH(
+            item_id=item.get("id"), recid=recid
         )
     if check_result.get("duplicate_check", False):
         from weko_items_ui.utils import is_duplicate_item
@@ -693,9 +666,8 @@ def put_object(recid):
             current_app.logger.error(
                 f"New item appears to be a duplicate: {list_id}"
             )
-            raise WekoSwordserverException(
-                f"Some similar items are already registered: {list_url}.",
-                ErrorType.BadRequest,
+            raise DataValidationException.ITEM_DUPLICATE_SUSPECTED(
+                list_url=list_url
             )
 
     item["root_path"] = os.path.join(data_path, "data")
@@ -767,10 +739,7 @@ def put_object(recid):
         if os.path.exists(data_path):
             shutil.rmtree(data_path)
             TempDirInfo().delete(data_path)
-        raise WekoSwordserverException(
-            "Invalid register format has been set for admin setting",
-            ErrorType.ServerError
-        )
+        raise InternalProcessException.INVALID_REGISTER_FORMAT()
 
     if os.path.exists(data_path):
         shutil.rmtree(data_path)
@@ -838,7 +807,7 @@ def _get_status_document(recid):
                         getter=record_class.get_record)
         pid, record = resolver.resolve(recid)
     except Exception:
-        raise WekoSwordserverException("Item not found. (recid={})".format(recid), ErrorType.NotFound)
+        raise ResourceStateException.ITEM_NOT_FOUND(recid=recid)
 
     # Get record uri
     record_uri = "{}records/{}".format(request.url_root, recid)
@@ -1067,9 +1036,9 @@ def _get_status_workflow_document(activity_id, recid):
                         getter=record_class.get_record)
         pid, record = resolver.resolve(recid)
     except Exception:
-        raise WekoSwordserverException("Item not found. (recid={})".format(recid), ErrorType.NotFound)
+        raise ResourceStateException.ITEM_NOT_FOUND(recid=recid)
     if not activity_id:
-        raise WekoSwordserverException("Activity created, but not found.", ErrorType.NotFound)
+        raise InternalProcessException.ACTIVITY_NOT_FOUND_AFTER_CREATE()
 
     # Get record uri
     record_url = url_for("weko_swordserver.get_status_document", recid=recid, _external=True)
@@ -1246,9 +1215,7 @@ def delete_object(recid):
     record = WekoRecord.get_record_by_pid(recid)
     if record.pid_doi:
         current_app.logger.error(f"Cannot delete item with DOI; item id {recid}")
-        raise WekoSwordserverException(
-            "Cannot delete item with DOI.", ErrorType.BadRequest
-        )
+        raise ResourceStateException.ITEM_HAS_DOI()
 
     on_behalf_of = request.headers.get("On-Behalf-Of")
     shared_ids = get_shared_ids_from_on_behalf_of(on_behalf_of)
