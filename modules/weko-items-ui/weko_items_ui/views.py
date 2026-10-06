@@ -85,8 +85,8 @@ from .utils import (
     export_items, get_current_user, get_data_authors_prefix_settings,
     get_data_authors_affiliation_settings,
     get_ranking, get_shared_user_info_by_email, get_shared_user_info_by_username,
-    get_user_information, get_workflow_by_item_type_id,
-    hide_form_items, is_schema_include_key, remove_excluded_items_in_json_schema,
+    get_shared_user_ids, get_user_information, get_workflow_by_item_type_id,
+    hide_form_items, is_item_editable_by, is_schema_include_key, remove_excluded_items_in_json_schema,
     sanitize_input_data, save_title, search_email, search_username,
     set_multi_language_name, to_files_js,
     translate_schema_form, translate_validation_message, update_index_tree_for_record,
@@ -1146,14 +1146,12 @@ def prepare_edit_item(id=None, community=None):
                 msg=_('Record does not exist.')
             )
 
-        authenticators = [int(deposit.get('owner'))] \
-            + deposit.get('weko_shared_ids') if deposit.get('weko_shared_ids') is not None else []
-        user_id = int(get_current_user())
         work_activity = WorkActivity()
         latest_pid = PIDVersioning(child=recid).last_child
 
         # ! Check User's Permissions
-        if user_id not in authenticators and not get_user_roles(is_super_role=True)[0]:
+        if not is_item_editable_by(deposit) \
+                and not get_user_roles(is_super_role=True)[0]:
             return jsonify(
                 code=err_code,
                 msg=_("You are not allowed to edit this item.")
@@ -1253,7 +1251,7 @@ def prepare_edit_item(id=None, community=None):
 
 @blueprint.route('/prepare_delete_item', methods=['POST'])
 @login_required
-def prepare_delete_item(id=None, community=None, shared_user_ids=[]):
+def prepare_delete_item(id=None, community=None, shared_user_ids=None):
     """Prepare delete item.
 
     Delete item directly or create delete activity.
@@ -1312,14 +1310,16 @@ def prepare_delete_item(id=None, community=None, shared_user_ids=[]):
                 msg=_('Record does not exist.')
             )
 
-        authenticators = [str(deposit.get('owner'))] + \
-                         [str(uid) for uid in deposit.get('weko_shared_ids', [])]
+        if shared_user_ids is None:
+            # 未指定の場合はアイテムの代理投稿者(個人)で補完する
+            shared_user_ids = get_shared_user_ids(deposit)
         user_id = str(current_user.get_id())
         work_activity = WorkActivity()
         latest_pid = PIDVersioning(child=recid).last_child
 
         # ! Check User's Permissions
-        if user_id not in authenticators and not get_user_roles(is_super_role=True)[0]:
+        if not is_item_editable_by(deposit) \
+                and not get_user_roles(is_super_role=True)[0]:
             return jsonify(
                 code=err_code,
                 msg=_("You are not allowed to edit this item.")

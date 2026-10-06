@@ -3544,13 +3544,116 @@ def hide_meta_data_for_role(record):
             break
 
     # Item Register users and Sharing users
-    if record and current_user.get_id() in [
-        record.get('weko_creator_id'),
-            [str(shared_id) for shared_id in record.get('weko_shared_ids', [])]
-    ]:
+    if record and is_item_editable_by(record):
         is_hidden = False
 
     return is_hidden
+
+
+def get_shared_user_ids(source, apply_flag=True):
+    """Get user ids of proxy posters (individual) from record or activity.
+
+    旧形式(weko_shared_id)・shared_user_ids([{"user": N}])・
+    weko_shared_ids([N])の形状差と複数化フラグの差を吸収する。
+
+    :param source: アイテムメタデータまたは{"shared_user_ids": ...}形式の辞書
+    :param apply_flag: Trueの場合、複数化フラグが無効なら末尾1名に絞る
+    :return: ユーザーIDのリスト(保存順、重複なし)
+    """
+    if not isinstance(source, dict):
+        return []
+
+    raw = source.get('shared_user_ids')
+    if not raw:
+        raw = source.get('weko_shared_ids')
+    if not raw:
+        legacy_id = source.get('weko_shared_id')
+        try:
+            raw = [int(legacy_id)] if int(legacy_id) > 0 else []
+        except (TypeError, ValueError):
+            raw = []
+
+    ids = []
+    for element in raw:
+        try:
+            if isinstance(element, dict):
+                user_id = int(element['user'])
+            else:
+                user_id = int(element)
+        except (KeyError, TypeError, ValueError):
+            current_app.logger.warning(
+                "Unexpected shared user id element is ignored: {}".format(element))
+            continue
+        ids.append(user_id)
+
+    if apply_flag and not current_app.config.get(
+            'WEKO_ITEMS_UI_PROXY_POSTING', False):
+        ids = ids[-1:]
+
+    # 重複は保存順を保ったまま除去する
+    return list(OrderedDict.fromkeys(ids))
+
+
+def _get_target_user_id(user=None):
+    """Get user id as int. Return None if it can not be resolved.
+
+    :param user: User / int / str。Noneの場合はcurrent_userを用いる
+    :return: ユーザーID(int)またはNone
+    """
+    try:
+        if user is None:
+            if not current_user or not current_user.is_authenticated:
+                return None
+            user = current_user.get_id()
+        elif isinstance(user, User):
+            user = user.id
+        return int(user)
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def is_proxy_poster(source, user=None):
+    """Check whether the user is a proxy poster of the record.
+
+    owner判定・管理者判定は含まない。
+
+    :param source: アイテムメタデータまたはアクティビティ由来の辞書
+    :param user: 判定対象ユーザー。省略時はcurrent_user
+    :return: 代理投稿者(個人)であればTrue
+    """
+    user_id = _get_target_user_id(user)
+    if user_id is None:
+        return False
+    return user_id in get_shared_user_ids(source)
+
+
+def is_item_editable_by(source, user=None):
+    """Check whether the user is the owner or a proxy poster of the item.
+
+    管理者ロールによるバイパスは含まない。
+
+    :param source: アイテムメタデータまたはアクティビティ由来の辞書
+    :param user: 判定対象ユーザー。省略時はcurrent_user
+    :return: 登録者本人または代理投稿者であればTrue
+    """
+    user_id = _get_target_user_id(user)
+    if user_id is None or not isinstance(source, dict):
+        return False
+
+    deposit = source.get('_deposit')
+    owner_candidates = [
+        deposit.get('created_by') if isinstance(deposit, dict) else None,
+        source.get('owner'),
+        source.get('weko_creator_id'),
+    ]
+    for candidate in owner_candidates:
+        try:
+            if candidate is not None and int(candidate) == user_id:
+                return True
+        except (TypeError, ValueError):
+            continue
+
+    return is_proxy_poster(source, user_id)
 
 
 def get_ignore_item_from_mapping(_item_type_id, item_type):

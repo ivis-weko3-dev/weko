@@ -129,6 +129,8 @@ def file_permission_required(f):
 
 def check_file_download_permission(record, fjson, is_display_file_info=False, item_type=None):
     """Check file download."""
+    from weko_items_ui.utils import get_shared_user_ids
+
     def site_license_check(item_type):
         # site license permission check
         if not item_type:
@@ -178,11 +180,8 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, it
         created_id = record.get('_deposit', {}).get('created_by')
         user_id_list.append(created_id) if created_id else None
         user_id_list.append(int(record['owner'])) if record.get('owner') else None
-        if record.get('weko_shared_ids'):
-            if current_app.config.get('WEKO_ITEMS_UI_PROXY_POSTING', False):
-                user_id_list.extend(record.get('weko_shared_ids'))
-            else:
-                user_id_list.append(record.get('weko_shared_ids')[-1])
+        # 代理投稿者(個人)のIDは共通ヘルパーで取得する(複数化フラグも考慮済み)
+        user_id_list.extend(get_shared_user_ids(record))
         user_id_list = list(set(user_id_list))
         created_user_email_list = get_email_list_by_ids(user_id_list)
 
@@ -629,39 +628,18 @@ def check_created_id(record):
     Returns:
         bool: True is the current user has the edit permission.
     """
+    from weko_items_ui.utils import is_item_editable_by
+
     is_himself = False
     # Super users
     supers = current_app.config['WEKO_PERMISSION_SUPER_ROLE_USER']
     comadmin = current_app.config['WEKO_PERMISSION_ROLE_COMMUNITY']
-    proxy_posting = current_app.config.get('WEKO_ITEMS_UI_PROXY_POSTING', False)
     user_id = current_user.get_id() \
             if current_user and current_user.is_authenticated else None
     if user_id is not None:
-        created_id = record.get('_deposit', {}).get('created_by')
-        owner = record.get('owner')
-        shared_ids = record.get('weko_shared_ids')
-        if not isinstance(shared_ids, list):
-            # 旧形式のレコードは単数の weko_shared_id を持ち、共有なしは -1。
-            # どちらのキーも無いと shared_ids が None になり、下の len() で
-            # TypeError になって認可判定ごと落ちるため、ここでリストに寄せる。
-            #
-            # TODO: 旧形式(weko_shared_id)は将来廃止し weko_shared_ids に
-            # 一本化する。既存レコードの移行が済んだらこの分岐を削除する。
-            legacy_shared_id = record.get('weko_shared_id')
-            try:
-                legacy_shared_id = int(legacy_shared_id)
-            except (TypeError, ValueError):
-                legacy_shared_id = -1
-            shared_ids = [legacy_shared_id] if legacy_shared_id > 0 else []
-        if user_id and created_id and user_id == str(created_id):
+        # 登録者・代理投稿者の判定は共通ヘルパーで行う
+        if is_item_editable_by(record, user_id):
             is_himself = True
-        elif user_id and owner and user_id == str(owner):
-            is_himself = True
-        elif user_id and len(shared_ids)>0:
-            if proxy_posting and int(user_id) in shared_ids:
-                is_himself = True
-            elif not proxy_posting and shared_ids[-1] == int(user_id):
-                is_himself = True
         for lst in list(current_user.roles or []):
             # In case of supper user,it's always have permission
             if lst.name in supers:
@@ -731,15 +709,12 @@ def is_owners_or_superusers(record) -> bool:
     Returns
         bool: is owners or superusers
     """
-    # Get email list of created workflow user.
-    user_id_list = [int(record['owner'])] if record.get('owner') else []
-    if record.get('weko_shared_ids'):
-        user_id_list.extend(record.get('weko_shared_ids'))
+    from weko_items_ui.utils import is_item_editable_by
 
     # Registered user
     if current_user and \
             current_user.is_authenticated and \
-            current_user.id in user_id_list:
+            is_item_editable_by(record):
         return True
 
     # Super users

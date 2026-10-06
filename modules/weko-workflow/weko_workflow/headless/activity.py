@@ -29,7 +29,8 @@ from weko_deposit.api import WekoDeposit, WekoRecord
 from weko_deposit.links import base_factory
 from weko_deposit.serializer import file_uploaded_owner
 from weko_items_ui.utils import (
-    update_index_tree_for_record, validate_form_input_data, to_files_js
+    is_proxy_poster, update_index_tree_for_record, validate_form_input_data,
+    to_files_js
 )
 from weko_items_ui.views import (
     check_validation_error_msg, prepare_edit_item, prepare_delete_item
@@ -210,7 +211,9 @@ class HeadlessActivity(WorkActivity):
             user = User.query.get(user_id)
             if (
                 self._model.activity_login_user != user_id
-                    and {'user': user_id} not in self._model.shared_user_ids
+                    and not is_proxy_poster(
+                        {"shared_user_ids": self._model.shared_user_ids},
+                        user_id)
                     and not check_authority_by_admin(self.activity_id, user)
             ):
                 current_app.logger.error(

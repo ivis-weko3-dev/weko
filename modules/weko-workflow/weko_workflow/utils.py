@@ -3822,21 +3822,7 @@ def get_activity_display_info(activity_id: str):
         Workflow: workflow_detail
     """
 
-    def _get_shared_user_ids_from_list(shared_user_ids_list):
-        """Get shared user ids from list.
-
-        Args:
-            shared_user_ids_list (list): List of shared user ids.
-        Returns:
-            list: List of shared user ids.
-        """
-        shared_user_ids = []
-        for user_id in shared_user_ids_list:
-            if isinstance(user_id, dict) and 'user' in user_id:
-                shared_user_ids.append(user_id['user'])
-            else:
-                shared_user_ids.append(user_id)
-        return shared_user_ids
+    from weko_items_ui.utils import get_shared_user_ids
 
     activity = WorkActivity()
     activity_detail = activity.get_activity_detail(activity_id)
@@ -3877,9 +3863,11 @@ def get_activity_display_info(activity_id: str):
     shared_user_unique_ids = []
     seen = set()
     owner_id = -1
+    # 複数化フラグは適用せず全件を取得する(apply_flag=False)
     if activity_detail.shared_user_ids:
-        shared_user_ids = _get_shared_user_ids_from_list(
-            activity_detail.shared_user_ids
+        shared_user_ids = get_shared_user_ids(
+            {"shared_user_ids": activity_detail.shared_user_ids},
+            apply_flag=False
         )
         for uid in shared_user_ids:
             if uid not in seen:
@@ -3889,8 +3877,11 @@ def get_activity_display_info(activity_id: str):
     if metadata:
         item_json = json.loads(metadata).get('metainfo')
         owner_id = item_json.get('owner', -1)
-        shared_user_ids = item_json.get('shared_user_ids', [])
-        for uid in _get_shared_user_ids_from_list(shared_user_ids):
+        shared_user_ids = get_shared_user_ids(
+            {"shared_user_ids": item_json.get('shared_user_ids', [])},
+            apply_flag=False
+        )
+        for uid in shared_user_ids:
             if uid not in seen:
                 shared_user_unique_ids.append(uid)
                 seen.add(uid)
@@ -5144,7 +5135,7 @@ def get_contributors(pid_value, user_id_list_json=None):
     Returns:
         list: A list of dictionaries containing contributor information.
     """
-    from weko_items_ui.utils import get_user_information
+    from weko_items_ui.utils import get_shared_user_ids, get_user_information
 
     userid_list = []
     # item登録済みユーザーデータ
@@ -5152,7 +5143,8 @@ def get_contributors(pid_value, user_id_list_json=None):
         pid_value = pid_value.split('.')[0]
         # Get Record by pid_value
         record = WekoRecord.get_record_by_pid(pid_value)
-        userid_list.extend(record['weko_shared_ids'])
+        # 形状差・キー欠落・複数化フラグは共通ヘルパーで吸収する
+        userid_list.extend(get_shared_user_ids(record))
     # 一時保存ユーザーデータ
     elif user_id_list_json:
         for rec in user_id_list_json:

@@ -1163,7 +1163,6 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
         // Load Contributor information
         let recordModel = $rootScope.recordsVM.invenioRecordsModel;
         let owner_id = 0
-        let enable_multi_contributors = $('#enable_multi_contributors').val() === 'True';
         if (recordModel.owner) {
           owner_id = recordModel.owner;
         } else {

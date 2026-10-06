@@ -60,7 +60,7 @@ from weko_deposit.signals import item_created
 from weko_index_tree.utils import get_user_roles
 from weko_items_ui.api import item_login
 from weko_items_ui.utils import check_item_is_being_edit, get_workflow_by_item_type_id, \
-    get_current_user
+    get_current_user, get_shared_user_ids
 from weko_logging.activity_logger import UserActivityLogger
 from weko_records.api import FeedbackMailList, RequestMailList, ItemLink, ItemTypes, ItemApplication
 from weko_records.models import ItemMetadata
@@ -1264,8 +1264,8 @@ def display_activity(activity_id="0", community_id=None):
             'WEKO_WORKFLOW_ENABLE_CONTRIBUTOR'],
         enable_feedback_maillist=current_app.config[
             'WEKO_WORKFLOW_ENABLE_FEEDBACK_MAIL'],
-        enable_multi_contributors = current_app.config[
-            'WEKO_ITEMS_UI_PROXY_POSTING'],
+        enable_multi_contributors = current_app.config.get(
+            'WEKO_ITEMS_UI_PROXY_POSTING', False),
         enable_request_maillist=enable_request_maillist,
         endpoints=endpoints,
         error_type='item_login_error',
@@ -1318,26 +1318,6 @@ def display_activity(activity_id="0", community_id=None):
     )
 
 
-def _get_shared_user_ids_from_list(shared_user_ids_list):
-    """Get shared user ids from list.
-
-    モジュールトップレベル関数(元は check_authority_action 内のネスト関数)。
-    check_authority(action_idなし分岐)からも共用する。
-
-    Args:
-        shared_user_ids_list (list): List of shared user ids.
-    Returns:
-        list: List of shared user ids.
-    """
-    shared_user_ids = []
-    for shared_user in (shared_user_ids_list or []):
-        if isinstance(shared_user, dict):
-            shared_user_ids.append(shared_user.get('user'))
-        elif isinstance(shared_user, int):
-            shared_user_ids.append(shared_user)
-    return shared_user_ids
-
-
 def check_authority(func):
     """Check Authority."""
     @wraps(func)
@@ -1363,16 +1343,16 @@ def check_authority(func):
             im = ItemMetadata.query.filter_by(
                 id=activity_detail.item_id).one_or_none()
             if im:
-                shared_ids += _get_shared_user_ids_from_list(
-                    im.json.get('shared_user_ids', []))
-                shared_ids += _get_shared_user_ids_from_list(
-                    im.json.get('weko_shared_ids', []))
+                shared_ids += get_shared_user_ids(im.json, apply_flag=False)
             elif activity_detail.temp_data:
                 temp_data = json.loads(activity_detail.temp_data)
-                shared_ids += _get_shared_user_ids_from_list(
-                    activity_detail.shared_user_ids or [])
-                shared_ids += _get_shared_user_ids_from_list(
-                    temp_data.get('metainfo', {}).get('shared_user_ids', []))
+                shared_ids += get_shared_user_ids(
+                    {"shared_user_ids": activity_detail.shared_user_ids},
+                    apply_flag=False)
+                shared_ids += get_shared_user_ids(
+                    {"shared_user_ids": (temp_data or {}).get(
+                        'metainfo', {}).get('shared_user_ids')},
+                    apply_flag=False)
             if cur_user in shared_ids:
                 return func(*args, **kwargs)
             return jsonify(code=403, msg=_('Authorization required'))
@@ -1413,61 +1393,56 @@ def check_authority_action(activity_id='0', action_id=0,
         im = ItemMetadata.query.filter_by(id=activity.item_id).one_or_none()
         if not im and activity.temp_data:
             # Get shared_user_ids from shared_user_ids columns
-            activity_shared_user_ids = activity.shared_user_ids \
-                if activity.shared_user_ids else []
-            activity_user_ids = _get_shared_user_ids_from_list(
-                activity_shared_user_ids
-            )
+            activity_user_ids = get_shared_user_ids(
+                {"shared_user_ids": activity.shared_user_ids},
+                apply_flag=False)
 
-            temp_data = json.loads(activity.temp_data)
-            temp_user_ids = []
-            if temp_data is not None:
-                # Get shared_user_ids from temp_data's metainfo
-                temp_shared_user_ids = temp_data.get('metainfo', {}).get(
-                    "shared_user_ids", []
-                )
-                temp_user_ids = _get_shared_user_ids_from_list(
-                    temp_shared_user_ids
-                )
-                activity_owner = temp_data.get('metainfo', {}).get(
-                    "owner", '-1'
-                )
+            try:
+                temp_data = activity.temp_data \
+                    if isinstance(activity.temp_data, dict) \
+                    else json.loads(activity.temp_data)
+            except (TypeError, ValueError):
+                current_app.logger.warning(
+                    "Failed to parse activity temp_data. activity_id={}"
+                    .format(activity.activity_id))
+                temp_data = None
+            temp_data = temp_data if isinstance(temp_data, dict) else {}
 
-                # if exist shared_user_ids or owner allow to access
-                if int(cur_user) == int(activity_owner):
-                    return 0
-            
+            # Get shared_user_ids from temp_data's metainfo
+            temp_user_ids = get_shared_user_ids(
+                {"shared_user_ids": temp_data.get('metainfo', {}).get(
+                    "shared_user_ids")},
+                apply_flag=False)
+            activity_owner = temp_data.get('metainfo', {}).get("owner", '-1')
+
+            # if exist shared_user_ids or owner allow to access
+            if int(cur_user) == int(activity_owner):
+                return 0
+
             if proxy_posting:
                 # If current user is in activity_user_ids or temp_user_ids
-                if int(cur_user) in activity_user_ids + temp_user_ids:
-                    return 0
+                candidate_ids = activity_user_ids + temp_user_ids
             else:
-                last_user_id = None
-                # Check only last added user
-                if activity_user_ids:
-                    last_user_id = activity_user_ids[-1]
-                elif temp_user_ids:
-                    last_user_id = temp_user_ids[-1]
-                if last_user_id and int(cur_user) == int(last_user_id):
-                    return 0
+                # 既存の優先順位を維持: activity 由来が非空ならその末尾のみを対象とし、
+                # 空の場合のみ temp_data 由来の末尾を対象とする
+                primary = activity_user_ids if activity_user_ids \
+                    else temp_user_ids
+                candidate_ids = primary[-1:] if primary else []
+            if int(cur_user) in candidate_ids:
+                return 0
 
         elif im:
             # Check if this activity has contributor equaling to current user
-            metadata_shared_user_ids = im.json.get('shared_user_ids', [])
-            metadata_weko_shared_ids = im.json.get('weko_shared_ids', [])
+            metadata_user_ids = get_shared_user_ids(im.json, apply_flag=False)
             metadata_owner = int(im.json.get('owner', '-1'))
             if proxy_posting:
-                if int(cur_user) in metadata_shared_user_ids + metadata_weko_shared_ids:
-                    return 0
+                candidate_ids = metadata_user_ids
             else:
-                last_user_id = None
                 # Check only last added user
-                if metadata_shared_user_ids:
-                    last_user_id = metadata_shared_user_ids[-1]
-                elif metadata_weko_shared_ids:
-                    last_user_id = metadata_weko_shared_ids[-1]
-                if last_user_id and int(cur_user) == int(last_user_id):
-                    return 0
+                candidate_ids = metadata_user_ids[-1:] \
+                    if metadata_user_ids else []
+            if int(cur_user) in candidate_ids:
+                return 0
             if int(cur_user) == int(metadata_owner):
                 return 0
 

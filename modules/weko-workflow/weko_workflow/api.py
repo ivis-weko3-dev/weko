@@ -39,7 +39,8 @@ from invenio_communities.models import Community
 from invenio_db import db
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records.models import RecordMetadata
-from sqlalchemy import and_, asc, desc, func, or_,literal_column, not_, cast, String
+from sqlalchemy import and_, asc, desc, func, or_,literal_column, not_, cast, String, case, literal
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import exists
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
@@ -1807,15 +1808,11 @@ class WorkActivity(object):
         """Create self user ID in JSON format.
 
         Example:
-            shared_user_ids = [{"user": 2}, {"user": 1}]
+            self_user_id = 1  ->  '{"user": 1}'
 
-            # When WEKO_ITEMS_UI_PROXY_POSTING is False:
-            #   Target contributor is the last of shared_user_ids.
-            #   The SQL LIKE condition: '%{"user": 1}]%'
-
-            # When WEKO_ITEMS_UI_PROXY_POSTING is True:
-            #   Target contributor is any of shared_user_ids.
-            #   The SQL LIKE condition: '%{"user": 1}%'
+        Whether the user is matched with any of shared_user_ids or only with
+        the last one (WEKO_ITEMS_UI_PROXY_POSTING is False) is decided in
+        __is_shared_user_in_activity and __is_shared_user_in_temp_data.
 
         Args:
             self_user_id (int): User ID.
@@ -1823,10 +1820,79 @@ class WorkActivity(object):
         Returns:
             str: User ID in JSON format.
         """
-        self_user_id_json = json.dumps({"user" : self_user_id})
-        if not current_app.config.get('WEKO_ITEMS_UI_PROXY_POSTING', False):
-            self_user_id_json += ']'
-        return self_user_id_json
+        return json.dumps({"user" : self_user_id})
+
+    @staticmethod
+    def __is_last_shared_user(shared_user_ids_expr, self_user_id_json):
+        """Create condition that matches the last element of shared_user_ids.
+
+        Args:
+            shared_user_ids_expr: JSONB array expression of shared_user_ids.
+            self_user_id_json (str): User ID in JSON format.
+
+        Returns:
+            sqlalchemy condition.
+        """
+        # jsonb_array_length は配列以外(JSONのnull・オブジェクト等)で例外となるため、
+        # 配列であることを確認してから長さを評価する(CASEの評価順は保証される)
+        last_element = case(
+            [(func.jsonb_array_length(shared_user_ids_expr) > 0,
+              shared_user_ids_expr.op("->")(
+                  func.jsonb_array_length(shared_user_ids_expr) - 1))],
+            else_=None,
+        )
+        last_shared = case(
+            [(func.jsonb_typeof(shared_user_ids_expr) == 'array',
+              last_element)],
+            else_=None,
+        )
+        return last_shared.op("@>")(
+            cast(literal(self_user_id_json, String), JSONB))
+
+    @staticmethod
+    def __is_shared_user_in_activity(self_user_id_json):
+        """Create condition for shared_user_ids of activity.
+
+        WEKO_ITEMS_UI_PROXY_POSTING is True: any of shared_user_ids.
+        WEKO_ITEMS_UI_PROXY_POSTING is False: only the last of shared_user_ids.
+        """
+        if current_app.config.get('WEKO_ITEMS_UI_PROXY_POSTING', False):
+            return cast(_Activity.shared_user_ids, String).contains(
+                self_user_id_json)
+        return WorkActivity.__is_last_shared_user(
+            _Activity.shared_user_ids, self_user_id_json)
+
+    @staticmethod
+    def __temp_data_jsonb():
+        """Create JSONB expression of temp_data.
+
+        temp_data is saved as a JSON string (json.dumps) into the JSONB column,
+        so it is stored as a JSONB string scalar. A path operator can not be
+        applied to it directly, so unwrap the string with '#>> {}' and cast
+        it to JSONB. An object value is also handled by the same expression.
+        """
+        return cast(_Activity.temp_data.op("#>>", return_type=String)("{}"), JSONB)
+
+    @staticmethod
+    def __is_shared_user_in_temp_data(self_user_id_json):
+        """Create condition for metainfo.shared_user_ids of temp_data.
+
+        WEKO_ITEMS_UI_PROXY_POSTING is True: any of shared_user_ids.
+        WEKO_ITEMS_UI_PROXY_POSTING is False: only the last of shared_user_ids.
+        """
+        temp_data = WorkActivity.__temp_data_jsonb()
+        if current_app.config.get('WEKO_ITEMS_UI_PROXY_POSTING', False):
+            return temp_data.op("#>>", return_type=String)(
+                "{metainfo,shared_user_ids}").contains(self_user_id_json)
+        return WorkActivity.__is_last_shared_user(
+            temp_data.op("#>")("{metainfo,shared_user_ids}"),
+            self_user_id_json)
+
+    @staticmethod
+    def __is_owner_in_temp_data(self_user_id):
+        """Create condition for metainfo.owner of temp_data."""
+        return WorkActivity.__temp_data_jsonb().op(
+            "#>>", return_type=String)("{metainfo,owner}") == str(self_user_id)
 
     @staticmethod
     def query_activities_by_tab_is_wait(query, is_admin, is_community_admin, comadmin_index_list):
@@ -1875,9 +1941,9 @@ class WorkActivity(object):
                 .filter(
                     or_(
                         _Activity.activity_login_user == self_user_id,
-                        cast(_Activity.shared_user_ids, String).contains(self_user_id_json),
-                        _Activity.temp_data.op("#>>")("{'metainfo', 'shared_user_ids'}").contains(self_user_id_json),
-                        _Activity.temp_data.op("#>>")("{'metainfo', 'owner'}") == str(self_user_id),
+                        WorkActivity.__is_shared_user_in_activity(self_user_id_json),
+                        WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),
+                        WorkActivity.__is_owner_in_temp_data(self_user_id),
                     )
                 ) \
                 .filter(
@@ -1895,9 +1961,9 @@ class WorkActivity(object):
                             ),
                             or_(
                                 and_(
-                                    not_(cast(_Activity.shared_user_ids, String).contains(self_user_id_json)),
-                                    not_(_Activity.temp_data.op("#>>")("{'metainfo', 'shared_user_ids'}").contains(self_user_id_json),),
-                                    not_(_Activity.temp_data.op("#>>")("{'metainfo', 'owner'}") == str(self_user_id)),
+                                    not_(WorkActivity.__is_shared_user_in_activity(self_user_id_json)),
+                                    not_(WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),),
+                                    not_(WorkActivity.__is_owner_in_temp_data(self_user_id)),
                                 ),
                                 _Activity.shared_user_ids.is_(None),
                             )
@@ -1915,9 +1981,9 @@ class WorkActivity(object):
                             ),
                             or_(
                                 and_(
-                                    not_(cast(_Activity.shared_user_ids, String).contains(self_user_id_json)),
-                                    not_(_Activity.temp_data.op("#>>")("{'metainfo', 'shared_user_ids'}").contains(self_user_id_json),),
-                                    not_(_Activity.temp_data.op("#>>")("{'metainfo', 'owner'}") == str(self_user_id)),
+                                    not_(WorkActivity.__is_shared_user_in_activity(self_user_id_json)),
+                                    not_(WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),),
+                                    not_(WorkActivity.__is_owner_in_temp_data(self_user_id)),
                                 ),
                                 _Activity.shared_user_ids.is_(None),
                             )
@@ -1926,9 +1992,9 @@ class WorkActivity(object):
                             ActivityAction.action_handler.notin_(action_handler),
                             or_(
                                 and_(
-                                    not_(cast(_Activity.shared_user_ids, String).contains(self_user_id_json)),
-                                    not_(_Activity.temp_data.op("#>>")("{'metainfo', 'shared_user_ids'}").contains(self_user_id_json),),
-                                    not_(_Activity.temp_data.op("#>>")("{'metainfo', 'owner'}") == str(self_user_id)),
+                                    not_(WorkActivity.__is_shared_user_in_activity(self_user_id_json)),
+                                    not_(WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),),
+                                    not_(WorkActivity.__is_owner_in_temp_data(self_user_id)),
                                 ),
                                 _Activity.shared_user_ids.is_(None),
                             )
@@ -1945,9 +2011,9 @@ class WorkActivity(object):
                                 )
                             ),
                             or_(
-                                cast(_Activity.shared_user_ids, String).contains(self_user_id_json),
-                                _Activity.temp_data.op("#>>")("{'metainfo', 'shared_user_ids'}").contains(self_user_id_json),
-                                _Activity.temp_data.op("#>>")("{'metainfo', 'owner'}") == str(self_user_id),
+                                WorkActivity.__is_shared_user_in_activity(self_user_id_json),
+                                WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),
+                                WorkActivity.__is_owner_in_temp_data(self_user_id),
                             ),
                             _FlowActionRole.action_user
                             != _Activity.activity_login_user,
@@ -1955,9 +2021,9 @@ class WorkActivity(object):
                         ),
                         and_(
                             or_(
-                                cast(_Activity.shared_user_ids, String).contains(self_user_id_json),
-                                _Activity.temp_data.op("#>>")("{'metainfo', 'shared_user_ids'}").contains(self_user_id_json),
-                                _Activity.temp_data.op("#>>")("{'metainfo', 'owner'}") == str(self_user_id),
+                                WorkActivity.__is_shared_user_in_activity(self_user_id_json),
+                                WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),
+                                WorkActivity.__is_owner_in_temp_data(self_user_id),
                             ),
                             ActivityAction.action_handler
                             != _Activity.activity_login_user
@@ -2012,9 +2078,9 @@ class WorkActivity(object):
             ),
             and_(
                 or_(
-                    cast(_Activity.shared_user_ids, String).contains(self_user_id_json),
-                    _Activity.temp_data.op("#>>")("{'metainfo', 'shared_user_ids'}").contains(self_user_id_json),
-                    _Activity.temp_data.op("#>>")("{'metainfo', 'owner'}") == str(self_user_id),
+                    WorkActivity.__is_shared_user_in_activity(self_user_id_json),
+                    WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),
+                    WorkActivity.__is_owner_in_temp_data(self_user_id),
                 )
             ),
             and_(
@@ -2108,9 +2174,9 @@ class WorkActivity(object):
                 ),
                 and_(
                     or_(
-                        cast(_Activity.shared_user_ids, String).contains(self_user_id_json),
-                        _Activity.temp_data.op("#>>")("{'metainfo', 'shared_user_ids'}").contains(self_user_id_json),
-                        _Activity.temp_data.op("#>>")("{'metainfo', 'owner'}")== str(self_user_id),
+                        WorkActivity.__is_shared_user_in_activity(self_user_id_json),
+                        WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),
+                        WorkActivity.__is_owner_in_temp_data(self_user_id),
                     )
                 ),
                 and_(
@@ -2147,9 +2213,9 @@ class WorkActivity(object):
                     ),
                     and_(
                         or_(
-                            cast(_Activity.shared_user_ids, String).contains(self_user_id_json),
-                            _Activity.temp_data.op("#>>")("{'metainfo', 'shared_user_ids'}").contains(self_user_id_json),
-                            _Activity.temp_data.op("#>>")("{'metainfo', 'owner'}") == str(self_user_id),
+                            WorkActivity.__is_shared_user_in_activity(self_user_id_json),
+                            WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),
+                            WorkActivity.__is_owner_in_temp_data(self_user_id),
                         ),
                         _FlowAction.action_id != 4
                     ),
@@ -3261,24 +3327,30 @@ class WorkActivity(object):
 
     def _get_params_for_registrant(self, activity):
         """Get notification parameters for registrant."""
+        from weko_items_ui.utils import get_shared_user_ids
+
         with db.session.begin_nested():
             set_target_id = {activity.activity_login_user}
-            shared_user_ids = [
-                s.get('user') for s in activity.shared_user_ids or []
-            ]
-            is_shared = len(shared_user_ids) > 0
-            if is_shared:
-                set_target_id.update(shared_user_ids)
+            # 宛先は代理投稿者(個人)のみ。複数化フラグ無効時は末尾1名となる
+            # 代理投稿グループのメンバーは宛先に追加しない(設計上の非実装)
+            shared_user_ids = get_shared_user_ids(
+                {"shared_user_ids": activity.shared_user_ids}
+            )
+            set_target_id.update(shared_user_ids)
 
             recid = (
                 PersistentIdentifier
                 .get_by_object("recid", "rec", activity.item_id)
             )
+            # actorは実際に操作したユーザーのまま維持する
             actor_id = activity.activity_update_user
+            if actor_id is None:
+                current_app.logger.warning(
+                    "Actor id is not resolved for notification. "
+                    "Fallback to activity_login_user."
+                )
+                actor_id = activity.activity_login_user
             set_target_id.discard(actor_id)
-
-            if is_shared and actor_id == activity.activity_login_user:
-                actor_id = shared_user_ids[0]
 
             actor_profile = UserProfile.get_by_userid(actor_id)
             actor_name = (
@@ -3294,13 +3366,14 @@ class WorkActivity(object):
                 PersistentIdentifier
                 .get_by_object("recid", "rec", activity.item_id)
             )
-            shared_user_ids = [
-                s.get('user') for s in activity.shared_user_ids or []
-            ]
-            actor_id = (
-                shared_user_ids[0]
-                if shared_user_ids else activity.activity_login_user
-            )
+            # actorは実際に操作したユーザーとする(代理投稿者の先頭にしない)
+            actor_id = activity.activity_update_user
+            if actor_id is None:
+                current_app.logger.warning(
+                    "Actor id is not resolved for notification. "
+                    "Fallback to activity_login_user."
+                )
+                actor_id = activity.activity_login_user
 
             actor_profile = UserProfile.get_by_userid(actor_id)
             actor_name = (
