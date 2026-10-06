@@ -3134,7 +3134,8 @@ def _export_item(record_id,
                                         False, False)
                 record_role_ids = {
                     'weko_creator_id': meta_data.get('weko_creator_id'),
-                    'weko_shared_ids': meta_data.get('weko_shared_ids')
+                    'weko_shared_ids': meta_data.get('weko_shared_ids'),
+                    'weko_shared_role_ids': meta_data.get('weko_shared_role_ids')
                 }
                 list_item_role.update(
                     {str(exported_item['item_type_id']): record_role_ids})
@@ -3696,6 +3697,11 @@ def get_shared_user_ids(source, apply_flag=True):
             raw = [int(legacy_id)] if int(legacy_id) > 0 else []
         except (TypeError, ValueError):
             raw = []
+
+    if not isinstance(raw, (list, tuple)):
+        current_app.logger.warning(
+            "Unexpected shared user ids format is ignored: {}".format(raw))
+        return []
 
     ids = []
     for element in raw:

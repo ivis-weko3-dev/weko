@@ -964,6 +964,7 @@ class WorkActivity(object):
                 activity_login_user=activity_login_user,
                 activity_update_user=activity_update_user,
                 shared_user_ids=activity.get("shared_user_ids"),
+                shared_role_ids=activity.get("shared_role_ids"),
                 activity_status=ActivityStatusPolicy.ACTIVITY_MAKING,
                 activity_start=datetime.now(timezone.utc),
                 activity_community_id=community_id,
@@ -1922,7 +1923,8 @@ class WorkActivity(object):
                 role_id_json, autoescape=True))
             conditions.append(temp_roles.contains(
                 role_id_json, autoescape=True))
-        return or_(*conditions)
+        # not_() 内でNULLが伝播しないよう、NULLを偽に正規化する
+        return func.coalesce(or_(*conditions), false())
 
     @staticmethod
     def __is_owner_in_temp_data(self_user_id):

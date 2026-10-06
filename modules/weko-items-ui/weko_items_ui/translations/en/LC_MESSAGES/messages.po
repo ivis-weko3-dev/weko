@@ -838,6 +838,3 @@ msgstr ""
 msgid "Export"
 msgstr ""
 
-#~ msgid "You cannot specify yourself in \"Other user\" setting."
-#~ msgstr ""
-

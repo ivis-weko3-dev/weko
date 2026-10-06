@@ -85,7 +85,7 @@ from .utils import (
     export_items, get_current_user, get_data_authors_prefix_settings,
     get_data_authors_affiliation_settings,
     get_ranking, get_shared_user_info_by_email, get_shared_user_info_by_username,
-    get_shared_user_ids, get_user_information, get_workflow_by_item_type_id,
+    get_shared_role_ids, get_shared_user_ids, get_user_information, get_workflow_by_item_type_id,
     hide_form_items, is_item_editable_by, is_schema_include_key, remove_excluded_items_in_json_schema,
     sanitize_input_data, save_title, exists_shared_user_email, search_role_name, search_username,
     set_multi_language_name, to_files_js,
@@ -1264,7 +1264,8 @@ def prepare_edit_item(id=None, community=None):
 
 @blueprint.route('/prepare_delete_item', methods=['POST'])
 @login_required
-def prepare_delete_item(id=None, community=None, shared_user_ids=None):
+def prepare_delete_item(id=None, community=None, shared_user_ids=None,
+                        shared_role_ids=None):
     """Prepare delete item.
 
     Delete item directly or create delete activity.
@@ -1280,6 +1281,7 @@ def prepare_delete_item(id=None, community=None, shared_user_ids=None):
         id (str): pid_value
         community (str): community id
         shared_user_ids (list): shared user ids
+        shared_role_ids (list): shared role ids (proxy posting groups)
 
     Returns:
         Response: JSON response with code and message.
@@ -1326,6 +1328,13 @@ def prepare_delete_item(id=None, community=None, shared_user_ids=None):
         if shared_user_ids is None:
             # 未指定の場合はアイテムの代理投稿者(個人)で補完する
             shared_user_ids = get_shared_user_ids(deposit)
+        if shared_role_ids is None:
+            # 未指定の場合はアイテムの代理投稿グループで補完する
+            shared_role_ids = get_shared_role_ids(deposit)
+        else:
+            # 明示指定は文字列配列に揃える(フラグの状態によらず採用)
+            shared_role_ids = get_shared_role_ids(
+                {"shared_role_ids": shared_role_ids}, apply_flag=False)
         user_id = str(current_user.get_id())
         work_activity = WorkActivity()
         latest_pid = PIDVersioning(child=recid).last_child
@@ -1408,6 +1417,7 @@ def prepare_delete_item(id=None, community=None, shared_user_ids=None):
             else user_info for user_info in shared_user_ids
         ]
         post_activity['shared_user_ids'] = shared_user_ids_activity_info
+        post_activity['shared_role_ids'] = shared_role_ids
 
         try:
             rtn = prepare_delete_workflow(post_activity, recid, deposit)

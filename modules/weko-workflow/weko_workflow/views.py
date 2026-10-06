@@ -60,8 +60,8 @@ from weko_deposit.signals import item_created
 from weko_index_tree.utils import get_user_roles
 from weko_items_ui.api import item_login
 from weko_items_ui.utils import check_item_is_being_edit, get_workflow_by_item_type_id, \
-    get_current_user, get_shared_role_ids, get_shared_user_ids, get_user_role_ids, \
-    validate_shared_role_ids
+    get_shared_role_ids, get_shared_user_ids, get_user_role_ids, \
+    is_item_editable_by, validate_shared_role_ids
 from weko_logging.activity_logger import UserActivityLogger
 from weko_records.api import FeedbackMailList, RequestMailList, ItemLink, ItemTypes, ItemApplication
 from weko_records.models import ItemMetadata
@@ -4154,14 +4154,12 @@ def edit_item_direct_after_login(pid_value):
         return render_template("weko_theme/error.html",
                 error="Record does not exist."), 404
 
-    authenticators = [str(deposit.get('owner'))] + \
-                     [str(shared_id) for shared_id in deposit.get('weko_shared_ids', [])]
-    user_id = str(get_current_user())
     activity = WorkActivity()
     latest_pid = PIDVersioning(child=recid).last_child
 
     # ! Check User's Permissions
-    if user_id not in authenticators and not get_user_roles(is_super_role=False)[0]:
+    if not is_item_editable_by(deposit) \
+            and not get_user_roles(is_super_role=False)[0]:
         if not has_comadmin_permission(deposit):
             return render_template("weko_theme/error.html",
                     error="You are not allowed to edit this item."), 400
