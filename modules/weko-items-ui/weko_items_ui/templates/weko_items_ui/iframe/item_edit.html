@@ -205,14 +205,14 @@
                   <div class="col-sm-12" ng-cloak="" ng-hide="recordsVM.invenioRecordsLoading">
                     <div class="panel panel-default" >
                       <div class="panel-heading">
-                        <h3 class="panel-title">Contributor</h3>
+                        <h3 class="panel-title">{{ _('Sub Contributor setting') }}</h3>
                       </div>
                       <div class="panel-body panel-body2">
                           <div class="row row-4" id="radio_form_share">
                             <div class="radio">
                               <label>
-                                <input type="radio" role="presentation" name="checkedSharePermiss" id="input" class="input_contributor" value="this_user" checked="checked" onchange="handleSharePermission(this.value)">This user</label>
-                                <br><label><input type="radio" role="presentation" onchange="handleSharePermission(this.value)" name="checkedSharePermiss" id="input" value="other_user" class="other_user_rad">Other user</label>
+                                <input type="radio" role="presentation" name="checkedSharePermiss" id="input" class="input_contributor" value="this_user" checked="checked" onchange="handleSharePermission(this.value)">{{ _('Registrant only (no proxy posters)') }}</label>
+                                <br><label><input type="radio" role="presentation" onchange="handleSharePermission(this.value)" name="checkedSharePermiss" id="input" value="other_user" class="other_user_rad">{{ _('Set proxy posters') }}</label>
                             </div>
                           </div>
                           <div class="form_share_permission">
@@ -238,6 +238,42 @@
                               {% if not enable_multi_contributors %}style="display:none;"{% endif %}>
                               <i class="glyphicon glyphicon-plus"></i>New
                             </button>
+                            {%- if enable_multi_contributors %}
+                            <div class="clearfix"></div>
+                            <div class="row row-4" id="group_setting_check">
+                              <div class="checkbox">
+                                <label>
+                                  <input type="checkbox" id="enable_shared_groups" onchange="toggleGroupSetting(this.checked)"
+                                    {% if contributor_groups %}checked="checked"{% endif %}>{{ _('Set proxy posting groups') }}
+                                </label>
+                              </div>
+                            </div>
+                            <div id="group_setting_area" {% if not contributor_groups %}style="display:none;"{% endif %}>
+                              <p class="text-muted">{{ _('Notification emails are not sent to users in proxy posting groups. Users who want to receive notifications must be set individually.') }}</p>
+                              <div class="radio" id="id_group_list">
+                              {% if contributor_groups %}
+                                {% with users = [], contributor_group_rows = contributor_groups %}
+                                  {% include 'weko_items_ui/iframe/item_edit_contributor.html' %}
+                                {% endwith %}
+                              {% else %}
+                                <div id="group_new_row_0">
+                                  {% with default_id = '0_0', group_row = true %}
+                                    {% include 'weko_items_ui/iframe/item_edit_contributor_new_row.html' %}
+                                  {% endwith %}
+                                </div>
+                              {% endif %}
+                                <div id="group_new_row" style="display: none;">
+                                  {% with default_id = '0', group_row = true %}
+                                    {% include 'weko_items_ui/iframe/item_edit_contributor_new_row.html' %}
+                                  {% endwith %}
+                                </div>
+                              </div>
+                              <button onclick="addGroup()" type="button" class="btn btn-success pull-right clearfix">
+                                <i class="glyphicon glyphicon-plus"></i>New
+                              </button>
+                              <div class="clearfix"></div>
+                            </div>
+                            {%- endif %}
                           </div>
                         </div>
                     </div>
@@ -506,6 +542,7 @@
           <input type="hidden" id="list_license_data" name="list_license_data" value='{{ list_license_data }}'>
           <input type="hidden" id="application_item_type" name="application_item_type" value='{{application_item_type}}'>
           <input type="hidden" id="enable_feedback_maillist" name="enable_feedback_maillist" value='{{enable_feedback_maillist}}'>
+          <input type="hidden" id="enable_contributor" name="enable_contributor" value='{{enable_contributor}}'>
           <input type="hidden" id="enable_multi_contributors" name="enable_multi_contributors" value='{{enable_multi_contributors}}'>
           <input type="hidden" id="enable_request_maillist" name="enable_request_maillist" value='{{enable_request_maillist}}'/>
           {% set position_err_msg = "Position is being inputted (Only input when selecting 'Others')" %}
@@ -556,7 +593,13 @@
           <input type="hidden" id="max_files_thumnbnail_error" name="max_files_thumnbnail_error"
               value="{{_('is too long.')}}">
           <input type="hidden" id="other_user_self_error" name="other_user_self_error"
-              value='{{_("You cannot specify yourself in \"Other user\" setting.")}}'>
+              value='{{_("You cannot specify yourself in \"Set proxy posters\" setting.")}}'>
+          <input type="hidden" id="shared_role_max_count" name="shared_role_max_count"
+              value='{{ config.WEKO_ITEMS_UI_SHARED_ROLE_MAX_COUNT }}'>
+          <input type="hidden" id="shared_role_max_count_error" name="shared_role_max_count_error"
+              value='{{ _("You can specify up to %(max)d proxy posting groups.", max=config.WEKO_ITEMS_UI_SHARED_ROLE_MAX_COUNT) }}'>
+          <input type="hidden" id="shared_role_not_allowed_error" name="shared_role_not_allowed_error"
+              value='{{ _("Specified group is not allowed as a proxy posting group.") }}'>
           <input type="hidden" id="duplicate_email_error" name="duplicate_email_error"
               value="{{_('Duplicate email addresses found:')}}">
           <input type="hidden" id="min_user_required_error" name="min_user_required_error"

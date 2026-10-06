@@ -836,6 +836,22 @@ class Activity(db.Model, TimestampMixin):
         nullable=True
     )
 
+    shared_role_ids = db.Column(
+        db.JSON().with_variant(
+            postgresql.JSONB(none_as_null=True),
+            'postgresql',
+        ).with_variant(
+            JSONType(),
+            'sqlite',
+        ).with_variant(
+            JSONType(),
+            'mysql',
+        ),
+        default=None,
+        nullable=True
+    )
+    """Role ids of proxy posting groups (list of str)."""
+
     temp_data = db.Column(
         db.JSON().with_variant(
             postgresql.JSONB(none_as_null=True),

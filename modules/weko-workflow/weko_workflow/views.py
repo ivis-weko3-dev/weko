@@ -60,7 +60,8 @@ from weko_deposit.signals import item_created
 from weko_index_tree.utils import get_user_roles
 from weko_items_ui.api import item_login
 from weko_items_ui.utils import check_item_is_being_edit, get_workflow_by_item_type_id, \
-    get_current_user, get_shared_user_ids
+    get_current_user, get_shared_role_ids, get_shared_user_ids, get_user_role_ids, \
+    validate_shared_role_ids
 from weko_logging.activity_logger import UserActivityLogger
 from weko_records.api import FeedbackMailList, RequestMailList, ItemLink, ItemTypes, ItemApplication
 from weko_records.models import ItemMetadata
@@ -925,7 +926,8 @@ def display_activity(activity_id="0", community_id=None):
     for_delete = activity_detail.flow_define.flow_type == WEKO_WORKFLOW_DELETION_FLOW_TYPE
 
     action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-        steps, temporary_comment, workflow_detail, owner_id, shared_user_ids = \
+        steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, \
+        shared_role_ids, shared_ids_saved = \
         get_activity_display_info(activity_id)
     if any([s is None for s in [action_endpoint, action_id, activity_detail, cur_action, histories, steps, workflow_detail, owner_id, shared_user_ids]]):
         current_app.logger.error("display_activity: can not get activity display info")
@@ -980,6 +982,8 @@ def display_activity(activity_id="0", community_id=None):
     approval_record = []
     cur_step = action_endpoint
     contributors = []
+    contributor_groups = []
+    contributors_fetched = False
     data_type = activity_detail.extra_info.get(
         'related_title') if activity_detail.extra_info else None
     endpoints = {}
@@ -1037,6 +1041,13 @@ def display_activity(activity_id="0", community_id=None):
         if not record and item:
             record = item
 
+        # 画面の初期値からアイテム側の代理投稿者(weko_shared_ids・
+        # weko_shared_role_ids)を取り除く(itemそのものは変更しない)
+        if record:
+            record = dict(record)
+            record.pop('weko_shared_ids', None)
+            record.pop('weko_shared_role_ids', None)
+
         redis_connection = RedisConnection()
         sessionstore = redis_connection.connection(db=current_app.config['ACCOUNTS_SESSION_REDIS_DB_NO'], kv = True)
 
@@ -1073,11 +1084,17 @@ def display_activity(activity_id="0", community_id=None):
                 links = base_factory(recid)
 
             # get contributors data
-            # 一時保存データが無い場合は、登録済みアイテムから取得する
-            if len(shared_user_ids) == 0:
-                contributors = get_contributors(recid.pid_value)
+            # 画面から保存した一時保存データが無く、個人・グループとも一時保存データが
+            # 無い場合は、登録済みアイテムから取得する
+            if not shared_ids_saved and len(shared_user_ids) == 0 \
+                    and len(shared_role_ids) == 0:
+                contributors, contributor_groups = get_contributors(
+                    recid.pid_value)
             else:
-                contributors = get_contributors(None, user_id_list_json=shared_user_ids)
+                contributors, contributor_groups = get_contributors(
+                    None, user_id_list_json=shared_user_ids,
+                    role_id_list=shared_role_ids)
+            contributors_fetched = True
         except PIDDeletedError:
             current_app.logger.error("PIDDeletedError: {}".format(sys.exc_info()))
             abort(404)
@@ -1089,7 +1106,19 @@ def display_activity(activity_id="0", community_id=None):
     else:
             # get contributors data
             # 登録済みアイテムが無い場合は、一時保存データから取得する
-            contributors = get_contributors(None, user_id_list_json=shared_user_ids)
+            contributors, contributor_groups = get_contributors(
+                None, user_id_list_json=shared_user_ids,
+                role_id_list=shared_role_ids)
+            contributors_fetched = True
+
+    # 画面の初期値の代理投稿者を、画面に表示する代理投稿者と同じ値にする
+    if contributors_fetched and record and action_endpoint in [
+            'item_login', 'item_login_application', 'file_upload']:
+        record['shared_user_ids'] = [
+            {"user": c["userid"]} for c in contributors]
+        # 削除済み・指定不可となったロール(errorあり)は初期値に含めない
+        record['shared_role_ids'] = [
+            g["role_id"] for g in contributor_groups if not g["error"]]
 
     res_check = check_authority_action(str(activity_id), int(action_id),
                                        is_auto_set_index_action,
@@ -1260,6 +1289,7 @@ def display_activity(activity_id="0", community_id=None):
         community_id=community_id,
         cur_step=cur_step,
         contributors=contributors,
+        contributor_groups=contributor_groups,
         enable_contributor=current_app.config[
             'WEKO_WORKFLOW_ENABLE_CONTRIBUTOR'],
         enable_feedback_maillist=current_app.config[
@@ -1318,6 +1348,79 @@ def display_activity(activity_id="0", community_id=None):
     )
 
 
+def _load_activity_temp_data(activity):
+    """Load temp_data of the activity as a dict.
+
+    Args:
+        activity (Activity): The activity.
+
+    Returns:
+        dict: The temp_data. An empty dict if it can not be parsed.
+    """
+    try:
+        temp_data = activity.temp_data \
+            if isinstance(activity.temp_data, dict) \
+            else json.loads(activity.temp_data)
+    except (TypeError, ValueError):
+        current_app.logger.warning(
+            "Failed to parse activity temp_data. activity_id={}"
+            .format(activity.activity_id))
+        temp_data = None
+    return temp_data if isinstance(temp_data, dict) else {}
+
+
+def _get_proxy_poster_candidates(activity, im, temp_data):
+    """Get the proxy posters (individual and group) allowed to access.
+
+    Args:
+        activity (Activity): The activity.
+        im (ItemMetadata): The item metadata. ``None`` if not registered yet.
+        temp_data (dict): The temp_data of the activity.
+
+    Returns:
+        tuple: (list of user ids, list of role ids).
+            When the multiple proxy posters flag is disabled, only the last
+            user is the target and no role is returned.
+    """
+    proxy_posting = current_app.config.get('WEKO_ITEMS_UI_PROXY_POSTING', False)
+    if im:
+        # Get shared ids from the item metadata
+        metadata_user_ids = get_shared_user_ids(im.json, apply_flag=False)
+        if proxy_posting:
+            user_ids = metadata_user_ids
+        else:
+            # Check only last added user
+            user_ids = metadata_user_ids[-1:] if metadata_user_ids else []
+        role_ids = get_shared_role_ids(im.json)
+        return user_ids, role_ids
+
+    metainfo = temp_data.get('metainfo', {})
+    # Get shared_user_ids from shared_user_ids columns
+    activity_user_ids = get_shared_user_ids(
+        {"shared_user_ids": activity.shared_user_ids}, apply_flag=False)
+    # Get shared_user_ids from temp_data's metainfo
+    temp_user_ids = get_shared_user_ids(
+        {"shared_user_ids": metainfo.get("shared_user_ids")},
+        apply_flag=False)
+    if proxy_posting:
+        # If current user is in activity_user_ids or temp_user_ids
+        user_ids = activity_user_ids + temp_user_ids
+    else:
+        # activity 由来が非空ならその末尾のみを対象とし、
+        # 空の場合のみ temp_data 由来の末尾を対象とする
+        primary = activity_user_ids if activity_user_ids else temp_user_ids
+        user_ids = primary[-1:] if primary else []
+    role_ids = get_shared_role_ids(
+        {"shared_role_ids": activity.shared_role_ids}) + \
+        get_shared_role_ids({"shared_role_ids": metainfo.get("shared_role_ids")})
+    return user_ids, role_ids
+
+
+def _is_in_shared_roles(role_ids):
+    """Check whether the current user belongs to any of the roles."""
+    return bool(role_ids) and bool(set(role_ids) & set(get_user_role_ids()))
+
+
 def check_authority(func):
     """Check Authority."""
     @wraps(func)
@@ -1340,20 +1443,18 @@ def check_authority(func):
             if activity_detail.activity_login_user == cur_user:
                 return func(*args, **kwargs)
             shared_ids = []
+            role_ids = []
             im = ItemMetadata.query.filter_by(
                 id=activity_detail.item_id).one_or_none()
-            if im:
-                shared_ids += get_shared_user_ids(im.json, apply_flag=False)
-            elif activity_detail.temp_data:
-                temp_data = json.loads(activity_detail.temp_data)
-                shared_ids += get_shared_user_ids(
-                    {"shared_user_ids": activity_detail.shared_user_ids},
-                    apply_flag=False)
-                shared_ids += get_shared_user_ids(
-                    {"shared_user_ids": (temp_data or {}).get(
-                        'metainfo', {}).get('shared_user_ids')},
-                    apply_flag=False)
+            if im or activity_detail.temp_data:
+                # check_authority_actionと同じ判定(複数化フラグ無効時は末尾1名のみ)
+                shared_ids, role_ids = _get_proxy_poster_candidates(
+                    activity_detail, im,
+                    {} if im else _load_activity_temp_data(activity_detail))
             if cur_user in shared_ids:
+                return func(*args, **kwargs)
+            # 代理投稿グループ判定
+            if _is_in_shared_roles(role_ids):
                 return func(*args, **kwargs)
             return jsonify(code=403, msg=_('Authorization required'))
 
@@ -1389,60 +1490,36 @@ def check_authority_action(activity_id='0', action_id=0,
         action_id != _Action.query.filter_by(action_endpoint='approval').one().id:
         # item_registrationが完了していないactivityを再編集する場合、item_metadataテーブルにデータはない
         # その為、workflow_activityテーブルのtemp_dataを参照し、保存されている代理投稿者をチェックする
-        proxy_posting = current_app.config.get('WEKO_ITEMS_UI_PROXY_POSTING', False)
         im = ItemMetadata.query.filter_by(id=activity.item_id).one_or_none()
         if not im and activity.temp_data:
-            # Get shared_user_ids from shared_user_ids columns
-            activity_user_ids = get_shared_user_ids(
-                {"shared_user_ids": activity.shared_user_ids},
-                apply_flag=False)
-
-            try:
-                temp_data = activity.temp_data \
-                    if isinstance(activity.temp_data, dict) \
-                    else json.loads(activity.temp_data)
-            except (TypeError, ValueError):
-                current_app.logger.warning(
-                    "Failed to parse activity temp_data. activity_id={}"
-                    .format(activity.activity_id))
-                temp_data = None
-            temp_data = temp_data if isinstance(temp_data, dict) else {}
-
-            # Get shared_user_ids from temp_data's metainfo
-            temp_user_ids = get_shared_user_ids(
-                {"shared_user_ids": temp_data.get('metainfo', {}).get(
-                    "shared_user_ids")},
-                apply_flag=False)
+            temp_data = _load_activity_temp_data(activity)
             activity_owner = temp_data.get('metainfo', {}).get("owner", '-1')
 
             # if exist shared_user_ids or owner allow to access
             if int(cur_user) == int(activity_owner):
                 return 0
 
-            if proxy_posting:
-                # If current user is in activity_user_ids or temp_user_ids
-                candidate_ids = activity_user_ids + temp_user_ids
-            else:
-                # 既存の優先順位を維持: activity 由来が非空ならその末尾のみを対象とし、
-                # 空の場合のみ temp_data 由来の末尾を対象とする
-                primary = activity_user_ids if activity_user_ids \
-                    else temp_user_ids
-                candidate_ids = primary[-1:] if primary else []
+            candidate_ids, role_ids = _get_proxy_poster_candidates(
+                activity, im, temp_data)
             if int(cur_user) in candidate_ids:
+                return 0
+
+            # 代理投稿グループ判定(フラグ無効時は role_ids が空になり無効化される)
+            if _is_in_shared_roles(role_ids):
                 return 0
 
         elif im:
             # Check if this activity has contributor equaling to current user
-            metadata_user_ids = get_shared_user_ids(im.json, apply_flag=False)
             metadata_owner = int(im.json.get('owner', '-1'))
-            if proxy_posting:
-                candidate_ids = metadata_user_ids
-            else:
-                # Check only last added user
-                candidate_ids = metadata_user_ids[-1:] \
-                    if metadata_user_ids else []
+            candidate_ids, role_ids = _get_proxy_poster_candidates(
+                activity, im, {})
             if int(cur_user) in candidate_ids:
                 return 0
+
+            # 代理投稿グループ判定
+            if _is_in_shared_roles(role_ids):
+                return 0
+
             if int(cur_user) == int(metadata_owner):
                 return 0
 
@@ -3478,7 +3555,15 @@ def save_activity():
     }
     try:
         data = SaveActivitySchema().load(request.get_json())
-        save_activity_data(data.data)
+        # 受信値がNoneの場合は空リストに寄せる
+        data.data['shared_role_ids'] = data.data.get('shared_role_ids') or []
+        # 代理投稿グループの検証(アクティビティの更新の前に行う)
+        error_msg = validate_shared_role_ids(data.data['shared_role_ids'])
+        if error_msg:
+            response['success'] = False
+            response['msg'] = error_msg
+        else:
+            save_activity_data(data.data)
     except ValidationError as err:
         res = ResponseMessageSchema().load({'code':-1, 'msg':str(err)})
         return jsonify(res.data), 400

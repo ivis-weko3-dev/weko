@@ -729,14 +729,28 @@ def map_group_condition():
     Returns:
         sqlalchemy.sql.elements.ColumnElement: Condition for filtering roles.
     """
-    if not _is_gakunin_map_configured():
+    group_pattern = get_map_group_prefix()
+    if group_pattern is None:
         return false()
+    return Role.name.startswith(group_pattern, autoescape=True)
+
+def get_map_group_prefix():
+    """Return the role name prefix of GakuNin mAP groups.
+
+    The prefix is ``{prefix}_{repository id}_{group keyword}_`` built from
+    ``WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT`` and
+    ``WEKO_ACCOUNTS_IDP_ENTITY_ID``.
+
+    Returns:
+        str: The group prefix. ``None`` when the required settings are absent.
+    """
+    if not _is_gakunin_map_configured():
+        return None
     pattern = current_app.config.get('WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT')
     prefix = pattern.get("prefix")
     group_key = pattern.get("group_keyword")
     repo_id = create_fqdn_from_entity_id()
-    group_pattern = f"{prefix}_{repo_id}_{group_key}_"
-    return Role.name.startswith(group_pattern, autoescape=True)
+    return f"{prefix}_{repo_id}_{group_key}_"
 
 def is_map_managed_name(role_name):
     """Return whether a role name belongs to the configured GakuNin mAP.
@@ -791,13 +805,9 @@ def is_map_group(role_name):
     Returns:
         bool: ``True`` when the role is a GakuNin mAP group.
     """
-    if not isinstance(role_name, str) or not _is_gakunin_map_configured():
+    group_pattern = get_map_group_prefix()
+    if not isinstance(role_name, str) or group_pattern is None:
         return False
-    pattern = current_app.config.get('WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT')
-    prefix = pattern.get("prefix")
-    group_key = pattern.get("group_keyword")
-    repo_id = create_fqdn_from_entity_id()
-    group_pattern = f"{prefix}_{repo_id}_{group_key}_"
     return role_name.startswith(group_pattern)
 
 def is_map_sysadm_role(role_name):

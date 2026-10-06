@@ -1768,7 +1768,8 @@ def convert_record_to_item_metadata(record_metadata):
         'owner': owner_id,
         'owners': record_metadata['owners'],
         'created_by': creater_id,
-        'shared_user_ids': record_metadata['weko_shared_ids']
+        'shared_user_ids': record_metadata['weko_shared_ids'],
+        'shared_role_ids': record_metadata.get('weko_shared_role_ids') or []
     }
     item_type = ItemTypes.get_by_id(record_metadata['item_type_id']).render
 
@@ -1866,7 +1867,8 @@ def prepare_edit_workflow(post_activity, recid, deposit):
             index = {'index': _deposit.get('path', []),
                      'actions': _deposit.get('publish_status')}
             args = [index, _metadata]
-            _deposit.update(*args)
+            # 引き継ぎ元の保存済みの値のため、代理投稿グループの検証は行わない
+            _deposit.update(*args, validate_shared_roles=False)
             _deposit.commit()
         except SQLAlchemyError as ex:
             raise ex
@@ -3528,15 +3530,39 @@ def save_activity_data(data: dict) -> NoReturn:
 
     @param data: activity data.
     """
+    from weko_items_ui.utils import get_shared_role_ids, get_shared_user_ids
+
     activity_id = data.get("activity_id")
     activity_data = {
         # "title": data.get("title"),
         "shared_user_ids": data.get("shared_user_ids"),
+        "shared_role_ids": data.get("shared_role_ids"),
         "approval1": data.get("approval1"),
         "approval2": data.get("approval2"),
     }
     if activity_id:
-        WorkActivity().update_activity(activity_id, activity_data)
+        work_activity = WorkActivity()
+        # 更新前後の代理投稿者を比較するため、更新前の値を正規化して保持する
+        # (NULLと空リストは同じ値として扱い、複数化フラグは適用しない)
+        old_activity = work_activity.get_activity_by_id(activity_id)
+        old_user_ids = get_shared_user_ids(
+            {"shared_user_ids": old_activity.shared_user_ids if old_activity else None},
+            apply_flag=False)
+        old_role_ids = get_shared_role_ids(
+            {"shared_role_ids": old_activity.shared_role_ids if old_activity else None},
+            apply_flag=False)
+
+        work_activity.update_activity(activity_id, activity_data)
+
+        new_user_ids = get_shared_user_ids(
+            {"shared_user_ids": data.get("shared_user_ids")}, apply_flag=False)
+        new_role_ids = get_shared_role_ids(
+            {"shared_role_ids": data.get("shared_role_ids")}, apply_flag=False)
+        if old_user_ids != new_user_ids or old_role_ids != new_role_ids:
+            current_app.logger.info(
+                "Proxy posters of activity are changed: activity_id={}, "
+                "shared_user_ids={}, shared_role_ids={}".format(
+                    activity_id, new_user_ids, new_role_ids))
 
 def send_mail_url_guest_user(mail_info):
     """Send mail url guest_user.
@@ -3820,9 +3846,13 @@ def get_activity_display_info(activity_id: str):
         _type_: steps
         _type_: temporary_comment [{'ActivityId': 'A-20220821-00003', 'ActionId': 1, 'ActionName': 'Start', 'ActionVersion': '1.0.0', 'ActionEndpoint': 'begin_action', 'Author': 'wekosoftware@nii.ac.jp', 'Status': 'action_done', 'ActionOrder': 1}, {'ActivityId': 'A-20220821-00003', 'ActionId': 3, 'ActionName': 'Item Registration', 'ActionVersion': '1.0.1', 'ActionEndpoint': 'item_login', 'Author': '', 'Status': ' ', 'ActionOrder': 2}, {'ActivityId': 'A-20220821-00003', 'ActionId': 4, 'ActionName': 'Approval', 'ActionVersion': '2.0.0', 'ActionEndpoint': 'approval', 'Author': '', 'Status': ' ', 'ActionOrder': 3}, {'ActivityId': 'A-20220821-00003', 'ActionId': 5, 'ActionName': 'Item Link', 'ActionVersion': '1.0.1', 'ActionEndpoint': 'item_link', 'Author': '', 'Status': ' ', 'ActionOrder': 4}, {'ActivityId': 'A-20220821-00003', 'ActionId': 7, 'ActionName': 'Identifier Grant', 'ActionVersion': '1.0.0', 'ActionEndpoint': 'identifier_grant', 'Author': '', 'Status': ' ', 'ActionOrder': 5}, {'ActivityId': 'A-20220821-00003', 'ActionId': 2, 'ActionName': 'End', 'ActionVersion': '1.0.0', 'ActionEndpoint': 'end_action', 'Author': '', 'Status': ' ', 'ActionOrder': 6}]
         Workflow: workflow_detail
+        int: owner_id
+        list: shared_user_ids [{"user": N}]
+        list: shared_role_ids ["12", "35"]
+        bool: shared_ids_saved
     """
 
-    from weko_items_ui.utils import get_shared_user_ids
+    from weko_items_ui.utils import get_shared_role_ids, get_shared_user_ids
 
     activity = WorkActivity()
     activity_detail = activity.get_activity_detail(activity_id)
@@ -3862,9 +3892,21 @@ def get_activity_display_info(activity_id: str):
     # Initialize as an ordered list without duplicates
     shared_user_unique_ids = []
     seen = set()
+    shared_role_unique_ids = []
+    seen_roles = set()
     owner_id = -1
+    shared_ids_saved = False
+    item_json = None
+    if metadata:
+        metadata_json = json.loads(metadata)
+        item_json = metadata_json.get('metainfo')
+        # 画面から代理投稿者(個人・グループ)を保存した一時保存データか
+        shared_ids_saved = bool(metadata_json.get('shared_ids_saved', False))
+
+    # 画面から保存した一時保存データがある場合は、アクティビティの列(自動保存では
+    # 更新されない)を結合せず、一時保存データの値のみを返す(空であっても空を返す)
     # 複数化フラグは適用せず全件を取得する(apply_flag=False)
-    if activity_detail.shared_user_ids:
+    if activity_detail.shared_user_ids and not shared_ids_saved:
         shared_user_ids = get_shared_user_ids(
             {"shared_user_ids": activity_detail.shared_user_ids},
             apply_flag=False
@@ -3873,9 +3915,14 @@ def get_activity_display_info(activity_id: str):
             if uid not in seen:
                 shared_user_unique_ids.append(uid)
                 seen.add(uid)
+    if activity_detail.shared_role_ids and not shared_ids_saved:
+        for rid in get_shared_role_ids(
+                {"shared_role_ids": activity_detail.shared_role_ids}):
+            if rid not in seen_roles:
+                shared_role_unique_ids.append(rid)
+                seen_roles.add(rid)
 
     if metadata:
-        item_json = json.loads(metadata).get('metainfo')
         owner_id = item_json.get('owner', -1)
         shared_user_ids = get_shared_user_ids(
             {"shared_user_ids": item_json.get('shared_user_ids', [])},
@@ -3885,10 +3932,16 @@ def get_activity_display_info(activity_id: str):
             if uid not in seen:
                 shared_user_unique_ids.append(uid)
                 seen.add(uid)
+        for rid in get_shared_role_ids(
+                {"shared_role_ids": item_json.get('shared_role_ids', [])}):
+            if rid not in seen_roles:
+                shared_role_unique_ids.append(rid)
+                seen_roles.add(rid)
 
     shared_user_ids = [
         {"user": user_id} for user_id in list(shared_user_unique_ids)
     ]
+    shared_role_ids = list(shared_role_unique_ids)
 
     current_app.logger.debug("action_endpoint:{}".format(action_endpoint))
     current_app.logger.debug("action_id:{}".format(action_id))
@@ -3901,9 +3954,12 @@ def get_activity_display_info(activity_id: str):
     current_app.logger.debug("workflow_detail:{}".format(workflow_detail))
     current_app.logger.debug("owner_id:{}".format(owner_id))
     current_app.logger.debug("shared_user_ids:{}".format(shared_user_ids))
+    current_app.logger.debug("shared_role_ids:{}".format(shared_role_ids))
+    current_app.logger.debug("shared_ids_saved:{}".format(shared_ids_saved))
 
     return action_endpoint, action_id, activity_detail, cur_action, histories, \
-        item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids
+        item, steps, temporary_comment, workflow_detail, owner_id, \
+        shared_user_ids, shared_role_ids, shared_ids_saved
 
 
 def __init_activity_detail_data_for_guest(activity_id: str, community_id: str):
@@ -3915,7 +3971,8 @@ def __init_activity_detail_data_for_guest(activity_id: str, community_id: str):
     """
     from weko_records_ui.utils import get_list_licence
     action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-        steps, temporary_comment, workflow_detail, owner_id, shared_user_ids = \
+        steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, \
+        _shared_role_ids, _shared_ids_saved = \
         get_activity_display_info(activity_id)
     item_type_name = get_item_type_name(workflow_detail.itemtype_id)
     # Check auto set index
@@ -5125,19 +5182,29 @@ def delete_user_lock_activity_cache(activity_id, data):
         msg = "User Unlock Success"
     return msg
 
-def get_contributors(pid_value, user_id_list_json=None):
+def get_contributors(pid_value, user_id_list_json=None, role_id_list=None):
     """Get contributors information.
     
     Args:
         pid_value(str): PID value of item.
         user_id_list_json(list, Optional): List of user IDs in JSON format.
+        role_id_list(list, Optional): List of role IDs (str) of proxy posting
+            groups. Used when ``pid_value`` is not specified.
     
     Returns:
-        list: A list of dictionaries containing contributor information.
+        tuple: A tuple of two lists.
+            The first one is a list of dictionaries containing contributor
+            (individual) information.
+            The second one is a list of dictionaries containing proxy posting
+            group information (``role_id``, ``group_name`` and ``error``).
     """
-    from weko_items_ui.utils import get_shared_user_ids, get_user_information
+    from weko_accounts.api import is_map_group
+    from weko_items_ui.utils import (
+        get_role_by_id, get_shared_role_ids, get_shared_user_ids,
+        get_user_information, strip_group_prefix)
 
     userid_list = []
+    roleid_list = []
     # item登録済みユーザーデータ
     if pid_value:
         pid_value = pid_value.split('.')[0]
@@ -5145,13 +5212,15 @@ def get_contributors(pid_value, user_id_list_json=None):
         record = WekoRecord.get_record_by_pid(pid_value)
         # 形状差・キー欠落・複数化フラグは共通ヘルパーで吸収する
         userid_list.extend(get_shared_user_ids(record))
+        roleid_list.extend(get_shared_role_ids(record))
     # 一時保存ユーザーデータ
-    elif user_id_list_json:
-        for rec in user_id_list_json:
-            if type(rec) == dict:
-                userid_list.append(int(rec['user']))
-            elif type(rec) == int:
-                userid_list.append(rec)
+    else:
+        if user_id_list_json:
+            userid_list.extend(get_shared_user_ids(
+                {"shared_user_ids": user_id_list_json}))
+        if role_id_list:
+            roleid_list.extend(get_shared_role_ids(
+                {"shared_role_ids": role_id_list}))
 
     result = []
 
@@ -5169,7 +5238,26 @@ def get_contributors(pid_value, user_id_list_json=None):
         info['error'] = user_info['error']
         result.append(info)
 
-    return result
+    # 代理投稿グループはメンバーに展開せず、ロール名を別枠で返す
+    group_result = []
+    for role_id in roleid_list:
+        role = get_role_by_id(role_id)
+        if role is None:
+            # 削除済みロール
+            group_result.append({
+                'role_id': role_id,
+                'group_name': '',
+                'error': 'Role not found.'
+            })
+            continue
+        group_result.append({
+            'role_id': role_id,
+            'group_name': strip_group_prefix(role.name),
+            # 指定不可となったロール(グループプレフィックスを持たない)
+            'error': '' if is_map_group(role.name) else 'Role not allowed.'
+        })
+
+    return result, group_result
 
 def create_conditions_dict(status, limit, page):
     """

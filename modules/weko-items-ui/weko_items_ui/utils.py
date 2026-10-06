@@ -41,10 +41,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
 from elasticsearch.exceptions import NotFoundError
 from elasticsearch import exceptions as es_exceptions
-from flask import abort, current_app, flash, redirect, request, send_file, url_for
+from flask import abort, current_app, flash, g, redirect, request, send_file, url_for
 from flask_babelex import gettext as _
 from flask_login import current_user
-from sqlalchemy import MetaData, Table
+from sqlalchemy import Integer, MetaData, Table
 from sqlalchemy.sql import and_, text
 from jsonschema import SchemaError, ValidationError
 from werkzeug.exceptions import HTTPException
@@ -146,42 +146,166 @@ def search_username(prefix, limit=None):
     }
 
 
-def search_email(prefix, limit=None):
-    """Search emails matching a prefix, restricted to shared-user roles.
+def exists_shared_user_email(email):
+    """Check whether a shared/contributor user exists for an exact email.
 
     Args:
-        prefix (str): The prefix string to match email addresses against.
-        limit (int or None): The maximum number of results to return.
-            Defaults to ``WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT``. A negative
-            value (on the argument or on the config value; ``-1`` by
-            convention) means no limit.
+        email (str): The full email address entered by the user.
+            It is compared as is (case sensitive, no trimming).
 
     Returns:
-        dict: A dict with ``query``, ``results`` (list[str]), ``count``
-            (int) and ``has_more`` (bool) keys.
+        dict: A dict with ``query`` (str, echoes back ``email``) and
+            ``exists`` (bool) keys.
     """
+    if not email:
+        return {'query': email or '', 'exists': False}
+    row = filter_shared_user_role(
+        db.session.query(User.id), User.id
+    ).filter(User.email == email).first()
+    return {'query': email, 'exists': row is not None}
+
+
+def search_role_name(q, limit=None):
+    """Search proxy posting group names matching a prefix.
+
+    Only the roles of GakuNin mAP groups are the target. The prefix of the
+    group name is removed before matching, and the matching ignores case.
+
+    Args:
+        q (str): The prefix string to match group names (without the group
+            prefix) against. An empty string matches nothing.
+        limit (int or None): The maximum number of results to return.
+            Defaults to ``WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT``. A negative
+            value (on the argument or on the config value) means no limit.
+
+    Returns:
+        dict: A dict with ``query`` (str, echoes back ``q``), ``results``
+            (list[dict] of ``role_id`` and ``group_name``), ``count`` (int,
+            exact total match count) and ``has_more`` (bool) keys.
+    """
+    from weko_accounts.api import get_map_group_prefix, map_group_condition
+
     limit = limit or current_app.config['WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT']
 
-    query = filter_shared_user_role(
-        db.session.query(User.email.label('email')), User.id
-    ).filter(
-        User.email.isnot(None),
-        User.email != '',
-        User.email.ilike(_escape_like(prefix) + '%', escape='\\'),
+    group_pattern = get_map_group_prefix()
+    if not q or group_pattern is None:
+        return {'query': q or '', 'results': [], 'count': 0, 'has_more': False}
+
+    query = db.session.query(Role.id, Role.name).filter(
+        map_group_condition(),
+        Role.name.ilike(
+            _escape_like(group_pattern) + _escape_like(q) + '%', escape='\\'),
     )
-    total = query.order_by(None).distinct().count()
-    rows_query = query.order_by(User.email).distinct()
+    total = query.order_by(None).count()
+    rows_query = query.order_by(Role.name)
 
     if limit >= 0:
         rows_query = rows_query.limit(limit)
     rows = rows_query.all()
 
     return {
-        'query': prefix,
-        'results': [row.email for row in rows],
+        'query': q,
+        'results': [
+            {'role_id': str(row.id), 'group_name': strip_group_prefix(row.name)}
+            for row in rows
+        ],
         'count': total,
         'has_more': limit >= 0 and total > limit,
     }
+
+
+def get_role_by_id(role_id):
+    """Get a role by the id, whether the id of roles is an integer or a string.
+
+    Args:
+        role_id (str): The role id.
+
+    Returns:
+        Role: The role. ``None`` if it does not exist.
+    """
+    if isinstance(Role.id.type, Integer):
+        try:
+            role_id = int(role_id)
+        except (TypeError, ValueError):
+            return None
+    return Role.query.get(role_id)
+
+
+def is_shared_role_allowed(role_id):
+    """Check whether the role can be specified as a proxy posting group.
+
+    Args:
+        role_id (str): The role id to check.
+
+    Returns:
+        bool: ``True`` if the role exists and is a GakuNin mAP group.
+    """
+    from weko_accounts.api import is_map_group
+
+    role = get_role_by_id(role_id)
+    if role is None:
+        return False
+    if not is_map_group(role.name):
+        current_app.logger.warning(
+            "Rejected shared role id which is not a mAP group: {}".format(role_id))
+        return False
+    return True
+
+
+def strip_group_prefix(role_name):
+    """Remove the group prefix from the role name.
+
+    Args:
+        role_name (str): The role name.
+
+    Returns:
+        str: The group name without the prefix. The input as it is if it
+            does not start with the prefix. An empty string for ``None``.
+    """
+    from weko_accounts.api import get_map_group_prefix
+
+    if not role_name:
+        return ''
+    group_pattern = get_map_group_prefix()
+    if group_pattern and role_name.startswith(group_pattern):
+        return role_name[len(group_pattern):]
+    return role_name
+
+
+def validate_shared_role_ids(shared_role_ids, existing_role_ids=None):
+    """Validate proxy posting groups before saving.
+
+    Roles that are already saved (``existing_role_ids``) are not checked.
+    When no role is newly set, the validation passes.
+
+    Args:
+        shared_role_ids (list[str]): The role ids to be saved.
+        existing_role_ids (list[str] or None): The role ids already saved to
+            the destination.
+
+    Returns:
+        str: ``None`` if valid, otherwise the translated error message.
+    """
+    role_ids = get_shared_role_ids(
+        {'shared_role_ids': shared_role_ids}, apply_flag=False)
+    existing = set(get_shared_role_ids(
+        {'shared_role_ids': existing_role_ids}, apply_flag=False))
+    new_role_ids = [rid for rid in role_ids if rid not in existing]
+    if not new_role_ids:
+        return None
+
+    max_count = current_app.config['WEKO_ITEMS_UI_SHARED_ROLE_MAX_COUNT']
+    if len(role_ids) > max_count:
+        current_app.logger.warning(
+            "Rejected shared role ids exceeding the limit: count={}, max={}".format(
+                len(role_ids), max_count))
+        return _("You can specify up to %(max)d proxy posting groups.",
+                 max=max_count)
+
+    for role_id in new_role_ids:
+        if not is_shared_role_allowed(role_id):
+            return _("Specified group is not allowed as a proxy posting group.")
+    return None
 
 
 def _escape_like(value):
@@ -3612,19 +3736,140 @@ def _get_target_user_id(user=None):
         return None
 
 
+def get_shared_role_ids(source, apply_flag=True):
+    """Get role ids of proxy posting groups from record or activity.
+
+    ロールIDは文字列配列のまま扱う。複数化フラグの参照もここに集約する。
+
+    :param source: アイテムメタデータ(weko_shared_role_ids)または
+        {"shared_role_ids": ...}形式の辞書
+    :param apply_flag: Trueの場合、複数化フラグが無効なら空リストを返す
+    :return: ロールIDの文字列リスト(保存順、重複なし)
+    """
+    if apply_flag and not current_app.config.get(
+            'WEKO_ITEMS_UI_PROXY_POSTING', False):
+        return []
+    if not isinstance(source, dict):
+        return []
+
+    raw = source.get('shared_role_ids')
+    if not raw:
+        raw = source.get('weko_shared_role_ids')
+    if not isinstance(raw, (list, tuple)):
+        return []
+
+    ids = []
+    for element in raw:
+        if not isinstance(element, str):
+            current_app.logger.warning(
+                "Unexpected shared role id element is ignored: {}".format(element))
+            continue
+        if element == '':
+            continue
+        ids.append(element)
+
+    # 重複は保存順を保ったまま除去する
+    return list(OrderedDict.fromkeys(ids))
+
+
+def get_user_role_ids(user=None):
+    """Get role ids which the user belongs to.
+
+    リクエスト単位でflask.gにキャッシュする。
+
+    :param user: User / int / str。Noneの場合はcurrent_user
+    :return: ロールIDの文字列リスト。ロール無し・未ログインの場合は空リスト
+    """
+    user_id = _get_target_user_id(user)
+    if user_id is None:
+        return []
+
+    cache = getattr(g, '_weko_user_role_ids', None)
+    if cache is None:
+        cache = g._weko_user_role_ids = {}
+    if user_id not in cache:
+        if user is None:
+            target = current_user
+        elif isinstance(user, User):
+            target = user
+        else:
+            target = User.query.get(user_id)
+        roles = getattr(target, 'roles', None) or []
+        cache[user_id] = [str(role.id) for role in roles]
+    return cache[user_id]
+
+
+def get_excluded_shared_doc_ids(user_id):
+    """Get doc ids to be excluded from the personal proxy poster condition.
+
+    複数化フラグ無効時、代理投稿者(個人)は配列の物理的な末尾1名のみが権限を持つ。
+    ESのdoc valuesは昇順で保持され元の配列順を失うため、1段目で
+    「自分が含まれ要素数が2以上」のドキュメントの_sourceを取得し、
+    末尾が自分でないドキュメントの_idを除外IDとして返す(除外ID方式)。
+    複数化フラグは参照しない。呼び出し側がフラグ無効時にのみ呼ぶこと。
+    1段目のES検索が失敗した場合は例外をそのまま送出する。
+
+    :param user_id: ユーザーID(int / str / None)
+    :return: 除外するドキュメントの_idのリスト
+    """
+    from elasticsearch_dsl.query import Q
+
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return []
+
+    # リクエスト単位でflask.gにキャッシュする
+    cache = getattr(g, '_weko_shared_excluded_doc_ids', None)
+    if cache is None:
+        cache = g._weko_shared_excluded_doc_ids = {}
+    if user_id in cache:
+        return cache[user_id]
+
+    # 未マッピングのインデックスでscript_exceptionとならないようガードする
+    search = RecordsSearch(index=current_app.config["SEARCH_UI_SEARCH_INDEX"])
+    search = search.filter("bool", filter=[
+        Q("terms", weko_shared_ids=[user_id]),
+        Q("script", script={
+            "lang": "painless",
+            "source": (
+                "doc.containsKey('weko_shared_ids') && "
+                "doc['weko_shared_ids'].size() > 1"
+            ),
+        }),
+    ]).source(["weko_shared_ids"]).params(size=1000)
+
+    excluded_ids = []
+    for hit in search.scan():
+        shared_ids = hit.to_dict().get("weko_shared_ids")
+        # _sourceは元の配列順のため、末尾が物理的な末尾と一致する
+        if get_shared_user_ids({"weko_shared_ids": shared_ids}) != [user_id]:
+            excluded_ids.append(hit.meta.id)
+
+    cache[user_id] = excluded_ids
+    return excluded_ids
+
+
 def is_proxy_poster(source, user=None):
     """Check whether the user is a proxy poster of the record.
 
-    owner判定・管理者判定は含まない。
+    個人・グループの両方を判定する。owner判定・管理者判定は含まない。
 
     :param source: アイテムメタデータまたはアクティビティ由来の辞書
     :param user: 判定対象ユーザー。省略時はcurrent_user
-    :return: 代理投稿者(個人)であればTrue
+    :return: 代理投稿者(個人・グループ)であればTrue
     """
     user_id = _get_target_user_id(user)
     if user_id is None:
         return False
-    return user_id in get_shared_user_ids(source)
+    if user_id in get_shared_user_ids(source):
+        return True
+
+    # 代理投稿グループ判定(個人判定の後に行う)
+    role_ids = get_shared_role_ids(source)
+    if role_ids and set(role_ids) & set(get_user_role_ids(user)):
+        return True
+    return False
 
 
 def is_item_editable_by(source, user=None):

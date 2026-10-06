@@ -87,11 +87,11 @@ from .utils import (
     get_ranking, get_shared_user_info_by_email, get_shared_user_info_by_username,
     get_shared_user_ids, get_user_information, get_workflow_by_item_type_id,
     hide_form_items, is_item_editable_by, is_schema_include_key, remove_excluded_items_in_json_schema,
-    sanitize_input_data, save_title, search_email, search_username,
+    sanitize_input_data, save_title, exists_shared_user_email, search_role_name, search_username,
     set_multi_language_name, to_files_js,
     translate_schema_form, translate_validation_message, update_index_tree_for_record,
     update_json_schema_by_activity_id, update_schema_form_by_activity_id,
-    update_sub_items_by_user_role, validate_form_input_data, validate_shared_user,
+    update_sub_items_by_user_role, validate_form_input_data, validate_shared_role_ids, validate_shared_user,
     validate_user_mail_and_index, is_duplicate_record, lock_item_will_be_edit,
     set_scheme_by_author_table
 )
@@ -372,6 +372,16 @@ def iframe_save_model():
                         for setting_key in setting_vals:
                             if setting_key == 'roles' or setting_key == 'provide':
                                 setting_vals[setting_key] = [dict(s) for s in set(frozenset(d.items()) for d in setting_vals[setting_key])]
+
+        # 代理投稿グループの検証(一時保存データの更新の前に行う)
+        metainfo = data.get('metainfo')
+        if isinstance(metainfo, dict):
+            error_msg = validate_shared_role_ids(metainfo.get('shared_role_ids'))
+            if error_msg:
+                return jsonify({"code": 1, "msg": error_msg})
+            # 画面から代理投稿者(個人・グループ)を保存したことを示す
+            if 'shared_user_ids' in metainfo or 'shared_role_ids' in metainfo:
+                data['shared_ids_saved'] = True
 
         # セッション取得
         if activity_id:
@@ -837,7 +847,8 @@ def get_search_data(data_type=''):
     """get_search_data.
 
     Host the api that provides prefix-matched search data (username or
-    email) restricted to shared-user roles.
+    role_name) restricted to shared-user roles, and the existence check of
+    an exact email address (email).
     """
     result = {
         'results': '',
@@ -848,7 +859,9 @@ def get_search_data(data_type=''):
         if data_type == 'username':
             result.update(search_username(q))
         elif data_type == 'email':
-            result.update(search_email(q))
+            result.update(exists_shared_user_email(q))
+        elif data_type == 'role_name':
+            result.update(search_role_name(q))
         else:
             result['error'] = 'Invaid method'
     except Exception as e:

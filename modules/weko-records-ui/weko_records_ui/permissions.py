@@ -129,7 +129,7 @@ def file_permission_required(f):
 
 def check_file_download_permission(record, fjson, is_display_file_info=False, item_type=None):
     """Check file download."""
-    from weko_items_ui.utils import get_shared_user_ids
+    from weko_items_ui.utils import get_shared_user_ids, is_proxy_poster
 
     def site_license_check(item_type):
         # site license permission check
@@ -186,9 +186,10 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, it
         created_user_email_list = get_email_list_by_ids(user_id_list)
 
         # Registered user
+        # (代理投稿グループは user_id_list に混ぜず、is_proxy_poster で判定する)
         if current_user and \
                 current_user.is_authenticated and \
-                current_user.id in user_id_list:
+                (current_user.id in user_id_list or is_proxy_poster(record)):
             return is_can
 
         # Super users

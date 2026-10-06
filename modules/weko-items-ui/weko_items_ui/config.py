@@ -238,7 +238,7 @@ from SWORD API On-Behalf-Of). An empty list excludes no one."""
 
 WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT = 50
 """Maximum number of shared-user suggestions returned per prefix search
-(search_username/search_email). Set to -1 for no limit."""
+(search_username/search_role_name). Set to -1 for no limit."""
 
 WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_DEBOUNCE_MS = 200
 """Debounce time (milliseconds) before a contributor suggest search is
@@ -418,6 +418,9 @@ LINKAGE_MQ_QUEUE = Queue("cris_researchmap_linkage", exchange=LINKAGE_MQ_EXCHANG
 
 WEKO_ITEMS_UI_PROXY_POSTING = False
 """Setting for multiple proxy posters."""
+
+WEKO_ITEMS_UI_SHARED_ROLE_MAX_COUNT = 10
+"""Maximum number of proxy posting groups that can be set to one item."""
 
 WEKO_ITEMS_UI_BULK_IMPORT_TIMEOUT = 60
 """ Timeout(seconds) for bulk import task status checking. """

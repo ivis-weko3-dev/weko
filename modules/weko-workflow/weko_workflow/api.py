@@ -39,7 +39,7 @@ from invenio_communities.models import Community
 from invenio_db import db
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records.models import RecordMetadata
-from sqlalchemy import and_, asc, desc, func, or_,literal_column, not_, cast, String, case, literal
+from sqlalchemy import and_, asc, desc, false, func, or_,literal_column, not_, cast, String, case, literal
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import exists
 from sqlalchemy.exc import SQLAlchemyError
@@ -1889,6 +1889,42 @@ class WorkActivity(object):
             self_user_id_json)
 
     @staticmethod
+    def __get_self_role_ids():
+        """Get role IDs which the login user belongs to.
+
+        Returns an empty list when WEKO_ITEMS_UI_PROXY_POSTING is False, so
+        that no condition of proxy posting groups is added.
+        """
+        from weko_items_ui.utils import get_user_role_ids
+        if not current_app.config.get('WEKO_ITEMS_UI_PROXY_POSTING', False):
+            return []
+        return get_user_role_ids()
+
+    @staticmethod
+    def __is_shared_role(self_role_ids):
+        """Create condition for proxy posting groups.
+
+        Matches shared_role_ids of activity or metainfo.shared_role_ids of
+        temp_data which contains any of the role IDs.
+        No condition is added (always false) when role IDs are empty.
+
+        Args:
+            self_role_ids (list): Role IDs (str) of the login user.
+        """
+        if not self_role_ids:
+            return false()
+        temp_roles = WorkActivity.__temp_data_jsonb().op(
+            "#>>", return_type=String)("{metainfo,shared_role_ids}")
+        conditions = []
+        for role_id in self_role_ids:
+            role_id_json = json.dumps(role_id)
+            conditions.append(cast(_Activity.shared_role_ids, String).contains(
+                role_id_json, autoescape=True))
+            conditions.append(temp_roles.contains(
+                role_id_json, autoescape=True))
+        return or_(*conditions)
+
+    @staticmethod
     def __is_owner_in_temp_data(self_user_id):
         """Create condition for metainfo.owner of temp_data."""
         return WorkActivity.__temp_data_jsonb().op(
@@ -1904,6 +1940,8 @@ class WorkActivity(object):
         """
         self_user_id = int(current_user.get_id())
         self_user_id_json = WorkActivity.__create_self_user_id_json(self_user_id)
+        self_role_cond = WorkActivity.__is_shared_role(
+            WorkActivity.__get_self_role_ids())
         self_group_ids = [role.id for role in current_user.roles]
         action_handler = [self_user_id, -1] if is_admin else [self_user_id]
         query = query \
@@ -1943,6 +1981,7 @@ class WorkActivity(object):
                         _Activity.activity_login_user == self_user_id,
                         WorkActivity.__is_shared_user_in_activity(self_user_id_json),
                         WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),
+                        self_role_cond,
                         WorkActivity.__is_owner_in_temp_data(self_user_id),
                     )
                 ) \
@@ -1963,6 +2002,7 @@ class WorkActivity(object):
                                 and_(
                                     not_(WorkActivity.__is_shared_user_in_activity(self_user_id_json)),
                                     not_(WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),),
+                                    not_(self_role_cond),
                                     not_(WorkActivity.__is_owner_in_temp_data(self_user_id)),
                                 ),
                                 _Activity.shared_user_ids.is_(None),
@@ -1983,6 +2023,7 @@ class WorkActivity(object):
                                 and_(
                                     not_(WorkActivity.__is_shared_user_in_activity(self_user_id_json)),
                                     not_(WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),),
+                                    not_(self_role_cond),
                                     not_(WorkActivity.__is_owner_in_temp_data(self_user_id)),
                                 ),
                                 _Activity.shared_user_ids.is_(None),
@@ -1994,6 +2035,7 @@ class WorkActivity(object):
                                 and_(
                                     not_(WorkActivity.__is_shared_user_in_activity(self_user_id_json)),
                                     not_(WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),),
+                                    not_(self_role_cond),
                                     not_(WorkActivity.__is_owner_in_temp_data(self_user_id)),
                                 ),
                                 _Activity.shared_user_ids.is_(None),
@@ -2013,6 +2055,7 @@ class WorkActivity(object):
                             or_(
                                 WorkActivity.__is_shared_user_in_activity(self_user_id_json),
                                 WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),
+                                self_role_cond,
                                 WorkActivity.__is_owner_in_temp_data(self_user_id),
                             ),
                             _FlowActionRole.action_user
@@ -2023,6 +2066,7 @@ class WorkActivity(object):
                             or_(
                                 WorkActivity.__is_shared_user_in_activity(self_user_id_json),
                                 WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),
+                                self_role_cond,
                                 WorkActivity.__is_owner_in_temp_data(self_user_id),
                             ),
                             ActivityAction.action_handler
@@ -2053,6 +2097,8 @@ class WorkActivity(object):
         """
         self_user_id = int(current_user.get_id())
         self_user_id_json = WorkActivity.__create_self_user_id_json(self_user_id)
+        self_role_cond = WorkActivity.__is_shared_role(
+            WorkActivity.__get_self_role_ids())
         self_group_ids = [role.id for role in current_user.roles]
         recid_list= WorkActivity().get_recids_for_request_mail_by_mailaddress(current_user.email)
         conditions = [
@@ -2080,6 +2126,7 @@ class WorkActivity(object):
                 or_(
                     WorkActivity.__is_shared_user_in_activity(self_user_id_json),
                     WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),
+                    self_role_cond,
                     WorkActivity.__is_owner_in_temp_data(self_user_id),
                 )
             ),
@@ -2150,6 +2197,8 @@ class WorkActivity(object):
                 'WEKO_WORKFLOW_ENABLE_SHOW_ACTIVITY']:
             self_user_id = int(current_user.get_id())
             self_user_id_json = WorkActivity.__create_self_user_id_json(self_user_id)
+            self_role_cond = WorkActivity.__is_shared_role(
+                WorkActivity.__get_self_role_ids())
             self_group_ids = [role.id for role in current_user.roles]
             recid_list= WorkActivity().get_recids_for_request_mail_by_mailaddress(current_user.email)
             condition1 = [
@@ -2176,6 +2225,7 @@ class WorkActivity(object):
                     or_(
                         WorkActivity.__is_shared_user_in_activity(self_user_id_json),
                         WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),
+                        self_role_cond,
                         WorkActivity.__is_owner_in_temp_data(self_user_id),
                     )
                 ),
@@ -2215,6 +2265,7 @@ class WorkActivity(object):
                         or_(
                             WorkActivity.__is_shared_user_in_activity(self_user_id_json),
                             WorkActivity.__is_shared_user_in_temp_data(self_user_id_json),
+                            self_role_cond,
                             WorkActivity.__is_owner_in_temp_data(self_user_id),
                         ),
                         _FlowAction.action_id != 4

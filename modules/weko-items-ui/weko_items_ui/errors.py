@@ -54,3 +54,10 @@ class InternalServerError(RESTException):
 
     code = 500
     description = 'Internal Server Error'
+
+
+class SharedRoleValidationError(RESTException):
+    """Proxy posting group validation error."""
+
+    code = 400
+    description = 'Specified group is not allowed as a proxy posting group.'

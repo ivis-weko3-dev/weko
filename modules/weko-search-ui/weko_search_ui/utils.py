@@ -152,6 +152,7 @@ from .config import (
     ROCRATE_METADATA_FILE
 )
 from .query import item_path_search_factory
+from weko_items_ui.errors import SharedRoleValidationError
 from weko_items_ui.signals import cris_researchmap_linkage_request
 
 class DefaultOrderedDict(OrderedDict):
@@ -2391,6 +2392,31 @@ def import_items_to_system(
             )
             error_id = "redis error: {}".format(type(ex).__name__)
             return {"success": False, "error_id": error_id}
+        except SharedRoleValidationError as ex:
+            # 代理投稿グループの検証で拒否した場合
+            current_app.logger.error("shared role validation error: %s", ex)
+            if item.get("id"):
+                pid = PersistentIdentifier.query.filter_by(
+                    pid_type="recid", pid_value=item["id"]
+                ).first()
+                bef_metadata = WekoIndexer().get_metadata_by_item_id(pid.object_uuid)
+                bef_last_ver_metadata = WekoIndexer().get_metadata_by_item_id(
+                    PIDVersioning(child=pid).last_child.object_uuid
+                )
+                handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+            db.session.rollback()
+            current_app.logger.error("item id: %s update error." % item["id"])
+            traceback.print_exc(file=sys.stdout)
+            exec_info = sys.exc_info()
+            tb_info = traceback.format_tb(exec_info[2])
+            opration = "ITEM_CREATE" if item.get("status") == "new" else "ITEM_UPDATE"
+            UserActivityLogger.error(
+                operation=opration,
+                target_key=item.get("id"),
+                remarks=tb_info[0],
+                request_info=request_info,
+            )
+            return {"success": False, "error_id": ex.description}
         except Exception as ex:
             current_app.logger.error("Unexpected error: %s", ex)
             if item.get("id"):
