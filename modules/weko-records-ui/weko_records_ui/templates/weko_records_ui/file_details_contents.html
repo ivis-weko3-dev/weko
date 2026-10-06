@@ -130,8 +130,8 @@
                             {% if can_edit %}
                             <input type="file" id="fileInput" style="display: none;" />
                             <span style="white-space: nowrap;">
-                              <button onclick="replaceFile()">{{_('Replace the file content')}}</button>
-                              <button onclick="openBucketCopyModal()">{{_('Copy file to open bucket')}}</button>
+                              <button type="button" id="replace-file-button">{{_('Replace the file content')}}</button>
+                              <button type="button" id="copy-file-button">{{_('Copy file to open bucket')}}</button>
                             </span>
                             {% endif %}
                           {% endif %}
