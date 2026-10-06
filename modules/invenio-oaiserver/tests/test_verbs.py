@@ -464,7 +464,7 @@ def test_listsets(app, db):
         assert text[0] == "test desc"
 
 
-def test_listsets_invalid_name(app):
+def test_listsets_invalid_name(app, db):
     """Test ListSets with invalid unicode character for XML."""
     with app.test_request_context():
         current_oaiserver.unregister_signals_oaiset()

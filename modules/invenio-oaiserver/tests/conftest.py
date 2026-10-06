@@ -29,6 +29,8 @@ from invenio_communities.config import COMMUNITIES_OAI_FORMAT
 from invenio_communities.models import Community
 from invenio_db import InvenioDB
 from invenio_db import db as db_
+from invenio_files_rest import InvenioFilesREST
+from invenio_files_rest.models import Location
 from invenio_indexer import InvenioIndexer
 from invenio_i18n import InvenioI18N
 from invenio_jsonschemas import InvenioJSONSchemas
@@ -45,7 +47,12 @@ from unittest.mock import patch
 
 from weko_records.api import ItemTypes
 from weko_records.models import ItemTypeName
-from weko_records_ui.config import WEKO_RECORDS_UI_LICENSE_DICT
+from weko_records_ui.config import (
+    WEKO_PERMISSION_ROLE_COMMUNITY,
+    WEKO_PERMISSION_ROLE_USER,
+    WEKO_PERMISSION_SUPER_ROLE_USER,
+    WEKO_RECORDS_UI_LICENSE_DICT,
+)
 from weko_index_tree.models import Index
 
 from .helpers import load_records, remove_records, create_record_oai
@@ -97,6 +104,9 @@ def base_app(instance_path):
             }
         },
         WEKO_RECORDS_UI_LICENSE_DICT=WEKO_RECORDS_UI_LICENSE_DICT,
+        WEKO_PERMISSION_SUPER_ROLE_USER=WEKO_PERMISSION_SUPER_ROLE_USER,
+        WEKO_PERMISSION_ROLE_COMMUNITY=WEKO_PERMISSION_ROLE_COMMUNITY,
+        WEKO_PERMISSION_ROLE_USER=WEKO_PERMISSION_ROLE_USER,
         INDEXER_FILE_DOC_TYPE="content",
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
@@ -114,13 +124,16 @@ def base_app(instance_path):
         from flask_cli import FlaskCLI
         FlaskCLI(app_)
     InvenioDB(app_)
+    InvenioFilesREST(app_)
     Babel(app_)
+    InvenioI18N(app_)
     FlaskCeleryExt(app_)
     InvenioAccess(app_)
     InvenioAccounts(app_)
     InvenioJSONSchemas(app_)
     InvenioRecords(app_)
     InvenioPIDStore(app_)
+    InvenioSearch(app_)
     InvenioIndexer(app_)
     InvenioOAIServer(app_)
 
@@ -144,6 +157,12 @@ def db(app):
     if not database_exists(str(db_.engine.url)):
         create_database(str(db_.engine.url))
     db_.create_all()
+    # Record files create a bucket, which requires a default location.
+    if Location.get_default() is None:
+        db_.session.add(
+            Location(name="local", uri=app.instance_path, default=True)
+        )
+        db_.session.commit()
     yield db_
     db_.session.remove()
     db_.drop_all()
@@ -283,23 +302,29 @@ def users(app, db):
 
 @pytest.fixture()
 def search_app(app):
-    with open(join(dirname(__file__),"data/mappings/item-v1.0.0.json"),"r") as f:
-    #with open(join(dirname(__file__),"data/v6/records/record-v1.0.0.json"),"r") as f:
+    with open(join(dirname(__file__), "data/mappings/item-v1.0.0.json"), "r") as f:
         mapping = json.load(f)
-    open_search = search.Opensearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
+
+    client_config = app.config["SEARCH_CLIENT_CONFIG"]
+    open_search = search.OpenSearch(
+        hosts=[{"host": app.config["SEARCH_OPENSEARCH_HOSTS"], "port": 9200}],
+        http_auth=client_config["http_auth"],
+        use_ssl=client_config["use_ssl"],
+        verify_certs=client_config["verify_certs"],
+        timeout=60,
+    )
 
     open_search.indices.create(
         index=app.config["INDEXER_DEFAULT_INDEX"],
-        body=mapping, ignore=[400, 404]
+        body=mapping,
+        ignore=[400, 404],
     )
-
     open_search.indices.put_alias(
         index=app.config["INDEXER_DEFAULT_INDEX"],
         name=app.config["SEARCH_UI_SEARCH_INDEX"],
         ignore=[400, 404],
     )
     InvenioSearch(app, client=open_search)
-    #search.register_mappings("items", "tests.data")
     yield app
 
     open_search.indices.delete_alias(
@@ -309,7 +334,8 @@ def search_app(app):
     )
     open_search.indices.delete(
         index=app.config["INDEXER_DEFAULT_INDEX"],
-        ignore=[400, 404])
+        ignore=[400, 404],
+    )
 
 
 @pytest.yield_fixture

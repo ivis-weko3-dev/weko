@@ -35,9 +35,11 @@ from .helpers import create_record, run_after_insert_oai_set
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 
 @pytest.fixture()
-def test0(app, db, without_oaiset_signals, schema):
-    _ = create_record(app, {"title_statement": {"title": "Test0"}, "$schema": schema})
-    current_search.flush_and_refresh("records")
+def test0(search_app, db, without_oaiset_signals, schema):
+    _ = create_record(
+        search_app, {"title_statement": {"title": "Test0"}, "$schema": schema}
+    )
+    current_search.flush_and_refresh("weko-item-v1.0.0")
 
 
 def create_oaiset(name, title_pattern):

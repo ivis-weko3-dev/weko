@@ -506,7 +506,8 @@ def test_listidentifiers(search_app,records,item_type,mock_execute,db,mocker):
             outPutSetting=True
         )
         oaiset = OAISet(
-            spec="1557819692844"
+            spec="1557819692844",
+            system_created=False,
         )
         index_metadata = {
             "id":1557819692844,
@@ -851,7 +852,8 @@ def test_listrecords(search_app,records,item_type,mock_execute,db,mocker):
             outPutSetting=True
         )
         oaiset = OAISet(
-            spec="1557819692844"
+            spec="1557819692844",
+            system_created=False,
         )
         index_metadata = {
             "id":1557819692844,
@@ -1302,7 +1304,8 @@ def test_resumption_token(app,db,without_oaiset_signals):
         spec='test',
         name='test_name',
         description='some test description',
-        search_pattern='test search')
+        search_pattern='test search',
+        system_created=False)
     
     db.session.add(oai)
     db.session.commit()
@@ -1318,7 +1321,8 @@ def test_resumption_token(app,db,without_oaiset_signals):
             spec='test{}'.format(i),
             name='test_name{}'.format(i),
             description='some test description',
-            search_pattern='test search{}'.format(i)))
+            search_pattern='test search{}'.format(i),
+            system_created=False))
     db.session.add_all(oais)
     db.session.commit()
     # token is none
@@ -1367,11 +1371,13 @@ def test_listsets(app,db,without_oaiset_signals,mocker):
         spec='100',
         name='test_name100',
         description='some test description',
-        search_pattern='test search100')
+        search_pattern='test search100',
+        system_created=False)
     oai101 = OAISet(id=101, # not exist description
         spec='101',
         name='test_name101',
-        search_pattern='test search101')
+        search_pattern='test search101',
+        system_created=False)
     db.session.add(oai100)
     db.session.add(oai101)
     db.session.commit()
@@ -1419,11 +1425,13 @@ def test_listsets(app,db,without_oaiset_signals,mocker):
     oai1 = OAISet(id=1,
         spec='1',
         name='test_name1',
-        search_pattern='test search1')
+        search_pattern='test search1',
+        system_created=False)
     oai2 = OAISet(id=2,
         spec='2',
         name='test_name2',
-        search_pattern='test search2')
+        search_pattern='test search2',
+        system_created=False)
     db.session.add_all([oai1,oai2])
     db.session.commit()
     tree = etree.fromstring(tree_str)
@@ -2004,7 +2012,8 @@ def test_issue34851_listrecords(search_app, records, item_type, mock_execute,db,
             outPutSetting=True
         )
         oaiset = OAISet(
-            spec="1557819692844"
+            spec="1557819692844",
+            system_created=False,
         )
         index_metadata = {
             "id":1557819692844,
@@ -2127,7 +2136,8 @@ def test_issue34851_listidentifiers(search_app, records, item_type, mock_execute
             outPutSetting=True
         )
         oaiset = OAISet(
-            spec="1557819692844"
+            spec="1557819692844",
+            system_created=False,
         )
         index_metadata = {
             "id":1557819692844,
