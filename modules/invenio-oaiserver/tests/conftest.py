@@ -543,7 +543,8 @@ def oaiset(app, db,without_oaiset_signals):
         spec='test',
         name='test_name',
         description='some test description',
-        search_pattern='test search')
+        search_pattern='test search',
+        system_created=False)
 
     db.session.add(oai)
     db.session.commit()

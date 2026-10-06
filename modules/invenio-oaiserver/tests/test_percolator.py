@@ -9,16 +9,12 @@
 
 """Percolator test cases."""
 
-import uuid
 import os
 import pytest
 
-from mock import patch
 from flask import Flask
 from invenio_cache import InvenioCache, current_cache
 from invenio_db import db as db_
-from invenio_db import InvenioDB
-
 
 from invenio_oaiserver import current_oaiserver, InvenioOAIServer
 from invenio_oaiserver.models import OAISet
@@ -26,24 +22,20 @@ from invenio_oaiserver.query import OAINoRecordsMatchError, get_records
 from invenio_oaiserver.receivers import after_update_oai_set
 from invenio_oaiserver.percolator import (
     _create_percolator_mapping,
-    _percolate_query,
-    _get_percolator_doc_type,
     _new_percolator,
     _delete_percolator,
-    _build_cache,
-    get_record_sets
+    create_percolate_query,
+    percolate_query,
+    find_sets_for_record
 )
-from invenio_records.api import Record
-from invenio_records.models import RecordMetadata
-from invenio_search import current_search, current_search_client
-from sqlalchemy_utils.functions import create_database, database_exists
+from invenio_search import current_search
 
 from .helpers import create_record, run_after_insert_oai_set
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 
 @pytest.fixture()
-def test0(app, without_oaiset_signals, schema):
+def test0(app, db, without_oaiset_signals, schema):
     _ = create_record(app, {"title_statement": {"title": "Test0"}, "$schema": schema})
     current_search.flush_and_refresh("records")
 
@@ -54,14 +46,14 @@ def create_oaiset(name, title_pattern):
         search_pattern=f"title_statement.title:{title_pattern}",
         system_created=False,
     )
-    db__.session.add(oaiset)
+    db_.session.add(oaiset)
     db_.session.commit()
     run_after_insert_oai_set()
 
     return oaiset
 
 
-def test_set_with_no_records(without_oaiset_signals, schema):
+def test_set_with_no_records(db, without_oaiset_signals, schema):
     _ = create_oaiset("test", "Test0")
     with pytest.raises(OAINoRecordsMatchError):
         get_records(set="test")
@@ -106,67 +98,69 @@ def test_search_pattern_change(without_oaiset_signals, test0):
         get_records(set="test")
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_create_percolator_mapping -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_create_percolator_mapping(search_app):
-    index = "test-weko-item-v1.0.0"
-    # es_version = 6
-    _create_percolator_mapping(index,"percolators")
-    
-    with patch("invenio_oaiserver.percolator.ES_VERSION",[2]):
-        _create_percolator_mapping(index,"percolators")
+def test_create_percolator_mapping(app,mocker):
+    search_ext = mocker.MagicMock()
+    search_ext.client.indices.exists.return_value = False
+    app.extensions["invenio-search"] = search_ext
 
-# .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_percolate_query -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_percolate_query(search_app):
-    current_search_client.indices.put_mapping(
-        index="test-weko-item-v1.0.0", 
-        body={
-            'properties': {'query': {'type': 'percolator'}}
-        }, ignore=[400, 404])
-    current_search_client.index(
-        index="test-weko-item-v1.0.0",
-        id="oaiset-1",body={
-            "query":{'query_string': {'query': 'test_pettern'}}
-        }
+    index = "test-weko-item-v1.0.0"
+    mapping_path = os.path.join(
+        os.path.dirname(__file__), "data", "os-v2", "records",
+        "record-v1.0.0.json"
     )
-    result = _percolate_query("test-weko-item-v1.0.0","item-v1.0.0","item-v1.0.0",{})
-    assert result == []
-    with patch("invenio_oaiserver.percolator.ES_VERSION",[7]):
-        result = _percolate_query("test-weko-item-v1.0.0","item_v1.0.0","item_v1.0.0",{})
-        assert result == None
-    
-    def mock_percolate(index=None,allow_no_indices=True,ignore_unavailable=True,body={}):
-        return {"matches":[]}
-    with patch("invenio_oaiserver.percolator.ES_VERSION",[2]):
-        setattr(current_search_client,"percolate",mock_percolate)
-        result = _percolate_query("test-weko-item-v1.0.0","item-v1.0.0","item-v1.0.0",{})
-        assert result == []
+    _create_percolator_mapping(index, mapping_path)
+    create_kwargs = search_ext.client.indices.create.call_args.kwargs
+    assert create_kwargs["index"].endswith("-percolators")
+    properties = create_kwargs["body"]["mappings"]["properties"]
+    assert properties["query"] == {"type": "percolator"}
 
-# .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_get_percolator_doc_type -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_get_percolator_doc_type(search_app):
-    index = "test-weko-item-v1.0.0"
-    
-    # es_version = 2
-    with patch("invenio_oaiserver.percolator.ES_VERSION",[2]):
-        result = _get_percolator_doc_type(index)
-        assert result == ".percolator"
-    
-    # es_version = 5
-    with patch("invenio_oaiserver.percolator.ES_VERSION",[5]):
-        result = _get_percolator_doc_type(index)
-        assert result == "percolators"
+    search_ext.client.indices.exists.return_value = True
+    _create_percolator_mapping(index, mapping_path)
+    assert search_ext.client.indices.create.call_count == 1
 
-    # es_version = 6
-    result = _get_percolator_doc_type(index)
-    assert result == "item-v1.0.0"
-    
-    # other
-    with patch("invenio_oaiserver.percolator.ES_VERSION",[7]):
-        result = _get_percolator_doc_type(index)
-        assert result == None
+def test_create_percolate_query():
+    query = create_percolate_query(documents=[{"title_statement": {"title": "t"}}])
+    must = query["query"]["bool"]["must"]
+    assert must[0]["percolate"]["field"] == "query"
+    assert must[0]["percolate"]["documents"] == [{"title_statement": {"title": "t"}}]
+
+    query = create_percolate_query(
+        documents=[{"a": 1}], percolator_ids=["oaiset-1", "oaiset-2"])
+    must = query["query"]["bool"]["must"]
+    assert must[0]["percolate"]["field"] == "query"
+    assert must[1] == {"ids": {"values": ["oaiset-1", "oaiset-2"]}}
+
+    query = create_percolate_query(
+        document_search_ids=["id1"], document_search_indices=["idx1"])
+    must = query["query"]["bool"]["must"]
+    assert must[0]["percolate"]["id"] == "id1"
+    assert must[0]["percolate"]["index"] == "idx1"
+    assert must[0]["percolate"]["name"] == "idx1:id1"
+
+    with pytest.raises(Exception):
+        create_percolate_query()
+
+    with pytest.raises(Exception):
+        create_percolate_query(
+            document_search_ids=["id1"], document_search_indices=[])
+
+def test_percolate_query(mocker):
+    documents = [{"title_statement": {"title": "t"}}]
+    scan = mocker.patch(
+        "invenio_oaiserver.percolator.search.helpers.scan",
+        return_value=iter([{"_id": "oaiset-1"}]))
+
+    result = list(percolate_query("idx-percolators", documents=documents))
+
+    assert result == [{"_id": "oaiset-1"}]
+    kwargs = scan.call_args.kwargs
+    assert kwargs["index"] == "idx-percolators"
+    must = kwargs["query"]["query"]["bool"]["must"]
+    assert must[0]["percolate"]["documents"] == documents
 
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_new_percolator -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_new_percolator(search_app,db,without_oaiset_signals,mocker):
-    mocker.patch("invenio_oaiserver.percolator.INDEXER_DEFAULT_INDEX","test-weko-item-v1.0.0")
     oai = OAISet(id=1,
         spec='test',
         name='test_name',
@@ -181,71 +175,55 @@ def test_new_percolator(search_app,db,without_oaiset_signals,mocker):
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_delete_percolator -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_delete_percolator(search_app,mocker):
-    mocker.patch("invenio_oaiserver.percolator.INDEXER_DEFAULT_INDEX","test-weko-item-v1.0.0")
 
     # spec is None
     _delete_percolator(None,None)
-    
+
     _delete_percolator("test","test")
 
-# .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_build_cache -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_build_cache(instance_path):
+
+def test_sets_cache(instance_path):
     app = Flask("test_app",instance_path=instance_path)
     app.config.update(
         CACHE_REDIS_URL='redis://redis:6379/0',
         CACHE_REDIS_DB='0',
         CACHE_REDIS_HOST="redis",
         OAISERVER_CACHE_KEY="DynamicOAISets::",
-        OAISERVER_REGISTER_RECORD_SIGNALS=True,
-        OAISERVER_REGISTER_SET_SIGNALS=True,
-        SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
-                                         'postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest'),
-
+        OAISERVER_REGISTER_RECORD_SIGNALS=False,
+        OAISERVER_REGISTER_SET_SIGNALS=False,
         )
-    InvenioDB(app)
     InvenioCache(app)
     with app.app_context():
         current_cache.delete("DynamicOAISets::")
         InvenioOAIServer(app,cache=current_cache)
-        current_oaiserver.unregister_signals_oaiset()
-        if not database_exists(str(db_.engine.url)):
-            create_database(str(db_.engine.url))
-        db_.create_all()
-        
-        oai = OAISet(id=1,
-            spec='test',
-            name='test_name',
-            description='some test description',
-            search_pattern=None)
-    
-        db_.session.add(oai)
-        db_.session.commit()
-        
-        result = _build_cache()
-        assert result == ["test"]
-        
-        result = _build_cache()
-        assert result == ["test"]
-        
-        current_oaiserver.register_signals_oaiset()
-        db_.session.remove()
-        db_.drop_all()
-        
-# .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_get_record_sets -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_get_record_sets(search_app,db,mocker):
-    from weko_deposit.api import WekoDeposit
-    mocker.patch("invenio_oaiserver.percolator._build_cache",return_value=["1","2"])
-    data = {"_oai":{"sets":["1"]}}
-    rec_uuid = uuid.uuid4()
-    rec = RecordMetadata(id=rec_uuid,json=data)
-    record = WekoDeposit(rec.json, rec)
-    
-    response = [
-        {"_id":"oaiset-test"},
-        {"_id":"notoaiset-test"}
-    ]
-    with patch("invenio_oaiserver.percolator._percolate_query",return_value=response):
-        result = get_record_sets(record)
 
-        result = [r for r in result]
-        assert result == ["1","test"]
+        assert current_oaiserver.sets is None
+
+        current_oaiserver.sets = ["test"]
+        assert current_oaiserver.sets == ["test"]
+
+        current_cache.delete("DynamicOAISets::")
+        assert current_oaiserver.sets is None
+
+
+def test_find_sets_for_record(app,mocker):
+    mocker.patch("invenio_oaiserver.percolator._create_percolator_mapping")
+    mocker.patch(
+        "invenio_oaiserver.percolator._build_percolator_index_name",
+        return_value="test-weko-item-v1.0.0-percolators")
+    indexer = mocker.patch("invenio_oaiserver.percolator.RecordIndexer")
+    indexer.return_value._record_to_index.return_value = "test-weko-item-v1.0.0"
+    mocker.patch(
+        "invenio_oaiserver.percolator.percolate_query",
+        return_value=[
+            {"_id": "oaiset-test",
+             "fields": {"_percolator_document_slot": [0]}},
+            {"_id": "notoaiset-test",
+             "fields": {"_percolator_document_slot": [0]}},
+        ])
+
+    record = {"_oai": {"sets": []}}
+    assert find_sets_for_record(record) == ["test"]
+
+    mocker.patch(
+        "invenio_oaiserver.percolator.percolate_query", return_value=[])
