@@ -9,6 +9,7 @@ weko_search_ui = WebpackThemeBundle(
             entry={
                 'search-ui-css-weko-search-ui': './css/weko_search_ui/dot_leaders.css',
                 'search-ui-js-js-dependencies-datepicker': './js/weko_search_ui/js_dependencies_datepicker.js',
+                'search-ui-css-dependencies-datepicker': './css/weko_search_ui/css_dependencies_datepicker.css',
                 'search-ui-js-weko-search-ui': './js/weko_search_ui/app.js',
                 'search-ui-js-import': './js/weko_search_ui/import.js',
                 'search-ui-js-rocrate-import': './js/weko_search_ui/rocrate_import.js',
