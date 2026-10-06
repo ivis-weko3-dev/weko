@@ -340,7 +340,7 @@ class ReindexAllIndexRunner(object):
         self._load_indexes_and_aliases()
         self._load_mapping_files()
         self._load_template_files()
-        # self._run_main_index_reindex() # TODO
+        self._run_main_index_reindex()
         self._run_stats_reindex()
 
         if self.had_errors:
