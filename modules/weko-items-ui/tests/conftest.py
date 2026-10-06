@@ -575,6 +575,143 @@ def users(app, db):
     ]
 
 @pytest.fixture()
+def shared_users(app, db):
+    """Create users dedicated to the shared contributor search tests.
+
+    This fixture is independent from ``users`` and does not modify it.
+    Role composition:
+        0 contributor       : Contributor
+        1 repoadmin         : Contributor + Repository Administrator
+        2 sysadmin          : Contributor + System Administrator
+        3 comadmin          : Contributor + Community Administrator
+        4 generaluser       : General
+        5 originalroleuser  : Contributor + Original Role
+        6 originalroleuser2 : Contributor + Original Role
+        7 user              : (no role)
+    """
+    ds = app.extensions["invenio-accounts"].datastore
+    user_count = User.query.filter_by(email="shared_user@test.org").count()
+    if user_count != 1:
+        user = create_test_user(email="shared_user@test.org")
+        contributor = create_test_user(email="shared_contributor@test.org")
+        comadmin = create_test_user(email="shared_comadmin@test.org")
+        repoadmin = create_test_user(email="shared_repoadmin@test.org")
+        sysadmin = create_test_user(email="shared_sysadmin@test.org")
+        generaluser = create_test_user(email="shared_generaluser@test.org")
+        originalroleuser = create_test_user(email="shared_originalroleuser@test.org")
+        originalroleuser2 = create_test_user(email="shared_originalroleuser2@test.org")
+    else:
+        user = User.query.filter_by(email="shared_user@test.org").first()
+        contributor = User.query.filter_by(email="shared_contributor@test.org").first()
+        comadmin = User.query.filter_by(email="shared_comadmin@test.org").first()
+        repoadmin = User.query.filter_by(email="shared_repoadmin@test.org").first()
+        sysadmin = User.query.filter_by(email="shared_sysadmin@test.org").first()
+        generaluser = User.query.filter_by(email="shared_generaluser@test.org").first()
+        originalroleuser = User.query.filter_by(email="shared_originalroleuser@test.org").first()
+        originalroleuser2 = User.query.filter_by(email="shared_originalroleuser2@test.org").first()
+
+    role_count = Role.query.filter_by(name="System Administrator").count()
+    if role_count != 1:
+        sysadmin_role = ds.create_role(name="System Administrator")
+        repoadmin_role = ds.create_role(name="Repository Administrator")
+        contributor_role = ds.create_role(name="Contributor")
+        comadmin_role = ds.create_role(name="Community Administrator")
+        general_role = ds.create_role(name="General")
+        originalrole = ds.create_role(name="Original Role")
+    else:
+        sysadmin_role = Role.query.filter_by(name="System Administrator").first()
+        repoadmin_role = Role.query.filter_by(name="Repository Administrator").first()
+        contributor_role = Role.query.filter_by(name="Contributor").first()
+        comadmin_role = Role.query.filter_by(name="Community Administrator").first()
+        general_role = Role.query.filter_by(name="General").first()
+        originalrole = Role.query.filter_by(name="Original Role").first()
+
+    # Assign access authorization
+    with db.session.begin_nested():
+        action_users = [
+            ActionUsers(action="superuser-access", user=sysadmin),
+        ]
+        db.session.add_all(action_users)
+        action_roles = [
+            ActionRoles(action="superuser-access", role=sysadmin_role),
+            ActionRoles(action="admin-access", role=repoadmin_role),
+            ActionRoles(action="schema-access", role=repoadmin_role),
+            ActionRoles(action="index-tree-access", role=repoadmin_role),
+            ActionRoles(action="indextree-journal-access", role=repoadmin_role),
+            ActionRoles(action="item-type-access", role=repoadmin_role),
+            ActionRoles(action="item-access", role=repoadmin_role),
+            ActionRoles(action="files-rest-bucket-update", role=repoadmin_role),
+            ActionRoles(action="files-rest-object-delete", role=repoadmin_role),
+            ActionRoles(action="files-rest-object-delete-version", role=repoadmin_role),
+            ActionRoles(action="files-rest-object-read", role=repoadmin_role),
+            ActionRoles(action="search-access", role=repoadmin_role),
+            ActionRoles(action="detail-page-acces", role=repoadmin_role),
+            ActionRoles(action="download-original-pdf-access", role=repoadmin_role),
+            ActionRoles(action="author-access", role=repoadmin_role),
+            ActionRoles(action="items-autofill", role=repoadmin_role),
+            ActionRoles(action="stats-api-access", role=repoadmin_role),
+            ActionRoles(action="read-style-action", role=repoadmin_role),
+            ActionRoles(action="update-style-action", role=repoadmin_role),
+            ActionRoles(action="admin-access", role=comadmin_role),
+            ActionRoles(action="index-tree-access", role=comadmin_role),
+            ActionRoles(action="indextree-journal-access", role=comadmin_role),
+            ActionRoles(action="item-access", role=comadmin_role),
+            ActionRoles(action="files-rest-bucket-update", role=comadmin_role),
+            ActionRoles(action="files-rest-object-delete", role=comadmin_role),
+            ActionRoles(action="files-rest-object-delete-version", role=comadmin_role),
+            ActionRoles(action="files-rest-object-read", role=comadmin_role),
+            ActionRoles(action="search-access", role=comadmin_role),
+            ActionRoles(action="detail-page-acces", role=comadmin_role),
+            ActionRoles(action="download-original-pdf-access", role=comadmin_role),
+            ActionRoles(action="author-access", role=comadmin_role),
+            ActionRoles(action="items-autofill", role=comadmin_role),
+            ActionRoles(action="item-access", role=contributor_role),
+            ActionRoles(action="files-rest-bucket-update", role=contributor_role),
+            ActionRoles(action="files-rest-object-delete", role=contributor_role),
+            ActionRoles(
+                action="files-rest-object-delete-version", role=contributor_role
+            ),
+            ActionRoles(action="files-rest-object-read", role=contributor_role),
+            ActionRoles(action="search-access", role=contributor_role),
+            ActionRoles(action="detail-page-acces", role=contributor_role),
+            ActionRoles(action="download-original-pdf-access", role=contributor_role),
+            ActionRoles(action="author-access", role=contributor_role),
+            ActionRoles(action="items-autofill", role=contributor_role),
+        ]
+        db.session.add_all(action_roles)
+        ds.add_role_to_user(sysadmin, sysadmin_role)
+        ds.add_role_to_user(sysadmin, contributor_role)
+        ds.add_role_to_user(repoadmin, repoadmin_role)
+        ds.add_role_to_user(repoadmin, contributor_role)
+        ds.add_role_to_user(contributor, contributor_role)
+        ds.add_role_to_user(comadmin, comadmin_role)
+        ds.add_role_to_user(comadmin, contributor_role)
+        ds.add_role_to_user(generaluser, general_role)
+        ds.add_role_to_user(originalroleuser, originalrole)
+        ds.add_role_to_user(originalroleuser, contributor_role)
+        ds.add_role_to_user(originalroleuser2, originalrole)
+        ds.add_role_to_user(originalroleuser2, contributor_role)
+
+    return [
+        {"email": contributor.email, "id": contributor.id, "obj": contributor},
+        {"email": repoadmin.email, "id": repoadmin.id, "obj": repoadmin},
+        {"email": sysadmin.email, "id": sysadmin.id, "obj": sysadmin},
+        {"email": comadmin.email, "id": comadmin.id, "obj": comadmin},
+        {"email": generaluser.email, "id": generaluser.id, "obj": generaluser},
+        {
+            "email": originalroleuser.email,
+            "id": originalroleuser.id,
+            "obj": originalroleuser,
+        },
+        {
+            "email": originalroleuser2.email,
+            "id": originalroleuser2.id,
+            "obj": originalroleuser2,
+        },
+        {"email": user.email, "id": user.id, "obj": user},
+    ]
+
+@pytest.fixture()
 def users_1(app, db):
     """Create users."""
     ds = app.extensions["invenio-accounts"].datastore
@@ -582,17 +719,21 @@ def users_1(app, db):
     if user_count != 1:
         sysadmin = create_test_user(email="wekosoftware@ivis.co.jp")
         repoadmin = create_test_user(email="repoadmin@example.org")
+        contributor_only = create_test_user(email="contributor_only@example.org")
     else:
         sysadmin = User.query.filter_by(email="wekosoftware@ivis.co.jp").first()
         repoadmin = User.query.filter_by(email="repoadmin@example.org").first()
+        contributor_only = User.query.filter_by(email="contributor_only@example.org").first()
 
     role_count = Role.query.filter_by(name="System Administrator").count()
     if role_count != 1:
         sysadmin_role = ds.create_role(name="System Administrator")
         repoadmin_role = ds.create_role(name="Repository Administrator")
+        contributor_role = ds.create_role(name="Contributor")
     else:
         sysadmin_role = Role.query.filter_by(name="System Administrator").first()
         repoadmin_role = Role.query.filter_by(name="Repository Administrator").first()
+        contributor_role = Role.query.filter_by(name="Contributor").first()
 
     # Assign access authorization
     with db.session.begin_nested():
@@ -621,14 +762,28 @@ def users_1(app, db):
             ActionRoles(action="read-style-action", role=repoadmin_role),
             ActionRoles(action="update-style-action", role=repoadmin_role),
             ActionRoles(action="detail-page-acces", role=repoadmin_role),
+            ActionRoles(action="item-access", role=contributor_role),
+            ActionRoles(action="files-rest-bucket-update", role=contributor_role),
+            ActionRoles(action="files-rest-object-delete", role=contributor_role),
+            ActionRoles(
+                action="files-rest-object-delete-version", role=contributor_role
+            ),
+            ActionRoles(action="files-rest-object-read", role=contributor_role),
+            ActionRoles(action="search-access", role=contributor_role),
+            ActionRoles(action="detail-page-acces", role=contributor_role),
+            ActionRoles(action="download-original-pdf-access", role=contributor_role),
+            ActionRoles(action="author-access", role=contributor_role),
+            ActionRoles(action="items-autofill", role=contributor_role),
         ]
         db.session.add_all(action_roles)
         ds.add_role_to_user(sysadmin, sysadmin_role)
         ds.add_role_to_user(repoadmin, repoadmin_role)
+        ds.add_role_to_user(contributor_only, contributor_role)
 
     return [
         {"email": sysadmin.email, "id": sysadmin.id, "obj": sysadmin},
-        {"email": repoadmin.email, "id": repoadmin.id, "obj": repoadmin}
+        {"email": repoadmin.email, "id": repoadmin.id, "obj": repoadmin},
+        {"email": contributor_only.email, "id": contributor_only.id, "obj": contributor_only},
     ]
 
 @pytest.fixture()

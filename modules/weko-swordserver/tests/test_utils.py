@@ -10,6 +10,9 @@ from io import BytesIO
 from hashlib import sha256,sha512
 from zipfile import ZipFile
 from unittest.mock import MagicMock, patch
+from flask_login import current_user
+from invenio_oauth2server.ext import verify_oauth_token_and_set_current_user
+import invenio_oauth2server.views.server  # side effect: register oauth2 handler
 from weko_accounts.models import ShibbolethUser
 from weko_admin.models import AdminSettings
 from weko_swordserver.utils import (
@@ -123,33 +126,95 @@ def test_check_import_file_format(app):
 # def get_shared_ids_from_on_behalf_of(on_behalf_of):
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_utils.py::test_get_shared_ids_from_on_behalf_of -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
 def test_get_shared_ids_from_on_behalf_of(app, db, users, personal_token):
-    on_behalf_of = None
-    assert get_shared_ids_from_on_behalf_of(on_behalf_of) == []
+    with app.test_request_context():
+        on_behalf_of = None
+        assert get_shared_ids_from_on_behalf_of(on_behalf_of) == []
 
-    on_behalf_of = users[3].get("email")
-    assert get_shared_ids_from_on_behalf_of(on_behalf_of) == [users[3]["id"]]
+        # users[3] (Contributor only) is resolved by email, personal access
+        # token, and Shibboleth eppn
+        on_behalf_of = users[3].get("email")
+        assert get_shared_ids_from_on_behalf_of(on_behalf_of) == [users[3]["id"]]
 
-    on_behalf_of = personal_token[3]["token"].access_token
-    assert get_shared_ids_from_on_behalf_of(on_behalf_of) == [personal_token[3]["token"].user_id]
-    assert get_shared_ids_from_on_behalf_of(on_behalf_of) == [users[3]["id"]]
+        on_behalf_of = personal_token[3]["token"].access_token
+        assert get_shared_ids_from_on_behalf_of(on_behalf_of) == [personal_token[3]["token"].user_id]
+        assert get_shared_ids_from_on_behalf_of(on_behalf_of) == [users[3]["id"]]
 
-    shib_user = ShibbolethUser(shib_eppn="test@example.ac.jp", shib_user_name="testuser", weko_uid=users[3]["id"])
-    db.session.add(shib_user)
-    db.session.commit()
-    on_behalf_of = shib_user.shib_eppn
-    assert get_shared_ids_from_on_behalf_of(on_behalf_of) == [users[3]["id"]]
+        shib_user = ShibbolethUser(shib_eppn="test@example.ac.jp", shib_user_name="testuser", weko_uid=users[3]["id"])
+        db.session.add(shib_user)
+        db.session.commit()
+        on_behalf_of = shib_user.shib_eppn
+        assert get_shared_ids_from_on_behalf_of(on_behalf_of) == [users[3]["id"]]
 
-    on_behalf_of = "invalid"
-    with pytest.raises(WekoSwordserverException) as e:
-        get_shared_ids_from_on_behalf_of(on_behalf_of)
-    assert e.value.errorType == ErrorType.BadRequest
-    assert e.value.message == "No user found by On-Behalf-Of."
+        # a user holding an excluded role (System Administrator, users[0]) is
+        # rejected, regardless of how the user is resolved
+        on_behalf_of = users[0].get("email")
+        with pytest.raises(WekoSwordserverException) as e:
+            get_shared_ids_from_on_behalf_of(on_behalf_of)
+        assert e.value.errorType == ErrorType.Forbidden
+        assert e.value.message == "On-Behalf-Of user is not allowed by role."
 
-    on_behalf_of = 999
-    with pytest.raises(WekoSwordserverException) as e:
-        get_shared_ids_from_on_behalf_of(on_behalf_of)
-    assert e.value.errorType == ErrorType.ServerError
-    assert e.value.message == "Failed to get shared ID from On-Behalf-Of."
+        # a user holding an excluded role (Repository Administrator, users[1])
+        # is also rejected
+        on_behalf_of = users[1].get("email")
+        with pytest.raises(WekoSwordserverException) as e:
+            get_shared_ids_from_on_behalf_of(on_behalf_of)
+        assert e.value.errorType == ErrorType.Forbidden
+        assert e.value.message == "On-Behalf-Of user is not allowed by role."
+
+        # a user holding an excluded role (Community Administrator, users[2])
+        # is also rejected, since Contributor role is not held either
+        on_behalf_of = users[2].get("email")
+        with pytest.raises(WekoSwordserverException) as e:
+            get_shared_ids_from_on_behalf_of(on_behalf_of)
+        assert e.value.errorType == ErrorType.Forbidden
+        assert e.value.message == "On-Behalf-Of user is not allowed by role."
+
+        # a user holding neither the allowed role (Contributor) nor any
+        # excluded role (Original Role only, users[5]) is rejected because
+        # the allowed-role condition is not satisfied
+        on_behalf_of = users[5].get("email")
+        with pytest.raises(WekoSwordserverException) as e:
+            get_shared_ids_from_on_behalf_of(on_behalf_of)
+        assert e.value.errorType == ErrorType.Forbidden
+        assert e.value.message == "On-Behalf-Of user is not allowed by role."
+
+        on_behalf_of = "invalid"
+        with pytest.raises(WekoSwordserverException) as e:
+            get_shared_ids_from_on_behalf_of(on_behalf_of)
+        assert e.value.errorType == ErrorType.BadRequest
+        assert e.value.message == "No user found by On-Behalf-Of."
+
+        on_behalf_of = 999
+        with pytest.raises(WekoSwordserverException) as e:
+            get_shared_ids_from_on_behalf_of(on_behalf_of)
+        assert e.value.errorType == ErrorType.ServerError
+        assert e.value.message == "Failed to get shared ID from On-Behalf-Of."
+
+
+# def get_shared_ids_from_on_behalf_of(on_behalf_of):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_utils.py::test_get_shared_ids_from_on_behalf_of_self -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test_get_shared_ids_from_on_behalf_of_self(app, db, users, tokens):
+    # reproduce the SWORD API OAuth2 authentication path: the access token
+    # owner (users[3], Contributor only) is set as flask_login.current_user
+    # via verify_oauth_token_and_set_current_user(), without any session
+    # login. personal_token and tokens share the same client_id, so they
+    # must not be used together in the same test function.
+    headers = {
+        "Authorization": "Bearer {}".format(tokens[3]["token"].access_token),
+    }
+    with app.test_request_context(headers=headers):
+        verify_oauth_token_and_set_current_user()
+        assert current_user.is_authenticated
+        assert current_user.id == users[3]["id"]
+
+        # the token owner satisfies the role condition (Contributor held,
+        # no excluded role held) but is rejected for specifying themselves
+        # as On-Behalf-Of
+        on_behalf_of = users[3].get("email")
+        with pytest.raises(WekoSwordserverException) as e:
+            get_shared_ids_from_on_behalf_of(on_behalf_of)
+        assert e.value.errorType == ErrorType.Forbidden
+        assert e.value.message == "On-Behalf-Of user is not allowed by role."
 
 # def is_valid_file_hash(expected_hash, file):
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_utils.py::test_is_valid_file_hash -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
