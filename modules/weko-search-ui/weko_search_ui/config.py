@@ -758,6 +758,8 @@ WEKO_SEARCH_UI_IMPORT_UNUSE_FILES_URI = "import_unuse_files_uri_{}"
 WEKO_SEARCH_UI_BULK_EXPORT_RETRY_INTERVAL = 1
 """ retry interval(sec) """
 
+WEKO_SEARCH_UI_REGEX_MAX_LENGTH = 1000
+
 WEKO_SEARCH_UI_OPENSEARCH_LANGUAGE_PARAM = {
     'ja': 'jpn',
     'en': 'eng',
