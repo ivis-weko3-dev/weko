@@ -217,8 +217,8 @@ def test_default_facets_factory(app, db, search_user, redis_connect):
     defs = dict(
         aggs=dict(
             type=dict(
-                filter=dict(must=[dict(term=dict(publish_status="0"))]),
-                aggs=dict(type=dict(field="upload_type", size=1000)),
+                filter=dict(bool=dict(must=[dict(term=dict(publish_status="0"))])),
+                aggs=dict(type=dict(terms=dict(field="upload_type", size=1000))),
             ),
             subtype=dict(
                 filter=dict(bool=dict(must=[dict(term=dict(publish_status="0"))])),

@@ -20,7 +20,7 @@ from os.path import dirname, join
 import pytest
 import pytz
 from flask import Flask, g, url_for
-from flask_login import LoginManager, UserMixin
+from flask_login import UserMixin
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionRoles
 from invenio_accounts import InvenioAccounts
@@ -44,8 +44,10 @@ from invenio_search import (
 from invenio_search.engine import dsl
 from mock import patch
 from sqlalchemy_utils.functions import create_database, database_exists
+from weko_accounts.config import WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT
 from weko_admin.models import AdminSettings, FacetSearchSetting
 from weko_index_tree.models import Index
+from weko_records.config import WEKO_RECORDS_LANGUAGE_TITLES, WEKO_RECORDS_TITLE_TITLE
 from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
 from weko_records_ui.config import (
     WEKO_PERMISSION_ROLE_COMMUNITY,
@@ -198,10 +200,15 @@ def app(request, search_class):
         ),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         TESTING=True,
+        WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT=copy.deepcopy(
+            WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT
+        ),
         WEKO_PERMISSION_SUPER_ROLE_USER=WEKO_PERMISSION_SUPER_ROLE_USER,
         WEKO_PERMISSION_ROLE_COMMUNITY=WEKO_PERMISSION_ROLE_COMMUNITY,
         EMAIL_DISPLAY_FLG=True,
         WEKO_RECORDS_UI_LICENSE_DICT=WEKO_RECORDS_UI_LICENSE_DICT,
+        WEKO_RECORDS_TITLE_TITLE=WEKO_RECORDS_TITLE_TITLE,
+        WEKO_RECORDS_LANGUAGE_TITLES=WEKO_RECORDS_LANGUAGE_TITLES,
         WEKO_RECORDS_UI_EMAIL_ITEM_KEYS=["creatorMails", "contributorMails", "mails"],
     )
 
@@ -259,6 +266,7 @@ def app(request, search_class):
                 for name in ("anonymous_user", "test@test.org")
                 for suffix in ("", "_url_args", "_max_result")
             )
+            before_record_index.connect(record_indexer_receiver, sender=app)
             try:
                 facet_cache.redis.delete(*facet_keys)
                 account_cache.redis.delete(*account_keys)
@@ -270,6 +278,7 @@ def app(request, search_class):
                 ):
                     yield app
             finally:
+                before_record_index.disconnect(record_indexer_receiver, sender=app)
                 facet_cache.redis.delete(*facet_keys)
                 account_cache.redis.delete(*account_keys)
                 facet_cache.redis.close()
@@ -293,6 +302,15 @@ def db(app):
     finally:
         db_.session.remove()
         db_.drop_all()
+
+
+@pytest.fixture()
+def configured_facets(app, mocker):
+    """Provide the facet definitions explicitly configured by the test app."""
+    mocker.patch(
+        "weko_admin.utils.get_facet_search_query",
+        side_effect=lambda has_permission: app.config["RECORDS_REST_FACETS"],
+    )
 
 
 @pytest.fixture()
@@ -348,6 +366,7 @@ def account_redis(app):
 
 def record_indexer_receiver(sender, json=None, record=None, index=None, **kwargs):
     """Mock-receiver of a before_record_index signal."""
+    json.setdefault("_item_metadata", {})
     suggest_byyear = {}
     if "year" not in json:
         return json
@@ -368,11 +387,7 @@ def record_indexer_receiver(sender, json=None, record=None, index=None, **kwargs
 @pytest.fixture()
 def indexer(app, search):
     """Create a record indexer."""
-    before_record_index.connect(record_indexer_receiver, sender=app)
-    try:
-        yield RecordIndexer()
-    finally:
-        before_record_index.disconnect(record_indexer_receiver, sender=app)
+    yield RecordIndexer()
 
 
 @pytest.fixture(scope="session")
@@ -524,12 +539,13 @@ def default_permissions(app):
     ]:
         app.config[key] = getattr(config, key)
 
-    lm = LoginManager(app)
+    lm = app.login_manager
 
     # Allow easy login for tests purposes :-)
     class User(UserMixin):
         def __init__(self, id):
             self.id = id
+            self.roles = []
 
     @lm.request_loader
     def load_user(request):
@@ -670,6 +686,7 @@ def indexes(app, db):
         harvest_public_state=True,
         public_state=True,
         browsing_role="3,-99",
+        browsing_group="-89",
     )
     db.session.add(index1)
     db.session.commit()

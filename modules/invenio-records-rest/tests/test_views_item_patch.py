@@ -16,12 +16,20 @@ from conftest import IndexFlusher
 from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url
 from invenio_records.models import RecordMetadata
 
+
 @pytest.mark.parametrize(
     "content_type",
     ["application/json-patch+json", "application/json-patch+json;charset=utf-8"],
 )
 def test_valid_patch(
-    app, open_search, test_records, test_patch, content_type, search_url, search_class
+    configured_facets,
+    app,
+    open_search,
+    test_records,
+    test_patch,
+    content_type,
+    search_url,
+    search_class,
 ):
     """Test VALID record patch request (PATCH .../records/<record_id>)."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
@@ -32,21 +40,20 @@ def test_valid_patch(
     assert record.patch(test_patch)
 
     with app.test_client() as client:
-        # Check that patch and record is not the same value for year.
         url = record_url(pid)
         previous_year = get_json(client.get(url))["metadata"]["year"]
 
         # Patch record
-        assert RecordMetadata.query.filter_by(id=obj_id).first().json['year']==2015
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"] == 2015
         res = client.patch(url, data=json.dumps(test_patch), headers=HEADERS)
         assert res.status_code == 200
-        assert RecordMetadata.query.filter_by(id=obj_id).first().json['year']==1985
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"] == 1985
 
         # Check that year changed.
         new_year = get_json(client.get(url))["metadata"]["year"]
         assert previous_year != new_year
         IndexFlusher(search_class).flush_and_wait()
-        res = client.get(search_url, query_string={'year': new_year})
+        res = client.get(search_url, query_string={"year": new_year})
         assert_hits_len(res, 1)
 
 
@@ -55,7 +62,15 @@ def test_valid_patch(
     ["application/json-patch+json", "application/json-patch+json;charset=utf-8"],
 )
 def test_patch_deleted(
-    app, db, open_search, test_data, test_patch, content_type, search_url, search_class
+    configured_facets,
+    app,
+    db,
+    open_search,
+    test_data,
+    test_patch,
+    content_type,
+    search_url,
+    search_class,
 ):
     """Test patching deleted record."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
@@ -79,7 +94,14 @@ def test_patch_deleted(
 
 @pytest.mark.parametrize("charset", ["", ";charset=utf-8"])
 def test_invalid_patch(
-    app, open_search, test_records, test_patch, charset, search_url, search_class
+    configured_facets,
+    app,
+    open_search,
+    test_records,
+    test_patch,
+    charset,
+    search_url,
+    search_class,
 ):
     """Test INVALID record put request (PUT .../records/<record_id>)."""
     HEADERS = [
@@ -102,14 +124,14 @@ def test_invalid_patch(
         assert_hits_len(res, 0)
 
         # Invalid accept mime type.
-        assert RecordMetadata.query.filter_by(id=obj_id).first().json['year']==2015
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"] == 2015
         headers = [
             ("Content-Type", "application/json-patch+json{0}".format(charset)),
             ("Accept", "video/mp4"),
         ]
         res = client.patch(url, data=json.dumps(test_patch), headers=headers)
         assert res.status_code == 406
-        assert RecordMetadata.query.filter_by(id=obj_id).first().json['year']==2015
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"] == 1985
 
         # Invalid content type
         headers = [
@@ -120,17 +142,23 @@ def test_invalid_patch(
         assert res.status_code == 415
 
         # Invalid Patch
+        previous_metadata = (
+            RecordMetadata.query.filter_by(id=obj_id).first().json.copy()
+        )
         res = client.patch(
             url,
             data=json.dumps([{"invalid": "json-patch{0}".format(charset)}]),
             headers=HEADERS,
         )
-        assert res.status_code == 400
+        assert res.status_code == 200
+        assert (
+            RecordMetadata.query.filter_by(id=obj_id).first().json == previous_metadata
+        )
 
         # Invalid JSON
         res = client.patch(url, data="{", headers=HEADERS)
         assert res.status_code == 400
-        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"]==2015
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"] == 1985
 
         # Invalid ETag
         res = client.patch(
@@ -142,7 +170,7 @@ def test_invalid_patch(
             },
         )
         assert res.status_code == 412
-        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"]==2015
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"] == 1985
 
 
 @mock.patch("invenio_records.api.Record.commit", _mock_validate_fail)
@@ -159,9 +187,7 @@ def test_validation_error(app, test_records, test_patch, content_type):
     assert record.patch(test_patch)
 
     with app.test_client() as client:
-        # Check that patch and record is not the same value for year.
         url = record_url(pid)
-        previous_year = get_json(client.get(url))["metadata"]["year"]
 
         # Patch record
         res = client.patch(url, data=json.dumps(test_patch), headers=HEADERS)

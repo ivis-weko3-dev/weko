@@ -58,9 +58,13 @@ def test_custom_endpoints_app(app):
     ],
     indirect=["app"],
 )
-def test_get_record(test_custom_endpoints_app, test_records):
+def test_get_record(test_custom_endpoints_app, db, test_records):
     """Test the creation of a custom endpoint using RecordResource."""
-    test_records = test_records
+    for _, record in test_records:
+        record["publish_status"] = "0"
+        record["pubdate"] = {"attribute_value": "2023-10-25"}
+        record.commit()
+    db.session.commit()
     """Test creation of a RecordResource view."""
     blueprint = Blueprint(
         "test_invenio_records_rest",
@@ -100,16 +104,19 @@ def test_get_record(test_custom_endpoints_app, test_records):
 
 
 @pytest.mark.parametrize(
-    "test_custom_endpoints_app",
+    "app",
     [
         dict(
             # Disable all endpoints from config. The test will create the endpoint.
             records_rest_endpoints=dict(),
         )
     ],
-    indirect=["test_custom_endpoints_app"],
+    indirect=["app"],
+    ids=["test_custom_endpoints_app0"],
 )
-def test_get_records_list(test_custom_endpoints_app, indexed_records):
+def test_get_records_list(
+    configured_facets, test_custom_endpoints_app, indexed_records
+):
     """Test the creation of a custom endpoint using RecordsListResource."""
     blueprint = Blueprint(
         "test_invenio_records_rest",
@@ -117,11 +124,10 @@ def test_get_records_list(test_custom_endpoints_app, indexed_records):
     )
     json_v1 = JSONSerializer(RecordSchemaJSONV1)
 
-    search_class_kwargs = {
-        "index": "test-weko"
-    }
+    search_class_kwargs = {"index": "test-weko"}
     from functools import partial
-    search_class=partial(RecordsSearch, **search_class_kwargs)
+
+    search_class = partial(RecordsSearch, **search_class_kwargs)
     blueprint.add_url_rule(
         "/records/",
         view_func=RecordsListResource.as_view(
@@ -132,7 +138,7 @@ def test_get_records_list(test_custom_endpoints_app, indexed_records):
             search_serializers={
                 "application/json": search_responsify(json_v1, "application/json")
             },
-            #search_class=RecordsSearch,
+            # search_class=RecordsSearch,
             search_class=search_class,
             read_permission_factory=allow_all,
             create_permission_factory=allow_all,
@@ -147,7 +153,9 @@ def test_get_records_list(test_custom_endpoints_app, indexed_records):
     with test_custom_endpoints_app.test_client() as client:
         # Get a query with only one record
         res = client.get(search_url, query_string={"q": "control_number:3"})
-        record = next(iter([rec for rec in indexed_records if rec[1]["control_number"] == "3"]))
+        record = next(
+            iter([rec for rec in indexed_records if rec[1]["control_number"] == "3"])
+        )
         assert res.status_code == 200
         data = get_json(res)
         assert len(data["hits"]["hits"]) == 1

@@ -20,8 +20,7 @@ def test_default_permissions(
     indexed_10records,
     record_data10,
     search_url,
-    test_records,
-    indexed_records,
+    admin_settings,
     aggs_and_facet,
 ):
     """Test default create permissions."""
