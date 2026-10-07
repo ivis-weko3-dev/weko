@@ -121,6 +121,13 @@ def test_is_crawler2(client,log_crawler_list,restricted_ip_addr,mocker):
         result = _is_crawler(user_info)
         assert result == False
 
+    mock_redis.data.clear()
+    mock_res._content = b"# comment\n+ plus line"
+    mock_res.status_code = 200
+    with patch("weko_admin.api.requests.get",return_value=mock_res):
+        user_info={"user_agent":"API scraper","ip_address":""}
+        result = _is_crawler(user_info)
+        assert result == False
 
 
     #     user_info = {"user_agent":"API+scraper","ip_address":"122.1.91.145"}
