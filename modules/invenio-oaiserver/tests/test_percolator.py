@@ -36,27 +36,33 @@ from .helpers import create_record, run_after_insert_oai_set
 
 @pytest.fixture()
 def test0(search_app, db, without_oaiset_signals, schema):
-    _ = create_record(
-        search_app, {"title_statement": {"title": "Test0"}, "$schema": schema}
+    record = create_record(
+        search_app,
+        {"title": ["Test0"], "title_statement": {"title": "Test0"},
+         "$schema": schema},
     )
     current_search.flush_and_refresh("weko-item-v1.0.0")
+    return record
 
 
 def create_oaiset(name, title_pattern):
     oaiset = OAISet(
         spec=name,
-        search_pattern=f"title_statement.title:{title_pattern}",
+        # the percolator mapping only knows the `title` field
+        search_pattern=f"title:{title_pattern}",
         system_created=False,
     )
     db_.session.add(oaiset)
     db_.session.commit()
     run_after_insert_oai_set()
+    current_search.flush_and_refresh("weko-item-v1.0.0-percolators")
 
     return oaiset
 
 
-def test_set_with_no_records(db, without_oaiset_signals, schema):
+def test_set_with_no_records(db, without_oaiset_signals, schema, search_app):
     _ = create_oaiset("test", "Test0")
+    # the record index has to exist for the query to be executed
     with pytest.raises(OAINoRecordsMatchError):
         get_records(set="test")
 
@@ -69,15 +75,17 @@ def test_empty_set(without_oaiset_signals, test0):
 
 def test_set_with_records(app, without_oaiset_signals, test0, schema):
     # create extra record
-    _ = create_record(app, {"title_statement": {"title": "Test1"}, "$schema": schema})
-    current_search.flush_and_refresh("records")
+    record = create_record(
+        app,
+        {"title": ["Test1"], "title_statement": {"title": "Test1"},
+         "$schema": schema},
+    )
+    current_search.flush_and_refresh("weko-item-v1.0.0")
 
     # create and query set
     _ = create_oaiset("test", "Test0")
-    rec_in_set = get_records(set="test")
-    assert rec_in_set.total == 1
-    rec = next(rec_in_set.items)
-    assert rec["json"]["_source"]["title_statement"]["title"] == "Test0"
+    assert find_sets_for_record(test0) == ["test"]
+    assert find_sets_for_record(record) == []
 
 
 def test_search_pattern_change(without_oaiset_signals, test0):
@@ -85,19 +93,16 @@ def test_search_pattern_change(without_oaiset_signals, test0):
     # create set
     oaiset = create_oaiset("test", "Test0")
     # check record is in set
-    rec_in_set = get_records(set="test")
-    assert rec_in_set.total == 1
-    rec = next(rec_in_set.items)
-    assert rec["json"]["_source"]["title_statement"]["title"] == "Test0"
+    assert find_sets_for_record(test0) == ["test"]
 
     # change search pattern
-    oaiset.search_pattern = "title_statement.title:Test1"
+    oaiset.search_pattern = "title:Test1"
     db_.session.merge(oaiset)
     db_.session.commit()
     after_update_oai_set(None, None, oaiset)
-    # check records is not in set
-    with pytest.raises(OAINoRecordsMatchError):
-        get_records(set="test")
+    current_search.flush_and_refresh("weko-item-v1.0.0-percolators")
+    # check record is not in set
+    assert find_sets_for_record(test0) == []
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_create_percolator_mapping -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_create_percolator_mapping(app,mocker):

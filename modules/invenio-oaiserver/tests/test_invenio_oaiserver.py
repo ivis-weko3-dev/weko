@@ -12,9 +12,11 @@ import socket
 
 import pytest
 from flask import Flask
+from invenio_cache import InvenioCache, current_cache
 from invenio_db import db
 
 from invenio_oaiserver import InvenioOAIServer, current_oaiserver
+from invenio_oaiserver.ext import _AppState
 
 
 def test_version():
@@ -39,21 +41,21 @@ def test_init():
         current_oaiserver.unregister_signals()
 
 
-def test_view(app):
+def test_view(search_app, db):
     """Test view."""
-    with app.test_client() as client:
-        res = client.get("/oai2d?verb=Identify")
+    with search_app.test_client() as client:
+        res = client.get("/oai?verb=Identify")
         assert res.status_code == 200
 
         # no XSL transformation by default
         assert b"xml-stylesheet" not in res.data
 
 
-def test_view_with_xsl(app):
+def test_view_with_xsl(search_app, db):
     """Test view."""
-    with app.test_client() as client:
-        app.config["OAISERVER_XSL_URL"] = "testdomain.com/oai2.xsl"
-        res = client.get("/oai2d?verb=Identify")
+    with search_app.test_client() as client:
+        search_app.config["OAISERVER_XSL_URL"] = "testdomain.com/oai2.xsl"
+        res = client.get("/oai?verb=Identify")
         assert res.status_code == 200
 
         assert b"xml-stylesheet" in res.data
