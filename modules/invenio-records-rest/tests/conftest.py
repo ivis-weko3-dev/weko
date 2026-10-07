@@ -11,34 +11,29 @@
 import copy
 import json
 import os
-import pytest
-import pytz
 import shutil
 import sys
 import tempfile
 import uuid
+from os.path import dirname, join
 
-
+import pytest
+import pytz
 from flask import Flask, g, url_for
 from flask_login import LoginManager, UserMixin
-from tests.helpers import create_record
+from invenio_access import InvenioAccess
 from invenio_access.models import ActionRoles
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.testutils import create_test_user
-from invenio_access import InvenioAccess
 from invenio_config import InvenioConfigDefault
 from invenio_db import InvenioDB
 from invenio_db import db as db_
+from invenio_i18n import InvenioI18N
 from invenio_indexer import InvenioIndexer
 from invenio_indexer.api import RecordIndexer
 from invenio_indexer.signals import before_record_index
-from invenio_i18n import InvenioI18N
 from invenio_pidstore import InvenioPIDStore
 from invenio_records import InvenioRecords
-from invenio_records_rest import InvenioRecordsREST, config
-from invenio_records_rest.facets import terms_filter
-from invenio_records_rest.utils import PIDConverter
-from invenio_records_rest.views import create_blueprint_from_app
 from invenio_rest import InvenioREST
 from invenio_search import (
     InvenioSearch,
@@ -47,21 +42,23 @@ from invenio_search import (
     current_search_client,
 )
 from invenio_search.engine import dsl
-from invenio_search.engine import search as search_engine
-from invenio_search.errors import IndexAlreadyExistsError
 from mock import patch
-from os.path import dirname, join
 from sqlalchemy_utils.functions import create_database, database_exists
-from weko_admin.models import AdminSettings,FacetSearchSetting
+from weko_admin.models import AdminSettings, FacetSearchSetting
 from weko_index_tree.models import Index
-from weko_records.models import ItemTypeName, ItemType, ItemTypeMapping
-from weko_redis.redis import RedisConnection
+from weko_records.models import ItemType, ItemTypeMapping, ItemTypeName
 from weko_records_ui.config import (
     WEKO_PERMISSION_ROLE_COMMUNITY,
     WEKO_PERMISSION_SUPER_ROLE_USER,
-    WEKO_RECORDS_UI_LICENSE_DICT
+    WEKO_RECORDS_UI_LICENSE_DICT,
 )
+from weko_redis.redis import RedisConnection
 
+from invenio_records_rest import InvenioRecordsREST, config
+from invenio_records_rest.facets import terms_filter
+from invenio_records_rest.utils import PIDConverter
+from invenio_records_rest.views import create_blueprint_from_app
+from tests.helpers import create_record
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -72,7 +69,7 @@ class TestSearch(RecordsSearch):
     class Meta:
         """Test configuration."""
 
-        index = "invenio-records-rest"
+        index = "test-weko"
 
     def __init__(self, **kwargs):
         """Add extra options."""
@@ -101,7 +98,7 @@ def search_class():
 @pytest.fixture()
 def search_url():
     """Search class."""
-    yield url_for('invenio_records_rest.recid_list')
+    yield url_for("invenio_records_rest.recid_list")
 
 
 @pytest.fixture()
@@ -148,30 +145,34 @@ def app(request, search_class):
         DEBUG=False,
         ACCOUNTS_JWT_ENABLE=False,
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
-        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
-                    'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
-        SEARCH_HOSTS=os.environ.get(
-            'SEARCH_HOST', 'opensearch'
-        ),
-        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch"),
+        SEARCH_HOSTS=os.environ.get("SEARCH_HOST", "opensearch"),
+        SEARCH_CLIENT_CONFIG={
+            "http_auth": (
+                os.environ["INVENIO_OPENSEARCH_USER"],
+                os.environ["INVENIO_OPENSEARCH_PASS"],
+            ),
+            "use_ssl": True,
+            "verify_certs": False,
+        },
         RECORDS_REST_ENDPOINTS=copy.deepcopy(config.RECORDS_REST_ENDPOINTS),
         RECORDS_REST_DEFAULT_CREATE_PERMISSION_FACTORY=None,
         RECORDS_REST_DEFAULT_DELETE_PERMISSION_FACTORY=None,
         RECORDS_REST_DEFAULT_READ_PERMISSION_FACTORY=None,
         RECORDS_REST_DEFAULT_UPDATE_PERMISSION_FACTORY=None,
         RECORDS_REST_DEFAULT_RESULTS_SIZE=10,
-        #RECORDS_REST_DEFAULT_SEARCH_INDEX=search_class.Meta.index,
+        # RECORDS_REST_DEFAULT_SEARCH_INDEX=search_class.Meta.index,
         RECORDS_REST_DEFAULT_SEARCH_INDEX="test-weko",
         RECORDS_REST_FACETS={
-            #search_class.Meta.index: {
+            # search_class.Meta.index: {
             "test-weko": {
                 "aggs": {
                     "stars": {"terms": {"field": "stars"}}
-                    #"control_number":{"terms":{"field":"control_number"}}
+                    # "control_number":{"terms":{"field":"control_number"}}
                 },
                 "post_filters": {
-                    #"stars": terms_filter("stars"),
-                    "control_number":terms_filter("control_number")
+                    # "stars": terms_filter("stars"),
+                    "control_number": terms_filter("control_number")
                 },
             }
         },
@@ -180,52 +181,55 @@ def app(request, search_class):
                 year=dict(
                     fields=["year"],
                 ),
-                control_number=dict(
-                    fields=["control_number"]
-                )
+                control_number=dict(fields=["control_number"]),
             )
         },
         SERVER_NAME="localhost:5000",
-        SEARCH_INDEX_PREFIX="test-",
+        SEARCH_INDEX_PREFIX="",
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
         CACHE_TYPE="redis",
-        CACHE_REDIS_DB=0,
+        CACHE_REDIS_DB=10,
         CACHE_REDIS_HOST="redis",
         REDIS_PORT="6379",
-        ACCOUNTS_SESSION_REDIS_DB_NO=1,
-        SQLALCHEMY_DATABASE_URI=os.getenv("SQLALCHEMY_DATABASE_URI",
-                                          "postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest"),
+        ACCOUNTS_SESSION_REDIS_DB_NO=11,
+        SQLALCHEMY_DATABASE_URI=os.getenv(
+            "SQLALCHEMY_DATABASE_URI",
+            "postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest",
+        ),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         TESTING=True,
         WEKO_PERMISSION_SUPER_ROLE_USER=WEKO_PERMISSION_SUPER_ROLE_USER,
         WEKO_PERMISSION_ROLE_COMMUNITY=WEKO_PERMISSION_ROLE_COMMUNITY,
-        EMAIL_DISPLAY_FLG = True,
+        EMAIL_DISPLAY_FLG=True,
         WEKO_RECORDS_UI_LICENSE_DICT=WEKO_RECORDS_UI_LICENSE_DICT,
-        WEKO_RECORDS_UI_EMAIL_ITEM_KEYS = ['creatorMails', 'contributorMails', 'mails']
+        WEKO_RECORDS_UI_EMAIL_ITEM_KEYS=["creatorMails", "contributorMails", "mails"],
     )
 
-    #app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_class"] = \
+    # app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_class"] = \
     #    search_class
-    app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_index"]="test-weko"
-    app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_type"]="item-v1.0.0"
-    #app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_factory_imp"]="weko_search_ui.query.es_search_factory"
+    app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_index"] = "test-weko"
+    app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_type"] = "item-v1.0.0"
+    # app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_factory_imp"]="weko_search_ui.query.es_search_factory"
 
     # Parameterize application.
     if hasattr(request, "param"):
         if "endpoint" in request.param:
             app.config["RECORDS_REST_ENDPOINTS"]["recid"].update(
-                request.param["endpoint"])
+                request.param["endpoint"]
+            )
         if "records_rest_endpoints" in request.param:
             original_endpoint = app.config["RECORDS_REST_ENDPOINTS"]["recid"]
             del app.config["RECORDS_REST_ENDPOINTS"]["recid"]
-            for new_endpoint_prefix, new_endpoint_value in \
-                    request.param["records_rest_endpoints"].items():
+            for new_endpoint_prefix, new_endpoint_value in request.param[
+                "records_rest_endpoints"
+            ].items():
                 new_endpoint = dict(original_endpoint)
                 new_endpoint.update(new_endpoint_value)
-                app.config["RECORDS_REST_ENDPOINTS"][new_endpoint_prefix] = \
-                    new_endpoint
+                app.config["RECORDS_REST_ENDPOINTS"][new_endpoint_prefix] = new_endpoint
         if "max_result_window" in request.param:
-            app.config["RECORDS_REST_ENDPOINTS"]["recid"]["max_result_window"] = request.param["max_result_window"]
+            app.config["RECORDS_REST_ENDPOINTS"]["recid"]["max_result_window"] = (
+                request.param["max_result_window"]
+            )
 
     app.url_map.converters["pid"] = PIDConverter
     InvenioAccounts(app)
@@ -237,16 +241,41 @@ def app(request, search_class):
     InvenioI18N(app)
     InvenioPIDStore(app)
     InvenioConfigDefault(app)
-    InvenioI18N(app)
-    search = InvenioSearch(app)
+    InvenioSearch(app)
     InvenioRecordsREST(app)
     app.register_blueprint(create_blueprint_from_app(app))
 
-    with app.app_context():
-        yield app
-
-    # Teardown instance path.
-    shutil.rmtree(instance_path)
+    try:
+        with app.app_context():
+            facet_cache = RedisConnection().connection(db=10, kv=True)
+            account_cache = RedisConnection().connection(db=11, kv=True)
+            facet_keys = (
+                "test_records_rest_facet_search_has_permission",
+                "test_records_rest_facet_search_no_permission",
+                "test_facet_search_query_has_permission",
+            )
+            account_keys = tuple(
+                name + suffix
+                for name in ("anonymous_user", "test@test.org")
+                for suffix in ("", "_url_args", "_max_result")
+            )
+            try:
+                facet_cache.redis.delete(*facet_keys)
+                account_cache.redis.delete(*account_keys)
+                with patch(
+                    "weko_admin.utils.get_query_key_by_permission",
+                    side_effect=lambda has_permission: facet_keys[
+                        0 if has_permission else 1
+                    ],
+                ):
+                    yield app
+            finally:
+                facet_cache.redis.delete(*facet_keys)
+                account_cache.redis.delete(*account_keys)
+                facet_cache.redis.close()
+                account_cache.redis.close()
+    finally:
+        shutil.rmtree(instance_path)
 
 
 @pytest.fixture()
@@ -259,62 +288,69 @@ def db(app):
         create_database(db_.engine.url)
     db_.create_all()
 
-    yield db_
-
-    db_.session.remove()
-    db_.drop_all()
+    try:
+        yield db_
+    finally:
+        db_.session.remove()
+        db_.drop_all()
 
 
 @pytest.fixture()
-def search(app):
+def search(search_index):
     """Search engine fixture."""
-    list(current_search.delete(ignore=[404]))
-    try:
-        list(current_search.create())
-    except (search_engine.RequestError, IndexAlreadyExistsError):
-        list(current_search.delete(ignore=[404]))
-        list(current_search.create(ignore=[400]))
-    current_search_client.indices.refresh()
-    yield current_search_client
-    list(current_search.delete(ignore=[404]))
+    return search_index
+
+
+@pytest.fixture()
+def open_search(search_index):
+    """Provide the index used by the existing CRUD tests."""
+    return search_index
+
 
 @pytest.fixture()
 def search_index(app):
-    with open("tests/data/item-v1.0.0.json","r") as f:
+    with open(join(dirname(__file__), "data/item-v1.0.0.json")) as f:
         mapping = json.load(f)
 
-    current_search_client.indices.delete(index="test-*")
+    index = app.config["INDEXER_DEFAULT_INDEX"]
+    current_search_client.indices.delete(index=index, ignore=[404])
+    current_search_client.indices.create(index=index, body=mapping)
     try:
-        current_search_client.indices.create(
-            app.config["INDEXER_DEFAULT_INDEX"], body=mapping
-        )
         current_search_client.indices.put_alias(
-            index=app.config["INDEXER_DEFAULT_INDEX"], name="test-weko"
+            index=index, name=app.config["RECORDS_REST_DEFAULT_SEARCH_INDEX"]
         )
-    except:
-        current_search_client.indices.create("test-weko-items", body=mapping)
-        current_search_client.indices.put_alias(
-            index="test-weko-items", name="test-weko"
-        )
-    try:
         yield current_search_client
     finally:
-        current_search_client.indices.delete(index="test-*")
+        current_search_client.indices.delete(index=index, ignore=[404])
+
 
 @pytest.fixture()
 def redis_connect(app):
-    redis_connection = RedisConnection().connection(db=app.config['CACHE_REDIS_DB'], kv = True)
-    return redis_connection
+    redis_connection = RedisConnection().connection(
+        db=app.config["CACHE_REDIS_DB"], kv=True
+    )
+    try:
+        yield redis_connection
+    finally:
+        redis_connection.redis.close()
+
 
 @pytest.fixture()
 def account_redis(app):
-    redis_connection = RedisConnection().connection(db=app.config['ACCOUNTS_SESSION_REDIS_DB_NO'], kv = True)
-    return redis_connection
+    redis_connection = RedisConnection().connection(
+        db=app.config["ACCOUNTS_SESSION_REDIS_DB_NO"], kv=True
+    )
+    try:
+        yield redis_connection
+    finally:
+        redis_connection.redis.close()
 
 
 def record_indexer_receiver(sender, json=None, record=None, index=None, **kwargs):
     """Mock-receiver of a before_record_index signal."""
     suggest_byyear = {}
+    if "year" not in json:
+        return json
     suggest_byyear["contexts"] = {"year": [str(json["year"])]}
     suggest_byyear["input"] = [
         json["title"],
@@ -332,9 +368,11 @@ def record_indexer_receiver(sender, json=None, record=None, index=None, **kwargs
 @pytest.fixture()
 def indexer(app, search):
     """Create a record indexer."""
-    InvenioIndexer(app)
     before_record_index.connect(record_indexer_receiver, sender=app)
-    yield RecordIndexer()
+    try:
+        yield RecordIndexer()
+    finally:
+        before_record_index.disconnect(record_indexer_receiver, sender=app)
 
 
 @pytest.fixture(scope="session")
@@ -357,98 +395,119 @@ def test_records(db, test_data):
 
 
 @pytest.fixture()
-def indexed_records(app, search_index, test_records):
+def indexed_records(indexer, test_records):
     """Get a function to wait for records to be flushed to index."""
-    InvenioIndexer(app)
-    before_record_index.connect(record_indexer_receiver, sender=app)
-    indexer=RecordIndexer()
     for pid, record in test_records:
         indexer.index_by_id(record.id)
-    current_search.flush_and_refresh(index='test-weko')
+    current_search.flush_and_refresh(index="test-weko")
     yield test_records
 
 
 def record_data_with_itemtype(id, index_path):
     dep_id = uuid.uuid4()
     record_data = {
-        "path":[index_path],
-        "owner":"1",
-        "recid":str(id),
-        "title":["test_item{}".format(id)],
-        "pubdate":{"attribute_name":"PubDate","attribute_value":"2023-10-25"},
-        "_buckets":{"deposit":str(dep_id)},
-        "_deposit":{"id":str(id),"pid":{"type":"depid","value":str(id),"revision_id":0},"owners":[1],"status":"published","created_by":1},
-        "item_title":"test_item{}".format(id),
-        "author_link":[],
-        "item_type_id":"15",
-        "publish_date":"2023-10-25",
-        "publish_status":"0",
-        "weko_shared_ids":[],
-        "item_1617186331708":{"attribute_name":"Title","attribute_value_mlt":[{"subitem_1551255647225":"test_item{}".format(id),"subitem_1551255648112":"ja"}]},
-        "item_1617258105262":{"attribute_name":"Resource Type","attribute_value_mlt":[{"resourceuri":"http://purl.org/coar/resource_type/c_5794","resourcetype":"conference paper"}]},
-        "relation_version_is_last":True
+        "path": [index_path],
+        "owner": "1",
+        "recid": str(id),
+        "title": ["test_item{}".format(id)],
+        "pubdate": {"attribute_name": "PubDate", "attribute_value": "2023-10-25"},
+        "_buckets": {"deposit": str(dep_id)},
+        "_deposit": {
+            "id": str(id),
+            "pid": {"type": "depid", "value": str(id), "revision_id": 0},
+            "owners": [1],
+            "status": "published",
+            "created_by": 1,
+        },
+        "item_title": "test_item{}".format(id),
+        "author_link": [],
+        "item_type_id": "15",
+        "publish_date": "2023-10-25",
+        "publish_status": "0",
+        "weko_shared_ids": [],
+        "item_1617186331708": {
+            "attribute_name": "Title",
+            "attribute_value_mlt": [
+                {
+                    "subitem_1551255647225": "test_item{}".format(id),
+                    "subitem_1551255648112": "ja",
+                }
+            ],
+        },
+        "item_1617258105262": {
+            "attribute_name": "Resource Type",
+            "attribute_value_mlt": [
+                {
+                    "resourceuri": "http://purl.org/coar/resource_type/c_5794",
+                    "resourcetype": "conference paper",
+                }
+            ],
+        },
+        "relation_version_is_last": True,
     }
     return record_data
+
 
 @pytest.fixture()
 def record_data10(indexes):
     index_path = indexes.id
     result = list()
-    for i in range(1,11):
+    for i in range(1, 11):
         result.append(record_data_with_itemtype(i, index_path))
     return result
+
 
 def register_record(id, indexer, index_path):
     record_data = record_data_with_itemtype(id, index_path)
     pid, record = create_record(record_data)
     index = indexer.record_to_index(record)
     search_data = {
-        "title":record_data["title"],
+        "title": record_data["title"],
         "control_number": str(id),
-        "item_type":"test_item_type15",
-        "publish_status":"0",
-        "_created": pytz.utc.localize(record.created).isoformat() ,
-        "_updated": pytz.utc.localize(record.updated).isoformat() ,
-        "_item_metadata":record_data
+        "item_type": "test_item_type15",
+        "publish_status": "0",
+        "_created": pytz.utc.localize(record.created).isoformat(),
+        "_updated": pytz.utc.localize(record.updated).isoformat(),
+        "_item_metadata": record_data,
     }
     indexer.client.index(
         id=str(record.id),
         version=record.revision_id,
         version_type=indexer._version_type,
         index=index,
-        body=search_data
+        body=search_data,
     )
     return pid, record
+
 
 @pytest.fixture()
 def indexed_10records(app, db, search_index, item_type, indexes):
     index_path = indexes.id
     result = []
-    InvenioIndexer(app)
     indexer = RecordIndexer()
-    for i in range(1,11):
+    for i in range(1, 11):
         pid, record = register_record(i, indexer, index_path)
         result.append((pid, record))
     db.session.commit()
     current_search.flush_and_refresh(index="test-weko")
     return result
 
+
 @pytest.fixture()
-def indexed_100records(app, db, search_index, item_type,indexes):
+def indexed_100records(app, db, search_index, item_type, indexes):
     index_path = indexes.id
     result = []
-    InvenioIndexer(app)
-    indexer=RecordIndexer()
-    for i in range(1,101):
+    indexer = RecordIndexer()
+    for i in range(1, 101):
         pid, record = register_record(i, indexer, index_path)
-        result.append((pid,record))
+        result.append((pid, record))
     db.session.commit()
     current_search.flush_and_refresh(index="test-weko")
 
     return result
 
 
-@pytest.yield_fixture(scope="session")
+@pytest.fixture(scope="session")
 def test_patch():
     """A JSON patch."""
     yield [{"op": "replace", "path": "/year", "value": 1985}]
@@ -490,6 +549,7 @@ def default_permissions(app):
     # Conducted twice to increase coverage of patterns that cannot be reset.
     app.extensions["invenio-records-rest"].reset_permission_factories()
 
+
 @pytest.fixture()
 def search_user(app, db):
     ds = app.extensions["invenio-accounts"].datastore
@@ -500,7 +560,8 @@ def search_user(app, db):
     search_role = ActionRoles(action="search-access", role=test_role)
     db.session.add(search_role)
     db.session.commit()
-    return {"obj":test_user, "email":user_email}
+    return {"obj": test_user, "email": user_email}
+
 
 @pytest.fixture()
 def mock_search_execute():
@@ -508,20 +569,22 @@ def mock_search_execute():
         if isinstance(data, str):
             with open(data, "r") as f:
                 data = json.load(f)
-        dummy=dsl.response.Response(dsl.Search(), data)
+        dummy = dsl.response.Response(dsl.Search(), data)
         return dummy
+
     return _dummy_response
+
 
 @pytest.fixture()
 def item_type(db):
-    item_type_name=ItemTypeName(id=15,name="test_item_type15")
-    with open("tests/item_type/15_form.json", "r") as f:
+    item_type_name = ItemTypeName(id=15, name="test_item_type15")
+    with open(join(dirname(__file__), "item_type/15_form.json")) as f:
         form = json.load(f)
 
-    with open("tests/item_type/15_schema.json", "r") as f:
+    with open(join(dirname(__file__), "item_type/15_schema.json")) as f:
         schema = json.load(f)
 
-    with open("tests/item_type/15_render.json", "r") as f:
+    with open(join(dirname(__file__), "item_type/15_render.json")) as f:
         render = json.load(f)
 
     item_type = ItemType(
@@ -536,28 +599,33 @@ def item_type(db):
         is_deleted=False,
     )
 
-    with open("tests/item_type/15_mapping.json", "r") as f:
+    with open(join(dirname(__file__), "item_type/15_mapping.json")) as f:
         mapping = json.load(f)
 
     item_type_mapping = ItemTypeMapping(id=15, item_type_id=15, mapping=mapping)
 
     with db.session.begin_nested():
         db.session.add(item_type_name)
+        db.session.flush()
         db.session.add(item_type)
+        db.session.flush()
         db.session.add(item_type_mapping)
+        db.session.flush()
 
     return item_type, item_type_mapping
+
 
 @pytest.fixture()
 def admin_settings(db):
     setting_data = {
-        "items_display_settings":{"items_display_email":True,"items_search_author":"name"},
+        "items_display_settings": {
+            "items_display_email": True,
+            "items_search_author": "name",
+        },
     }
-    setting_list=[]
+    setting_list = []
     for field, data in setting_data.items():
-        setting_list.append(
-            AdminSettings(name=field,settings=data)
-        )
+        setting_list.append(AdminSettings(name=field, settings=data))
     db.session.add_all(setting_list)
     db.session.commit()
 
@@ -573,18 +641,24 @@ def facet_search(db):
         ui_type="SelectBox",
         display_number=1,
         is_open=True,
-        search_condition="AND"
+        search_condition="AND",
     )
     db.session.add(control_number)
     db.session.commit()
 
-@pytest.yield_fixture()
+
+@pytest.fixture()
 def aggs_and_facet(redis_connect, facet_search):
     test_redis_key = "test_facet_search_query_has_permission"
     redis_connect.delete(test_redis_key)
-    with patch("weko_admin.utils.get_query_key_by_permission", return_value=test_redis_key):
-        yield
-    redis_connect.delete(test_redis_key)
+    try:
+        with patch(
+            "weko_admin.utils.get_query_key_by_permission", return_value=test_redis_key
+        ):
+            yield
+    finally:
+        redis_connect.delete(test_redis_key)
+
 
 @pytest.fixture()
 def indexes(app, db):
@@ -595,7 +669,7 @@ def indexes(app, db):
         index_link_name_english="test_index_link1",
         harvest_public_state=True,
         public_state=True,
-        browsing_role="3,-99"
+        browsing_role="3,-99",
     )
     db.session.add(index1)
     db.session.commit()
