@@ -4372,3 +4372,15 @@ def handle_check_billing_file(billing_info):
 
     return errors
 
+
+def combine_aggs(data, target="path"):
+    aggregations = data.get("aggregations")
+    if aggregations:
+        keys = list(aggregations.keys())
+        new_agg = {"doc_count_error_upper_bound": "0","sum_order_doc_count":"0","buckets":[]}
+        for key in keys:
+            if target in key:
+                bucket = aggregations.pop(key)["buckets"]
+                new_agg["buckets"].extend(bucket)
+        data["aggregations"][target] = new_agg
+    return data
