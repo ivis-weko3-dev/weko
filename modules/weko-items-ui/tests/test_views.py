@@ -20786,14 +20786,17 @@ def test_get_search_data_acl_user0(client_api, shared_users, db_userprofile, db_
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
-        # contributor (users[0]) is logged in and is self-excluded, leaving
-        # only originalroleuser2 / originalroleuser as candidates
+        # contributor (users[0]) is logged in and is self-excluded; the
+        # administrators without Contributor (comadmin/repoadmin) are
+        # candidates, sysadmin is not
         "results": [
+            "shared_comadmin",
             "shared_originalroleuser2",
             "shared_originalroleuser",
+            "shared_repoadmin",
         ],
         "query": "",
-        "count": 2,
+        "count": 4,
         "has_more": False,
     }
     url = url_for(
@@ -20826,15 +20829,16 @@ def test_get_search_data_acl_user1(client_api, shared_users, db_userprofile, db_
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
-        # repoadmin (users[1]) already holds an excluded role, so
-        # self-exclusion is a no-op here; contributor remains in the list
+        # repoadmin (users[1]) is logged in and is self-excluded; comadmin
+        # and contributor remain in the list, sysadmin is not a candidate
         "results": [
+            "shared_comadmin",
             "shared_contributor",
             "shared_originalroleuser2",
             "shared_originalroleuser",
         ],
         "query": "",
-        "count": 3,
+        "count": 4,
         "has_more": False,
     }
     url = url_for(
@@ -20867,15 +20871,17 @@ def test_get_search_data_acl_user2(client_api, shared_users, db_userprofile, db_
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
-        # sysadmin (users[2]) already holds an excluded role, so
-        # self-exclusion is a no-op here
+        # sysadmin (users[2]) is itself never a candidate (excluded role), so
+        # self-exclusion is a no-op here; all other candidates are listed
         "results": [
+            "shared_comadmin",
             "shared_contributor",
             "shared_originalroleuser2",
             "shared_originalroleuser",
+            "shared_repoadmin",
         ],
         "query": "",
-        "count": 3,
+        "count": 5,
         "has_more": False,
     }
     url = url_for(
@@ -20908,15 +20914,16 @@ def test_get_search_data_acl_user3(client_api, shared_users, db_userprofile, db_
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
-        # comadmin (users[3]) already holds an excluded role, so
-        # self-exclusion is a no-op here
+        # comadmin (users[3]) is logged in and is self-excluded; contributor
+        # and repoadmin remain in the list, sysadmin is not a candidate
         "results": [
             "shared_contributor",
             "shared_originalroleuser2",
             "shared_originalroleuser",
+            "shared_repoadmin",
         ],
         "query": "",
-        "count": 3,
+        "count": 4,
         "has_more": False,
     }
     url = url_for(
@@ -20974,7 +20981,8 @@ def test_get_search_data_query_param(app, client_api, shared_users, db_userprofi
 
     # has_more/count reflect the total match count, independent of the limit.
     # contributor (the logged-in user) is self-excluded, so the population
-    # for q="" is originalroleuser2 / originalroleuser (count=2).
+    # for q="" is comadmin / originalroleuser2 / originalroleuser /
+    # repoadmin (count=4).
     app.config["WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT"] = 1
     url = url_for(
         "weko_items_ui_api.get_search_data", data_type="username", q="",
@@ -20984,9 +20992,9 @@ def test_get_search_data_query_param(app, client_api, shared_users, db_userprofi
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
-        "results": ["shared_originalroleuser2"],
+        "results": ["shared_comadmin"],
         "query": "",
-        "count": 2,
+        "count": 4,
         "has_more": True,
     }
 
@@ -21132,15 +21140,41 @@ def test_validate_user_info_response_body(client_api, shared_users, db_userprofi
     assert res.status_code == 200
     assert json.loads(res.data) == {"results": None, "validation": True, "error": ""}
 
-    # (c) email only, excluded role (comadmin): results is None, validation
-    # stays True (comadmin is now excluded under the 3-role exclusion list)
+    # (a) username only, administrator role without Contributor (repoadmin):
+    # the user is an allowed candidate and is returned
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "shared_repoadmin", "email": ""}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {
+        "results": {
+            "username": "shared_repoadmin",
+            "user_id": shared_users[1]["id"],
+            "email": shared_users[1]["email"],
+        },
+        "validation": True,
+        "error": "",
+    }
+
+    # (c) email only, administrator role without Contributor (comadmin):
+    # the user is an allowed candidate and is returned
     res = client_api.post(
         "/api/items/validate_user_info",
         data=json.dumps({"username": "", "email": shared_users[3]["email"]}),
         content_type="application/json",
     )
     assert res.status_code == 200
-    assert json.loads(res.data) == {"results": None, "validation": True, "error": ""}
+    assert json.loads(res.data) == {
+        "results": {
+            "username": "shared_comadmin",
+            "user_id": shared_users[3]["id"],
+            "email": shared_users[3]["email"],
+        },
+        "validation": True,
+        "error": "",
+    }
 
     # (c) email only, excluded role (sysadmin): results is None, but
     # validation stays True (same behavior as (a))
@@ -21152,15 +21186,23 @@ def test_validate_user_info_response_body(client_api, shared_users, db_userprofi
     assert res.status_code == 200
     assert json.loads(res.data) == {"results": None, "validation": True, "error": ""}
 
-    # (b) both username and email, matching pair, excluded role (repoadmin):
-    # validate_shared_user itself returns validation=False
+    # (b) both username and email, matching pair, administrator role without
+    # Contributor (repoadmin): the pair is valid
     res = client_api.post(
         "/api/items/validate_user_info",
         data=json.dumps({"username": "shared_repoadmin", "email": shared_users[1]["email"]}),
         content_type="application/json",
     )
     assert res.status_code == 200
-    assert json.loads(res.data) == {"results": "", "validation": False, "error": ""}
+    assert json.loads(res.data) == {
+        "results": {
+            "username": "shared_repoadmin",
+            "user_id": shared_users[1]["id"],
+            "email": shared_users[1]["email"],
+        },
+        "validation": True,
+        "error": "",
+    }
 
     # (b) both username and email, matching pair, excluded role (sysadmin):
     # validate_shared_user itself returns validation=False
@@ -21201,8 +21243,8 @@ def test_validate_users_info_login(client_api, shared_users, db_userprofile, moc
     assert res.status_code == 200
     assert json.loads(res.data) == {"results": [
             {"info":{"email": shared_users[0]["email"], "user_id":shared_users[0]["id"], "username": "shared_contributor"}, "validation": True, "error":''},
-            # repoadmin (Contributor + Repository Administrator) is excluded by role
-            {"error": "Not Found Username", "info": None, "validation": False},
+            # repoadmin (Repository Administrator only) is an allowed candidate
+            {"info": {"email": shared_users[1]["email"], "user_id": shared_users[1]["id"], "username": "shared_repoadmin"}, "validation": True, "error": ''},
             # sysadmin (System Administrator), the logged-in user itself, is
             # excluded by role (self-exclusion is a no-op here)
             {"error": "Not Found Email", "info": None, "validation": False}
@@ -21221,8 +21263,8 @@ def test_validate_users_info_login(client_api, shared_users, db_userprofile, moc
     )
     assert res1.status_code == 200
     assert json.loads(res1.data) == {"results": [
-            # comadmin (Community Administrator) is excluded by role
-            {"error": "Not Found Email", "info": None, "validation": False},
+            # comadmin (Community Administrator only) is an allowed candidate
+            {"info": {"email": shared_users[3]["email"], "user_id": shared_users[3]["id"], "username": "shared_comadmin"}, "validation": True, "error": ''},
             {"error":"Not Found Email", "info": None, "validation": False},
             {"error":"Not Found Username", "info": None, "validation": False},
             {"error":'User is not exist UserProfile',"info": '', "validation": False}
@@ -22131,17 +22173,19 @@ def test_get_userinfo_by_emails(
         'email': users_1[2]["email"],
     }]
 
-    # repoadmin (Repository Administrator only, no Contributor role) does
-    # not satisfy the population condition -> fails
+    # repoadmin (Repository Administrator only, no Contributor role) holds
+    # an allowed role -> succeeds
     url = url_for(
         "weko_items_ui_api.get_userinfo_by_emails", emails=[users_1[1]["email"]], _external=True
     )
-    with pytest.raises(ConnectionError) as e:
-        res = client_api.get(url)
-        assert str(e.value) == 'wrong email or Cannot connect to server!'
+    res = client_api.get(url)
+    assert res.json == [{
+        'user_id': users_1[1]["id"],
+        'username': 'repoadmin',
+        'email': users_1[1]["email"],
+    }]
 
-    # sysadmin (System Administrator only, no Contributor role) does not
-    # satisfy the population condition -> fails
+    # sysadmin (System Administrator only) holds an excluded role -> fails
     url = url_for(
         "weko_items_ui_api.get_userinfo_by_emails", emails=[users_1[0]["email"]], _external=True
     )

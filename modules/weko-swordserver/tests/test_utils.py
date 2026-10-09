@@ -153,25 +153,19 @@ def test_get_shared_ids_from_on_behalf_of(app, db, users, personal_token):
         assert e.value.errorType == ErrorType.Forbidden
         assert e.value.message == "On-Behalf-Of user is not allowed by role."
 
-        # a user holding an excluded role (Repository Administrator, users[1])
-        # is also rejected
+        # a user holding only an allowed administrator role (Repository
+        # Administrator, users[1], no Contributor) is accepted
         on_behalf_of = users[1].get("email")
-        with pytest.raises(WekoSwordserverException) as e:
-            get_shared_ids_from_on_behalf_of(on_behalf_of)
-        assert e.value.errorType == ErrorType.Forbidden
-        assert e.value.message == "On-Behalf-Of user is not allowed by role."
+        assert get_shared_ids_from_on_behalf_of(on_behalf_of) == [users[1]["id"]]
 
-        # a user holding an excluded role (Community Administrator, users[2])
-        # is also rejected, since Contributor role is not held either
+        # a user holding only an allowed administrator role (Community
+        # Administrator, users[2], no Contributor) is accepted
         on_behalf_of = users[2].get("email")
-        with pytest.raises(WekoSwordserverException) as e:
-            get_shared_ids_from_on_behalf_of(on_behalf_of)
-        assert e.value.errorType == ErrorType.Forbidden
-        assert e.value.message == "On-Behalf-Of user is not allowed by role."
+        assert get_shared_ids_from_on_behalf_of(on_behalf_of) == [users[2]["id"]]
 
-        # a user holding neither the allowed role (Contributor) nor any
-        # excluded role (Original Role only, users[5]) is rejected because
-        # the allowed-role condition is not satisfied
+        # a user holding no allowed role and no excluded role (Original Role
+        # only, users[5]) is rejected because the allowed-role condition is
+        # not satisfied
         on_behalf_of = users[5].get("email")
         with pytest.raises(WekoSwordserverException) as e:
             get_shared_ids_from_on_behalf_of(on_behalf_of)

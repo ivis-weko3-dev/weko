@@ -186,9 +186,13 @@ def test_search_username(app, client, shared_users, db_userprofile, db):
     contributor_role = Role.query.filter_by(name="Contributor").first()
 
     with app.test_request_context():
-        # candidate population: contributor/originalroleuser/originalroleuser2
-        # (Contributor held, none of the excluded roles held), ordered by
-        # email ascending (contributor, originalroleuser2, originalroleuser)
+        # candidate population: comadmin/contributor/originalroleuser/
+        # originalroleuser2/repoadmin (an allowed role held -- Contributor,
+        # Repository Administrator or Community Administrator -- and no
+        # excluded role held), ordered by email ascending (comadmin,
+        # contributor, originalroleuser2, originalroleuser, repoadmin)
+        u_comadmin = db_userprofile[shared_users[3]["email"]].get_username
+        u_repoadmin = db_userprofile[shared_users[1]["email"]].get_username
         u_contributor = db_userprofile[shared_users[0]["email"]].get_username
         u_originalroleuser = db_userprofile[shared_users[5]["email"]].get_username
         u_originalroleuser2 = db_userprofile[shared_users[6]["email"]].get_username
@@ -199,8 +203,8 @@ def test_search_username(app, client, shared_users, db_userprofile, db):
 
         assert search_username("") == {
             "query": "",
-            "results": [u_contributor, u_originalroleuser2, u_originalroleuser],
-            "count": 3,
+            "results": [u_comadmin, u_contributor, u_originalroleuser2, u_originalroleuser, u_repoadmin],
+            "count": 5,
             "has_more": False,
         }
 
@@ -226,39 +230,43 @@ def test_search_username(app, client, shared_users, db_userprofile, db):
             "has_more": False,
         }
 
-        # repoadmin/sysadmin/comadmin (Contributor + an excluded role) and
-        # generaluser/user (Contributor not held) are all excluded
+        # sysadmin (Contributor + System Administrator, an excluded role) and
+        # generaluser/user (no allowed role held) are excluded
         results = search_username("")["results"]
         for excluded_email in (
-            shared_users[1]["email"], shared_users[2]["email"],
-            shared_users[3]["email"], shared_users[4]["email"],
+            shared_users[2]["email"], shared_users[4]["email"],
             shared_users[7]["email"],
         ):
             assert db_userprofile[excluded_email].get_username not in results
-        for included in (u_contributor, u_originalroleuser, u_originalroleuser2):
+        # repoadmin/comadmin hold only an administrator role (no Contributor)
+        # and are still candidates
+        for included in (
+            u_comadmin, u_repoadmin, u_contributor,
+            u_originalroleuser, u_originalroleuser2,
+        ):
             assert included in results
 
         # limit truncates results but count/has_more reflect the full match set
         assert search_username("", limit=1) == {
             "query": "",
-            "results": [u_contributor],
-            "count": 3,
+            "results": [u_comadmin],
+            "count": 5,
             "has_more": True,
         }
 
         # a negative limit disables the limit entirely
         assert search_username("", limit=-1) == {
             "query": "",
-            "results": [u_contributor, u_originalroleuser2, u_originalroleuser],
-            "count": 3,
+            "results": [u_comadmin, u_contributor, u_originalroleuser2, u_originalroleuser, u_repoadmin],
+            "count": 5,
             "has_more": False,
         }
 
         # has_more is False at the boundary where count equals limit
-        assert search_username("", limit=3) == {
+        assert search_username("", limit=5) == {
             "query": "",
-            "results": [u_contributor, u_originalroleuser2, u_originalroleuser],
-            "count": 3,
+            "results": [u_comadmin, u_contributor, u_originalroleuser2, u_originalroleuser, u_repoadmin],
+            "count": 5,
             "has_more": False,
         }
 
@@ -317,11 +325,11 @@ def test_search_username_config_limit(app, client, shared_users, db_userprofile)
     with app.test_request_context():
         app.config["WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT"] = 2
         result = search_username("")
-        assert result["count"] == 3
+        assert result["count"] == 5
         assert result["has_more"] is True
         assert result["results"] == [
+            db_userprofile[shared_users[3]["email"]].get_username,
             db_userprofile[shared_users[0]["email"]].get_username,
-            db_userprofile[shared_users[6]["email"]].get_username,
         ]
 
 # def get_shared_user_info_by_username(username):
@@ -335,11 +343,23 @@ def test_get_shared_user_info_by_username(app, shared_users, db_userprofile):
             "email": shared_users[0]["email"],
         }
 
-        # comadmin (Contributor + Community Administrator) does not satisfy
-        # the shared-user role condition (excluded role held)
-        assert get_shared_user_info_by_username(
-            db_userprofile[shared_users[3]["email"]].get_username
-        ) is None
+        # comadmin (Community Administrator only, no Contributor) satisfies
+        # the shared-user role condition (allowed role held)
+        comadmin_username = db_userprofile[shared_users[3]["email"]].get_username
+        assert get_shared_user_info_by_username(comadmin_username) == {
+            "username": comadmin_username,
+            "user_id": shared_users[3]["id"],
+            "email": shared_users[3]["email"],
+        }
+
+        # repoadmin (Repository Administrator only, no Contributor) satisfies
+        # the shared-user role condition (allowed role held)
+        repoadmin_username0 = db_userprofile[shared_users[1]["email"]].get_username
+        assert get_shared_user_info_by_username(repoadmin_username0) == {
+            "username": repoadmin_username0,
+            "user_id": shared_users[1]["id"],
+            "email": shared_users[1]["email"],
+        }
 
         # sysadmin (Contributor + System Administrator) does not satisfy
         # the shared-user role condition (excluded role held)
@@ -348,7 +368,7 @@ def test_get_shared_user_info_by_username(app, shared_users, db_userprofile):
         ) is None
 
         # generaluser (General only) does not satisfy the shared-user role
-        # condition (allowed role Contributor not held)
+        # condition (no allowed role held)
         assert get_shared_user_info_by_username(
             db_userprofile[shared_users[4]["email"]].get_username
         ) is None
@@ -361,7 +381,7 @@ def test_get_shared_user_info_by_username(app, shared_users, db_userprofile):
             assert get_shared_user_info_by_username(repoadmin_username) is None
 
     # self-exclusion: the currently logged-in user (contributor) is excluded
-    # from candidates even though the role condition (Contributor held,
+    # from candidates even though the role condition (allowed role held,
     # no excluded role held) is satisfied
     with app.test_request_context():
         login_user(shared_users[0]["obj"])
@@ -377,16 +397,28 @@ def test_get_shared_user_info_by_email(app, db, shared_users, db_userprofile):
             "email": shared_users[0]["email"],
         }
 
-        # comadmin (Contributor + Community Administrator) does not satisfy
-        # the shared-user role condition (excluded role held)
-        assert get_shared_user_info_by_email(shared_users[3]["email"]) is None
+        # comadmin (Community Administrator only, no Contributor) satisfies
+        # the shared-user role condition (allowed role held)
+        assert get_shared_user_info_by_email(shared_users[3]["email"]) == {
+            "username": db_userprofile[shared_users[3]["email"]].get_username,
+            "user_id": shared_users[3]["id"],
+            "email": shared_users[3]["email"],
+        }
+
+        # repoadmin (Repository Administrator only, no Contributor) satisfies
+        # the shared-user role condition (allowed role held)
+        assert get_shared_user_info_by_email(shared_users[1]["email"]) == {
+            "username": db_userprofile[shared_users[1]["email"]].get_username,
+            "user_id": shared_users[1]["id"],
+            "email": shared_users[1]["email"],
+        }
 
         # sysadmin (Contributor + System Administrator) does not satisfy
         # the shared-user role condition (excluded role held)
         assert get_shared_user_info_by_email(shared_users[2]["email"]) is None
 
         # generaluser (General only) does not satisfy the shared-user role
-        # condition (allowed role Contributor not held)
+        # condition (no allowed role held)
         assert get_shared_user_info_by_email(shared_users[4]["email"]) is None
 
         # no user matches this email
@@ -434,13 +466,35 @@ def test_validate_shared_user(app, shared_users, db_userprofile):
             username0, shared_users[1]["email"]
         ) == {'results': '', 'validation': False, 'error': ''}
 
-        # comadmin (Contributor + Community Administrator) does not satisfy
-        # the shared-user role condition (excluded role held), even though
-        # the username/email pair itself matches
+        # comadmin (Community Administrator only, no Contributor) satisfies
+        # the shared-user role condition (allowed role held)
         username3 = db_userprofile[shared_users[3]["email"]].get_username
         assert validate_shared_user(
             username3, shared_users[3]["email"]
-        ) == {'results': '', 'validation': False, 'error': ''}
+        ) == {
+            "results": {
+                "username": username3,
+                "user_id": shared_users[3]["id"],
+                "email": shared_users[3]["email"],
+            },
+            "validation": True,
+            "error": "",
+        }
+
+        # repoadmin (Repository Administrator only, no Contributor) satisfies
+        # the shared-user role condition (allowed role held)
+        username1 = db_userprofile[shared_users[1]["email"]].get_username
+        assert validate_shared_user(
+            username1, shared_users[1]["email"]
+        ) == {
+            "results": {
+                "username": username1,
+                "user_id": shared_users[1]["id"],
+                "email": shared_users[1]["email"],
+            },
+            "validation": True,
+            "error": "",
+        }
 
         # sysadmin (Contributor + System Administrator) does not satisfy
         # the shared-user role condition (excluded role held)
@@ -450,7 +504,7 @@ def test_validate_shared_user(app, shared_users, db_userprofile):
         ) == {'results': '', 'validation': False, 'error': ''}
 
         # generaluser (General only) does not satisfy the shared-user role
-        # condition (allowed role Contributor not held)
+        # condition (no allowed role held)
         username4 = db_userprofile[shared_users[4]["email"]].get_username
         assert validate_shared_user(
             username4, shared_users[4]["email"]
@@ -481,9 +535,9 @@ def test_validate_shared_user_nodb(app):
 def test_is_shared_user_role_allowed(app, shared_users):
     with app.test_request_context():
         assert is_shared_user_role_allowed(shared_users[0]["id"]) is True  # contributor
-        assert is_shared_user_role_allowed(shared_users[1]["id"]) is False  # repoadmin
+        assert is_shared_user_role_allowed(shared_users[1]["id"]) is True  # repoadmin (no Contributor)
         assert is_shared_user_role_allowed(shared_users[2]["id"]) is False  # sysadmin
-        assert is_shared_user_role_allowed(shared_users[3]["id"]) is False  # comadmin
+        assert is_shared_user_role_allowed(shared_users[3]["id"]) is True  # comadmin (no Contributor)
         assert is_shared_user_role_allowed(shared_users[4]["id"]) is False  # generaluser
         assert is_shared_user_role_allowed(shared_users[5]["id"]) is True  # originalroleuser
         assert is_shared_user_role_allowed(shared_users[6]["id"]) is True  # originalroleuser2
@@ -493,9 +547,12 @@ def test_is_shared_user_role_allowed(app, shared_users):
         assert is_shared_user_role_allowed(-1) is False
 
         # an empty excluded-role list excludes no one, but the population is
-        # still restricted to the allowed role (Contributor) holders
+        # still restricted to the allowed role holders (generaluser/user stay
+        # out)
         app.config["WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST"] = []
         assert is_shared_user_role_allowed(shared_users[2]["id"]) is True
+        assert is_shared_user_role_allowed(shared_users[4]["id"]) is False
+        assert is_shared_user_role_allowed(shared_users[7]["id"]) is False
 
     # self-exclusion: the currently logged-in user (contributor) satisfies
     # the role condition but is nonetheless excluded
@@ -504,9 +561,11 @@ def test_is_shared_user_role_allowed(app, shared_users):
         assert is_shared_user_role_allowed(shared_users[0]["id"]) is False
 
 
-# A user who holds any excluded role (System Administrator, Repository
-# Administrator or Community Administrator) together with the allowed role
-# (Contributor) is excluded (NOT IN across all three excluded roles).
+# Only the System Administrator role is excluded by default. A user who holds
+# the System Administrator role is excluded even when also holding an allowed
+# role (Contributor, Repository Administrator or Community Administrator).
+# A user holding only Repository/Community Administrator (with or without
+# Contributor) is allowed.
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_is_shared_user_role_allowed_multi_role -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
 def test_is_shared_user_role_allowed_multi_role(app, db, shared_users):
     ds = app.extensions["invenio-accounts"].datastore
@@ -516,20 +575,36 @@ def test_is_shared_user_role_allowed_multi_role(app, db, shared_users):
     contributor_role = Role.query.filter_by(name="Contributor").first()
 
     multirole_sysadmin = create_test_user(email="multirole_sysadmin@test.org")
+    multirole_sysadmin_repoadmin = create_test_user(
+        email="multirole_sysadmin_repoadmin@test.org")
+    multirole_sysadmin_comadmin = create_test_user(
+        email="multirole_sysadmin_comadmin@test.org")
     multirole_repoadmin = create_test_user(email="multirole_repoadmin@test.org")
     multirole_comadmin = create_test_user(email="multirole_comadmin@test.org")
+    multirole_adminboth = create_test_user(email="multirole_adminboth@test.org")
     with db.session.begin_nested():
         ds.add_role_to_user(multirole_sysadmin, sysadmin_role)
         ds.add_role_to_user(multirole_sysadmin, contributor_role)
+        ds.add_role_to_user(multirole_sysadmin_repoadmin, sysadmin_role)
+        ds.add_role_to_user(multirole_sysadmin_repoadmin, repoadmin_role)
+        ds.add_role_to_user(multirole_sysadmin_comadmin, sysadmin_role)
+        ds.add_role_to_user(multirole_sysadmin_comadmin, comadmin_role)
         ds.add_role_to_user(multirole_repoadmin, repoadmin_role)
         ds.add_role_to_user(multirole_repoadmin, contributor_role)
         ds.add_role_to_user(multirole_comadmin, comadmin_role)
         ds.add_role_to_user(multirole_comadmin, contributor_role)
+        ds.add_role_to_user(multirole_adminboth, repoadmin_role)
+        ds.add_role_to_user(multirole_adminboth, comadmin_role)
 
     with app.test_request_context():
+        # System Administrator is always excluded, whatever else is held
         assert is_shared_user_role_allowed(multirole_sysadmin.id) is False
-        assert is_shared_user_role_allowed(multirole_repoadmin.id) is False
-        assert is_shared_user_role_allowed(multirole_comadmin.id) is False
+        assert is_shared_user_role_allowed(multirole_sysadmin_repoadmin.id) is False
+        assert is_shared_user_role_allowed(multirole_sysadmin_comadmin.id) is False
+        # repository/community administrators are allowed
+        assert is_shared_user_role_allowed(multirole_repoadmin.id) is True
+        assert is_shared_user_role_allowed(multirole_comadmin.id) is True
+        assert is_shared_user_role_allowed(multirole_adminboth.id) is True
 
 # def get_user_info_by_email(email):
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_user_info_by_email -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
@@ -14291,6 +14366,10 @@ def test_exists_shared_user_email(app, db, shared_users, db_userprofile):
         # 7. 対象ロール条件を満たさないユーザー（完全一致でも該当なし）
         assert exists_shared_user_email(not_target) == {
             "query": not_target, "exists": False}
+        # 7-2. 管理者ロールのみ保持（Contributor なし）のユーザーは該当あり
+        for admin_email in (shared_users[1]["email"], shared_users[3]["email"]):
+            assert exists_shared_user_email(admin_email) == {
+                "query": admin_email, "exists": True}
         # 8. 存在しない
         assert exists_shared_user_email("nosuchuser@test.org") == {
             "query": "nosuchuser@test.org", "exists": False}

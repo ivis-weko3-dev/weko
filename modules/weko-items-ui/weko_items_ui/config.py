@@ -226,15 +226,18 @@ contributor-suggest feature (filter_shared_user_role and everything
 built on it) uses WEKO_ITEMS_UI_SHARED_USER_ALLOWED_ROLE_NAME_LIST /
 WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST below instead."""
 
-WEKO_ITEMS_UI_SHARED_USER_ALLOWED_ROLE_NAME_LIST = ['Contributor']
-"""Role names allowed as shared/contributor user candidates (and for
-SWORD API On-Behalf-Of)."""
-
-WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST = [
-    'System Administrator', 'Repository Administrator', 'Community Administrator'
+WEKO_ITEMS_UI_SHARED_USER_ALLOWED_ROLE_NAME_LIST = [
+    'Contributor', 'Repository Administrator', 'Community Administrator'
 ]
+"""Role names allowed as shared/contributor user candidates (and for
+SWORD API On-Behalf-Of). A user must hold at least one of these roles and
+none of the excluded roles below; a repository/community administrator
+without the Contributor role is also a candidate."""
+
+WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST = ['System Administrator']
 """Role names excluded from the shared/contributor user candidates (and
-from SWORD API On-Behalf-Of). An empty list excludes no one."""
+from SWORD API On-Behalf-Of). By default only the system administrator is
+excluded. An empty list excludes no one."""
 
 WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT = 50
 """Maximum number of shared-user suggestions returned per prefix search
