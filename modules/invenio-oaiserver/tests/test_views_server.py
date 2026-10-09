@@ -20,7 +20,7 @@ def test_validation_error(app):
     tree, status_code, headers = validation_error(error)
     tree = etree.fromstring(tree)
     for t in tree.findall("./error",namespaces=tree.nsmap):
-        attrib = t.attrib["code"] 
+        attrib = t.attrib["code"]
         if attrib == "badArgument":
             assert t.text == "test_message1"
         if attrib == "badVerb":
@@ -30,14 +30,14 @@ def test_validation_error(app):
     assert status_code == 422
     assert headers == {"Content-Type": "text/xml"}
 
-    error = ValidationError(
-        "test_message",
-        field_names=["verb","test_error"]
-    )
+    # marshmallow>=3 no longer exposes `field_names` as an attribute, so set it
+    # explicitly to exercise the string-message branch of the error handler.
+    error = ValidationError("test_message")
+    error.field_names = ["verb", "test_error"]
     tree, status_code, headers = validation_error(error)
     tree = etree.fromstring(tree)
     for t in tree.findall("./error",namespaces=tree.nsmap):
-        attrib = t.attrib["code"] 
+        attrib = t.attrib["code"]
         if attrib == "badArgument":
             assert t.text == "test_message"
         if attrib == "badVerb":
@@ -46,27 +46,23 @@ def test_validation_error(app):
     assert headers == {"Content-Type": "text/xml"}
 
 
-    error = ValidationError(
-        "test_message",
-        field_names=[]
-    )
+    error = ValidationError("test_message")
+    error.field_names = []
     tree, status_code, headers = validation_error(error)
     tree = etree.fromstring(tree)
     for t in tree.findall("./error",namespaces=tree.nsmap):
-        attrib = t.attrib["code"] 
+        attrib = t.attrib["code"]
         if attrib == "badArgument":
             assert t.text == "test_message"
     assert status_code == 422
     assert headers == {"Content-Type": "text/xml"}
-    
-    error = ValidationError(
-        {},
-        data={"messages":[]}
-    )
+
+    error = ValidationError({}, data={"messages": []})
+    error.field_names = []
     tree, status_code, headers = validation_error(error)
     tree = etree.fromstring(tree)
     for t in tree.findall("./error",namespaces=tree.nsmap):
-        attrib = t.attrib["code"] 
+        attrib = t.attrib["code"]
         if attrib == "badArgument":
             assert t.text == None
     assert status_code == 422
@@ -75,11 +71,11 @@ def test_validation_error(app):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_views_server.py::test_pid_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_pid_error(app):
     error = PIDDoesNotExistError(pid_type="recid",pid_value=1)
-    
+
     tree, status_code, headers = pid_error(error)
     tree = etree.fromstring(tree)
     for t in tree.findall("./error",namespaces=tree.nsmap):
-        attrib = t.attrib["code"] 
+        attrib = t.attrib["code"]
         assert attrib == "idDoesNotExist"
         assert t.text == "No matching identifier"
     assert status_code == 422
@@ -92,7 +88,7 @@ def test_resumptiontoken_error(app):
     tree, status_code, headers = resumptiontoken_error(error)
     tree = etree.fromstring(tree)
     for t in tree.findall("./error",namespaces=tree.nsmap):
-        attrib = t.attrib["code"] 
+        attrib = t.attrib["code"]
         assert attrib == "badResumptionToken"
         assert t.text == "The value of the resumptionToken argument is invalid or expired."
     assert status_code == 422
