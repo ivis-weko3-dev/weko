@@ -20759,21 +20759,21 @@ def test_get_search_data_acl_nologin(client_api, db_sessionlifetime):
         "weko_items_ui_api.get_search_data", data_type="username", _external=True
     )
     res = client_api.get(url)
-    assert res.status_code == 403
+    assert res.status_code == 401
     url = url_for(
         "weko_items_ui_api.get_search_data", data_type="email", _external=True
     )
     res = client_api.get(url)
-    assert res.status_code == 403
+    assert res.status_code == 401
 
     url = url_for("weko_items_ui_api.get_search_data", data_type="hoge", _external=True)
     res = client_api.get(url)
-    assert res.status_code == 403
+    assert res.status_code == 401
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_get_search_data_acl_user0 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_search_data_acl_user0(client_api, users, db_userprofile, db_sessionlifetime):
-    login_user_via_session(client=client_api, email=users[0]["email"])
+def test_get_search_data_acl_user0(client_api, shared_users, db_userprofile, db_sessionlifetime):
+    login_user_via_session(client=client_api, email=shared_users[0]["email"])
     url = url_for(
         "weko_items_ui_api.get_search_data", data_type="username", _external=True
     )
@@ -20781,12 +20781,15 @@ def test_get_search_data_acl_user0(client_api, users, db_userprofile, db_session
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
+        # contributor (users[0]) is logged in and is self-excluded, leaving
+        # only originalroleuser2 / originalroleuser as candidates
         "results": [
-            "contributor",
-            "repoadmin",
-            "sysadmin",
-            "originalroleuser2",
+            "shared_originalroleuser2",
+            "shared_originalroleuser",
         ],
+        "query": "",
+        "count": 2,
+        "has_more": False,
     }
     url = url_for(
         "weko_items_ui_api.get_search_data", data_type="email", _external=True
@@ -20796,11 +20799,12 @@ def test_get_search_data_acl_user0(client_api, users, db_userprofile, db_session
     assert json.loads(res.data) == {
         "error": "",
         "results": [
-            "contributor@test.org",
-            "repoadmin@test.org",
-            "sysadmin@test.org",
-            "originalroleuser2@test.org",
+            "shared_originalroleuser2@test.org",
+            "shared_originalroleuser@test.org",
         ],
+        "query": "",
+        "count": 2,
+        "has_more": False,
     }
 
     url = url_for("weko_items_ui_api.get_search_data", data_type="hoge", _external=True)
@@ -20810,8 +20814,8 @@ def test_get_search_data_acl_user0(client_api, users, db_userprofile, db_session
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_get_search_data_acl_user1 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_search_data_acl_user1(client_api, users, db_userprofile, db_sessionlifetime):
-    login_user_via_session(client=client_api, email=users[1]["email"])
+def test_get_search_data_acl_user1(client_api, shared_users, db_userprofile, db_sessionlifetime):
+    login_user_via_session(client=client_api, email=shared_users[1]["email"])
     url = url_for(
         "weko_items_ui_api.get_search_data", data_type="username", _external=True
     )
@@ -20819,12 +20823,16 @@ def test_get_search_data_acl_user1(client_api, users, db_userprofile, db_session
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
+        # repoadmin (users[1]) already holds an excluded role, so
+        # self-exclusion is a no-op here; contributor remains in the list
         "results": [
-            "contributor",
-            "repoadmin",
-            "sysadmin",
-            "originalroleuser2",
+            "shared_contributor",
+            "shared_originalroleuser2",
+            "shared_originalroleuser",
         ],
+        "query": "",
+        "count": 3,
+        "has_more": False,
     }
     url = url_for(
         "weko_items_ui_api.get_search_data", data_type="email", _external=True
@@ -20834,11 +20842,13 @@ def test_get_search_data_acl_user1(client_api, users, db_userprofile, db_session
     assert json.loads(res.data) == {
         "error": "",
         "results": [
-            "contributor@test.org",
-            "repoadmin@test.org",
-            "sysadmin@test.org",
-            "originalroleuser2@test.org",
+            "shared_contributor@test.org",
+            "shared_originalroleuser2@test.org",
+            "shared_originalroleuser@test.org",
         ],
+        "query": "",
+        "count": 3,
+        "has_more": False,
     }
 
     url = url_for("weko_items_ui_api.get_search_data", data_type="hoge", _external=True)
@@ -20848,8 +20858,8 @@ def test_get_search_data_acl_user1(client_api, users, db_userprofile, db_session
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_get_search_data_acl_user2 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_search_data_acl_user2(client_api, users, db_userprofile, db_sessionlifetime):
-    login_user_via_session(client=client_api, email=users[2]["email"])
+def test_get_search_data_acl_user2(client_api, shared_users, db_userprofile, db_sessionlifetime):
+    login_user_via_session(client=client_api, email=shared_users[2]["email"])
     url = url_for(
         "weko_items_ui_api.get_search_data", data_type="username", _external=True
     )
@@ -20857,12 +20867,16 @@ def test_get_search_data_acl_user2(client_api, users, db_userprofile, db_session
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
+        # sysadmin (users[2]) already holds an excluded role, so
+        # self-exclusion is a no-op here
         "results": [
-            "contributor",
-            "repoadmin",
-            "sysadmin",
-            "originalroleuser2",
+            "shared_contributor",
+            "shared_originalroleuser2",
+            "shared_originalroleuser",
         ],
+        "query": "",
+        "count": 3,
+        "has_more": False,
     }
     url = url_for(
         "weko_items_ui_api.get_search_data", data_type="email", _external=True
@@ -20872,11 +20886,13 @@ def test_get_search_data_acl_user2(client_api, users, db_userprofile, db_session
     assert json.loads(res.data) == {
         "error": "",
         "results": [
-            "contributor@test.org",
-            "repoadmin@test.org",
-            "sysadmin@test.org",
-            "originalroleuser2@test.org",
+            "shared_contributor@test.org",
+            "shared_originalroleuser2@test.org",
+            "shared_originalroleuser@test.org",
         ],
+        "query": "",
+        "count": 3,
+        "has_more": False,
     }
 
     url = url_for("weko_items_ui_api.get_search_data", data_type="hoge", _external=True)
@@ -20886,8 +20902,8 @@ def test_get_search_data_acl_user2(client_api, users, db_userprofile, db_session
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_get_search_data_acl_user3 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_get_search_data_acl_user3(client_api, users, db_userprofile, db_sessionlifetime):
-    login_user_via_session(client=client_api, email=users[3]["email"])
+def test_get_search_data_acl_user3(client_api, shared_users, db_userprofile, db_sessionlifetime):
+    login_user_via_session(client=client_api, email=shared_users[3]["email"])
     url = url_for(
         "weko_items_ui_api.get_search_data", data_type="username", _external=True
     )
@@ -20895,12 +20911,16 @@ def test_get_search_data_acl_user3(client_api, users, db_userprofile, db_session
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
+        # comadmin (users[3]) already holds an excluded role, so
+        # self-exclusion is a no-op here
         "results": [
-            "contributor",
-            "repoadmin",
-            "sysadmin",
-            "originalroleuser2",
+            "shared_contributor",
+            "shared_originalroleuser2",
+            "shared_originalroleuser",
         ],
+        "query": "",
+        "count": 3,
+        "has_more": False,
     }
     url = url_for(
         "weko_items_ui_api.get_search_data", data_type="email", _external=True
@@ -20910,17 +20930,72 @@ def test_get_search_data_acl_user3(client_api, users, db_userprofile, db_session
     assert json.loads(res.data) == {
         "error": "",
         "results": [
-            "contributor@test.org",
-            "repoadmin@test.org",
-            "sysadmin@test.org",
-            "originalroleuser2@test.org",
+            "shared_contributor@test.org",
+            "shared_originalroleuser2@test.org",
+            "shared_originalroleuser@test.org",
         ],
+        "query": "",
+        "count": 3,
+        "has_more": False,
     }
 
     url = url_for("weko_items_ui_api.get_search_data", data_type="hoge", _external=True)
     res = client_api.get(url)
     assert res.status_code == 200
     assert json.loads(res.data) == {"error": "Invaid method", "results": ""}
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_get_search_data_query_param -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_search_data_query_param(app, client_api, shared_users, db_userprofile, db_sessionlifetime):
+    login_user_via_session(client=client_api, email=shared_users[0]["email"])
+
+    # the q parameter narrows the candidates down to a prefix match
+    url = url_for(
+        "weko_items_ui_api.get_search_data", data_type="username", q="shared_orig",
+        _external=True,
+    )
+    res = client_api.get(url)
+    assert res.status_code == 200
+    assert json.loads(res.data) == {
+        "error": "",
+        "results": ["shared_originalroleuser2", "shared_originalroleuser"],
+        "query": "shared_orig",
+        "count": 2,
+        "has_more": False,
+    }
+
+    # a prefix matching no one returns an empty result set
+    url = url_for(
+        "weko_items_ui_api.get_search_data", data_type="email", q="nosuchuser",
+        _external=True,
+    )
+    res = client_api.get(url)
+    assert res.status_code == 200
+    assert json.loads(res.data) == {
+        "error": "",
+        "results": [],
+        "query": "nosuchuser",
+        "count": 0,
+        "has_more": False,
+    }
+
+    # has_more/count reflect the total match count, independent of the limit.
+    # contributor (the logged-in user) is self-excluded, so the population
+    # for q="" is originalroleuser2 / originalroleuser (count=2).
+    app.config["WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT"] = 1
+    url = url_for(
+        "weko_items_ui_api.get_search_data", data_type="username", q="",
+        _external=True,
+    )
+    res = client_api.get(url)
+    assert res.status_code == 200
+    assert json.loads(res.data) == {
+        "error": "",
+        "results": ["shared_originalroleuser2"],
+        "query": "",
+        "count": 2,
+        "has_more": True,
+    }
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_get_search_data_acl_user4 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
@@ -21034,34 +21109,117 @@ def test_validate_user_info_guest(client_api, users):
     )
     assert res.status_code == 401
 
+
+# validate_user_info (singular) response body for the
+# username-only / email-only / both-specified branches, for both an
+# excluded-role user (sysadmin) and non-excluded-role users.
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_validate_user_info_response_body -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_validate_user_info_response_body(client_api, shared_users, db_userprofile):
+    login_user_via_session(client=client_api, email=shared_users[0]["email"])
+
+    # (a) username only, contributor's own username: get_shared_user_info_by_username
+    # self-excludes the current user, so results is None. validation stays
+    # True regardless (this branch never consults the result for the flag).
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "shared_contributor", "email": ""}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"results": None, "validation": True, "error": ""}
+
+    # (a) username only, excluded role (sysadmin): get_shared_user_info_by_username
+    # returns None, but validation stays True as-is (this branch never
+    # consults the excluded-role result for the "validation" flag)
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "shared_sysadmin", "email": ""}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"results": None, "validation": True, "error": ""}
+
+    # (c) email only, excluded role (comadmin): results is None, validation
+    # stays True (comadmin is now excluded under the 3-role exclusion list)
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "", "email": shared_users[3]["email"]}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"results": None, "validation": True, "error": ""}
+
+    # (c) email only, excluded role (sysadmin): results is None, but
+    # validation stays True (same behavior as (a))
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "", "email": shared_users[2]["email"]}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"results": None, "validation": True, "error": ""}
+
+    # (b) both username and email, matching pair, excluded role (repoadmin):
+    # validate_shared_user itself returns validation=False
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "shared_repoadmin", "email": shared_users[1]["email"]}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"results": "", "validation": False, "error": ""}
+
+    # (b) both username and email, matching pair, excluded role (sysadmin):
+    # validate_shared_user itself returns validation=False
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "shared_sysadmin", "email": shared_users[2]["email"]}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"results": "", "validation": False, "error": ""}
+
+    # (b) both username and email, matching pair, the logged-in user's own
+    # info (contributor): validate_shared_user self-excludes, so
+    # results="" / validation=False even though the role condition is met
+    res = client_api.post(
+        "/api/items/validate_user_info",
+        data=json.dumps({"username": "shared_contributor", "email": shared_users[0]["email"]}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"results": "", "validation": False, "error": ""}
+
+
 # def validate_users_info():
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_validate_users_info_login -vv --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_validate_users_info_login(client_api, users, db_userprofile, mocker):
-    login_user_via_session(client=client_api, email=users[2]["email"])
-
-    mocker.patch("weko_items_ui.utils.check_display_shared_user", return_value=True)
+def test_validate_users_info_login(client_api, shared_users, db_userprofile, mocker):
+    login_user_via_session(client=client_api, email=shared_users[2]["email"])
 
     res = client_api.post(
         "/api/items/validate_users_info",
         data=json.dumps(
-            [{"username": "", "email": users[0]["email"]},
-            {"username": "repoadmin", "email": ""},
-            {"username": "", "email": users[2]["email"]}]
+            [{"username": "", "email": shared_users[0]["email"]},
+            {"username": "shared_repoadmin", "email": ""},
+            {"username": "", "email": shared_users[2]["email"]}]
             ),
         content_type="application/json",
     )
     assert res.status_code == 200
     assert json.loads(res.data) == {"results": [
-            {"info":{"email": users[0]["email"], "user_id":users[0]["id"], "username": "contributor"}, "validation": True, "error":''},
-            {"info":{"email": users[1]["email"], "user_id":users[1]["id"], "username": "repoadmin"}, "validation": True, "error":''},
-            {"info":{"email": users[2]["email"], "user_id":users[2]["id"], "username": "sysadmin"}, "validation": True, "error":''}
+            {"info":{"email": shared_users[0]["email"], "user_id":shared_users[0]["id"], "username": "shared_contributor"}, "validation": True, "error":''},
+            # repoadmin (Contributor + Repository Administrator) is excluded by role
+            {"error": "Not Found Username", "info": None, "validation": False},
+            # sysadmin (System Administrator), the logged-in user itself, is
+            # excluded by role (self-exclusion is a no-op here)
+            {"error": "Not Found Email", "info": None, "validation": False}
             ]}
 
     # username:存在しない値 "email":存在しない値
     res1 = client_api.post(
         "/api/items/validate_users_info",
         data=json.dumps(
-            [{"username": "", "email": users[3]["email"]},
+            [{"username": "", "email": shared_users[3]["email"]},
             {"username": '', "email": "hogehoge@ivis.co.jp"},
             {"username": 'hogehoge', "email": ""},
             {"username": "hogehoge", "email": "hogehoge@ivis.co.jp"}]
@@ -21070,7 +21228,8 @@ def test_validate_users_info_login(client_api, users, db_userprofile, mocker):
     )
     assert res1.status_code == 200
     assert json.loads(res1.data) == {"results": [
-            {"error":'', "info":{'email':users[3]["email"],'user_id':users[3]["id"],'username':'comadmin'},"validation": True},
+            # comadmin (Community Administrator) is excluded by role
+            {"error": "Not Found Email", "info": None, "validation": False},
             {"error":"Not Found Email", "info": None, "validation": False},
             {"error":"Not Found Username", "info": None, "validation": False},
             {"error":'User is not exist UserProfile',"info": '', "validation": False}
@@ -21080,7 +21239,7 @@ def test_validate_users_info_login(client_api, users, db_userprofile, mocker):
     res2 = client_api.post(
         "/api/items/validate_users_info",
         data=json.dumps(
-            [{"username": "", "email": users[0]["email"]}]
+            [{"username": "", "email": shared_users[0]["email"]}]
             ),
         content_type="text/json",
     )
@@ -21642,6 +21801,51 @@ def test_validate_bibtex_export_acl_nologin(
             assert res.status_code == 200
 
 
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_validate_bibtex_export_invalid_input -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+@pytest.mark.parametrize(
+    "data, content_type",
+    [
+        ("", "application/json"),
+        ("not json", "application/json"),
+        (json.dumps({}), "application/json"),
+        (json.dumps([1]), "application/json"),
+        (json.dumps({"record_ids": 1}), "application/json"),
+        (json.dumps({"record_ids": [{"id": 1}]}), "application/json"),
+        (json.dumps({"record_ids": [True]}), "application/json"),
+        (json.dumps({"record_ids": [1]}), "text/plain"),
+    ],
+)
+def test_validate_bibtex_export_invalid_input(app, client, users, data, content_type):
+    url = url_for("weko_items_ui.validate_bibtex_export", _external=True)
+    with patch("weko_items_ui.utils.validate_bibtex", return_value=[]) as mock_validate:
+        res = client.post(url, data=data, content_type=content_type)
+        assert res.status_code == 400
+        mock_validate.assert_not_called()
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_validate_bibtex_export_not_viewable -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_validate_bibtex_export_not_viewable(
+    app, client, users, db_records, db_itemtype, db_oaischema
+):
+    app.config.update(OAISERVER_XSL_URL=None)
+    schema = {}
+    schema['root_name'] = db_oaischema.form_data.get('root_name')
+    schema['schema_location'] = db_oaischema.schema_location
+    schema['namespaces'] = db_oaischema.namespaces
+    schema['schema'] = json.loads(
+        db_oaischema.xsd, object_pairs_hook=OrderedDict)
+    url = url_for("weko_items_ui.validate_bibtex_export", _external=True)
+    with patch('weko_schema_ui.schema.cache_schema', return_value=schema):
+        with patch('weko_schema_ui.serializers.WekoBibTexSerializer.serialize', return_value='test_data'):
+            # guest: a private record and a missing record get the same answer
+            res = client.post(
+                url, data=json.dumps({"record_ids": [2, 9999]}),
+                content_type="application/json"
+            )
+            assert res.status_code == 200
+            assert json.loads(res.data) == {"invalid_record_ids": [2, 9999]}
+
+
 # def export():
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_export_acl_nologin -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
 def test_export_acl_nologin(client, users, db_oaischema):
@@ -21923,14 +22127,34 @@ def test_get_userinfo_by_emails(
     # admin
     login_user_via_session(client=client_api, email=users_1[0]["email"])
 
-    mocker.patch("weko_items_ui.utils.check_display_shared_user", return_value=True)
-
+    # contributor_only holds Contributor only (no excluded role) -> succeeds
     url = url_for(
-        "weko_items_ui_api.get_userinfo_by_emails", emails=[users_1[0]["email"],users_1[1]["email"]], _external=True
+        "weko_items_ui_api.get_userinfo_by_emails", emails=[users_1[2]["email"]], _external=True
     )
     res = client_api.get(url)
-    assert res.json == [{'user_id': 1, 'username' :'wekosoftware', 'email':'wekosoftware@ivis.co.jp'},
-                        {'user_id': 2, 'username' :'repoadmin', 'email':'repoadmin@example.org'}]
+    assert res.json == [{
+        'user_id': users_1[2]["id"],
+        'username': 'contributor_only',
+        'email': users_1[2]["email"],
+    }]
+
+    # repoadmin (Repository Administrator only, no Contributor role) does
+    # not satisfy the population condition -> fails
+    url = url_for(
+        "weko_items_ui_api.get_userinfo_by_emails", emails=[users_1[1]["email"]], _external=True
+    )
+    with pytest.raises(ConnectionError) as e:
+        res = client_api.get(url)
+        assert str(e.value) == 'wrong email or Cannot connect to server!'
+
+    # sysadmin (System Administrator only, no Contributor role) does not
+    # satisfy the population condition -> fails
+    url = url_for(
+        "weko_items_ui_api.get_userinfo_by_emails", emails=[users_1[0]["email"]], _external=True
+    )
+    with pytest.raises(ConnectionError) as e:
+        res = client_api.get(url)
+        assert str(e.value) == 'wrong email or Cannot connect to server!'
 
     # 存在しないメールアドレス
     url = url_for(

@@ -81,7 +81,7 @@ private 側が見えないなら、push 権限を管理者に依頼する。台�
 | リポジトリ | 中身 | 公開範囲 |
 |---|---|---|
 | `RCOSDP/weko` | コード・ツール・CI の定義 | **public** |
-| `RCOSDP/weko-secret` | 台帳（`weko3_api_list*.tsv`）とベースライン（`api_snapshot.json`） | private |
+| `RCOSDP/weko-secret` | 台帳（`weko3_api_list*.tsv`）、ベースライン（`api_snapshot.json`）、未起票の上限（`fix_baseline.json`） | private |
 
 ```bash
 git clone https://github.com/RCOSDP/weko.git         ~/weko
@@ -90,6 +90,47 @@ git clone https://github.com/RCOSDP/weko-secret.git  ~/weko-secret
 
 **private 側を public リポジトリの中に置かない。** 誤って commit する事故を防ぐため、
 必ず別の場所に clone する（`docs/RULE.md` §1）。
+
+clone したら、private 側で pre-push フックを有効にしておく（clone ごとに 1 回）。
+
+```bash
+git -C ~/weko-secret config core.hooksPath .githooks
+```
+
+**private 側は GitHub Actions を使わない。** private リポジトリは Actions の利用枠の
+制限を受けるため、台帳の検査は手元の `ci/local.sh` で回す運用にしている。このフックが
+push のたびにそれを回し、落ちたら push を止める。Actions で回るのは public 側だけ。
+
+#### 解析対象のソースを測定リビジョンに固定する
+
+台帳は「どのリビジョンを測ったか」とセットでしか意味を持たない（`docs/RULE.md` 規則 2-3）。
+開発は先へ進むので、**普通に checkout しているソースは台帳とバージョンが違う。**
+そのまま台帳の検査を回すと、中身の問題ではなくバージョン違いだけで落ち続ける。
+
+測定リビジョンに固定した worktree を、台帳の隣に置く。オブジェクトは共有されるので
+作業ツリーぶんしか増えない。
+
+```bash
+cd ~/weko-secret
+REV=$(python3 -c "import json;print(json.load(open('api_snapshot.json'))['meta']['revision'])")
+git -C ~/weko worktree add --detach ~/weko3 "$REV"
+```
+
+ディレクトリ名を `weko3` にするのは、台帳側の `conftest.py` が隣を探す順
+（`weko` → `wekov2` → `weko3`）に合わせるため。**`WEKO_ROOT` をこの worktree に
+向けないこと。** 探索順で古いツールが先に当たる。何も指定しないのが正しい。
+
+```bash
+cd ~/weko-secret && ci/local.sh             # 実機も Docker も要らない。約 1 分
+```
+
+列・語彙・派生列の再現・経路の漏れ・`no` の固定をまとめて見る。**台帳を触ったら必ず回す。**
+push 時にはフックが同じものを回す。`ci/local.sh` はツールを同名ブランチの先頭から、
+解析対象のソースを台帳の測定リビジョンから、それぞれ `~/.cache/weko-secret-ci/` に
+取り出して使うので、この worktree の状態には左右されない。編集中にさっと確かめるだけなら
+`python3 -m pytest`（この worktree を解析対象に使う）でもよい。
+バージョンを上げて台帳の測定先を移したら、この worktree は貼り替える
+（`git -C ~/weko worktree remove ~/weko3` してから作り直す）。
 
 ### 2-4. 環境変数を設定する
 
@@ -236,6 +277,10 @@ tools/release/preflight.sh --base develop_v2.1.0   # ❌ が無くなるまで�
 
    **`API Inventory Drift` のコメントは、件数より先に冒頭のブランチ名を見る**（`docs/RULE.md` 規則 2-2）。
    警告が出ている PR の件数は当てにならない。
+
+   このジョブは台帳との差分のほかに、**HTTP 以外からの呼び出し元**（`inproc_callers`）と
+   **未解消の指摘**（件数とチケット番号）も見る。落ちたときの直し方は §4 手順 8。
+   出るのは件数と番号だけで、経路名も所見も出ない（`docs/RULE.md` §1）。
 7. **レビューを依頼する。**
 
    ```bash
@@ -408,6 +453,19 @@ python3 $INV/reconcile.py --gate             # 「✅ 一致(0件)」になる�
 
 消えた経路（B）は `reconcile_allow.json` に**理由付きで**登録する。理由なしの登録は禁止（`docs/RULE.md` §3-3）。
 
+**`no` は台帳の主キー。振り直さない・使い回さない。** 起票（`fix_ticket`）や許可リストが
+番号で行を指しているので、振り直すと黙って別の経路を指す。払い出した番号は private 側の
+`no_registry.tsv` に全部残っている。
+
+- 行を足す: `add_row.py --append` を使う。台帳と `no_registry.tsv` の両方に次の番号で書く。
+- 行を消す: 台帳から消してよいが、**番号は詰めない**。`no_registry.tsv` の行は残し、
+  `status` を `廃止`、`note` に理由を書く。
+- 経路の表記だけが変わった（uri の改名、method の追加など）: 同じ番号のまま書き換え、
+  `no_registry.tsv` の `note` に旧値を書く。
+
+詳しくは `tools/api-inventory/scripts/README.md` のケース2。守れていなければ、private 側の
+検査（`tests/test_no_stability.py`）がリリースタグと `main` の台帳と突き合わせて落とす。
+
 **外部調査と件数が合わないときは、まず相手の環境を疑う。**
 v2.1.0 ではベンダ資料が新規 23 件としていたが、ソースに存在したのは 5 件だけだった。
 残り 18 件は `modules/` ではなく site-packages 側の pip パッケージの版差が原因で、grep しても 1 件も出なかった。
@@ -425,6 +483,7 @@ done
 
 残る列は実装を読んで手で埋める（`summary` / `response*` / `status_codes` / `exceptions` / `roles` /
 `access_variance` / `data_store` / `side_effects` / `config_deps` / `category_tags` / `notes` / `sec_*` 5 列）。
+`fix_ticket` は優先度が決まってからでよい（手順 8）。
 v2.1.0 実績で 5 行あたり機械付与 3 分＋手作業 20 分。
 
 ### 手順 6. 実測する
@@ -477,18 +536,51 @@ python3 $INV/changed_rows.py v2.0.4 HEAD --out /tmp/rerun.txt
 **時間が取れないときは、既存行の再レビューを次サイクルに回してよい。**
 その場合は**保留した旨を台帳と PR に必ず記録する**（記録しなければ、やったのか忘れたのか区別がつかなくなる）。
 
+#### 確認待ちの行列を出す
+
+行単位の差分では出ない欠陥を、ソースだけから拾う 2 本。**どちらも「指摘」ではなく
+確認待ちの行列**で、確認した結果を台帳の `sec_pattern` / `sec_exposed` に書くと消える。
+
+```bash
+python3 $INV/audit_authz.py                 # 入口より先の認可（識別子突合・認可入力汚染・ヘルパの fan-in）
+python3 $INV/audit_masking.py               # 応答に非公開判定が効いているか（6種のマスク）
+python3 $INV/audit_masking.py --rows --method PUT,PATCH,DELETE   # 書き込み系に絞る
+```
+
+入口の認可と応答のマスクは別物で、**片方だけ通っている経路がある。**
+`audit_authz.py` は「誰が入れるか」、`audit_masking.py` は「入れた人に何が返るか」を見る。
+**どちらもゲートではない**(CI からは回さない)。詰める強制力は手順 8 の
+`open_findings.py` が持つ。
+件数が多いときは `--method` や `--rows` で絞る。詳しい読み方は
+`tools/api-inventory/scripts/README.md`。
+
 ### 手順 8. 再計算してゲートを通す
 
 ```bash
-python3 $INV/refresh_impl.py --write     # impl_line を新バージョンのソースへ追随させる
-python3 $INV/enrich_git.py   --write     # last_commit / date / subject / release_tag
+python3 $INV/refresh_impl.py --write      # impl_line を新バージョンのソースへ追随させる
+python3 $INV/enrich_git.py   --write      # last_commit / date / subject / release_tag
+python3 $INV/refresh_callers.py --write   # inproc_callers
 python3 $INV/test_coverage.py
 python3 $INV/prioritize.py
 python3 $INV/build_checklist.py
-python3 $INV/reconcile.py --gate         # exit 0 を確認する
+python3 $INV/reconcile.py --gate          # exit 0 を確認する
+python3 $INV/open_findings.py --gate      # exit 0 を確認する
+python3 $INV/audit_evidence.py --gate     # exit 0 を確認する
 ```
 
-順序に意味がある（`prioritize.py` は `test_coverage.py` の結果を読む）。上から順に流すこと。
+順序に意味がある。`prioritize.py` は `test_coverage.py` の結果を読む。
+`refresh_callers.py` は `impl_line` と同じく `ファイル:行番号` を記録するので、
+**`refresh_impl.py` の後**に回す。上から順に流すこと。
+
+`refresh_callers.py` と `audit_evidence.py` は**解析対象のリビジョンに依存する。**
+`ファイル:行番号` を突き合わせるので、台帳の測定先と違うソースに当てると
+**中身の問題ではなくバージョン違いだけで落ちる。** §2-3 の固定 worktree
+(`~/weko3`)を用意しておくこと。実測では、版を1つ上げるだけで台帳の位置参照
+410 箇所のうち 250 箇所が変更されたファイルを指す。
+
+`audit_evidence.py` が落ちたら、位置参照を新しい行番号に直すか、DB の行では
+ないものを消している等の理由を private 側の `evidence_allow.json` に**理由つきで**
+登録する。理由が空の登録は効かない。
 
 **確認**: `release_tag` 列に今回のタグが 1 行も出てこなかったら、先頭 2 本を回し忘れている。
 
@@ -499,6 +591,38 @@ awk -F'\t' 'NR==1{for(i=1;i<=NF;i++) if($i=="release_tag") c=i; next}
 ```
 
 `release_tag` 列だけを数える。`grep -c` だと `notes` や `uri` に同じ文字列があるだけで数が合ってしまう。
+
+#### 対応が要ると判定された行に番号を振る
+
+`open_findings.py --gate` は、**所見を書いたのに起票し忘れた行**で落ちる。
+優先度が上がって新しく P1 になった行がこれに当たる。どの行かは明細に出る。
+
+```bash
+python3 $INV/open_findings.py             # 記入漏れの no が出る
+```
+
+該当行の `fix_ticket` 列に、次のどちらかを書く。
+
+| 値 | いつ |
+|---|---|
+| `issueNNNNN` | 起票した |
+| `未起票` | まだ起票していないと**意識して**決めた |
+
+`open_findings.py` にはもう1つゲートがある。**指摘(`sec_pattern`)があるのに
+`sec_exposed` が空な P1/P2 行**がベースラインを超えると落ちる。露出が無いと
+確認したなら `[露出なし(確認済み:日付)] 理由` と書いて減らす。**空欄は
+「まだ見ていない」としか読めない。**
+
+**番号だけを書き、説明を添えないこと。** 「issueNNNNN ○○の認可漏れ」と書いた時点で
+それは所見であり、public 側の CI に出せなくなる（`docs/RULE.md` §1）。
+
+未起票が増えるときは `fix_baseline.json` を上げる。**理由を PR に書くこと。**
+このファイルはラチェットで、減らすのは自由だが増やすには意識的な操作が要る。
+理由を書かずに上げるのは `docs/RULE.md` §7 の禁止事項。
+
+```bash
+python3 $INV/open_findings.py --summary-only   # 公開 CI と同じ出力（件数と番号だけ）
+```
 
 ### 手順 9. CHANGELOG を確定する（public 側）
 
@@ -536,6 +660,10 @@ cd -
 tools/release/open-pr.sh --base develop_v2.1.0 --inventory-base main --run --inventory
 gh pr checks --watch
 ```
+
+private 側の push では pre-push フックが `ci/local.sh` を回す（約 1 分）。落ちたら push は
+止まるので、直してから出し直す。private 側の PR には Actions のチェックが付かないので、
+`gh pr checks` に出るのは public 側だけ。
 
 **マージしてから**、両リポジトリに**同名のタグ**を打つ（`docs/RULE.md` 規則 2-3）。
 
