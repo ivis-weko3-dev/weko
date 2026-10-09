@@ -39,6 +39,7 @@ from __future__ import absolute_import, print_function
 import mimetypes
 import os
 import re
+import shutil
 import sys
 import uuid
 from datetime import datetime
@@ -64,6 +65,7 @@ from .errors import BucketLockedError, FileInstanceAlreadySetError, \
     InvalidOperationError, MultipartAlreadyCompleted, \
     MultipartInvalidChunkSize, MultipartInvalidPartNumber, \
     MultipartInvalidSize, MultipartMissingParts, MultipartNotCompleted
+from .helpers import to_s3_uri
 from .proxies import current_files_rest
 
 slug_pattern = re.compile('^[a-z][a-z0-9-]+$')
@@ -287,6 +289,10 @@ class Location(db.Model, Timestamp):
 
     secret_key = db.Column(db.String(128), nullable=True)
 
+    readonly_access_key = db.Column(db.String(128), nullable=True)
+
+    readonly_secret_key = db.Column(db.String(128), nullable=True)
+
     s3_endpoint_url = db.Column(db.String(128), nullable=True)
 
     s3_send_file_directly = db.Column(db.Boolean(name='s3_send_file_directly'), nullable=False, default=True)
@@ -296,6 +302,16 @@ class Location(db.Model, Timestamp):
     quota_size = db.Column(db.BigInteger, nullable=True)
 
     max_file_size = db.Column(db.BigInteger, nullable=True)
+
+    s3_default_block_size = db.Column(db.BigInteger, nullable=True)
+
+    s3_maximum_number_of_parts = db.Column(db.BigInteger, nullable=True)
+
+    s3_region_name = db.Column(db.String(128), nullable=True)
+
+    s3_signature_version = db.Column(db.String(20), nullable=True)
+
+    s3_url_expiration = db.Column(db.BigInteger, nullable=True)
 
     @validates('name')
     def validate_name(self, key, name):
@@ -931,7 +947,40 @@ class FileInstance(db.Model, Timestamp):
                     file_type, '.pdf')
 
                 if not os.path.isfile(pdf_dir + pdf_filename):
-                    convert_to(pdf_dir, self.uri)
+                    target_uri = self.uri
+                    if self.uri.startswith('https://'):
+                        # S3 Virtual Host locations store ``uri`` as an
+                        # https:// URL; normalize it to s3:// so the
+                        # s3://-prefix check below can detect it uniformly
+                        # with path-style S3 locations.
+                        target_uri = to_s3_uri(self.uri)
+
+                    is_temp_download = False
+                    if target_uri.startswith('s3://'):
+                        # ``convert_to`` shells out to libreoffice, which
+                        # can only operate on a local file path -- download
+                        # the S3 object to a local temp file first.
+                        is_temp_download = True
+                        convert_dir = path + '/convert_' + str(self.id)
+                        target_uri = convert_dir + '/' + target_uri.split('/')[-1]
+                        if os.path.exists(convert_dir):
+                            shutil.rmtree(convert_dir)
+                        os.makedirs(convert_dir)
+                        fp = self.storage(**kwargs).open(mode='rb')
+                        try:
+                            data = fp.read()
+                        finally:
+                            fp.close()
+                        with open(target_uri, 'wb') as f:
+                            f.write(data)
+
+                    try:
+                        convert_to(pdf_dir, target_uri)
+                    finally:
+                        if (is_temp_download and target_uri != self.uri
+                                and os.path.exists(
+                                    os.path.dirname(target_uri))):
+                            shutil.rmtree(os.path.dirname(target_uri))
 
                 self.uri = pdf_dir + pdf_filename
                 self.size = os.path.getsize(pdf_dir + pdf_filename)

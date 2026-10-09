@@ -212,6 +212,25 @@ def make_path(base_uri, path, filename, path_dimensions, split_length):
     return url.replace("\\", "/") if os.sys.platform == 'win32' else url
 
 
+def to_s3_uri(fileurl):
+    """Convert an ``https://`` (S3 Virtual Host) fileurl to an ``s3://`` URI.
+
+    Args:
+        fileurl (str): The ``https://`` URL to convert.
+    Returns:
+        str: The converted ``s3://<bucket>/<key>`` URI.
+    """
+    if fileurl.startswith('https://s3'):
+        # ex: https://s3.us-east-1.amazonaws.com/bucket_name/file_name
+        parts = fileurl.split('/')
+        return 's3://' + '/'.join(parts[3:])
+    else:
+        # ex: https://bucket_name.s3.us-east-1.amazonaws.com/file_name
+        parts = fileurl.split('/')
+        sub_parts = parts[2].split('.')
+        return 's3://' + sub_parts[0] + '/' + '/'.join(parts[3:])
+
+
 def compute_md5_checksum(stream, **kwargs):
     """Get helper method to compute MD5 checksum from a stream.
 

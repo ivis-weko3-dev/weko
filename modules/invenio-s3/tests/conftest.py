@@ -30,8 +30,8 @@ def app_config(app_config):
     """Customize application configuration."""
     app_config['FILES_REST_STORAGE_FACTORY'] = 'invenio_s3:s3_storage_factory'
     app_config['S3_ENDPOINT_URL'] = None
-    app_config['S3_ACCCESS_KEY_ID'] = ''
-    app_config['S3_SECRECT_ACCESS_KEY'] = ''
+    app_config['S3_ACCESS_KEY_ID'] = ''
+    app_config['S3_SECRET_ACCESS_KEY'] = ''
     # app_config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db')
     SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
@@ -74,8 +74,13 @@ def location(location_path, database):
         type='s3',
         access_key='',
         secret_key='',
-        s3_endpoint_url="",
-        s3_send_file_directly=True
+        readonly_access_key='',
+        readonly_secret_key='',
+        s3_endpoint_url="https://s3.amazonaws.com",
+        s3_send_file_directly=True,
+        s3_maximum_number_of_parts=1000,
+        s3_default_block_size=10*1024*1024,
+        s3_url_expiration=3600
     )
     database.session.add(loc)
     database.session.commit()
@@ -85,11 +90,13 @@ def location(location_path, database):
 @pytest.fixture(scope='function')
 def s3_bucket(appctx):
     """S3 bucket fixture."""
+    os.environ['AWS_ACCESS_KEY_ID'] = 'test'
+    os.environ['AWS_SECRET_ACCESS_KEY'] = 'test'
     with mock_s3():
         session = boto3.Session(
-            aws_access_key_id=current_app.config.get('S3_ACCCESS_KEY_ID'),
+            aws_access_key_id=current_app.config.get('S3_ACCESS_KEY_ID'),
             aws_secret_access_key=current_app.config.get(
-                'S3_SECRECT_ACCESS_KEY'),
+                'S3_SECRET_ACCESS_KEY'),
         )
         s3 = session.resource('s3')
         bucket = s3.create_bucket(Bucket='test_invenio_s3')
@@ -108,9 +115,15 @@ def s3fs_testpath(s3_bucket):
 
 
 @pytest.fixture(scope='function')
-def s3fs(s3_bucket, s3fs_testpath):
+def s3fs(s3_bucket, s3fs_testpath, location):
     """Instance of S3FSFileStorage."""
-    s3_storage = S3FSFileStorage(s3fs_testpath)
+    s3_storage = S3FSFileStorage(
+        s3fs_testpath,
+        size=0,
+        modified=None,
+        clean_dir=True,
+        location=location
+    )
     return s3_storage
 
 
