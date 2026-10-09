@@ -9,6 +9,7 @@
 """Test sorter."""
 
 import pytest
+from flask_babel import force_locale
 from invenio_search.engine import dsl
 
 from invenio_records_rest.sorter import (
@@ -39,23 +40,82 @@ def test_reverse_order():
 def test_eval_field_string(app):
     """Test getting locales."""
     app.config["I18N_LANGUAGES"] = [("ja", "Japanese"), ("en", "English")]
-    
+
     """Test string evaluation."""
-    assert eval_field("myfield", True) == dict(myfield=dict(order="asc",unmapped_type="long"))
-    assert eval_field("myfield", False) == dict(myfield=dict(order="desc",unmapped_type="long"))
-    assert eval_field("-myfield", True) == dict(myfield=dict(order="desc",unmapped_type="long"))
-    assert eval_field("-myfield", False) == dict(myfield=dict(order="asc",unmapped_type="long"))
-    assert eval_field("myfield", True, True) == dict(myfield=dict(order="asc",unmapped_type="long",nested=True))
-    with app.test_request_context(
-        headers=[("Accept-Language","ja")]):
-            assert eval_field("title", True) == dict(title=dict(order="asc",unmapped_type="long",mode="max"))
-            assert eval_field("title", False) == dict(title=dict(order="desc",unmapped_type="long",mode="max"))
-    with app.test_request_context(
-        headers=[("Accept-Language","en")]):
-            assert eval_field("title", True) == dict(title=dict(order="asc",unmapped_type="long",mode="min"))
-            assert eval_field("title", False) == dict(title=dict(order="desc",unmapped_type="long",mode="min"))
-    assert eval_field("date_range", True) == {"_script":{"type":"number", "script":{"lang":"painless","source":"def x = params._source.date_range1;SimpleDateFormat format = new SimpleDateFormat(); if (x != null && !x.isEmpty() ) { def value = x.get(0).get(\"gte\"); if(value != null && !value.equals(\"\")) { if(value.length() > 7) { format.applyPattern(\"yyyy-MM-dd\"); } else if(value.length() > 4) { format.applyPattern(\"yyyy-MM\");  } else { format.applyPattern(\"yyyy\"); } try { return format.parse(value).getTime(); } catch(Exception e) {} } } format.applyPattern(\"yyyy\"); return format.parse(\"9999\").getTime();"},"order": "asc"}}
-    assert eval_field("date_range", False) == {"_script":{"type":"number", "script":{"lang":"painless","source":"def x = params._source.date_range1;SimpleDateFormat format = new SimpleDateFormat(); if (x != null && !x.isEmpty() ) { def value = x.get(0).get(\"lte\"); if(value != null && !value.equals(\"\")) { if(value.length() > 7) { format.applyPattern(\"yyyy-MM-dd\"); } else if(value.length() > 4) { format.applyPattern(\"yyyy-MM\");  } else { format.applyPattern(\"yyyy\"); } try { return format.parse(value).getTime(); } catch(Exception e) {} } } format.applyPattern(\"yyyy\"); return format.parse(\"0\").getTime();"},"order": "desc"}}
+    assert eval_field("myfield", True) == dict(
+        myfield=dict(order="asc", unmapped_type="long")
+    )
+    assert eval_field("myfield", False) == dict(
+        myfield=dict(order="desc", unmapped_type="long")
+    )
+    assert eval_field("-myfield", True) == dict(
+        myfield=dict(order="desc", unmapped_type="long")
+    )
+    assert eval_field("-myfield", False) == dict(
+        myfield=dict(order="asc", unmapped_type="long")
+    )
+    assert eval_field("myfield", True, True) == dict(
+        myfield=dict(order="asc", unmapped_type="long", nested=True)
+    )
+    with app.test_request_context(headers=[("Accept-Language", "ja")]), force_locale(
+        "ja"
+    ):
+        assert eval_field("title", True) == dict(
+            title=dict(order="asc", unmapped_type="long", mode="max")
+        )
+        assert eval_field("title", False) == dict(
+            title=dict(order="desc", unmapped_type="long", mode="max")
+        )
+    with app.test_request_context(headers=[("Accept-Language", "en")]), force_locale(
+        "en"
+    ):
+        assert eval_field("title", True) == dict(
+            title=dict(order="asc", unmapped_type="long", mode="min")
+        )
+        assert eval_field("title", False) == dict(
+            title=dict(order="desc", unmapped_type="long", mode="min")
+        )
+    assert eval_field("date_range", True) == {
+        "_script": {
+            "type": "number",
+            "script": {
+                "lang": "painless",
+                "source": (
+                    (
+                        "def x = params._source.date_range1;SimpleDateFormat format = new "
+                        "SimpleDateFormat(); if (x != null && !x.isEmpty() ) { def value = "
+                        'x.get(0).get("gte"); if(value != null && !value.equals("")) { if(value.length() '
+                        '> 7) { format.applyPattern("yyyy-MM-dd"); } else if(value.length() > 4) { '
+                        'format.applyPattern("yyyy-MM");  } else { format.applyPattern("yyyy"); } try { '
+                        "return format.parse(value).getTime(); } catch(Exception e) {} } } "
+                        'format.applyPattern("yyyy"); return format.parse("9999").getTime();'
+                    )
+                ),
+            },
+            "order": "asc",
+        }
+    }
+    assert eval_field("date_range", False) == {
+        "_script": {
+            "type": "number",
+            "script": {
+                "lang": "painless",
+                "source": (
+                    (
+                        "def x = params._source.date_range1;SimpleDateFormat format = new "
+                        "SimpleDateFormat(); if (x != null && !x.isEmpty() ) { def value = "
+                        'x.get(0).get("lte"); if(value != null && !value.equals("")) { if(value.length() '
+                        '> 7) { format.applyPattern("yyyy-MM-dd"); } else if(value.length() > 4) { '
+                        'format.applyPattern("yyyy-MM");  } else { format.applyPattern("yyyy"); } try { '
+                        "return format.parse(value).getTime(); } catch(Exception e) {} } } "
+                        'format.applyPattern("yyyy"); return format.parse("0").getTime();'
+                    )
+                ),
+            },
+            "order": "desc",
+        }
+    }
+
 
 def test_eval_field_callable():
     """Test string evaluation."""
@@ -103,17 +163,14 @@ def test_default_sorter_factory(app):
                 fields=["field1", "-field2"],
             ),
             controlnumber=dict(
-                title="ID",
-                fields=["control_number"],
-                default_order="asc",
-                order=2
+                title="ID", fields=["control_number"], default_order="asc", order=2
             ),
             temporal=dict(
                 title="Temporal",
                 fields=["date_range1.gte"],
                 default_order="asc",
-                order=3
-            )
+                order=3,
+            ),
         ),
     )
     app.config["RECORDS_REST_DEFAULT_SORT"] = dict(
@@ -129,7 +186,18 @@ def test_default_sorter_factory(app):
         assert query.to_dict()["sort"] == [
             {"field1": {"order": "asc", "unmapped_type": "long"}},
             {"field2": {"order": "desc", "unmapped_type": "long"}},
-            {"_script": {"type": "number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}
+            {
+                "_script": {
+                    "type": "number",
+                    "script": (
+                        (
+                            "if ( doc['control_number'].size() != 0 ) { return "
+                            "Float.parseFloat(doc['control_number'].value) } else { return 0.0 }"
+                        )
+                    ),
+                    "order": "asc",
+                }
+            },
         ]
         assert urlargs["sort"] == "myfield"
 
@@ -139,7 +207,18 @@ def test_default_sorter_factory(app):
         assert query.to_dict()["sort"] == [
             {"field1": {"order": "desc", "unmapped_type": "long"}},
             {"field2": {"order": "asc", "unmapped_type": "long"}},
-            {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}
+            {
+                "_script": {
+                    "type": "number",
+                    "script": (
+                        (
+                            "if ( doc['control_number'].size() != 0 ) { return "
+                            "Float.parseFloat(doc['control_number'].value) } else { return 0.0 }"
+                        )
+                    ),
+                    "order": "asc",
+                }
+            },
         ]
         assert urlargs["sort"] == "-myfield"
 
@@ -155,7 +234,18 @@ def test_default_sorter_factory(app):
         assert query.to_dict()["sort"] == [
             {"field1": {"order": "asc", "unmapped_type": "long"}},
             {"field2": {"order": "desc", "unmapped_type": "long"}},
-            {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}
+            {
+                "_script": {
+                    "type": "number",
+                    "script": (
+                        (
+                            "if ( doc['control_number'].size() != 0 ) { return "
+                            "Float.parseFloat(doc['control_number'].value) } else { return 0.0 }"
+                        )
+                    ),
+                    "order": "asc",
+                }
+            },
         ]
         assert urlargs == dict(sort="myfield")
 
@@ -165,7 +255,18 @@ def test_default_sorter_factory(app):
         assert query.to_dict()["sort"] == [
             {"field1": {"order": "desc", "unmapped_type": "long"}},
             {"field2": {"order": "asc", "unmapped_type": "long"}},
-            {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}
+            {
+                "_script": {
+                    "type": "number",
+                    "script": (
+                        (
+                            "if ( doc['control_number'].size() != 0 ) { return "
+                            "Float.parseFloat(doc['control_number'].value) } else { return 0.0 }"
+                        )
+                    ),
+                    "order": "asc",
+                }
+            },
         ]
         assert urlargs == dict(sort="-myfield")
 
@@ -175,7 +276,18 @@ def test_default_sorter_factory(app):
         assert query.to_dict()["sort"] == [
             {"field1": {"order": "desc", "unmapped_type": "long"}},
             {"field2": {"order": "asc", "unmapped_type": "long"}},
-            {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}
+            {
+                "_script": {
+                    "type": "number",
+                    "script": (
+                        (
+                            "if ( doc['control_number'].size() != 0 ) { return "
+                            "Float.parseFloat(doc['control_number'].value) } else { return 0.0 }"
+                        )
+                    ),
+                    "order": "asc",
+                }
+            },
         ]
         assert urlargs == dict(sort="-myfield")
 
@@ -187,29 +299,115 @@ def test_default_sorter_factory(app):
     # Sort with control_number
     with app.test_request_context("/?sort=controlnumber"):
         query, urlargs = default_sorter_factory(dsl.Search(), "myindex")
-        assert query.to_dict()["sort"] == \
-            [{"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}]
+        assert query.to_dict()["sort"] == [
+            {
+                "_script": {
+                    "type": "number",
+                    "script": (
+                        (
+                            "if ( doc['control_number'].size() != 0 ) { return "
+                            "Float.parseFloat(doc['control_number'].value) } else { return 0.0 }"
+                        )
+                    ),
+                    "order": "asc",
+                }
+            }
+        ]
         assert urlargs == dict(sort="controlnumber")
-    
+
     # Reverse sort with control_number
     with app.test_request_context("/?sort=-controlnumber"):
         query, urlargs = default_sorter_factory(dsl.Search(), "myindex")
-        assert query.to_dict()["sort"] == \
-            [{"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "desc"}}]
+        assert query.to_dict()["sort"] == [
+            {
+                "_script": {
+                    "type": "number",
+                    "script": (
+                        (
+                            "if ( doc['control_number'].size() != 0 ) { return "
+                            "Float.parseFloat(doc['control_number'].value) } else { return 0.0 }"
+                        )
+                    ),
+                    "order": "desc",
+                }
+            }
+        ]
         assert urlargs == dict(sort="-controlnumber")
 
     # Sort with temporal
     with app.test_request_context("/?sort=temporal"):
         query, urlargs = default_sorter_factory(dsl.Search(), "myindex")
-        assert query.to_dict()["sort"] == \
-            [{"_script":{"type":"number","script":{"lang":"painless","source":"def x = params._source.date_range1;SimpleDateFormat format = new SimpleDateFormat(); if (x != null && !x.isEmpty() ) { def value = x.get(0).get(\"gte\"); if(value != null && !value.equals(\"\")) { if(value.length() > 7) { format.applyPattern(\"yyyy-MM-dd\"); } else if(value.length() > 4) { format.applyPattern(\"yyyy-MM\");  } else { format.applyPattern(\"yyyy\"); } try { return format.parse(value).getTime(); } catch(Exception e) {} } } format.applyPattern(\"yyyy\"); return format.parse(\"9999\").getTime();"},"order": "asc"}},
-            {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}]
+        assert query.to_dict()["sort"] == [
+            {
+                "_script": {
+                    "type": "number",
+                    "script": {
+                        "lang": "painless",
+                        "source": (
+                            (
+                                "def x = params._source.date_range1;SimpleDateFormat format = new "
+                                "SimpleDateFormat(); if (x != null && !x.isEmpty() ) { def value = "
+                                'x.get(0).get("gte"); if(value != null && !value.equals("")) { if(value.length() '
+                                '> 7) { format.applyPattern("yyyy-MM-dd"); } else if(value.length() > 4) { '
+                                'format.applyPattern("yyyy-MM");  } else { format.applyPattern("yyyy"); } try { '
+                                "return format.parse(value).getTime(); } catch(Exception e) {} } } "
+                                'format.applyPattern("yyyy"); return format.parse("9999").getTime();'
+                            )
+                        ),
+                    },
+                    "order": "asc",
+                }
+            },
+            {
+                "_script": {
+                    "type": "number",
+                    "script": (
+                        (
+                            "if ( doc['control_number'].size() != 0 ) { return "
+                            "Float.parseFloat(doc['control_number'].value) } else { return 0.0 }"
+                        )
+                    ),
+                    "order": "asc",
+                }
+            },
+        ]
         assert urlargs == dict(sort="temporal")
-    
+
     # Reverse sort with control_number
     with app.test_request_context("/?sort=-temporal"):
         query, urlargs = default_sorter_factory(dsl.Search(), "myindex")
-        assert query.to_dict()["sort"] == \
-            [{"_script":{"type":"number","script":{"lang":"painless","source":"def x = params._source.date_range1;SimpleDateFormat format = new SimpleDateFormat(); if (x != null && !x.isEmpty() ) { def value = x.get(0).get(\"lte\"); if(value != null && !value.equals(\"\")) { if(value.length() > 7) { format.applyPattern(\"yyyy-MM-dd\"); } else if(value.length() > 4) { format.applyPattern(\"yyyy-MM\");  } else { format.applyPattern(\"yyyy\"); } try { return format.parse(value).getTime(); } catch(Exception e) {} } } format.applyPattern(\"yyyy\"); return format.parse(\"0\").getTime();"},"order": "desc"}},
-            {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}]
+        assert query.to_dict()["sort"] == [
+            {
+                "_script": {
+                    "type": "number",
+                    "script": {
+                        "lang": "painless",
+                        "source": (
+                            (
+                                "def x = params._source.date_range1;SimpleDateFormat format = new "
+                                "SimpleDateFormat(); if (x != null && !x.isEmpty() ) { def value = "
+                                'x.get(0).get("lte"); if(value != null && !value.equals("")) { if(value.length() '
+                                '> 7) { format.applyPattern("yyyy-MM-dd"); } else if(value.length() > 4) { '
+                                'format.applyPattern("yyyy-MM");  } else { format.applyPattern("yyyy"); } try { '
+                                "return format.parse(value).getTime(); } catch(Exception e) {} } } "
+                                'format.applyPattern("yyyy"); return format.parse("0").getTime();'
+                            )
+                        ),
+                    },
+                    "order": "desc",
+                }
+            },
+            {
+                "_script": {
+                    "type": "number",
+                    "script": (
+                        (
+                            "if ( doc['control_number'].size() != 0 ) { return "
+                            "Float.parseFloat(doc['control_number'].value) } else { return 0.0 }"
+                        )
+                    ),
+                    "order": "asc",
+                }
+            },
+        ]
         assert urlargs == dict(sort="-temporal")

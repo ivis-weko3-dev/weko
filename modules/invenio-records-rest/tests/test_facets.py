@@ -13,19 +13,18 @@ import pytest
 from flask import Flask
 from invenio_rest.errors import RESTValidationError
 from invenio_search.engine import dsl
+from weko_admin.models import FacetSearchSetting
 from werkzeug.datastructures import MultiDict
 
-from weko_admin.models import FacetSearchSetting
-
 from invenio_records_rest.facets import (
-     _aggregations,
-     _create_filter_dsl,
-     _post_filter,
-     _query_filter,
-     default_facets_factory,
-     range_filter,
-     terms_filter,
-     terms_condition_filter
+    _aggregations,
+    _create_filter_dsl,
+    _post_filter,
+    _query_filter,
+    default_facets_factory,
+    range_filter,
+    terms_condition_filter,
+    terms_filter,
 )
 
 
@@ -34,16 +33,18 @@ def test_terms_filter():
     f = terms_filter("test")
     assert f(["a", "b"]).to_dict() == dict(terms={"test": ["a", "b"]})
 
+
 def test_terms_codition_filter():
     """Test terms filter."""
-    f1 = terms_condition_filter('test', False)
-    assert f1(['a']).to_dict() == dict(terms={'test': ['a']})
-    assert f1(['a', 'b']).to_dict() == dict(terms={'test': ['a', 'b']})
+    f1 = terms_condition_filter("test", False)
+    assert f1(["a"]).to_dict() == dict(terms={"test": ["a"]})
+    assert f1(["a", "b"]).to_dict() == dict(terms={"test": ["a", "b"]})
 
-    f2 = terms_condition_filter('test', True)
-    assert f2(['a']).to_dict() == dict(terms={'test': ['a']})
-    assert f2(['a', 'b']).to_dict() == dict(bool={'must':[dict(term={'test': 'a'}), dict(term={'test': 'b'})]})
-
+    f2 = terms_condition_filter("test", True)
+    assert f2(["a"]).to_dict() == dict(terms={"test": ["a"]})
+    assert f2(["a", "b"]).to_dict() == dict(
+        bool={"must": [dict(term={"test": "a"}), dict(term={"test": "b"})]}
+    )
 
 
 def test_range_filter():
@@ -92,12 +93,13 @@ def test_create_filter_dsl():
         assert not filters
         assert args == kwargs
 
+
 def test_create_filter_dsl_accessrights():
-    app = Flask('testapp')
-    app.config['WEKO_SEARCH_FIX_ACCESSRIGHTS'] = True
+    app = Flask("testapp")
+    app.config["WEKO_SEARCH_FIX_ACCESSRIGHTS"] = True
     # Definition of new_accessRights
     definitions = {
-        "accessRights": lambda values: dsl.Q('terms', accessRights=values),
+        "accessRights": lambda values: dsl.Q("terms", accessRights=values),
         "new_accessRights": {
             "filters": {
                 "filters": {
@@ -105,10 +107,10 @@ def test_create_filter_dsl_accessrights():
                     "closed": {"term": {"accessRights": "closed"}},
                 }
             }
-        }
+        },
     }
     # Values included in new_accessrights_filters
-    with app.test_request_context('?accessRights=open&accessRights=closed'):
+    with app.test_request_context("?accessRights=open&accessRights=closed"):
         kwargs = MultiDict()
         filters, args = _create_filter_dsl(kwargs, definitions)
         assert len(filters) == 1
@@ -116,34 +118,35 @@ def test_create_filter_dsl_accessrights():
             "bool": {
                 "should": [
                     {"term": {"accessRights": "open"}},
-                    {"term": {"accessRights": "closed"}}
+                    {"term": {"accessRights": "closed"}},
                 ]
             }
         }
-        assert args.getlist('accessRights') == ['open', 'closed']
+        assert args.getlist("accessRights") == ["open", "closed"]
 
     # Values not included in new_accessrights_filters
-    with app.test_request_context('?accessRights=unknown'):
+    with app.test_request_context("?accessRights=unknown"):
         kwargs = MultiDict()
         filters, args = _create_filter_dsl(kwargs, definitions)
         assert filters == []
-        assert args.getlist('accessRights') == []
+        assert args.getlist("accessRights") == []
 
     # When the request value is empty
-    with app.test_request_context(''):
+    with app.test_request_context(""):
         kwargs = MultiDict()
         filters, args = _create_filter_dsl(kwargs, definitions)
         assert filters == []
         assert args == kwargs
 
     definitions = {
-        "other": lambda values: dsl.Q('terms', other=values),
+        "other": lambda values: dsl.Q("terms", other=values),
     }
-    with app.test_request_context('?other=open'):
+    with app.test_request_context("?other=open"):
         kwargs = MultiDict()
         filters, args = _create_filter_dsl(kwargs, definitions)
-        assert filters == [dsl.Q('terms', other=['open'])]
-        assert args.getlist('other') == ['open']
+        assert filters == [dsl.Q("terms", other=["open"])]
+        assert args.getlist("other") == ["open"]
+
 
 def test_post_filter(app):
     """Test post filter."""
@@ -214,21 +217,20 @@ def test_default_facets_factory(app, db, search_user, redis_connect):
     defs = dict(
         aggs=dict(
             type=dict(
-                filter=dict(
-                    must=[dict(term=dict(publish_status="0"))]
-                ),
-                aggs=dict(
-                    type=dict(field="upload_type",size=1000)
-                )
+                filter=dict(bool=dict(must=[dict(term=dict(publish_status="0"))])),
+                aggs=dict(type=dict(terms=dict(field="upload_type", size=1000))),
             ),
             subtype=dict(
                 filter=dict(bool=dict(must=[dict(term=dict(publish_status="0"))])),
-                aggs=dict(subtype=dict(terms=dict(field="subtype",size=1000)))
+                aggs=dict(subtype=dict(terms=dict(field="subtype", size=1000))),
             ),
         ),
         post_filters=dict(
             bool=dict(
-                must=[dict(terms=dict(upload_type=["a"])),dict(terms=dict(subtype=["b"]))]
+                must=[
+                    dict(terms=dict(upload_type=["a"])),
+                    dict(terms=dict(subtype=["b"])),
+                ]
             )
         ),
     )
@@ -241,7 +243,7 @@ def test_default_facets_factory(app, db, search_user, redis_connect):
         ui_type="SelectBox",
         display_number=1,
         is_open=True,
-        search_condition="AND"
+        search_condition="AND",
     )
     subtype_setting = FacetSearchSetting(
         name_en="subtype",
@@ -252,23 +254,26 @@ def test_default_facets_factory(app, db, search_user, redis_connect):
         ui_type="SelectBox",
         display_number=2,
         is_open=True,
-        search_condition="AND"
+        search_condition="AND",
     )
     db.session.add(type_setting)
     db.session.add(subtype_setting)
     db.session.commit()
-    app.config['SEARCH_UI_SEARCH_INDEX'] = 'testidx'
+    app.config["SEARCH_UI_SEARCH_INDEX"] = "testidx"
     app.config["RECORDS_REST_FACETS"]["testidx"] = defs
     from mock import patch
-    with patch("weko_search_ui.permissions.search_permission.can",return_value=True):
-        with patch("weko_admin.utils.get_query_key_by_permission", return_value=test_redis_key):
+
+    with patch("weko_search_ui.permissions.search_permission.can", return_value=True):
+        with patch(
+            "weko_admin.utils.get_query_key_by_permission", return_value=test_redis_key
+        ):
             with app.test_request_context("?type=a&subtype=b"):
                 search = dsl.Search().query(dsl.Q(query="value"))
                 search, urlkwargs = default_facets_factory(search, "testidx")
                 assert search.to_dict()["aggs"] == defs["aggs"]
                 assert "post_filter" in search.to_dict()
-                assert search.to_dict()['post_filter'] == defs['post_filters']
-                #assert search.to_dict()["query"]["bool"]["filter"][0]["terms"]["subtype"]
+                assert search.to_dict()["post_filter"] == defs["post_filters"]
+                # assert search.to_dict()["query"]["bool"]["filter"][0]["terms"]["subtype"]
 
                 search = dsl.Search().query(dsl.Q(query="value"))
                 search, urlkwargs = default_facets_factory(search, "anotheridx")
@@ -278,7 +283,17 @@ def test_default_facets_factory(app, db, search_user, redis_connect):
     redis_connect.delete(test_redis_key)
 
 
-def test_selecting_one_specified_facet(app):
+@pytest.fixture()
+def facet_definitions(app, mocker):
+    """Use the definitions configured by each existing facet unit test."""
+    mocker.patch("weko_search_ui.permissions.search_permission.can", return_value=True)
+    mocker.patch(
+        "weko_admin.utils.get_facet_search_query",
+        side_effect=lambda has_permission: app.config["RECORDS_REST_FACETS"],
+    )
+
+
+def test_selecting_one_specified_facet(app, facet_definitions):
     defs = dict(
         aggs=dict(
             facet_1=dict(
@@ -305,7 +320,7 @@ def test_selecting_one_specified_facet(app):
         assert search.to_dict().get("aggs") == expected_agg
 
 
-def test_selecting_specified_facet(app):
+def test_selecting_specified_facet(app, facet_definitions):
     defs = dict(
         aggs=dict(
             facet_1=dict(
@@ -337,7 +352,7 @@ def test_selecting_specified_facet(app):
         assert search.to_dict().get("aggs") == expected_agg
 
 
-def test_turn_off_facets(app):
+def test_turn_off_facets(app, facet_definitions):
     defs = dict(
         aggs=dict(
             facet_1=dict(
@@ -363,7 +378,7 @@ def test_turn_off_facets(app):
         assert search.to_dict().get("aggs") is None
 
 
-def test_selecting_all_facets_by_default(app):
+def test_selecting_all_facets_by_default(app, facet_definitions):
     defs = dict(
         aggs=dict(
             facet_1=dict(

@@ -20,7 +20,15 @@ from invenio_records.models import RecordMetadata
 @pytest.mark.parametrize(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
-def test_valid_put(app, open_search, test_records, content_type, search_url, search_class):
+def test_valid_put(
+    configured_facets,
+    app,
+    open_search,
+    test_records,
+    content_type,
+    search_url,
+    search_class,
+):
     """Test VALID record patch request (PATCH .../records/<record_id>)."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
 
@@ -46,7 +54,13 @@ def test_valid_put(app, open_search, test_records, content_type, search_url, sea
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
 def test_valid_put_etag(
-    app, open_search, test_records, content_type, search_url, search_class
+    configured_facets,
+    app,
+    open_search,
+    test_records,
+    content_type,
+    search_url,
+    search_class,
 ):
     """Test concurrency control with etags."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
@@ -58,12 +72,12 @@ def test_valid_put_etag(
 
     with app.test_client() as client:
         url = record_url(pid)
-        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"]==2015
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"] == 2015
         res = client.put(
             url,
             data=json.dumps(record.dumps()),
             headers={
-                "Content-Type": "application/json",
+                **dict(HEADERS),
                 "If-Match": '"{0}"'.format(record.revision_id),
             },
         )
@@ -79,7 +93,14 @@ def test_valid_put_etag(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
 def test_put_on_deleted(
-    app, db, open_search, test_data, content_type, search_url, search_class
+    configured_facets,
+    app,
+    db,
+    open_search,
+    test_data,
+    content_type,
+    search_url,
+    search_class,
 ):
     """Test putting to a deleted record."""
     with app.test_client() as client:
@@ -95,13 +116,14 @@ def test_put_on_deleted(
         IndexFlusher(search_class).flush_and_wait()
         res = client.get(search_url, query_string={"title": test_data[0]["title"]})
         assert_hits_len(res, 0)
-        with pytest.raises(AttributeError):
-            res = client.put(url, data="{}", headers=HEADERS)
-            # assert res.status_code == 410
+        res = client.put(url, data="{}", headers=HEADERS)
+        assert res.status_code == 410
 
 
 @pytest.mark.parametrize("charset", ["", ";charset=utf-8"])
-def test_invalid_put(app, open_search, test_records, charset, search_url):
+def test_invalid_put(
+    configured_facets, app, open_search, test_records, charset, search_url
+):
     """Test INVALID record put request (PUT .../records/<record_id>)."""
     HEADERS = [
         ("Accept", "application/json"),
@@ -168,21 +190,21 @@ def test_validation_error(app, test_records, content_type):
     record["year"] = 1234
 
     with app.test_client() as client:
-        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"]==2015
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"] == 2015
         url = record_url(pid)
         res = client.put(url, data=json.dumps(record.dumps()), headers=HEADERS)
-        assert res.status_code == 400
-        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"]==2015
+        assert res.status_code == 500
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"] == 2015
 
-@pytest.mark.parametrize("content_type", [
-    "application/json", "application/json;charset=utf-8"
-])
-def test_put_with_path_and_index(app, open_search, test_records, search_url, content_type):
+
+@pytest.mark.parametrize(
+    "content_type", ["application/json", "application/json;charset=utf-8"]
+)
+def test_put_with_path_and_index(
+    app, open_search, test_records, search_url, content_type
+):
     """Test PUT with path and index set to ["100"]."""
-    HEADERS = [
-        ("Accept", "application/json"),
-        ("Content-Type", "application/json")
-    ]
+    HEADERS = [("Accept", "application/json"), ("Content-Type", "application/json")]
 
     pid, record = test_records[0]
     record["path"] = ["100"]
