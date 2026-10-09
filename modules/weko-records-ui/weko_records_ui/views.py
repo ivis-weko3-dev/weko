@@ -1162,6 +1162,7 @@ def charge_secure(session_id):
         return abort(500)
 
 @blueprint.route('/charge/show', methods=['GET'])
+@login_required
 def charge_show():
     """課金済みかどうかを確認する。
 
