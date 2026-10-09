@@ -1,10 +1,14 @@
 import hashlib
+import inspect
 import json
+import logging
 import os
+from contextlib import ExitStack
+from types import SimpleNamespace
 from datetime import datetime
 from io import StringIO
 from collections import OrderedDict
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import MagicMock, Mock, PropertyMock, mock_open, patch
 import copy
 import tempfile
 import pytz
@@ -25,7 +29,10 @@ from weko_redis.redis import RedisConnection
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from jsonschema import SchemaError, ValidationError
 from werkzeug.exceptions import BadRequest
-from invenio_accounts.models import Role
+from invenio_accounts.models import Role, User
+from sqlalchemy import Integer, String
+import weko_items_ui.utils as items_utils
+from weko_accounts.api import get_map_group_prefix
 from invenio_accounts.testutils import create_test_user, login_user_via_session
 from weko_deposit.api import WekoDeposit, WekoRecord, WekoFileObject
 from weko_records.api import ItemTypes
@@ -43,6 +50,18 @@ from weko_workflow.models import (
 
 from weko_items_ui.utils import (
     __sanitize_string,
+    exists_shared_user_email,
+    get_excluded_shared_doc_ids,
+    get_role_by_id,
+    get_shared_role_ids,
+    get_shared_user_ids,
+    get_user_role_ids,
+    is_item_editable_by,
+    is_proxy_poster,
+    is_shared_role_allowed,
+    search_role_name,
+    strip_group_prefix,
+    validate_shared_role_ids,
     _custom_export_metadata,
     _escape_like,
     _export_item,
@@ -110,7 +129,6 @@ from weko_items_ui.utils import (
     remove_excluded_items_in_json_schema,
     sanitize_input_data,
     save_title,
-    search_email,
     search_username,
     set_multi_language_name,
     set_validation_message,
@@ -168,9 +186,13 @@ def test_search_username(app, client, shared_users, db_userprofile, db):
     contributor_role = Role.query.filter_by(name="Contributor").first()
 
     with app.test_request_context():
-        # candidate population: contributor/originalroleuser/originalroleuser2
-        # (Contributor held, none of the excluded roles held), ordered by
-        # email ascending (contributor, originalroleuser2, originalroleuser)
+        # candidate population: comadmin/contributor/originalroleuser/
+        # originalroleuser2/repoadmin (an allowed role held -- Contributor,
+        # Repository Administrator or Community Administrator -- and no
+        # excluded role held), ordered by email ascending (comadmin,
+        # contributor, originalroleuser2, originalroleuser, repoadmin)
+        u_comadmin = db_userprofile[shared_users[3]["email"]].get_username
+        u_repoadmin = db_userprofile[shared_users[1]["email"]].get_username
         u_contributor = db_userprofile[shared_users[0]["email"]].get_username
         u_originalroleuser = db_userprofile[shared_users[5]["email"]].get_username
         u_originalroleuser2 = db_userprofile[shared_users[6]["email"]].get_username
@@ -181,8 +203,8 @@ def test_search_username(app, client, shared_users, db_userprofile, db):
 
         assert search_username("") == {
             "query": "",
-            "results": [u_contributor, u_originalroleuser2, u_originalroleuser],
-            "count": 3,
+            "results": [u_comadmin, u_contributor, u_originalroleuser2, u_originalroleuser, u_repoadmin],
+            "count": 5,
             "has_more": False,
         }
 
@@ -208,39 +230,43 @@ def test_search_username(app, client, shared_users, db_userprofile, db):
             "has_more": False,
         }
 
-        # repoadmin/sysadmin/comadmin (Contributor + an excluded role) and
-        # generaluser/user (Contributor not held) are all excluded
+        # sysadmin (Contributor + System Administrator, an excluded role) and
+        # generaluser/user (no allowed role held) are excluded
         results = search_username("")["results"]
         for excluded_email in (
-            shared_users[1]["email"], shared_users[2]["email"],
-            shared_users[3]["email"], shared_users[4]["email"],
+            shared_users[2]["email"], shared_users[4]["email"],
             shared_users[7]["email"],
         ):
             assert db_userprofile[excluded_email].get_username not in results
-        for included in (u_contributor, u_originalroleuser, u_originalroleuser2):
+        # repoadmin/comadmin hold only an administrator role (no Contributor)
+        # and are still candidates
+        for included in (
+            u_comadmin, u_repoadmin, u_contributor,
+            u_originalroleuser, u_originalroleuser2,
+        ):
             assert included in results
 
         # limit truncates results but count/has_more reflect the full match set
         assert search_username("", limit=1) == {
             "query": "",
-            "results": [u_contributor],
-            "count": 3,
+            "results": [u_comadmin],
+            "count": 5,
             "has_more": True,
         }
 
         # a negative limit disables the limit entirely
         assert search_username("", limit=-1) == {
             "query": "",
-            "results": [u_contributor, u_originalroleuser2, u_originalroleuser],
-            "count": 3,
+            "results": [u_comadmin, u_contributor, u_originalroleuser2, u_originalroleuser, u_repoadmin],
+            "count": 5,
             "has_more": False,
         }
 
         # has_more is False at the boundary where count equals limit
-        assert search_username("", limit=3) == {
+        assert search_username("", limit=5) == {
             "query": "",
-            "results": [u_contributor, u_originalroleuser2, u_originalroleuser],
-            "count": 3,
+            "results": [u_comadmin, u_contributor, u_originalroleuser2, u_originalroleuser, u_repoadmin],
+            "count": 5,
             "has_more": False,
         }
 
@@ -299,106 +325,12 @@ def test_search_username_config_limit(app, client, shared_users, db_userprofile)
     with app.test_request_context():
         app.config["WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT"] = 2
         result = search_username("")
-        assert result["count"] == 3
+        assert result["count"] == 5
         assert result["has_more"] is True
         assert result["results"] == [
+            db_userprofile[shared_users[3]["email"]].get_username,
             db_userprofile[shared_users[0]["email"]].get_username,
-            db_userprofile[shared_users[6]["email"]].get_username,
         ]
-
-# def search_email(prefix, limit=None):
-# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_search_email -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
-def test_search_email(app, client, shared_users, db_userprofile, db):
-    ds = app.extensions["invenio-accounts"].datastore
-    contributor_role = Role.query.filter_by(name="Contributor").first()
-
-    with app.test_request_context():
-        e_contributor = shared_users[0]["email"]
-        e_originalroleuser = shared_users[5]["email"]
-        e_originalroleuser2 = shared_users[6]["email"]
-        # the local part of e_originalroleuser is itself a prefix of the
-        # local part of e_originalroleuser2, so it is used as the matching
-        # prefix here (independent of the fixture's actual email strings)
-        prefix_orig = db_userprofile[e_originalroleuser].get_username
-
-        assert search_email("") == {
-            "query": "",
-            "results": [e_contributor, e_originalroleuser2, e_originalroleuser],
-            "count": 3,
-            "has_more": False,
-        }
-
-        assert search_email(prefix_orig) == {
-            "query": prefix_orig,
-            "results": [e_originalroleuser2, e_originalroleuser],
-            "count": 2,
-            "has_more": False,
-        }
-
-        assert search_email("nosuchuser") == {
-            "query": "nosuchuser",
-            "results": [],
-            "count": 0,
-            "has_more": False,
-        }
-
-        results = search_email("")["results"]
-        for excluded_email in (
-            shared_users[1]["email"], shared_users[2]["email"],
-            shared_users[3]["email"], shared_users[4]["email"],
-            shared_users[7]["email"],
-        ):
-            assert excluded_email not in results
-        for included in (e_contributor, e_originalroleuser, e_originalroleuser2):
-            assert included in results
-
-        assert search_email("", limit=1) == {
-            "query": "",
-            "results": [e_contributor],
-            "count": 3,
-            "has_more": True,
-        }
-
-        assert search_email("", limit=-1) == {
-            "query": "",
-            "results": [e_contributor, e_originalroleuser2, e_originalroleuser],
-            "count": 3,
-            "has_more": False,
-        }
-
-        # has_more is False at the boundary where count equals limit
-        assert search_email("", limit=3) == {
-            "query": "",
-            "results": [e_contributor, e_originalroleuser2, e_originalroleuser],
-            "count": 3,
-            "has_more": False,
-        }
-
-        # % and _ are escaped, so a prefix containing them matches email
-        # addresses literally rather than as SQL wildcards
-        percent_user = create_test_user(email="50%off@test.org")
-        percent_lookalike = create_test_user(email="50xoff@test.org")
-        underscore_user = create_test_user(email="a_b@test.org")
-        underscore_lookalike = create_test_user(email="axb@test.org")
-        with db.session.begin_nested():
-            ds.add_role_to_user(percent_user, contributor_role)
-            ds.add_role_to_user(percent_lookalike, contributor_role)
-            ds.add_role_to_user(underscore_user, contributor_role)
-            ds.add_role_to_user(underscore_lookalike, contributor_role)
-
-        assert search_email("50%") == {
-            "query": "50%",
-            "results": ["50%off@test.org"],
-            "count": 1,
-            "has_more": False,
-        }
-        assert search_email("a_") == {
-            "query": "a_",
-            "results": ["a_b@test.org"],
-            "count": 1,
-            "has_more": False,
-        }
-
 
 # def get_shared_user_info_by_username(username):
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_shared_user_info_by_username -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
@@ -411,11 +343,23 @@ def test_get_shared_user_info_by_username(app, shared_users, db_userprofile):
             "email": shared_users[0]["email"],
         }
 
-        # comadmin (Contributor + Community Administrator) does not satisfy
-        # the shared-user role condition (excluded role held)
-        assert get_shared_user_info_by_username(
-            db_userprofile[shared_users[3]["email"]].get_username
-        ) is None
+        # comadmin (Community Administrator only, no Contributor) satisfies
+        # the shared-user role condition (allowed role held)
+        comadmin_username = db_userprofile[shared_users[3]["email"]].get_username
+        assert get_shared_user_info_by_username(comadmin_username) == {
+            "username": comadmin_username,
+            "user_id": shared_users[3]["id"],
+            "email": shared_users[3]["email"],
+        }
+
+        # repoadmin (Repository Administrator only, no Contributor) satisfies
+        # the shared-user role condition (allowed role held)
+        repoadmin_username0 = db_userprofile[shared_users[1]["email"]].get_username
+        assert get_shared_user_info_by_username(repoadmin_username0) == {
+            "username": repoadmin_username0,
+            "user_id": shared_users[1]["id"],
+            "email": shared_users[1]["email"],
+        }
 
         # sysadmin (Contributor + System Administrator) does not satisfy
         # the shared-user role condition (excluded role held)
@@ -424,7 +368,7 @@ def test_get_shared_user_info_by_username(app, shared_users, db_userprofile):
         ) is None
 
         # generaluser (General only) does not satisfy the shared-user role
-        # condition (allowed role Contributor not held)
+        # condition (no allowed role held)
         assert get_shared_user_info_by_username(
             db_userprofile[shared_users[4]["email"]].get_username
         ) is None
@@ -437,7 +381,7 @@ def test_get_shared_user_info_by_username(app, shared_users, db_userprofile):
             assert get_shared_user_info_by_username(repoadmin_username) is None
 
     # self-exclusion: the currently logged-in user (contributor) is excluded
-    # from candidates even though the role condition (Contributor held,
+    # from candidates even though the role condition (allowed role held,
     # no excluded role held) is satisfied
     with app.test_request_context():
         login_user(shared_users[0]["obj"])
@@ -453,16 +397,28 @@ def test_get_shared_user_info_by_email(app, db, shared_users, db_userprofile):
             "email": shared_users[0]["email"],
         }
 
-        # comadmin (Contributor + Community Administrator) does not satisfy
-        # the shared-user role condition (excluded role held)
-        assert get_shared_user_info_by_email(shared_users[3]["email"]) is None
+        # comadmin (Community Administrator only, no Contributor) satisfies
+        # the shared-user role condition (allowed role held)
+        assert get_shared_user_info_by_email(shared_users[3]["email"]) == {
+            "username": db_userprofile[shared_users[3]["email"]].get_username,
+            "user_id": shared_users[3]["id"],
+            "email": shared_users[3]["email"],
+        }
+
+        # repoadmin (Repository Administrator only, no Contributor) satisfies
+        # the shared-user role condition (allowed role held)
+        assert get_shared_user_info_by_email(shared_users[1]["email"]) == {
+            "username": db_userprofile[shared_users[1]["email"]].get_username,
+            "user_id": shared_users[1]["id"],
+            "email": shared_users[1]["email"],
+        }
 
         # sysadmin (Contributor + System Administrator) does not satisfy
         # the shared-user role condition (excluded role held)
         assert get_shared_user_info_by_email(shared_users[2]["email"]) is None
 
         # generaluser (General only) does not satisfy the shared-user role
-        # condition (allowed role Contributor not held)
+        # condition (no allowed role held)
         assert get_shared_user_info_by_email(shared_users[4]["email"]) is None
 
         # no user matches this email
@@ -510,13 +466,35 @@ def test_validate_shared_user(app, shared_users, db_userprofile):
             username0, shared_users[1]["email"]
         ) == {'results': '', 'validation': False, 'error': ''}
 
-        # comadmin (Contributor + Community Administrator) does not satisfy
-        # the shared-user role condition (excluded role held), even though
-        # the username/email pair itself matches
+        # comadmin (Community Administrator only, no Contributor) satisfies
+        # the shared-user role condition (allowed role held)
         username3 = db_userprofile[shared_users[3]["email"]].get_username
         assert validate_shared_user(
             username3, shared_users[3]["email"]
-        ) == {'results': '', 'validation': False, 'error': ''}
+        ) == {
+            "results": {
+                "username": username3,
+                "user_id": shared_users[3]["id"],
+                "email": shared_users[3]["email"],
+            },
+            "validation": True,
+            "error": "",
+        }
+
+        # repoadmin (Repository Administrator only, no Contributor) satisfies
+        # the shared-user role condition (allowed role held)
+        username1 = db_userprofile[shared_users[1]["email"]].get_username
+        assert validate_shared_user(
+            username1, shared_users[1]["email"]
+        ) == {
+            "results": {
+                "username": username1,
+                "user_id": shared_users[1]["id"],
+                "email": shared_users[1]["email"],
+            },
+            "validation": True,
+            "error": "",
+        }
 
         # sysadmin (Contributor + System Administrator) does not satisfy
         # the shared-user role condition (excluded role held)
@@ -526,7 +504,7 @@ def test_validate_shared_user(app, shared_users, db_userprofile):
         ) == {'results': '', 'validation': False, 'error': ''}
 
         # generaluser (General only) does not satisfy the shared-user role
-        # condition (allowed role Contributor not held)
+        # condition (no allowed role held)
         username4 = db_userprofile[shared_users[4]["email"]].get_username
         assert validate_shared_user(
             username4, shared_users[4]["email"]
@@ -557,9 +535,9 @@ def test_validate_shared_user_nodb(app):
 def test_is_shared_user_role_allowed(app, shared_users):
     with app.test_request_context():
         assert is_shared_user_role_allowed(shared_users[0]["id"]) is True  # contributor
-        assert is_shared_user_role_allowed(shared_users[1]["id"]) is False  # repoadmin
+        assert is_shared_user_role_allowed(shared_users[1]["id"]) is True  # repoadmin (no Contributor)
         assert is_shared_user_role_allowed(shared_users[2]["id"]) is False  # sysadmin
-        assert is_shared_user_role_allowed(shared_users[3]["id"]) is False  # comadmin
+        assert is_shared_user_role_allowed(shared_users[3]["id"]) is True  # comadmin (no Contributor)
         assert is_shared_user_role_allowed(shared_users[4]["id"]) is False  # generaluser
         assert is_shared_user_role_allowed(shared_users[5]["id"]) is True  # originalroleuser
         assert is_shared_user_role_allowed(shared_users[6]["id"]) is True  # originalroleuser2
@@ -569,9 +547,12 @@ def test_is_shared_user_role_allowed(app, shared_users):
         assert is_shared_user_role_allowed(-1) is False
 
         # an empty excluded-role list excludes no one, but the population is
-        # still restricted to the allowed role (Contributor) holders
+        # still restricted to the allowed role holders (generaluser/user stay
+        # out)
         app.config["WEKO_ITEMS_UI_SHARED_USER_EXCLUDED_ROLE_NAME_LIST"] = []
         assert is_shared_user_role_allowed(shared_users[2]["id"]) is True
+        assert is_shared_user_role_allowed(shared_users[4]["id"]) is False
+        assert is_shared_user_role_allowed(shared_users[7]["id"]) is False
 
     # self-exclusion: the currently logged-in user (contributor) satisfies
     # the role condition but is nonetheless excluded
@@ -580,9 +561,11 @@ def test_is_shared_user_role_allowed(app, shared_users):
         assert is_shared_user_role_allowed(shared_users[0]["id"]) is False
 
 
-# A user who holds any excluded role (System Administrator, Repository
-# Administrator or Community Administrator) together with the allowed role
-# (Contributor) is excluded (NOT IN across all three excluded roles).
+# Only the System Administrator role is excluded by default. A user who holds
+# the System Administrator role is excluded even when also holding an allowed
+# role (Contributor, Repository Administrator or Community Administrator).
+# A user holding only Repository/Community Administrator (with or without
+# Contributor) is allowed.
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_is_shared_user_role_allowed_multi_role -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
 def test_is_shared_user_role_allowed_multi_role(app, db, shared_users):
     ds = app.extensions["invenio-accounts"].datastore
@@ -592,20 +575,36 @@ def test_is_shared_user_role_allowed_multi_role(app, db, shared_users):
     contributor_role = Role.query.filter_by(name="Contributor").first()
 
     multirole_sysadmin = create_test_user(email="multirole_sysadmin@test.org")
+    multirole_sysadmin_repoadmin = create_test_user(
+        email="multirole_sysadmin_repoadmin@test.org")
+    multirole_sysadmin_comadmin = create_test_user(
+        email="multirole_sysadmin_comadmin@test.org")
     multirole_repoadmin = create_test_user(email="multirole_repoadmin@test.org")
     multirole_comadmin = create_test_user(email="multirole_comadmin@test.org")
+    multirole_adminboth = create_test_user(email="multirole_adminboth@test.org")
     with db.session.begin_nested():
         ds.add_role_to_user(multirole_sysadmin, sysadmin_role)
         ds.add_role_to_user(multirole_sysadmin, contributor_role)
+        ds.add_role_to_user(multirole_sysadmin_repoadmin, sysadmin_role)
+        ds.add_role_to_user(multirole_sysadmin_repoadmin, repoadmin_role)
+        ds.add_role_to_user(multirole_sysadmin_comadmin, sysadmin_role)
+        ds.add_role_to_user(multirole_sysadmin_comadmin, comadmin_role)
         ds.add_role_to_user(multirole_repoadmin, repoadmin_role)
         ds.add_role_to_user(multirole_repoadmin, contributor_role)
         ds.add_role_to_user(multirole_comadmin, comadmin_role)
         ds.add_role_to_user(multirole_comadmin, contributor_role)
+        ds.add_role_to_user(multirole_adminboth, repoadmin_role)
+        ds.add_role_to_user(multirole_adminboth, comadmin_role)
 
     with app.test_request_context():
+        # System Administrator is always excluded, whatever else is held
         assert is_shared_user_role_allowed(multirole_sysadmin.id) is False
-        assert is_shared_user_role_allowed(multirole_repoadmin.id) is False
-        assert is_shared_user_role_allowed(multirole_comadmin.id) is False
+        assert is_shared_user_role_allowed(multirole_sysadmin_repoadmin.id) is False
+        assert is_shared_user_role_allowed(multirole_sysadmin_comadmin.id) is False
+        # repository/community administrators are allowed
+        assert is_shared_user_role_allowed(multirole_repoadmin.id) is True
+        assert is_shared_user_role_allowed(multirole_comadmin.id) is True
+        assert is_shared_user_role_allowed(multirole_adminboth.id) is True
 
 # def get_user_info_by_email(email):
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_user_info_by_email -v --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
@@ -9033,13 +9032,13 @@ def test__export_item(app, db, users, db_records, db_itemtype):
             with patch("weko_deposit.api.WekoRecord.get_record_by_pid", return_value=None):
                 assert _export_item(1,'JSON',False,'./tests/data/',records_data) == ({}, {})
 
-            assert _export_item(1,'JSON',False,'./tests/data/',records_data) == ({'files': [],'item_type_id': '1','name': 'recid_1','path': 'recid_1','record_id': record.id, 'researchmap_linkage': ''}, {'1': {'weko_creator_id': '1', "weko_shared_ids": []}})
+            assert _export_item(1,'JSON',False,'./tests/data/',records_data) == ({'files': [],'item_type_id': '1','name': 'recid_1','path': 'recid_1','record_id': record.id, 'researchmap_linkage': ''}, {'1': {'weko_creator_id': '1', "weko_shared_ids": [], 'weko_shared_role_ids': None}})
 
             # records_data is None
             assert _export_item(1,'JSON',False,'./tests/data/') == ({'files': [],'item_type_id': '1','name': 'recid_1','path': 'recid_1','record_id': record.id, 'researchmap_linkage': '' }, {})
 
             # weko_shared_ids=あり contributor
-            assert _export_item(1,'JSON',False,'./tests/data/',records_data_2) == ({'files': [],'item_type_id': '1','name': 'recid_1','path': 'recid_1','record_id': record.id, 'researchmap_linkage': '' }, {'1': {'weko_creator_id': str(users[0]["id"]), "weko_shared_ids": [int(users[0]["id"])]}})
+            assert _export_item(1,'JSON',False,'./tests/data/',records_data_2) == ({'files': [],'item_type_id': '1','name': 'recid_1','path': 'recid_1','record_id': record.id, 'researchmap_linkage': '' }, {'1': {'weko_creator_id': str(users[0]["id"]), "weko_shared_ids": [int(users[0]["id"])], 'weko_shared_role_ids': None}})
 
             # exported_item['item_type_id'] = False
             rec = WekoRecord.get_record_by_pid(1)
@@ -9053,22 +9052,22 @@ def test__export_item(app, db, users, db_records, db_itemtype):
             # hide_meta_data_for_role(record_role_ids) == True
             with patch("weko_items_ui.utils.get_ignore_item_from_mapping", return_value=['_comment','item_1617186476635', ['item_1617186499011','item_1617186609386']]):
                 with patch("weko_items_ui.utils.hide_meta_data_for_role", return_value=True):
-                    assert _export_item(1,'JSON',False,'./tests/data/',records_data) == ({'files': [],'item_type_id': '1','name': 'recid_1','path': 'recid_1','record_id': record.id, 'researchmap_linkage': '' }, {'1': {'weko_creator_id': '1', "weko_shared_ids": []}})
+                    assert _export_item(1,'JSON',False,'./tests/data/',records_data) == ({'files': [],'item_type_id': '1','name': 'recid_1','path': 'recid_1','record_id': record.id, 'researchmap_linkage': '' }, {'1': {'weko_creator_id': '1', "weko_shared_ids": [], 'weko_shared_role_ids': None}})
 
             list_hidden = ['_comment_2', ['dummy', 'item_1617186499011','item_1617186609386']]
             with patch("weko_items_ui.utils.get_ignore_item_from_mapping", return_value=list_hidden):
                 with patch("weko_items_ui.utils.hide_meta_data_for_role", return_value=True):
-                    assert _export_item(1,'JSON',False,'./tests/data/',records_data) == ({'files': [],'item_type_id': '1','name': 'recid_1','path': 'recid_1','record_id': record.id, 'researchmap_linkage': '' }, {'1': {'weko_creator_id': '1', "weko_shared_ids": []}})
+                    assert _export_item(1,'JSON',False,'./tests/data/',records_data) == ({'files': [],'item_type_id': '1','name': 'recid_1','path': 'recid_1','record_id': record.id, 'researchmap_linkage': '' }, {'1': {'weko_creator_id': '1', "weko_shared_ids": [], 'weko_shared_role_ids': None}})
 
             list_hidden = ['feedback_mail_list', ['description', 'type']]
             with patch("weko_items_ui.utils.get_ignore_item_from_mapping", return_value=list_hidden):
                 with patch("weko_items_ui.utils.hide_meta_data_for_role", return_value=True):
-                    assert _export_item(1,'JSON',False,'./tests/data/',records_data) == ({'files': [],'item_type_id': '1','name': 'recid_1','path': 'recid_1','record_id': record.id, 'researchmap_linkage': '' }, {'1': {'weko_creator_id': '1', "weko_shared_ids": []}})
+                    assert _export_item(1,'JSON',False,'./tests/data/',records_data) == ({'files': [],'item_type_id': '1','name': 'recid_1','path': 'recid_1','record_id': record.id, 'researchmap_linkage': '' }, {'1': {'weko_creator_id': '1', "weko_shared_ids": [], 'weko_shared_role_ids': None}})
 
             list_hidden = [['description', 'descriptionType'], ['degreeGrantor', 'nameIdentifier']]
             with patch("weko_items_ui.utils.get_ignore_item_from_mapping", return_value=list_hidden):
                 with patch("weko_items_ui.utils.hide_meta_data_for_role", return_value=True):
-                    assert _export_item(1,'JSON',False,'./tests/data/',records_data) == ({'files': [],'item_type_id': '1','name': 'recid_1','path': 'recid_1','record_id': record.id, 'researchmap_linkage': '' }, {'1': {'weko_creator_id': '1', "weko_shared_ids": []}})
+                    assert _export_item(1,'JSON',False,'./tests/data/',records_data) == ({'files': [],'item_type_id': '1','name': 'recid_1','path': 'recid_1','record_id': record.id, 'researchmap_linkage': '' }, {'1': {'weko_creator_id': '1', "weko_shared_ids": [], 'weko_shared_role_ids': None}})
 
             from invenio_files_rest.models import Bucket, ObjectVersion
             from invenio_records_files.models import RecordsBuckets
@@ -9095,7 +9094,7 @@ def test__export_item(app, db, users, db_records, db_itemtype):
                                                                                     'path': 'recid_1',
                                                                                     'record_id': record.id,
                                                                                     'researchmap_linkage': '' }
-            assert _export_item(1,'JSON',True,'./tests/data/',records_data)[1] == {'1': {'weko_creator_id': '1', "weko_shared_ids": []}}
+            assert _export_item(1,'JSON',True,'./tests/data/',records_data)[1] == {'1': {'weko_creator_id': '1', "weko_shared_ids": [], 'weko_shared_role_ids': None}}
 
 
 # issue62783: 非公開/他人所有アイテムのexportスキップ(所有権・公開状態チェック)
@@ -9525,7 +9524,10 @@ def test_get_data_authors_affiliation_settings(app,db_author):
         (4, False),
         (5, True),
         (6, False),
-        (7, True),
+        # users[7] is the registrant (owner / _deposit.created_by = 1)
+        # of db_records[0]. is_item_editable_by() judges owner and proxy posters
+        # together, so the metadata is no longer hidden for the registrant.
+        (7, False),
     ],
 )
 def test_hide_meta_data_for_role(users,db_records,id,result):
@@ -13271,3 +13273,1416 @@ def test_set_scheme_by_author_table(app, mocker):
     }
     res = set_scheme_by_author_table("schema", meta_list, schema_data)
     assert res == schema_data
+
+
+
+MAP_ENTITY_ID = "https://idp.example.org/idp/shibboleth"
+MAP_GROUP_PREFIX = "jc_idp_example_org_gr_"
+RID_DEL = "999999"  # 存在しないロールID（削除済みロール）
+
+
+def _config_map(app, configured=True):
+    """学認 mAP 設定（未設定の場合は WEKO_ACCOUNTS_IDP_ENTITY_ID を空にする）."""
+    app.config["WEKO_ACCOUNTS_IDP_ENTITY_ID"] = MAP_ENTITY_ID if configured else ""
+
+
+def _set_proxy_posting(app, enabled):
+    """複数化フラグ WEKO_ITEMS_UI_PROXY_POSTING を設定する."""
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = enabled
+
+
+def _create_role(app, db, name):
+    ds = app.extensions["invenio-accounts"].datastore
+    role = ds.create_role(name=name)
+    db.session.commit()
+    return role
+
+
+def _create_user(app, db, email, roles=()):
+    ds = app.extensions["invenio-accounts"].datastore
+    user = create_test_user(email=email)
+    for role in roles:
+        ds.add_role_to_user(user, role)
+    db.session.commit()
+    return user
+
+
+def _rid(role):
+    """ロールIDは常に str(role.id) の文字列で扱う."""
+    return str(role.id)
+
+
+def _warning_messages(caplog):
+    return [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+
+
+# def get_shared_user_ids(source, apply_flag=True):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_shared_user_ids_shapes -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_shared_user_ids_shapes(app):
+    """3 形状の採用優先順位と正規化."""
+    _set_proxy_posting(app, True)
+    cases = [
+        ({"shared_user_ids": [{"user": 3}, {"user": 5}]}, [3, 5]),
+        ({"weko_shared_ids": [3, 5]}, [3, 5]),
+        # shared_user_ids が空でなければ優先して採用する
+        ({"shared_user_ids": [{"user": 7}], "weko_shared_ids": [3, 5]}, [7]),
+        ({"shared_user_ids": [], "weko_shared_ids": [3, 5]}, [3, 5]),
+        # 旧形式
+        ({"weko_shared_id": 5}, [5]),
+        ({"weko_shared_id": -1}, []),
+        ({"weko_shared_id": 0}, []),
+        ({"weko_shared_id": "7"}, [7]),
+        ({"weko_shared_id": "abc"}, []),
+        # 旧形式は shared_user_ids・weko_shared_ids のどちらも無い場合のみ採用する
+        ({"weko_shared_ids": [3, 5], "weko_shared_id": 9}, [3, 5]),
+    ]
+    for source, expected in cases:
+        assert get_shared_user_ids(source) == expected, source
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_shared_user_ids_invalid_source -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_shared_user_ids_invalid_source(app, caplog):
+    """source が不正な場合は空リストを返し、WARNING を出力しない."""
+    _set_proxy_posting(app, True)
+    caplog.set_level(logging.WARNING)
+    sources = [
+        None,
+        [3, 5],
+        "3",
+        {},
+        {"shared_user_ids": None, "weko_shared_ids": None},
+    ]
+    for source in sources:
+        assert get_shared_user_ids(source) == [], source
+    assert _warning_messages(caplog) == []
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_shared_user_ids_invalid_element -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_shared_user_ids_invalid_element(app, caplog):
+    """変換できない要素を無視し WARNING を出力する."""
+    _set_proxy_posting(app, True)
+    caplog.set_level(logging.WARNING)
+    source = {"shared_user_ids": [{"user": 3}, {"foo": 1}, "x", {"user": "abc"}, "5"]}
+    assert get_shared_user_ids(source) == [3, 5]
+    assert _warning_messages(caplog) == [
+        "Unexpected shared user id element is ignored: {'foo': 1}",
+        "Unexpected shared user id element is ignored: x",
+        "Unexpected shared user id element is ignored: {'user': 'abc'}",
+    ]
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_shared_user_ids_proxy_posting_flag -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_shared_user_ids_proxy_posting_flag(app):
+    """複数化フラグ・apply_flag による末尾 1 件への絞り込みと重複除去の順序."""
+    # 1. フラグ有効: 保存順を維持して重複を除去する
+    _set_proxy_posting(app, True)
+    assert get_shared_user_ids({"weko_shared_ids": [3, 5, 3]}) == [3, 5]
+
+    # 2. フラグ無効: 末尾 1 要素のみ
+    _set_proxy_posting(app, False)
+    assert get_shared_user_ids({"weko_shared_ids": [3, 5]}) == [5]
+
+    # 3. フラグ無効: 正規化後・重複除去前の末尾 1 件
+    assert get_shared_user_ids({"weko_shared_ids": [5, 3, 5, 3]}) == [3]
+
+    # 4. apply_flag=False では保存済みの全件を返す
+    assert get_shared_user_ids({"weko_shared_ids": [3, 5]}, apply_flag=False) == [3, 5]
+
+    # 5. 空配列
+    assert get_shared_user_ids({"weko_shared_ids": []}) == []
+
+    # 6. 設定キー未定義はフラグ無効として扱い、KeyError を送出しない
+    app.config.pop("WEKO_ITEMS_UI_PROXY_POSTING", None)
+    assert get_shared_user_ids({"weko_shared_ids": [3, 5]}) == [5]
+
+    # 7. 保存順が ID の昇順でない場合は、最大 ID ではなく物理的な末尾の要素を残す
+    _set_proxy_posting(app, False)
+    assert get_shared_user_ids({"weko_shared_ids": [5, 3]}) == [3]
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_shared_user_ids_non_list_value -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_shared_user_ids_non_list_value(app, caplog):
+    """採用した値が配列以外の場合のガード."""
+    _set_proxy_posting(app, True)
+    caplog.set_level(logging.WARNING)
+
+    def _call(source):
+        caplog.clear()
+        result = get_shared_user_ids(source)
+        return result, _warning_messages(caplog)
+
+    # 1〜6. 配列以外（int・文字列・dict）は WARNING を 1 件出力して空リスト
+    non_list_cases = [
+        ({"shared_user_ids": 12}, "12"),
+        ({"shared_user_ids": "12"}, "12"),  # 1 文字ずつ展開して [1, 2] にならない
+        ({"shared_user_ids": {"user": 3}}, "{'user': 3}"),
+        ({"weko_shared_ids": 12}, "12"),
+        ({"weko_shared_ids": "12"}, "12"),
+        ({"weko_shared_ids": {"user": 3}}, "{'user': 3}"),
+    ]
+    for source, shown in non_list_cases:
+        result, warnings = _call(source)
+        assert result == [], source
+        assert warnings == [
+            "Unexpected shared user ids format is ignored: {}".format(shown)
+        ], source
+
+    # 7. 採用した shared_user_ids が配列以外なら、次の候補へフォールバックしない
+    result, warnings = _call({"shared_user_ids": 12, "weko_shared_ids": [3, 5]})
+    assert result == []
+    assert warnings == ["Unexpected shared user ids format is ignored: 12"]
+
+    # 8. dict の場合も weko_shared_ids・旧形式にフォールバックしない
+    result, warnings = _call({
+        "shared_user_ids": {"user": 3},
+        "weko_shared_ids": [3, 5],
+        "weko_shared_id": 9,
+    })
+    assert result == []
+    assert warnings == ["Unexpected shared user ids format is ignored: {'user': 3}"]
+
+    # 9. list・tuple はガードを通る
+    for source in [
+        {"shared_user_ids": ({"user": 3}, {"user": 5})},
+        {"weko_shared_ids": (3, 5)},
+    ]:
+        result, warnings = _call(source)
+        assert result == [3, 5], source
+        assert warnings == [], source
+
+    # 10. 空値は採用されず次の候補へ進む（ガードに到達しない）
+    for first in [0, "", {}, None]:
+        result, warnings = _call({"shared_user_ids": first, "weko_shared_ids": [3, 5]})
+        assert result == [3, 5], first
+        assert warnings == [], first
+
+    # 11. 複数化フラグ無効でもガードで空リストを返す
+    _set_proxy_posting(app, False)
+    result, warnings = _call({"shared_user_ids": 12})
+    assert result == []
+    assert warnings == ["Unexpected shared user ids format is ignored: 12"]
+
+
+# def is_proxy_poster(source, user=None):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_is_proxy_poster_individual -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_is_proxy_poster_individual(app, db):
+    """個人の代理投稿者判定."""
+    u_p1 = _create_user(app, db, "pp1@test.org")
+    u_p2 = _create_user(app, db, "pp2@test.org")
+    u_n = _create_user(app, db, "ppn@test.org")
+    id_p1, id_p2 = u_p1.id, u_p2.id
+    source = {"weko_shared_ids": [id_p1, id_p2]}
+
+    _set_proxy_posting(app, True)
+    with app.test_request_context():
+        # 1. ユーザー指定の型（User・int・str）
+        assert is_proxy_poster(source, u_p1) is True
+        assert is_proxy_poster(source, id_p1) is True
+        assert is_proxy_poster(source, str(id_p1)) is True
+        # 2. 代理投稿者ではないユーザー
+        assert is_proxy_poster(source, u_n) is False
+        # 5. int に変換できない値
+        assert is_proxy_poster(source, "abc") is False
+        # 6. source=None
+        assert is_proxy_poster(None, u_p1) is False
+
+        # 3. U_P1 でログインした状態で user を省略する（current_user を用いる）
+        with patch("flask_login.utils._get_user", return_value=u_p1):
+            assert is_proxy_poster(source) is True
+        # 4. 未ログインのリクエストコンテキストで user を省略する
+        with patch("flask_login.utils._get_user", return_value=None):
+            assert is_proxy_poster(source) is False
+
+    # 7. 複数化フラグ無効: 末尾 1 名のみ
+    _set_proxy_posting(app, False)
+    with app.test_request_context():
+        assert is_proxy_poster(source, u_p1) is False
+        assert is_proxy_poster(source, u_p2) is True
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_is_proxy_poster_group -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_is_proxy_poster_group(app, db):
+    """代理投稿グループ判定."""
+    _config_map(app)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    r_b = _create_role(app, db, MAP_GROUP_PREFIX + "Beta")
+    r_x = _create_role(app, db, MAP_GROUP_PREFIX + "Gamma")
+    u_g = _create_user(app, db, "pg_g@test.org", [r_a])
+    u_n = _create_user(app, db, "pg_n@test.org")
+    u_gx = _create_user(app, db, "pg_gx@test.org", [r_x])
+    u_gb = _create_user(app, db, "pg_gb@test.org", [r_b])
+    rid_a, rid_x = _rid(r_a), _rid(r_x)
+
+    _set_proxy_posting(app, True)
+    with app.test_request_context():
+        # 1. 所属
+        assert is_proxy_poster({"weko_shared_role_ids": [rid_a]}, u_g) is True
+        # 2. 別グループの所属者
+        assert is_proxy_poster({"weko_shared_role_ids": [rid_a]}, u_gb) is False
+        # 3. ロールなし（例外にしない）
+        assert is_proxy_poster({"weko_shared_role_ids": [rid_a]}, u_n) is False
+        # 4. 削除済みロール（誰にもマッチしないロールとして無視する）
+        assert is_proxy_poster({"weko_shared_role_ids": [RID_DEL]}, u_g) is False
+        # 6. アクティビティ由来の辞書
+        assert is_proxy_poster({"shared_role_ids": [rid_a]}, u_g) is True
+
+    # 5. 保存後にロール名を変更して指定不可となったロール（本関数ではプレフィックスを判定しない）
+    r_x.name = "Former Gamma"
+    db.session.commit()
+    with app.test_request_context():
+        assert is_proxy_poster({"weko_shared_role_ids": [rid_x]}, u_gx) is True
+
+    # 7. 複数化フラグ無効
+    _set_proxy_posting(app, False)
+    with app.test_request_context():
+        assert is_proxy_poster({"weko_shared_role_ids": [rid_a]}, u_g) is False
+
+    # 8. 個人判定を先に行う（get_user_role_ids が呼ばれない）
+    _set_proxy_posting(app, True)
+    source = {"weko_shared_ids": [u_g.id], "weko_shared_role_ids": [rid_a]}
+    with app.test_request_context():
+        with patch("weko_items_ui.utils.get_user_role_ids",
+                   wraps=get_user_role_ids) as mock_role_ids:
+            assert is_proxy_poster(source, u_g) is True
+            mock_role_ids.assert_not_called()
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_is_proxy_poster_role_removed -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_is_proxy_poster_role_removed(app, db):
+    """ロールからメンバーを外した直後の判定で権限が残留しない."""
+    _config_map(app)
+    _set_proxy_posting(app, True)
+    ds = app.extensions["invenio-accounts"].datastore
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    u_g = _create_user(app, db, "prm_g@test.org", [r_a])
+    uid = u_g.id
+    source = {"weko_shared_role_ids": [_rid(r_a)]}
+
+    # 1. 1 つ目のリクエストコンテキスト（flask.g はコンテキストごとに分離する）
+    with app.app_context():
+        with app.test_request_context():
+            assert is_proxy_poster(source, User.query.get(uid)) is True
+
+    # 2. U_G を R_A から外す
+    ds.remove_role_from_user(u_g, r_a)
+    db.session.commit()
+
+    # 3. 新しいリクエストコンテキストで DB から取り直した U_G を判定する
+    with app.app_context():
+        with app.test_request_context():
+            assert is_proxy_poster(source, User.query.get(uid)) is False
+
+
+# def get_user_role_ids(user=None):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_user_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_user_role_ids(app, db):
+    """所属ロールIDを文字列リストで返す."""
+    _config_map(app)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    r_b = _create_role(app, db, MAP_GROUP_PREFIX + "Beta")
+    u_g = _create_user(app, db, "gur_g@test.org", [r_a, r_b])
+    u_n = _create_user(app, db, "gur_n@test.org")
+    expected = sorted([_rid(r_a), _rid(r_b)])
+
+    with app.app_context():
+        with app.test_request_context():
+            # 1. 所属ロールID（各要素が str）
+            result = get_user_role_ids(u_g)
+            assert sorted(result) == expected
+            assert all(isinstance(rid, str) for rid in result)
+            # 2. ロールなし
+            assert get_user_role_ids(u_n) == []
+            # 3. roles が None のユーザー
+            mock_user = MagicMock(spec=User)
+            mock_user.id = 99999
+            mock_user.roles = None
+            assert get_user_role_ids(mock_user) == []
+            # 4. 未ログインで user を省略する
+            with patch("flask_login.utils._get_user", return_value=None):
+                assert get_user_role_ids() == []
+
+    # 5. U_G でログインした状態で user を省略する
+    with app.app_context():
+        with app.test_request_context():
+            with patch("flask_login.utils._get_user", return_value=u_g):
+                assert sorted(get_user_role_ids()) == expected
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_user_role_ids_cache -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_user_role_ids_cache(app):
+    """flask.g によるリクエスト単位のキャッシュ（キー: ユーザーID）."""
+    from flask import g
+
+    def _make_user(user_id, role_id):
+        user = MagicMock(spec=User)
+        user.id = user_id
+        prop = PropertyMock(return_value=[MagicMock(id=role_id)])
+        type(user).roles = prop
+        return user, prop
+
+    user_101, prop_101 = _make_user(101, 1)
+    user_102, prop_102 = _make_user(102, 2)
+
+    with app.app_context():
+        with app.test_request_context():
+            # 1. 同一コンテキスト内で 2 回呼んでも roles へのアクセスは 1 回のみ
+            assert get_user_role_ids(user_101) == ["1"]
+            assert get_user_role_ids(user_101) == ["1"]
+            assert prop_101.call_count == 1
+            assert 101 in g._weko_user_role_ids
+            # 2. 別ユーザーは別途 roles へアクセスし、キーが追加される
+            assert get_user_role_ids(user_102) == ["2"]
+            assert prop_102.call_count == 1
+            assert 102 in g._weko_user_role_ids
+
+    # 3. 新しいコンテキストでは roles へ再度アクセスする（キャッシュはリクエスト単位）
+    with app.app_context():
+        with app.test_request_context():
+            assert get_user_role_ids(user_101) == ["1"]
+            assert prop_101.call_count == 2
+
+
+# def is_item_editable_by(source, user=None):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_is_item_editable_by -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_is_item_editable_by(app, db):
+    """登録者・代理投稿者（個人・グループ）・無関係ユーザー・管理者の判定."""
+    _config_map(app)
+    _set_proxy_posting(app, True)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    r_super = _create_role(app, db, "System Administrator")
+    u_o = _create_user(app, db, "ie_o@test.org")
+    u_p1 = _create_user(app, db, "ie_p1@test.org")
+    u_p2 = _create_user(app, db, "ie_p2@test.org")
+    u_g = _create_user(app, db, "ie_g@test.org", [r_a])
+    u_n = _create_user(app, db, "ie_n@test.org")
+    u_s = _create_user(app, db, "ie_s@test.org", [r_super])
+    u_cb = _create_user(app, db, "ie_cb@test.org")  # _deposit.created_by のみ一致
+    u_wc = _create_user(app, db, "ie_wc@test.org")  # weko_creator_id のみ一致
+    id_o = u_o.id
+    shared = [u_p1.id, u_p2.id]
+
+    with app.test_request_context():
+        # 1. owner（int）
+        assert is_item_editable_by({"owner": id_o}, u_o) is True
+        # 2. owner（str）、user（int）は int 化して比較する
+        assert is_item_editable_by({"owner": str(id_o)}, id_o) is True
+        # 3. _deposit.created_by
+        assert is_item_editable_by({"_deposit": {"created_by": id_o}}, u_o) is True
+        # 4. weko_creator_id（ES ドキュメント形式）
+        assert is_item_editable_by({"weko_creator_id": str(id_o)}, str(id_o)) is True
+        # 5. 代理投稿者（個人）
+        assert is_item_editable_by(
+            {"owner": id_o, "weko_shared_ids": shared}, u_p1) is True
+        # 6. 代理投稿グループ
+        assert is_item_editable_by(
+            {"owner": id_o, "weko_shared_role_ids": [_rid(r_a)]}, u_g) is True
+        # 7. 無関係ユーザー
+        assert is_item_editable_by(
+            {"owner": id_o, "weko_shared_ids": [u_p1.id]}, u_n) is False
+        # 8. 管理者ロールを持つが登録者・代理投稿者ではない（管理者バイパスを含めない）
+        # （備考）is_owners_or_superusersは管理者ロールを OR で許可するため
+        # U_S が True となる。差は管理者バイパスの有無
+        assert is_item_editable_by({"owner": id_o}, u_s) is False
+        # 9. created_by が str: int 化して比較する
+        assert is_item_editable_by(
+            {"_deposit": {"created_by": str(u_cb.id)}}, u_cb) is True
+        # 10. owner と created_by が別人でも、created_by 側のユーザーも許可される
+        source = {"owner": id_o, "_deposit": {"created_by": u_cb.id},
+                  "weko_creator_id": str(id_o)}
+        assert is_item_editable_by(source, u_cb) is True
+        assert is_item_editable_by(source, u_o) is True
+        # 11. 3 キーがいずれも欠落（例外を送出しない）
+        assert is_item_editable_by({}, u_o) is False
+        # 12. _deposit が dict 以外: created_by の判定をスキップし、残りのキーで判定する
+        assert is_item_editable_by({"_deposit": None, "owner": id_o}, u_o) is True
+        assert is_item_editable_by({"_deposit": "x", "owner": id_o}, u_o) is True
+        assert is_item_editable_by(
+            {"_deposit": None, "weko_creator_id": str(u_wc.id)}, u_wc) is True
+        assert is_item_editable_by({"_deposit": None}, u_o) is False
+        # 13. weko_creator_id のみ一致
+        assert is_item_editable_by(
+            {"owner": id_o, "weko_creator_id": str(u_wc.id)}, u_wc) is True
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_is_item_editable_by_legacy_record -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_is_item_editable_by_legacy_record(app, db):
+    """旧形式レコード・owner が変換不能なレコード・未ログイン・source が None."""
+    _set_proxy_posting(app, True)
+    u_o = _create_user(app, db, "il_o@test.org")
+    u_p1 = _create_user(app, db, "il_p1@test.org")
+    legacy = {"owner": u_o.id, "weko_shared_id": u_p1.id}
+
+    with app.test_request_context():
+        # 1. 旧形式（weko_shared_ids キーなし）でも owner 判定が独立して成立する
+        assert is_item_editable_by(legacy, u_o) is True
+        # 2. 旧形式の代理投稿者
+        assert is_item_editable_by(legacy, u_p1) is True
+        # 3. owner が変換不能: owner 判定をスキップし、代理投稿者判定で成立する
+        assert is_item_editable_by(
+            {"owner": "abc", "weko_shared_ids": [u_p1.id]}, u_p1) is True
+        # 4. owner が None（例外を送出しない）
+        assert is_item_editable_by({"owner": None}, u_o) is False
+        # 5. 未ログインで user を省略する
+        with patch("flask_login.utils._get_user", return_value=None):
+            assert is_item_editable_by({"owner": u_o.id}) is False
+        # 6. source=None
+        assert is_item_editable_by(None, u_o) is False
+
+
+# def hide_meta_data_for_role(record):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_hide_meta_data_for_role_proxy -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_hide_meta_data_for_role_proxy(app, db):
+    """代理投稿者（個人・グループ）で非公開メタデータが表示対象となる."""
+    _config_map(app)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    r_super = _create_role(app, db, "System Administrator")
+    u_o = _create_user(app, db, "hm_o@test.org")
+    u_p1 = _create_user(app, db, "hm_p1@test.org")
+    u_p2 = _create_user(app, db, "hm_p2@test.org")
+    u_g = _create_user(app, db, "hm_g@test.org", [r_a])
+    u_n = _create_user(app, db, "hm_n@test.org")
+    u_s = _create_user(app, db, "hm_s@test.org", [r_super])
+    u_cb = _create_user(app, db, "hm_cb@test.org")
+    record = {
+        "weko_creator_id": str(u_o.id),
+        "weko_shared_ids": [u_p1.id, u_p2.id],
+        "weko_shared_role_ids": [_rid(r_a)],
+    }
+
+    def _hide(user, rec):
+        with app.test_request_context():
+            with patch("flask_login.utils._get_user", return_value=user):
+                return hide_meta_data_for_role(rec)
+
+    _set_proxy_posting(app, True)
+    # 1. 代理投稿者（個人）: 表示してよい（改修前はネストリスト比較により True だった）
+    assert _hide(u_p1, record) is False
+    # 2. 代理投稿グループのメンバー
+    assert _hide(u_g, record) is False
+    # 3. 登録者
+    assert _hide(u_o, record) is False
+    # 4. 無関係ユーザー
+    assert _hide(u_n, record) is True
+
+    # 5. 複数化フラグ無効: 個人側は物理的な末尾 1 名のみ
+    _set_proxy_posting(app, False)
+    assert _hide(u_p1, record) is True
+    assert _hide(u_p2, record) is False
+    # 6. 複数化フラグ無効: グループ判定は働かない
+    assert _hide(u_g, record) is True
+
+    # 7. record=None の場合は管理者判定の結果のみで決定する（既存挙動）
+    _set_proxy_posting(app, True)
+    assert _hide(u_n, None) is True
+    assert _hide(u_s, None) is False
+
+    # 8. weko_shared_ids キーの欠落で例外を送出しない
+    record_without_shared = {k: v for k, v in record.items() if k != "weko_shared_ids"}
+    assert _hide(u_o, record_without_shared) is False
+
+    # 9. owner と created_by が別人: created_by のみ一致の U_CB にも表示される
+    _set_proxy_posting(app, True)
+    record_all = dict(record, owner=str(u_o.id), _deposit={"created_by": u_cb.id})
+    assert _hide(u_cb, record_all) is False
+
+
+def _export_meta(owner_id, shared_ids, role_ids, with_role_key=True):
+    """_export_item に渡す records_data['metadata'] を作る（非公開項目 item_hidden を含む）."""
+    meta = {
+        "_item_metadata": {},
+        "weko_creator_id": owner_id,
+        "weko_shared_ids": shared_ids,
+        "item_hidden": {"attribute_value_mlt": ["secret"]},
+    }
+    if with_role_key:
+        meta["weko_shared_role_ids"] = role_ids
+    return meta
+
+
+def _run_export_item(app, user, meta):
+    """ログインユーザー user でレコード recid=1 をエクスポートする."""
+    records_data = {"metadata": copy.deepcopy(meta)}
+    with app.test_request_context(headers=[("Accept-Language", "en")]):
+        with patch("flask_login.utils._get_user", return_value=user), \
+                patch("weko_items_ui.utils.get_user_roles", return_value=(False, None)), \
+                patch("weko_items_ui.utils.check_created_id", return_value=False), \
+                patch("weko_items_ui.utils.check_publish_status", return_value=True), \
+                patch("weko_items_ui.utils.get_ignore_item_from_mapping",
+                      return_value=["item_hidden"]):
+            exported_item, list_item_role = _export_item(
+                1, "JSON", False, "./tests/data/", records_data)
+    return exported_item, list_item_role, records_data
+
+
+# def _export_item(record_id, export_format, include_contents, tmp_path=None, records_data=None):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_export_item_record_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_export_item_record_role_ids(app, db, users, db_records, db_itemtype):
+    """hide_meta_data_for_role へ渡す record_role_ids に weko_shared_role_ids が加わる."""
+    _config_map(app)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    u_o = _create_user(app, db, "er_o@test.org")
+    u_p1 = _create_user(app, db, "er_p1@test.org")
+    u_n = _create_user(app, db, "er_n@test.org")
+    rid_a = _rid(r_a)
+    m1 = _export_meta(u_o.id, [u_p1.id], [rid_a])
+    m2 = _export_meta(u_o.id, [u_p1.id], None, with_role_key=False)
+    m3 = _export_meta(u_o.id, [u_p1.id], None)
+    expected_m1 = {
+        "weko_creator_id": u_o.id,
+        "weko_shared_ids": [u_p1.id],
+        "weko_shared_role_ids": [rid_a],
+    }
+
+    def _export(meta, user=u_n):
+        with patch("weko_items_ui.utils.hide_meta_data_for_role",
+                   wraps=hide_meta_data_for_role) as spy:
+            _, list_item_role, _ = _run_export_item(app, user, meta)
+        return spy, list_item_role
+
+    # 1. 複数化フラグ有効: weko_shared_role_ids を含む 3 キー（値は正規化しない）
+    _set_proxy_posting(app, True)
+    spy, list_item_role = _export(m1)
+    assert spy.call_args[0][0] == expected_m1
+    assert list_item_role["1"] == expected_m1
+
+    # 2. weko_shared_role_ids キーの欠落: 例外とならず None が渡る
+    spy, list_item_role = _export(m2)
+    assert spy.call_args[0][0] == {
+        "weko_creator_id": u_o.id,
+        "weko_shared_ids": [u_p1.id],
+        "weko_shared_role_ids": None,
+    }
+
+    # 3. weko_shared_role_ids が None
+    spy, list_item_role = _export(m3)
+    assert spy.call_args[0][0]["weko_shared_role_ids"] is None
+
+    # 4. 複数化フラグ無効: 辞書の構築は複数化フラグを参照しない
+    _set_proxy_posting(app, False)
+    spy, list_item_role = _export(m1)
+    assert spy.call_args[0][0] == expected_m1
+
+    # 5. 同一アイテムタイプの 2 件を続けてエクスポート: 最後に処理した record_role_ids が残る
+    _set_proxy_posting(app, True)
+    m1_dash = _export_meta(u_n.id, [u_p1.id], [rid_a])
+    _, first_roles = _export(m1)
+    _, last_roles = _export(m1_dash)
+    assert first_roles["1"]["weko_creator_id"] == u_o.id
+    assert last_roles["1"] == {
+        "weko_creator_id": u_n.id,
+        "weko_shared_ids": [u_p1.id],
+        "weko_shared_role_ids": [rid_a],
+    }
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_export_item_shared_role_non_public_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_export_item_shared_role_non_public_metadata(app, db, users, db_records, db_itemtype):
+    """代理投稿グループのメンバーがエクスポートで非公開メタデータを閲覧できる."""
+    _config_map(app)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    u_o = _create_user(app, db, "en_o@test.org")
+    u_p1 = _create_user(app, db, "en_p1@test.org")
+    u_p2 = _create_user(app, db, "en_p2@test.org")
+    u_g = _create_user(app, db, "en_g@test.org", [r_a])
+    u_n = _create_user(app, db, "en_n@test.org")
+    meta = _export_meta(u_o.id, [u_p1.id, u_p2.id], [_rid(r_a)])
+
+    def _visible(user, meta_data=meta):
+        _, list_item_role, records_data = _run_export_item(app, user, meta_data)
+        return "item_hidden" in records_data["metadata"], list_item_role
+
+    _set_proxy_posting(app, True)
+    # 1. 代理投稿グループのメンバー: 非公開メタデータが削除されずに出力される
+    assert _visible(u_g)[0] is True
+    # 2. 代理投稿者（個人）
+    visible_p1, list_item_role_p1 = _visible(u_p1)
+    assert visible_p1 is True
+    # 3. 無関係ユーザー: 非公開メタデータが削除される
+    visible_n, list_item_role_n = _visible(u_n)
+    assert visible_n is False
+
+    # 4. 複数化フラグ無効: グループ判定が働かない
+    _set_proxy_posting(app, False)
+    assert _visible(u_g)[0] is False
+    # 5. 複数化フラグ無効: 個人側は物理的な末尾 1 名のみ
+    assert _visible(u_p1)[0] is False
+    assert _visible(u_p2)[0] is True
+
+    # 6. weko_shared_role_ids のキーを持たないアイテム: 例外が発生せず削除される
+    _set_proxy_posting(app, True)
+    meta_without_role = _export_meta(u_o.id, [u_p1.id, u_p2.id], None, with_role_key=False)
+    assert _visible(u_g, meta_without_role)[0] is False
+
+    # 7. list_item_role を make_stats_file に渡した場合の判定にも反映される
+    class _StopAfterHide(Exception):
+        pass
+
+    def _judge_in_make_stats_file(user, list_item_role):
+        results = []
+
+        def _spy(record):
+            results.append(hide_meta_data_for_role(record))
+            raise _StopAfterHide()
+
+        with app.test_request_context(headers=[("Accept-Language", "en")]):
+            with patch("flask_login.utils._get_user", return_value=user), \
+                    patch("weko_items_ui.utils.hide_meta_data_for_role",
+                          side_effect=_spy):
+                with pytest.raises(_StopAfterHide):
+                    make_stats_file("1", [1], list_item_role)
+        return results
+
+    assert _judge_in_make_stats_file(u_g, list_item_role_p1) == [False]
+    assert _judge_in_make_stats_file(u_n, list_item_role_p1) == [True]
+
+
+# def get_shared_role_ids(source, apply_flag=True):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_shared_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_shared_role_ids(app):
+    """採用優先順位、空文字の除外、重複除去、欠落・None の扱い."""
+    _set_proxy_posting(app, True)
+    cases = [
+        ({"weko_shared_role_ids": ["12", "35"]}, ["12", "35"]),
+        # shared_role_ids が空でなければ採用する
+        ({"shared_role_ids": ["7"], "weko_shared_role_ids": ["12"]}, ["7"]),
+        ({"shared_role_ids": [], "weko_shared_role_ids": ["12"]}, ["12"]),
+        # 保存順を保って重複を除去する
+        ({"weko_shared_role_ids": ["35", "12", "35"]}, ["35", "12"]),
+        # 空文字列を除外する
+        ({"weko_shared_role_ids": ["12", "", "35"]}, ["12", "35"]),
+        ({"shared_role_ids": None, "weko_shared_role_ids": None}, []),
+        ({}, []),
+        (None, []),
+    ]
+    for source, expected in cases:
+        assert get_shared_role_ids(source) == expected, source
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_shared_role_ids_proxy_posting_flag -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_shared_role_ids_proxy_posting_flag(app, caplog):
+    """複数化フラグ無効時は無条件で空リスト、apply_flag=False の扱い."""
+    caplog.set_level(logging.WARNING)
+    source = {"weko_shared_role_ids": ["12", "35"]}
+
+    # 1. 複数化フラグ無効: 無条件で空リスト（ログ出力なし）
+    _set_proxy_posting(app, False)
+    assert get_shared_role_ids(source) == []
+    assert _warning_messages(caplog) == []
+    # 2. 複数化フラグ無効、apply_flag=False
+    assert get_shared_role_ids(source, apply_flag=False) == ["12", "35"]
+    # 3. 複数化フラグ有効、apply_flag=False
+    _set_proxy_posting(app, True)
+    assert get_shared_role_ids(source, apply_flag=False) == ["12", "35"]
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_shared_role_ids_invalid_element -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_shared_role_ids_invalid_element(app, caplog):
+    """文字列以外の要素を除外し WARNING を出力する（int を救済しない）."""
+    _set_proxy_posting(app, True)
+    caplog.set_level(logging.WARNING)
+    source = {"weko_shared_role_ids": ["12", 35, None, {"role": "7"}]}
+    assert get_shared_role_ids(source) == ["12"]
+    assert _warning_messages(caplog) == [
+        "Unexpected shared role id element is ignored: 35",
+        "Unexpected shared role id element is ignored: None",
+        "Unexpected shared role id element is ignored: {'role': '7'}",
+    ]
+
+
+# def search_role_name(q, limit=None):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_search_role_name -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_search_role_name(app, db):
+    """プレフィックスを除いたグループ名への大文字小文字を区別しない前方一致."""
+    _config_map(app)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    r_a_lower = _create_role(app, db, MAP_GROUP_PREFIX + "alphabet")
+    r_b = _create_role(app, db, MAP_GROUP_PREFIX + "Beta")
+    _create_role(app, db, "Original Role")  # R_N: 指定不可
+    _create_role(app, db, "JC_IDP_EXAMPLE_ORG_GR_Alpha")  # R_U: 指定不可
+
+    expected_alp = [
+        {"role_id": _rid(r_a), "group_name": "Alpha"},
+        {"role_id": _rid(r_a_lower), "group_name": "alphabet"},
+    ]
+    with app.test_request_context():
+        # 1. 前方一致（R_U は大文字小文字の異なるプレフィックスのため含まれない）
+        result = search_role_name("alp")
+        assert result == {
+            "query": "alp", "count": 2, "has_more": False, "results": expected_alp}
+        assert all(isinstance(r["role_id"], str) for r in result["results"])
+        # 2. 大文字小文字を区別しない
+        assert search_role_name("ALP") == {
+            "query": "ALP", "count": 2, "has_more": False, "results": expected_alp}
+        # 3. グループ名全体
+        assert search_role_name("Alpha")["count"] == 2
+        # 4. 別グループ
+        assert search_role_name("Beta") == {
+            "query": "Beta", "count": 1, "has_more": False,
+            "results": [{"role_id": _rid(r_b), "group_name": "Beta"}],
+        }
+        # 5. 指定不可のロール名に前方一致する文字列
+        assert search_role_name("Original") == {
+            "query": "Original", "count": 0, "has_more": False, "results": []}
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_search_role_name_escape -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_search_role_name_escape(app, db):
+    """%・_・\\ がワイルドカード・エスケープ文字として働かない."""
+    _config_map(app)
+    r_percent = _create_role(app, db, MAP_GROUP_PREFIX + "50%off")
+    r_under = _create_role(app, db, MAP_GROUP_PREFIX + "a_b")
+    r_back = _create_role(app, db, MAP_GROUP_PREFIX + "back\\slash")
+    _create_role(app, db, MAP_GROUP_PREFIX + "50xoff")
+    _create_role(app, db, MAP_GROUP_PREFIX + "axb")
+
+    with app.test_request_context():
+        # 1. % はワイルドカードではない
+        result = search_role_name("50%")
+        assert result["count"] == 1
+        assert result["results"] == [{"role_id": _rid(r_percent), "group_name": "50%off"}]
+        # 2. _ はワイルドカードではない
+        result = search_role_name("a_")
+        assert result["count"] == 1
+        assert result["results"] == [{"role_id": _rid(r_under), "group_name": "a_b"}]
+        # 3. \ はエスケープ文字として働かない
+        result = search_role_name("back\\")
+        assert result["count"] == 1
+        assert result["results"] == [
+            {"role_id": _rid(r_back), "group_name": "back\\slash"}]
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_search_role_name_limit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_search_role_name_limit(app, db):
+    """limit・count・has_more と WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT の既定値利用."""
+    _config_map(app)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    _create_role(app, db, MAP_GROUP_PREFIX + "alphabet")
+    _create_role(app, db, MAP_GROUP_PREFIX + "Beta")
+    _create_role(app, db, "Original Role")
+    _create_role(app, db, "JC_IDP_EXAMPLE_ORG_GR_Alpha")
+
+    with app.test_request_context():
+        # 1. limit=1
+        assert search_role_name("alp", limit=1) == {
+            "query": "alp", "count": 2, "has_more": True,
+            "results": [{"role_id": _rid(r_a), "group_name": "Alpha"}],
+        }
+        # 2. limit=2（一致件数と同数: count > limit が偽となる境界値）
+        result = search_role_name("alp", limit=2)
+        assert result["count"] == 2
+        assert result["has_more"] is False
+        assert len(result["results"]) == 2
+        # 3. 設定値が limit の既定値として使われる
+        app.config["WEKO_ITEMS_UI_CONTRIBUTOR_SUGGEST_LIMIT"] = 1
+        result = search_role_name("alp")
+        assert result["count"] == 2
+        assert result["has_more"] is True
+        assert len(result["results"]) == 1
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_search_role_name_map_not_configured -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_search_role_name_map_not_configured(app, db):
+    """mAP 未設定・空文字・None・プレフィックス部分のみの検索文字列で 0 件."""
+    _config_map(app)
+    _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    _create_role(app, db, MAP_GROUP_PREFIX + "alphabet")
+    _create_role(app, db, MAP_GROUP_PREFIX + "Beta")
+    _create_role(app, db, "Original Role")
+    _create_role(app, db, "JC_IDP_EXAMPLE_ORG_GR_Alpha")
+
+    def _empty(query):
+        return {"query": query, "count": 0, "has_more": False, "results": []}
+
+    with app.test_request_context():
+        # 1. 空文字は 0 件（DB にアクセスしない）
+        with patch("weko_items_ui.utils.db.session.query",
+                   wraps=db.session.query) as mock_query:
+            assert search_role_name("") == _empty("")
+            mock_query.assert_not_called()
+        # 2. プレフィックス部分の文字列（q はプレフィックスを除いたグループ名に対して一致させる）
+        assert search_role_name("jc_")["count"] == 0
+        # 3. プレフィックスを含む文字列
+        assert search_role_name("jc_idp_example_org_gr_A")["count"] == 0
+        # 5. q が None でも例外を送出せず、DB にアクセスしない
+        with patch("weko_items_ui.utils.db.session.query",
+                   wraps=db.session.query) as mock_query:
+            assert search_role_name(None) == _empty("")
+            mock_query.assert_not_called()
+
+        # 4. mAP 未設定（get_map_group_prefix() が None）: 例外を送出せず DB にアクセスしない
+        _config_map(app, configured=False)
+        assert get_map_group_prefix() is None
+        with patch("weko_items_ui.utils.db.session.query",
+                   wraps=db.session.query) as mock_query:
+            assert search_role_name("alp") == _empty("alp")
+            mock_query.assert_not_called()
+
+
+# def is_shared_role_allowed(role_id):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_is_shared_role_allowed -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_is_shared_role_allowed(app, db, caplog):
+    """指定可否の判定と、存在するが mAP グループでない場合のみ WARNING を出力する."""
+    _config_map(app)
+    caplog.set_level(logging.WARNING)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    r_n = _create_role(app, db, "Original Role")
+    r_u = _create_role(app, db, "JC_IDP_EXAMPLE_ORG_GR_Alpha")
+
+    def _call(role_id):
+        caplog.clear()
+        with patch("weko_items_ui.utils.get_role_by_id", wraps=get_role_by_id) as mock_get:
+            result = is_shared_role_allowed(role_id)
+        # いずれの呼び出しでも get_role_by_id 経由でロールを取得する
+        mock_get.assert_called_once_with(role_id)
+        return result, _warning_messages(caplog)
+
+    with app.test_request_context():
+        # 1. 指定可能（WARNING なし）
+        assert _call(_rid(r_a)) == (True, [])
+        # 2. グループプレフィックスを持たない
+        assert _call(_rid(r_n)) == (False, [
+            "Rejected shared role id which is not a mAP group: {}".format(_rid(r_n))])
+        # 3. 大文字小文字の異なるプレフィックス（プレフィックス判定は大文字小文字を区別する）
+        assert _call(_rid(r_u)) == (False, [
+            "Rejected shared role id which is not a mAP group: {}".format(_rid(r_u))])
+        # 4. ロールが存在しない（WARNING なし）
+        assert _call(RID_DEL) == (False, [])
+        # 5. mAP 未設定
+        _config_map(app, configured=False)
+        assert _call(_rid(r_a)) == (False, [
+            "Rejected shared role id which is not a mAP group: {}".format(_rid(r_a))])
+
+
+# def strip_group_prefix(role_name):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_strip_group_prefix -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_strip_group_prefix(app):
+    """プレフィックス除去と、不一致・None・mAP 未設定の扱い."""
+    _config_map(app)
+    with app.test_request_context():
+        # 1. プレフィックス除去
+        assert strip_group_prefix("jc_idp_example_org_gr_Alpha") == "Alpha"
+        # 2. 不一致の場合は入力をそのまま返す
+        assert strip_group_prefix("Original Role") == "Original Role"
+        # 3. 大文字小文字の異なるプレフィックスは一致しない
+        assert strip_group_prefix("JC_IDP_EXAMPLE_ORG_GR_Alpha") == "JC_IDP_EXAMPLE_ORG_GR_Alpha"
+        # 4. プレフィックスのみ
+        assert strip_group_prefix("jc_idp_example_org_gr_") == ""
+        # 5. None
+        assert strip_group_prefix(None) == ""
+        # 6. get_map_group_prefix を参照する（プレフィックスの組み立てを独自実装しない）
+        with patch("weko_accounts.api.get_map_group_prefix",
+                   wraps=get_map_group_prefix) as mock_prefix:
+            assert strip_group_prefix("jc_idp_example_org_gr_Alpha") == "Alpha"
+            mock_prefix.assert_called()
+        # 7. mAP 未設定: プレフィックスが None の場合は入力をそのまま返し、例外を送出しない
+        _config_map(app, configured=False)
+        assert get_map_group_prefix() is None
+        assert strip_group_prefix("jc_idp_example_org_gr_Alpha") == "jc_idp_example_org_gr_Alpha"
+
+
+# def get_role_by_id(role_id):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_role_by_id -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_role_by_id(app, db):
+    """Role.id が Integer・String のどちらの環境でもロールを取得できる."""
+    _config_map(app)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+
+    with app.test_request_context():
+        # Role.id が Integer の環境（実環境）
+        if isinstance(Role.id.type, Integer):
+            # 1. 文字列のロールID
+            assert get_role_by_id(str(r_a.id)).id == r_a.id
+            # 2. int のロールID
+            assert get_role_by_id(r_a.id).id == r_a.id
+            # 3. int に変換できない値は None（例外を送出しない）
+            assert get_role_by_id("abc") is None
+            # 4. 存在しないロールID
+            assert get_role_by_id(RID_DEL) is None
+
+        # Integer の環境を再現: 変換できないIDは None、変換できればその int で取得する
+        fake_int_role = MagicMock()
+        fake_int_role.id.type = Integer()
+        fake_int_role.query.get.return_value = "ROLE"
+        with patch("weko_items_ui.utils.Role", fake_int_role):
+            assert get_role_by_id("abc") is None
+            fake_int_role.query.get.assert_not_called()
+            assert get_role_by_id("12") == "ROLE"
+            fake_int_role.query.get.assert_called_once_with(12)
+
+        # 5. String の環境を再現: int() に変換せず文字列のまま Role.query.get を呼ぶ
+        fake_str_role = MagicMock()
+        fake_str_role.id.type = String()
+        fake_str_role.query.get.return_value = "ROLE"
+        with patch("weko_items_ui.utils.Role", fake_str_role):
+            assert get_role_by_id("7f3a-uuid") == "ROLE"
+            fake_str_role.query.get.assert_called_once_with("7f3a-uuid")
+
+        # 6. is_shared_role_allowed が get_role_by_id 経由でロールを取得する
+        # （get_contributors 側の確認は weko-workflow 側のテストで行う）
+        with patch("weko_items_ui.utils.get_role_by_id", wraps=get_role_by_id) as mock_get:
+            assert is_shared_role_allowed(str(r_a.id)) is True
+            mock_get.assert_called_once_with(str(r_a.id))
+
+
+# def validate_shared_role_ids(shared_role_ids, existing_role_ids=None):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_validate_shared_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_validate_shared_role_ids(app, db, caplog):
+    """件数上限・指定可否・判定順・WARNING ログ・フラグ無効時も判定する."""
+    _config_map(app)
+    caplog.set_level(logging.WARNING)
+    groups = [_create_role(app, db, MAP_GROUP_PREFIX + "G{:02d}".format(i))
+              for i in range(1, 12)]
+    r_n = _create_role(app, db, "Original Role")
+    gids = [_rid(g) for g in groups]
+    msg_limit = "You can specify up to 10 proxy posting groups."
+    msg_not_allowed = "Specified group is not allowed as a proxy posting group."
+
+    def _validate(ids):
+        caplog.clear()
+        return validate_shared_role_ids(ids), _warning_messages(caplog)
+
+    for flag in (True, False):
+        _set_proxy_posting(app, flag)
+        with app.test_request_context(headers=[("Accept-Language", "en")]):
+            if flag:
+                # 1. 通過
+                assert _validate(gids[:2]) == (None, [])
+                # 2. 10 件（上限の境界値）
+                assert _validate(gids[:10]) == (None, [])
+                # 7. 重複は除いて扱う
+                assert _validate([gids[0], gids[0]]) == (None, [])
+                # 8. 空
+                assert _validate([]) == (None, [])
+                assert _validate(None) == (None, [])
+                # 5. 存在しないロール
+                assert _validate([gids[0], RID_DEL]) == (msg_not_allowed, [])
+            # 3. 11 件
+            assert _validate(gids[:11]) == (msg_limit, [
+                "Rejected shared role ids exceeding the limit: count=11, max=10"])
+            # 4. 指定不可のロール
+            assert _validate([gids[0], _rid(r_n)]) == (msg_not_allowed, [
+                "Rejected shared role id which is not a mAP group: {}".format(_rid(r_n))])
+            # 6. 11 件で指定不可を含む（判定順は件数上限 → 各ロールIDの指定可否）
+            result, warnings = _validate(gids[:10] + [_rid(r_n)])
+            assert result == msg_limit
+            assert warnings == [
+                "Rejected shared role ids exceeding the limit: count=11, max=10"]
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_validate_shared_role_ids_existing -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_validate_shared_role_ids_existing(app, db, caplog):
+    """保存済みのロールID（existing_role_ids）との和集合判定."""
+    _config_map(app)
+    _set_proxy_posting(app, True)
+    caplog.set_level(logging.WARNING)
+    groups = [_create_role(app, db, MAP_GROUP_PREFIX + "G{:02d}".format(i))
+              for i in range(1, 13)]
+    r_n = _create_role(app, db, "Original Role")
+    r_x = _create_role(app, db, MAP_GROUP_PREFIX + "Gamma")
+    r_x.name = "Former Gamma"  # 保存後に指定不可となったロール
+    db.session.commit()
+    gids = [_rid(g) for g in groups]
+    msg_limit = "You can specify up to 10 proxy posting groups."
+    msg_not_allowed = "Specified group is not allowed as a proxy posting group."
+
+    def _validate(ids, existing):
+        caplog.clear()
+        return (validate_shared_role_ids(ids, existing_role_ids=existing),
+                _warning_messages(caplog))
+
+    with app.test_request_context(headers=[("Accept-Language", "en")]):
+        # 1. 保存済みの値の保存し直し（削除済み・指定不可を含む）: 判定しない
+        saved = [gids[0], RID_DEL, _rid(r_x), _rid(r_n)]
+        assert _validate(saved, list(saved)) == (None, [])
+        # 2. 保存済みの値が上限を超えている場合の保存し直し
+        assert _validate(gids[:12], gids[:12]) == (None, [])
+        # 3. 保存済みの値から減らす
+        assert _validate(gids[:3], gids[:5]) == (None, [])
+        # 4. 保存済み 10 件に 1 件を加える（件数は保存済みを含めて数える）
+        assert _validate(gids[:11], gids[:10]) == (msg_limit, [
+            "Rejected shared role ids exceeding the limit: count=11, max=10"])
+        # 5. 保存済み 9 件に 1 件を加えて 10 件
+        assert _validate(gids[:10], gids[:9]) == (None, [])
+        # 6. 新たに加わるIDが指定不可
+        assert _validate([gids[0], _rid(r_n)], [gids[0]])[0] == msg_not_allowed
+        # 7. 保存済みの削除済みロールを残したまま、指定可能なグループを加える
+        assert _validate([RID_DEL, gids[1]], [RID_DEL]) == (None, [])
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_validate_shared_role_ids_message -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_validate_shared_role_ids_message(app, db, caplog):
+    """拒否文言の日本語訳と、上限値の設定変更が文言に反映される."""
+    _config_map(app)
+    _set_proxy_posting(app, True)
+    caplog.set_level(logging.WARNING)
+    app.config["I18N_LANGUAGES"] = [("ja", "Japanese"), ("en", "English")]
+    groups = [_create_role(app, db, MAP_GROUP_PREFIX + "G{:02d}".format(i))
+              for i in range(1, 12)]
+    r_n = _create_role(app, db, "Original Role")
+    gids = [_rid(g) for g in groups]
+
+    # 1・2. 日本語ロケール
+    with app.test_request_context(headers=[("Accept-Language", "ja")]):
+        assert validate_shared_role_ids(gids[:11]) == "代理投稿グループは10件まで指定できます。"
+        assert validate_shared_role_ids([gids[0], _rid(r_n)]) == \
+            "代理投稿グループとして指定できないグループが含まれています。"
+
+    # 3・4. 英語ロケールで WEKO_ITEMS_UI_SHARED_ROLE_MAX_COUNT = 3
+    app.config["WEKO_ITEMS_UI_SHARED_ROLE_MAX_COUNT"] = 3
+    with app.test_request_context(headers=[("Accept-Language", "en")]):
+        caplog.clear()
+        assert validate_shared_role_ids(gids[:4]) == \
+            "You can specify up to 3 proxy posting groups."
+        assert _warning_messages(caplog) == [
+            "Rejected shared role ids exceeding the limit: count=4, max=3"]
+        assert validate_shared_role_ids(gids[:3]) is None
+
+
+# def exists_shared_user_email(email):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_exists_shared_user_email -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_exists_shared_user_email(app, db, shared_users, db_userprofile):
+    """メールアドレスの完全一致のみ該当あり."""
+    target = shared_users[0]["email"]  # shared_contributor@test.org（対象ロール条件を満たす）
+    not_target = shared_users[2]["email"]  # sysadmin: 除外ロールを持つため満たさない
+
+    with app.test_request_context():
+        # 1. 完全一致
+        assert exists_shared_user_email(target) == {"query": target, "exists": True}
+        # 2. 前方一致のみ
+        assert exists_shared_user_email("shared_contrib") == {
+            "query": "shared_contrib", "exists": False}
+        # 3. 部分一致のみ
+        assert exists_shared_user_email("contributor@test.org") == {
+            "query": "contributor@test.org", "exists": False}
+        # 4. 大文字小文字の違い（区別する）
+        assert exists_shared_user_email(target.upper()) == {
+            "query": target.upper(), "exists": False}
+        # 5. 前後空白つき（除去しない。query は引数をそのまま返す）
+        padded = " {} ".format(target)
+        assert exists_shared_user_email(padded) == {"query": padded, "exists": False}
+        # 6. ワイルドカード文字を含む（ilike・_escape_like を使用しない）
+        for wildcard in ["shared_%@test.org", "shared_contributor@test.or_"]:
+            assert exists_shared_user_email(wildcard)["exists"] is False, wildcard
+        # 7. 対象ロール条件を満たさないユーザー（完全一致でも該当なし）
+        assert exists_shared_user_email(not_target) == {
+            "query": not_target, "exists": False}
+        # 7-2. 管理者ロールのみ保持（Contributor なし）のユーザーは該当あり
+        for admin_email in (shared_users[1]["email"], shared_users[3]["email"]):
+            assert exists_shared_user_email(admin_email) == {
+                "query": admin_email, "exists": True}
+        # 8. 存在しない
+        assert exists_shared_user_email("nosuchuser@test.org") == {
+            "query": "nosuchuser@test.org", "exists": False}
+
+        # 9. filter_shared_user_role(db.session.query(User.id), User.id) の形で 1 回呼ばれる
+        with patch("weko_items_ui.utils.filter_shared_user_role",
+                   wraps=items_utils.filter_shared_user_role) as mock_filter:
+            assert exists_shared_user_email(target)["exists"] is True
+            mock_filter.assert_called_once()
+            args = mock_filter.call_args[0]
+            assert args[1] is User.id
+
+    # 10. search_email は削除されている
+    assert not hasattr(items_utils, "search_email")
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_exists_shared_user_email_empty -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_exists_shared_user_email_empty(app):
+    """空文字・None で DB にアクセスせず該当なしを返す."""
+    with app.test_request_context():
+        with patch("weko_items_ui.utils.db.session.query") as mock_query, \
+                patch("weko_items_ui.utils.filter_shared_user_role") as mock_filter:
+            # 1. 空文字
+            assert exists_shared_user_email("") == {"query": "", "exists": False}
+            # 2. None
+            assert exists_shared_user_email(None) == {"query": "", "exists": False}
+            mock_query.assert_not_called()
+            mock_filter.assert_not_called()
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_exists_shared_user_email_db_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_exists_shared_user_email_db_error(app):
+    """DB アクセスエラーを捕捉せず送出する."""
+    with app.test_request_context():
+        with patch("weko_items_ui.utils.filter_shared_user_role",
+                   side_effect=SQLAlchemyError("test error")):
+            with pytest.raises(SQLAlchemyError):
+                exists_shared_user_email("shared_contributor@test.org")
+
+
+# ---- get_excluded_shared_doc_ids 用のフェイク ----
+class _FakeHit:
+    """scan() が返すヒットのフェイク（_id と _source の weko_shared_ids のみ）."""
+
+    def __init__(self, hit_id, shared_ids):
+        self.meta = SimpleNamespace(id=hit_id)
+        self._source = {"weko_shared_ids": shared_ids}
+
+    def to_dict(self):
+        return self._source
+
+
+def _make_fake_records_search(hits=None, error=None):
+    """RecordsSearch のフェイク（filter・source・params・scan の呼び出しを記録する）."""
+
+    class _FakeRecordsSearch:
+        instances = []
+
+        def __init__(self, index=None, **kwargs):
+            self.index = index
+            self.filter_call = None
+            self.source_call = None
+            self.params_call = None
+            self.scan_count = 0
+            _FakeRecordsSearch.instances.append(self)
+
+        def filter(self, *args, **kwargs):
+            self.filter_call = (args, kwargs)
+            return self
+
+        def source(self, *args, **kwargs):
+            self.source_call = (args, kwargs)
+            return self
+
+        def params(self, *args, **kwargs):
+            self.params_call = (args, kwargs)
+            return self
+
+        def scan(self):
+            self.scan_count += 1
+            if _FakeRecordsSearch.error is not None:
+                raise _FakeRecordsSearch.error
+            return iter(_FakeRecordsSearch.hits)
+
+    _FakeRecordsSearch.hits = hits or []
+    _FakeRecordsSearch.error = error
+    return _FakeRecordsSearch
+
+
+# def get_excluded_shared_doc_ids(user_id):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_excluded_shared_doc_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_excluded_shared_doc_ids(app, db, es):
+    """ES 実検索で、末尾が自分でないドキュメントの _id のみが除外IDとなる."""
+    _set_proxy_posting(app, False)
+    u_p1 = _create_user(app, db, "ex_p1@test.org")
+    u_p2 = _create_user(app, db, "ex_p2@test.org")
+    u_p3 = _create_user(app, db, "ex_p3@test.org")
+    u_n = _create_user(app, db, "ex_n@test.org")
+    i1, i2, i3, i_n = u_p1.id, u_p2.id, u_p3.id, u_n.id
+    assert i1 < i2 < i3
+    docs = {
+        "D1": [i1],
+        "D2": [i1, i2],
+        "D3": [i2, i1],  # 昇順でない。物理的な末尾は U_P1、最大IDは U_P2
+        "D4": [i2, i1, i3],
+        "D5": [i2, i3],
+        "D6": [i1, i1],
+        "D7": [i2, i1, i2],
+        "D8": [i1, i2, i1],
+        "D9": None,  # weko_shared_ids を持たない
+    }
+    index = app.config["INDEXER_DEFAULT_INDEX"]
+    for doc_id, shared_ids in docs.items():
+        body = {"weko_creator_id": "1"}
+        if shared_ids is not None:
+            body["weko_shared_ids"] = shared_ids
+        es.index(index=index, doc_type="item-v1.0.0", id=doc_id, body=body)
+    es.indices.refresh(index=index)
+
+    def _excluded(user_id):
+        # 各呼び出しは新しいリクエストコンテキストで行う（flask.g のキャッシュを持ち越さない）
+        with app.app_context():
+            with app.test_request_context():
+                return get_excluded_shared_doc_ids(user_id)
+
+    result = _excluded(i1)
+    assert isinstance(result, list)
+    assert all(isinstance(doc_id, str) for doc_id in result)
+    # 1. int
+    assert set(result) == {"D2", "D4", "D7"}
+    # 2. str
+    assert set(_excluded(str(i1))) == {"D2", "D4", "D7"}
+    # 3. D3 は doc values 上の末尾が U_P2 でも、物理的な末尾が U_P1 のため除外される
+    assert set(_excluded(i2)) == {"D3", "D4", "D5", "D8"}
+    # 4. D4・D5 とも末尾が自分
+    assert _excluded(i3) == []
+    # 5. どのドキュメントにも含まれないユーザー
+    assert _excluded(i_n) == []
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_excluded_shared_doc_ids_shapes -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+@pytest.mark.parametrize("proxy_posting_flag", [True, False], ids=["flag_on", "flag_off"])
+def test_get_excluded_shared_doc_ids_shapes(app, caplog, proxy_posting_flag):
+    """_source の要素の形状差・重複・変換不能・配列以外の扱い（本関数は複数化フラグを参照しない）."""
+    _set_proxy_posting(app, proxy_posting_flag)
+    caplog.set_level(logging.WARNING)
+    hits = [
+        _FakeHit("h1", [3, 5]),
+        _FakeHit("h2", [5, 3]),
+        _FakeHit("h3", [{"user": 3}, {"user": 5}]),
+        _FakeHit("h4", [{"user": 5}, {"user": 3}]),
+        _FakeHit("h5", ["3", "5"]),
+        _FakeHit("h6", ["5", "3"]),
+        _FakeHit("h7", [5, 5]),
+        _FakeHit("h8", [3, 5, 3, 5]),
+        _FakeHit("h9", [5, 3, 5, 3]),
+        _FakeHit("h10", [5, "abc"]),
+        _FakeHit("h11", [{"foo": 1}, "x"]),
+        _FakeHit("h12", 5),
+        _FakeHit("h13", "35"),
+        _FakeHit("h14", {"user": 5}),
+    ]
+    fake = _make_fake_records_search(hits=hits)
+    with app.app_context():
+        with app.test_request_context():
+            with patch("weko_items_ui.utils.RecordsSearch", fake):
+                result = get_excluded_shared_doc_ids(5)
+
+    # 末尾が自分(5)でない、または末尾が特定できないドキュメントが除外IDとなる
+    assert set(result) == {"h2", "h4", "h6", "h9", "h11", "h12", "h13", "h14"}
+    warnings = _warning_messages(caplog)
+    # 変換できない要素
+    for element in ["abc", "{'foo': 1}", "x"]:
+        assert "Unexpected shared user id element is ignored: {}".format(element) in warnings
+    # 配列以外の値（要素単位のログとは別）
+    for value in ["5", "35", "{'user': 5}"]:
+        assert "Unexpected shared user ids format is ignored: {}".format(value) in warnings
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_excluded_shared_doc_ids_args_and_cache -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_excluded_shared_doc_ids_args_and_cache(app):
+    """user_id の型の扱いと flask.g のキャッシュ."""
+    from flask import g
+
+    fake = _make_fake_records_search(hits=[_FakeHit("hx", [5, 3])])
+
+    def _terms_value(search):
+        queries = search.filter_call[1]["filter"]
+        return queries[0].to_dict()["terms"]["weko_shared_ids"]
+
+    with patch("weko_items_ui.utils.RecordsSearch", fake):
+        # 1. None・変換不能・空文字は検索を発行せず空リスト
+        with app.app_context():
+            with app.test_request_context():
+                for user_id in [None, "abc", ""]:
+                    assert get_excluded_shared_doc_ids(user_id) == []
+                assert fake.instances == []
+
+        # 2. int
+        with app.app_context():
+            with app.test_request_context():
+                assert get_excluded_shared_doc_ids(5) == ["hx"]
+                assert _terms_value(fake.instances[-1]) == [5]
+
+        # 3. str（int に変換して検索条件に渡す）
+        with app.app_context():
+            with app.test_request_context():
+                assert get_excluded_shared_doc_ids("5") == ["hx"]
+                assert _terms_value(fake.instances[-1]) == [5]
+
+        # 4. 複数化フラグの状態によらず同じ結果
+        for flag in (True, False):
+            _set_proxy_posting(app, flag)
+            with app.app_context():
+                with app.test_request_context():
+                    assert get_excluded_shared_doc_ids(5) == ["hx"]
+
+        # 5. 同一コンテキスト内で 3 回呼んでも検索は 1 回のみ
+        fake.instances[:] = []
+        with app.app_context():
+            with app.test_request_context():
+                assert get_excluded_shared_doc_ids(5) == ["hx"]
+                assert get_excluded_shared_doc_ids("5") == ["hx"]
+                assert get_excluded_shared_doc_ids(5) == ["hx"]
+                assert len(fake.instances) == 1
+                assert fake.instances[0].scan_count == 1
+                assert g._weko_shared_excluded_doc_ids == {5: ["hx"]}
+
+                # 6. 別ユーザーは別途検索が発行される
+                get_excluded_shared_doc_ids(6)
+                assert len(fake.instances) == 2
+                assert set(g._weko_shared_excluded_doc_ids.keys()) == {5, 6}
+
+        # 7. 新しいコンテキストでは検索が再度発行される
+        with app.app_context():
+            with app.test_request_context():
+                get_excluded_shared_doc_ids(5)
+                assert len(fake.instances) == 3
+
+        # 8. scan() が 0 件を返す場合
+        fake.hits = []
+        with app.app_context():
+            with app.test_request_context():
+                assert get_excluded_shared_doc_ids(5) == []
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_excluded_shared_doc_ids_query -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_excluded_shared_doc_ids_query(app):
+    """1 段目の検索条件・取得方式と、検索失敗時の扱い."""
+    from flask import g
+
+    _set_proxy_posting(app, False)
+    fake = _make_fake_records_search()
+
+    with patch("weko_items_ui.utils.RecordsSearch", fake):
+        # 1. 検索条件
+        with app.app_context():
+            with app.test_request_context():
+                assert get_excluded_shared_doc_ids(5) == []
+        search = fake.instances[0]
+        assert search.index == app.config["SEARCH_UI_SEARCH_INDEX"]
+        filter_args, filter_kwargs = search.filter_call
+        assert filter_args == ("bool",)
+        assert [q.to_dict() for q in filter_kwargs["filter"]] == [
+            {"terms": {"weko_shared_ids": [5]}},
+            {"script": {"script": {
+                "lang": "painless",
+                "source": "doc.containsKey('weko_shared_ids') && "
+                          "doc['weko_shared_ids'].size() > 1",
+            }}},
+        ]
+        assert search.source_call == ((["weko_shared_ids"],), {})
+        assert search.params_call == ((), {"size": 1000})
+        assert search.scan_count == 1
+
+        # 2. 検索失敗時は TransportError がそのまま送出される
+        fake.error = es_exceptions.TransportError(500, "test error")
+        with app.app_context():
+            with app.test_request_context():
+                with pytest.raises(es_exceptions.TransportError):
+                    get_excluded_shared_doc_ids(5)
+                # 失敗した結果はキャッシュに保存されない
+                assert 5 not in g._weko_shared_excluded_doc_ids
+
+                # 3. 正常に戻して再度呼び出すと検索が再度発行される
+                fake.error = None
+                fake.hits = [_FakeHit("hx", [5, 3])]
+                count_before = len(fake.instances)
+                assert get_excluded_shared_doc_ids(5) == ["hx"]
+                assert len(fake.instances) == count_before + 1
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_excluded_shared_doc_ids_unmapped_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_excluded_shared_doc_ids_unmapped_index(app, db, es):
+    """weko_shared_ids が未マッピングのインデックスで script_exception とならない."""
+    _set_proxy_posting(app, False)
+    index = app.config["INDEXER_DEFAULT_INDEX"]
+    # weko_shared_ids を持つドキュメントが 1 件も無い状態（_mapping に weko_shared_ids が存在しない）
+    es.index(index=index, doc_type="item-v1.0.0", id="U1",
+             body={"weko_creator_id": "1"})
+    es.indices.refresh(index=index)
+
+    def _excluded(user_id):
+        with app.app_context():
+            with app.test_request_context():
+                return get_excluded_shared_doc_ids(user_id)
+
+    # 1. script_exception が発生せず空リストを返す
+    assert _excluded(5) == []
+
+    # 2. weko_shared_ids を持つドキュメントを投入すると（マッピングされる）除外IDが返る
+    es.index(index=index, doc_type="item-v1.0.0", id="U2",
+             body={"weko_creator_id": "1", "weko_shared_ids": [5, 3]})
+    es.indices.refresh(index=index)
+    # [5, 3] の物理的な末尾は 3 のため、user_id=5 では除外される
+    assert _excluded(5) == ["U2"]

@@ -1844,6 +1844,67 @@ def test_import_items_to_system(i18n_app, db, es_item_file_pipeline, es_records,
         assert import_items_to_system(item["item"])  # Will result in error but will cover exception part
 
 
+# def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
+# 代理投稿グループの検証で拒否した場合 (SharedRoleValidationError)
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_import_items_to_system_shared_role_rejected -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_import_items_to_system_shared_role_rejected(i18n_app, db, es_item_file_pipeline, es_records, caplog):
+    from weko_items_ui.errors import SharedRoleValidationError
+    from weko_search_ui.utils import handle_remove_es_metadata
+
+    message = "Specified group is not allowed as a proxy posting group."
+    # es_records が作成した PID を確定させる(既存の test_import_items_to_system と同様)
+    db.session.commit()
+    # 更新(status が new 以外)のアイテム。後処理で recid の PID を参照するため実在する recid を使う
+    item = {
+        "id": es_records["results"][0]["recid"].pid_value,
+        "status": "keep",
+        "root_path": "",
+    }
+    request_info = {
+        "remote_addr": None,
+        "referrer": None,
+        "hostname": "TEST_SERVER",
+        "user_id": 1,
+    }
+
+    # 1. register_item_metadata が SharedRoleValidationError を送出する
+    with patch("weko_search_ui.utils.handle_check_item_is_locked"), \
+            patch("weko_search_ui.utils.register_item_metadata",
+                  side_effect=SharedRoleValidationError(description=message)), \
+            patch("weko_search_ui.utils.handle_remove_es_metadata",
+                  wraps=handle_remove_es_metadata) as mock_remove_es, \
+            patch("weko_search_ui.utils.db.session.rollback",
+                  wraps=db.session.rollback) as mock_rollback, \
+            patch("weko_search_ui.utils.UserActivityLogger.error") as mock_error_logger:
+        caplog.clear()
+        result = import_items_to_system(item, request_info=request_info)
+        assert result == {"success": False, "error_id": message}
+        mock_remove_es.assert_called_once()
+        mock_rollback.assert_called()
+        mock_error_logger.assert_called_once()
+        assert mock_error_logger.call_args[1]["operation"] == "ITEM_UPDATE"
+        assert mock_error_logger.call_args[1]["target_key"] == item["id"]
+        # エラーログが出力される
+        assert "shared role validation error" in caplog.text
+
+    # 2. register_item_metadata が Exception を送出する(改修前と同じ except Exception の分岐)
+    with patch("weko_search_ui.utils.handle_check_item_is_locked"), \
+            patch("weko_search_ui.utils.register_item_metadata",
+                  side_effect=Exception("test error")), \
+            patch("weko_search_ui.utils.handle_remove_es_metadata",
+                  wraps=handle_remove_es_metadata) as mock_remove_es, \
+            patch("weko_search_ui.utils.db.session.rollback",
+                  wraps=db.session.rollback) as mock_rollback, \
+            patch("weko_search_ui.utils.UserActivityLogger.error") as mock_error_logger:
+        caplog.clear()
+        result = import_items_to_system(item, request_info=request_info)
+        assert result == {"success": False, "error_id": "Unexpected error: Exception"}
+        mock_remove_es.assert_called_once()
+        mock_rollback.assert_called()
+        mock_error_logger.assert_called_once()
+        assert "Unexpected error" in caplog.text
+
+
 # def import_items_to_activity(item, request_info):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_import_items_to_activity -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_import_items_to_activity(i18n_app, es_item_file_pipeline, es_records, db_workflow, mocker):

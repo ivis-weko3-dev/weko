@@ -1100,7 +1100,7 @@ class TestWekoDeposit:
                             ('item_1617186331708', {'attribute_name': 'Title', 'attribute_value_mlt': [{'subitem_1551255647225': 'タイトル', 'subitem_1551255648112': 'ja'}, {'subitem_1551255647225': 'title', 'subitem_1551255648112': 'en'}]}),
                             ('item_1617258105262', {'attribute_name': 'Resource Type', 'attribute_value_mlt': [{'resourceuri': 'http://purl.org/coar/resource_type/c_5794', 'resourcetype': 'conference paper'}]}),
                             ('item_title', 'title'), ('item_type_id', '1'), ('control_number', 1), ('author_link', []),
-                            ('_oai', {'id': '1'}), ('weko_shared_ids', []), ('owner', 1), ('owners', [1]), ('publish_date', '2022-08-20'),
+                            ('_oai', {'id': '1'}), ('weko_shared_ids', []), ('weko_shared_role_ids', []), ('owner', 1), ('owners', [1]), ('publish_date', '2022-08-20'),
                             ('title', ['title']), ('relation_version_is_last', True), ('path', ['1']), ('publish_status','0')])
         test2 = None
         test_dc = OrderedDict([
@@ -1117,6 +1117,7 @@ class TestWekoDeposit:
             ('control_number', '1'),
             ('author_link', []),
             ('weko_shared_ids', []),
+            ('weko_shared_role_ids', []),
             ('owner', 1),
             ('owners', [1])
         ])
@@ -1167,12 +1168,20 @@ class TestWekoDeposit:
                         assert httperror.value.code == 500
                         assert httperror.value.data == "MAPPING_ERROR"
 
-                with patch("weko_deposit.api.WekoDeposit.convert_type_shared_user_ids",return_value={}):
+                # data が空(キャッシュ・アクティビティからも取得できない)場合は
+                # self.data を更新内容とする(変換より前にフォールバックを判定する。)
+                with patch("weko_deposit.api.RedisConnection") as mock_redis, \
+                     patch("weko_deposit.api.WekoDeposit.record_data_from_act_temp",
+                           return_value=None):
+                    mock_conn = MagicMock()
+                    mock_conn.connection().redis.exists.return_value = False
+                    mock_redis.return_value = mock_conn
                     record['item_data']['shared_user_ids'] = []
                     deposit = record['deposit']
-                    record_data = record['item_data']
-                    ret3, _ = deposit.convert_item_metadata(index_obj, record_data)
+                    deposit.data = copy.deepcopy(record['item_data'])
+                    ret3, _ = deposit.convert_item_metadata(index_obj)
                     assert ret3['weko_shared_ids'] == []
+                    assert ret3['weko_shared_role_ids'] == []
 
                 record['item_data']['shared_user_ids'] = []
                 deposit = record['deposit']
@@ -2870,3 +2879,447 @@ def test_delete_item_metadata(app, db, location):
     b = {'pid': {'type': 'depid', 'value': '2.0', 'revision_id': 0}, 'lang': 'ja', 'owner': '1', 'title': 'ja_conference paperITEM00000002(public_open_access_open_access_simple)', 'owners': [1], 'status': 'published', '$schema': '15', 'pubdate': '2021-02-13', 'edit_mode': 'keep', 'created_by': 1, 'deleted_items': ['item_1617187056579', 'approval1', 'approval2'], 'shared_user_ids': [], 'weko_shared_ids': [], 'item_1617186331708': [{'subitem_1551255647225': 'ja_conference paperITEM00000002(public_open_access_open_access_simple)', 'subitem_1551255648112': 'ja'}, {'subitem_1551255647225': 'en_conference paperITEM00000002(public_open_access_simple)', 'subitem_1551255648112': 'en'}], 'item_1617186385884': [{'subitem_1551255720400': 'Alternative Title', 'subitem_1551255721061': 'en'}, {'subitem_1551255720400': 'Alternative Title', 'subitem_1551255721061': 'ja'}], 'item_1617186419668': [{'creatorMails': [{'creatorMail': 'wekosoftware@nii.ac.jp'}]}, {'givenNames': [{'givenName': '太郎', 'givenNameLang': 'ja'}, {'givenName': 'タロウ', 'givenNameLang': 'ja-Kana'}, {'givenName': 'Taro', 'givenNameLang': 'en'}], 'familyNames': [{'familyName': '情報', 'familyNameLang': 'ja'}, {'familyName': 'ジョウホウ', 'familyNameLang': 'ja-Kana'}, {'familyName': 'Joho', 'familyNameLang': 'en'}], 'creatorMails': [{'creatorMail': 'wekosoftware@nii.ac.jp'}], 'creatorNames': [{'creatorName': '情報, 三郎', 'creatorNameLang': 'ja'}, {'creatorName': 'ジョウホウ, タロウ', 'creatorNameLang': 'ja-Kana'}, {'creatorName': 'Joho, Taro', 'creatorNameLang': 'en'}], 'nameIdentifiers': [{'nameIdentifier': '3', 'nameIdentifierScheme': 'WEKO'}, {'nameIdentifier': 'xxxxxxx', 'nameIdentifierURI': 'https://ci.nii.ac.jp/', 'nameIdentifierScheme': 'CiNii'}, {'nameIdentifier': 'zzzzzzz', 'nameIdentifierURI': 'https://kaken.nii.ac.jp/', 'nameIdentifierScheme': 'KAKEN2'}]}], 'item_1617186476635': {'subitem_1522299639480': 'open access', 'subitem_1600958577026': 'http://purl.org/coar/access_right/c_abf2'}, 'item_1617186499011': [{'subitem_1522650717957': 'ja', 'subitem_1522650727486': 'http://localhost', 'subitem_1522651041219': 'Rights Information'}], 'item_1617186609386': [{'subitem_1522299896455': 'ja', 'subitem_1522300014469': 'Other', 'subitem_1522300048512': 'http://localhost/', 'subitem_1523261968819': 'Sibject1'}], 'item_1617186626617': [{'subitem_description': 'Description\\nDescription<br/>Description&EMPTY&\\nDescription', 'subitem_description_type': 'Abstract', 'subitem_description_language': 'en'}, {'subitem_description': '概要\\n概要&EMPTY&\\n概要\\n概要', 'subitem_description_type': 'Abstract', 'subitem_description_language': 'ja'}], 'item_1617186643794': [{'subitem_1522300295150': 'en', 'subitem_1522300316516': 'Publisher'}], 'item_1617186660861': [{'subitem_1522300695726': 'Available', 'subitem_1522300722591': '2021-06-30'}], 'item_1617186702042': [{'subitem_1551255818386': 'jpn'}], 'item_1617186783814': [{'subitem_identifier_uri': 'http://localhost', 'subitem_identifier_type': 'URI'}], 'item_1617186859717': [{'subitem_1522658018441': 'en', 'subitem_1522658031721': 'Temporal'}], 'item_1617186882738': [{'subitem_geolocation_place': [{'subitem_geolocation_place_text': 'Japan'}]}], 'item_1617186901218': [{'subitem_1522399143519': {'subitem_1522399281603': 'ISNI', 'subitem_1522399333375': 'http://xxx'}, 'subitem_1522399412622': [{'subitem_1522399416691': 'en', 'subitem_1522737543681': 'Funder Name'}], 'subitem_1522399571623': {'subitem_1522399585738': 'Award URI', 'subitem_1522399628911': 'Award Number'}, 'subitem_1522399651758': [{'subitem_1522721910626': 'en', 'subitem_1522721929892': 'Award Title'}]}], 'item_1617186920753': [{'subitem_1522646500366': 'ISSN', 'subitem_1522646572813': 'xxxx-xxxx-xxxx'}], 'item_1617186941041': [{'subitem_1522650068558': 'en', 'subitem_1522650091861': 'Source Title'}], 'item_1617186959569': {'subitem_1551256328147': '1'}, 'item_1617186981471': {'subitem_1551256294723': '111'}, 'item_1617186994930': {'subitem_1551256248092': '12'}, 'item_1617187024783': {'subitem_1551256198917': '1'}, 'item_1617187045071': {'subitem_1551256185532': '3'}, 'item_1617187112279': [{'subitem_1551256126428': 'Degree Name', 'subitem_1551256129013': 'en'}], 'item_1617187136212': {'subitem_1551256096004': '2021-06-30'}, 'item_1617187187528': [{'subitem_1599711633003': [{'subitem_1599711636923': 'Conference Name', 'subitem_1599711645590': 'ja'}], 'subitem_1599711655652': '1', 'subitem_1599711660052': [{'subitem_1599711680082': 'Sponsor', 'subitem_1599711686511': 'ja'}], 'subitem_1599711699392': {'subitem_1599711704251': '2020/12/11', 'subitem_1599711712451': '1', 'subitem_1599711727603': '12', 'subitem_1599711731891': '2000', 'subitem_1599711735410': '1', 'subitem_1599711739022': '12', 'subitem_1599711743722': '2020', 'subitem_1599711745532': 'ja'}, 'subitem_1599711758470': [{'subitem_1599711769260': 'Conference Venue', 'subitem_1599711775943': 'ja'}], 'subitem_1599711788485': [{'subitem_1599711798761': 'Conference Place', 'subitem_1599711803382': 'ja'}], 'subitem_1599711813532': 'JPN'}], 'item_1617258105262': {'resourceuri': 'http://purl.org/coar/resource_type/c_5794', 'resourcetype': 'conference paper'}, 'item_1617265215918': {'subitem_1522305645492': 'AO', 'subitem_1600292170262': 'http://purl.org/coar/version/c_b1a7d7d4d402bcce'}, 'item_1617349709064': [{'givenNames': [{'givenName': '太郎', 'givenNameLang': 'ja'}, {'givenName': 'タロウ', 'givenNameLang': 'ja-Kana'}, {'givenName': 'Taro', 'givenNameLang': 'en'}], 'familyNames': [{'familyName': '情報', 'familyNameLang': 'ja'}, {'familyName': 'ジョウホウ', 'familyNameLang': 'ja-Kana'}, {'familyName': 'Joho', 'familyNameLang': 'en'}], 'contributorType': 'ContactPerson', 'nameIdentifiers': [{'nameIdentifier': 'xxxxxxx', 'nameIdentifierURI': 'https://orcid.org/', 'nameIdentifierScheme': 'ORCID'}, {'nameIdentifier': 'xxxxxxx', 'nameIdentifierURI': 'https://ci.nii.ac.jp/', 'nameIdentifierScheme': 'CiNii'}, {'nameIdentifier': 'xxxxxxx', 'nameIdentifierURI': 'https://kaken.nii.ac.jp/', 'nameIdentifierScheme': 'KAKEN2'}], 'contributorMails': [{'contributorMail': 'wekosoftware@nii.ac.jp'}], 'contributorNames': [{'lang': 'ja', 'contributorName': '情報, 太郎'}, {'lang': 'ja-Kana', 'contributorName': 'ジョウホウ, タロウ'}, {'lang': 'en', 'contributorName': 'Joho, Taro'}]}], 'item_1617349808926': {'subitem_1523263171732': 'Version'}, 'item_1617351524846': {'subitem_1523260933860': 'Unknown'}, 'item_1617353299429': [{'subitem_1522306207484': 'isVersionOf', 'subitem_1522306287251': {'subitem_1522306382014': 'arXiv', 'subitem_1522306436033': 'xxxxx'}, 'subitem_1523320863692': [{'subitem_1523320867455': 'en', 'subitem_1523320909613': 'Related Title'}]}], 'item_1617605131499': [{'url': {'url': 'https://weko3.example.org/record/2/files/1KB.pdf'}, 'date': [{'dateType': 'Available', 'dateValue': '2021-07-12'}], 'format': 'text/plain', 'filename': '1KB.pdf', 'filesize': [{'value': '1 KB'}], 'mimetype': 'application/pdf', 'accessrole': 'open_access', 'version_id': 'c92410f6-ed23-4d2e-a8c5-0b3b06cc79c8', 'displaytype': 'simple'}], 'item_1617610673286': [{'nameIdentifiers': [{'nameIdentifier': 'xxxxxx', 'nameIdentifierURI': 'https://orcid.org/', 'nameIdentifierScheme': 'ORCID'}], 'rightHolderNames': [{'rightHolderName': 'Right Holder Name', 'rightHolderLanguage': 'ja'}]}], 'item_1617620223087': [{'subitem_1565671149650': 'ja', 'subitem_1565671169640': 'Banner Headline', 'subitem_1565671178623': 'Subheading'}, {'subitem_1565671149650': 'en', 'subitem_1565671169640': 'Banner Headline', 'subitem_1565671178623': 'Subheding'}], 'item_1617944105607': [{'subitem_1551256015892': [{'subitem_1551256027296': 'xxxxxx', 'subitem_1551256029891': 'kakenhi'}], 'subitem_1551256037922': [{'subitem_1551256042287': 'Degree Grantor Name', 'subitem_1551256047619': 'en'}]}]}
     # deposit = WekoDeposit.create(a)
     # print("deposit: {}".format(deposit))
+
+
+_SHARED_ROLE_GROUP_PREFIX = "jc_idp_example_org_gr_"
+
+def _set_map_group_config(app, proxy_posting=True):
+    """学認 mAP 設定・複数化フラグ・上限件数を設定する。
+
+    グループプレフィックスは ``jc_idp_example_org_gr_`` になる。
+    """
+    app.config.update(
+        WEKO_ACCOUNTS_IDP_ENTITY_ID="https://idp.example.org/idp/shibboleth",
+        WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT={
+            "prefix": "jc",
+            "sysadm_group": "jc_roles_sysadm",
+            "role_keyword": "ro",
+            "role_mapping": {
+                "radm": "Repository Administrator",
+                "cadm": "Community Administrator",
+                "cont": "Contributor",
+            },
+            "group_keyword": "gr",
+        },
+        WEKO_ITEMS_UI_PROXY_POSTING=proxy_posting,
+        WEKO_ITEMS_UI_SHARED_ROLE_MAX_COUNT=10,
+    )
+
+
+def _create_roles(app, names):
+    """ロールを作成し、ロールIDの文字列リストを返す。
+
+    ロールIDは常に ``str(role.id)`` で扱う。
+    """
+    ds = app.extensions["invenio-accounts"].datastore
+    roles = [ds.create_role(name=name) for name in names]
+    ds.commit()
+    return [str(role.id) for role in roles]
+
+
+def _role_id_value(role_id):
+    """ロールIDが数値文字列なら int に、そうでなければそのまま返す。"""
+    return int(role_id) if str(role_id).isdigit() else role_id
+
+
+class TestConvertTypeSharedRoleIds:
+    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestConvertTypeSharedRoleIds -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+    def test_convert_type_shared_role_ids(self, app, caplog):
+        # 1. int は str() に変換して採用する
+        ret = WekoDeposit.convert_type_shared_role_ids(
+            {"shared_role_ids": ["12", 35]})
+        assert ret["shared_role_ids"] == ["12", "35"]
+
+        # 2. str / int 以外は除外して WARNING を出力する
+        with caplog.at_level("WARNING"):
+            ret = WekoDeposit.convert_type_shared_role_ids(
+                {"shared_role_ids": ["12", None, {"role": "7"}, 1.5]})
+        assert ret["shared_role_ids"] == ["12"]
+        assert "Unexpected shared role id element is ignored on deposit: None" in caplog.text
+        assert "Unexpected shared role id element is ignored on deposit: {'role': '7'}" in caplog.text
+        assert "Unexpected shared role id element is ignored on deposit: 1.5" in caplog.text
+
+        # 3. None
+        ret = WekoDeposit.convert_type_shared_role_ids(
+            {"shared_role_ids": None})
+        assert ret["shared_role_ids"] == []
+
+        # 4. キー無し
+        ret = WekoDeposit.convert_type_shared_role_ids({})
+        assert ret["shared_role_ids"] == []
+
+        # 5. data が None でも例外にならず {"shared_role_ids": []} を返す
+        ret = WekoDeposit.convert_type_shared_role_ids(None)
+        assert ret == {"shared_role_ids": []}
+
+
+# 作成系・更新系から convert_type_shared_role_ids が呼ばれ、
+# shared_role_ids の除去と weko_shared_role_ids の設定が行われる
+class TestWekoDepositSharedRoleIds:
+    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDepositSharedRoleIds -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+    def _update_param(self, shared_role_ids):
+        return {
+            '$schema': '/items/jsonschema/1',
+            'recid': '1',
+            'pid': {'type': 'depid', 'value': '1', 'revision_id': 0},
+            'owners': [2],
+            'owner': '2',
+            'shared_user_ids': [],
+            'shared_role_ids': shared_role_ids,
+            'title': 'test deposit', 'lang': 'ja',
+            'pubdate': '2025-06-07',
+            'item_1617186331708': [{'subitem_1551255647225': 'test deposit', 'subitem_1551255648112': 'ja'}],
+            'item_1617258105262': {'resourceuri': 'http://purl.org/coar/resource_type/c_5794', 'resourcetype': 'conference paper'},
+            'status': 'published',
+            'created_by': 1,
+            'owners_ext': {'email': 'wekosoftware@nii.ac.jp', 'username': '', 'displayname': ''}
+        }
+
+    def test_weko_deposit_shared_role_ids(self, app, users, location, db_index, db_itemtype):
+        _set_map_group_config(app)
+        role_id_a, = _create_roles(app, [_SHARED_ROLE_GROUP_PREFIX + "Alpha"])
+
+        with app.test_request_context():
+            with patch.object(
+                    WekoDeposit, 'convert_type_shared_role_ids',
+                    wraps=WekoDeposit.convert_type_shared_role_ids) as mock_convert:
+                # 1. 新規作成の経路
+                deposit = WekoDeposit.create({})
+                assert mock_convert.called
+
+                # 2. int の shared_role_ids を含めて update
+                mock_convert.reset_mock()
+                update_param = self._update_param([_role_id_value(role_id_a)])
+                with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+                    deposit.update({'index': ['1'], 'actions': '1'},
+                                   json.loads(json.dumps(update_param)))
+                assert mock_convert.called
+                # shared_role_ids キーは除去され、文字列で設定される
+                assert 'shared_role_ids' not in deposit
+                assert deposit['_deposit']['weko_shared_role_ids'] == [role_id_a]
+                assert deposit['weko_shared_role_ids'] == [role_id_a]
+
+    def test_weko_deposit_shared_role_ids_es(self, app, db, users, location, db_index, db_itemtype, mocker):
+        """更新後の ES ドキュメントの weko_shared_role_ids を確認する。"""
+        _set_map_group_config(app)
+        role_id_a, = _create_roles(app, [_SHARED_ROLE_GROUP_PREFIX + "Alpha"])
+        mock_task = mocker.patch("weko_deposit.tasks.extract_pdf_and_update_file_contents")
+        mock_task.apply_async = MagicMock()
+
+        with app.test_request_context():
+            deposit = WekoDeposit.create({})
+            update_param = self._update_param([_role_id_value(role_id_a)])
+            with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+                deposit.update({'index': ['1'], 'actions': '1'},
+                               json.loads(json.dumps(update_param)))
+                deposit.commit()
+            es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
+            ret = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'],
+                                doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],
+                                id=deposit.id)
+            assert ret['weko_shared_role_ids'] == [role_id_a]
+
+
+# newversion が weko_shared_role_ids を引き継ぎ、検証せずに更新する
+class TestNewversionSharedRoleIds:
+    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestNewversionSharedRoleIds -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+    def test_newversion_shared_role_ids(self, app, db, location, db_itemtype, es_records, users, mocker):
+        _set_map_group_config(app)
+        role_id_a, = _create_roles(app, [_SHARED_ROLE_GROUP_PREFIX + "Alpha"])
+        rid_del = "999999"  # 存在しない(削除済み)ロールID
+        saved_role_ids = [role_id_a, rid_del]
+
+        mock_task = mocker.patch("weko_deposit.tasks.extract_pdf_and_update_file_contents")
+        mock_task.apply_async = MagicMock()
+
+        _, records = es_records
+        record = records[0]
+        deposit = record['deposit']
+
+        # test_newversion と同じ手順で recid 99 の公開済みアイテムを作る
+        rec_uuid = uuid.uuid4()
+        recid_1 = PersistentIdentifier.create('recid', "99", object_type='rec', object_uuid=rec_uuid, status=PIDStatus.REGISTERED)
+        depid_1 = PersistentIdentifier.create('depid', "99", object_type='rec', object_uuid=rec_uuid, status=PIDStatus.REGISTERED)
+        rel = PIDRelation.create(recid_1, depid_1, 2, 0)
+        record_data = records[0]['record_data']
+        item_data = records[0]['item_data']
+        record_data['owners'] = [1]
+        record_data['created_by'] = 1
+        record_data['recid'] = 99
+        record_data['_deposit']['id'] = 99
+        record_data['_deposit']['pid']['value'] = 99
+        # 公開済みアイテムの weko_shared_role_ids（保存済みの値）
+        record_data['weko_shared_role_ids'] = list(saved_role_ids)
+        item_data['owners'] = [1]
+        item_data['created_by'] = 1
+        item_data['id'] = 99
+        item_data['pid']['value'] = 99
+        item_data['weko_shared_role_ids'] = list(saved_role_ids)
+        rec = WekoRecord.create(record_data, id_=rec_uuid)
+        WekoDeposit(rec, rec.model)
+        ItemsMetadata.create(item_data, id_=rec_uuid)
+        db.session.add(recid_1)
+        db.session.add(depid_1)
+        db.session.add(rel)
+        db.session.commit()
+
+        with app.test_request_context():
+            with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
+                with patch("flask_security.current_user", return_value=users[2]["obj"]):
+                    with patch("weko_index_tree.api.Indexes.get_path_list", return_value=[2]):
+                        session["activity_info"] = {"activity_id": 0}
+
+                        # 1. 新バージョンへの引き継ぎ。validate_shared_roles=False で更新する。
+                        #    削除済みロールを含んでも SharedRoleValidationError は発生しない
+                        with patch.object(
+                                WekoDeposit, 'update', autospec=True,
+                                side_effect=WekoDeposit.update) as mock_update:
+                            ret = deposit.newversion(depid_1)
+                        assert ret['weko_shared_role_ids'] == saved_role_ids
+                        assert ret['_deposit']['weko_shared_role_ids'] == saved_role_ids
+                        assert mock_update.called
+                        assert mock_update.call_args[1].get('validate_shared_roles') is False
+
+                        # 2. ドラフトへの引き継ぎ（convert_record_to_item_metadata 経由）
+                        session["activity_info"] = {"activity_id": 0}
+                        ret = deposit.newversion(depid_1, is_draft=True)
+                        assert ret['weko_shared_role_ids'] == saved_role_ids
+                        assert ret['_deposit']['weko_shared_role_ids'] == saved_role_ids
+
+
+# convert_item_metadata の代理投稿グループの検証
+class TestConvertItemMetadataSharedRoles:
+    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestConvertItemMetadataSharedRoles -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+    index_obj = {'index': ['1'], 'actions': '1'}
+    msg_not_allowed = "Specified group is not allowed as a proxy posting group."
+    msg_limit = "You can specify up to 10 proxy posting groups."
+
+    def _setup(self, app, es_records):
+        """mAP 設定、ロール R_N・G1〜G11 を準備し、(deposit, ロールIDの辞書) を返す。"""
+        from invenio_accounts.models import Role
+        _set_map_group_config(app)
+        _, records = es_records
+        deposit = records[0]['deposit']
+        role_n = str(Role.query.filter_by(name="Original Role").first().id)
+        groups = _create_roles(
+            app, [_SHARED_ROLE_GROUP_PREFIX + "G{}".format(i) for i in range(1, 12)])
+        return records[0], deposit, role_n, groups
+
+    def _data(self, record, **kwargs):
+        data = copy.deepcopy(record['item_data'])
+        data.update(kwargs)
+        return data
+
+    def test_convert_item_metadata_shared_role_rejected(self, app, db, db_itemtype, es_records, users, caplog):
+        from weko_items_ui.errors import SharedRoleValidationError
+        from weko_records.utils import json_loader
+        record, deposit, role_n, groups = self._setup(app, es_records)
+
+        with app.test_request_context(headers=[('Accept-Language', 'en')]):
+            with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+                with patch("weko_index_tree.api.Indexes.get_path_list", return_value=['1']):
+                    with patch("weko_deposit.api.json_loader", wraps=json_loader) as mock_loader:
+                        # 1. 指定不可のグループ
+                        caplog.clear()
+                        with caplog.at_level("WARNING"):
+                            with pytest.raises(SharedRoleValidationError) as e:
+                                deposit.convert_item_metadata(
+                                    self.index_obj, self._data(record, shared_role_ids=[role_n]))
+                        assert e.value.code == 400
+                        assert e.value.description == self.msg_not_allowed
+                        assert not mock_loader.called
+                        assert "Rejected shared role id which is not a mAP group: {}".format(role_n) in caplog.text
+
+                        # 2. 上限(10件)超過
+                        caplog.clear()
+                        with caplog.at_level("WARNING"):
+                            with pytest.raises(SharedRoleValidationError) as e:
+                                deposit.convert_item_metadata(
+                                    self.index_obj, self._data(record, shared_role_ids=list(groups)))
+                        assert e.value.description == self.msg_limit
+                        assert "Rejected shared role ids exceeding the limit: count=11, max=10" in caplog.text
+                        assert not mock_loader.called
+
+                        # 3. shared_role_ids が空の場合は weko_shared_role_ids を検証対象とする
+                        with pytest.raises(SharedRoleValidationError) as e:
+                            deposit.convert_item_metadata(
+                                self.index_obj,
+                                self._data(record, shared_role_ids=[], weko_shared_role_ids=[role_n]))
+                        assert e.value.description == self.msg_not_allowed
+                        assert not mock_loader.called
+
+                        # 4. int も文字列に正規化して検証する
+                        with pytest.raises(SharedRoleValidationError) as e:
+                            deposit.convert_item_metadata(
+                                self.index_obj,
+                                self._data(record, shared_role_ids=[_role_id_value(role_n)]))
+                        assert e.value.description == self.msg_not_allowed
+                        assert not mock_loader.called
+
+                # 5. 存在しないインデックスは既存どおり PIDResolveRESTError（インデックスの確認が先）
+                with patch("weko_index_tree.api.Indexes.get_path_list", return_value=[]):
+                    with pytest.raises(PIDResolveRESTError):
+                        deposit.convert_item_metadata(
+                            {'index': ['9999'], 'actions': '1'},
+                            self._data(record, shared_role_ids=[role_n]))
+
+    def test_convert_item_metadata_shared_role_existing(self, app, db, db_itemtype, es_records, users):
+        from invenio_accounts.models import Role
+        from weko_items_ui.errors import SharedRoleValidationError
+        from weko_records.utils import json_loader
+        record, deposit, role_n, groups = self._setup(app, es_records)
+        rid_del = "999999"
+        # R_X: 保存後にロール名を変更して指定不可になったロール
+        role_x, = _create_roles(app, [_SHARED_ROLE_GROUP_PREFIX + "Gamma"])
+        Role.query.get(role_x).name = "Former Gamma"
+        db.session.commit()
+
+        with app.test_request_context(headers=[('Accept-Language', 'en')]):
+            with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+                with patch("weko_index_tree.api.Indexes.get_path_list", return_value=['1']):
+                    with patch("weko_deposit.api.json_loader", wraps=json_loader) as mock_loader:
+                        # 1. 最上位と _deposit の両方に保存済み
+                        deposit['weko_shared_role_ids'] = [rid_del, role_x]
+                        deposit['_deposit']['weko_shared_role_ids'] = [rid_del, role_x]
+                        deposit.convert_item_metadata(
+                            self.index_obj, self._data(record, shared_role_ids=[rid_del, role_x]))
+                        assert mock_loader.called
+
+                        # 2. _deposit のみに保存済み（RecordResource.put の record.clear() 後の状態）
+                        mock_loader.reset_mock()
+                        deposit.pop('weko_shared_role_ids', None)
+                        deposit['_deposit']['weko_shared_role_ids'] = [rid_del, role_x]
+                        deposit.convert_item_metadata(
+                            self.index_obj, self._data(record, shared_role_ids=[rid_del, role_x]))
+                        assert mock_loader.called
+
+                        # 3. 保存済み 10 件 + 新規 1 件 = 11 件は上限超過
+                        mock_loader.reset_mock()
+                        deposit['weko_shared_role_ids'] = list(groups[:10])
+                        deposit['_deposit']['weko_shared_role_ids'] = list(groups[:10])
+                        with pytest.raises(SharedRoleValidationError) as e:
+                            deposit.convert_item_metadata(
+                                self.index_obj, self._data(record, shared_role_ids=list(groups)))
+                        assert e.value.description == self.msg_limit
+                        assert not mock_loader.called
+
+                        # 4. 保存済みの値がそのまま渡される形（インポート・一括更新）
+                        deposit['weko_shared_role_ids'] = [groups[0]]
+                        deposit['_deposit']['weko_shared_role_ids'] = [groups[0]]
+                        deposit.convert_item_metadata(
+                            self.index_obj,
+                            self._data(record, shared_role_ids=[], weko_shared_role_ids=[groups[0]]))
+                        assert mock_loader.called
+
+    def test_convert_item_metadata_shared_role_skip(self, app, db, db_itemtype, es_records, users):
+        from weko_items_ui.errors import SharedRoleValidationError
+        record, deposit, role_n, groups = self._setup(app, es_records)
+
+        with app.test_request_context(headers=[('Accept-Language', 'en')]):
+            with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+                with patch("weko_index_tree.api.Indexes.get_path_list", return_value=['1']):
+                    import weko_items_ui.utils as items_utils
+                    real_validate = items_utils.validate_shared_role_ids
+                    with patch("weko_items_ui.utils.validate_shared_role_ids",
+                               wraps=real_validate) as mock_validate:
+                        # 1. data を省略（キャッシュ・アクティビティから取得できない）した場合は
+                        #    self.data を更新内容とし、検証は呼ばれない
+                        #    （SharedRoleValidationError が出ないこと）
+                        with patch("weko_deposit.api.RedisConnection") as mock_redis, \
+                                patch("weko_deposit.api.WekoDeposit.record_data_from_act_temp",
+                                      return_value=None):
+                            mock_conn = MagicMock()
+                            mock_conn.connection().redis.exists.return_value = False
+                            mock_redis.return_value = mock_conn
+                            deposit.data = self._data(record, shared_role_ids=[role_n])
+                            try:
+                                deposit.convert_item_metadata(self.index_obj)
+                            except HTTPException as ex:
+                                assert not isinstance(ex, SharedRoleValidationError)
+                        assert not mock_validate.called
+
+                        # 2. validate_shared_roles=False の場合は検証しない
+                        deposit.convert_item_metadata(
+                            self.index_obj,
+                            self._data(record, shared_role_ids=[role_n]),
+                            validate_shared_roles=False)
+                        assert not mock_validate.called
+
+                        # 3. 複数化フラグ無効でも検証する（判定はフラグの状態によらない）
+                        app.config['WEKO_ITEMS_UI_PROXY_POSTING'] = False
+                        # 手順 2 の convert_item_metadata が保存済みの値として _deposit に
+                        # role_n を書き込むため、保存済みの値を空に戻してから確認する
+                        deposit.pop('weko_shared_role_ids', None)
+                        deposit['_deposit']['weko_shared_role_ids'] = []
+                        with pytest.raises(SharedRoleValidationError):
+                            deposit.convert_item_metadata(
+                                self.index_obj,
+                                self._data(record, shared_role_ids=[role_n]))
+                        assert mock_validate.called
+
+
+# update の validate_shared_roles の受け渡しと既定値
+class TestUpdateValidateSharedRoles:
+    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestUpdateValidateSharedRoles -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+    def test_update_validate_shared_roles(self, app, users, location, db_index, db_itemtype):
+        update_param = {
+            '$schema': '/items/jsonschema/1',
+            'recid': '1',
+            'pid': {'type': 'depid', 'value': '1', 'revision_id': 0},
+            'owners': [2], 'owner': '2',
+            'shared_user_ids': [2, 3],
+            'title': 'test deposit', 'lang': 'ja',
+            'pubdate': '2025-06-07',
+            'item_1617186331708': [{'subitem_1551255647225': 'test deposit', 'subitem_1551255648112': 'ja'}],
+            'item_1617258105262': {'resourceuri': 'http://purl.org/coar/resource_type/c_5794', 'resourcetype': 'conference paper'},
+            'status': 'published',
+            'created_by': 1,
+            'owners_ext': {'email': 'wekosoftware@nii.ac.jp', 'username': '', 'displayname': ''}
+        }
+        index_obj = {'index': ['1'], 'actions': '1'}
+
+        with app.test_request_context():
+            deposit = WekoDeposit.create({})
+            with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+                with patch.object(
+                        WekoDeposit, 'convert_item_metadata', autospec=True,
+                        side_effect=WekoDeposit.convert_item_metadata) as mock_convert, \
+                        patch("weko_deposit.api.Deposit.update", autospec=True,
+                              side_effect=_deposit_update_orig()) as mock_super_update:
+                    # 1. validate_shared_roles を省略した場合の既定値は True
+                    deposit.update(index_obj, json.loads(json.dumps(update_param)))
+                    assert mock_convert.call_args[1]['validate_shared_roles'] is True
+
+                    # 2. validate_shared_roles=False
+                    mock_convert.reset_mock()
+                    mock_super_update.reset_mock()
+                    deposit.update(index_obj, json.loads(json.dumps(update_param)),
+                                   validate_shared_roles=False)
+                    assert mock_convert.call_args[1]['validate_shared_roles'] is False
+                    # super().update の引数に validate_shared_roles は含まれない
+                    assert mock_super_update.called
+                    for call in mock_super_update.call_args_list:
+                        assert 'validate_shared_roles' not in call[1]
+
+    def test_merge_data_to_record_without_version(self, app, db, location, users, es_records, mocker):
+        mock_task = mocker.patch("weko_deposit.tasks.extract_pdf_and_update_file_contents")
+        mock_task.apply_async = MagicMock()
+        _, records = es_records
+        record = records[0]
+        recid = record['recid']
+        deposit = WekoDeposit.get_record(record['deposit'].id)
+
+        # 3. 引き継ぎ元の保存済みの値のため validate_shared_roles=False で update を呼ぶ
+        with patch('weko_deposit.api.Indexes.get_path_list', return_value=['2']):
+            with patch.object(
+                    WekoDeposit, 'update', autospec=True,
+                    side_effect=WekoDeposit.update) as mock_update:
+                assert deposit.merge_data_to_record_without_version(recid)
+        assert mock_update.called
+        assert mock_update.call_args[1].get('validate_shared_roles') is False
+
+
+def _deposit_update_orig():
+    """``Deposit.update`` の元の実装を返す（``super().update`` の wraps 用）。"""
+    from invenio_deposit.api import Deposit
+    return Deposit.update

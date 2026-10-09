@@ -792,6 +792,8 @@ class WekoDeposit(Deposit):
 
         # shared_user_ids -> [数値,数値,…]に変更
         data = cls.convert_type_shared_user_ids(data)
+        # shared_role_ids -> ["文字列","文字列",…]に変更
+        data = cls.convert_type_shared_role_ids(data)
 
         # Get workflow storage location
         location_name = None
@@ -874,18 +876,22 @@ class WekoDeposit(Deposit):
                     item_metadata information
                     arg2 ex: {'pid': {'type': 'depid', 'value': '34', 'revision_id': 0}, 'lang': 'ja', 'owner': '1', 'title': 'test deposit', 'owners': [1], 'status': 'published', '$schema': '/items/jsonschema/15', 'pubdate': '2022-06-07', 'created_by': 1, 'owners_ext': {'email': 'wekosoftware@nii.ac.jp', 'username': '', 'displayname': ''}, 'shared_user_ids': [], 'item_1617186331708': [{'subitem_1551255647225': 'test deposit', 'subitem_1551255648112': 'ja'}], 'item_1617258105262': {'resourceuri': 'http://purl.org/coar/resource_type/c_5794', 'resourcetype': 'conference paper'}, 'item_1617605131499': [{'url': {'url': 'https://weko3.example.org/record/34/files/tagmanifest-sha256.txt'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-06-07'}], 'format': 'text/plain', 'filename': 'tagmanifest-sha256.txt', 'filesize': [{'value': '323 B'}], 'accessrole': 'open_access', 'version_id': 'b27b05d9-e19f-47fb-b6f5-7f031b1ef8fe'}]}"
             **kwargs:
-                unused: (Default: ``empty``)
+                validate_shared_roles (bool, optional):
+                    Whether to validate proxy posting groups. (Default: ``True``)
 
             Returns:
                 bool: Description of return value
 
         """
+        validate_shared_roles = kwargs.get('validate_shared_roles', True)
         self['_deposit']['status'] = 'draft'
         if len(args) > 1:
-            dc, deleted_items = self.convert_item_metadata(args[0], args[1])
+            dc, deleted_items = self.convert_item_metadata(
+                args[0], args[1], validate_shared_roles=validate_shared_roles)
             super(WekoDeposit, self).update(dc)
         elif len(args)==1:
-            dc, deleted_items = self.convert_item_metadata(args[0])
+            dc, deleted_items = self.convert_item_metadata(
+                args[0], validate_shared_roles=validate_shared_roles)
             super(WekoDeposit, self).update(dc)
         else:
             super(WekoDeposit, self).update()
@@ -1096,6 +1102,7 @@ class WekoDeposit(Deposit):
         owner = data['_deposit']['owner']
         owners = data['_deposit']['owners']
         weko_shared_ids = data['weko_shared_ids']
+        weko_shared_role_ids = data.get('weko_shared_role_ids') or []
         keys_to_remove = ('_deposit', 'doi', '_oai',
                         '_files', '_buckets', '$schema')
         for k in keys_to_remove:
@@ -1117,9 +1124,11 @@ class WekoDeposit(Deposit):
         deposit['_deposit']['owner'] = owner
         deposit['_deposit']['owners'] = owners
         deposit['_deposit']['weko_shared_ids'] = weko_shared_ids
+        deposit['_deposit']['weko_shared_role_ids'] = weko_shared_role_ids
         deposit['owner'] = owner
         deposit['owners'] = owners
         deposit['weko_shared_ids'] = weko_shared_ids
+        deposit['weko_shared_role_ids'] = weko_shared_role_ids
 
         recid = PersistentIdentifier.get(
             'recid', str(data['_deposit']['id']))
@@ -1160,7 +1169,8 @@ class WekoDeposit(Deposit):
                 pid.object_uuid).dumps()
         item_metadata.pop('id', None)
         args = [index, item_metadata]
-        deposit.update(*args)
+        # 引き継ぎ元の保存済みの値のため、代理投稿グループの検証は行わない
+        deposit.update(*args, validate_shared_roles=False)
         deposit.non_extract = getattr(self, "non_extract", None)
         deposit.commit()
         return deposit
@@ -1481,7 +1491,8 @@ class WekoDeposit(Deposit):
         return None
 
 
-    def convert_item_metadata(self, index_obj, data=None):
+    def convert_item_metadata(self, index_obj, data=None,
+                              validate_shared_roles=True):
         """
 
         1. Convert Item Metadata
@@ -1495,6 +1506,8 @@ class WekoDeposit(Deposit):
             data (dict):
                 The target item's metadata
                 "ex: {'pid': {'type': 'depid', 'value': '34', 'revision_id': 0}, 'lang': 'ja', 'owner': '1', 'title': 'test deposit', 'owners': [1], 'status': 'published', '$schema': '/items/jsonschema/15', 'pubdate': '2022-06-07', 'created_by': 1, 'owners_ext': {'email': 'wekosoftware@nii.ac.jp', 'username': '', 'displayname': ''}, 'shared_user_ids': [], 'item_1617186331708': [{'subitem_1551255647225': 'test deposit', 'subitem_1551255648112': 'ja'}], 'item_1617258105262': {'resourceuri': 'http://purl.org/coar/resource_type/c_5794', 'resourcetype': 'conference paper'}, 'item_1617605131499': [{'url': {'url': 'https://weko3.example.org/record/34/files/tagmanifest-sha256.txt'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-06-07'}], 'format': 'text/plain', 'filename': 'tagmanifest-sha256.txt', 'filesize': [{'value': '323 B'}], 'accessrole': 'open_access', 'version_id': 'b27b05d9-e19f-47fb-b6f5-7f031b1ef8fe'}]}"
+            validate_shared_roles (bool):
+                Whether to validate proxy posting groups. (Default: ``True``)
 
         Returns:
             dc: OrderedDict item_metada
@@ -1541,13 +1554,20 @@ class WekoDeposit(Deposit):
             raise PIDResolveRESTError(
                 description='Any tree index has been deleted')
 
+        # 代理投稿グループの検証
+        # (tryブロックの中ではMAPPING_ERRORに置き換わるため、前で行う)
+        if validate_shared_roles and data and isinstance(data, dict):
+            self._validate_shared_role_ids(data)
+
         # Convert item meta data
         try:
-            data = self.convert_type_shared_user_ids(data)
-
             # 更新パラメータが指定されない場合は、selfの内容を更新内容とする
+            # (convert_type_shared_* は空でも shared_* キーを追加して非空にするため、
+            #  フォールバックの判定は変換より前に行う)
             if not data:
                 data = self.data
+            data = self.convert_type_shared_user_ids(data)
+            data = self.convert_type_shared_role_ids(data)
             owner_id = data.get("owner", None)
             deposit_owners = data.get("owners", None)
             creator_id = str(deposit_owners[0]) if deposit_owners else None
@@ -1628,10 +1648,13 @@ class WekoDeposit(Deposit):
 
         if 'shared_user_ids' in self:
             self.pop('shared_user_ids')
+        if 'shared_role_ids' in self:
+            self.pop('shared_role_ids')
         # update '_deposit':{'owners':[?]} by owner for record_metadata
         self['_deposit']['owner'] = int(dc['owner'])
         self['_deposit']['owners'] = [int(dc['owner'])]
         self['_deposit']['weko_shared_ids'] = dc['weko_shared_ids']
+        self['_deposit']['weko_shared_role_ids'] = dc['weko_shared_role_ids']
         self['_deposit']['created_by'] = int(
             self.data.get('created_by',
                           current_user.id if current_user and current_user.is_authenticated else system_admin.id))
@@ -2042,7 +2065,8 @@ class WekoDeposit(Deposit):
                 }
 
                 args = [index, item_metadata]
-                self.update(*args)
+                # 引き継ぎ元の保存済みの値のため、代理投稿グループの検証は行わない
+                self.update(*args, validate_shared_roles=False)
                 # Update '_buckets'
                 super(WekoDeposit, self).update(bucket)
                 self.commit()
@@ -2105,6 +2129,64 @@ class WekoDeposit(Deposit):
             data = {}
         data['shared_user_ids'] = shared_user_ids
         return data
+
+    @classmethod
+    def convert_type_shared_role_ids(cls, data):
+        """Convert shared_role_ids to a list of str.
+
+        Args:
+            data (dict): The metadata to be saved.
+
+        Returns:
+            dict: ``data`` whose ``shared_role_ids`` is a list of str.
+        """
+        shared_role_ids = []
+        if data:
+            tmp = data.get('shared_role_ids') or []
+            for rec in tmp:
+                if isinstance(rec, str):
+                    shared_role_ids.append(rec)
+                elif isinstance(rec, int) and not isinstance(rec, bool):
+                    shared_role_ids.append(str(rec))
+                else:
+                    current_app.logger.warning(
+                        "Unexpected shared role id element is ignored on deposit: {}".format(rec))
+        else:
+            data = {}
+        data['shared_role_ids'] = shared_role_ids
+        return data
+
+    def _validate_shared_role_ids(self, data):
+        """Validate proxy posting groups to be saved.
+
+        Roles already saved to this deposit are not validated.
+
+        Args:
+            data (dict): The item metadata to be saved.
+
+        Raises:
+            SharedRoleValidationError: If the proxy posting groups are invalid.
+        """
+        from weko_items_ui.errors import SharedRoleValidationError
+        from weko_items_ui.utils import (
+            get_shared_role_ids, validate_shared_role_ids)
+
+        # json_loaderの_set_shared_idsと同じ優先順位
+        raw = data.get('shared_role_ids') or data.get('weko_shared_role_ids')
+        role_ids = self.convert_type_shared_role_ids(
+            {'shared_role_ids': raw})['shared_role_ids']
+        # clear()は_depositを残して最上位のキーを消すため、両方を保存済みとみなす
+        existing_role_ids = get_shared_role_ids(
+            {'weko_shared_role_ids': self.get('weko_shared_role_ids')},
+            apply_flag=False
+        ) + get_shared_role_ids(
+            {'weko_shared_role_ids': self.get('_deposit', {}).get(
+                'weko_shared_role_ids')},
+            apply_flag=False
+        )
+        error_msg = validate_shared_role_ids(role_ids, existing_role_ids)
+        if error_msg:
+            raise SharedRoleValidationError(description=error_msg)
 
 class WekoRecord(Record):
     """Extend Record obj for record ui."""

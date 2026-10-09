@@ -7,6 +7,7 @@ from flask_login import current_user
 from flask_security import login_user
 from flask_security.utils import login_user
 from mock import patch
+from invenio_accounts.models import User
 
 from weko_records_ui.permissions import (
     check_created_id,
@@ -1294,6 +1295,19 @@ def test_is_owners_or_superusers(app,records,users):
     with app.test_request_context():
         # contributer
         with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+            # fixture のレコードは owner=1・_deposit.created_by=2(contributor)。
+            # is_item_editable_by は created_by 一致も登録者として扱う
+            assert testrec['_deposit']['created_by'] == userId
+            assert is_owners_or_superusers(testrec)
+
+            # created_by も別人にすると、登録者でも代理投稿者でもないため False
+            testrec['_deposit']['created_by'] = -1
+            assert not is_owners_or_superusers(testrec)
+
+            # weko_creator_id 一致も登録者として扱う
+            testrec['weko_creator_id'] = userId
+            assert is_owners_or_superusers(testrec)
+            del testrec['weko_creator_id']
             assert not is_owners_or_superusers(testrec)
 
             testrec['owner'] = userId
@@ -1332,3 +1346,155 @@ def test___isint():
     assert __isint('a1c') == False
 
     assert __isint('123') == True
+
+
+def _proxy_record(actors, **extra):
+    """代理投稿者テスト用のレコード（登録者 U_O、代理投稿者 [U_P1, U_P2]、グループ [R_A]）。"""
+    record = {
+        "owner": str(actors["U_O"]["id"]),
+        "_deposit": {"created_by": actors["U_O"]["id"]},
+        "weko_shared_ids": [actors["U_P1"]["id"], actors["U_P2"]["id"]],
+        "weko_shared_role_ids": [actors["R_A"]],
+        "path": ["1657555088462"],
+        "item_type_id": "15",
+    }
+    record.update(extra)
+    return record
+
+
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_check_file_download_permission_proxy -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_check_file_download_permission_proxy(app, db, users, proxy_actors):
+    """代理投稿者（個人・グループ）がダウンロードでき、メール変換用リストにロールIDが混入しないこと。"""
+    actors = proxy_actors
+    record = _proxy_record(actors)
+    # 登録者・代理投稿者・管理者以外はダウンロードできないファイル
+    fjson = {"filename": "helloworld.pdf", "accessrole": "open_no"}
+
+    def _call(actor_key, flag):
+        with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": flag}):
+            with patch("flask_login.utils._get_user",
+                       return_value=actors[actor_key]["obj"]):
+                with patch("weko_records_ui.permissions.User",
+                           wraps=User) as mock_user:
+                    result = check_file_download_permission(record, fjson)
+        return result, mock_user
+
+    # 1. 複数化フラグ有効、U_P1
+    result, mock_user = _call("U_P1", True)
+    assert result is True
+    # 5. メールアドレス変換に渡されるユーザーIDにロールIDが混入しない（個人のIDのみ）
+    ids = mock_user.id.in_.call_args[0][0]
+    assert set(ids) == {actors["U_O"]["id"], actors["U_P1"]["id"],
+                        actors["U_P2"]["id"]}
+    assert all(isinstance(i, int) for i in ids)
+
+    # 2. 複数化フラグ有効、U_G（is_proxy_poster の OR 条件）
+    result, mock_user = _call("U_G", True)
+    assert result is True
+    ids = mock_user.id.in_.call_args[0][0]
+    assert set(ids) == {actors["U_O"]["id"], actors["U_P1"]["id"],
+                        actors["U_P2"]["id"]}
+    assert all(isinstance(i, int) for i in ids)
+
+    # 3. 複数化フラグ無効（末尾1名 U_P2 のみ。グループは対象外）
+    result, mock_user = _call("U_P1", False)
+    assert result is False
+    assert set(mock_user.id.in_.call_args[0][0]) == {
+        actors["U_O"]["id"], actors["U_P2"]["id"]}
+    result, mock_user = _call("U_P2", False)
+    assert result is True
+    result, mock_user = _call("U_G", False)
+    assert result is False
+
+    # 4. 複数化フラグ有効、U_N
+    result, mock_user = _call("U_N", True)
+    assert result is False
+
+
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_check_created_id_proxy -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_check_created_id_proxy(app, db, users, proxy_actors):
+    """旧形式レコード・複数化フラグ・グループメンバーの判定が is_item_editable_by 経由となること。"""
+    actors = proxy_actors
+    owner = str(actors["U_O"]["id"])
+
+    def _check(record, actor_key, flag):
+        with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": flag}):
+            with patch("flask_login.utils._get_user",
+                       return_value=actors[actor_key]["obj"]):
+                with app.test_request_context():
+                    return check_created_id(record)
+
+    # 1. 複数化フラグ有効、旧形式（weko_shared_id）
+    record = {"owner": owner, "weko_shared_id": actors["U_P1"]["id"]}
+    assert _check(record, "U_P1", True) is True
+    assert _check(record, "U_O", True) is True
+
+    # 2. 複数化フラグ無効、末尾1名のみ
+    record = {"owner": owner,
+              "weko_shared_ids": [actors["U_P1"]["id"], actors["U_P2"]["id"]]}
+    assert _check(record, "U_P1", False) is False
+    assert _check(record, "U_P2", False) is True
+
+    # 3. 複数化フラグ有効、代理投稿グループのメンバー
+    record = {"owner": owner, "weko_shared_role_ids": [actors["R_A"]]}
+    assert _check(record, "U_G", True) is True
+    assert _check(record, "U_N", True) is False
+
+    # 4. 複数化フラグ有効、weko_creator_id のみ別人(U_WC)。登録者判定に weko_creator_id が加わる
+    from invenio_accounts.testutils import create_test_user
+    u_wc = create_test_user(email="proxy_creator_id_107@test.org")
+    db.session.commit()
+    record = {"owner": owner, "weko_creator_id": str(u_wc.id)}
+    with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": True}):
+        with patch("flask_login.utils._get_user", return_value=u_wc):
+            with app.test_request_context():
+                assert check_created_id(record) is True
+    assert _check(record, "U_O", True) is True
+
+    # 判定が is_item_editable_by 経由であること
+    record = {"owner": owner, "weko_shared_role_ids": [actors["R_A"]]}
+    with patch("weko_items_ui.utils.is_item_editable_by",
+               return_value=True) as mock_editable:
+        assert _check(record, "U_N", True) is True
+        mock_editable.assert_called_once()
+
+
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_is_owners_or_superusers_proxy -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_is_owners_or_superusers_proxy(app, db, records, users, proxy_actors):
+    """登録者(owner・created_by・weko_creator_id)・代理投稿者(個人・グループ)・管理者・無関係ユーザーの判定。"""
+    from invenio_accounts.testutils import create_test_user
+
+    actors = proxy_actors
+    # U_CB: _deposit.created_by のみ一致 / U_WC: weko_creator_id のみ一致
+    # (いずれも owner・代理投稿者ではない。owner と created_by が別人のレコードを想定)
+    u_cb = create_test_user(email="proxy_created_by@test.org")
+    u_wc = create_test_user(email="proxy_creator_id@test.org")
+    db.session.commit()
+    login_users = {
+        "U_O": actors["U_O"]["obj"],
+        "U_CB": u_cb,
+        "U_WC": u_wc,
+        "U_P1": actors["U_P1"]["obj"],
+        "U_G": actors["U_G"]["obj"],
+        "U_N": actors["U_N"]["obj"],
+        "U_S": actors["U_S"]["obj"],
+    }
+
+    record = {
+        "owner": str(actors["U_O"]["id"]),
+        "_deposit": {"created_by": u_cb.id},
+        "weko_creator_id": str(u_wc.id),
+        "weko_shared_ids": [actors["U_P1"]["id"]],
+        "weko_shared_role_ids": [actors["R_A"]],
+        "path": ["1657555088462"],
+        "item_type_id": "15",
+    }
+
+    expected = {"U_O": True, "U_CB": True, "U_WC": True, "U_P1": True,
+                "U_G": True, "U_S": True, "U_N": False}
+    with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": True}):
+        with app.test_request_context():
+            for key, exp in expected.items():
+                with patch("flask_login.utils._get_user",
+                           return_value=login_users[key]):
+                    assert is_owners_or_superusers(record) is exp, key

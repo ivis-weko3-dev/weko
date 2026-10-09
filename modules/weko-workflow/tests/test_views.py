@@ -47,6 +47,11 @@ from invenio_pidstore.resolver import Resolver
 from weko_redis import RedisConnection
 from .helpers import create_activity, create_flow
 
+class _ItemDict(dict):
+    """item(ItemsMetadata)を模した辞書。display_activity は画面の初期値用に dict() で複製する."""
+    id = None
+
+
 def response_data(response):
     return json.loads(response.data)
 
@@ -4936,7 +4941,7 @@ def test_display_activity_guestlogin(app, db_register_full_action, guest, mocker
     mock_render_template = MagicMock(return_value=jsonify({}))
     with patch('weko_workflow.views.get_activity_display_info',
             return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.check_authority_action'):
             with patch('weko_workflow.api.WorkActivity.get_activity_action_role',
                     return_value=(roles, action_users)):
@@ -4991,7 +4996,7 @@ def test_display_activity_users(client, users, db_register_full_action, users_in
     mock_render_template = MagicMock(return_value=jsonify({}))
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.check_authority_action'):
             with patch('weko_workflow.api.WorkActivity.get_activity_action_role',
                        return_value=(roles, action_users)):
@@ -5039,7 +5044,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     action_endpoint = 'item_login'
     action_id = cur_action.id
     histories = 1
-    item_metadata = ItemMetadata()
+    item_metadata = _ItemDict()
     item_metadata.id = '37075580-8442-4402-beee-05f62e6e1dc2'
     # item_metadata = {'created':datetime.strptime("2022-09-22 05:09:54.677307", "%Y-%m-%d %H:%M:%S.%f"),'updated':datetime.strptime("2022-09-22 05:09:54.677307", "%Y-%m-%d %H:%M:%S.%f"),
     #                 'id':'37075580-8442-4402-beee-05f62e6e1dc2','item_type_id':15,'json': {"id": "1", "pid": {"type": "depid", "value": "1", "revision_id": 0}, "lang": "ja", "owner": "1", "title": "title", "owners": [1], "status": "published", "$schema": "/items/jsonschema/15", "pubdate": "2022-08-20", "created_by": 1, "owners_ext": {"email": "wekosoftware@nii.ac.jp", "username": "", "displayname": ""}, "shared_user_ids": [], "item_1617186331708": [{"subitem_1551255647225": "ff", "subitem_1551255648112": "ja"}], "item_1617258105262": {"resourceuri": "http://purl.org/coar/resource_type/c_5794", "resourcetype": "conference paper"}}
@@ -5113,7 +5118,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = None
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5133,7 +5138,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
 
     with patch('weko_workflow.views.get_activity_display_info',
             return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.type_null_check',return_value=False):
             with patch('weko_workflow.views.item_login',return_value=(template_url,
                     need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
@@ -5159,7 +5164,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = None
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5183,7 +5188,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     cur_action.action_version = '1.0.0'
     with patch('weko_workflow.views.get_activity_display_info',
             return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5202,7 +5207,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
             return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5220,7 +5225,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     action_endpoint = 'item_login'
     with patch('weko_workflow.views.get_activity_display_info',
             return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5239,7 +5244,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     template_url = None
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5259,7 +5264,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     json_schema = None
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5278,7 +5283,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
             return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5297,7 +5302,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
             return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5317,7 +5322,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
             return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5337,7 +5342,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     json_schema = "test"
     with patch('weko_workflow.views.get_activity_display_info',
             return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5358,7 +5363,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5380,7 +5385,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info'):
             with patch('weko_workflow.views.item_login',return_value=(template_url,
                     need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
@@ -5406,7 +5411,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     # locked_value is not existed
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info'):
             with patch('weko_workflow.views.item_login',return_value=(template_url,
                     need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
@@ -5429,7 +5434,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     current_cache.set("workflow_userlock_activity_5","A-00000001-10001")
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info'):
             with patch('weko_workflow.views.item_login',return_value=(template_url,
                     need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
@@ -5455,7 +5460,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5476,7 +5481,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5497,7 +5502,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5518,7 +5523,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5539,7 +5544,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5560,7 +5565,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5586,7 +5591,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     shared_user_ids = []
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, None, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5609,7 +5614,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     workflow_detail.open_restricted = True
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info'):
             with patch('weko_workflow.views.item_login',return_value=(template_url,
                     need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
@@ -5632,7 +5637,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info'):
             with patch('weko_workflow.views.item_login',return_value=(template_url,
                     need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
@@ -5655,7 +5660,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     cur_action.action_version = '1.0.0'
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5679,7 +5684,7 @@ def test_display_activity(client, users, db_register_full_action,mocker,redis_co
     mock_record = MagicMock()
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5734,7 +5739,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
     #action_endpoint = cur_action.action_endpoint
     action_id = cur_action.id
     histories = 1
-    item_metadata = ItemMetadata()
+    item_metadata = _ItemDict()
     item_metadata.id = '37075580-8442-4402-beee-05f62e6e1dc2'
 
     steps = 1
@@ -5804,7 +5809,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
     shared_user_ids = [{'user':2}]
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5820,7 +5825,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
     current_app.config.update(WEKO_ITEMS_UI_PROXY_POSTING = True)
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5841,7 +5846,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
 
     with patch('weko_workflow.views.get_activity_display_info',
             return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.type_null_check',return_value=False):
             with patch('weko_workflow.views.item_login',return_value=(template_url,
                     need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
@@ -5862,7 +5867,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
 
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5881,7 +5886,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
 
     with patch('weko_workflow.views.get_activity_display_info',
             return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5901,7 +5906,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
 
     with patch('weko_workflow.views.get_activity_display_info',
             return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5920,7 +5925,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
     #action_endpoint = cur_action.action_endpoint
     action_id = cur_action.id
     histories = 1
-    item_metadata = ItemMetadata()
+    item_metadata = _ItemDict()
     item_metadata.id = '37075580-8442-4402-beee-05f62e6e1dc2'
 
     steps = 1
@@ -5954,7 +5959,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
     shared_user_ids = []
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -5976,7 +5981,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
 
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info'):
             with patch('weko_workflow.views.item_login',return_value=(template_url,
                     need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
@@ -6002,7 +6007,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
     # locked_value is not existed
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info'):
             with patch('weko_workflow.views.item_login',return_value=(template_url,
                     need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
@@ -6025,7 +6030,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
     current_cache.set("workflow_userlock_activity_1","A-00000001-10001")
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info'):
             with patch('weko_workflow.views.item_login',return_value=(template_url,
                     need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
@@ -6051,7 +6056,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
     item = item_metadata
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -6073,7 +6078,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
 
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -6095,7 +6100,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
 
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -6117,7 +6122,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
 
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -6139,7 +6144,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
 
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -6161,7 +6166,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
 
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -6185,7 +6190,7 @@ def test_display_activity_1(client, users_1, db_register_1, mocker, redis_connec
 
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, None, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.item_login',return_value=(template_url,
                 need_file,need_billing_file,record,json_schema,schema_form,item_save_uri,
                 files,endpoints,need_thumbnail,files_thumbnail,allow_multi_thumbnail,cris_linkage)):
@@ -6214,7 +6219,7 @@ def test_display_activity_2(client, users_1, db_register_1, mocker):
     #action_endpoint = cur_action.action_endpoint
     action_id = cur_action.id
     histories = 1
-    item_metadata = ItemMetadata()
+    item_metadata = _ItemDict()
     item_metadata.id = '37075580-8442-4402-beee-05f62e6e1dc2'
 
     steps = 1
@@ -6247,7 +6252,7 @@ def test_display_activity_2(client, users_1, db_register_1, mocker):
     shared_user_ids = []
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+               steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.get_pid_and_record',return_value=(test_pid,None)):
             with patch('weko_workflow.views.get_contributors', side_effect=PIDDeletedError('test','test')):
                 res = client.post(url, query_string=input)
@@ -7645,7 +7650,7 @@ def test_display_activity_item_link_with_item_link(client, users, item_type,db_r
 
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item_metadata,
-                           steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+                           steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info', return_value=mock_item_link_info) as mock_get_item_link:
             with patch('weko_workflow.views.item_login', return_value=(template_url,
                       need_file, need_billing_file, record, json_schema, schema_form, item_save_uri,
@@ -7731,7 +7736,7 @@ def test_display_activity_item_link_with_no_item_link(client, users, item_type,d
 
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item_metadata,
-                           steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+                           steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info', return_value=[]) as mock_get_item_link:
             with patch('weko_workflow.views.item_login', return_value=(template_url,
                       need_file, need_billing_file, record, json_schema, schema_form, item_save_uri,
@@ -7819,7 +7824,7 @@ def test_display_activity_item_link_with_item_link_exception(client, users, item
 
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(action_endpoint, action_id, activity_detail, cur_action, histories, item_metadata,
-                           steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)):
+                           steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info', side_effect=StatementError("Mock DB Error", "SELECT 1", [], None)) as mock_get_item_link:
             with patch('weko_workflow.views.item_login', return_value=(template_url,
                         need_file, need_billing_file, record, json_schema, schema_form, item_save_uri,
@@ -7915,7 +7920,7 @@ def test_display_activity_approval_with_relation(client, users, item_type, db_re
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(cur_action.action_endpoint, action_id, activity_detail, cur_action,
                            histories, item_metadata, steps, temporary_comment, workflow_detail,
-                           owner_id, shared_user_ids)):
+                           owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info',
                    return_value=mock_item_link_info) as mock_get_item_link:
             with patch('weko_workflow.views.item_login',
@@ -8008,7 +8013,7 @@ def test_display_activity_approval_without_relation(client, users, item_type, db
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(cur_action.action_endpoint, action_id, activity_detail, cur_action,
                            histories, item_metadata, steps, temporary_comment, workflow_detail,
-                           owner_id, shared_user_ids)):
+                           owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info',
                    return_value=None) as mock_get_item_link:
             with patch('weko_workflow.views.item_login',
@@ -8102,7 +8107,7 @@ def test_display_activity_approval_with_relation_exception(client, users, item_t
     with patch('weko_workflow.views.get_activity_display_info',
                return_value=(cur_action.action_endpoint, action_id, activity_detail, cur_action,
                            histories, item_metadata, steps, temporary_comment, workflow_detail,
-                           owner_id, shared_user_ids)):
+                           owner_id, shared_user_ids, [], False)):
         with patch('weko_workflow.views.ItemLink.get_item_link_info',
                    side_effect=Exception("Test exception")) as mock_get_item_link:
             with patch('weko_workflow.views.item_login',
@@ -8126,3 +8131,1101 @@ def test_display_activity_approval_with_relation_exception(client, users, item_t
                                 context = call_args[1] if len(call_args) > 1 else call_args[0][1] if len(call_args[0]) > 1 else {}
                                 assert 'record' in context
                                 assert context['record']['relation'] == []
+
+
+
+import logging
+from contextlib import ExitStack
+from types import SimpleNamespace
+
+from flask import g
+from invenio_accounts.models import User
+from weko_workflow.schema.marshmallow import ActivitySchema
+from weko_workflow.utils import get_contributors
+from weko_workflow.views import (
+    _get_proxy_poster_candidates, _is_in_shared_roles, _load_activity_temp_data
+)
+
+from .helpers_proxy import (
+    build_proxy_env, create_group_roles, create_proxy_activity, create_user,
+    rid, set_proxy_posting,
+)
+
+_NO_ACTION_ROLE = ({'allow': [], 'deny': []}, {'allow': [], 'deny': []})
+_PROXY_ACTION_ID = 3  # item_login
+_PROXY_ACTION_ORDER = 2
+
+
+@pytest.fixture()
+def no_action_role():
+    """アクションのロール・ユーザー設定なし(validate_action_role_user を不成立にする)."""
+    with patch("weko_workflow.api.WorkActivity.get_activity_action_role",
+               return_value=_NO_ACTION_ROLE):
+        yield
+
+
+def _item_metadata(json_data):
+    """アクティビティに紐づくアイテムメタデータ(im.json)を作成する."""
+    item_id = uuid.uuid4()
+    db.session.add(ItemMetadata(id=item_id, item_type_id=1, json=json_data))
+    db.session.commit()
+    return item_id
+
+
+def _call_check_authority_action(activity):
+    return check_authority_action(
+        activity_id=activity.activity_id, action_id=_PROXY_ACTION_ID,
+        action_order=_PROXY_ACTION_ORDER)
+
+
+def _call_check_authority(activity):
+    """action_id を取らないエンドポイント向けの分岐を通す(許可: True)."""
+    result = check_authority(lambda activity_id: "OK")(
+        activity_id=activity.activity_id)
+    if result == "OK":
+        return True
+    # 権限なしの場合は jsonify(code=403, ...) が返る
+    assert result.get_json()["code"] == 403
+    return False
+
+
+def _check_as(app, user, activity):
+    """user でログインして check_authority_action を呼び出す(0: 権限あり)."""
+    with app.test_request_context():
+        login_user(user)
+        return _call_check_authority_action(activity)
+
+
+def _check_authority_as(app, user, activity):
+    with app.test_request_context():
+        login_user(user)
+        return _call_check_authority(activity)
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_check_authority_action_individual -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_check_authority_action_individual(app, db, users, workflow, no_action_role):
+    """アクティビティ由来の代理投稿者(個人)の判定."""
+    env = build_proxy_env(app)
+    p1, p2 = env.U_P1.id, env.U_P2.id
+    assert p1 < p2
+    # temp_data なし(モデルの既定値)
+    activity = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[{"user": p1}, {"user": p2}])
+
+    # 1. 複数化フラグ有効
+    set_proxy_posting(app, True)
+    assert _check_as(app, env.U_P1, activity) == 0
+    assert _check_as(app, env.U_P2, activity) == 0
+
+    # 2. 複数化フラグ無効: 末尾(U_P2)のみ
+    set_proxy_posting(app, False)
+    assert _check_as(app, env.U_P1, activity) == 1
+    assert _check_as(app, env.U_P2, activity) == 0
+
+    # 3. 代理投稿者ではないユーザー
+    set_proxy_posting(app, True)
+    assert _check_as(app, env.U_N, activity) == 1
+
+    # 4. 保存順が ID の昇順でない場合は、最大IDではなく保存順の末尾で判定する
+    set_proxy_posting(app, False)
+    reverse = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[{"user": p2}, {"user": p1}])
+    assert _check_as(app, env.U_P1, reverse) == 0
+    assert _check_as(app, env.U_P2, reverse) == 1
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_check_authority_action_priority -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_check_authority_action_priority(app, db, users, workflow, no_action_role):
+    """フラグ無効時の優先順位(アクティビティ由来が非空なら temp_data 由来を見ない)."""
+    env = build_proxy_env(app)
+    p1, p2 = env.U_P1.id, env.U_P2.id
+    a1 = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[{"user": env.U_N.id}],
+        temp_data=json.dumps(
+            {"metainfo": {"shared_user_ids": [{"user": p2}]}}))
+    a2 = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[],
+        temp_data=json.dumps(
+            {"metainfo": {"shared_user_ids": [{"user": p1}, {"user": p2}]}}))
+
+    # 1. フラグ無効: アクティビティ由来の末尾 U_N のみを対象とする
+    set_proxy_posting(app, False)
+    assert _check_as(app, env.U_P2, a1) == 1
+    # 2. フラグ有効: アクティビティ由来と temp_data 由来の両方が対象
+    set_proxy_posting(app, True)
+    assert _check_as(app, env.U_P2, a1) == 0
+    # 3. フラグ無効: アクティビティ由来が空の場合のみ temp_data 由来の末尾を対象とする
+    set_proxy_posting(app, False)
+    assert _check_as(app, env.U_P1, a2) == 1
+    assert _check_as(app, env.U_P2, a2) == 0
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_check_authority_action_group -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_check_authority_action_group(app, db, users, workflow, no_action_role):
+    """代理投稿グループのメンバーのアクセス判定."""
+    from weko_workflow import views as workflow_views
+    env = build_proxy_env(app)
+    p1, p2 = env.U_P1.id, env.U_P2.id
+    a3 = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[], shared_role_ids=[rid(env.R_A)])
+    a4 = create_proxy_activity(
+        workflow, env.U_O, shared_role_ids=None,
+        temp_data=json.dumps({"metainfo": {"shared_role_ids": [rid(env.R_A)]}}))
+    a5 = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[{"user": p1}, {"user": p2}],
+        shared_role_ids=[rid(env.R_A)])
+
+    # 1. 複数化フラグ有効: グループのメンバーはアクセスできる
+    set_proxy_posting(app, True)
+    assert _check_as(app, env.U_G, a3) == 0
+    assert _check_as(app, env.U_G, a4) == 0
+
+    # 2. 複数化フラグ無効: グループ判定が無効化される
+    set_proxy_posting(app, False)
+    assert _check_as(app, env.U_G, a3) == 1
+
+    # 3. ロールなしのユーザーは例外を送出せず不可
+    set_proxy_posting(app, True)
+    assert _check_as(app, env.U_N, a3) == 1
+
+    # 4. グループ判定は個人判定の優先順位(末尾のみ)に影響しない
+    set_proxy_posting(app, False)
+    assert _check_as(app, env.U_P1, a5) == 1
+
+    # 5. 判定が _get_proxy_poster_candidates・_is_in_shared_roles を通して行われる
+    set_proxy_posting(app, True)
+    with patch("weko_workflow.views._get_proxy_poster_candidates",
+               wraps=workflow_views._get_proxy_poster_candidates) as mock_candidates, \
+            patch("weko_workflow.views._is_in_shared_roles",
+                  wraps=workflow_views._is_in_shared_roles) as mock_in_roles:
+        assert _check_as(app, env.U_G, a3) == 0
+        mock_candidates.assert_called()
+        mock_in_roles.assert_called()
+
+    # 6. ロールから外れたユーザーの権限は次の判定から即座に失われる
+    ds = app.extensions["invenio-accounts"].datastore
+    ds.remove_role_from_user(env.U_G, env.R_A)
+    db.session.commit()
+    # 新しいリクエストと同様に、リクエスト単位のロールIDのキャッシュを破棄する
+    g.pop("_weko_user_role_ids", None)
+    user = User.query.get(env.U_G.id)
+    assert _check_as(app, user, a3) == 1
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_check_authority_action_item_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_check_authority_action_item_metadata(app, db, users, workflow, no_action_role):
+    """アイテムメタデータ側の個人・グループ・owner 判定."""
+    env = build_proxy_env(app)
+    p1, p2 = env.U_P1.id, env.U_P2.id
+    owner = str(env.U_O.id)
+
+    def make(**metadata):
+        """アクティビティの shared_user_ids・shared_role_ids は空とする."""
+        item_id = _item_metadata(dict(owner=owner, **metadata))
+        return create_proxy_activity(
+            workflow, env.U_O, shared_user_ids=[], shared_role_ids=[],
+            item_id=item_id)
+
+    full = make(weko_shared_ids=[p1, p2], weko_shared_role_ids=[rid(env.R_A)])
+
+    # 1. 複数化フラグ有効
+    set_proxy_posting(app, True)
+    assert _check_as(app, env.U_P1, full) == 0
+    assert _check_as(app, env.U_G, full) == 0
+
+    # 2. 複数化フラグ無効: 個人は末尾のみ、グループは無効
+    set_proxy_posting(app, False)
+    assert _check_as(app, env.U_P1, full) == 1
+    assert _check_as(app, env.U_P2, full) == 0
+    assert _check_as(app, env.U_G, full) == 1
+
+    # 3. owner 判定
+    assert _check_as(app, env.U_O, full) == 0
+
+    # 4. shared_user_ids の形状も優先順位で正規化される
+    shape = make(shared_user_ids=[{"user": p1}])
+    set_proxy_posting(app, True)
+    assert _check_as(app, env.U_P1, shape) == 0
+
+    # 5. 保存順が ID の昇順でない場合は物理的な末尾で判定する
+    reverse = make(weko_shared_ids=[p2, p1])
+    set_proxy_posting(app, False)
+    assert _check_as(app, env.U_P1, reverse) == 0
+    assert _check_as(app, env.U_P2, reverse) == 1
+
+    # 6. 両キーが非空で内容が異なる場合は shared_user_ids のみを候補とする
+    both = make(shared_user_ids=[{"user": p1}], weko_shared_ids=[p2])
+    set_proxy_posting(app, True)
+    assert _check_as(app, env.U_P1, both) == 0
+    assert _check_as(app, env.U_P2, both) == 1
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_check_authority_action_temp_data_invalid -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_check_authority_action_temp_data_invalid(app, db, users, workflow, no_action_role, caplog):
+    """temp_data が不正でも例外とならない."""
+    env = build_proxy_env(app)
+    caplog.set_level(logging.WARNING)
+
+    # 1. JSON として不正な文字列
+    activity = create_proxy_activity(workflow, env.U_O, temp_data="{invalid")
+    caplog.clear()
+    assert _check_as(app, env.U_N, activity) == 1
+    assert ("Failed to parse activity temp_data. activity_id={}"
+            .format(activity.activity_id)) in caplog.text
+
+    # 2. "null"(AttributeError が発生しない)
+    activity = create_proxy_activity(workflow, env.U_O, temp_data="null")
+    assert _check_as(app, env.U_N, activity) == 1
+
+    # 3. shared_user_ids カラムが NULL
+    activity = create_proxy_activity(workflow, env.U_O, shared_user_ids=None)
+    assert _check_as(app, env.U_N, activity) == 1
+
+    # 4. dict(JSONB オブジェクト)で保存された temp_data はそのまま使われる
+    set_proxy_posting(app, True)
+    activity = create_proxy_activity(
+        workflow, env.U_O,
+        temp_data={"metainfo": {"shared_user_ids": [{"user": env.U_P1.id}]}})
+    assert _check_as(app, env.U_P1, activity) == 0
+
+    # 5. dict 以外に解析される値は空 dict 扱い(WARNING ログは出力しない)
+    activity = create_proxy_activity(workflow, env.U_O, temp_data="[1, 2]")
+    caplog.clear()
+    assert _check_as(app, env.U_N, activity) == 1
+    assert "Failed to parse activity temp_data" not in caplog.text
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_load_activity_temp_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_load_activity_temp_data(app, caplog):
+    """temp_data を dict として読み込む."""
+    caplog.set_level(logging.WARNING)
+    warning = "Failed to parse activity temp_data. activity_id=A-1"
+    data = {"metainfo": {"shared_user_ids": [{"user": 3}]}}
+
+    def load(temp_data):
+        caplog.clear()
+        return _load_activity_temp_data(
+            MagicMock(activity_id="A-1", temp_data=temp_data))
+
+    # 1・2. dict・JSON 文字列
+    assert load(data) == data
+    assert load(json.dumps(data)) == data
+    # 3. None(例外を送出しない。ログ出力の有無は確認しない)
+    assert load(None) == {}
+    # 4・5. JSON として不正な文字列・空文字(ValueError)
+    assert load("{invalid") == {}
+    assert warning in caplog.text
+    assert load("") == {}
+    assert warning in caplog.text
+    # 6〜8. dict 以外に解析された場合は空 dict(WARNING ログは出力しない)
+    for value in ("null", "[1, 2]", "123"):
+        assert load(value) == {}
+        assert warning not in caplog.text
+    # 9. dict・str 以外の型(TypeError)
+    assert load(123) == {}
+    assert warning in caplog.text
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_get_proxy_poster_candidates -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_get_proxy_poster_candidates(app, db, users):
+    """代理投稿者(個人・グループ)の候補と所属ロールとの照合."""
+    env = build_proxy_env(app)
+    role_a = rid(env.R_A)
+    # 整数の 3・5・7 はユーザーID、"12"・"35" はロールIDを表す
+    activity_none = SimpleNamespace(shared_user_ids=None, shared_role_ids=None)
+
+    def candidates(activity, im_json, temp_data):
+        im = None if im_json is None else SimpleNamespace(json=im_json)
+        return _get_proxy_poster_candidates(activity, im, temp_data)
+
+    # 1. shared_user_ids が非空のため shared_user_ids のみが候補
+    set_proxy_posting(app, True)
+    assert candidates(activity_none, {
+        "shared_user_ids": [{"user": 3}], "weko_shared_ids": [3, 5],
+        "weko_shared_role_ids": ["12"]}, {}) == ([3], ["12"])
+    # 2. 複数化フラグ有効
+    im_json = {"weko_shared_ids": [3, 5], "weko_shared_role_ids": ["12", "35"]}
+    assert candidates(activity_none, im_json, {}) == ([3, 5], ["12", "35"])
+    # 3. 複数化フラグ無効: 個人は末尾 1 名、ロールは空
+    set_proxy_posting(app, False)
+    assert candidates(activity_none, im_json, {}) == ([5], [])
+    # 4. 最大IDではなく保存順の末尾
+    assert candidates(activity_none, {"weko_shared_ids": [5, 3]}, {}) == ([3], [])
+
+    activity = SimpleNamespace(
+        shared_user_ids=[{"user": 3}, {"user": 5}], shared_role_ids=["12"])
+    temp_data = {"metainfo": {
+        "shared_user_ids": [{"user": 7}], "shared_role_ids": ["35"]}}
+    # 5. アイテムメタデータなし、複数化フラグ有効
+    set_proxy_posting(app, True)
+    users_, roles_ = candidates(activity, None, temp_data)
+    assert users_ == [3, 5, 7]
+    assert set(roles_) == {"12", "35"}
+    # 6. 複数化フラグ無効: アクティビティ由来が非空のため、その末尾のみ
+    set_proxy_posting(app, False)
+    assert candidates(activity, None, temp_data) == ([5], [])
+    # 7. アクティビティ由来が空の場合のみ temp_data 由来の末尾
+    empty = SimpleNamespace(shared_user_ids=[], shared_role_ids=["12"])
+    assert candidates(empty, None, temp_data) == ([7], [])
+    # 8. None を空として扱い、例外を送出しない
+    set_proxy_posting(app, True)
+    assert candidates(activity_none, None, {}) == ([], [])
+
+    # 9. role_ids が空
+    with app.test_request_context():
+        login_user(env.U_G)
+        assert _is_in_shared_roles([]) is False
+        # 10. 所属ロール(R_A)との照合
+        assert _is_in_shared_roles([role_a]) is True
+        # 11. 削除済みロールは誰にもマッチしない
+        assert _is_in_shared_roles(["999999"]) is False
+        login_user(env.U_N)
+        assert _is_in_shared_roles([role_a]) is False
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_check_authority_no_action_id_individual -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_check_authority_no_action_id_individual(app, db, users, workflow, no_action_role):
+    """action_id を取らない分岐の個人の代理投稿者の判定."""
+    env = build_proxy_env(app)
+    p1, p2 = env.U_P1.id, env.U_P2.id
+    assert p1 < p2
+    owner = str(env.U_O.id)
+
+    def temp(**metainfo):
+        return json.dumps({"metainfo": metainfo})
+
+    aa = create_proxy_activity(
+        workflow, env.U_O,
+        shared_user_ids=[{"user": p1}, {"user": p2}], temp_data=temp())
+    ab = create_proxy_activity(
+        workflow, env.U_O, item_id=_item_metadata(
+            {"owner": owner, "weko_shared_ids": [p1, p2]}))
+    ac = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[{"user": env.U_N.id}],
+        temp_data=temp(shared_user_ids=[{"user": p2}]))
+    ad = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[],
+        temp_data=temp(shared_user_ids=[{"user": p1}, {"user": p2}]))
+    ae = create_proxy_activity(
+        workflow, env.U_O, item_id=_item_metadata(
+            {"owner": owner, "weko_shared_ids": [p2, p1]}))
+
+    def both(user, activity):
+        """check_authority と check_authority_action の判定を比較して返す."""
+        allowed = _check_authority_as(app, user, activity)
+        assert allowed == (_check_as(app, user, activity) == 0)
+        return allowed
+
+    # 1. 複数化フラグ有効
+    set_proxy_posting(app, True)
+    for activity in (aa, ab):
+        assert both(env.U_P1, activity) is True
+        assert both(env.U_P2, activity) is True
+    # 2. 複数化フラグ無効: 末尾のみ
+    set_proxy_posting(app, False)
+    for activity in (aa, ab):
+        assert both(env.U_P1, activity) is False
+        assert both(env.U_P2, activity) is True
+    # 3. アクティビティ由来が非空のため temp_data 由来は見ない
+    assert both(env.U_P2, ac) is False
+    set_proxy_posting(app, True)
+    assert both(env.U_P2, ac) is True
+    # 4. アクティビティ由来が空の場合のみ temp_data 由来の末尾を対象とする
+    set_proxy_posting(app, False)
+    assert both(env.U_P1, ad) is False
+    assert both(env.U_P2, ad) is True
+    # 5. 保存順の物理的な末尾
+    assert both(env.U_P1, ae) is True
+    assert both(env.U_P2, ae) is False
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_check_authority_no_action_id_group -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_check_authority_no_action_id_group(app, db, users, workflow, no_action_role):
+    """action_id を取らない分岐の代理投稿グループの判定."""
+    env = build_proxy_env(app)
+    p1, p2 = env.U_P1.id, env.U_P2.id
+    owner = str(env.U_O.id)
+
+    def temp(**metainfo):
+        return json.dumps({"metainfo": metainfo})
+
+    ag1 = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[], shared_role_ids=[rid(env.R_A)],
+        temp_data=temp())
+    ag2 = create_proxy_activity(
+        workflow, env.U_O, shared_role_ids=None,
+        temp_data=temp(shared_role_ids=[rid(env.R_A)]))
+    ag3 = create_proxy_activity(
+        workflow, env.U_O, item_id=_item_metadata(
+            {"owner": owner, "weko_shared_role_ids": [rid(env.R_A)]}))
+    ag4 = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[{"user": p1}, {"user": p2}],
+        shared_role_ids=[rid(env.R_A)], temp_data=temp())
+    ag5 = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[], shared_role_ids=["999999"],
+        temp_data=temp())
+
+    def both(user, activity):
+        allowed = _check_authority_as(app, user, activity)
+        assert allowed == (_check_as(app, user, activity) == 0)
+        return allowed
+
+    # 1. 複数化フラグ有効
+    set_proxy_posting(app, True)
+    for activity in (ag1, ag2, ag3):
+        assert both(env.U_G, activity) is True
+    # 2. 複数化フラグ無効: グループ機能ごと無効
+    set_proxy_posting(app, False)
+    for activity in (ag1, ag2, ag3):
+        assert both(env.U_G, activity) is False
+    # 3. ロールなしは例外を送出せず不可
+    set_proxy_posting(app, True)
+    assert both(env.U_N, ag1) is False
+    # 4. グループ判定は個人判定の優先順位(末尾のみ)に影響しない
+    set_proxy_posting(app, False)
+    assert both(env.U_P1, ag4) is False
+    assert both(env.U_P2, ag4) is True
+    # 6. 削除済みロールは誰にもマッチしない
+    set_proxy_posting(app, True)
+    assert both(env.U_G, ag5) is False
+    # 5. ロールから外れた直後は不可
+    ds = app.extensions["invenio-accounts"].datastore
+    ds.remove_role_from_user(env.U_G, env.R_A)
+    db.session.commit()
+    g.pop("_weko_user_role_ids", None)
+    user = User.query.get(env.U_G.id)
+    assert both(user, ag1) is False
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_check_authority_no_action_id_others -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_check_authority_no_action_id_others(app, db, users, workflow, no_action_role, caplog):
+    """temp_data の解析失敗・候補が無い場合・変更していない判定."""
+    env = build_proxy_env(app)
+    caplog.set_level(logging.WARNING)
+    set_proxy_posting(app, True)
+
+    # 1. JSON として不正な temp_data はアイテムメタデータが無ければ空 dict 扱いで 403
+    activity = create_proxy_activity(workflow, env.U_O, temp_data="{invalid")
+    caplog.clear()
+    assert _check_authority_as(app, env.U_N, activity) is False
+    assert ("Failed to parse activity temp_data. activity_id={}"
+            .format(activity.activity_id)) in caplog.text
+
+    # 2. "null"(AttributeError が発生しない)
+    activity = create_proxy_activity(workflow, env.U_O, temp_data="null")
+    assert _check_authority_as(app, env.U_N, activity) is False
+
+    # 3. アイテムメタデータも temp_data(NULL)も無くても、アクティビティの列
+    #    (shared_user_ids・shared_role_ids)を評価して個人・グループとも許可する
+    #    (check_authority_action と同じ判定)
+    activity = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[{"user": env.U_P1.id}],
+        shared_role_ids=[rid(env.R_A)], temp_data=None)
+    assert _check_authority_as(app, env.U_P1, activity) is True
+    assert _check_authority_as(app, env.U_G, activity) is True
+    assert _check_authority_as(app, env.U_N, activity) is False
+
+    # 4. 申請者本人の許可と管理者判定は変更しない(複数化フラグ無効)
+    set_proxy_posting(app, False)
+    activity = create_proxy_activity(workflow, env.U_O)
+    assert _check_authority_as(app, env.U_O, activity) is True
+    assert _check_authority_as(app, env.U_S, activity) is True
+
+    # 5. dict(JSONB オブジェクト)で保存された temp_data はそのまま使われる
+    set_proxy_posting(app, True)
+    activity = create_proxy_activity(
+        workflow, env.U_O,
+        temp_data={"metainfo": {"shared_user_ids": [{"user": env.U_P1.id}]}})
+    assert _check_authority_as(app, env.U_P1, activity) is True
+
+    # 6. action_id を取る分岐は変更しない(validate_action_role_user の結果に従い、候補は見ない)
+    activity = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[{"user": env.U_P1.id}],
+        shared_role_ids=[rid(env.R_A)],
+        temp_data=json.dumps({"metainfo": {}}))
+    with app.test_request_context():
+        login_user(env.U_N)
+        with patch("weko_workflow.views.validate_action_role_user",
+                   return_value=(True, False, True)) as mock_validate, \
+                patch("weko_workflow.views._get_proxy_poster_candidates") as mock_candidates:
+            result = check_authority(lambda activity_id, action_id: "OK")(
+                activity_id=activity.activity_id, action_id=_PROXY_ACTION_ID)
+            # 拒否(is_set かつ is_deny)
+            assert result != "OK"
+            assert result.get_json()["code"] == 403
+            mock_validate.assert_called_once()
+            mock_candidates.assert_not_called()
+        with patch("weko_workflow.views.validate_action_role_user",
+                   return_value=(True, True, False)), \
+                patch("weko_workflow.views._get_proxy_poster_candidates") as mock_candidates:
+            result = check_authority(lambda activity_id, action_id: "OK")(
+                activity_id=activity.activity_id, action_id=_PROXY_ACTION_ID)
+            assert result == "OK"
+            mock_candidates.assert_not_called()
+
+
+# display_activity のテスト用の共通部品 ------------------------------------
+
+_DISPLAY_ITEM_LOGIN = (
+    "weko_items_ui/iframe/item_edit.html", False, False, None, "test", "test",
+    "", [], {}, False, [], False, {"researchmap": False})
+
+
+def _display_activity(client, app, mocker, redis_connect, workflow_env, activity,
+                      record=None, item=None, shared_user_ids=None,
+                      shared_role_ids=None, shared_ids_saved=False,
+                      get_contributors_mock=None, record_json=None):
+    """display_activity を item_login アクションで表示し、render_template のモックを返す.
+
+    Args:
+        record: item_login が返す画面の初期値(record)。
+        item: get_activity_display_info が返すアイテム。
+        shared_*: get_activity_display_info が返す代理投稿者(個人・グループ)。
+        get_contributors_mock: views.get_contributors を差し替えるモック。
+        record_json: 登録済みアイテム(レコード)側の代理投稿者
+            (WekoRecord.get_record_by_pid の戻り値)。
+    """
+    activity = Activity.query.filter_by(activity_id=activity.activity_id).one()
+    workflow_detail = workflow_env["workflow"]
+    mock_render_template = MagicMock(return_value="")
+    test_pid = PersistentIdentifier()
+    test_pid.pid_value = "1"
+    display_info = (
+        "item_login", activity.action_id, activity, activity.action, 1, item,
+        1, 1, workflow_detail, 1, shared_user_ids or [], shared_role_ids or [],
+        shared_ids_saved)
+    item_login_result = list(_DISPLAY_ITEM_LOGIN)
+    item_login_result[3] = {} if record is None else record
+    identifier = {
+        'action_identifier_select': '', 'action_identifier_jalc_doi': '',
+        'action_identifier_jalc_cr_doi': '', 'action_identifier_jalc_dc_doi': '',
+        'action_identifier_ndl_jalc_doi': ''}
+    with ExitStack() as stack:
+        enter = stack.enter_context
+        enter(patch("weko_workflow.views.AdminSettings.get",
+                    return_value={"display_request_form": True}))
+        enter(patch("weko_workflow.api.WorkActivity.get_activity_action_role",
+                    return_value=_NO_ACTION_ROLE))
+        enter(patch("weko_workflow.views.WorkActivity.get_action_identifier_grant",
+                    return_value=identifier))
+        enter(patch("weko_workflow.views.check_authority_action", return_value=1))
+        enter(patch("weko_workflow.views.set_files_display_type", return_value=[]))
+        enter(patch("weko_workflow.views.WorkActivity.get_action_journal"))
+        enter(patch("weko_workflow.views.get_files_and_thumbnail",
+                    return_value=(["test1", "test2"], [])))
+        enter(patch("weko_workflow.views.get_usage_data", return_value={}))
+        enter(patch("weko_workflow.views.is_usage_application_item_type",
+                    return_value=False))
+        enter(patch("weko_theme.views.get_design_layout", return_value=(None, True)))
+        enter(patch("weko_theme.utils.get_design_layout", return_value=(None, True)))
+        enter(patch("weko_workflow.views.RedisConnection.connection",
+                    return_value=redis_connect))
+        enter(patch("weko_workflow.views.get_activity_display_info",
+                    return_value=display_info))
+        enter(patch("weko_workflow.views.item_login",
+                    return_value=tuple(item_login_result)))
+        enter(patch("weko_workflow.views.get_pid_and_record",
+                    return_value=(test_pid, None)))
+        enter(patch("weko_workflow.views.base_factory", return_value={}))
+        enter(patch("weko_records_ui.utils.get_list_licence", return_value=[]))
+        enter(patch("weko_workflow.views.get_main_record_detail",
+                    return_value=dict(record=None, files=None,
+                                      files_thumbnail=None, pid=None)))
+        enter(patch("weko_workflow.views.render_template", mock_render_template))
+        if get_contributors_mock is not None:
+            enter(patch("weko_workflow.views.get_contributors",
+                        get_contributors_mock))
+        if record_json is not None:
+            enter(patch("weko_workflow.utils.WekoRecord.get_record_by_pid",
+                        return_value=record_json))
+        login(client=client, email=app_users_email(app))
+        url = url_for("weko_workflow.display_activity",
+                      activity_id=activity.activity_id)
+        client.post(url)
+    return mock_render_template
+
+
+def app_users_email(app):
+    """display_activity の表示に用いる管理者ユーザー(users フィクスチャの sysadmin)のメール."""
+    return "sysadmin@test.org"
+
+
+def _render_kwargs(mock_render_template):
+    mock_render_template.assert_called()
+    return mock_render_template.call_args[1]
+
+
+@pytest.fixture()
+def display_env(app, db, users, db_register_full_action):
+    """display_activity のテスト用の共通データ."""
+    env = build_proxy_env(app)
+    wf = {"workflow": db_register_full_action["workflow"],
+          "flow": db_register_full_action["flow_define"]}
+    return env, wf
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_display_activity_enable_multi_contributors -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_display_activity_enable_multi_contributors(
+        client, app, display_env, mocker, redis_connect, without_remove_session):
+    """設定キー未定義でも KeyError とならず enable_multi_contributors が偽."""
+    env, wf = display_env
+    activity = create_proxy_activity(wf, env.U_O)
+    record = {"pubdate": "2026-01-01"}
+
+    # 1. 設定キーを削除した状態
+    app.config.pop("WEKO_ITEMS_UI_PROXY_POSTING", None)
+    mock_render = _display_activity(
+        client, app, mocker, redis_connect, wf, activity, record=dict(record))
+    assert _render_kwargs(mock_render)["enable_multi_contributors"] is False
+
+    # 2. 複数化フラグ有効
+    set_proxy_posting(app, True)
+    mock_render = _display_activity(
+        client, app, mocker, redis_connect, wf, activity, record=dict(record))
+    assert _render_kwargs(mock_render)["enable_multi_contributors"] is True
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_display_activity_remove_item_shared_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_display_activity_remove_item_shared_ids(
+        client, app, display_env, mocker, redis_connect, without_remove_session):
+    """画面の初期値からアイテム側の代理投稿者が除去され、item は変更されない."""
+    env, wf = display_env
+    set_proxy_posting(app, True)
+    activity = create_proxy_activity(wf, env.U_O)
+    shared = {"weko_shared_ids": [env.U_P1.id],
+              "weko_shared_role_ids": [rid(env.R_A)]}
+
+    # (a) 一時保存データなし: アイテムメタデータ(item)から初期値が作られる
+    item = dict(shared_user_ids=[], pubdate="2026-01-01", **shared)
+    expected_item = copy.deepcopy(item)
+    mock_render = _display_activity(
+        client, app, mocker, redis_connect, wf, activity, record={}, item=item)
+    kwargs = _render_kwargs(mock_render)
+    assert "weko_shared_ids" not in kwargs["records"]
+    assert "weko_shared_role_ids" not in kwargs["records"]
+    # item そのものは変更されない
+    assert kwargs["item"] is item
+    assert item == expected_item
+
+    # (b) 一時保存データ(本改修の適用前に保存されたもの)を含む record
+    record = dict(pubdate="2026-01-01", **shared)
+    mock_render = _display_activity(
+        client, app, mocker, redis_connect, wf, activity, record=record)
+    kwargs = _render_kwargs(mock_render)
+    assert "weko_shared_ids" not in kwargs["records"]
+    assert "weko_shared_role_ids" not in kwargs["records"]
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_display_activity_initial_shared_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_display_activity_initial_shared_ids(
+        client, app, display_env, mocker, redis_connect, without_remove_session):
+    """画面の初期値の shared_user_ids・shared_role_ids が表示と一致する."""
+    env, wf = display_env
+    set_proxy_posting(app, True)
+    role_deleted = "999999"
+    # 登録済みアイテムを持つアクティビティ(item_id あり)
+    activity = create_proxy_activity(wf, env.U_O, item_id=uuid.uuid4())
+
+    def show(record_json):
+        return _render_kwargs(_display_activity(
+            client, app, mocker, redis_connect, wf, activity,
+            record={"pubdate": "2026-01-01"}, record_json=record_json))
+
+    # (a) インポート等で登録されたアイテム(個人のみ)
+    kwargs = show({"shared_user_ids": [],
+                   "weko_shared_ids": [env.U_P1.id, env.U_P2.id]})
+    assert [c["userid"] for c in kwargs["contributors"]] \
+        == [env.U_P1.id, env.U_P2.id]
+    assert kwargs["records"]["shared_user_ids"] \
+        == [{"user": env.U_P1.id}, {"user": env.U_P2.id}]
+    assert kwargs["records"]["shared_role_ids"] == []
+    assert "contributor_groups" in kwargs
+
+    # (b) グループのみ
+    kwargs = show({"weko_shared_role_ids": [rid(env.R_A)]})
+    assert kwargs["contributor_groups"] == [
+        {"role_id": rid(env.R_A), "group_name": "Alpha", "error": ""}]
+    assert kwargs["records"]["shared_role_ids"] == [rid(env.R_A)]
+    assert kwargs["records"]["shared_user_ids"] == []
+
+    # (c) 削除済みロール・指定不可となったロールを含む
+    kwargs = show({"weko_shared_role_ids": [
+        rid(env.R_A), role_deleted, rid(env.R_X)]})
+    groups = {g_["role_id"]: g_ for g_ in kwargs["contributor_groups"]}
+    assert groups[role_deleted]["error"] == "Role not found."
+    assert groups[rid(env.R_X)]["error"] == "Role not allowed."
+    # error 付きのロールを初期値に含めない
+    assert kwargs["records"]["shared_role_ids"] == [rid(env.R_A)]
+    assert "contributors" in kwargs and "contributor_groups" in kwargs
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_display_activity_contributor_source -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_display_activity_contributor_source(
+        client, app, display_env, mocker, redis_connect, without_remove_session):
+    """shared_ids_saved と一時保存データの有無による選択条件."""
+    env, wf = display_env
+    set_proxy_posting(app, True)
+    activity = create_proxy_activity(wf, env.U_O, item_id=uuid.uuid4())
+    record_json = {"weko_shared_ids": [env.U_P1.id],
+                   "weko_shared_role_ids": [rid(env.R_A)]}
+
+    def show(**display_info):
+        mock_contributors = MagicMock(wraps=get_contributors)
+        mock_render = _display_activity(
+            client, app, mocker, redis_connect, wf, activity,
+            record={"pubdate": "2026-01-01"}, record_json=record_json,
+            get_contributors_mock=mock_contributors, **display_info)
+        return mock_contributors, _render_kwargs(mock_render)
+
+    # (a) 一時保存データなし: レコード側
+    mock_contributors, kwargs = show()
+    mock_contributors.assert_called_once_with("1")
+    assert [c["userid"] for c in kwargs["contributors"]] == [env.U_P1.id]
+    assert [g_["role_id"] for g_ in kwargs["contributor_groups"]] == [rid(env.R_A)]
+
+    # (b) shared_ids_saved が真(登録者本人のみで保存): レコード側を参照しない
+    mock_contributors, kwargs = show(shared_ids_saved=True)
+    mock_contributors.assert_called_once_with(
+        None, user_id_list_json=[], role_id_list=[])
+    assert kwargs["contributors"] == []
+    assert kwargs["contributor_groups"] == []
+    assert kwargs["records"]["shared_user_ids"] == []
+    assert kwargs["records"]["shared_role_ids"] == []
+
+    # (c) shared_ids_saved なし・個人・グループとも空: 変更前と同じくレコード側
+    mock_contributors, kwargs = show(shared_ids_saved=False)
+    mock_contributors.assert_called_once_with("1")
+    assert [c["userid"] for c in kwargs["contributors"]] == [env.U_P1.id]
+
+    # (d) グループのみ一時保存: 一時保存データ側(個人はレコード側で補わない)
+    mock_contributors, kwargs = show(shared_role_ids=[rid(env.R_B)])
+    mock_contributors.assert_called_once_with(
+        None, user_id_list_json=[], role_id_list=[rid(env.R_B)])
+    assert kwargs["contributors"] == []
+    assert [g_["role_id"] for g_ in kwargs["contributor_groups"]] == [rid(env.R_B)]
+
+    # (e) 個人のみ一時保存: 一時保存データ側(グループはレコード側で補わない)
+    mock_contributors, kwargs = show(shared_user_ids=[{"user": env.U_P2.id}])
+    mock_contributors.assert_called_once_with(
+        None, user_id_list_json=[{"user": env.U_P2.id}], role_id_list=[])
+    assert [c["userid"] for c in kwargs["contributors"]] == [env.U_P2.id]
+    assert kwargs["contributor_groups"] == []
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_display_activity_contributors_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_display_activity_contributors_error(
+        client, app, display_env, mocker, redis_connect, without_remove_session, caplog):
+    """担当者情報の取得に失敗した場合に初期値を上書きしない."""
+    env, wf = display_env
+    set_proxy_posting(app, True)
+    caplog.set_level(logging.ERROR)
+    activity = create_proxy_activity(wf, env.U_O, item_id=uuid.uuid4())
+    shared_users = [{"user": env.U_P1.id}]
+    shared_roles = [rid(env.R_A)]
+    record = {"pubdate": "2026-01-01", "shared_user_ids": list(shared_users),
+              "shared_role_ids": list(shared_roles)}
+
+    mock_render = _display_activity(
+        client, app, mocker, redis_connect, wf, activity, record=record,
+        shared_user_ids=shared_users, shared_role_ids=shared_roles,
+        get_contributors_mock=MagicMock(side_effect=Exception("test error")))
+    kwargs = _render_kwargs(mock_render)
+    assert "Unexpected error" in caplog.text
+    assert kwargs["contributors"] == []
+    assert kwargs["contributor_groups"] == []
+    # 一時保存データの値のまま(空リストで上書きされない)
+    assert kwargs["records"]["shared_user_ids"] == shared_users
+    assert kwargs["records"]["shared_role_ids"] == shared_roles
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_save_activity_shared_role_rejected -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_save_activity_shared_role_rejected(client, app, users, db_register_full_action, caplog, without_remove_session):
+    """上限超過・指定不可のグループを保存前に拒否する."""
+    from weko_workflow.utils import save_activity_data
+    env = build_proxy_env(app)
+    groups = create_group_roles(11)
+    wf = {"workflow": db_register_full_action["workflow"],
+          "flow": db_register_full_action["flow_define"]}
+    activity = create_proxy_activity(
+        wf, users[2]["obj"], shared_role_ids=[rid(groups[0])])
+    login(client=client, email=users[2]["email"])
+    url = url_for("weko_workflow.save_activity")
+    caplog.set_level(logging.WARNING)
+
+    def post(role_ids):
+        data = {"activity_id": activity.activity_id, "title": "title",
+                "shared_user_ids": [], "shared_role_ids": role_ids}
+        with patch("weko_workflow.views.save_activity_data",
+                   wraps=save_activity_data) as mock_save:
+            res = client.post(url, json=data)
+        return res, mock_save
+
+    def saved_role_ids():
+        db.session.expire_all()
+        return Activity.query.filter_by(
+            activity_id=activity.activity_id).one().shared_role_ids
+
+    # 1. 上限(10)を超える 11 件
+    set_proxy_posting(app, True)
+    caplog.clear()
+    res, mock_save = post([rid(g_) for g_ in groups])
+    assert response_data(res) == {
+        "success": False, "msg": "You can specify up to 10 proxy posting groups."}
+    mock_save.assert_not_called()
+    assert saved_role_ids() == [rid(groups[0])]
+    assert "Rejected shared role ids exceeding the limit: count=11, max=10" \
+        in caplog.text
+
+    # 2. 指定不可のグループ(mAP グループでないロール)
+    caplog.clear()
+    res, mock_save = post([rid(groups[0]), rid(env.R_N)])
+    assert response_data(res) == {
+        "success": False,
+        "msg": "Specified group is not allowed as a proxy posting group."}
+    mock_save.assert_not_called()
+    assert saved_role_ids() == [rid(groups[0])]
+    assert "Rejected shared role id which is not a mAP group: {}".format(
+        rid(env.R_N)) in caplog.text
+
+    # 3. 複数化フラグ無効でも同じ(検証は複数化フラグの状態によらず行う)
+    set_proxy_posting(app, False)
+    res, mock_save = post([rid(groups[0]), rid(env.R_N)])
+    assert response_data(res) == {
+        "success": False,
+        "msg": "Specified group is not allowed as a proxy posting group."}
+    mock_save.assert_not_called()
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_save_activity_shared_role_saved -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_save_activity_shared_role_saved(client, app, users, db_register_full_action, without_remove_session):
+    """検証を通過した shared_role_ids がアクティビティへ保存される."""
+    env = build_proxy_env(app)
+    groups = create_group_roles(1)
+    wf = {"workflow": db_register_full_action["workflow"],
+          "flow": db_register_full_action["flow_define"]}
+    activity = create_proxy_activity(
+        wf, users[2]["obj"], shared_role_ids=[rid(groups[0])])
+    login(client=client, email=users[2]["email"])
+    url = url_for("weko_workflow.save_activity")
+    set_proxy_posting(app, True)
+
+    def post(**extra):
+        data = {"activity_id": activity.activity_id, "title": "title",
+                "shared_user_ids": []}
+        data.update(extra)
+        with patch("weko_workflow.views.save_activity_data",
+                   wraps=save_activity_data) as mock_save:
+            res = client.post(url, json=data)
+        return res, mock_save
+
+    def saved_role_ids():
+        db.session.expire_all()
+        return Activity.query.filter_by(
+            activity_id=activity.activity_id).one().shared_role_ids
+
+    from weko_workflow.utils import save_activity_data
+    # 1. 検証を通過した値が保存される
+    res, _ = post(shared_role_ids=[rid(env.R_A), rid(env.R_B)])
+    assert response_data(res) == {"success": True, "msg": ""}
+    assert saved_role_ids() == [rid(env.R_A), rid(env.R_B)]
+    # 2. None は空リストに寄せて保存される
+    res, _ = post(shared_role_ids=None)
+    assert response_data(res)["success"] is True
+    assert saved_role_ids() == []
+    # 3. 未送信も 2 と同じ
+    post(shared_role_ids=[rid(env.R_A)])
+    res, _ = post()
+    assert response_data(res)["success"] is True
+    assert saved_role_ids() == []
+    # 4. 文字列以外の要素は marshmallow の検証エラー
+    res, mock_save = post(shared_role_ids=[12])
+    assert res.status_code == 400
+    assert "Not a valid string." in response_data(res)["msg"]
+    mock_save.assert_not_called()
+
+
+# edit_item_direct_after_login のテスト用の共通部品 --------------------------
+
+def _edit_direct(client, app, mocker, user, deposit, comadmin=False,
+                 wraps_roles=False):
+    """edit_item_direct_after_login を GET し、(render_template のモック, 応答)を返す.
+
+    権限判定の後は「ItemType が無い」エラーで打ち切り、許可された場合はこのエラーに
+    進むことで判定する。拒否された場合は "You are not allowed to edit this item." となる。
+    """
+    mock_render = mocker.patch("weko_workflow.views.render_template", return_value="")
+    mock_redis = MagicMock(exists=MagicMock(return_value=False))
+    mocker.patch.object(RedisConnection, "connection",
+                        return_value=MagicMock(redis=mock_redis))
+    recid = PersistentIdentifier.get("recid", "1")
+    mocker.patch.object(Resolver, "resolve", return_value=(recid, deposit))
+    mocker.patch("weko_records.api.ItemTypes.get_latest", return_value=None)
+    mock_comadmin = mocker.patch(
+        "weko_workflow.views.has_comadmin_permission", return_value=comadmin)
+    login(client=client, user=user)
+    res = client.get(url_for("weko_workflow.edit_item_direct_after_login",
+                             pid_value="1"))
+    return mock_render, res, mock_comadmin
+
+
+_NOT_ALLOWED = "You are not allowed to edit this item."
+_ALLOWED_NEXT = "You do not even have an ItemType."
+
+
+def _is_edit_allowed(mock_render, res):
+    """権限判定を通過して次のエラー(ItemType なし)に進んだ場合は True."""
+    error = mock_render.call_args[1]["error"]
+    assert error in (_NOT_ALLOWED, _ALLOWED_NEXT)
+    assert res.status_code == 400
+    return error == _ALLOWED_NEXT
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_edit_item_direct_after_login_permission -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_edit_item_direct_after_login_permission(client, app, users, db_register_full_action, mocker, without_remove_session):
+    """編集権限判定が is_item_editable_by(deposit) となる."""
+    env = build_proxy_env(app)
+    p1, p2 = env.U_P1.id, env.U_P2.id
+    assert p1 < p2
+
+    def deposit(**kwargs):
+        data = dict(owner=env.U_O.id, weko_shared_ids=[p1, p2],
+                    weko_shared_role_ids=[rid(env.R_A)])
+        data.update(kwargs)
+        return data
+
+    def allowed(user, dep):
+        mock_render, res, _ = _edit_direct(client, app, mocker, user, dep)
+        return _is_edit_allowed(mock_render, res)
+
+    # 1〜5. 複数化フラグ有効
+    set_proxy_posting(app, True)
+    assert allowed(env.U_O, deposit()) is True
+    assert allowed(env.U_P1, deposit()) is True
+    assert allowed(env.U_P2, deposit()) is True
+    assert allowed(env.U_G, deposit()) is True  # 代理投稿グループのメンバー
+    assert allowed(env.U_N, deposit()) is False
+
+    # 6〜9. 複数化フラグ無効
+    set_proxy_posting(app, False)
+    assert allowed(env.U_O, deposit()) is True
+    assert allowed(env.U_P2, deposit()) is True   # 末尾
+    assert allowed(env.U_P1, deposit()) is False  # 末尾以外
+    assert allowed(env.U_G, deposit()) is False   # グループ機能ごと無効
+
+    # 10. 保存順が ID の昇順でない場合は物理的な末尾のみ
+    reverse = deposit(weko_shared_ids=[p2, p1])
+    assert allowed(env.U_P1, reverse) is True
+    assert allowed(env.U_P2, reverse) is False
+
+    # 11. weko_shared_ids を持たない(旧形式 weko_shared_id のみ・代理投稿者なし)
+    set_proxy_posting(app, True)
+    legacy = {"owner": env.U_O.id, "weko_shared_id": -1}
+    assert allowed(env.U_O, legacy) is True
+    assert allowed(env.U_N, legacy) is False
+    no_proxy = {"owner": env.U_O.id}
+    assert allowed(env.U_O, no_proxy) is True
+    assert allowed(env.U_N, no_proxy) is False
+
+    # 12. owner が None
+    assert allowed(env.U_N, deposit(owner=None)) is False
+
+    # 13. ロールから外れた直後は権限が残留しない
+    ds = app.extensions["invenio-accounts"].datastore
+    ds.remove_role_from_user(env.U_G, env.R_A)
+    db.session.commit()
+    g.pop("_weko_user_role_ids", None)
+    assert allowed(User.query.get(env.U_G.id), deposit()) is False
+
+    # 14. owner と別人の _deposit.created_by のユーザーは、登録者として許可される
+    set_proxy_posting(app, True)
+    created_by = deposit(_deposit={"created_by": env.U_CB.id})
+    assert allowed(env.U_CB, created_by) is True
+    # 15. 登録者の判定は複数化フラグに依存しない
+    set_proxy_posting(app, False)
+    assert allowed(env.U_CB, created_by) is True
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_edit_item_direct_after_login_admin_and_response -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_edit_item_direct_after_login_admin_and_response(client, app, users, db_register_full_action, mocker, without_remove_session):
+    """管理者・コミュニティ管理者の OR 条件とエラー応答の維持."""
+    from weko_index_tree.utils import get_user_roles
+    from weko_items_ui.utils import is_item_editable_by
+    env = build_proxy_env(app)
+    set_proxy_posting(app, True)
+    deposit = dict(owner=env.U_O.id,
+                   weko_shared_ids=[env.U_P1.id, env.U_P2.id],
+                   weko_shared_role_ids=[rid(env.R_A)])
+
+    def run(user, comadmin):
+        mock_render, res, mock_comadmin = _edit_direct(
+            client, app, mocker, user, deposit, comadmin=comadmin)
+        return mock_render, res, mock_comadmin
+
+    # 1. 管理者ロール
+    mock_render, res, _ = run(env.U_S, False)
+    assert _is_edit_allowed(mock_render, res) is True
+    # 2. コミュニティ管理者(has_comadmin_permission が True)
+    mock_render, res, _ = run(env.U_C, True)
+    assert _is_edit_allowed(mock_render, res) is True
+    # 3. コミュニティ管理者でも has_comadmin_permission が False なら拒否
+    mock_render, res, _ = run(env.U_C, False)
+    assert _is_edit_allowed(mock_render, res) is False
+    mock_render.assert_called_with("weko_theme/error.html", error=_NOT_ALLOWED)
+    assert res.status_code == 400
+    # 4. 登録者・代理投稿者でも管理者でもないが has_comadmin_permission が True
+    mock_render, res, _ = run(env.U_N, True)
+    assert _is_edit_allowed(mock_render, res) is True
+    # 5. has_comadmin_permission が False なら拒否(3 と同じ応答)
+    mock_render, res, _ = run(env.U_N, False)
+    assert _is_edit_allowed(mock_render, res) is False
+    mock_render.assert_called_with("weko_theme/error.html", error=_NOT_ALLOWED)
+
+    # 6. 登録者・管理者では has_comadmin_permission が呼ばれない
+    for user in (env.U_O, env.U_S):
+        mock_render, res, mock_comadmin = run(user, False)
+        mock_comadmin.assert_not_called()
+
+    # 7. is_item_editable_by は deposit を引数として呼ばれ、管理者の判定は
+    #    get_user_roles(is_super_role=False) で行われる。
+    #    has_comadmin_permission は deposit を引数として呼ばれる
+    with patch("weko_workflow.views.is_item_editable_by",
+               wraps=is_item_editable_by) as mock_editable, \
+            patch("weko_workflow.views.get_user_roles",
+                  wraps=get_user_roles) as mock_roles:
+        mock_render, res, mock_comadmin = run(env.U_N, True)
+        mock_editable.assert_called_once_with(deposit)
+        mock_roles.assert_any_call(is_super_role=False)
+        mock_comadmin.assert_called_once_with(deposit)
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_init_activity_post_shared_ids_not_saved -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_init_activity_post_shared_ids_not_saved(app, client, users, item_type, workflow):
+    """ActivitySchema が代理投稿者・グループを持たず、リクエストの値は保存されない."""
+    env = build_proxy_env(app)
+    set_proxy_posting(app, True)
+
+    # 1. ActivitySchema の宣言フィールド(SaveActivitySchema ではない)
+    fields = ActivitySchema().fields
+    assert "shared_user_ids" not in fields
+    assert "shared_role_ids" not in fields
+
+    # 2. リクエストの値は init_activity に渡る activity 辞書にもカラムにも含まれない
+    login(client=client, email=users[2]["email"])
+    real_init_activity = WorkActivity.init_activity
+    with patch.object(WorkActivity, "init_activity", autospec=True,
+                      side_effect=real_init_activity) as mock_init:
+        res = client.post(url_for("weko_workflow.init_activity"), json={
+            "workflow_id": workflow["workflow"].id,
+            "flow_id": workflow["flow"].id,
+            "activity_confirm_term_of_use": True,
+            "shared_user_ids": [{"user": env.U_P1.id}],
+            "shared_role_ids": [rid(env.R_A)],
+        })
+    # 応答のステータスは ActivitySchema が未知のキーをどう扱うかに依存するため確認しない
+    if mock_init.called:
+        activity_dict = mock_init.call_args[0][1]
+        assert "shared_user_ids" not in activity_dict
+        assert "shared_role_ids" not in activity_dict
+        created = Activity.query.order_by(Activity.id.desc()).first()
+        assert created.shared_role_ids is None
+        assert created.shared_user_ids != [{"user": env.U_P1.id}]

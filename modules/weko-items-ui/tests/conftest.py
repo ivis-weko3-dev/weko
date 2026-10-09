@@ -581,9 +581,9 @@ def shared_users(app, db):
     This fixture is independent from ``users`` and does not modify it.
     Role composition:
         0 contributor       : Contributor
-        1 repoadmin         : Contributor + Repository Administrator
+        1 repoadmin         : Repository Administrator (no Contributor)
         2 sysadmin          : Contributor + System Administrator
-        3 comadmin          : Contributor + Community Administrator
+        3 comadmin          : Community Administrator (no Contributor)
         4 generaluser       : General
         5 originalroleuser  : Contributor + Original Role
         6 originalroleuser2 : Contributor + Original Role
@@ -682,10 +682,8 @@ def shared_users(app, db):
         ds.add_role_to_user(sysadmin, sysadmin_role)
         ds.add_role_to_user(sysadmin, contributor_role)
         ds.add_role_to_user(repoadmin, repoadmin_role)
-        ds.add_role_to_user(repoadmin, contributor_role)
         ds.add_role_to_user(contributor, contributor_role)
         ds.add_role_to_user(comadmin, comadmin_role)
-        ds.add_role_to_user(comadmin, contributor_role)
         ds.add_role_to_user(generaluser, general_role)
         ds.add_role_to_user(originalroleuser, originalrole)
         ds.add_role_to_user(originalroleuser, contributor_role)

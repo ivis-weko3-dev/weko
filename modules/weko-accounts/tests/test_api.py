@@ -24,9 +24,11 @@ from weko_accounts.api import (
     is_map_managed_name,
     is_map_role,
     is_map_group,
+    get_map_group_prefix,
     is_map_sysadm_role,
     _is_gakunin_map_configured,
 )
+from sqlalchemy import false
 from invenio_db import db as db_
 from invenio_db import InvenioDB
 from invenio_accounts import InvenioAccounts
@@ -1552,3 +1554,71 @@ def test_is_map_sysadm_role_no_repoid(
 def test_is_gakunin_map_configured(app, config, expected):
     with app.app_context(), patch.dict(app.config, config, clear=True):
         assert _is_gakunin_map_configured() is expected
+
+
+# .tox/c1/bin/pytest --cov=weko_accounts tests/test_api.py::test_get_map_group_prefix -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-accounts/.tox/c1/tmp
+def test_get_map_group_prefix(app):
+    """グループプレフィックスが {prefix}_{リポジトリID}_{group_keyword}_ で返ること。"""
+    with app.app_context():
+        # 1. 学認 mAP 設定
+        with patch.dict(app.config, {
+            'WEKO_ACCOUNTS_IDP_ENTITY_ID':
+                'https://idp.example.org/idp/shibboleth',
+        }):
+            assert get_map_group_prefix() == "jc_idp_example_org_gr_"
+
+        # 2. FQDN の . と - が _ に置換され、ポートを含めない
+        with patch.dict(app.config, {
+            'WEKO_ACCOUNTS_IDP_ENTITY_ID':
+                'https://idp-test.example.org:8443/idp/shibboleth',
+        }):
+            assert get_map_group_prefix() == "jc_idp_test_example_org_gr_"
+
+        # 3. 設定未構成の場合は None（例外を送出しない）
+        with patch.dict(app.config, {'WEKO_ACCOUNTS_IDP_ENTITY_ID': ''}):
+            assert get_map_group_prefix() is None
+
+
+# .tox/c1/bin/pytest --cov=weko_accounts tests/test_api.py::test_map_group_condition_use_prefix -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-accounts/.tox/c1/tmp
+def test_map_group_condition_use_prefix(app, db):
+    """map_group_condition／is_map_group が get_map_group_prefix を参照し、判定結果が変わらないこと。"""
+    idp_config = {
+        'WEKO_ACCOUNTS_IDP_ENTITY_ID':
+            'https://idp.example.org/idp/shibboleth',
+    }
+    name_a = "jc_idp_example_org_gr_Alpha"            # R_A
+    name_n = "Original Role"                          # R_N
+    name_u = "JC_IDP_EXAMPLE_ORG_GR_Alpha"            # R_U
+    role_names = [name_a, name_n, name_u]
+
+    with app.app_context(), patch.dict(app.config, idp_config):
+        db.session.add_all([Role(name=name) for name in role_names])
+        db.session.commit()
+
+        # 1. 両関数から get_map_group_prefix が呼ばれる
+        with patch(
+            "weko_accounts.api.get_map_group_prefix",
+            wraps=get_map_group_prefix,
+        ) as mock_prefix:
+            map_group_condition()
+            assert mock_prefix.call_count == 1
+            assert is_map_group(name_a) is True
+            assert mock_prefix.call_count == 2
+
+        # 2. 条件で絞り込んだ結果が R_A のみ
+        matched_names = {
+            role.name for role in Role.query.filter(
+                Role.name.in_(role_names), map_group_condition()).all()
+        }
+        assert matched_names == {name_a}
+
+        # 3. is_map_group の判定（大文字小文字の異なるプレフィックスは False）
+        assert is_map_group(name_a) is True
+        assert is_map_group(name_n) is False
+        assert is_map_group(name_u) is False
+
+    # 4. mAP 未設定では偽条件・False（改修前と同じ）
+    with app.app_context(), patch.dict(
+            app.config, {'WEKO_ACCOUNTS_IDP_ENTITY_ID': ''}):
+        assert str(map_group_condition()) == str(false())
+        assert is_map_group(name_a) is False

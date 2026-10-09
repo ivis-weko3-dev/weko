@@ -375,7 +375,7 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
       $scope.corresponding_usage_data_type = {};
       $scope.original_title = {};
       let saveTimer = setInterval(function () {
-        $scope.saveDataJsonCallback(ITEM_SAVE_URL, true)
+        $scope.autoSaveDataJson();
       }, ITEM_SAVE_FREQUENCY);
 
       $scope.listFileNeedRemoveAfterReplace = [];
@@ -1163,24 +1163,29 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
         // Load Contributor information
         let recordModel = $rootScope.recordsVM.invenioRecordsModel;
         let owner_id = 0
-        let enable_multi_contributors = $('#enable_multi_contributors').val() === 'True';
         if (recordModel.owner) {
           owner_id = recordModel.owner;
         } else {
           $scope.is_item_owner = true;
         }
+        // 代理投稿グループが設定済みの場合、テンプレートがチェックボックスをONで描画する
+        let hasSharedGroups = $('#enable_shared_groups').is(':checked');
         if (!recordModel.hasOwnProperty('shared_user_ids')) {
           $("#contributor-panel").removeClass("hidden");
-          $(".input_contributor").prop("checked", true);
-          
-          let share_username_ids = $('[id^="share_username_"]');
-          share_username_ids.map( function(ii, share_username) {
-            $("#"+share_username.id).val("");
-          });
-          let share_email_ids = $('[id^="share_email_"]');
-          share_email_ids.map( function(ii, share_email) {
-            $("#"+share_email.id).val("");
-          });
+          if (hasSharedGroups) {
+            $(".other_user_rad").click();
+          } else {
+            $(".input_contributor").prop("checked", true);
+
+            let share_username_ids = $('[id^="share_username_"]');
+            share_username_ids.map( function(ii, share_username) {
+              $("#"+share_username.id).val("");
+            });
+            let share_email_ids = $('[id^="share_email_"]');
+            share_email_ids.map( function(ii, share_email) {
+              $("#"+share_email.id).val("");
+            });
+          }
 
           // Apply for run feature when Display Workflow is error.
           // When Display Workflow is fixed, please remove this
@@ -1208,15 +1213,19 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
             });
           } else {
             $("#contributor-panel").removeClass("hidden");
-            $(".input_contributor").prop("checked", true);
-            let share_username_ids = $('[id^="share_username_"]');
-            share_username_ids.map( function(ii, share_username) {
-              $("#"+share_username.id).val("");
-            });
-            let share_email_ids = $('[id^="share_email_"]');
-            share_email_ids.map( function(ii, share_email) {
-              $("#"+share_email.id).val("");
-            });
+            if (hasSharedGroups) {
+              $(".other_user_rad").click();
+            } else {
+              $(".input_contributor").prop("checked", true);
+              let share_username_ids = $('[id^="share_username_"]');
+              share_username_ids.map( function(ii, share_username) {
+                $("#"+share_username.id).val("");
+              });
+              let share_email_ids = $('[id^="share_email_"]');
+              share_email_ids.map( function(ii, share_email) {
+                $("#"+share_email.id).val("");
+              });
+            }
             // Apply for run feature when Display Workflow is error.
             // When Display Workflow is fixed, please remove this
             $scope.is_item_owner = true;
@@ -3381,6 +3390,7 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
         let duplicateEmails = [];
         // init model
         model['shared_user_ids'] = [];
+        model['shared_role_ids'] = [];
 
         if (userSelection != 'block') {
           return true;
@@ -3456,6 +3466,34 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
           }
           return '';
         }).then((error_message) => {
+          /************************************************************/
+          /* 代理投稿グループの収集(チェックボックスがONの場合のみ)
+          /* 個人行の収集とは別ループとする(:disabledスキップの意味が異なるため)
+          /************************************************************/
+          let hasRoleError = false;
+          if ($('#enable_shared_groups').is(':checked')) {
+            let seenRoleIds = new Set();
+            let groupRows = $('[id^="pd_group_role_id_"]');
+            for (let idx = 0; idx < groupRows.length; idx++) {
+              let roleIdInput = groupRows[idx];
+              if ($(roleIdInput).is(':disabled')) {
+                continue;
+              }
+              let roleId = $(roleIdInput).val();
+              if (roleId === '') {
+                continue;
+              }
+              if ($(roleIdInput).attr('data-role-error') === 'true') {
+                hasRoleError = true;
+              }
+              if (seenRoleIds.has(roleId)) {
+                continue;
+              }
+              seenRoleIds.add(roleId);
+              model['shared_role_ids'].push(roleId);
+            }
+          }
+
           if (error_message.length > 0) {
             return Promise.reject(error_message);
           }
@@ -3469,6 +3507,15 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
               errMsg += `<br/>- ${email}`;
             });
             return Promise.reject(errMsg);
+          }
+          // 代理投稿グループの件数上限
+          let maxRoleCount = Number.parseInt($("#shared_role_max_count").val());
+          if (!isNaN(maxRoleCount) && model['shared_role_ids'].length > maxRoleCount) {
+            return Promise.reject($("#shared_role_max_count_error").val());
+          }
+          // 削除済みロール・指定不可となったロールの行が残っている
+          if (hasRoleError) {
+            return Promise.reject($("#shared_role_not_allowed_error").val());
           }
           return true;
         });
@@ -4225,7 +4272,7 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
         }
         $scope.startLoading();
         let currActivityId = $("#activity_id").text();
-        let is_saved_json = await $scope.saveDataJson(item_save_uri, currentActionId, isAutoSetIndexAction, enableContributor, enableFeedbackMail, enableRequestMail, true);
+        let is_saved_json = await $scope.saveDataJson(item_save_uri, currentActionId, enableContributor, enableFeedbackMail, enableRequestMail, true, true);
         if (!is_saved_json) {
           $scope.endLoading();
           return;
@@ -4367,6 +4414,7 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
           activity_id: activityID,
           title: recordModel['title'],
           shared_user_ids: recordModel['shared_user_ids'],
+          shared_role_ids: recordModel['shared_role_ids'],
           owner: recordModel['owner']
         }
 
@@ -4442,6 +4490,9 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
               reject(data.error);
             } else if (data.user_id) {
               resolve(data.user_id);
+            } else {
+              // 未ログイン(セッション切れ)・ゲストの場合は空文字で確定させる
+              resolve('');
             }
           }).fail(data => {
             reject('Cannot connect to server!');
@@ -4541,15 +4592,55 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
         sessionStorage.removeItem(key);
       }
 
-      $scope.saveActivityData = function(item_save_uri, currActivityId, enableContributor, enableFeedbackMail, enableRequestMail, startLoading, sessionValid) {
-        if (!$scope.saveDataJson(item_save_uri, currActivityId, enableContributor, enableFeedbackMail, enableRequestMail, startLoading, sessionValid)){
+      $scope.collectContributorSetting = async function (enableContributor) {
+        // 次へ・一時保存・自動保存で、代理投稿者(個人・グループ)の収集を同じ条件で行う
+        if (enableContributor !== 'True' || !$scope.is_item_owner) {
+          // 収集しない(モデルの値をそのまま送る)
+          return {ok: true};
+        }
+        if ($(".form_share_permission").css('display') == 'block') {
+          let loginUserId;
+          try {
+            loginUserId = await $scope.getCurrentLoginUserId();
+          } catch (msg) {
+            return {ok: false, error: msg};
+          }
+          if (!loginUserId) {
+            // 未ログイン(セッション切れ)・ゲスト: 収集しない(モデルの値をそのまま送る)
+            return {ok: true};
+          }
+        }
+        try {
+          let result = await $scope.registerUserPermission();
+          return result ? {ok: true} : {ok: false, error: 'An error ocurred while processing the user data!<br><br>'};
+        } catch (msg) {
+          return {ok: false, error: msg};
+        }
+      };
+
+      $scope.autoSaveDataJson = async function () {
+        let model = $rootScope.recordsVM.invenioRecordsModel;
+        let saved = {
+          shared_user_ids: model['shared_user_ids'],
+          shared_role_ids: model['shared_role_ids']
+        };
+        let result = await $scope.collectContributorSetting($('#enable_contributor').val());
+        if (!result.ok) {
+          // 検証エラー時は今回の自動保存を行わない(モーダルも表示しない)
+          model['shared_user_ids'] = saved.shared_user_ids;
+          model['shared_role_ids'] = saved.shared_role_ids;
           return;
         }
+        $scope.saveDataJsonCallback(ITEM_SAVE_URL, true);
+      };
+
+      $scope.saveActivityData = async function(item_save_uri, currActivityId, enableContributor, enableFeedbackMail, enableRequestMail, startLoading, sessionValid) {
         $scope.genTitleAndPubDate();
-        if (!$scope.saveActivity()){
+        let is_saved = await $scope.saveDataJson(item_save_uri, currActivityId, enableContributor, enableFeedbackMail, enableRequestMail, startLoading, sessionValid);
+        if (!is_saved) {
           return;
         }
-        return true
+        return true;
       }
 
       $scope.saveDataJson = async function (item_save_uri, currentActionId, enableContributor, enableFeedbackMail, enableRequestMail, startLoading, sessionValid) {
@@ -4577,45 +4668,32 @@ function validateThumbnails(rootScope, scope, itemSizeCheckFlg, files) {
             };
           }
 
-          var invalidFlg = $('form[name="depositionForm"]').hasClass("ng-invalid");
-          let permission = false;
-          let error_message = 'An error ocurred while processing the user data!<br><br>';
           $scope.$broadcast('schemaFormValidate');
+          // 代理投稿者(個人・グループ)の収集と検証
+          let contributorResult = await $scope.collectContributorSetting(enableContributor);
+          if (!contributorResult.ok) {
+            $("#inputModal").html(contributorResult.error);
+            $("#allModal").modal("show");
+            $scope.endLoading();
+            return false;
+          }
           if (enableFeedbackMail === 'True' && enableContributor === 'True') {
-            if (!invalidFlg && $scope.is_item_owner) {
-              await this.registerUserPermission().then((contributor_check) => {
-                if (contributor_check) {
-                  permission = true;
-                }
-              }).catch((msg) => {
-                error_message = msg;
-              });
-            } else {
-              permission = true;
-            }
-            if (permission) {
-              if (($scope.getFeedbackMailList().length > 0) || ($scope.getRequestMailList().length > 0)) {
-                let modalcontent = $('#invalid-email-format').val();
-                $("#inputModal").html(modalcontent);
-                $("#allModal").modal("show");
-                return;
-              }
-              this.saveDataJsonCallback(item_save_uri, startLoading);
-              this.saveFeedbackMailListCallback(currentActionId);
-              this.saveRequestMailListCallback(currentActionId);
-              if(($("#display_item_application_checkbox").prop('checked') == true) && ($rootScope.filesVM.files.length > 0)){
-                let modalcontent = $('#invalid-item-application-format').val();
-                $("#inputModal").html(modalcontent);
-                $("#allModal").modal("show");
-                return;
-              }else{
-                this.saveItemApplicationCallback(currentActionId);
-              }
-            } else {
-              $("#inputModal").html(error_message);
+            if (($scope.getFeedbackMailList().length > 0) || ($scope.getRequestMailList().length > 0)) {
+              let modalcontent = $('#invalid-email-format').val();
+              $("#inputModal").html(modalcontent);
               $("#allModal").modal("show");
-              $scope.endLoading();
-              return false;
+              return;
+            }
+            this.saveDataJsonCallback(item_save_uri, startLoading);
+            this.saveFeedbackMailListCallback(currentActionId);
+            this.saveRequestMailListCallback(currentActionId);
+            if(($("#display_item_application_checkbox").prop('checked') == true) && ($rootScope.filesVM.files.length > 0)){
+              let modalcontent = $('#invalid-item-application-format').val();
+              $("#inputModal").html(modalcontent);
+              $("#allModal").modal("show");
+              return;
+            }else{
+              this.saveItemApplicationCallback(currentActionId);
             }
           } else {
             this.saveDataJsonCallback(item_save_uri, startLoading);

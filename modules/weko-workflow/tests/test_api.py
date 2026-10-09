@@ -47,6 +47,12 @@ from weko_workflow.models import FlowDefine as _Flow
 from weko_workflow.models import WorkFlow as _WorkFlow
 from weko_workflow.models import Activity, ActivityHistory, ActivityAction, FlowAction, FlowActionRole
 from weko_workflow.models import ActionStatusPolicy, Activity, ActivityAction, FlowActionRole, ActivityRequestMail, ActivityItemApplication
+from .helpers_proxy import (
+    UNSET, build_func_query, build_proxy_env, build_tab_query, compile_sql, create_group_roles,
+    create_proxy_activity, create_role, create_role_with_id_prefix, disable_map,
+    enable_map, list_activity_ids, rid, set_proxy_posting, set_raw_json,
+    add_flow_action_role,
+)
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_Flow_create_flow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 def test_Flow_create_flow(app, client, users, db, action_data):
@@ -1421,6 +1427,9 @@ def test_workactivity_get_params_for_registrant(app, users, db_register_full_act
         assert actor_name == mock_user_profile.username
         mock_get_user_profile.assert_called_once_with(users[2]["id"])
 
+    # 以降は代理投稿者が複数指定された場合(複数化フラグ有効)
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = True
+
     # case: shared_user_ids
     # activity_login_user == activity_update_user: directly registration
     with patch("weko_workflow.api.UserProfile.get_by_userid") as mock_get_user_profile:
@@ -1437,9 +1446,10 @@ def test_workactivity_get_params_for_registrant(app, users, db_register_full_act
 
         assert set_target_id == {users[1]["id"], users[3]["id"]}
         assert recid == db_records[2][0]
-        assert actor_id == users[1]["id"]
+        # actor は操作者のまま維持される(shared_user_ids[0] に上書きされない)
+        assert actor_id == users[0]["id"]
         assert actor_name == mock_user_profile.username
-        mock_get_user_profile.assert_called_once_with(users[1]["id"])
+        mock_get_user_profile.assert_called_once_with(users[0]["id"])
 
     # case: shared_user_ids
     # activity_login_user != activity_update_user: item approvaled
@@ -1692,9 +1702,9 @@ def test_workactivity_get_params_for_approver(app, users, db, db_register_full_a
 
         assert set_target_id == {users[1]["id"], users[6]["id"]}
         assert recid == db_records[2][0]
-        assert actor_id == users[4]["id"]
+        assert actor_id == users[0]["id"]  # actor は代理投稿者の先頭ではなく操作者(activity_update_user)
         assert actor_name == mock_user_profile.username
-        mock_get_user_profile.assert_called_once_with(users[4]["id"])
+        mock_get_user_profile.assert_called_once_with(users[0]["id"])
 
     flow_id = flow_define.flow_id
     flow_detail = Flow().get_flow_detail(flow_id)
@@ -1723,9 +1733,9 @@ def test_workactivity_get_params_for_approver(app, users, db, db_register_full_a
 
         assert set_target_id == {users[1]["id"], users[6]["id"]}
         assert recid == db_records[2][0]
-        assert actor_id == users[4]["id"]
+        assert actor_id == users[0]["id"]  # actor は代理投稿者の先頭ではなく操作者(activity_update_user)
         assert actor_name == mock_user_profile.username
-        mock_get_user_profile.assert_called_once_with(users[4]["id"])
+        mock_get_user_profile.assert_called_once_with(users[0]["id"])
         mock_get_flow_detail.assert_called_once_with(flow_id)
 
     # case: shared_user_ids is not None, community_id is None,
@@ -1753,9 +1763,9 @@ def test_workactivity_get_params_for_approver(app, users, db, db_register_full_a
 
         assert set_target_id == {users[1]["id"], users[5]["id"], users[6]["id"]}
         assert recid == db_records[2][0]
-        assert actor_id == users[4]["id"]
+        assert actor_id == users[0]["id"]  # actor は代理投稿者の先頭ではなく操作者(activity_update_user)
         assert actor_name == mock_user_profile.username
-        mock_get_user_profile.assert_called_once_with(users[4]["id"])
+        mock_get_user_profile.assert_called_once_with(users[0]["id"])
         mock_get_flow_detail.assert_called_once_with(flow_id)
 
     # case: community_id is specified.
@@ -1784,9 +1794,9 @@ def test_workactivity_get_params_for_approver(app, users, db, db_register_full_a
 
         assert set_target_id == {users[1]["id"], users[3]["id"], users[5]["id"], users[6]["id"]}
         assert recid == db_records[2][0]
-        assert actor_id == users[4]["id"]
+        assert actor_id == users[0]["id"]  # actor は代理投稿者の先頭ではなく操作者(activity_update_user)
         assert actor_name == mock_user_profile.username
-        mock_get_user_profile.assert_called_once_with(users[4]["id"])
+        mock_get_user_profile.assert_called_once_with(users[0]["id"])
         mock_get_flow_detail.assert_called_once_with(flow_id)
 
 
@@ -2359,9 +2369,10 @@ def test___create_self_user_id_json(app):
     activity = WorkActivity()
     self_user_id = 123
     # WEKO_ITEMS_UI_PROXY_POSTING is False
+    # 末尾要素の判定は SQL 側(__is_last_shared_user)で行うため、フラグを参照せず末尾に ] を連結しない
     app.config['WEKO_ITEMS_UI_PROXY_POSTING'] = False
     result = activity._WorkActivity__create_self_user_id_json(self_user_id)
-    assert result == '{"user": 123}]'
+    assert result == '{"user": 123}'
 
     # WEKO_ITEMS_UI_PROXY_POSTING is True
     app.config['WEKO_ITEMS_UI_PROXY_POSTING'] = True
@@ -2395,73 +2406,28 @@ def test_query_activities_by_tab_is_wait(users, db):
                     _Activity.shared_user_ids == [],
                 )
                 )
-        expected = "AND (" \
-                        "workflow_activity.activity_login_user = %(activity_login_user_1)s " \
-                        "OR (CAST(workflow_activity.shared_user_ids AS VARCHAR) LIKE '%%' || %(param_1)s || '%%') " \
-                        "OR ((workflow_activity.temp_data #>> %(temp_data_1)s) LIKE '%%' || %(param_2)s || '%%') " \
-                        "OR (workflow_activity.temp_data #>> %(temp_data_2)s) = %(param_3)s) " \
-                    "AND (" \
-                        "(" \
-                            "workflow_flow_action_role.action_user != %(action_user_1)s " \
-                            "AND workflow_flow_action_role.action_user_exclude = %(action_user_exclude_1)s " \
-                            "OR workflow_flow_action_role.action_user = %(action_user_2)s " \
-                            "AND workflow_flow_action_role.action_user_exclude != %(action_user_exclude_2)s" \
-                        ") " \
-                        "AND (" \
-                            "(CAST(workflow_activity.shared_user_ids AS VARCHAR) NOT LIKE '%%' || %(param_4)s || '%%') " \
-                            "AND ((workflow_activity.temp_data #>> %(temp_data_3)s) NOT LIKE '%%' || %(param_5)s || '%%') " \
-                            "AND (workflow_activity.temp_data #>> %(temp_data_4)s) != %(param_6)s " \
-                            "OR workflow_activity.shared_user_ids IS NULL) " \
-                        "OR (" \
-                            "workflow_flow_action_role.action_role NOT IN (%(action_role_1)s) " \
-                            "AND workflow_flow_action_role.action_role_exclude = %(action_role_exclude_1)s " \
-                            "OR workflow_flow_action_role.action_role IN (%(action_role_2)s) "\
-                            "AND workflow_flow_action_role.action_role_exclude != %(action_role_exclude_2)s" \
-                        ") " \
-                        "AND (" \
-                            "(CAST(workflow_activity.shared_user_ids AS VARCHAR) NOT LIKE '%%' || %(param_7)s || '%%') " \
-                            "AND ((workflow_activity.temp_data #>> %(temp_data_5)s) NOT LIKE '%%' || %(param_8)s || '%%') " \
-                            "AND (workflow_activity.temp_data #>> %(temp_data_6)s) != %(param_9)s " \
-                            "OR workflow_activity.shared_user_ids IS NULL) " \
-                        "OR workflow_activity_action.action_handler NOT IN (%(action_handler_1)s) " \
-                        "AND (" \
-                            "(CAST(workflow_activity.shared_user_ids AS VARCHAR) NOT LIKE '%%' || %(param_10)s || '%%') " \
-                            "AND ((workflow_activity.temp_data #>> %(temp_data_7)s) NOT LIKE '%%' || %(param_11)s || '%%') " \
-                            "AND (workflow_activity.temp_data #>> %(temp_data_8)s) != %(param_12)s " \
-                            "OR workflow_activity.shared_user_ids IS NULL" \
-                        ") " \
-                        "OR (" \
-                            "workflow_flow_action_role.action_user != workflow_activity.activity_login_user " \
-                            "AND workflow_flow_action_role.action_user_exclude = %(action_user_exclude_3)s " \
-                            "OR workflow_flow_action_role.action_user = workflow_activity.activity_login_user " \
-                            "AND workflow_flow_action_role.action_user_exclude != %(action_user_exclude_4)s" \
-                        ") " \
-                        "AND (" \
-                            "(CAST(workflow_activity.shared_user_ids AS VARCHAR) LIKE '%%' || %(param_13)s || '%%') " \
-                            "OR ((workflow_activity.temp_data #>> %(temp_data_9)s) LIKE '%%' || %(param_14)s || '%%') " \
-                            "OR (workflow_activity.temp_data #>> %(temp_data_10)s) = %(param_15)s) " \
-                        "AND workflow_flow_action_role.action_user != workflow_activity.activity_login_user " \
-                        "AND workflow_flow_action_role.action_user_exclude = %(action_user_exclude_5)s " \
-                        "OR (" \
-                            "(CAST(workflow_activity.shared_user_ids AS VARCHAR) LIKE '%%' || %(param_16)s || '%%') " \
-                            "OR ((workflow_activity.temp_data #>> %(temp_data_11)s) LIKE '%%' || %(param_17)s || '%%') " \
-                            "OR (workflow_activity.temp_data #>> %(temp_data_12)s) = %(param_18)s) " \
-                        "AND workflow_activity_action.action_handler != workflow_activity.activity_login_user) " \
-                    "AND NOT (" \
-                        "EXISTS (" \
-                            "SELECT * \nFROM jsonb_array_elements_text(records_metadata.json -> %(json_1)s) AS elem \nWHERE CAST(elem AS VARCHAR) IN (%(param_19)s)))"
+        # temp_data の JSON パス修正・末尾要素条件(複数化フラグ無効の既定)により
+        # SQL が変わったため、SQL 全文の一致ではなく構造で確認する
         ret = WorkActivity.query_activities_by_tab_is_wait(query, False, True, [1])
-        assert str(ret).find(expected) != -1
+        sql = compile_sql(ret)
+        # 代理投稿者(個人)・owner の条件が 6 箇所に出現し、誤ったパス指定が残っていない
+        assert "'metainfo'" not in sql
+        assert sql.count("#>> '{metainfo,owner}'") == 6
+        assert sql.count("#> '{metainfo,shared_user_ids}'") >= 6
+        # 複数化フラグ無効ではロール条件が付かない
+        assert "CAST(workflow_activity.shared_role_ids" not in sql
+        assert "{metainfo,shared_role_ids}" not in sql
+        # コミュニティ管理者向けの NOT EXISTS 条件
+        assert "NOT (EXISTS" in sql
+        assert "jsonb_array_elements_text(records_metadata.json -> 'path')" in sql
 
     # admin user
     with patch("flask_login.utils._get_user", return_value=users[1]['obj']):
-        admin_expected = expected.replace(
-            " AND NOT (EXISTS (SELECT * \nFROM jsonb_array_elements_text(records_metadata.json -> %(json_1)s) AS elem \nWHERE CAST(elem AS VARCHAR) IN (%(param_19)s)))", ""
-        ).replace(
-            "%(action_handler_1)s", "%(action_handler_1)s, %(action_handler_2)s"
-        )
         ret = WorkActivity.query_activities_by_tab_is_wait(query, True, False, [1])
-        assert str(ret).find(admin_expected) != -1
+        sql = compile_sql(ret)
+        assert "'metainfo'" not in sql
+        assert sql.count("#>> '{metainfo,owner}'") == 6
+        assert "NOT (EXISTS" not in sql
 
     current_app.config['WEKO_WORKFLOW_ENABLE_SHOW_ACTIVITY'] = True
     with patch("flask_login.utils._get_user", return_value=users[0]['obj']):
@@ -2862,3 +2828,585 @@ def test_item_application_create_and_update(app, workflow, db, mocker):
 
     # not hit search
     assert not activity.get_activity_item_application("1111")
+
+
+
+import logging
+
+from sqlalchemy import text
+from sqlalchemy.sql.elements import False_
+
+_PROXY_FLAG = "WEKO_ITEMS_UI_PROXY_POSTING"
+_ALL_FUNCS = (("is_wait", 6), ("is_all", 1), ("is_todo", 2))
+
+
+def _expanded_temp_data():
+    """temp_data を展開した式の SQL 表現."""
+    return "CAST(workflow_activity.temp_data #>> '{}' AS JSONB)"
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_query_activities_json_path -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_query_activities_json_path(app, db, users, workflow):
+    """temp_data が文字列スカラー・オブジェクトのいずれでも、
+    metainfo.shared_user_ids・metainfo.owner で一覧に含まれる."""
+    env = build_proxy_env(app)
+    set_proxy_posting(app, True)
+
+    def make(temp_data):
+        return create_proxy_activity(
+            workflow, env.U_O, shared_user_ids=[], temp_data=temp_data)
+
+    shared = {"metainfo": {"shared_user_ids": [{"user": env.U_P1.id}]}}
+    owner = {"metainfo": {"owner": str(env.U_P2.id)}}
+    # 実運用と同じ保存形式(json.dumps した文字列 = JSONB の文字列スカラー)
+    a1 = make(json.dumps(shared))
+    a2 = make(json.dumps(owner))
+    # オブジェクトとして保存した形式
+    a1o = make(shared)
+    a2o = make(owner)
+
+    # 1. jsonb_typeof(temp_data)
+    def typeof(activity):
+        return db.session.execute(
+            text("SELECT jsonb_typeof(temp_data) FROM workflow_activity "
+                 "WHERE activity_id = :a"), {"a": activity.activity_id}
+        ).scalar()
+    assert typeof(a1) == "string"
+    assert typeof(a2) == "string"
+    assert typeof(a1o) == "object"
+    assert typeof(a2o) == "object"
+
+    # 2. All タブ・Todo タブ
+    all_ids = {a1.activity_id, a2.activity_id, a1o.activity_id, a2o.activity_id}
+    for tab in ("all", "todo"):
+        ids = list_activity_ids(tab, env.U_P1)
+        assert {a1.activity_id, a1o.activity_id} <= ids
+        ids = list_activity_ids(tab, env.U_P2)
+        assert {a2.activity_id, a2o.activity_id} <= ids
+        ids = list_activity_ids(tab, env.U_N)
+        assert not (all_ids & ids)
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_query_activities_json_path_sql -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+@pytest.mark.parametrize("proxy_posting", [True, False])
+def test_query_activities_json_path_sql(app, db, users, proxy_posting):
+    """生成 SQL で temp_data を展開してからパス指定していること."""
+    env = build_proxy_env(app)
+    app.config["WEKO_WORKFLOW_ENABLE_SHOW_ACTIVITY"] = False
+    set_proxy_posting(app, proxy_posting)
+    expanded = _expanded_temp_data()
+    user_json = '{"user": %d}' % env.U_N.id
+
+    for func_name, n in _ALL_FUNCS:
+        sql = compile_sql(build_func_query(func_name, env.U_N))
+        # 誤ったパス指定が残っていない
+        assert "'metainfo'" not in sql
+        # 展開後の式に対するパス指定(not_() 内の 3 箇所を含む)
+        assert sql.count(expanded + " #>> '{metainfo,owner}'") == n
+        # temp_data の列に直接 #>>・#> でパスを指定した箇所が無い
+        assert "workflow_activity.temp_data #>> '{metainfo" not in sql
+        assert "workflow_activity.temp_data #> '{metainfo" not in sql
+        # 代理投稿者条件の比較値(末尾に ] を連結しない)
+        assert user_json in sql
+        assert user_json + "]" not in sql
+
+        if proxy_posting:
+            # 配列全体への文字列 LIKE
+            assert sql.count(
+                "CAST(workflow_activity.shared_user_ids AS VARCHAR)") == n
+            assert sql.count(
+                expanded + " #>> '{metainfo,shared_user_ids}'") == n
+            assert "jsonb_typeof(" not in sql
+            assert "@>" not in sql
+        else:
+            # jsonb_typeof(...) = 'array' を先に評価する入れ子の CASE と @>
+            assert "CAST(workflow_activity.shared_user_ids AS VARCHAR)" not in sql
+            assert sql.count(
+                "jsonb_typeof(workflow_activity.shared_user_ids) = 'array'") == n
+            assert sql.count(
+                "jsonb_typeof(" + expanded
+                + " #> '{metainfo,shared_user_ids}') = 'array'") == n
+            assert sql.index("jsonb_typeof(") < sql.index("jsonb_array_length(")
+            assert sql.count("@>") == 2 * n
+            # temp_data 側の末尾要素の抽出は #>(jsonb を返す演算子)
+            assert expanded + " #> '{metainfo,shared_user_ids}'" in sql
+            assert expanded + " #>> '{metainfo,shared_user_ids}'" not in sql
+
+    # is_wait は NOT で否定された 3 箇所の条件にも同じ展開とパスが用いられる
+    sql = compile_sql(build_func_query("is_wait", env.U_N))
+    if proxy_posting:
+        assert sql.count("NOT LIKE") == 6
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_query_activities_last_element -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_query_activities_last_element(app, db, users, workflow):
+    """複数化フラグ無効時は配列の物理的な末尾要素のみに一致する."""
+    env = build_proxy_env(app)
+    p1, p2 = env.U_P1.id, env.U_P2.id
+    assert p1 < p2
+    ordered = [{"user": p1}, {"user": p2}]
+    reverse = [{"user": p2}, {"user": p1}]
+    # temp_data は文字列スカラー(json.dumps した文字列)で保存する
+    a3 = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=ordered,
+        temp_data=json.dumps({"metainfo": {}}))
+    a4 = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[],
+        temp_data=json.dumps({"metainfo": {"shared_user_ids": ordered}}))
+    a3r = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=reverse,
+        temp_data=json.dumps({"metainfo": {}}))
+    a4r = create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=[],
+        temp_data=json.dumps({"metainfo": {"shared_user_ids": reverse}}))
+    ids = {k: v.activity_id for k, v in
+           dict(a3=a3, a4=a4, a3r=a3r, a4r=a4r).items()}
+    four = set(ids.values())
+
+    # 1. 複数化フラグ有効: 配列全体に一致
+    set_proxy_posting(app, True)
+    for tab in ("all", "todo"):
+        for user in (env.U_P1, env.U_P2):
+            assert four <= list_activity_ids(tab, user)
+
+    # 2. 複数化フラグ無効: 保存順の物理的な末尾のみに一致(最大IDではない)
+    set_proxy_posting(app, False)
+    for tab in ("all", "todo"):
+        found = list_activity_ids(tab, env.U_P2)
+        assert {ids["a3"], ids["a4"]} <= found
+        assert not ({ids["a3r"], ids["a4r"]} & found)
+        found = list_activity_ids(tab, env.U_P1)
+        assert {ids["a3r"], ids["a4r"]} <= found
+        assert not ({ids["a3"], ids["a4"]} & found)
+
+    # 3. __create_self_user_id_json はフラグを参照しない
+    for flag in (True, False):
+        set_proxy_posting(app, flag)
+        assert WorkActivity._WorkActivity__create_self_user_id_json(p1) \
+            == json.dumps({"user": p1})
+        assert "]" not in WorkActivity._WorkActivity__create_self_user_id_json(p1)
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_query_activities_null_safe -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+@pytest.mark.parametrize("proxy_posting", [True, False])
+def test_query_activities_null_safe(app, db, users, workflow, proxy_posting):
+    """NULL・空配列・配列以外の行で例外が発生せず、条件不成立となる."""
+    env = build_proxy_env(app)
+    set_proxy_posting(app, proxy_posting)
+    mk = lambda **kw: create_proxy_activity(workflow, env.U_O, **kw)
+    rows = []
+    # A5: カラム・temp_data とも NULL
+    rows.append(mk(shared_user_ids=None, temp_data=None))
+    # A6: 空配列
+    rows.append(mk(shared_user_ids=[], temp_data=json.dumps(
+        {"metainfo": {"shared_user_ids": []}})))
+    # A7: owner・shared_user_ids キーなし
+    rows.append(mk(temp_data=json.dumps({"metainfo": {}})))
+    # A8: JSON の null
+    a8 = mk(temp_data=json.dumps({"metainfo": {"shared_user_ids": None}}))
+    set_raw_json(a8.activity_id, "shared_user_ids", "null")
+    rows.append(a8)
+    # A9: JSON オブジェクト
+    a9 = mk(temp_data=json.dumps({"metainfo": {"shared_user_ids": {"foo": 1}}}))
+    set_raw_json(a9.activity_id, "shared_user_ids", '{"foo": 1}')
+    rows.append(a9)
+    # A10: JSON 文字列
+    a10 = mk(temp_data=json.dumps({"metainfo": {"shared_user_ids": "x"}}))
+    set_raw_json(a10.activity_id, "shared_user_ids", '"x"')
+    rows.append(a10)
+    # A11: 展開後が JSON の null
+    rows.append(mk(temp_data=json.dumps(None)))
+    # A12: 展開後が JSON の文字列
+    rows.append(mk(temp_data=json.dumps("abc")))
+    row_ids = {r.activity_id for r in rows}
+
+    # 3 タブとも例外が発生せず(cannot get array length of a non-array を含む)、
+    # いずれの行も代理投稿者・owner 条件で一覧に含まれない
+    for tab in ("wait", "all", "todo"):
+        found = list_activity_ids(tab, env.U_P1)
+        assert not (row_ids & found)
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_query_activities_role_condition -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_query_activities_role_condition(app, db, users, workflow):
+    """所属ロールが shared_role_ids に含まれるアクティビティが一覧に含まれる."""
+    env = build_proxy_env(app)
+    set_proxy_posting(app, True)
+    r_l = create_role_with_id_prefix(env.R_A)
+    assert rid(r_l).startswith(rid(env.R_A)) and rid(r_l) != rid(env.R_A)
+    mk = lambda **kw: create_proxy_activity(workflow, env.U_O, **kw)
+    a8 = mk(shared_role_ids=[rid(env.R_A)])
+    a9 = mk(shared_role_ids=None, temp_data=json.dumps(
+        {"metainfo": {"shared_role_ids": [rid(env.R_A)]}}))
+    a9o = mk(shared_role_ids=None, temp_data={
+        "metainfo": {"shared_role_ids": [rid(env.R_A)]}})
+    a10 = mk(shared_role_ids=[rid(r_l)])
+    a10t = mk(shared_role_ids=None, temp_data=json.dumps(
+        {"metainfo": {"shared_role_ids": [rid(r_l)]}}))
+
+    for tab in ("all", "todo"):
+        found = list_activity_ids(tab, env.U_G)
+        assert {a8.activity_id, a9.activity_id, a9o.activity_id} <= found
+        # json.dumps(rid) による引用符付きの比較で、"1" が "12" に誤一致しない
+        assert not ({a10.activity_id, a10t.activity_id} & found)
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_query_activities_role_condition_not_applied -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_query_activities_role_condition_not_applied(app, db, users, workflow):
+    """ロールなし・複数化フラグ無効・NULL の行はロール条件で一覧に含まれない."""
+    env = build_proxy_env(app)
+    app.config["WEKO_WORKFLOW_ENABLE_SHOW_ACTIVITY"] = False
+    mk = lambda **kw: create_proxy_activity(workflow, env.U_O, **kw)
+    a8 = mk(shared_role_ids=[rid(env.R_A)])
+    a9 = mk(shared_role_ids=None, temp_data=json.dumps(
+        {"metainfo": {"shared_role_ids": [rid(env.R_A)]}}))
+    role_cond_sql = "CAST(workflow_activity.shared_role_ids"
+
+    # 1. 複数化フラグ有効・ロールなし(U_N)
+    set_proxy_posting(app, True)
+    for tab in ("wait", "all", "todo"):
+        found = list_activity_ids(tab, env.U_N)
+        assert not ({a8.activity_id, a9.activity_id} & found)
+    for func_name, _ in _ALL_FUNCS:
+        sql = compile_sql(build_func_query(func_name, env.U_N))
+        assert role_cond_sql not in sql
+        assert "{metainfo,shared_role_ids}" not in sql
+
+    # 2. 複数化フラグ無効・ロールあり(U_G)
+    set_proxy_posting(app, False)
+    for tab in ("wait", "all", "todo"):
+        found = list_activity_ids(tab, env.U_G)
+        assert not ({a8.activity_id, a9.activity_id} & found)
+    for func_name, _ in _ALL_FUNCS:
+        sql = compile_sql(build_func_query(func_name, env.U_G))
+        assert role_cond_sql not in sql
+        assert "{metainfo,shared_role_ids}" not in sql
+
+    # 3. shared_role_ids が NULL で temp_data にもロールを持たない行 A11
+    set_proxy_posting(app, True)
+    a11 = mk(shared_role_ids=None, temp_data=json.dumps({"metainfo": {}}))
+    for tab in ("all", "todo"):
+        assert a11.activity_id not in list_activity_ids(tab, env.U_G)
+
+    # 4. __get_self_role_ids
+    get_roles = WorkActivity._WorkActivity__get_self_role_ids
+    with patch("flask_login.utils._get_user", return_value=env.U_G):
+        assert get_roles() == [rid(env.R_A)]
+    with patch("flask_login.utils._get_user", return_value=env.U_N):
+        assert get_roles() == []
+    set_proxy_posting(app, False)
+    with patch("flask_login.utils._get_user", return_value=env.U_G):
+        assert get_roles() == []
+
+    # 5. __is_shared_role([]) は false() を返す(coalesce で包まれない)
+    result = WorkActivity._WorkActivity__is_shared_role([])
+    assert isinstance(result, False_)
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_query_activities_role_condition_sql -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_query_activities_role_condition_sql(app, db, users):
+    """ロール条件が 9 箇所に追加され、引用符付き比較・ESCAPE となる."""
+    from .helpers_proxy import create_user
+    env = build_proxy_env(app)
+    app.config["WEKO_WORKFLOW_ENABLE_SHOW_ACTIVITY"] = False
+    set_proxy_posting(app, True)
+    user = create_user("proxy_two_roles@test.org", [env.R_A, env.R_B])
+    expanded = _expanded_temp_data()
+
+    for func_name, n in _ALL_FUNCS:
+        sql = compile_sql(build_func_query(func_name, user))
+        # 所属ロール数(2)だけ、カラムの文字列化と temp_data の条件が OR で連結される
+        assert sql.count("CAST(workflow_activity.shared_role_ids AS VARCHAR)") == 2 * n
+        assert sql.count(
+            expanded + " #>> '{metainfo,shared_role_ids}'") == 2 * n
+        # 比較値はダブルクォート付き
+        for role in (env.R_A, env.R_B):
+            assert sql.count("'\"%s\"'" % rid(role)) == 2 * n
+        # autoescape による ESCAPE 句(カラム・temp_data × 2 ロール)
+        assert sql.count("ESCAPE '/'") == 4 * n
+        # OR で連結した式全体が coalesce(..., false) で包まれている
+        assert sql.count(
+            "coalesce((CAST(workflow_activity.shared_role_ids AS VARCHAR) LIKE") == n
+        assert sql.count(", false)") >= n
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_query_activities_role_condition_null_wait -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_query_activities_role_condition_null_wait(app, db, users, workflow):
+    """shared_role_ids が NULL の旧行などがタブ「Wait」から落ちない."""
+    env = build_proxy_env(app)
+    app.config["WEKO_WORKFLOW_ENABLE_SHOW_ACTIVITY"] = False
+    set_proxy_posting(app, True)
+    r_l = create_role_with_id_prefix(env.R_A)
+    # タブ「Wait」の他の条件を、ロール条件に影響されない形で満たすため、
+    # U_G の所属しないロールを持つ FlowActionRole をアイテム登録アクションに追加する
+    add_flow_action_role(workflow, 3, 2, action_role=r_l.id)
+
+    other = [{"user": env.U_P2.id}]
+
+    def temp(**metainfo_extra):
+        metainfo = {"owner": str(env.U_O.id), "shared_user_ids": other}
+        metainfo.update(metainfo_extra)
+        return json.dumps({"metainfo": metainfo})
+
+    def make_rows(login_user):
+        """擬似行 A〜F を作成する(shared_role_ids の組み合わせ)."""
+        mk = lambda **kw: create_proxy_activity(
+            workflow, login_user, shared_user_ids=other, **kw)
+        return dict(
+            # A: shared_role_ids が NULL の旧行(ロール条件の両項が NULL)
+            A=mk(shared_role_ids=None, temp_data=temp()),
+            # B: カラム側で該当
+            B=mk(shared_role_ids=[rid(env.R_A)], temp_data=temp()),
+            # C: temp_data 側で該当
+            C=mk(shared_role_ids=None, temp_data=temp(shared_role_ids=[rid(env.R_A)])),
+            # D: カラムが空配列
+            D=mk(shared_role_ids=[], temp_data=temp()),
+            # E: temp_data が空配列
+            E=mk(shared_role_ids=None, temp_data=temp(shared_role_ids=[])),
+            # F: U_G が所属しない別ロール
+            F=mk(shared_role_ids=[rid(r_l)], temp_data=temp()),
+        )
+
+    def ids_of(rows, *names):
+        return {rows[name].activity_id for name in names}
+
+    # 1・3. タブ「Wait」は、U_G が申請者の行で確認する(ロール条件以外の条件を満たす)
+    rows_g = make_rows(env.U_G)
+    found = list_activity_ids("wait", env.U_G)
+    # 1. A・D・E・F は coalesce により偽に正規化されて落ちない。B・C はロール該当のため除外
+    assert ids_of(rows_g, "A", "D", "E", "F") <= found
+    assert not (ids_of(rows_g, "B", "C") & found)
+
+    # 3. 複数化フラグ無効: ロール条件が false() となり、B・C も除外されない
+    set_proxy_posting(app, False)
+    found = list_activity_ids("wait", env.U_G)
+    assert ids_of(rows_g, "A", "B", "C", "D", "E", "F") <= found
+    set_proxy_posting(app, True)
+
+    # 2. All タブ・Todo タブでは B・C のみ含まれる
+    #    (申請者(activity_login_user)が U_G の行は申請者条件で含まれるため、申請者を U_O とした行で確認する)
+    rows_o = make_rows(env.U_O)
+    for tab in ("all", "todo"):
+        found = list_activity_ids(tab, env.U_G)
+        assert ids_of(rows_o, "B", "C") <= found
+        assert not (ids_of(rows_o, "A", "D", "E", "F") & found)
+
+    # 4. ロールを持たない U_N: ロール条件が false() となり、B'・C' も除外されない
+    rows_n = make_rows(env.U_N)
+    found = list_activity_ids("wait", env.U_N)
+    assert ids_of(rows_n, "A", "B", "C", "D", "E", "F") <= found
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_is_shared_role_coalesce -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_is_shared_role_coalesce(app, db, users, workflow):
+    """__is_shared_role の戻り値が coalesce(or_(...), false()) で NULL とならない."""
+    env = build_proxy_env(app)
+    app.config["WEKO_WORKFLOW_ENABLE_SHOW_ACTIVITY"] = False
+    set_proxy_posting(app, True)
+    r_l = create_role_with_id_prefix(env.R_A)
+    other = [{"user": env.U_P2.id}]
+
+    def temp(**metainfo_extra):
+        metainfo = {"owner": str(env.U_O.id), "shared_user_ids": other}
+        metainfo.update(metainfo_extra)
+        return json.dumps({"metainfo": metainfo})
+
+    mk = lambda **kw: create_proxy_activity(
+        workflow, env.U_O, shared_user_ids=other, **kw)
+    rows = dict(
+        A=mk(shared_role_ids=None, temp_data=temp()),
+        B=mk(shared_role_ids=[rid(env.R_A)], temp_data=temp()),
+        C=mk(shared_role_ids=None, temp_data=temp(shared_role_ids=[rid(env.R_A)])),
+        D=mk(shared_role_ids=[], temp_data=temp()),
+        E=mk(shared_role_ids=None, temp_data=temp(shared_role_ids=[])),
+        F=mk(shared_role_ids=[rid(r_l)], temp_data=temp()),
+    )
+    is_shared_role = WorkActivity._WorkActivity__is_shared_role
+    role_ids = [rid(env.R_A), rid(env.R_B)]
+
+    # 1. 最外が coalesce(...) で、第 2 引数が false
+    expr = is_shared_role(role_ids)
+    sql = compile_sql(expr)
+    assert sql.startswith("coalesce(")
+    assert sql.endswith(", false)")
+    assert sql.count("CAST(workflow_activity.shared_role_ids AS VARCHAR)") == 2
+    assert sql.count(
+        _expanded_temp_data() + " #>> '{metainfo,shared_role_ids}'") == 2
+    for role_id in role_ids:
+        assert "'\"%s\"'" % role_id in sql
+
+    # 2. ロール条件が空のときは false()(coalesce で包まない)
+    assert isinstance(is_shared_role([]), False_)
+
+    # 3. 行ごとの値(NULL にならない)
+    values = dict(db.session.query(_Activity.activity_id, expr).all())
+    for name in ("A", "D", "E", "F"):
+        assert values[rows[name].activity_id] is False
+    for name in ("B", "C"):
+        assert values[rows[name].activity_id] is True
+
+    # 4. not_() で包んでも NULL にならない
+    values = dict(db.session.query(_Activity.activity_id, not_(expr)).all())
+    for name in ("A", "D", "E", "F"):
+        assert values[rows[name].activity_id] is True
+    for name in ("B", "C"):
+        assert values[rows[name].activity_id] is False
+
+    # 5. 3 関数の生成 SQL: ロール条件のみ coalesce で包まれる
+    for func_name, n in _ALL_FUNCS:
+        sql = compile_sql(build_func_query(func_name, env.U_G))
+        assert sql.count("coalesce(") == n
+        assert sql.count(
+            "coalesce((CAST(workflow_activity.shared_role_ids AS VARCHAR) LIKE") == n
+        # owner・temp_data 側の shared_user_ids の条件は coalesce で包まれない
+        assert "coalesce(" + _expanded_temp_data() not in sql
+        assert "coalesce(CAST(workflow_activity.shared_user_ids" not in sql
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_init_activity_shared_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_init_activity_shared_role_ids(app, db, users, item_type, workflow, caplog):
+    """init_activity が shared_role_ids を検証せずカラムへ保存する."""
+    env = build_proxy_env(app)
+    groups = create_group_roles(11)
+    set_proxy_posting(app, True)
+    role_deleted = "999999"
+    base = {"workflow_id": workflow["workflow"].id,
+            "flow_id": workflow["flow"].id}
+
+    def run(**extra):
+        activity = WorkActivity().init_activity(dict(base, **extra))
+        return Activity.query.filter_by(
+            activity_id=activity.activity_id).one()
+
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        caplog.set_level(logging.WARNING)
+
+        # 1. shared_user_ids と shared_role_ids の保存
+        saved = run(shared_user_ids=[{"user": env.U_P1.id}],
+                    shared_role_ids=[rid(env.R_A)])
+        assert saved.shared_role_ids == [rid(env.R_A)]
+        assert saved.shared_user_ids == [{"user": env.U_P1.id}]
+
+        # 2. キーなし -> NULL
+        assert run().shared_role_ids is None
+
+        # 3. None -> NULL
+        assert run(shared_role_ids=None).shared_role_ids is None
+
+        # 4. 指定不可となったロール: 検証せず保存し、拒否ログも出力しない
+        caplog.clear()
+        saved = run(shared_role_ids=[rid(env.R_X)])
+        assert saved.shared_role_ids == [rid(env.R_X)]
+        assert "Rejected shared role id" not in caplog.text
+
+        # 5. 上限(10)を超える 11 件でも拒否しない
+        ids = [rid(g) for g in groups]
+        assert len(ids) == 11
+        assert run(shared_role_ids=ids).shared_role_ids == ids
+
+        # 6. 存在しないロールID
+        assert run(shared_role_ids=[role_deleted]).shared_role_ids == [role_deleted]
+
+        # 7. 複数化フラグ無効でも init_activity は複数化フラグを参照しない
+        set_proxy_posting(app, False)
+        assert run(shared_role_ids=[rid(env.R_A)]).shared_role_ids == [rid(env.R_A)]
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_get_params_for_registrant_actor -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_get_params_for_registrant_actor(app, db, users, db_records, caplog):
+    """actor が操作者のまま維持され、宛先が代理投稿者(個人)のみとなる."""
+    env = build_proxy_env(app)
+    caplog.set_level(logging.WARNING)
+
+    def make_activity(update_user):
+        return MagicMock(
+            activity_login_user=env.U_O.id,
+            activity_update_user=update_user,
+            shared_user_ids=[{"user": env.U_P1.id}, {"user": env.U_P2.id}],
+            shared_role_ids=[rid(env.R_A)],
+            item_id=db_records[2][2].id,
+        )
+
+    def get_params(activity):
+        with patch("weko_workflow.api.UserProfile.get_by_userid") as mock_profile:
+            mock_profile.side_effect = lambda uid: MagicMock(
+                username="name_{}".format(uid))
+            result = WorkActivity()._get_params_for_registrant(activity)
+            return result, mock_profile
+
+    # 1. 登録者が操作(複数化フラグ有効)
+    set_proxy_posting(app, True)
+    (targets, recid, actor_id, actor_name), mock_profile = get_params(
+        make_activity(env.U_O.id))
+    assert actor_id == env.U_O.id  # shared_user_ids[0] に上書きされない
+    assert targets == {env.U_P1.id, env.U_P2.id}
+    assert actor_name == "name_{}".format(env.U_O.id)
+    assert env.U_G.id not in targets
+    assert recid == db_records[2][0]
+
+    # 2. 代理投稿者が操作
+    (targets, recid, actor_id, actor_name), mock_profile = get_params(
+        make_activity(env.U_P2.id))
+    assert actor_id == env.U_P2.id
+    assert targets == {env.U_O.id, env.U_P1.id}
+    assert actor_name == "name_{}".format(env.U_P2.id)
+    assert env.U_G.id not in targets
+
+    # 3. 複数化フラグ無効: 宛先は末尾 1 名のみ
+    set_proxy_posting(app, False)
+    (targets, recid, actor_id, actor_name), mock_profile = get_params(
+        make_activity(env.U_O.id))
+    assert actor_id == env.U_O.id
+    assert targets == {env.U_P2.id}
+    assert env.U_G.id not in targets
+
+    # 4. 操作者が特定できない場合は activity_login_user にフォールバック
+    set_proxy_posting(app, True)
+    caplog.clear()
+    (targets, recid, actor_id, actor_name), mock_profile = get_params(
+        make_activity(None))
+    assert actor_id == env.U_O.id
+    assert targets == {env.U_P1.id, env.U_P2.id}
+    assert ("Actor id is not resolved for notification. "
+            "Fallback to activity_login_user.") in caplog.text
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_api.py::test_get_params_for_approver_actor -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_get_params_for_approver_actor(app, db, users, db_register_full_action, db_records, db_user_profile, caplog):
+    """actor が代理投稿者配列の先頭に上書きされない."""
+    env = build_proxy_env(app)
+    set_proxy_posting(app, True)
+    caplog.set_level(logging.WARNING)
+    flow_define = db_register_full_action["flow_define"]
+
+    def make_activity(update_user):
+        return MagicMock(
+            activity_login_user=env.U_O.id,
+            activity_update_user=update_user,
+            shared_user_ids=[{"user": env.U_P1.id}, {"user": env.U_P2.id}],
+            shared_role_ids=[rid(env.R_A)],
+            activity_community_id=None,
+            item_id=db_records[2][2].id,
+            flow_define=flow_define,
+            action_order=3,
+        )
+
+    activity = WorkActivity()
+    with patch("weko_workflow.api.UserProfile.get_by_userid") as mock_profile:
+        mock_profile.side_effect = lambda uid: MagicMock(username="name_{}".format(uid))
+        # 1. 代理投稿者配列の先頭(U_P1)ではなく、操作者が actor となる
+        targets, recid, actor_id, actor_name = activity._get_params_for_approver(
+            make_activity(env.U_O.id))
+        assert actor_id == env.U_O.id
+        assert actor_id != env.U_P1.id
+        assert actor_name == "name_{}".format(env.U_O.id)
+        assert env.U_G.id not in targets
+
+        # 2. 操作者が特定できない場合は activity_login_user にフォールバック
+        caplog.clear()
+        targets, recid, actor_id, actor_name = activity._get_params_for_approver(
+            make_activity(None))
+        assert actor_id == env.U_O.id
+        assert ("Actor id is not resolved for notification. "
+                "Fallback to activity_login_user.") in caplog.text

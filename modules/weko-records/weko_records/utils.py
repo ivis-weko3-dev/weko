@@ -76,14 +76,32 @@ def json_loader(data, pid, owner_id=None, with_deleted=False, replace_field=True
     :return: dc, jrc, is_edit
     """
 
+    def _normalize_shared_role_ids(role_ids):
+        """normalize role ids to a list of str"""
+        normalized = []
+        for role_id in role_ids or []:
+            if not isinstance(role_id, str):
+                current_app.logger.warning(
+                    "Unexpected shared role id element is ignored on json_loader: {}"
+                    .format(role_id))
+                continue
+            normalized.append(role_id)
+        return normalized
+
     def _set_shared_ids(data):
-        """set weko_shared_ids from shared_user_ids"""
+        """set weko_shared_ids from shared_user_ids,
+        and weko_shared_role_ids from shared_role_ids"""
         weko_shared_ids = data.get("weko_shared_ids", [])
         shared_user_ids = data.get("shared_user_ids", [])
+        weko_shared_role_ids = data.get("weko_shared_role_ids", [])
+        shared_role_ids = data.get("shared_role_ids", [])
 
         return {
             "weko_shared_ids": weko_shared_ids
-            if not shared_user_ids else shared_user_ids
+            if not shared_user_ids else shared_user_ids,
+            "weko_shared_role_ids": _normalize_shared_role_ids(
+                weko_shared_role_ids
+                if not shared_role_ids else shared_role_ids)
         }
 
     dc = OrderedDict()

@@ -153,3 +153,15 @@ from weko_workflow.models import Activity
 #def _post(client, url, json_data):
 #    return client.post(url, json=json_data)
 #
+
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_weko_workflow.py::test_activitylog_xls_columns -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_activitylog_xls_columns(app):
+    """WEKO_WORKFLOW_ACTIVITYLOG_XLS_COLUMNS に shared_role_ids が含まれる."""
+    from weko_workflow import config as workflow_config
+
+    for columns in (app.config["WEKO_WORKFLOW_ACTIVITYLOG_XLS_COLUMNS"],
+                    workflow_config.WEKO_WORKFLOW_ACTIVITYLOG_XLS_COLUMNS):
+        assert "shared_user_ids" in columns
+        assert "shared_role_ids" in columns

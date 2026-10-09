@@ -85,13 +85,13 @@ from .utils import (
     export_items, get_current_user, get_data_authors_prefix_settings,
     get_data_authors_affiliation_settings,
     get_ranking, get_shared_user_info_by_email, get_shared_user_info_by_username,
-    get_user_information, get_workflow_by_item_type_id,
-    hide_form_items, is_schema_include_key, remove_excluded_items_in_json_schema,
-    sanitize_input_data, save_title, search_email, search_username,
+    get_shared_role_ids, get_shared_user_ids, get_user_information, get_workflow_by_item_type_id,
+    hide_form_items, is_item_editable_by, is_schema_include_key, remove_excluded_items_in_json_schema,
+    sanitize_input_data, save_title, exists_shared_user_email, search_role_name, search_username,
     set_multi_language_name, to_files_js,
     translate_schema_form, translate_validation_message, update_index_tree_for_record,
     update_json_schema_by_activity_id, update_schema_form_by_activity_id,
-    update_sub_items_by_user_role, validate_form_input_data, validate_shared_user,
+    update_sub_items_by_user_role, validate_form_input_data, validate_shared_role_ids, validate_shared_user,
     validate_user_mail_and_index, is_duplicate_record, lock_item_will_be_edit,
     set_scheme_by_author_table
 )
@@ -372,6 +372,16 @@ def iframe_save_model():
                         for setting_key in setting_vals:
                             if setting_key == 'roles' or setting_key == 'provide':
                                 setting_vals[setting_key] = [dict(s) for s in set(frozenset(d.items()) for d in setting_vals[setting_key])]
+
+        # 代理投稿グループの検証(一時保存データの更新の前に行う)
+        metainfo = data.get('metainfo')
+        if isinstance(metainfo, dict):
+            error_msg = validate_shared_role_ids(metainfo.get('shared_role_ids'))
+            if error_msg:
+                return jsonify({"code": 1, "msg": error_msg})
+            # 画面から代理投稿者(個人・グループ)を保存したことを示す
+            if 'shared_user_ids' in metainfo or 'shared_role_ids' in metainfo:
+                data['shared_ids_saved'] = True
 
         # セッション取得
         if activity_id:
@@ -837,7 +847,8 @@ def get_search_data(data_type=''):
     """get_search_data.
 
     Host the api that provides prefix-matched search data (username or
-    email) restricted to shared-user roles.
+    role_name) restricted to shared-user roles, and the existence check of
+    an exact email address (email).
     """
     result = {
         'results': '',
@@ -848,7 +859,9 @@ def get_search_data(data_type=''):
         if data_type == 'username':
             result.update(search_username(q))
         elif data_type == 'email':
-            result.update(search_email(q))
+            result.update(exists_shared_user_email(q))
+        elif data_type == 'role_name':
+            result.update(search_role_name(q))
         else:
             result['error'] = 'Invaid method'
     except Exception as e:
@@ -1146,14 +1159,12 @@ def prepare_edit_item(id=None, community=None):
                 msg=_('Record does not exist.')
             )
 
-        authenticators = [int(deposit.get('owner'))] \
-            + deposit.get('weko_shared_ids') if deposit.get('weko_shared_ids') is not None else []
-        user_id = int(get_current_user())
         work_activity = WorkActivity()
         latest_pid = PIDVersioning(child=recid).last_child
 
         # ! Check User's Permissions
-        if user_id not in authenticators and not get_user_roles(is_super_role=True)[0]:
+        if not is_item_editable_by(deposit) \
+                and not get_user_roles(is_super_role=True)[0]:
             return jsonify(
                 code=err_code,
                 msg=_("You are not allowed to edit this item.")
@@ -1253,7 +1264,8 @@ def prepare_edit_item(id=None, community=None):
 
 @blueprint.route('/prepare_delete_item', methods=['POST'])
 @login_required
-def prepare_delete_item(id=None, community=None, shared_user_ids=[]):
+def prepare_delete_item(id=None, community=None, shared_user_ids=None,
+                        shared_role_ids=None):
     """Prepare delete item.
 
     Delete item directly or create delete activity.
@@ -1269,6 +1281,7 @@ def prepare_delete_item(id=None, community=None, shared_user_ids=[]):
         id (str): pid_value
         community (str): community id
         shared_user_ids (list): shared user ids
+        shared_role_ids (list): shared role ids (proxy posting groups)
 
     Returns:
         Response: JSON response with code and message.
@@ -1312,14 +1325,23 @@ def prepare_delete_item(id=None, community=None, shared_user_ids=[]):
                 msg=_('Record does not exist.')
             )
 
-        authenticators = [str(deposit.get('owner'))] + \
-                         [str(uid) for uid in deposit.get('weko_shared_ids', [])]
+        if shared_user_ids is None:
+            # 未指定の場合はアイテムの代理投稿者(個人)で補完する
+            shared_user_ids = get_shared_user_ids(deposit)
+        if shared_role_ids is None:
+            # 未指定の場合はアイテムの代理投稿グループで補完する
+            shared_role_ids = get_shared_role_ids(deposit)
+        else:
+            # 明示指定は文字列配列に揃える(フラグの状態によらず採用)
+            shared_role_ids = get_shared_role_ids(
+                {"shared_role_ids": shared_role_ids}, apply_flag=False)
         user_id = str(current_user.get_id())
         work_activity = WorkActivity()
         latest_pid = PIDVersioning(child=recid).last_child
 
         # ! Check User's Permissions
-        if user_id not in authenticators and not get_user_roles(is_super_role=True)[0]:
+        if not is_item_editable_by(deposit) \
+                and not get_user_roles(is_super_role=True)[0]:
             return jsonify(
                 code=err_code,
                 msg=_("You are not allowed to edit this item.")
@@ -1395,6 +1417,7 @@ def prepare_delete_item(id=None, community=None, shared_user_ids=[]):
             else user_info for user_info in shared_user_ids
         ]
         post_activity['shared_user_ids'] = shared_user_ids_activity_info
+        post_activity['shared_role_ids'] = shared_role_ids
 
         try:
             rtn = prepare_delete_workflow(post_activity, recid, deposit)

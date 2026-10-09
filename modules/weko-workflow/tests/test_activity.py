@@ -19,6 +19,10 @@ from weko_workflow.errors import WekoWorkflowException
 from weko_workflow.headless import HeadlessActivity
 from weko_workflow.models import Activity, WorkFlow
 
+from .helpers_proxy import (
+    build_proxy_env, create_group_roles, rid, set_proxy_posting,
+)
+
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_activity.py -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
 
@@ -1057,7 +1061,7 @@ class TestHeadlessActivity:
             mock_draft_deposit = MagicMock(spec=WekoDeposit)
             mock_parent_deposit = MagicMock(spec=WekoDeposit)
             mock_parent_deposit.newversion.return_value = mock_deposit
-            mock_get_record.side_effect = [mock_draft_deposit, mock_parent_deposit]
+            mock_get_record.side_effect = [MagicMock(spec=WekoDeposit), mock_draft_deposit, mock_parent_deposit]  # 先頭は代理投稿グループ検証用の既存アイテム取得
 
             mock_cur_pid = MagicMock(spec=PersistentIdentifier, pid_value="200001.0")
             mock_parent_pid = MagicMock(spec=PersistentIdentifier, pid_value="200001")
@@ -1151,7 +1155,7 @@ class TestHeadlessActivity:
             mock_draft_deposit = MagicMock(spec=WekoDeposit)
             mock_parent_deposit = MagicMock(spec=WekoDeposit)
             mock_parent_deposit.newversion.return_value = mock_deposit
-            mock_get_record.side_effect = [mock_draft_deposit, mock_parent_deposit]
+            mock_get_record.side_effect = [MagicMock(spec=WekoDeposit), mock_draft_deposit, mock_parent_deposit]  # 先頭は代理投稿グループ検証用の既存アイテム取得
 
             mock_cur_pid = MagicMock(spec=PersistentIdentifier, pid_value="200002.0")
             mock_parent_pid = MagicMock(spec=PersistentIdentifier, pid_value="200002")
@@ -1631,3 +1635,285 @@ class TestHeadlessActivity:
             activity._lock_skip = False
             result = activity._activity_unlock("test_locked_value")
             mock_delete_lock.assert_called_once_with(activity.activity_id, {"locked_value": "test_locked_value"})
+
+
+    # .tox/c1/bin/pytest --cov=weko_workflow tests/test_activity.py::TestHeadlessActivity::test_init_activity_resume_proxy_poster -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+    def test_init_activity_resume_proxy_poster(self, app, db, item_type, workflow, users, client):
+        """既存アクティビティ再開時の権限判定が is_proxy_poster 経由で複数化フラグが適用される."""
+        env = build_proxy_env(app)
+        mock_activity = MagicMock(spec=Activity)
+        mock_activity.activity_id = "A-TEST-00006"
+        mock_activity.action_id = 3
+        mock_activity.activity_community_id = None
+        mock_activity.workflow = workflow["workflow"]
+        mock_activity.activity_login_user = env.U_O.id
+        mock_activity.shared_user_ids = [
+            {"user": env.U_P1.id}, {"user": env.U_P2.id}]
+        mock_activity.shared_role_ids = None
+
+        def resume(user):
+            with patch("weko_workflow.headless.activity.verify_deletion") as mock_verify_deletion, \
+                    patch("weko_workflow.headless.activity.HeadlessActivity.get_activity_by_id") as mock_get_activity_by_id, \
+                    patch("weko_workflow.headless.activity.PersistentIdentifier.get_by_object") as mock_get_pid, \
+                    patch("weko_workflow.headless.activity.HeadlessActivity._activity_lock"), \
+                    patch("weko_workflow.headless.activity.HeadlessActivity._activity_unlock"):
+                mock_verify_deletion.return_value = jsonify({"code": 200, "is_delete": False}), 200
+                mock_get_activity_by_id.return_value = mock_activity
+                mock_get_pid.return_value = MagicMock(
+                    spec=PersistentIdentifier, pid_value="200002.0")
+                activity = HeadlessActivity()
+                return activity.init_activity(
+                    user.id, workflow_id=workflow["workflow"].id,
+                    activity_id=mock_activity.activity_id)
+
+        def message(user):
+            return "user({}) cannot access activity({}).".format(
+                user.id, mock_activity.activity_id)
+
+        # 1. 複数化フラグ有効: 例外が発生せず再開できる
+        set_proxy_posting(app, True)
+        assert resume(env.U_P1) == url_for(
+            "weko_workflow.display_activity", activity_id=mock_activity.activity_id, _external=True)
+
+        # 2. 複数化フラグ無効: 末尾以外は WekoWorkflowException
+        set_proxy_posting(app, False)
+        with pytest.raises(WekoWorkflowException) as ex:
+            resume(env.U_P1)
+        assert ex.value.args[0] == message(env.U_P1)
+
+        # 3. 複数化フラグ無効: 末尾は再開できる
+        assert resume(env.U_P2) == url_for(
+            "weko_workflow.display_activity", activity_id=mock_activity.activity_id, _external=True)
+
+        # 4. 複数化フラグ有効: 代理投稿者ではないユーザーは WekoWorkflowException
+        set_proxy_posting(app, True)
+        with pytest.raises(WekoWorkflowException) as ex:
+            resume(env.U_N)
+        assert ex.value.args[0] == message(env.U_N)
+
+    def _prepare_input_metadata_new(self, mocker, workflow, item_type):
+        """_input_metadata(新規作成)のテスト用に、既存の test__input_metadata_new と同じ前提を用意する."""
+        mocker.patch("weko_workflow.headless.activity.HeadlessActivity.create_or_update_action_feedbackmail")
+        mocker.patch("weko_workflow.headless.activity.HeadlessActivity.create_or_update_activity_request_mail")
+        mock_deposit_create = mocker.patch("weko_workflow.headless.activity.WekoDeposit.create", return_value=MagicMock(spec=WekoDeposit))
+        mock_deposit_update = mocker.patch("weko_workflow.headless.activity.WekoDeposit.update")
+        mocker.patch("weko_workflow.headless.activity.WekoDeposit.commit")
+        mocker.patch("weko_workflow.headless.activity.get_mapping", return_value={"title.@value": "item_title.subitem_title", "identifierRegistration.@attributes.identifierType": "item_1617186819068.subitem_identifier_reg_type"})
+        mocker.patch("weko_search_ui.utils.get_data_by_property", return_value=(["Test Title"], "item_title.subitem_title"))
+        mocker.patch("weko_workflow.headless.activity.current_pidstore.minters", {"weko_deposit_minter": lambda record_uuid, data: MagicMock(pid_value="200001")})
+        activity = HeadlessActivity(_lock_skip=True)
+        mock_activity = MagicMock(spec=Activity)
+        mock_activity.activity_id = "A-TEST-00001"
+        mock_activity.action_id = 3  # "item_login"
+        mock_activity.activity_community_id = None
+        activity._model = mock_activity
+        activity.workflow = workflow["workflow"]
+        activity.workflow.index_tree_id = "1"
+        activity.item_type = next(i['obj'] for i in item_type if i['id'] == 1)
+        return activity, mock_deposit_create, mock_deposit_update
+
+    @staticmethod
+    def _input_metadata_new(activity, metadata):
+        """新規作成の _input_metadata を実行し、(update_activity, upt_activity_metadata) のモックを返す."""
+        with patch("weko_workflow.headless.activity.validate_form_input_data") as mock_validate, \
+                patch("weko_workflow.headless.activity.uuid.uuid4") as mock_uuid, \
+                patch("weko_workflow.headless.activity.HeadlessActivity.update_activity") as mock_update_activity, \
+                patch("weko_workflow.headless.activity.HeadlessActivity._upload_files") as mock_upload, \
+                patch("weko_workflow.headless.activity.HeadlessActivity._delete_file"), \
+                patch("weko_workflow.headless.activity.HeadlessActivity.upt_activity_metadata") as mock_upt_meta:
+            mock_validate.side_effect = lambda result, itemtype_id, metadata: result.update({"is_valid": True})
+            mock_uuid.return_value = uuid.uuid4()
+            mock_upload.return_value = []
+            activity._input_metadata(metadata, [], [])
+        # with 句を抜けた後も、モックの呼び出し履歴は参照できる
+        return mock_update_activity, mock_upt_meta
+
+    # .tox/c1/bin/pytest --cov=weko_workflow tests/test_activity.py::TestHeadlessActivity::test__input_metadata_shared_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+    def test__input_metadata_shared_role_ids(self, app, db, item_type, workflow, users, client, mocker):
+        """検証を通過した代理投稿グループがアクティビティへ伝播する."""
+        env = build_proxy_env(app)
+        set_proxy_posting(app, True)
+
+        # 1. 新規作成: shared_role_ids がアクティビティへ伝播する
+        activity, _, _ = self._prepare_input_metadata_new(mocker, workflow, item_type)
+        mock_update_activity, _ = self._input_metadata_new(activity, {
+            "pubdate": "2024-01-01",
+            "item_title": [{"subitem_title": "Test Title"}],
+            "shared_role_ids": [rid(env.R_A)],
+        })
+        assert mock_update_activity.call_args[0][0] == activity.activity_id
+        assert mock_update_activity.call_args[0][1]["shared_role_ids"] == [rid(env.R_A)]
+
+        # 2. shared_role_ids が空で weko_shared_role_ids を指定: 個人側と同じ優先順位
+        activity, _, _ = self._prepare_input_metadata_new(mocker, workflow, item_type)
+        mock_update_activity, _ = self._input_metadata_new(activity, {
+            "pubdate": "2024-01-01",
+            "item_title": [{"subitem_title": "Test Title"}],
+            "shared_role_ids": [],
+            "weko_shared_role_ids": [rid(env.R_B)],
+        })
+        assert mock_update_activity.call_args[0][1]["shared_role_ids"] == [rid(env.R_B)]
+
+        # 3・4. 既存アイテムの更新: 保存済みのロールIDのみのため拒否しない
+        #    (保存済みのロールIDは最上位と _deposit の和集合とする)
+        for stored in (
+            {"weko_shared_role_ids": [rid(env.R_X)]},                    # 3. 最上位
+            {"_deposit": {"weko_shared_role_ids": [rid(env.R_X)]}},     # 4. _deposit のみ
+        ):
+            mocker.patch("weko_workflow.headless.activity.get_mapping", return_value={"title.@value": "item_title.subitem_title", "identifierRegistration.@attributes.identifierType": "item_1617186819068.subitem_identifier_reg_type"})
+            mocker.patch("weko_search_ui.utils.get_data_by_property", return_value=(["Test Title"], "item_title.subitem_title"))
+            mocker.patch("weko_workflow.headless.activity.HeadlessActivity.create_or_update_action_feedbackmail")
+            mocker.patch("weko_workflow.headless.activity.HeadlessActivity.create_or_update_activity_request_mail")
+            mocker.patch("weko_workflow.headless.activity.WekoDeposit.update")
+            mocker.patch("weko_workflow.headless.activity.WekoDeposit.commit")
+            activity = HeadlessActivity(_lock_skip=True)
+            mock_activity = MagicMock(spec=Activity)
+            mock_activity.activity_id = "A-TEST-00002"
+            mock_activity.action_id = 3
+            mock_activity.activity_community_id = None
+            mock_activity.item_id = uuid.uuid4()
+            activity._recid = "200001.0"
+            activity._model = mock_activity
+            activity.workflow = workflow["workflow"]
+            activity.workflow.index_tree_id = "1"
+            activity.item_type = next(i['obj'] for i in item_type if i['id'] == 1)
+            metadata = {
+                "pubdate": "2024-01-01",
+                "item_title": [{"subitem_title": "Test Title"}],
+                "shared_role_ids": [rid(env.R_X)],
+            }
+            with patch("weko_workflow.headless.activity.validate_form_input_data") as mock_validate, \
+                    patch("weko_workflow.headless.activity.HeadlessActivity.update_activity") as mock_update_activity, \
+                    patch("weko_workflow.headless.activity.WekoDeposit.get_record") as mock_get_record, \
+                    patch("weko_workflow.headless.activity.PersistentIdentifier.get_by_object") as mock_get_pid, \
+                    patch("weko_workflow.headless.activity.to_files_js", return_value=[]), \
+                    patch("weko_workflow.headless.activity.HeadlessActivity._upload_files", return_value=[]), \
+                    patch("weko_workflow.headless.activity.HeadlessActivity._delete_file"), \
+                    patch("weko_workflow.headless.activity.HeadlessActivity.upt_activity_metadata"):
+                mock_validate.side_effect = lambda result, itemtype_id, metadata: result.update({"is_valid": True})
+                mock_deposit = MagicMock(spec=WekoDeposit)
+                mock_deposit.item_metadata = {}
+                mock_deposit.files = []
+                mock_deposit.get.side_effect = lambda key, default=None: stored.get(key, default)
+                mock_get_record.return_value = mock_deposit
+                mock_get_pid.return_value = MagicMock(spec=PersistentIdentifier, pid_value="200001.0")
+                # 例外が発生しない
+                activity._input_metadata(metadata, [])
+                assert mock_update_activity.call_args[0][1]["shared_role_ids"] == [rid(env.R_X)]
+
+    # .tox/c1/bin/pytest --cov=weko_workflow tests/test_activity.py::TestHeadlessActivity::test__input_metadata_shared_role_rejected -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+    def test__input_metadata_shared_role_rejected(self, app, db, item_type, workflow, users, client, mocker, caplog):
+        """指定不可・上限超過のグループで WekoWorkflowException を送出し、何も更新しない."""
+        import logging
+        env = build_proxy_env(app)
+        groups = create_group_roles(11)
+        caplog.set_level(logging.WARNING)
+        set_proxy_posting(app, True)
+
+        def run(role_ids):
+            activity, _, mock_deposit_update = self._prepare_input_metadata_new(
+                mocker, workflow, item_type)
+            metadata = {
+                "pubdate": "2024-01-01",
+                "item_title": [{"subitem_title": "Test Title"}],
+                "shared_role_ids": role_ids,
+            }
+            with patch("weko_workflow.headless.activity.validate_form_input_data"), \
+                    patch("weko_workflow.headless.activity.HeadlessActivity.update_activity") as mock_update_activity, \
+                    patch("weko_workflow.headless.activity.HeadlessActivity.upt_activity_metadata") as mock_upt_meta, \
+                    patch("weko_workflow.headless.activity.HeadlessActivity._upload_files", return_value=[]), \
+                    patch("weko_workflow.headless.activity.HeadlessActivity._delete_file"):
+                with pytest.raises(WekoWorkflowException) as ex:
+                    activity._input_metadata(metadata, [], [])
+            # アクティビティ・一時保存データ・アイテムを更新しない
+            mock_update_activity.assert_not_called()
+            mock_upt_meta.assert_not_called()
+            mock_deposit_update.assert_not_called()
+            return ex.value.args[0]
+
+        not_allowed = "Specified group is not allowed as a proxy posting group."
+        # 1. 指定不可のグループ(mAP グループではないロール)
+        caplog.clear()
+        assert run([rid(env.R_N)]) == not_allowed
+        assert "Rejected shared role id which is not a mAP group: {}".format(
+            rid(env.R_N)) in caplog.text
+        # 2. 上限(10)を超える 11 件
+        assert run([rid(g) for g in groups]) == \
+            "You can specify up to 10 proxy posting groups."
+        # 3. 複数化フラグ無効でも判定は複数化フラグの状態によらず行う
+        set_proxy_posting(app, False)
+        assert run([rid(env.R_N)]) == not_allowed
+
+    # .tox/c1/bin/pytest --cov=weko_workflow tests/test_activity.py::TestHeadlessActivity::test_headless_prepare_delete_item_shared_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+    def test_headless_prepare_delete_item_shared_role_ids(self, app, db, item_type, workflow, users, client, mocker):
+        """削除経路で prepare_delete_item が位置引数 3 つで呼ばれ、shared_role_ids が補完される."""
+        from flask_login.utils import login_user
+        from invenio_pidstore.resolver import Resolver
+        from weko_items_ui.views import prepare_delete_item
+
+        env = build_proxy_env(app)
+        deposit = {
+            "owner": env.U_O.id,
+            "item_type_id": 1,
+            "item_title": "Test Title",
+            "weko_shared_ids": [env.U_P1.id],
+            "weko_shared_role_ids": [rid(env.R_A)],
+        }
+        recid = MagicMock(pid_value="200001", object_uuid=uuid.uuid4())
+        mocker.patch.object(Resolver, "resolve", return_value=(recid, deposit))
+        mocker.patch("weko_items_ui.views.lock_item_will_be_edit", return_value=True)
+        mocker.patch("weko_items_ui.views.PIDVersioning").return_value.last_child = MagicMock(
+            object_uuid=uuid.uuid4())
+        mocker.patch("weko_items_ui.views.ItemTypes.get_by_id", return_value=MagicMock(name_id=1))
+        mocker.patch("weko_items_ui.views.check_an_item_is_locked", return_value=False)
+        mocker.patch("weko_items_ui.views.WorkActivity.get_workflow_activity_by_item_id", return_value=None)
+        mocker.patch("weko_items_ui.views.check_item_is_being_edit", return_value=False)
+        mocker.patch("weko_items_ui.views.get_workflow_by_item_type_id",
+                     return_value=MagicMock(id=workflow["workflow"].id, delete_flow_id=2))
+        # 削除アクティビティ作成時の post_activity(= init_activity に渡される activity 辞書)を確認する
+        mock_delete_workflow = mocker.patch(
+            "weko_items_ui.views.prepare_delete_workflow",
+            return_value=MagicMock(activity_id="D-TEST-00005"))
+
+        mock_activity = MagicMock(spec=Activity)
+        mock_activity.activity_id = "D-TEST-00005"
+        mock_activity.action_id = 4
+        mock_activity.activity_community_id = None
+        mock_activity.workflow = workflow["workflow"]
+
+        def delete(**kwargs):
+            mock_delete_workflow.reset_mock()
+            with app.test_request_context():
+                login_user(env.U_O)
+                with patch("weko_workflow.headless.activity.prepare_delete_item",
+                           wraps=prepare_delete_item) as mock_prepare, \
+                        patch("weko_workflow.headless.activity.HeadlessActivity.get_activity_by_id",
+                              return_value=mock_activity), \
+                        patch("weko_workflow.headless.activity.PersistentIdentifier.get_by_object",
+                              return_value=MagicMock(spec=PersistentIdentifier, pid_value="200001.0")):
+                    activity = HeadlessActivity()
+                    activity.init_activity(
+                        env.U_O.id, item_id="200001", for_delete=True, **kwargs)
+            return mock_prepare, mock_delete_workflow.call_args[0][0]
+
+        # 1. 複数化フラグ有効: 位置引数 3 つで呼ばれ、shared_role_ids はアイテムの値で補完される
+        set_proxy_posting(app, True)
+        mock_prepare, post_activity = delete()
+        args, kwargs = mock_prepare.call_args
+        assert len(args) == 3 and kwargs == {}
+        assert args[0] == "200001"
+        assert post_activity["shared_role_ids"] == [rid(env.R_A)]
+        # 3. 個人側は明示指定された shared_ids(未指定は空)が優先され、補完されない
+        assert post_activity["shared_user_ids"] == []
+
+        # 2. 複数化フラグ無効: 空
+        set_proxy_posting(app, False)
+        mock_prepare, post_activity = delete()
+        assert post_activity["shared_role_ids"] == []
+
+        # 3. 呼び出し元が渡す shared_ids(個人)がそのまま採用される
+        set_proxy_posting(app, True)
+        mock_prepare, post_activity = delete(shared_ids=[env.U_P2.id])
+        assert post_activity["shared_user_ids"] == [{"user": env.U_P2.id}]
+        assert post_activity["shared_role_ids"] == [rid(env.R_A)]
+

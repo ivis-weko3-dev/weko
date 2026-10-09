@@ -66,7 +66,7 @@ from .models import WorkspaceDefaultConditions
 
 from weko_admin.models import AdminSettings
 from weko_workflow.api import WorkFlow
-from weko_items_ui.utils import is_schema_include_key
+from weko_items_ui.utils import is_item_editable_by, is_schema_include_key
 from flask_wtf import FlaskForm
 from weko_workflow.utils import is_show_autofill_metadata
 
@@ -147,7 +147,7 @@ def get_workspace_itemlist():
     for record in recordsData:
         item_type_ids.add(
             record['_source'].get('item_type_id')
-            or record['_source']['_item_metadata'].get('item_type_id')
+            or record['_source'].get('_item_metadata', {}).get('item_type_id')
         )
     item_types = ItemTypes.get_records(list(item_type_ids))
     item_type_dict = {
@@ -162,11 +162,8 @@ def get_workspace_itemlist():
     # ループ処理
     for record in recordsData:
         source = record.get("_source", {})
-        if not source or (
-            str(source.get("weko_creator_id", None)) != str(current_user.get_id()) and
-            str(current_user.get_id()) not in [str(shared_id) for shared_id in source.get("weko_shared_ids", [])]
-        ):
-            # If user ID does not match, skip this record
+        if not source or not is_item_editable_by(source):
+            # If user is neither the registrant nor a proxy poster, skip this record
             current_app.logger.debug(f"[workspace] skip item \"_id\": {record.get('_id')}")
             continue
 

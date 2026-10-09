@@ -17,6 +17,31 @@
     # Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
     # MA 02111-1307, USA.
     #}
+{% if group_row %}
+{# 代理投稿グループの空行(addGroup のコピー元、または初期表示の空行) #}
+<div class="row row-4 panel-body panel-body2 contributor-record pd_username" id="pd_group_row_{{default_id}}">
+    <div class="col-xs-3 col-sm-3 col-md-3 col-lg-3 label_username">
+        <label for="pd_group_name_{{default_id}}">Group name </label>
+    </div>
+    <div class="col-xs-8 col-sm-8 col-md-8 col-lg-8">
+        <div class="autocomplete">
+            <input
+                id="pd_group_name_{{default_id}}" autocomplete="off" type="text"
+                name="pd_group_name" placeholder="Group name" class="form-control"
+                onclick="initContributorSuggest(this)"
+            >
+            <input type="hidden" id="pd_group_role_id_{{default_id}}" name="pd_group_role_id" value="">
+            <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate id_spinners_username" id="id_spinners_group_{{default_id}}"></span>
+        </div>
+    </div>
+    <div class="text-center contributor-trash">
+        <a id="id_trash_group_{{default_id}}" onclick="removeGroup(this)">
+            <i class="fa fa-trash" aria-hidden="true"></i>
+        </a>
+    </div>
+</div>
+<div class="row row-4"></div>
+{% else %}
 <div class="row row-4 panel-body panel-body2 contributor-record pd_username" id="pd_username_{{default_id}}">
     <div class="col-xs-3 col-sm-3 col-md-3 col-lg-3 label_username" id="label_username_{{default_id}}">
         <label for="share_username_{{default_id}}">
@@ -40,10 +65,12 @@
         <div class="autocomplete">
             <input
                 id="share_email_{{default_id}}" autocomplete="off" type="text"
-                name="share_email_{{default_id}}" placeholder="Email" class="form-control"
-                onclick="initContributorSuggest(this)" foucusout="focusoutShareEmail(this.id)"
+                name="share_email_{{default_id}}" placeholder="{{ _('Enter an email address (no suggestions are shown)') }}" class="form-control"
+                foucusout="focusoutShareEmail(this.id)"
             >
             <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate id_spinners_email" id="id_spinners_email_{{default_id}}"></span>
+            <span class="email-exists-status glyphicon glyphicon-ok text-success" id="email_exists_status_{{default_id}}"
+                style="display:none; margin-left: -24px; margin-top: 8px;"></span>
         </div>
     </div>
     <div class="text-center contributor-trash">
@@ -53,3 +80,4 @@
     </div>
 </div>
 <div class="row row-4"></div>
+{% endif %}

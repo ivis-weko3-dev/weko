@@ -19,7 +19,12 @@
 # MA 02111-1307, USA.
 
 """Module tests."""
+import contextlib
+import copy
+import inspect
 import io
+import logging
+import types
 import pytest
 from datetime import datetime
 from flask import url_for, json, jsonify, Response
@@ -28,8 +33,17 @@ from invenio_accounts.testutils import login_user_via_session as login
 from sqlalchemy.exc import SQLAlchemyError
 from unittest.mock import MagicMock, Mock, patch
 
+from tests.helpers import (
+    ADMIN_ROLE_NAME,
+    GROUP_PREFIX,
+    IDP_ENTITY_ID,
+    get_or_create_role,
+    new_user,
+)
+from weko_workspace.config import WEKO_WORKSPACE_DEFAULT_FILTERS
 from weko_workspace.views import (
-    dbsession_clean
+    dbsession_clean,
+    get_workspace_itemlist,
 )
 from weko_workspace.models import WorkspaceDefaultConditions
 from weko_workspace.ext import WekoWorkspace
@@ -783,6 +797,188 @@ def test_get_workspace_itemlist(
         # defaultconditions の検証
         if post_data:
             assert defaultconditions == post_data
+
+
+def _make_hit(hit_id, creator=None, shared_ids=None, shared_role_ids=None, empty=False):
+    """get_es_itemlist が返すヒットを作成する。"""
+    if empty:
+        return {"_id": hit_id, "_source": {}}
+    source = {
+        "title": ["Test Title"],
+        "publish_date": "2023-01-01",
+        "_item_metadata": {"item_type_id": "1", "file": []},
+    }
+    if creator is not None:
+        source["weko_creator_id"] = str(creator)
+    if shared_ids is not None:
+        source["weko_shared_ids"] = shared_ids
+    if shared_role_ids is not None:
+        source["weko_shared_role_ids"] = shared_role_ids
+    return {"_id": hit_id, "_source": source}
+
+
+@contextlib.contextmanager
+def _patched_itemlist_view(es_data, email):
+    """get_workspace_itemlist の依存関数をモックし、render_template のモックを返す。"""
+    def mock_render_template(*args, **kwargs):
+        return Response(json.dumps(kwargs), mimetype="application/json")
+
+    def mock_get_by_object(pid_type, object_type, object_uuid):
+        return MagicMock(pid_value=object_uuid)
+
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(
+            patch("weko_workspace.views.get_es_itemlist", return_value=es_data))
+        mock_render = stack.enter_context(
+            patch("weko_workspace.views.render_template", side_effect=mock_render_template))
+        stack.enter_context(
+            patch("weko_workspace.views.PersistentIdentifier.get_by_object",
+                  side_effect=mock_get_by_object))
+        stack.enter_context(
+            patch("weko_workspace.views.ItemLink.get_item_link_info", return_value=[]))
+        stack.enter_context(
+            patch("weko_workspace.views.get_workspace_status_management",
+                  return_value=(True, False)))
+        stack.enter_context(
+            patch("weko_workspace.views.get_accessCnt_downloadCnt", return_value=(10, 5)))
+        stack.enter_context(
+            patch("weko_workspace.views.get_item_status", return_value="active"))
+        stack.enter_context(
+            patch("weko_workspace.views.extract_metadata_info", return_value=([], True)))
+        stack.enter_context(
+            patch("weko_workspace.views.get_userNm_affiliation",
+                  return_value=("Test User", "Test Affiliation")))
+        stack.enter_context(
+            patch("weko_workspace.views.FeedbackMailList.get_feedback_mail_list",
+                  return_value={email: True}))
+        yield mock_render
+
+
+def _recids_for_user(client, user, es_data):
+    """ユーザーでログインして一覧を取得し、表示されたアイテムの recid を返す。"""
+    # login_user_via_session はセッション破棄後にデタッチされた User を参照して失敗するため、
+    # ユーザーID(純粋な値)を直接セッションに設定する
+    with client.session_transaction() as sess:
+        sess["user_id"] = str(user.id)
+    with _patched_itemlist_view(es_data, user.email) as mock_render:
+        res = client.get(url_for("weko_workspace.get_workspace_itemlist"))
+        assert res.status_code == 200
+        item_list = mock_render.call_args[1]["workspaceItemList"]
+    return {item["recid"] for item in item_list}
+
+
+def _prepare_users():
+    # クライアントのリクエストごとに DB セッションが破棄され、ORM オブジェクトが
+    # デタッチされるため、id・email のみを持つ値として返す
+    def _plain(obj):
+        return types.SimpleNamespace(id=obj.id, email=getattr(obj, "email", None))
+
+    role_a = get_or_create_role(GROUP_PREFIX + "Alpha")
+    role_a_name = role_a.name
+    role_a = _plain(role_a)
+    user_o = _plain(new_user("u_o@test.org"))
+    # id(U_P1) < id(U_P2) となる順に作成する
+    user_p1 = _plain(new_user("u_p1@test.org"))
+    user_p2 = _plain(new_user("u_p2@test.org"))
+    user_g = _plain(new_user("u_g@test.org", [role_a_name]))
+    user_s = _plain(new_user("u_s@test.org", [ADMIN_ROLE_NAME]))
+    user_n = _plain(new_user("u_n@test.org"))
+    assert user_p1.id < user_p2.id
+    return role_a, user_o, user_p1, user_p2, user_g, user_s, user_n
+
+
+# .tox/c1/bin/pytest --cov=weko_workspace tests/test_views.py::test_get_workspace_itemlist_filter -v -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-weko_workspace/.tox/c1/tmp
+def test_get_workspace_itemlist_filter(client, app, db, users, item_type, caplog):
+    """区分 A〜E のアイテムの表示・非表示と、スキップ時の DEBUG ログを確認する。"""
+    app.config["WEKO_ACCOUNTS_IDP_ENTITY_ID"] = IDP_ENTITY_ID
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = True
+    role_a, user_o, user_p1, user_p2, user_g, user_s, user_n = _prepare_users()
+    caplog.set_level(logging.DEBUG)
+    caplog.set_level(logging.DEBUG, logger=app.logger.name)
+
+    es_data = [
+        _make_hit("h1", creator=user_o.id),
+        _make_hit("h2", creator=user_o.id, shared_ids=[user_p1.id, user_p2.id]),
+        _make_hit("h3", creator=user_o.id, shared_role_ids=[str(role_a.id)]),
+        _make_hit("h4", creator=user_n.id),
+    ]
+
+    # 区分 A: 登録者
+    assert _recids_for_user(client, user_o, es_data) == {"h1", "h2", "h3"}
+    # 区分 B: 代理投稿者(個人)
+    caplog.clear()
+    assert _recids_for_user(client, user_p1, es_data) == {"h2"}
+    # 登録者でも代理投稿者でもないアイテムはスキップされ、DEBUG ログが出力される
+    for skipped in ("h1", "h3", "h4"):
+        assert '[workspace] skip item "_id": {}'.format(skipped) in caplog.text
+    assert _recids_for_user(client, user_p2, es_data) == {"h2"}
+    # 区分 C: 代理投稿グループのメンバー(ES 側で返したグループのアイテムが除外されない)
+    assert _recids_for_user(client, user_g, es_data) == {"h3"}
+    # 区分 D: 管理者(管理者バイパスなし)
+    assert _recids_for_user(client, user_s, es_data) == set()
+    # 区分 E: 登録者・代理投稿者のいずれでもない(自身が登録者のアイテムのみ表示)
+    assert _recids_for_user(client, user_n, es_data) == {"h4"}
+
+
+# .tox/c1/bin/pytest --cov=weko_workspace tests/test_views.py::test_get_workspace_itemlist_filter_empty_source -v -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-weko_workspace/.tox/c1/tmp
+def test_get_workspace_itemlist_filter_empty_source(client, app, db, users, item_type, caplog):
+    """_source が空のヒットはスキップされ、DEBUG ログが出力される。"""
+    app.config["WEKO_ACCOUNTS_IDP_ENTITY_ID"] = IDP_ENTITY_ID
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = True
+    role_a, user_o, user_p1, user_p2, user_g, user_s, user_n = _prepare_users()
+    caplog.set_level(logging.DEBUG)
+    caplog.set_level(logging.DEBUG, logger=app.logger.name)
+
+    es_data = [
+        _make_hit("h1", creator=user_o.id),
+        _make_hit("h5", empty=True),
+    ]
+    for user in (user_o, user_p1, user_p2, user_g, user_s, user_n):
+        caplog.clear()
+        recids = _recids_for_user(client, user, es_data)
+        # いずれのユーザーでも H5 は含まれず、スキップの DEBUG ログが出力される
+        assert "h5" not in recids
+        assert '[workspace] skip item "_id": h5' in caplog.text
+    assert _recids_for_user(client, user_o, es_data) == {"h1"}
+
+
+# .tox/c1/bin/pytest --cov=weko_workspace tests/test_views.py::test_get_workspace_itemlist_flag_off -v -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-weko_workspace/.tox/c1/tmp
+def test_get_workspace_itemlist_flag_off(client, app, db, users, item_type):
+    """複数化フラグ無効時に物理的な末尾 1 名のアイテムのみ表示されることを確認する。"""
+    app.config["WEKO_ACCOUNTS_IDP_ENTITY_ID"] = IDP_ENTITY_ID
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = False
+    role_a, user_o, user_p1, user_p2, user_g, user_s, user_n = _prepare_users()
+
+    es_data = [
+        _make_hit("h1", creator=user_o.id),
+        _make_hit("h2", creator=user_o.id, shared_ids=[user_p1.id, user_p2.id]),
+        _make_hit("h3", creator=user_o.id, shared_role_ids=[str(role_a.id)]),
+        # 昇順でない。物理的な末尾は U_P1(最大IDは U_P2)
+        _make_hit("h6", creator=user_o.id, shared_ids=[user_p2.id, user_p1.id]),
+    ]
+
+    # 1. 最大IDではなく保存順の物理的な末尾で判定する
+    recids = _recids_for_user(client, user_p1, es_data)
+    assert "h2" not in recids
+    assert "h6" in recids
+    recids = _recids_for_user(client, user_p2, es_data)
+    assert "h2" in recids
+    assert "h6" not in recids
+    # グループのアイテムは表示されない
+    assert "h3" not in _recids_for_user(client, user_g, es_data)
+    # 登録者はすべて表示される
+    assert _recids_for_user(client, user_o, es_data) == {"h1", "h2", "h3", "h6"}
+
+    # 2. 未ログイン: is_item_editable_by が False を返し全件スキップされる(対象アイテムなし)
+    # login_required を経由せず、ビュー関数本体を未ログインの状態で呼び出す
+    view_func = inspect.unwrap(get_workspace_itemlist)
+    with _patched_itemlist_view(es_data, "anonymous@test.org") as mock_render, \
+            patch("weko_workspace.views.get_workspace_filterCon",
+                  return_value=(copy.deepcopy(WEKO_WORKSPACE_DEFAULT_FILTERS), False)):
+        with app.test_request_context("/workspace/"):
+            view_func()
+        assert mock_render.call_args[1]["workspaceItemList"] == []
+
 
 def response_data(response):
     return json.loads(response.data)
