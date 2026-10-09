@@ -8,12 +8,11 @@
 """Module of weko-swordserver."""
 
 
-import traceback
 from hashlib import sha256
 from zipfile import ZipFile
 
 from flask import current_app
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import InterfaceError, OperationalError
 from sqlalchemy.orm.exc import NoResultFound
 
 from invenio_accounts.models import User
@@ -41,7 +40,10 @@ from weko_workflow.api import WorkFlow as WorkFlows, WorkActivity
 from weko_workflow.utils import check_an_item_is_locked
 
 from .api import SwordClient
-from .errors import ErrorType, WekoSwordserverException
+from .errors import (
+    AuthorizationException, ConcurrencyException, ContentFormatException,
+    InternalProcessException, ResourceStateException
+)
 from invenio_db import db
 
 def check_import_file_format(file, packaging):
@@ -73,10 +75,7 @@ def check_import_file_format(file, packaging):
             current_app.logger.error(
                 "metadate/sword.json is not found in SWORDBagIt."
             )
-            raise WekoSwordserverException(
-                "SWORDBagIt requires metadate/sword.json.",
-                ErrorType.MetadataFormatNotAcceptable
-                )
+            raise ContentFormatException.SWORDBAGIT_METADATA_MISSING()
     elif "SimpleZip" in packaging:
         if ROCRATE_METADATA_FILE in file_list:
             file_format = "JSON"
@@ -84,17 +83,11 @@ def check_import_file_format(file, packaging):
             current_app.logger.error(
                 "packaging format is SimpleZip, but sword.json is found."
             )
-            raise WekoSwordserverException(
-                "packaging format is SimpleZip, but sword.json is found.",
-                ErrorType.MetadataFormatNotAcceptable
-                )
+            raise ContentFormatException.SIMPLEZIP_UNEXPECTED_SWORD_JSON()
         elif any(ROCRATE_METADATA_FILE.split("/")[1] in filename
                 for filename in file_list
             ):
-            raise WekoSwordserverException(
-                "ro-crate-metadata.json is required in data/ directory.",
-                ErrorType.MetadataFormatNotAcceptable
-                )
+            raise ContentFormatException.ROCRATE_METADATA_MISSING()
         elif any(filename.split("/")[1].endswith(".xml")
                 for filename in file_list if "/" in filename
             ):
@@ -107,18 +100,14 @@ def check_import_file_format(file, packaging):
             current_app.logger.error(
                 "Metadata file is not found in SimpleZip."
             )
-            raise WekoSwordserverException(
-                "SimpleZip requires ro-crate-metadata.json or other metadata file.",
-                ErrorType.ContentMalformed
-                )
+            raise ContentFormatException.SIMPLEZIP_METADATA_FILE_MISSING()
     else:
         current_app.logger.error(
             f"Not accept packaging format: {packaging}"
         )
-        raise WekoSwordserverException(
-            f"Not accept packaging format: {packaging}",
-            ErrorType.PackagingFormatNotAcceptable
-            )
+        raise ContentFormatException.PACKAGING_FORMAT_NOT_ACCEPTABLE(
+            packaging=packaging
+        )
     return file_format
 
 
@@ -163,28 +152,21 @@ def get_shared_ids_from_on_behalf_of(on_behalf_of):
             )
             shared_ids = [int(shib_user.weko_uid)]
     except NoResultFound as ex:
-        msg = "No user found by On-Behalf-Of."
-        current_app.logger.error(msg)
-        traceback.print_exc()
-        raise WekoSwordserverException(
-            msg, errorType=ErrorType.BadRequest
-        ) from ex
-    except SQLAlchemyError as ex:
         current_app.logger.error(
-            "DB error occurred while searching user by On-Behalf-Of."
+            "No user found by On-Behalf-Of.", exc_info=True
         )
-        traceback.print_exc()
-        raise WekoSwordserverException(
-            "Failed to get shared ID from On-Behalf-Of.",
-            errorType=ErrorType.ServerError
-        ) from ex
+        raise AuthorizationException.ON_BEHALF_OF_USER_NOT_FOUND() from ex
+    except (OperationalError, InterfaceError) as ex:
+        current_app.logger.error(
+            "DB error occurred while searching user by On-Behalf-Of.",
+            exc_info=True
+        )
+        raise InternalProcessException.DB_ACCESS_FAILURE() from ex
 
     if shared_ids and not is_shared_user_role_allowed(shared_ids[0]):
         msg = "On-Behalf-Of user is not allowed by role."
         current_app.logger.warning(msg)
-        raise WekoSwordserverException(
-            msg, errorType=ErrorType.Forbidden
-        )
+        raise AuthorizationException.ON_BEHALF_OF_USER_ROLE_FORBIDDEN()
 
     return shared_ids
 
@@ -240,9 +222,8 @@ def check_import_items(
     is_active = current_setting.get("active", file_format != "XML")
     if not is_active:
         current_app.logger.error(f"{file_format} metadata import is not enabled.")
-        raise WekoSwordserverException(
-            f"{file_format} metadata import is not enabled.",
-            ErrorType.MetadataFormatNotAcceptable
+        raise ContentFormatException.METADATA_IMPORT_DISABLED(
+            file_format=file_format
         )
 
     registration_type = current_setting.get("registration_type") or "Direct"
@@ -289,10 +270,7 @@ def check_import_items(
 
     elif file_format == "XML":
         if registration_type == "Direct":
-            raise WekoSwordserverException(
-                "Direct registration is not allowed for XML metadata yet.",
-                ErrorType.MetadataFormatNotAcceptable
-            )
+            raise ContentFormatException.XML_DIRECT_REGISTRATION_NOT_ALLOWED()
 
         workflow_id = int(current_setting.get("workflow", "-1"))
         workflow = WorkFlows().get_workflow_by_id(workflow_id)
@@ -301,19 +279,13 @@ def check_import_items(
             current_app.logger.error(
                 f"Workflow not found. Workflow ID: {workflow_id}"
             )
-            raise WekoSwordserverException(
-                "Workflow not found for registration your item.",
-                errorType=ErrorType.BadRequest
-            )
+            raise ResourceStateException.WORKFLOW_NOT_FOUND()
 
         if not WorkFlows().reduce_workflows_for_registration([workflow]):
             current_app.logger.error(
                 f"Workflow is not for item registration: {workflow_id}"
             )
-            raise WekoSwordserverException(
-                "Workflow is not for item registration.",
-                errorType=ErrorType.BadRequest
-            )
+            raise ResourceStateException.WORKFLOW_NOT_FOR_REGISTRATION()
 
         item_type_id = workflow.itemtype_id
         check_result.update(
@@ -330,10 +302,7 @@ def check_import_items(
             current_app.logger.error(
                 f"No SWORD API setting foound for client ID: {client_id}"
             )
-            raise WekoSwordserverException(
-                "No SWORD API setting found for client ID that you are using.",
-                errorType=ErrorType.BadRequest
-            )
+            raise ResourceStateException.SWORD_CLIENT_NOT_CONFIGURED()
         mapping_id = sword_client.mapping_id
         workflow_id = sword_client.workflow_id
         meta_data_api = sword_client.meta_data_api
@@ -354,19 +323,13 @@ def check_import_items(
                 current_app.logger.error(
                     f"Workflow not found for client ID: {client_id}"
                 )
-                raise WekoSwordserverException(
-                    "Workflow not found for registration your item.",
-                    errorType=ErrorType.BadRequest
-                )
+                raise ResourceStateException.WORKFLOW_NOT_FOUND()
 
             if not WorkFlows().reduce_workflows_for_registration([workflow]):
                 current_app.logger.error(
                     f"Workflow is not for item registration: {workflow_id}"
                 )
-                raise WekoSwordserverException(
-                    "Workflow is not for item registration.",
-                    errorType=ErrorType.BadRequest
-                )
+                raise ResourceStateException.WORKFLOW_NOT_FOR_REGISTRATION()
 
         validate_bagit = current_app.config["WEKO_SWORDSERVER_BAGIT_VERIFICATION"]
         check_result.update(
@@ -391,9 +354,8 @@ def check_import_items(
             error += "; Item type and workflow do not match."
             check_result.update({"error": error})
     else:
-        raise WekoSwordserverException(
-            f"Unsupported file format: {file_format}",
-            ErrorType.MetadataFormatNotAcceptable
+        raise ContentFormatException.UNSUPPORTED_FILE_FORMAT(
+            file_format=file_format
         )
 
     return check_result
@@ -460,10 +422,7 @@ def check_deletion_type(client_id):
         current_app.logger.error(
             f"No SWORD API setting foound for client ID: {client_id}"
         )
-        raise WekoSwordserverException(
-            "No SWORD API setting found for client ID that you are using.",
-            errorType=ErrorType.BadRequest
-        )
+        raise ResourceStateException.SWORD_CLIENT_NOT_CONFIGURED()
 
     result = {}
     register_type = sword_client.registration_type
@@ -473,10 +432,7 @@ def check_deletion_type(client_id):
             current_app.logger.error(
                 f"Workflow not found. Workflow ID: {sword_client.workflow_id}"
             )
-            raise WekoSwordserverException(
-                "Workflow not found for registration your item.",
-                errorType=ErrorType.BadRequest
-            )
+            raise ResourceStateException.WORKFLOW_NOT_FOUND()
 
         # Check if workflow has delete_flow_id
         delete_flow_id = workflow.delete_flow_id
@@ -493,9 +449,8 @@ def check_deletion_type(client_id):
         current_app.logger.error(
             f"Invalid registration type: {register_type}"
         )
-        raise WekoSwordserverException(
-            f"Invalid registration type: {register_type}",
-            errorType=ErrorType.ServerError
+        raise InternalProcessException.INVALID_REGISTRATION_TYPE(
+            register_type=register_type
         )
     return result
 
@@ -522,10 +477,7 @@ def delete_item_directly(recid, request_info=None):
 
     if not record:
         current_app.logger.error(f"Record not found: {recid}.")
-        raise WekoSwordserverException(
-            "Record not found.",
-            errorType=ErrorType.NotFound
-        )
+        raise ResourceStateException.RECORD_NOT_FOUND()
 
     work_activity = WorkActivity()
     latest_pid = PIDVersioning(child=pid).last_child
@@ -533,19 +485,13 @@ def delete_item_directly(recid, request_info=None):
     # Check Record is in import progress
     if check_an_item_is_locked(recid):
         current_app.logger.error(f"Item is in import progress: {recid}.")
-        raise WekoSwordserverException(
-            "Item cannot be deleted because it is in import progress.",
-            errorType=ErrorType.BadRequest
-        )
+        raise ConcurrencyException.ITEM_IMPORT_IN_PROGRESS()
 
     item_uuid = latest_pid.object_uuid
     latest_activity = work_activity.get_workflow_activity_by_item_id(item_uuid)
     if check_item_is_being_edit(pid, latest_activity, work_activity):
         current_app.logger.error(f"Item is being edited: {recid}.")
-        raise WekoSwordserverException(
-            "Item cannot be deleted because it is being edited.",
-            errorType=ErrorType.BadRequest
-        )
+        raise ConcurrencyException.ITEM_BEING_EDITED()
 
     soft_delete(recid)
     db.session.commit()

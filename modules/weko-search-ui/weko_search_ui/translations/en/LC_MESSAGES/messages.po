@@ -333,7 +333,7 @@ msgid ""
 msgstr ""
 
 #: weko_search_ui/utils.py:1013
-msgid "Failred to decode JSON-LD file: "
+msgid "Failed to decode JSON-LD file: line {}, column {}. "
 msgstr ""
 
 #: weko_search_ui/utils.py:1016

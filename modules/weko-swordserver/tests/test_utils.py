@@ -26,6 +26,7 @@ from weko_swordserver.utils import (
     notify_about_item,
 )
 from .helpers import json_data
+from sqlalchemy.exc import IntegrityError, InterfaceError, OperationalError
 from weko_swordserver.errors import ErrorType, WekoSwordserverException
 from weko_swordserver.models import SwordClientModel
 from weko_search_ui.mapper import JsonLdMapper
@@ -52,6 +53,7 @@ def test_check_import_file_format(app):
         check_import_file_format(file_content, 'SWORDBagIt')
     assert e.value.errorType == ErrorType.MetadataFormatNotAcceptable
     assert e.value.message == "SWORDBagIt requires metadate/sword.json."
+    assert e.value.error_code == "1404"
 
     # SWORDBagIt; mismatch packaging
     file_content = BytesIO()
@@ -62,6 +64,7 @@ def test_check_import_file_format(app):
         check_import_file_format(file_content, 'SimpleZip')
     assert e.value.errorType == ErrorType.MetadataFormatNotAcceptable
     assert e.value.message == "packaging format is SimpleZip, but sword.json is found."
+    assert e.value.error_code == "1405"
 
     # RO-Crate; ro-crate-metadata.json
     file_content = BytesIO()
@@ -79,6 +82,7 @@ def test_check_import_file_format(app):
         check_import_file_format(file_content, 'SimpleZip')
     assert e.value.errorType == ErrorType.MetadataFormatNotAcceptable
     assert e.value.message == "ro-crate-metadata.json is required in data/ directory."
+    assert e.value.error_code == "1406"
 
     # Invalid json file
     file_content = BytesIO()
@@ -89,6 +93,7 @@ def test_check_import_file_format(app):
         check_import_file_format(file_content, 'SimpleZip')
     assert e.value.errorType == ErrorType.ContentMalformed
     assert e.value.message == "SimpleZip requires ro-crate-metadata.json or other metadata file."
+    assert e.value.error_code == "1407"
 
     # Invalid packaging format
     file_content = BytesIO()
@@ -100,6 +105,7 @@ def test_check_import_file_format(app):
         check_import_file_format(file_content, packaging)
     assert e.value.errorType == ErrorType.PackagingFormatNotAcceptable
     assert e.value.message == f"Not accept packaging format: {packaging}"
+    assert e.value.error_code == "1408"
 
     # TSV
     file_content = BytesIO()
@@ -152,6 +158,7 @@ def test_get_shared_ids_from_on_behalf_of(app, db, users, personal_token):
             get_shared_ids_from_on_behalf_of(on_behalf_of)
         assert e.value.errorType == ErrorType.Forbidden
         assert e.value.message == "On-Behalf-Of user is not allowed by role."
+        assert e.value.error_code == "1204"
 
         # a user holding only an allowed administrator role (Repository
         # Administrator, users[1], no Contributor) is accepted
@@ -171,18 +178,34 @@ def test_get_shared_ids_from_on_behalf_of(app, db, users, personal_token):
             get_shared_ids_from_on_behalf_of(on_behalf_of)
         assert e.value.errorType == ErrorType.Forbidden
         assert e.value.message == "On-Behalf-Of user is not allowed by role."
+        assert e.value.error_code == "1204"
 
         on_behalf_of = "invalid"
         with pytest.raises(WekoSwordserverException) as e:
             get_shared_ids_from_on_behalf_of(on_behalf_of)
         assert e.value.errorType == ErrorType.BadRequest
         assert e.value.message == "No user found by On-Behalf-Of."
+        assert e.value.error_code == "1203"
 
-        on_behalf_of = 999
-        with pytest.raises(WekoSwordserverException) as e:
-            get_shared_ids_from_on_behalf_of(on_behalf_of)
-        assert e.value.errorType == ErrorType.ServerError
-        assert e.value.message == "Failed to get shared ID from On-Behalf-Of."
+        # connection-level DB errors are wrapped as 3101 (503)
+        for db_error in (
+            OperationalError("stmt", {}, Exception("down")),
+            InterfaceError("stmt", {}, Exception("closed")),
+        ):
+            with patch("weko_swordserver.utils.User.query") as mock_query:
+                mock_query.filter_by.side_effect = db_error
+                with pytest.raises(WekoSwordserverException) as e:
+                    get_shared_ids_from_on_behalf_of("anyone")
+            assert e.value.errorType == ErrorType.ServiceUnavailable
+            assert e.value.error_code == "3101"
+            assert e.value.message == "Failed to get shared ID from On-Behalf-Of."
+            assert e.value.__cause__ is db_error
+
+        # other SQLAlchemyError is not wrapped and propagates as is
+        with patch("weko_swordserver.utils.User.query") as mock_query:
+            mock_query.filter_by.side_effect = IntegrityError("stmt", {}, Exception("dup"))
+            with pytest.raises(IntegrityError):
+                get_shared_ids_from_on_behalf_of("anyone")
 
 
 # def get_shared_ids_from_on_behalf_of(on_behalf_of):
@@ -209,6 +232,7 @@ def test_get_shared_ids_from_on_behalf_of_self(app, db, users, tokens):
             get_shared_ids_from_on_behalf_of(on_behalf_of)
         assert e.value.errorType == ErrorType.Forbidden
         assert e.value.message == "On-Behalf-Of user is not allowed by role."
+        assert e.value.error_code == "1204"
 
 # def is_valid_file_hash(expected_hash, file):
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_utils.py::test_is_valid_file_hash -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
@@ -342,6 +366,7 @@ def test_check_import_items(app, admin_settings, item_type, workflow, sword_clie
         check_import_items(file_content, "XML")
     assert e.value.errorType == ErrorType.MetadataFormatNotAcceptable
     assert e.value.message == "Direct registration is not allowed for XML metadata yet."
+    assert e.value.error_code == "1410"
 
     # xml, workflow registration, shared_id is 3
     AdminSettings.update("sword_api_setting", {"XML": {"active": True, "item_type": str(item_type_id), "registration_type": "Workflow", "workflow": str(workflow[1]["workflow"].id), "duplicate_check": True}})
@@ -365,16 +390,18 @@ def test_check_import_items(app, admin_settings, item_type, workflow, sword_clie
     mocker_tsv_check = mocker.patch("weko_swordserver.utils.check_tsv_import_items")
     with pytest.raises(WekoSwordserverException) as e:
         check_import_items(file_content, "TSV/CSV", True, [3])
-    e.value.errorType == ErrorType.MetadataFormatNotAcceptable
-    e.value.message == "TSV/CSV metadata import is not enabled."
+    assert e.value.errorType == ErrorType.MetadataFormatNotAcceptable
+    assert e.value.message == "TSV/CSV metadata import is not enabled."
+    assert e.value.error_code == "1409"
 
     AdminSettings.update("sword_api_setting", {})
     file_content = BytesIO()
     mocker_tsv_check = mocker.patch("weko_swordserver.utils.check_tsv_import_items")
     with pytest.raises(WekoSwordserverException) as e:
         check_import_items(file_content, "XML", True, [3])
-    e.value.errorType == ErrorType.MetadataFormatNotAcceptable
-    e.value.message == "XML metadata import is not enabled."
+    assert e.value.errorType == ErrorType.MetadataFormatNotAcceptable
+    assert e.value.message == "XML metadata import is not enabled."
+    assert e.value.error_code == "1409"
 
     # xml, workflow not found
     AdminSettings.update("sword_api_setting", {"XML": {"active": True, "item_type": str(item_type_id), "registration_type": "Workflow", "workflow": str(workflow[1]["workflow"].id), "duplicate_check": False}})
@@ -384,6 +411,7 @@ def test_check_import_items(app, admin_settings, item_type, workflow, sword_clie
             check_result = check_import_items(file_content, "XML", True, [3])
     assert e.value.errorType == ErrorType.BadRequest
     assert e.value.message == "Workflow not found for registration your item."
+    assert e.value.error_code == "2104"
 
     # xml, registration workflow not found
     file_content = BytesIO()
@@ -392,6 +420,7 @@ def test_check_import_items(app, admin_settings, item_type, workflow, sword_clie
             check_result = check_import_items(file_content, "XML", True, [3])
     assert e.value.errorType == ErrorType.BadRequest
     assert e.value.message == "Workflow is not for item registration."
+    assert e.value.error_code == "2105"
 
     # jsonld, sword_client not found
     client_id = "invalid_client_id"
@@ -400,6 +429,7 @@ def test_check_import_items(app, admin_settings, item_type, workflow, sword_clie
         check_result = check_import_items(file_content, "JSON", True, [3], packaging="SimpleZip", client_id=client_id)
     assert e.value.errorType == ErrorType.BadRequest
     assert e.value.message == "No SWORD API setting found for client ID that you are using."
+    assert e.value.error_code == "2103"
 
     # jsonld, workflow not found
     client_id = sword_client[1]["sword_client"].client_id
@@ -410,6 +440,7 @@ def test_check_import_items(app, admin_settings, item_type, workflow, sword_clie
             check_result = check_import_items(file_content, "JSON", True, [3], packaging="SimpleZip", client_id=client_id)
     assert e.value.errorType == ErrorType.BadRequest
     assert e.value.message == "Workflow not found for registration your item."
+    assert e.value.error_code == "2104"
 
     # jsonld, registration workflow not found
     with patch("weko_swordserver.utils.WorkFlows.reduce_workflows_for_registration", return_value=[]):
@@ -417,6 +448,7 @@ def test_check_import_items(app, admin_settings, item_type, workflow, sword_clie
             check_result = check_import_items(file_content, "JSON", True, [3], packaging="SimpleZip", client_id=client_id)
     assert e.value.errorType == ErrorType.BadRequest
     assert e.value.message == "Workflow is not for item registration."
+    assert e.value.error_code == "2105"
 
     # invalid file format
     file_content = BytesIO()
@@ -424,6 +456,7 @@ def test_check_import_items(app, admin_settings, item_type, workflow, sword_clie
         check_import_items(file_content, "InvalidFormat")
     assert e.value.errorType == ErrorType.MetadataFormatNotAcceptable
     assert e.value.message == "Unsupported file format: InvalidFormat"
+    assert e.value.error_code == "1411"
 
 
 # def update_item_ids(list_record, new_id):
@@ -546,6 +579,7 @@ def test_check_deletion_type(app, mocker, register_type, workflow_exists, workfl
             check_deletion_type(client_id)
         assert e.value.errorType == ErrorType.BadRequest
         assert e.value.message == "Workflow not found for registration your item."
+        assert e.value.error_code == "2104"
     else:
         result = check_deletion_type(client_id)
         for k, v in expected.items():
@@ -559,6 +593,7 @@ def test_check_deletion_type_no_sword_client(app, mocker):
         check_deletion_type("notfound")
     assert e.value.errorType == ErrorType.BadRequest
     assert e.value.message == "No SWORD API setting found for client ID that you are using."
+    assert e.value.error_code == "2103"
 
 
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_utils.py::test_check_deletion_type_invalid_registration_type -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
@@ -570,19 +605,20 @@ def test_check_deletion_type_invalid_type(app, mocker):
         check_deletion_type("invalidtype")
     assert e.value.errorType == ErrorType.ServerError
     assert e.value.message == "Invalid registration type: InvalidType"
+    assert e.value.error_code == "3102"
 
 
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_utils.py::test_delete_item_directly -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
 @pytest.mark.parametrize(
-    "recid, resolve_return, locked, being_edited, raises, error_type, message",
+    "recid, resolve_return, locked, being_edited, raises, error_type, error_code, message",
     [
-        ("recid123", (MagicMock(), MagicMock()), False, False, None, None, None),
+        ("recid123", (MagicMock(), MagicMock()), False, False, None, None, None, None),
         ("recid_not_found", (MagicMock(), None), None, None,
-         WekoSwordserverException, ErrorType.NotFound, "Record not found."),
+         WekoSwordserverException, ErrorType.NotFound, "2102", "Record not found."),
         ("recid_locked", (MagicMock(), MagicMock()), True, None,
-         WekoSwordserverException, ErrorType.BadRequest, "Item cannot be deleted because it is in import progress."),
+         WekoSwordserverException, ErrorType.Conflict, "2202", "Item cannot be deleted because it is in import progress."),
         ("recid_editing", (MagicMock(), MagicMock()), False, True,
-         WekoSwordserverException, ErrorType.BadRequest, "Item cannot be deleted because it is being edited."),
+         WekoSwordserverException, ErrorType.Conflict, "2203", "Item cannot be deleted because it is being edited."),
     ],
     ids=[
         "valid_record",
@@ -592,7 +628,7 @@ def test_check_deletion_type_invalid_type(app, mocker):
     ]
 )
 def test_delete_item_directly(
-    app, mocker, recid, resolve_return, locked, being_edited, raises, error_type, message
+    app, mocker, recid, resolve_return, locked, being_edited, raises, error_type, error_code, message
 ):
     resolver_mock = mocker.patch("weko_swordserver.utils.Resolver")
     resolver_instance = resolver_mock.return_value
@@ -617,6 +653,7 @@ def test_delete_item_directly(
         with pytest.raises(raises) as e:
             delete_item_directly(recid)
         assert e.value.errorType == error_type
+        assert e.value.error_code == error_code
         assert e.value.message == message
     else:
         delete_item_directly(recid)
