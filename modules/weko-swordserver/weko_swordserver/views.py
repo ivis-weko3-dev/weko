@@ -16,9 +16,14 @@ import sys
 import traceback
 import json
 
-from flask import Blueprint, current_app, jsonify, request, url_for, abort, Response
+from flask import Blueprint, current_app, jsonify, request, url_for, Response
 from flask_login import current_user
 from flask_limiter.errors import RateLimitExceeded
+from elasticsearch.exceptions import ConnectionError as ESConnectionError
+from redis.exceptions import (
+    ConnectionError as RedisConnectionError, TimeoutError as RedisTimeoutError,
+)
+from sqlalchemy.exc import InterfaceError, OperationalError
 from sword3common import (
     ServiceDocument, StatusDocument, constants, Error as sword3commonError
 )
@@ -49,10 +54,16 @@ from weko_workflow.errors import WekoWorkflowException
 from weko_workflow.utils import get_site_info_name
 from weko_workflow.scopes import activity_scope
 
+from .config import WEKO_SWORDSERVER_DEPOSIT_ROLE_ENABLE
 from .decorators import (
     check_deposit_role, check_on_behalf_of, check_package_contents
 )
-from .errors import ErrorType, WekoSwordserverException
+from .errors import (
+    ERROR_CODE_PREFIX, AuthorizationException, ConcurrencyException,
+    DataValidationException, ErrorType, IncompleteProcessException,
+    InputHeaderException, InternalProcessException, RateLimitException,
+    ResourceStateException, UnexpectedException, WekoSwordserverException
+)
 from .utils import (
     check_import_file_format,
     is_valid_file_hash,
@@ -241,10 +252,7 @@ def post_service_document():
     filename = content_disposition_options.get("filename")
     if (content_disposition != "attachment" or filename is None):
         current_app.logger.error("Cannot get filename by Content-Disposition.")
-        raise WekoSwordserverException(
-            "Cannot get filename by Content-Disposition.",
-            ErrorType.BadRequest
-        )
+        raise InputHeaderException.FILENAME_UNRESOLVABLE()
 
     # Check import item
     file = None
@@ -253,9 +261,7 @@ def post_service_document():
             file = value
     if file is None:
         current_app.logger.error(f"Not found {filename} in request body.")
-        raise WekoSwordserverException(
-            f"Not found {filename} in request body.", ErrorType.BadRequest
-        )
+        raise InputHeaderException.FILE_NOT_FOUND_IN_BODY(filename=filename)
 
     # check packaging, "SimpleZip" or "SWORDBagIt"
     packaging = request.headers.get("Packaging")
@@ -275,10 +281,7 @@ def post_service_document():
             current_app.logger.error(
                 "Failed to verify request body and digest."
             )
-            raise WekoSwordserverException(
-                "Failed to verify request body and digest.",
-                ErrorType.DigestMismatch
-            )
+            raise InputHeaderException.DIGEST_MISMATCH()
 
     check_result = check_import_items(
         file, file_format, shared_ids=shared_ids,
@@ -302,15 +305,16 @@ def post_service_document():
                 "Required scopes for activity are not satisfied: {}"
                 .format(required_scopes - token_scopes)
             )
-            abort(403)
+            raise AuthorizationException.ACTIVITY_SCOPE_INSUFFICIENT()
 
     if check_result.get("error"):
         current_app.logger.error(
             f"Error in item to import: {check_result.get('error')}"
         )
-        raise WekoSwordserverException(
-            f"Item check error: {check_result.get('error')}",
-            ErrorType.ContentMalformed
+        if _is_unexpected_error(check_result.get("error")):
+            raise UnexpectedException.INTERNAL_SERVER_ERROR()
+        raise DataValidationException.ITEM_CHECK_ERROR(
+            detail=check_result.get('error')
         )
 
     # Validate items in the check result
@@ -323,18 +327,14 @@ def post_service_document():
             )
             error_msg += f", 'warnings': [{', '.join(warning)}]" if warning else ""
             current_app.logger.error(f"Error in check_import_items: {error_msg}")
-            raise WekoSwordserverException(
-                f"Item check error: {error_msg}",
-                ErrorType.ContentMalformed
-            )
+            raise DataValidationException.ITEM_CHECK_ERROR(detail=error_msg)
 
         if item.get("status") != "new":
             current_app.logger.error(
                 f"This item is already registered: {item.get('item_title')}"
             )
-            raise WekoSwordserverException(
-                f"This item is already registered: {item.get('item_title')}.",
-                ErrorType.BadRequest,
+            raise DataValidationException.ITEM_ALREADY_REGISTERED(
+                item_title=item.get("item_title")
             )
 
         if check_result.get("duplicate_check", False):
@@ -344,9 +344,8 @@ def post_service_document():
                 current_app.logger.error(
                     f"New item appears to be a duplicate: {list_id}"
                 )
-                raise WekoSwordserverException(
-                    f"Some similar items are already registered: {list_url}.",
-                    ErrorType.BadRequest,
+                raise DataValidationException.ITEM_DUPLICATE_SUSPECTED(
+                    list_url=list_url
                 )
 
     # Prepare request information
@@ -385,6 +384,7 @@ def post_service_document():
                 current_app.logger.error(
                     f"Error in import_items_to_system: {import_result.get('error_id')}"
                 )
+                _raise_if_dependency_unavailable(import_result.get("error_id"))
                 error = str(import_result.get('error_id'))
             else:
                 recid = str(import_result.get("recid"))
@@ -421,9 +421,13 @@ def post_service_document():
             if file_format == "JSON":
                 update_item_ids(
                     check_result["list_record"], recid, item.get("_id"))
+        except WekoSwordserverException:
+            raise
+        except (OperationalError, InterfaceError, RedisConnectionError, RedisTimeoutError, ESConnectionError):
+            # let the blueprint handlers return 503 (3108-3110)
+            raise
         except Exception as ex:
-            current_app.logger.error(f"Unexpected error: {ex}")
-            traceback.print_exc()
+            current_app.logger.error(f"Unexpected error: {ex}", exc_info=True)
             warns.append((activity_id, recid, "Unexpected error"))
             continue  # Skip to the next iteration
 
@@ -434,30 +438,27 @@ def post_service_document():
 
     response = {}
     if len(warns) > 0:
-        if register_type == "Direct":
-            message = ", ".join([error for _, _, error in warns if error])
-        else:
-            message = "; ".join(
-                [
-                    "{error} Please open the following URL to continue "
-                    "with the remaining operations: {url}."
-                    .format(
-                        error=error,
-                        url=url_for(
-                            "weko_workflow.display_activity",
-                            activity_id=activity_id, _external=True
-                        )
-                    )
-                    for activity_id, recid, error in warns
-                ]
-            )
+        # internal_detail is for the log only; never put it in the response
+        internal_detail = ", ".join([error for _, _, error in warns if error])
         current_app.logger.error(
             "Failed to import item; {}. via SWORD api by {}."
-            .format(message, request.oauth.client.name)
+            .format(internal_detail, request.oauth.client.name)
         )
-        raise WekoSwordserverException(
-                f"Failed to import item; {message}", ErrorType.BadRequest
+        if register_type == "Direct":
+            if any(_is_unexpected_error(error) for _, _, error in warns):
+                raise UnexpectedException.INTERNAL_SERVER_ERROR()
+
+            raise InternalProcessException.IMPORT_FAILURE()
+
+        raise WekoSwordserverException.merge([
+            IncompleteProcessException.REGISTRATION_PENDING_COMPLETION(
+                url=url_for(
+                    "weko_workflow.display_activity",
+                    activity_id=activity_id, _external=True
+                )
             )
+            for activity_id, _, _ in warns
+        ])
 
     current_app.logger.info(
         "Items imported via SWORD api by {} (recid={})"
@@ -564,10 +565,7 @@ def put_object(recid):
     filename = content_disposition_options.get("filename")
     if content_disposition != "attachment" or filename is None:
         current_app.logger.error("Cannot get filename by Content-Disposition.")
-        raise WekoSwordserverException(
-            "Cannot get filename by Content-Disposition.",
-            ErrorType.BadRequest
-        )
+        raise InputHeaderException.FILENAME_UNRESOLVABLE()
 
     # Check import item
     file = None
@@ -576,9 +574,7 @@ def put_object(recid):
             file = value
     if file is None:
         current_app.logger.error(f"Not found {filename} in request body.")
-        raise WekoSwordserverException(
-            f"Not found {filename} in request body.", ErrorType.BadRequest
-        )
+        raise InputHeaderException.FILE_NOT_FOUND_IN_BODY(filename=filename)
 
     # check packaging, "SimpleZip" or "SWORDBagIt"
     packaging = request.headers.get("Packaging")
@@ -598,10 +594,7 @@ def put_object(recid):
             current_app.logger.error(
                 "Failed to verify request body and digest."
             )
-            raise WekoSwordserverException(
-                "Failed to verify request body and digest.",
-                ErrorType.DigestMismatch
-            )
+            raise InputHeaderException.DIGEST_MISMATCH()
 
     check_result = check_import_items(
         file, file_format, shared_ids=shared_ids,
@@ -625,15 +618,16 @@ def put_object(recid):
                 "Required scopes for activity are not satisfied: {}"
                 .format(required_scopes - token_scopes)
             )
-            abort(403)
+            raise AuthorizationException.ACTIVITY_SCOPE_INSUFFICIENT()
 
     if check_result.get("error"):
         current_app.logger.error(
             f"Error in check_import_items: {check_result.get('error')}"
         )
-        raise WekoSwordserverException(
-            f"Item check error: {check_result.get('error')}",
-            ErrorType.ContentMalformed
+        if _is_unexpected_error(check_result.get("error")):
+            raise UnexpectedException.INTERNAL_SERVER_ERROR()
+        raise DataValidationException.ITEM_CHECK_ERROR(
+            detail=check_result.get('error')
         )
 
     if len(check_result.get("list_record", [])) > 1:
@@ -642,7 +636,7 @@ def put_object(recid):
             "Only one item is allowed for PUT requests."
         )
         current_app.logger.error(msg)
-        raise WekoSwordserverException(msg, ErrorType.ContentMalformed)
+        raise DataValidationException.MULTIPLE_ITEMS_IN_PUT()
 
     # only first item
     item = (check_result.get("list_record") or [{}])[0]
@@ -654,26 +648,21 @@ def put_object(recid):
         )
         error_msg += f", 'warnings': [{', '.join(warning)}]" if warning else ""
         current_app.logger.error(f"Error in check_import_items: {error_msg}")
-        raise WekoSwordserverException(
-            f"Item check error: {error_msg}",
-            ErrorType.ContentMalformed
-        )
+        raise DataValidationException.ITEM_CHECK_ERROR(detail=error_msg)
 
     if item.get("status") == "new":
         current_app.logger.error(
             f"This item is not registered yet: {item.get('item_title')}"
         )
-        raise WekoSwordserverException(
-            f"This item is not registered yet: {item.get('item_title')}",
-            ErrorType.BadRequest,
+        raise DataValidationException.ITEM_NOT_REGISTERED_FOR_PUT(
+            item_title=item.get("item_title")
         )
     if item.get("id") != recid:
         current_app.logger.error(
             f"Item id does not match. item: {item.get('id')}, request: {recid}"
         )
-        raise WekoSwordserverException(
-            f"Item id does not match. item: {item.get('id')}, request: {recid}",
-            ErrorType.BadRequest,
+        raise DataValidationException.ITEM_ID_MISMATCH(
+            item_id=item.get("id"), recid=recid
         )
     if check_result.get("duplicate_check", False):
         from weko_items_ui.utils import is_duplicate_item
@@ -685,9 +674,8 @@ def put_object(recid):
             current_app.logger.error(
                 f"New item appears to be a duplicate: {list_id}"
             )
-            raise WekoSwordserverException(
-                f"Some similar items are already registered: {list_url}.",
-                ErrorType.BadRequest,
+            raise DataValidationException.ITEM_DUPLICATE_SUSPECTED(
+                list_url=list_url
             )
 
     item["root_path"] = os.path.join(data_path, "data")
@@ -711,19 +699,20 @@ def put_object(recid):
         if not lock_item_will_be_edit(recid):
             msg = f"Item {recid} will be edited by another process."
             current_app.logger.error(msg)
-            raise WekoSwordserverException(msg, ErrorType.BadRequest)
+            raise ConcurrencyException.ITEM_LOCKED(recid=recid)
 
         import_result = import_items_to_system(item, request_info=request_info)
         if not import_result.get("success"):
             current_app.logger.error(
                 "Failed to update item {}: {}; via SWORD api by {}."
-                .format(recid, item.get("error_id"), request.oauth.client.name)
+                .format(
+                    recid, import_result.get("error_id"), request.oauth.client.name
+                )
             )
-            raise WekoSwordserverException(
-                "Failed to update item {}: {}."
-                .format(recid, import_result.get("error_id")),
-                ErrorType.BadRequest
-            )
+            _raise_if_dependency_unavailable(import_result.get("error_id"))
+            if _is_unexpected_error(import_result.get("error_id")):
+                raise UnexpectedException.INTERNAL_SERVER_ERROR()
+            raise InternalProcessException.UPDATE_FAILURE(recid=recid)
         notify_about_item(
             "update", recid, current_user.id, shared_ids=shared_ids
         )
@@ -742,16 +731,12 @@ def put_object(recid):
                 "Failed to update item {recid}: {error}; via SWORD api by {name}."
                 .format(recid=recid, error=error, name=request.oauth.client.name)
             )
-            raise WekoSwordserverException(
-                "Failed to update item {recid}: {error}. Please open the "
-                "following URL to continue with the remaining operations: {url}."
-                .format(recid=recid, error=error, url=url),
-                ErrorType.BadRequest
-            )
+            raise IncompleteProcessException.UPDATE_PENDING_COMPLETION(recid=recid, url=url)
         if error:
-            raise WekoSwordserverException(
-                f"Unexpected error: {error}.", ErrorType.ServerError
+            current_app.logger.error(
+                "Failed to update item {}: {}; via SWORD api by {}.".format(recid, error, request.oauth.client.name)
             )
+            raise InternalProcessException.UPDATE_FAILURE(recid=recid)
         response = jsonify(
             _get_status_workflow_document(activity_id, recid)
         ), 200 if action == "end_action" else 202
@@ -759,10 +744,7 @@ def put_object(recid):
         if os.path.exists(data_path):
             shutil.rmtree(data_path)
             TempDirInfo().delete(data_path)
-        raise WekoSwordserverException(
-            "Invalid register format has been set for admin setting",
-            ErrorType.ServerError
-        )
+        raise InternalProcessException.INVALID_REGISTER_FORMAT()
 
     if os.path.exists(data_path):
         shutil.rmtree(data_path)
@@ -829,8 +811,11 @@ def _get_status_document(recid):
         resolver = Resolver(pid_type="recid", object_type="rec",
                         getter=record_class.get_record)
         pid, record = resolver.resolve(recid)
+    except (OperationalError, InterfaceError, RedisConnectionError, RedisTimeoutError, ESConnectionError):
+        # let the blueprint handlers return 503 (3108-3110)
+        raise
     except Exception:
-        raise WekoSwordserverException("Item not found. (recid={})".format(recid), ErrorType.NotFound)
+        raise ResourceStateException.ITEM_NOT_FOUND(recid=recid)
 
     # Get record uri
     record_uri = "{}records/{}".format(request.url_root, recid)
@@ -1058,10 +1043,13 @@ def _get_status_workflow_document(activity_id, recid):
         resolver = Resolver(pid_type="recid", object_type="rec",
                         getter=record_class.get_record)
         pid, record = resolver.resolve(recid)
+    except (OperationalError, InterfaceError, RedisConnectionError, RedisTimeoutError, ESConnectionError):
+        # let the blueprint handlers return 503 (3108-3110)
+        raise
     except Exception:
-        raise WekoSwordserverException("Item not found. (recid={})".format(recid), ErrorType.NotFound)
+        raise ResourceStateException.ITEM_NOT_FOUND(recid=recid)
     if not activity_id:
-        raise WekoSwordserverException("Activity created, but not found.", ErrorType.NotFound)
+        raise InternalProcessException.ACTIVITY_NOT_FOUND_AFTER_CREATE()
 
     # Get record uri
     record_url = url_for("weko_swordserver.get_status_document", recid=recid, _external=True)
@@ -1197,6 +1185,26 @@ def _sort_links_for_status(links):
         return (group, order)
     return sorted(links, key=link_key)
 
+
+# Fixed error_id values returned by import_items_to_system for dependency failures.
+UNAVAILABLE_ID = {
+    "database_unavailable": InternalProcessException.DATABASE_UNAVAILABLE,
+    "redis_unavailable": InternalProcessException.REDIS_UNAVAILABLE,
+    "search_engine_unavailable": InternalProcessException.SEARCH_ENGINE_UNAVAILABLE,
+}
+
+
+def _raise_if_dependency_unavailable(error_id):
+    """Raise the 503 spec (3108/3109/3110) if error_id is a dependency-unavailable id."""
+    spec = UNAVAILABLE_ID.get(error_id)
+    if spec:
+        raise spec()
+
+def _is_unexpected_error(error):
+    """Whether the error string is the "unexpected error" marker."""
+    return error == "Unexpected error" or str(error).startswith("Unexpected error")
+
+
 @blueprint.route("/deposit/<recid>", methods=["DELETE"])
 @oauth2.require_oauth()
 @limiter.limit("")
@@ -1238,9 +1246,7 @@ def delete_object(recid):
     record = WekoRecord.get_record_by_pid(recid)
     if record.pid_doi:
         current_app.logger.error(f"Cannot delete item with DOI; item id {recid}")
-        raise WekoSwordserverException(
-            "Cannot delete item with DOI.", ErrorType.BadRequest
-        )
+        raise ResourceStateException.ITEM_HAS_DOI()
 
     on_behalf_of = request.headers.get("On-Behalf-Of")
     shared_ids = get_shared_ids_from_on_behalf_of(on_behalf_of)
@@ -1256,7 +1262,7 @@ def delete_object(recid):
                 "Required scopes for activity are not satisfied: {}"
                 .format(required_scopes - token_scopes)
             )
-            abort(403)
+            raise AuthorizationException.ACTIVITY_SCOPE_INSUFFICIENT()
 
     owner = -1
     if current_user.is_authenticated:
@@ -1286,7 +1292,7 @@ def delete_object(recid):
             if not lock_item_will_be_edit(recid):
                 msg = f"Item {recid} will be edited by another process."
                 current_app.logger.error(msg)
-                raise WekoSwordserverException(msg, ErrorType.BadRequest)
+                raise ConcurrencyException.ITEM_LOCKED(recid=recid)
 
             delete_item_directly(recid, request_info=request_info)
             notify_about_item(
@@ -1300,8 +1306,12 @@ def delete_object(recid):
                 target_key=recid
             )
             response = Response(status=204)
+    except (OperationalError, InterfaceError,
+            RedisConnectionError, RedisTimeoutError,
+            ESConnectionError):
+        # DB / Redis / search engine failures: let the blueprint handlers return 503 (3108-3110)
+        raise
     except WekoSwordserverException as ex:
-        traceback.print_exc()
         exec_info = sys.exc_info()
         tb_info = traceback.format_tb(exec_info[2])
         UserActivityLogger.error(
@@ -1311,15 +1321,12 @@ def delete_object(recid):
         )
         raise
     except WekoWorkflowException as ex:
-        traceback.print_exc()
-        raise WekoSwordserverException(
-            f"Failed to delete item: {str(ex)}",
-            ErrorType.BadRequest
-        ) from ex
+        current_app.logger.error(f"Failed to delete item {recid}: {ex}", exc_info=True)
+        raise InternalProcessException.DELETE_FAILURE(recid=recid) from ex
     except Exception as ex:
-        msg = f"Unexpected error occurred during deletion: {ex}"
-        current_app.logger.error(msg)
-        traceback.print_exc()
+        current_app.logger.error(
+            f"Unexpected error occurred during deletion: {ex}", exc_info=True
+        )
         exec_info = sys.exc_info()
         tb_info = traceback.format_tb(exec_info[2])
         UserActivityLogger.error(
@@ -1327,12 +1334,12 @@ def delete_object(recid):
             target_key=recid,
             remarks=tb_info[0]
         )
-        raise WekoSwordserverException(msg, ErrorType.BadRequest)
+        raise UnexpectedException.UNEXPECTED_DURING_DELETION()
 
     return response
 
 
-def _create_error_document(type, error):
+def _create_error_document(type, error, error_code=None):
     class Error(sword3commonError):
         # fix to timestamp coerce function not defined
         __SEAMLESS_STRUCT__ = {
@@ -1348,6 +1355,9 @@ def _create_error_document(type, error):
         @property
         def data(self):
             return self.__seamless__.data
+
+    if error_code is not None:
+        error = f"{ERROR_CODE_PREFIX}{error_code}: {error}"
 
     raw_data = {
         "@context": constants.JSON_LD_CONTEXT,
@@ -1374,22 +1384,67 @@ def handle_forbidden(ex):
 
 @blueprint.errorhandler(RateLimitExceeded)
 def handle_ratelimit(ex):
-    current_app.logger.error(ex)
-    return jsonify(_create_error_document(ErrorType.TooManyRequests.type, "Too many requests.")), ErrorType.TooManyRequests.code
+    current_app.logger.warning(ex)
+    err = RateLimitException.RATE_LIMIT_EXCEEDED()
+    return jsonify(_create_error_document(
+        err.errorType.type, err.message, err.error_code
+    )), err.errorType.code
 
 @blueprint.errorhandler(SeamlessException)
 def handle_seamless_exception(ex):
     current_app.logger.error(ex.message)
-    return jsonify(_create_error_document(ErrorType.ServerError.type, ex.message)), ErrorType.ServerError.code
+    err = UnexpectedException.INTERNAL_SERVER_ERROR()
+    return jsonify(_create_error_document(
+        err.errorType.type, err.message, err.error_code
+    )), err.errorType.code
 
 @blueprint.errorhandler(Exception)
 def handle_exception(ex):
     current_app.logger.error(str(ex), exc_info=True)
-    return jsonify(_create_error_document(ErrorType.ServerError.type, "Internal Server Error")), ErrorType.ServerError.code
+    err = UnexpectedException.INTERNAL_SERVER_ERROR()
+    return jsonify(_create_error_document(
+        err.errorType.type, err.message, err.error_code
+    )), err.errorType.code
 
 @blueprint.errorhandler(WekoSwordserverException)
 def handle_weko_swordserver_exception(ex):
-    return jsonify(_create_error_document(ex.errorType.type, ex.message)), ex.errorType.code
+    msg = f"[{ex.error_code}] {request.method} {request.path}: {ex.message}"
+    if ex.errorType.code >= 500:
+        current_app.logger.error(msg)
+    else:
+        current_app.logger.warning(msg)
+    return jsonify(_create_error_document(
+        ex.errorType.type, ex.message, ex.error_code
+    )), ex.errorType.code
+
+def _dependency_error_response(err):
+    current_app.logger.error(
+        f"[{err.error_code}] {request.method} {request.path}: {err.message}",
+        exc_info=True
+    )
+    return jsonify(_create_error_document(
+        err.errorType.type, err.message, err.error_code
+    )), err.errorType.code
+
+# NOTE: these classes are also re-raised explicitly by `except (...)` clauses in post_service_document,
+# delete_object and the _get_status_* functions; keep them in sync (grep OperationalError).
+@blueprint.errorhandler(OperationalError)
+@blueprint.errorhandler(InterfaceError)
+def handle_database_unavailable(ex):
+    return _dependency_error_response(InternalProcessException.DATABASE_UNAVAILABLE())
+
+# NOTE: these classes are also re-raised explicitly by `except (...)` clauses in post_service_document,
+# delete_object and the _get_status_* functions; keep them in sync (grep OperationalError).
+@blueprint.errorhandler(RedisConnectionError)
+@blueprint.errorhandler(RedisTimeoutError)
+def handle_redis_unavailable(ex):
+    return _dependency_error_response(InternalProcessException.REDIS_UNAVAILABLE())
+
+# NOTE: these classes are also re-raised explicitly by `except (...)` clauses in post_service_document,
+# delete_object and the _get_status_* functions; keep them in sync (grep OperationalError).
+@blueprint.errorhandler(ESConnectionError)
+def handle_search_engine_unavailable(ex):
+    return _dependency_error_response(InternalProcessException.SEARCH_ENGINE_UNAVAILABLE())
 
 @blueprint.teardown_request
 def dbsession_clean(exception):
