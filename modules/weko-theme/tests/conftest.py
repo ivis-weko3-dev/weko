@@ -149,7 +149,6 @@ def base_app(instance_path):
         DEPOSIT_DEFAULT_JSONSCHEMA=DEPOSIT_DEFAULT_JSONSCHEMA,
         SERVER_NAME='TEST_SERVER',
         LOGIN_DISABLED=False,
-        INDEXER_DEFAULT_DOCTYPE='item-v1.0.0',
         INDEXER_FILE_DOC_TYPE='content',
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format(
             'test'
@@ -160,8 +159,8 @@ def base_app(instance_path):
         SQLALCHEMY_DATABASE_URI=os.environ.get(
             'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
         # SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', 'elasticsearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         JSONSCHEMAS_HOST='inveniosoftware.org',
         ACCOUNTS_USERINFO_HEADERS=True,
@@ -177,7 +176,7 @@ def base_app(instance_path):
         RECORDS_REST_SORT_OPTIONS=RECORDS_REST_SORT_OPTIONS,
         # SEARCH_UI_SEARCH_INDEX=SEARCH_UI_SEARCH_INDEX,
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        # SEARCH_ELASTIC_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
+        # SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
         SEARCH_INDEX_PREFIX="{}-".format('test'),
         SEARCH_CLIENT_CONFIG=dict(timeout=120, max_retries=10),
         OAISERVER_ID_PREFIX="oai:inveniosoftware.org:recid/",

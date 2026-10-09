@@ -210,8 +210,6 @@ def base_app(instance_path, search_class):
         OAUTH2_CACHE_TYPE="simple",
         ACCOUNTS_JWT_ENABLE=False,
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
-        INDEXER_DEFAULT_DOC_TYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         WEKO_BUCKET_QUOTA_SIZE=WEKO_BUCKET_QUOTA_SIZE,
         WEKO_MAX_FILE_SIZE=WEKO_BUCKET_QUOTA_SIZE,
@@ -226,7 +224,7 @@ def base_app(instance_path, search_class):
         WEKO_INDEX_TREE_REST_ENDPOINTS=WEKO_INDEX_TREE_REST_ENDPOINTS,
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English")],
         SERVER_NAME="TEST_SERVER",
-        SEARCH_ELASTIC_HOSTS="elasticsearch",
+        SEARCH_OPENSEARCH_HOSTS="opensearch",
         SEARCH_INDEX_PREFIX="test-",
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME=WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
         WEKO_SCHEMA_DDI_SCHEMA_NAME=WEKO_SCHEMA_DDI_SCHEMA_NAME,
@@ -803,7 +801,7 @@ def db_sessionlifetime(app, db):
 @pytest.fixture()
 def records(app, db, esindex, indextree, location, itemtypes, oaischema, db_admin_settings):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     # with app.test_request_context():
     i = 1
@@ -846,7 +844,7 @@ def records(app, db, esindex, indextree, location, itemtypes, oaischema, db_admi
 @pytest.fixture()
 def records_open_access(app, db, esindex, indextree, location, itemtypes, oaischema, db_admin_settings):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     file_name_list = []
 

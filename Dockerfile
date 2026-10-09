@@ -18,8 +18,8 @@
 # Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
 # MA 02111-1307, USA.
 
-# Use Python-3.6:
-FROM python:3.6-slim-buster as stage_1
+# Use Python-3.7:
+FROM python:3.7-slim-buster as stage_1
 
 # Configure Weko instance:
 ENV INVENIO_WEB_HOST=127.0.0.1
@@ -33,7 +33,10 @@ ENV INVENIO_POSTGRESQL_DBNAME=invenio
 ENV INVENIO_POSTGRESQL_DBUSER=invenio
 ENV INVENIO_POSTGRESQL_DBPASS=dbpass123
 ENV INVENIO_REDIS_HOST=redis
-ENV INVENIO_ELASTICSEARCH_HOST=elasticsearch
+ENV INVENIO_ELASTICSEARCH_HOST=opensearch
+ENV INVENIO_OPENSEARCH_HOST=opensearch
+ENV INVENIO_OPENSEARCH_USER=invenio
+ENV INVENIO_OPENSEARCH_PASS=openpass123!
 ENV INVENIO_RABBITMQ_HOST=rabbitmq
 ENV INVENIO_RABBITMQ_USER=guest
 ENV INVENIO_RABBITMQ_PASS=guest
@@ -82,7 +85,7 @@ ENV PATH=/home/invenio/.virtualenvs/invenio/bin:/usr/local/sbin:/usr/local/bin:/
 #ENV VIRTUALENVWRAPPER_PYTHON=/usr/local/bin/python
 ENV VIRTUALENVWRAPPER_PYTHON=/home/invenio/.virtualenvs/invenio/bin/python
 #RUN echo "source /usr/local/bin/virtualenvwrapper.sh" >> ~/.bashrc ; echo "workon invenio" >> ~/.bashrc
-RUN pip install virtualenvwrapper
+RUN pip install virtualenv==20.17.1 virtualenvwrapper==4.8.4
 RUN echo "source /home/invenio/.virtualenvs/invenio/bin/virtualenvwrapper.sh" >> ~/.bashrc ; echo "workon invenio" >> ~/.bashrc
 #RUN mv /home/invenio/.virtualenvs/invenio/var/instance/static /home/invenio/.virtualenvs/invenio/var/instance/static.org
 
@@ -90,7 +93,7 @@ RUN echo "source /home/invenio/.virtualenvs/invenio/bin/virtualenvwrapper.sh" >>
 #CMD ["/bin/bash","-c","uwsgi --ini /code/scripts/uwsgi.ini"]
 CMD ["/bin/bash", "-c", "invenio run -h 0.0.0.0"]
 
-# FROM python:3.6-slim-buster as product-base
+# FROM python:3.7-slim-buster as product-base
 # RUN apt-get -y update --allow-releaseinfo-change;apt-get -y --no-install-recommends install curl rlwrap screen vim gnupg libpcre3 libffi6 libfreetype6 libmsgpackc2 libssl1.1 libtiff5 libxml2 libxslt1.1 libzip4 nodejs libpq5 default-jre libreoffice-java-common libreoffice fonts-ipafont fonts-ipaexfont git
 # COPY --from=build-env /usr/bin /usr/bin
 # COPY --from=build-env /usr/lib/node_modules /usr/lib/node_modules
@@ -103,7 +106,7 @@ CMD ["/bin/bash", "-c", "invenio run -h 0.0.0.0"]
 # CMD ["/bin/bash"]
 # CMD ["/bin/bash", "-c", "invenio run -h 0.0.0.0"]
 
-# FROM python:3.6-slim-buster as product-env
+# FROM python:3.7-slim-buster as product-env
 # # Configure Weko instance:
 # ENV INVENIO_WEB_HOST=127.0.0.1
 # ENV INVENIO_WEB_INSTANCE=invenio
@@ -116,7 +119,10 @@ CMD ["/bin/bash", "-c", "invenio run -h 0.0.0.0"]
 # ENV INVENIO_POSTGRESQL_DBUSER=invenio
 # ENV INVENIO_POSTGRESQL_DBPASS=dbpass123
 # ENV INVENIO_REDIS_HOST=redis
-# ENV INVENIO_ELASTICSEARCH_HOST=elasticsearch
+# ENV INVENIO_ELASTICSEARCH_HOST=opensearch
+# ENV INVENIO_OPENSEARCH_HOST=opensearch
+# ENV INVENIO_OPENSEARCH_USER=invenio
+# ENV INVENIO_OPENSEARCH_PASS=openpass123!
 # ENV INVENIO_RABBITMQ_HOST=rabbitmq
 # ENV INVENIO_RABBITMQ_USER=guest
 # ENV INVENIO_RABBITMQ_PASS=guest

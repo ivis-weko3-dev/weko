@@ -199,13 +199,13 @@ class TestWekoIndexer:
         relations_ver['is_last'] = relations_ver.get('index') == 0
         assert indexer.update_relation_version_is_last(relations_ver)=={'_index': 'test-weko-item-v1.0.0', '_type': 'item-v1.0.0', '_id': '{}'.format(pid.object_uuid), '_version': 2, 'result': 'noop', '_shards': {'total': 0, 'successful': 0, 'failed': 0}}
 
-    # def update_es_data(self, record, update_revision=True,
-    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_update_es_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test_update_es_data(self,es_records):
+    # def update_search_data(self, record, update_revision=True,
+    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_update_search_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+    def test_update_search_data(self,es_records):
         indexer, records = es_records
         record = records[0]['record']
-        assert indexer.update_es_data(record, update_revision=False,update_oai=False, is_deleted=False)=={'_index': 'test-weko-item-v1.0.0', '_type': 'item-v1.0.0', '_id': '{}'.format(record.id), '_version': 3, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, '_seq_no': 9, '_primary_term': 1}
-        res = indexer.update_es_data(record, update_revision=False,update_oai=True, is_deleted=False)
+        assert indexer.update_search_data(record, update_revision=False,update_oai=False, is_deleted=False)=={'_index': 'test-weko-item-v1.0.0', '_type': 'item-v1.0.0', '_id': '{}'.format(record.id), '_version': 3, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, '_seq_no': 9, '_primary_term': 1}
+        res = indexer.update_search_data(record, update_revision=False,update_oai=True, is_deleted=False)
         assert res=={'_id': res['_id'], '_index': 'test-weko-item-v1.0.0', '_primary_term': 1, '_seq_no': 10, '_shards': {'failed': 0, 'successful': 1, 'total': 2}, '_type': 'item-v1.0.0', '_version': 4, 'result': 'updated'}
 
     # def index(self, record):
@@ -655,13 +655,13 @@ class TestWekoDeposit:
         deposit.jrc=jrc
         deposit._convert_description_to_object()
         assert deposit.jrc["description"] == [{"value":"test_description1"},{"value":"test_description2"}]
-    # def _convert_jpcoar_data_to_es(self):
-    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test__convert_jpcoar_data_to_es -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test__convert_jpcoar_data_to_es(sel,app,db,location,es_records):
+    # def _convert_jpcoar_data_to_search(self):
+    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test__convert_jpcoar_data_to_search -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+    def test__convert_jpcoar_data_to_search(sel,app,db,location,es_records):
         indexer, records = es_records
         record = records[0]
         deposit = record['deposit']
-        deposit._convert_jpcoar_data_to_es()
+        deposit._convert_jpcoar_data_to_search()
 
     # def _convert_data_for_geo_location(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test__convert_data_for_geo_location -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -1625,7 +1625,7 @@ def test_weko_indexer(app, db, location):
             'is_last': True
         })
     indexer.client.update_get_error(False)
-    indexer.update_es_data(deposit, update_revision=False)
+    indexer.update_search_data(deposit, update_revision=False)
 
     indexer.delete_file_index([deposit.id], 0)
 

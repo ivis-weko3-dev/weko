@@ -24,7 +24,7 @@ import pickle
 from functools import partial
 import re
 
-from elasticsearch_dsl.search import AggsProxy
+from invenio_search.engine import dsl
 from flask import Blueprint, abort, current_app, jsonify, redirect, request, url_for, make_response
 from invenio_db import db
 from invenio_files_rest.storage import PyFSFileStorage
@@ -108,7 +108,6 @@ def create_blueprint(app, endpoints):
 
         search_class_kwargs = {}
         search_class_kwargs["index"] = options.get("search_index")
-        search_class_kwargs["doc_type"] = options.get("search_type")
         search_class = partial(search_class, **search_class_kwargs)
 
         ctx = dict(
@@ -222,6 +221,7 @@ class IndexSearchResource(ContentNegotiatedMethodView):
         search_obj = self.search_class()
         search = search_obj.with_preference_param().params(version=True)
         search = search[(page - 1) * size : page * size]
+        search = search.params(track_total_hits=True)
         search, qs_kwargs = self.search_factory(self, search)
         query = request.values.get("q")
         if query:
@@ -247,7 +247,7 @@ class IndexSearchResource(ContentNegotiatedMethodView):
                 "weko_search_rest.recid_index", page=page - 1, **urlkwargs
             )
         if (
-            size * page < search_result.hits.total
+            size * page < search_result.hits.total.value
             and size * page < self.max_result_window
         ):
             links["next"] = url_for(
@@ -574,7 +574,7 @@ class GetFacetSearchConditions(ContentNegotiatedMethodView):
                 search = search.post_filter({"terms": {query_key: params[param]}})
 
             # init aggs (delete aggs['path'])
-            search.aggs = AggsProxy(search)
+            search.aggs = dsl.search.AggsProxy(search)
 
         else:
             ### keyword search ###
@@ -587,6 +587,7 @@ class GetFacetSearchConditions(ContentNegotiatedMethodView):
         search = _set_facet_agg_query(search, facets, keys)
 
         # Execute search
+        search = search.params(track_total_hits=True)
         search_result = search.execute()
         rd = search_result.to_dict()
         aggs = rd.get('aggregations', {})

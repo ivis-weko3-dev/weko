@@ -85,8 +85,8 @@ def base_app(instance_path):
         # SQLALCHEMY_DATABASE_URI=os.environ.get(
         #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
         SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', 'elasticsearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         TESTING=True,
         JSONSCHEMAS_HOST='inveniosoftware.org',
@@ -94,7 +94,6 @@ def base_app(instance_path):
         WEKO_ITEMTYPE_EXCLUDED_KEYS=WEKO_ITEMTYPE_EXCLUDED_KEYS,
         INDEX_IMG='indextree/36466818-image.jpg',
         SEARCH_UI_SEARCH_INDEX='tenant1',
-        INDEXER_DEFAULT_DOCTYPE='item-v1.0.0',
         INDEXER_FILE_DOC_TYPE='content',
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English")],
         WEKO_PERMISSION_SUPER_ROLE_USER=WEKO_PERMISSION_SUPER_ROLE_USER,

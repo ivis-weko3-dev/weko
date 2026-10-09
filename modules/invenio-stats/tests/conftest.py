@@ -29,8 +29,6 @@ import pytest
 import invenio_oauth2server.views.server  # noqa
 
 
-from elasticsearch import Elasticsearch
-from elasticsearch_dsl import response, Search
 from sqlalchemy_utils.functions import create_database, database_exists
 from kombu import Exchange, Queue
 from flask import Flask, appcontext_pushed, g
@@ -60,7 +58,7 @@ from invenio_records import InvenioRecords
 from invenio_records.api import Record
 from invenio_search import InvenioSearch, current_search, current_search_client
 from werkzeug.local import LocalProxy
-
+from invenio_search.engine import search, dsl
 from invenio_stats import InvenioStats, current_stats as _current_stats
 from invenio_stats.contrib.event_builders import build_file_unique_id, \
     build_record_unique_id, file_download_event_builder
@@ -288,8 +286,8 @@ def base_app(instance_path, mock_gethostbyaddr, search_class):
         #     "SQLALCHEMY_DATABASE_URI", "sqlite:///test.db"
         # ),
         SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', 'elasticsearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         TESTING=True,
         OAUTH2SERVER_CLIENT_ID_SALT_LEN=64,
@@ -341,7 +339,7 @@ def base_app(instance_path, mock_gethostbyaddr, search_class):
     InvenioOAuth2Server(app_)
     InvenioOAuth2ServerREST(app_)
     InvenioMARC21(app_)
-    InvenioSearch(app_, entry_point_group=None, client=Elasticsearch("http://elasticsearch:9200"))
+    InvenioSearch(app_, entry_point_group=None)
 
     current_stats = LocalProxy(lambda: app_.extensions["invenio-stats"])
     return app_
@@ -535,7 +533,7 @@ def db(app):
 class MockEs():
     def __init__(self,**keywargs):
         self.indices = self.MockIndices()
-        self.es = Elasticsearch()
+        self.es = search.OpenSearch()
 
     @property
     def transport(self):
@@ -881,7 +879,7 @@ def mock_es_execute():
         if isinstance(data, str):
             with open(data, "r") as f:
                 data = json.load(f)
-        dummy=response.Response(Search(), data)
+        dummy=dsl.response.Response(dsl.Search(), data)
         return dummy
     return _dummy_response
 

@@ -150,19 +150,18 @@ First write a signal receiver. In the example below, we remove the attribute
 ``_internal`` if it exists in the record:
 
 >>> def indexer_receiver(sender, json=None, record=None,
-...                      index=None, doc_type=None):
+...                      index=None):
 ...     if '_internal' in json:
 ...         del json['_internal']
 
-The receiver takes four parameters besides the sender (which is the Flask
+The receiver takes various parameters besides the sender (which is the Flask
 application)
 
 * ``json``:  JSON is a Python dictionary dump of the record, and the actual
   data that will be sent to the index. Modify this dictionary in order to
   change the document.
 * ``record``: The record from which the JSON was dumped.
-* ``index``: The Elasticsearch index in which the record will be indexed.
-* ``doc_type``: The Elasticsearch document type for the record.
+* ``index``: The search engine index in which the record will be indexed.
 
 Connecting the receiver to the signal is as simple as (do this e.g. in your
 extension's ``init_app`` method):

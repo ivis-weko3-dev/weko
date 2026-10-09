@@ -25,8 +25,6 @@ from datetime import date, datetime
 from functools import wraps
 from operator import itemgetter
 
-from elasticsearch.exceptions import NotFoundError
-from elasticsearch_dsl.query import Bool, Exists, Q, QueryString
 from flask import Markup, current_app, session
 from flask_babelex import get_locale
 from flask_babelex import gettext as _
@@ -36,6 +34,7 @@ from invenio_cache import current_cache
 from invenio_i18n.ext import current_i18n
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_search import RecordsSearch
+from invenio_search.engine import search, dsl
 from simplekv.memory.redisstore import RedisStore
 from weko_groups.models import Group
 from weko_redis.redis import RedisConnection
@@ -510,14 +509,14 @@ def get_admin_coverpage_setting():
     return avail == 'enable'
 
 
-def get_elasticsearch_records_data_by_indexes(index_ids, start_date, end_date):
-    """Get data from elastic search.
+def get_search_records_data_by_indexes(index_ids, start_date, end_date):
+    """Get data from search engine.
 
     Arguments:
         index_ids -- index tree identifier list
 
     Returns:
-        dictionary -- elastic search data
+        dictionary -- search engine data
 
     """
     records_search = RecordsSearch()
@@ -538,20 +537,20 @@ def get_elasticsearch_records_data_by_indexes(index_ids, start_date, end_date):
         )
         search_result = search_instance.execute()
         result = search_result.to_dict()
-    except NotFoundError:
+    except search.NotFoundError:
         current_app.logger.error('Indexes do not exist yet!')
 
     return result
 
 
 def generate_path(index_ids):
-    """Get data from elastic search.
+    """Get data from search engine.
 
     Arguments:
         index_ids -- index tree identifier
 
     Returns:
-        dictionary -- elastic search data
+        dictionary -- search engine data
 
     """
     from .api import Indexes
@@ -627,7 +626,7 @@ def count_items(indexes_aggr):
 def recorrect_private_items_count(agp):
     """Re-correct private item count in case of unpublished items.
 
-    :param agp: aggregation returned from ES
+    :param agp: aggregation returned from Search
     :return:
     """
     for agg in agp:
@@ -668,15 +667,15 @@ def get_record_in_es_of_index(index_id, recursively=True):
     search = RecordsSearch(
         index=current_app.config['SEARCH_UI_SEARCH_INDEX'])
     must_query = [
-        QueryString(query=query_string),
-        Q("terms", path=child_idx),
-        Q("terms", publish_status=[
+        dsl.query.QueryString(query=query_string),
+        dsl.Q("terms", path=child_idx),
+        dsl.Q("terms", publish_status=[
             PublishStatus.PUBLIC.value,
             PublishStatus.PRIVATE.value
         ])
     ]
     search = search.query(
-        Bool(filter=must_query)
+        dsl.query.Bool(filter=must_query)
     )
     records = search.execute().to_dict().get('hits', {}).get('hits', [])
 
@@ -880,13 +879,13 @@ def check_doi_in_index_and_child_index(index_id, recursively=True):
     search = RecordsSearch(
         index=current_app.config['SEARCH_UI_SEARCH_INDEX'])
     must_query = [
-        QueryString(query=query_string),
-        Q("terms", path=child_idx),
-        Q("nested", path="identifierRegistration",
-          query=Exists(field="identifierRegistration"))
+        dsl.query.QueryString(query=query_string),
+        dsl.Q("terms", path=child_idx),
+        dsl.Q("nested", path="identifierRegistration",
+          query=dsl.query.Exists(field="identifierRegistration"))
     ]
     search = search.query(
-        Bool(filter=must_query)
+        dsl.query.Bool(filter=must_query)
     )
     records = search.execute().to_dict().get('hits', {}).get('hits', [])
     return records

@@ -17,8 +17,6 @@ import uuid
 from collections import defaultdict
 from functools import partial, wraps
 
-from elasticsearch import VERSION as ES_VERSION
-from elasticsearch.exceptions import RequestError
 from flask import Blueprint, abort, current_app, jsonify, make_response, \
     request, url_for, redirect
 from flask.views import MethodView
@@ -31,6 +29,7 @@ from invenio_records.api import Record
 from invenio_rest import ContentNegotiatedMethodView
 from invenio_rest.decorators import require_content_types
 from invenio_search import RecordsSearch
+from invenio_search.engine import search as search_engine
 from jsonpatch import JsonPatchException, JsonPointerException
 from jsonschema.exceptions import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
@@ -60,7 +59,7 @@ from weko_redis.redis import RedisConnection
 from .config import RECORDS_REST_DEFAULT_TTL_VALUE
 
 def elasticsearch_query_parsing_exception_handler(error):
-    """Handle query parsing exceptions from ElasticSearch."""
+    """Handle query parsing exceptions from the search engine."""
     description = _('The syntax of the search query is invalid.')
     return InvalidQueryRESTError(description=description).get_response()
 
@@ -98,7 +97,7 @@ def create_error_handlers(blueprint, error_handlers_registry=None):
         """Catch validation errors."""
         return JSONSchemaValidationError(error=error).get_response()
 
-    @blueprint.errorhandler(RequestError)
+    @blueprint.errorhandler(search_engine.RequestError)
     def elasticsearch_badrequest_error(error):
         """Catch errors of ElasticSearch."""
         handlers = current_app.config[
@@ -299,11 +298,6 @@ def create_url_rules(endpoint, list_route=None, item_route=None,
         search_class_kwargs['index'] = search_index
     else:
         search_index = search_class.Meta.index
-
-    if search_type:
-        search_class_kwargs['doc_type'] = search_type
-    else:
-        search_type = search_class.Meta.doc_types
 
     if search_class_kwargs:
         search_class = partial(search_class, **search_class_kwargs)
@@ -597,6 +591,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
         urlkwargs = dict()
         search_obj = self.search_class()
         search = search_obj.with_preference_param().params(version=True)
+        search = search.extra(track_total_hits=True)
 
         # this line of code will process the query string and as a result
         # will put the correct "total" and "hits" into the search variable
@@ -837,7 +832,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
         search_result_dict = search_result.to_dict()
 
         if is_custom_sort:
-            if search_result.hits.total < self.max_result_window:
+            if search_result.hits.total.value < self.max_result_window:
                 self._do_custom_sort(search_result_dict,target_index, is_asc, page, size)
             else:
                 start = (page - 1) * size
@@ -875,7 +870,7 @@ class RecordsListResource(ContentNegotiatedMethodView):
         links = dict(self=url_for(endpoint, page=page, **urlkwargs))
         if page > 1:
             links['prev'] = url_for(endpoint, page=page - 1, **urlkwargs)
-        if size * page < search_result.hits.total and \
+        if size * page < search_result.hits.total.value and \
                 size * page < self.max_result_window:
             links['next'] = url_for(endpoint, page=page + 1, **urlkwargs)
 
@@ -1298,21 +1293,12 @@ class SuggestResource(MethodView):
         s = self.search_class()
         for field, val, opts in completions:
             source = opts.pop('_source', None)
-            if source is not None and ES_VERSION[0] >= 5:
+            if source is not None:
                 s = s.source(source).suggest(field, val, **opts)
             else:
                 s = s.suggest(field, val, **opts)
 
-        if ES_VERSION[0] == 2:
-            # Execute search
-            response = s.execute_suggest().to_dict()
-            for field, _, _ in completions:
-                for resp in response[field]:
-                    for op in resp['options']:
-                        if 'payload' in op:
-                            op['_source'] = pickle.loads(pickle.dumps(op['payload'], -1))
-        elif ES_VERSION[0] >= 5:
-            response = s.execute().to_dict()['suggest']
+        response = s.execute().to_dict()['suggest']
 
         result = dict()
         for field, val, opts in completions:

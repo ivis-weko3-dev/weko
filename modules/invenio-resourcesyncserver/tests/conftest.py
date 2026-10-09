@@ -35,8 +35,6 @@ from flask_login import current_user, login_user, LoginManager
 from werkzeug.local import LocalProxy
 from tests.helpers import create_record, json_data
 from six import BytesIO
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import RequestError
 from simplekv.memory.redisstore import RedisStore
 # from moto import mock_s3
 
@@ -84,6 +82,7 @@ from invenio_records.models import RecordMetadata
 from invenio_deposit.api import Deposit
 from invenio_communities.models import Community
 from invenio_search import current_search_client, current_search
+from invenio_search.engine import search as search_engine
 from invenio_queues.proxies import current_queues
 from invenio_files_rest.permissions import bucket_listmultiparts_all, \
     bucket_read_all, bucket_read_versions_all, bucket_update_all, \
@@ -212,7 +211,6 @@ def base_app(instance_path, request):
         DEPOSIT_DEFAULT_JSONSCHEMA=DEPOSIT_DEFAULT_JSONSCHEMA,
         SERVER_NAME='TEST_SERVER',
         LOGIN_DISABLED=False,
-        INDEXER_DEFAULT_DOCTYPE='item-v1.0.0',
         INDEXER_FILE_DOC_TYPE='content',
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format(
             'test'
@@ -223,8 +221,8 @@ def base_app(instance_path, request):
         # SQLALCHEMY_DATABASE_URI=os.environ.get(
         #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
         SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', 'elasticsearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         JSONSCHEMAS_HOST='inveniosoftware.org',
         ACCOUNTS_USERINFO_HEADERS=True,
@@ -245,7 +243,7 @@ def base_app(instance_path, request):
         FILES_REST_OBJECT_KEY_MAX_LEN = 255,
         # SEARCH_UI_SEARCH_INDEX=SEARCH_UI_SEARCH_INDEX,
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        # SEARCH_ELASTIC_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
+        # SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
         SEARCH_INDEX_PREFIX="{}-".format('test'),
         SEARCH_CLIENT_CONFIG=dict(timeout=120, max_retries=10),
         OAISERVER_ID_PREFIX="oai:inveniosoftware.org:recid/",
@@ -299,7 +297,7 @@ def base_app(instance_path, request):
         WEKO_ADMIN_CACHE_TEMP_DIR_INFO_KEY_DEFAULT = 'cache::temp_dir_info',
         WEKO_ITEMS_UI_EXPORT_TMP_PREFIX = 'weko_export_',
         WEKO_SEARCH_UI_IMPORT_TMP_PREFIX = 'weko_import_',
-        WEKO_AUTHORS_ES_INDEX_NAME = "{}-authors".format(index_prefix),
+        WEKO_AUTHORS_SEARCH_INDEX_NAME = "{}-authors".format(index_prefix),
         WEKO_AUTHORS_ES_DOC_TYPE = "author-v1.0.0",
         WEKO_HANDLE_ALLOW_REGISTER_CNRI = True,
         WEKO_PERMISSION_ROLE_USER = ['System Administrator',
@@ -681,7 +679,7 @@ def es(app):
     """Elasticsearch fixture."""
     try:
         list(current_search.create())
-    except RequestError:
+    except search_engine.exceptions.RequestError:
         list(current_search.delete(ignore=[404]))
         list(current_search.create(ignore=[400]))
     current_search_client.indices.refresh()
@@ -1007,7 +1005,7 @@ def db_index(client, users):
 @pytest.fixture()
 def es_records(app, db, db_index, location, db_itemtype, db_oaischema):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         for i in range(1, 10):
@@ -1053,7 +1051,7 @@ def es_records(app, db, db_index, location, db_itemtype, db_oaischema):
             results.append({"depid":depid, "recid":recid, "parent": parent, "doi":doi, "hdl": hdl,"record":record, "record_data":record_data,"item":item , "item_data":item_data,"deposit": deposit})
 
     sleep(3)
-    es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
+    open_search = search_engine.client.OpenSearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
     # print(es.cat.indices())
     return {
         "indexer": indexer,

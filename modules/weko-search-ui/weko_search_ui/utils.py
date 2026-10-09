@@ -49,8 +49,6 @@ import redis
 from redis import sentinel
 from celery.result import AsyncResult
 from celery.task.control import revoke
-from elasticsearch import ElasticsearchException
-from elasticsearch.exceptions import NotFoundError
 from flask import abort, current_app, has_request_context, request
 from flask_babelex import gettext as _
 from flask_login import current_user
@@ -68,6 +66,7 @@ from invenio_records.api import Record
 from invenio_records.models import RecordMetadata
 from invenio_records_rest.errors import InvalidQueryRESTError
 from invenio_search import RecordsSearch
+from invenio_search.engine import search
 from invenio_stats.config import SEARCH_INDEX_PREFIX as index_prefix, STATS_WEKO_DEFAULT_TIMEZONE
 from invenio_stats.models import StatsEvents
 from invenio_stats.processors import (
@@ -77,6 +76,7 @@ from invenio_stats.processors import (
     hash_id,
 )
 from jsonschema import Draft4Validator
+from opensearchpy.exceptions import OpenSearchException
 from sqlalchemy import func as _func
 from sqlalchemy.exc import SQLAlchemyError
 from weko_admin.models import SessionLifetime
@@ -256,8 +256,8 @@ def delete_records(index_tree_id, ignore_items):
                 if not del_flag:
                     # Do update the path on record
                     record.update({"path": paths})
-                    # Update to ES
-                    indexer.update_es_data(record, update_revision=False)
+                    # Update to search engine
+                    indexer.update_search_data(record, update_revision=False)
                     record.commit()
                     db.session.commit()
                 elif del_flag and removed_path is not None:
@@ -332,7 +332,7 @@ def get_feedback_mail_list():
             .get("email_list", {})
             .get("buckets", [])
         )
-    except (NotFoundError, InvalidQueryRESTError):
+    except (search.NotFoundError, InvalidQueryRESTError):
         current_app.logger.debug("FeedbackMail data cannot found!")
         return ret
 
@@ -1425,7 +1425,7 @@ def update_publish_status(item_id, status):
     record["publish_status"] = status
     record.commit()
     indexer = WekoIndexer()
-    indexer.update_es_data(record, update_revision=False, field='publish_status')
+    indexer.update_search_data(record, update_revision=False, field='publish_status')
 
 
 def handle_workflow(item: dict):
@@ -1503,8 +1503,8 @@ def create_flow_define():
             the_flow.upt_flow_action(flow.flow_id, flow_actions)
 
 
-def send_item_created_event_to_es(item, request_info):
-    """Send item_created event to ES."""
+def send_item_created_event_to_search(item, request_info):
+    """Send item_created event to search."""
     def _prepare_stored_data(item, request_info):
         """Prepare stored data."""
         # TODO: consider to use "weko_deposit.signals.item_created."
@@ -1535,19 +1535,18 @@ def send_item_created_event_to_es(item, request_info):
         }
         return data
 
-    def _push_item_to_elasticsearch(id, index, doc_type, data):
-        """Push item to elasticsearch in order to count report."""
+    def _push_item_to_opensearch(id, index, data):
+        """Push item to opensearch in order to count report."""
         indexer = RecordIndexer()
-        indexer.client.index(index=index, doc_type=doc_type, id=id, body=data)
+        indexer.client.index(index=index, id=id, body=data)
 
     timestamp = datetime.utcnow().replace(microsecond=0)
     # Prepare stored data.
     data = _prepare_stored_data(item, request_info)
-    doc_type = "stats-item-create"
-    index = "{}-events-{}".format(index_prefix, doc_type)
+    index = "{}-events-{}".format(index_prefix, "stats-item-create")
     id = hash_id(timestamp, data)
     # Save item to stats events.
-    _push_item_to_elasticsearch(id, index, doc_type, data)
+    _push_item_to_opensearch(id, index, data)
 
 
 def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
@@ -1587,7 +1586,7 @@ def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
                 item["id"] = item_id
             else:
                 handle_check_item_is_locked(item)
-                # cache ES data for rollback
+                # cache search data for rollback
                 pid = PersistentIdentifier.query.filter_by(
                     pid_type="recid", pid_value=item["id"]
                 ).first()
@@ -1607,8 +1606,8 @@ def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
                 )
                 register_item_update_publish_status(item, str(status_number))
                 if item.get("status") == "new":
-                    # Send item_created event to ES.
-                    send_item_created_event_to_es(item, request_info)
+                    # Send item_created event to search.
+                    send_item_created_event_to_search(item, request_info)
 
             # register custom sort order
             if item.get("index_sort"):
@@ -1640,7 +1639,7 @@ def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
                 bef_last_ver_metadata = WekoIndexer().get_metadata_by_item_id(
                     PIDVersioning(child=pid).last_child.object_uuid
                 )
-                handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+                handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
             current_app.logger.error("item id: %s update error." % item["id"])
             traceback.print_exc(file=sys.stdout)
             error_id = None
@@ -1653,8 +1652,8 @@ def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
                 error_id = ex.args[0].get("error_id")
 
             return {"success": False, "error_id": error_id}
-        except ElasticsearchException as ex:
-            current_app.logger.error("elasticsearch  error: ", ex)
+        except OpenSearchException as ex:
+            current_app.logger.error("opensearch  error: ", ex)
             db.session.rollback()
             if item.get("id"):
                 pid = PersistentIdentifier.query.filter_by(
@@ -1664,7 +1663,7 @@ def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
                 bef_last_ver_metadata = WekoIndexer().get_metadata_by_item_id(
                     PIDVersioning(child=pid).last_child.object_uuid
                 )
-                handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+                handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
             current_app.logger.error("item id: %s update error." % item["id"])
             traceback.print_exc(file=sys.stdout)
             error_id = None
@@ -1688,7 +1687,7 @@ def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
                 bef_last_ver_metadata = WekoIndexer().get_metadata_by_item_id(
                     PIDVersioning(child=pid).last_child.object_uuid
                 )
-                handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+                handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
             current_app.logger.error("item id: %s update error." % item["id"])
             traceback.print_exc(file=sys.stdout)
             error_id = None
@@ -1712,7 +1711,7 @@ def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
                 bef_last_ver_metadata = WekoIndexer().get_metadata_by_item_id(
                     PIDVersioning(child=pid).last_child.object_uuid
                 )
-                handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+                handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
             current_app.logger.error("item id: %s update error." % item["id"])
             traceback.print_exc(file=sys.stdout)
             error_id = None
@@ -3900,8 +3899,8 @@ def handle_check_item_is_locked(item):
         raise Exception({"error_id": error_id})
 
 
-def handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata):
-    """Remove es metadata.
+def handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata):
+    """Remove search metadata.
 
     :argument
         item - {dict} Item metadata.
@@ -3912,7 +3911,7 @@ def handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata):
         indexer = WekoIndexer()
         pid = WekoRecord.get_record_by_pid(item_id).pid_recid
         if status == "new":
-            # delete temp data in ES
+            # delete temp data in search
             pid_lastest = WekoRecord.get_record_by_pid(item_id + ".1").pid_recid
             indexer.delete_by_id(pid_lastest.object_uuid)
             indexer.delete_by_id(pid.object_uuid)
@@ -3922,7 +3921,7 @@ def handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata):
                 PIDVersioning(child=pid).last_child.object_uuid
             )
 
-            # revert to previous data in ES
+            # revert to previous data in search
             if bef_metadata["_version"] < aft_metadata["_version"]:
                 indexer.upload_metadata(
                     bef_metadata["_source"], bef_metadata["_id"], 0, True
@@ -3939,7 +3938,7 @@ def handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata):
                     True,
                 )
 
-            # delete new version in ES
+            # delete new version in search
             if (
                 status == "upgrade"
                 and bef_last_ver_metadata["_source"]["control_number"]

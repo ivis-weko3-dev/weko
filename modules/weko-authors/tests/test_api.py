@@ -69,7 +69,7 @@ class TestWekoAuthors:
                 result = WekoAuthors.create(data)
             
 #     def update(cls, author_id, data):
-#         def update_es_data(data):
+#         def update_search_data(data):
 # .tox/c1/bin/pytest --cov=weko_authors tests/test_api.py::TestWekoAuthors::test_update -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-authors/.tox/c1/tmp
     def test_update(self,app,authors,mocker):
         author_id=1

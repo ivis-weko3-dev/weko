@@ -14,22 +14,25 @@ import copy
 import traceback
 from contextlib import contextmanager
 import click
+import warnings
 
 import pytz
 from celery import current_app as current_celery_app
-from elasticsearch.helpers import bulk
 from flask import current_app
 from invenio_records.api import Record
 from invenio_search import current_search_client
+from invenio_search.engine import dsl, search
 from kombu import Producer as KombuProducer
 from kombu.compat import Consumer
 from sqlalchemy.orm.exc import NoResultFound
-from elasticsearch.helpers import BulkIndexError
-from elasticsearch.exceptions import ConnectionTimeout
 
 from .proxies import current_record_to_index
 from .signals import before_record_index
 
+# the tests expect this to be present
+bulk = search.helpers.bulk
+BulkIndexError = search.helpers.BulkIndexError
+ConnectionTimeout = search.ConnectionTimeout
 
 class Producer(KombuProducer):
     """Producer validating published messages.
@@ -61,7 +64,7 @@ class RecordIndexer(object):
         :param routing_key: Routing key for message queue.
         :param version_type: Elasticsearch version type.
             (Default: ``external_gte``)
-        :param record_to_index: Function to extract the index and doc_type
+        :param record_to_index: Function to extract the index
             from the record.
         """
         self.client = search_client or current_search_client
@@ -72,12 +75,25 @@ class RecordIndexer(object):
         self._version_type = version_type or 'external_gte'
 
     def record_to_index(self, record):
-        """Get index/doc_type given a record.
+        """Get index given a record.
 
         :param record: The record where to look for the information.
-        :returns: A tuple (index, doc_type).
+        :returns: The index.
         """
-        return self._record_to_index(record)
+        result = self._record_to_index(record)
+        if isinstance(result, tuple):
+            warnings.warn(
+                (
+                    "The 'record_to_index' function is no longer expected to return "
+                    "a tuple (index, doc_type), instead it should only return the "
+                    "index. Support for the tuple will be removed in a future version "
+                    "of 'invenio-indexer'."
+                ),
+                DeprecationWarning,
+            )
+            result, _ = result
+
+        return result
 
     @property
     def mq_queue(self):
@@ -118,17 +134,16 @@ class RecordIndexer(object):
 
         :param record: Record instance.
         """
-        index, doc_type = self.record_to_index(record)
+        index = self.record_to_index(record)
         arguments = arguments or {}
         body = self._prepare_record(
-            record, index, doc_type, arguments, **kwargs)
+            record, index, arguments, **kwargs)
 
         return self.client.index(
             id=str(record.id),
             version=record.revision_id,
             version_type=self._version_type,
             index=index,
-            doc_type=doc_type,
             body=body,
             **arguments
         )
@@ -148,12 +163,11 @@ class RecordIndexer(object):
         :param kwargs: Passed to
             :meth:`elasticsearch:elasticsearch.Elasticsearch.delete`.
         """
-        index, doc_type = self.record_to_index(record)
+        index = self.record_to_index(record)
 
         return self.client.delete(
             id=str(record.id),
             index=index,
-            doc_type=doc_type,
             **kwargs
         )
 
@@ -278,22 +292,20 @@ class RecordIndexer(object):
     #
     # Low-level implementation
     #
-    def _bulk_op(self, record_id_iterator, op_type, index=None, doc_type=None):
-        """Index record in Elasticsearch asynchronously.
+    def _bulk_op(self, record_id_iterator, op_type, index=None):
+        """Index record in the search asynchronously.
 
         :param record_id_iterator: Iterator that yields record UUIDs.
         :param op_type: Indexing operation (one of ``index``, ``create``,
             ``delete`` or ``update``).
-        :param index: The Elasticsearch index. (Default: ``None``)
-        :param doc_type: The Elasticsearch doc_type. (Default: ``None``)
+        :param index: The search engine index. (Default: ``None``)
         """
         with self.create_producer() as producer:
             for rec in record_id_iterator:
                 producer.publish(dict(
                     id=str(rec),
                     op=op_type,
-                    index=index,
-                    doc_type=doc_type
+                    index=index
                 ))
 
     def _actionsiter(self, message_iterator):
@@ -329,17 +341,16 @@ class RecordIndexer(object):
         """Bulk delete action.
 
         :param payload: Decoded message body.
-        :returns: Dictionary defining an Elasticsearch bulk 'delete' action.
+        :returns: Dictionary defining the search engine bulk 'delete' action.
         """
-        index, doc_type = payload.get('index'), payload.get('doc_type')
-        if not (index and doc_type):
+        index = payload.get('index')
+        if not index:
             record = Record.get_record(payload['id'])
-            index, doc_type = self.record_to_index(record)
+            index = self.record_to_index(record)
 
         return {
             '_op_type': 'delete',
             '_index': index,
-            '_type': doc_type,
             '_id': payload['id'],
         }
 
@@ -362,10 +373,10 @@ class RecordIndexer(object):
         current_app.logger.debug("indexing id:{}".format(id))
         self.count = self.count + 1
         self.latest_item_id = id
-        index, doc_type = self.record_to_index(record)
+        index = self.record_to_index(record)
 
         arguments = {}
-        body = self._prepare_record(record, index, doc_type, arguments)
+        body = self._prepare_record(record, index, arguments)
         if deleteFile:
             if 'content' in body:
                 for f in body['content']:
@@ -374,7 +385,6 @@ class RecordIndexer(object):
         action = {
             '_op_type': 'index',
             '_index': index,
-            '_type': doc_type,
             '_id': str(record.id),
             '_version': record.revision_id,
             '_version_type': self._version_type,
@@ -385,13 +395,12 @@ class RecordIndexer(object):
         return action
     
     @staticmethod
-    def _prepare_record(record, index, doc_type, arguments=None, **kwargs):
+    def _prepare_record(record, index, arguments=None, **kwargs):
         """Prepare record data for indexing.
 
         :param record: The record to prepare.
-        :param index: The Elasticsearch index.
-        :param doc_type: The Elasticsearch document type.
-        :param arguments: The arguments to send to Elasticsearch upon indexing.
+        :param index: The search engine index.
+        :param arguments: The arguments to send to the search engine upon indexing.
         :param **kwargs: Extra parameters.
         :returns: The record metadata.
         """
@@ -411,7 +420,6 @@ class RecordIndexer(object):
             json=data,
             record=record,
             index=index,
-            doc_type=doc_type,
             arguments={} if arguments is None else arguments,
             **kwargs
         )

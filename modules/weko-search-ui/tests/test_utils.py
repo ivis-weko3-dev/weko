@@ -102,7 +102,7 @@ from weko_search_ui.utils import (
     handle_get_all_id_in_item_type,
     handle_get_all_sub_id_and_name,
     handle_item_title,
-    handle_remove_es_metadata,
+    handle_remove_search_metadata,
     handle_set_change_identifier_flag,
     handle_validate_item_import,
     handle_workflow,
@@ -119,7 +119,7 @@ from weko_search_ui.utils import (
     register_item_update_publish_status,
     register_item_custom_sort_order,
     represents_int,
-    send_item_created_event_to_es,
+    send_item_created_event_to_search,
     set_nested_item,
     unpackage_import_file,
     up_load_file,
@@ -223,7 +223,7 @@ def test_delete_records(i18n_app, db_activity):
                 return_value=db_activity["record"],
             ):
                 with patch(
-                    "weko_deposit.api.WekoIndexer.update_es_data",
+                    "weko_deposit.api.WekoIndexer.update_search_data",
                     return_value=db_activity["record"],
                 ):
                     with patch(
@@ -698,7 +698,7 @@ def find_and_update_location_size():
                 loc.size = row[1]
 """
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_register_item_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_register_item_metadata(i18n_app, es_item_file_pipeline, deposit, es_records):
+def test_register_item_metadata(i18n_app, search_item_file_pipeline, deposit, es_records):
     item = es_records["results"][0]["item"]
     root_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -708,7 +708,7 @@ def test_register_item_metadata(i18n_app, es_item_file_pipeline, deposit, es_rec
 
 # def update_publish_status(item_id, status):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_update_publish_status -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_update_publish_status(i18n_app, es_item_file_pipeline, es_records):
+def test_update_publish_status(i18n_app, search_item_file_pipeline, es_records):
     item_id = 1
     status = None
 
@@ -718,7 +718,7 @@ def test_update_publish_status(i18n_app, es_item_file_pipeline, es_records):
 
 # def handle_workflow(item: dict):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_handle_workflow -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_handle_workflow(i18n_app, es_item_file_pipeline, es_records, db):
+def test_handle_workflow(i18n_app, search_item_file_pipeline, es_records, db):
     item = es_records["results"][0]["item"]
 
     with patch(
@@ -751,12 +751,12 @@ def test_create_flow_define(i18n_app, db_workflow):
     assert not create_flow_define()
 
 
-# def send_item_created_event_to_es(item, request_info): *** ERR
-# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_send_item_created_event_to_es -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_send_item_created_event_to_es(
-    i18n_app, es_item_file_pipeline, es_records, client_request_args, users, es
+# def send_item_created_event_to_search(item, request_info): *** ERR
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_send_item_created_event_to_search -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_send_item_created_event_to_search(
+    i18n_app, search_item_file_pipeline, es_records, client_request_args, users, es
 ):
-    # with patch("weko_search_ui.utils.send_item_created_event_to_es._push_item_to_elasticsearch", return_value=""):
+    # with patch("weko_search_ui.utils.send_item_created_event_to_search._push_item_to_elasticsearch", return_value=""):
     # with patch("weko_search_ui.utils._push_item_to_elasticsearch", return_value=""):
     item = es_records["results"][0]["item"]
     request_info = {
@@ -766,12 +766,12 @@ def test_send_item_created_event_to_es(
         "user_id": 1,
     }
 
-    send_item_created_event_to_es(item, request_info)
+    send_item_created_event_to_search(item, request_info)
 
 
-# def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False): ERROR = TypeError: handle_remove_es_metadata() missing 2 required positional arguments: 'bef_metadata' and 'bef_las...
+# def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False): ERROR = TypeError: handle_remove_search_metadata() missing 2 required positional arguments: 'bef_metadata' and 'bef_las...
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_import_items_to_system -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_import_items_to_system(i18n_app, es_item_file_pipeline, es_records):
+def test_import_items_to_system(i18n_app, search_item_file_pipeline, es_records):
     # item = dict(db_activity['item'])
     item = es_records["results"][0]["item"]
 
@@ -785,7 +785,7 @@ def test_import_items_to_system(i18n_app, es_item_file_pipeline, es_records):
                     "weko_search_ui.utils.create_deposit", return_value=item["id"]
                 ):
                     with patch(
-                        "weko_search_ui.utils.send_item_created_event_to_es",
+                        "weko_search_ui.utils.send_item_created_event_to_search",
                         return_value=item["id"],
                     ):
                         with patch(
@@ -802,7 +802,7 @@ def test_import_items_to_system(i18n_app, es_item_file_pipeline, es_records):
 
 
 # def handle_item_title(list_record):
-def test_handle_item_title(i18n_app, es_item_file_pipeline, es_records):
+def test_handle_item_title(i18n_app, search_item_file_pipeline, es_records):
     list_record = [es_records["results"][0]["item"]]
 
     # Doesn't return any value
@@ -904,7 +904,7 @@ def test_handle_check_cnri_2(i18n_app):
 
 
 # def handle_check_doi_indexes(list_record):
-def test_handle_check_doi_indexes(i18n_app, es_item_file_pipeline, es_records):
+def test_handle_check_doi_indexes(i18n_app, search_item_file_pipeline, es_records):
     list_record = [es_records["results"][0]["item"]]
 
     # Doesn't return any value
@@ -912,7 +912,7 @@ def test_handle_check_doi_indexes(i18n_app, es_item_file_pipeline, es_records):
 
 
 # def handle_check_doi_ra(list_record):
-def test_handle_check_doi_ra(i18n_app, es_item_file_pipeline, es_records):
+def test_handle_check_doi_ra(i18n_app, search_item_file_pipeline, es_records):
     # list_record = [es_records['results'][0]['item']]
     item = MagicMock()
 
@@ -976,7 +976,7 @@ def test_handle_check_doi(app):
 
 
 # def register_item_handle(item):
-def test_register_item_handle(i18n_app, es_item_file_pipeline, es_records):
+def test_register_item_handle(i18n_app, search_item_file_pipeline, es_records):
     item = es_records["results"][0]["item"]
 
     assert not register_item_handle(item)
@@ -1091,7 +1091,7 @@ def test_register_item_doi(i18n_app, db_activity):
 
 # def register_item_update_publish_status(item, status):
 def test_register_item_update_publish_status(
-    i18n_app, es_item_file_pipeline, es_records
+    i18n_app, search_item_file_pipeline, es_records
 ):
     item = es_records["results"][0]["item"]
     # item = db_activity['item']
@@ -1103,7 +1103,7 @@ def test_register_item_update_publish_status(
 
 # def register_item_custom_sort_order(item):
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_utils.py::test_register_item_custom_sort_order -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
-def test_register_item_custom_sort_order(i18n_app, es_item_file_pipeline, es_records):
+def test_register_item_custom_sort_order(i18n_app, search_item_file_pipeline, es_records):
     item = es_records["results"][0]["item"]
     item["index_sort"] = {"12345":1}
     with patch("weko_index_tree.api.Indexes.set_item_sort_custom", return_value=""):
@@ -1114,7 +1114,7 @@ def test_register_item_custom_sort_order(i18n_app, es_item_file_pipeline, es_rec
 # def handle_doi_required_check(record):
 def test_handle_doi_required_check(
     i18n_app,
-    es_item_file_pipeline,
+    search_item_file_pipeline,
     es_records,
     record_with_metadata,
     db_itemtype,
@@ -2956,8 +2956,8 @@ def test_handle_check_item_is_locked(i18n_app, db_activity):
             pass
 
 
-# def handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata):
-def test_handle_remove_es_metadata(i18n_app, es_item_file_pipeline, es_records):
+# def handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata):
+def test_handle_remove_search_metadata(i18n_app, search_item_file_pipeline, es_records):
     item = es_records["results"][0]["item"]
     bef_metadata = {}
     bef_metadata["_id"] = 9
@@ -2970,15 +2970,15 @@ def test_handle_remove_es_metadata(i18n_app, es_item_file_pipeline, es_records):
     bef_last_ver_metadata["_source"] = {"control_number": 8888}
 
     # Doesn't return any value
-    assert not handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+    assert not handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
 
     # Doesn't return any value
     item["status"] = "new"
-    assert not handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+    assert not handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
 
     # Doesn't return any value
     item["status"] = "upgrade"
-    assert not handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata)
+    assert not handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata)
 
 
 # def check_index_access_permissions(func):
@@ -3265,7 +3265,7 @@ def test_function_issue34535(db,db_index,db_itemtype,location,db_oaischema,mocke
     mocker.patch("weko_search_ui.utils.find_and_update_location_size")
     # register item
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     record_data = {"_oai":{"id":"oai:weko3.example.org:00000004","sets":[]},"path":["1"],"owner":"1","recid":"4","title":["test item in br"],"pubdate":{"attribute_name":"PubDate","attribute_value":"2022-11-21"},"_buckets":{"deposit":"0796e490-6dcf-4e7d-b241-d7201c3de83a"},"_deposit":{"id":"4","pid":{"type":"depid","value":"4","revision_id":0},"owner":"1","owners":[1],"status":"published","created_by":1},"item_title":"test item in br","author_link":[],"item_type_id":"1","publish_date":"2022-11-21","publish_status":"0","weko_shared_id":-1,"item_1617186331708":{"attribute_name":"Title","attribute_value_mlt":[{"subitem_1551255647225":"test item in br","subitem_1551255648112":"ja"}]},"item_1617186626617":{"attribute_name":"Description","attribute_value_mlt":[{"subitem_description":"this is line1.\nthis is line2.","subitem_description_type":"Abstract","subitem_description_language":"en"}]},"item_1617258105262":{"attribute_name":"Resource Type","attribute_value_mlt":[{"resourceuri":"http://purl.org/coar/resource_type/c_5794","resourcetype":"conference paper"}]},"relation_version_is_last":True}
     item_data = {"id":"4","pid":{"type":"depid","value":"4","revision_id":0},"lang":"ja","path":[1],"owner":"1","title":"test item in br","owners":[1],"status":"published","$schema":"https://192.168.56.103/items/jsonschema/1","pubdate":"2022-11-21","edit_mode":"keep","created_by":1,"owners_ext":{"email":"wekosoftware@nii.ac.jp","username":"","displayname":""},"deleted_items":["item_1617605131499"],"shared_user_id":-1,"weko_shared_id":-1,"item_1617186331708":[{"subitem_1551255647225":"test item in br","subitem_1551255648112":"ja"}],"item_1617186626617":[{"subitem_description":"this is line1.\nthis is line2.","subitem_description_type":"Abstract","subitem_description_language":"en"}],"item_1617258105262":{"resourceuri":"http://purl.org/coar/resource_type/c_5794","resourcetype":"conference paper"}}
     rec_uuid = uuid.uuid4()

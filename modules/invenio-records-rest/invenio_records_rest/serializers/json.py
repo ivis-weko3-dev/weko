@@ -126,7 +126,7 @@ class JSONSerializerMixin(SerializerMixinInterface):
                     links_factory=item_links_factory,
                     **kwargs
                 ) for hit in search_result['hits']['hits']],
-                total=search_result['hits']['total'],
+                total=search_result['hits']['total']['value'],
             ),
             links=links or {},
             aggregations=search_result.get('aggregations', dict()),

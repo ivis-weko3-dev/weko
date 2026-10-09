@@ -276,9 +276,9 @@ just required to have a ``run()`` method.
 The default one is :py:class:`~invenio_stats.aggregations.StatAggregator`
 and it aggregates events based on their ``timestamp`` field. It can aggregate
 using different time windows and calculate different kinds of metrics using
-`Elasticsearch Metric Aggregations <https://www.elastic.co/guide/en/elasticsearch/reference/5.6/search-aggregations-metrics.html>`_.
-The events are retrieved from Elasticsearch and the resulting aggregations are
-indexed in different Elasticsearch indices.
+`metric Aggregations <https://www.elastic.co/guide/en/elasticsearch/reference/5.6/search-aggregations-metrics.html>`_.
+The events are retrieved from the search engine and the resulting aggregations are
+indexed in different search indices.
 
 3. Querying
 ~~~~~~~~~~~
@@ -308,7 +308,7 @@ Again the registering function returns the configuraton for the query:
     return [
         dict(
             query_name='bucket-file-download-histogram',
-            query_class=ESDateHistogramQuery,
+            query_class=DateHistogramQuery,
             query_config=dict(
                 index='stats-file-download',
                 doc_type='file-download-day-aggregation',
@@ -389,10 +389,10 @@ Query classes already return a common pattern of fields.
 
 The provided query classes are:
 
-* :py:class:`~invenio_stats.queries.ESDateHistogramQuery`: histogram style
+* :py:class:`~invenio_stats.queries.DateHistogramQuery`: histogram style
   aggregations.
 
-* :py:class:`~invenio_stats.queries.ESTermsQuery`: aggregation by terms
+* :py:class:`~invenio_stats.queries.TermsQuery`: aggregation by terms
   (unique field values).
 
 Those two query classes have a common format for their results:
@@ -412,8 +412,8 @@ see Elasticsearch documentation). The ``key-type`` field is used as a helper
 for UI widgets so that they know how they can display the statistic
 automatically.
 
-Not every statistic of interest has to be derived from Elasticsearch. It is
-possible to return statistics by just running an SQL query on the database.
+Not every statistic of interest has to be derived from the search engine.
+It is possible to return statistics by just running an SQL query on the database.
 
 4. Provided statistics
 ~~~~~~~~~~~~~~~~~~~~~~

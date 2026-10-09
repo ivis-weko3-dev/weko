@@ -28,7 +28,6 @@ from invenio_stats.utils import (
     get_start_end_date,
     agg_bucket_sort,
     parse_bucket_response,
-    get_doctype,
     is_valid_access,
     QueryFileReportsHelper,
     QuerySearchReportHelper,
@@ -134,11 +133,6 @@ def test_parse_bucket_response(app):
 
     res = parse_bucket_response(_raw_res, {})
     assert res=={'test_name': 'test_value'}
-
-# def get_doctype(doc_type):
-# .tox/c1/bin/pytest --cov=invenio_stats tests/test_utils.py::test_get_doctype -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
-def test_get_doctype(app):
-    assert get_doctype('test_doc')=='test_doc'
 
 # def is_valid_access():
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_utils.py::test_is_valid_access -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
@@ -339,7 +333,7 @@ def test_query_file_reports_helper(i18n_app, roles, mock_es_execute, index):
 
     # get_file_stats_report
     with patch("invenio_stats.utils.QueryFileReportsHelper.Calculation", side_effect=mock_Calculation):
-        with patch("invenio_stats.queries.ESTermsQuery.run", return_value=_res):
+        with patch("invenio_stats.queries.TermsQuery.run", return_value=_res):
             res = QueryFileReportsHelper.get_file_stats_report(event='file_download', year=2022, month=10)
             assert res=={
                 'all': _expect_data_list,
@@ -347,7 +341,7 @@ def test_query_file_reports_helper(i18n_app, roles, mock_es_execute, index):
                 'date': '2022-10',
                 'open_access': _expect_data_list
             }
-        with patch("invenio_stats.queries.ESTermsQuery.run", return_value=_res):
+        with patch("invenio_stats.queries.TermsQuery.run", return_value=_res):
             res = QueryFileReportsHelper.get_file_stats_report(event='file_preview', year=2022, month=10)
             assert res=={
                 'all': _expect_data_list,
@@ -355,7 +349,7 @@ def test_query_file_reports_helper(i18n_app, roles, mock_es_execute, index):
                 'date': '2022-10',
                 'open_access': _expect_data_list
             }
-        with patch("invenio_stats.queries.ESTermsQuery.run", return_value=_billing_res):
+        with patch("invenio_stats.queries.TermsQuery.run", return_value=_billing_res):
             res = QueryFileReportsHelper.get_file_stats_report(event='billing_file_download', year=2022, month=10)
             assert res=={
                 'all': _expect_billing_data_list,
@@ -363,7 +357,7 @@ def test_query_file_reports_helper(i18n_app, roles, mock_es_execute, index):
                 'date': '2022-10',
                 'open_access': _expect_billing_data_list
             }
-        with patch("invenio_stats.queries.ESTermsQuery.run", return_value=_res):
+        with patch("invenio_stats.queries.TermsQuery.run", return_value=_res):
             res = QueryFileReportsHelper.get_file_stats_report(event='test_event', year=2022, month=10)
             assert res=={
                 'all': [],
@@ -458,12 +452,12 @@ def test_query_search_report_helper(app, es):
     assert res=={'name1': 3, 'name2': 2}
 
     # get
-    with patch('invenio_stats.queries.ESWekoTermsQuery.run', return_value=_raw_res1):
+    with patch('invenio_stats.queries.WekoTermsQuery.run', return_value=_raw_res1):
         res = QuerySearchReportHelper.get(
             year=2022, month=10, start_date='2022-10-01', end_date='2022-10-31')
         assert res=={'all': [], 'date': '2022-10-01-2022-10-31'}
 
-    with patch('invenio_stats.queries.ESWekoTermsQuery.run', return_value=_raw_res2):
+    with patch('invenio_stats.queries.WekoTermsQuery.run', return_value=_raw_res2):
         res = QuerySearchReportHelper.get(
             year=2022, month=10)
         assert res=={'all': [{'search_key': 'key2', 'count': 7}, {'search_key': 'key1', 'count': 4}], 'date': '2022-10'}
@@ -500,10 +494,10 @@ def test_query_common_reports_helper(app, es):
             }
         ]
     }
-    with patch('invenio_stats.queries.ESTermsQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.TermsQuery.run', return_value=_res):
         res = QueryCommonReportsHelper.get(event='top_page_access', year=2022, month=10, start_date='2022-10-01', end_date='2022-10-10')
         assert res=={'date': '2022-10-01-2022-10-10', 'all': {'localhost': {'host': 'name2', 'ip': 'localhost', 'count': 2}}}
-    with patch('invenio_stats.queries.ESTermsQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.TermsQuery.run', return_value=_res):
         res = QueryCommonReportsHelper.get(event='top_page_access', year=2022, month=10)
         assert res=={'date': '2022-10', 'all': {'localhost': {'host': 'name2', 'ip': 'localhost', 'count': 2}}}
 
@@ -520,7 +514,7 @@ def test_query_common_reports_helper(app, es):
             }
         ]
     }
-    with patch('invenio_stats.queries.ESTermsQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.TermsQuery.run', return_value=_res):
         res = QueryCommonReportsHelper.get(event='site_access', year=2022, month=10)
         assert res=={'date': '2022-10', 'site_license': [{'top_view': 2, 'search': 2, 'record_view': 2, 'file_download': 2, 'file_preview': 2}], 'other': [{'top_view': 1, 'search': 1, 'record_view': 1, 'file_download': 1, 'file_preview': 1}], 'institution_name': [{'name': 'name1', 'top_view': 2, 'search': 2, 'record_view': 2, 'file_download': 2, 'file_preview': 2}]}
 
@@ -563,7 +557,7 @@ def test_querysitelicensereports_get(app,db,es,index_issn):
     file_preview = {"start_date":"2024-04-01T00:00:00","end_date":"2024-05-31T23:59:59","value":13,"buckets":[{"date":1714521600000,"site_license_name":"test","count":3,"index_id":"1616224532673"}]}
     search = {"start_date":"2024-04-01T00:00:00","end_date":"2024-05-31T23:59:59","value":8,"buckets":[{"date":1711929600000,"site_license_name":"","count":2},{"date":1711929600000,"site_license_name":"test","count":3}]}
     record_view = {"start_date":"2024-04-01T00:00:00","end_date":"2024-05-31T23:59:59","value":86,"buckets":[{"date":1711929600000,"site_license_name":"","count":3,"record_index_id":"1616224532673"},{"date":1711929600000,"site_license_name":"test","count":26,"record_index_id":"1616224532673"},{"date":1711929600000,"site_license_name":"test","count":9,"record_index_id":"1714029010533"},{"date":1714521600000,"site_license_name":"test","count":8,"record_index_id":"1715825846862"}]}
-    with patch('invenio_stats.queries.ESTermsQuery.run') as m:
+    with patch('invenio_stats.queries.TermsQuery.run') as m:
         m.side_effect = [file_download, file_preview, search, record_view]
         res = QuerySitelicenseReportsHelper.get(event='sitelicense_download', start_date='2024-04-01', end_date='2024-05-31')
         assert res=={"date":"2024-04-2024-05","datelist":["total","2024-04","2024-05"],"index_info":{"1234-987A":{"name":"利用報告","id":"1616224532673","name_en":"Data Report"},"1234-567X":{"name":"New Index","id":"1714029010533","name_en":"New Index"}},"no_data":{"file_download":{"1234-987A":{"2024-04":0,"2024-05":0,"total":0},"1234-567X":{"2024-04":0,"2024-05":0,"total":0},"all_journals":{"2024-04":0,"2024-05":0}},"file_preview":{"1234-987A":{"2024-04":0,"2024-05":0,"total":0},"1234-567X":{"2024-04":0,"2024-05":0,"total":0},"all_journals":{"2024-04":0,"2024-05":0}},"search":{"2024-04":0,"2024-05":0,"total":0},"record_view":{"1234-987A":{"2024-04":0,"2024-05":0,"total":0,"file_download_count":{"2024-04":0,"2024-05":0,"total":0}},"1234-567X":{"2024-04":0,"2024-05":0,"total":0,"file_download_count":{"2024-04":0,"2024-05":0,"total":0}}}},"result":{"test":{"file_download":{"1234-987A":{"2024-04":0,"2024-05":2,"total":2},"1234-567X":{"2024-04":0,"2024-05":5,"total":5},"all_journals":{"2024-04":0,"2024-05":7}},"file_preview":{"1234-987A":{"2024-04":0,"2024-05":3,"total":3},"1234-567X":{"2024-04":0,"2024-05":0,"total":0},"all_journals":{"2024-04":0,"2024-05":3}},"search":{"2024-04":3,"2024-05":0,"total":3},"record_view":{"1234-987A":{"2024-04":26,"2024-05":0,"total":26,"file_download_count":{"2024-04":0,"2024-05":2,"total":2}},"1234-567X":{"2024-04":9,"2024-05":8,"total":17,"file_download_count":{"2024-04":0,"2024-05":5,"total":5}}}}}}
@@ -573,25 +567,25 @@ def test_querysitelicensereports_get(app,db,es,index_issn):
     file_preview = {"start_date":"2024-04-01T00:00:00","end_date":"2024-05-31T23:59:59","value":13,"buckets":[{"date":1714521600000,"site_license_name":"test","count":3,"index_id":"1616224532673"},{"date":1714521600000,"site_license_name":"test","count":3,"index_id":"0000000000404"}]}
     search = {"start_date":"2024-04-01T00:00:00","end_date":"2024-05-31T23:59:59","value":8,"buckets":[{"date":1711929600000,"site_license_name":"","count":2},{"date":1711929600000,"site_license_name":"test","count":3}]}
     record_view = {"start_date":"2024-04-01T00:00:00","end_date":"2024-05-31T23:59:59","value":86,"buckets":[{"date":1711929600000,"site_license_name":"","count":3,"record_index_id":"1616224532673"},{"date":1711929600000,"site_license_name":"test","count":26,"record_index_id":"1616224532673"},{"date":1711929600000,"site_license_name":"test","count":9,"record_index_id":"1714029010533"},{"date":1714521600000,"site_license_name":"test","count":8,"record_index_id":"1715825846862"}]}
-    with patch('invenio_stats.queries.ESTermsQuery.run') as m:
+    with patch('invenio_stats.queries.TermsQuery.run') as m:
         m.side_effect = [file_download, file_preview, search, record_view]
         res = QuerySitelicenseReportsHelper.get(event='sitelicense_download', start_date='2024-04-01', end_date='2024-05-31')
         assert res=={"date":"2024-04-2024-05","datelist":["total","2024-04","2024-05"],"index_info":{"1234-987A":{"name":"利用報告","id":"1616224532673","name_en":"Data Report"},"1234-567X":{"name":"New Index","id":"1714029010533","name_en":"New Index"}},"no_data":{"file_download":{"1234-987A":{"2024-04":0,"2024-05":0,"total":0},"1234-567X":{"2024-04":0,"2024-05":0,"total":0},"all_journals":{"2024-04":0,"2024-05":0}},"file_preview":{"1234-987A":{"2024-04":0,"2024-05":0,"total":0},"1234-567X":{"2024-04":0,"2024-05":0,"total":0},"all_journals":{"2024-04":0,"2024-05":0}},"search":{"2024-04":0,"2024-05":0,"total":0},"record_view":{"1234-987A":{"2024-04":0,"2024-05":0,"total":0,"file_download_count":{"2024-04":0,"2024-05":0,"total":0}},"1234-567X":{"2024-04":0,"2024-05":0,"total":0,"file_download_count":{"2024-04":0,"2024-05":0,"total":0}}}},"result":{"test":{"file_download":{"1234-987A":{"2024-04":0,"2024-05":2,"total":2},"1234-567X":{"2024-04":0,"2024-05":5,"total":5},"all_journals":{"2024-04":0,"2024-05":7}},"file_preview":{"1234-987A":{"2024-04":0,"2024-05":3,"total":3},"1234-567X":{"2024-04":0,"2024-05":0,"total":0},"all_journals":{"2024-04":0,"2024-05":3}},"search":{"2024-04":3,"2024-05":0,"total":3},"record_view":{"1234-987A":{"2024-04":26,"2024-05":0,"total":26,"file_download_count":{"2024-04":0,"2024-05":2,"total":2}},"1234-567X":{"2024-04":9,"2024-05":8,"total":17,"file_download_count":{"2024-04":0,"2024-05":5,"total":5}}}}}}
 
 
     no_res = {'start_date': '2024-04-01T00:00:00', 'end_date': '2024-05-31T23:59:59', 'value': 0.0, 'buckets': []}
-    with patch('invenio_stats.queries.ESTermsQuery.run', return_value = no_res):
+    with patch('invenio_stats.queries.TermsQuery.run', return_value = no_res):
         res = QuerySitelicenseReportsHelper.get(event='sitelicense_download', start_date='2024-04-01', end_date='2024-05-31')
         assert res == {"date":"2024-04-2024-05","datelist":["total","2024-04","2024-05"],"result":{},"no_data":{"file_download":{"1234-987A":{"2024-04":0,"2024-05":0,"total":0},"1234-567X":{"2024-04":0,"2024-05":0,"total":0},"all_journals":{"2024-04":0,"2024-05":0}},"file_preview":{"1234-987A":{"2024-04":0,"2024-05":0,"total":0},"1234-567X":{"2024-04":0,"2024-05":0,"total":0},"all_journals":{"2024-04":0,"2024-05":0}},"search":{"2024-04":0,"2024-05":0,"total":0},"record_view":{"1234-987A":{"2024-04":0,"2024-05":0,"total":0,"file_download_count":{"2024-04":0,"2024-05":0,"total":0}},"1234-567X":{"2024-04":0,"2024-05":0,"total":0,"file_download_count":{"2024-04":0,"2024-05":0,"total":0}}}},"index_info":{"1234-987A":{"name":"利用報告","id":"1616224532673","name_en":"Data Report"},"1234-567X":{"name":"New Index","id":"1714029010533","name_en":"New Index"}}}
 
     search = {"start_date":"2024-04-01T00:00:00","end_date":"2024-05-31T23:59:59","value":8,"buckets":[{"date":1711929600000,"site_license_name":"","count":2},{"date":1711929600000,"site_license_name":"test","count":3}]}
     no_res = {'start_date': '2024-04-01T00:00:00', 'end_date': '2024-04-30T23:59:59', 'value': 0.0, 'buckets': []}
-    with patch('invenio_stats.queries.ESTermsQuery.run') as m:
+    with patch('invenio_stats.queries.TermsQuery.run') as m:
         m.side_effect = [no_res, no_res, search, no_res]
         res = QuerySitelicenseReportsHelper.get(event='sitelicense_download', start_date='2024-04-01', end_date='2024-04-30')
         assert res=={"date":"2024-04","datelist":["2024-04"],"index_info":{"1234-987A":{"name":"利用報告","id":"1616224532673","name_en":"Data Report"},"1234-567X":{"name":"New Index","id":"1714029010533","name_en":"New Index"}},"no_data":{"file_download":{"1234-987A":{"2024-04":0},"1234-567X":{"2024-04":0},"all_journals":{"2024-04":0}},"file_preview":{"1234-987A":{"2024-04":0},"1234-567X":{"2024-04":0},"all_journals":{"2024-04":0}},"search":{"2024-04":0},"record_view":{"1234-987A":{"2024-04":0,"file_download_count":{"2024-04":0}},"1234-567X":{"2024-04":0,"file_download_count":{"2024-04":0}}}},"result":{"test":{"file_download":{"1234-987A":{"2024-04":0},"1234-567X":{"2024-04":0},"all_journals":{"2024-04":0}},"file_preview":{"1234-987A":{"2024-04":0},"1234-567X":{"2024-04":0},"all_journals":{"2024-04":0}},"search":{"2024-04":3},"record_view":{"1234-987A":{"2024-04":0,"file_download_count":{"2024-04":0}},"1234-567X":{"2024-04":0,"file_download_count":{"2024-04":0}}}}}}
 
-    with patch('invenio_stats.queries.ESTermsQuery.run', return_value = {}):
+    with patch('invenio_stats.queries.TermsQuery.run', return_value = {}):
         res = QuerySitelicenseReportsHelper.get(event='sitelicense_download', start_date='2024-04-01', end_date='2024-04-30')
         assert res=={"date":"2024-04","datelist":["2024-04"],"index_info":{"1234-987A":{"name":"利用報告","id":"1616224532673","name_en":"Data Report"},"1234-567X":{"name":"New Index","id":"1714029010533","name_en":"New Index"}},"no_data":{"file_download":{"1234-987A":{"2024-04":0},"1234-567X":{"2024-04":0},"all_journals":{"2024-04":0}},"file_preview":{"1234-987A":{"2024-04":0},"1234-567X":{"2024-04":0},"all_journals":{"2024-04":0}},"search":{"2024-04":0},"record_view":{"1234-987A":{"2024-04":0,"file_download_count":{"2024-04":0}},"1234-567X":{"2024-04":0,"file_download_count":{"2024-04":0}}}},"result":{}}
 
@@ -609,7 +603,7 @@ def test_query_access_counter_helper(app, es):
     'end_date': '2022-10-10T23:59:59',
     'value': 152.0
 }
-    with patch('invenio_stats.queries.ESTermsQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.TermsQuery.run', return_value=_res):
         res = QueryAccessCounterHelper.get_top_page_access_counter(year=2022, month=10, start_date='2022-10-01', end_date='2022-10-10')
         assert res=={'date': '2022-10-01-2022-10-10', 'all':{"count":152}}
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_utils.py::test_query_access_counter_helper_error -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
@@ -804,7 +798,7 @@ def test_query_item_reg_report_helper(app, db, event_queues, aggregated_file_dow
             },
         ]
     }
-    with patch('invenio_stats.queries.ESDateHistogramQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.DateHistogramQuery.run', return_value=_res):
         res = QueryItemRegReportHelper.get(target_report='1', unit='Day', start_date='0', end_date='0')
         assert res=={'num_page': 1, 'page': 1, 'data': [{'count': 1, 'start_date': '2022-10-01', 'end_date': '2022-10-01'}]}
 
@@ -823,7 +817,7 @@ def test_query_item_reg_report_helper(app, db, event_queues, aggregated_file_dow
             },
         ]
     }
-    with patch('invenio_stats.queries.ESDateHistogramQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.DateHistogramQuery.run', return_value=_res):
         res = QueryItemRegReportHelper.get(target_report='1', unit='Week', start_date='0', end_date='0')
         assert res=={'num_page': 1, 'page': 1, 'data': [{'count': 1, 'start_date': '2022-10-01', 'end_date': '2022-10-07', 'is_restricted': False}]}
 
@@ -854,7 +848,7 @@ def test_query_item_reg_report_helper(app, db, event_queues, aggregated_file_dow
             }
         ]
     }
-    with patch('invenio_stats.queries.ESDateHistogramQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.DateHistogramQuery.run', return_value=_res):
         res = QueryItemRegReportHelper.get(target_report='1', unit='User', start_date='0', end_date='0')
         assert res=={'num_page': 0, 'page': 1, 'data': [{'user_id': '1', 'count': 5}, {'user_id': '2', 'count': 4}]}
 
@@ -873,7 +867,7 @@ def test_query_item_reg_report_helper(app, db, event_queues, aggregated_file_dow
             },
         ]
     }
-    with patch('invenio_stats.queries.ESDateHistogramQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.DateHistogramQuery.run', return_value=_res):
         res = QueryItemRegReportHelper.get(target_report='1', unit='Year', start_date='0', end_date='0')
         assert res=={'num_page': 1, 'page': 1, 'data': [{'count': 1, 'start_date': '2022-01-01', 'end_date': '2022-12-31', 'year': 2022, 'is_restricted': False}]}
 
@@ -899,7 +893,7 @@ def test_query_item_reg_report_helper(app, db, event_queues, aggregated_file_dow
             }
         ]
     }
-    with patch('invenio_stats.queries.ESWekoTermsQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.WekoTermsQuery.run', return_value=_res):
         res = QueryItemRegReportHelper.get(target_report='3', unit='Item', start_date='0', end_date='0', ranking=True)
         assert res=={'num_page': 1, 'page': 1, 'data': [{'col1': '1', 'col2': 'name1', 'col3': 1}]}
 
@@ -916,7 +910,7 @@ def test_query_item_reg_report_helper(app, db, event_queues, aggregated_file_dow
             }
         ]
     }
-    with patch('invenio_stats.queries.ESTermsQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.TermsQuery.run', return_value=_res):
         res = QueryItemRegReportHelper.get(target_report='3', unit='Host', start_date='0', end_date='0')
         assert res=={'num_page': 1, 'page': 1, 'data': [{'count': 1, 'start_date': '', 'end_date': '', 'domain': 'mayPC', 'ip': 'localhost'}]}
 
@@ -1014,7 +1008,7 @@ def test_query_ranking_helper(app, db, es):
             ]
         }
     }
-    with patch('invenio_stats.queries.ESWekoRankingQuery.run', return_value=_res):
+    with patch('invenio_stats.queries.WekoRankingQuery.run', return_value=_res):
         res = QueryRankingHelper.get_new_items(must_not=json.dumps([{"wildcard": {"control_number": "*.*"}}]), start_date='2022-09-01', end_date='2022-09-15')
         assert res==[{'path': 'path1'}]
 
@@ -1030,14 +1024,14 @@ def test_query_ranking_helper_error(app, db):
 # class StatsCliUtil:
 #     def __init__(
 #     def delete_data(self, bookmark: bool = False) -> NoReturn:
-#     def restore_data(self, bookmark: bool = False) -> NoReturn:
-#     def __prepare_es_indexes(
-#     def __build_es_data(self, data_list: list) -> Generator:
+#     def restore_data(self) -> NoReturn:
+#     def __prepare_search_indexes(
+#     def __build_search_data(self, data_list: list) -> Generator:
 #     def __get_data_from_db_by_stats_type(self, data_model, bookmark):
 #     def __get_stats_data_from_db(
 #     def __show_message(self, index_name, success, failed):
-#     def __cli_restore_es_data_from_db(
-#     def __cli_delete_es_index(self, _index: str, doc_type: str) -> NoReturn:
+#     def __cli_restore_search_data_from_db(
+#     def __cli_delete_search_index(self, _index: str, doc_type: str) -> NoReturn:
 #         def _delete_actions():
 #     def __parse_date(
 #         def _parse_day():

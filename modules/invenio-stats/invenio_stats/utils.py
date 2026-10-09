@@ -26,17 +26,14 @@ import click
 import netaddr
 import six
 from dateutil import parser
-from elasticsearch import VERSION as ES_VERSION
-from elasticsearch import exceptions as es_exceptions
-from elasticsearch_dsl.aggs import A
-from elasticsearch.helpers import bulk
-from elasticsearch_dsl import Search
 from flask import current_app, request, session
 from flask_login import current_user
 from geolite2 import geolite2
 from invenio_cache import current_cache
+from invenio_db import db
 from invenio_search import current_search_client
 from invenio_search.api import RecordsSearch
+from invenio_search.engine import dsl, search
 from sqlalchemy import asc
 from invenio_accounts.models import Role
 from invenio_stats.utils_search import billing_file_search_factory
@@ -184,11 +181,6 @@ def parse_bucket_response(raw_res, pretty_result=dict()):
             raw_res['buckets'][0], pretty_result)
     else:
         return pretty_result
-
-
-def get_doctype(doc_type):
-    """Configure doc_type value according to ES version."""
-    return doc_type if ES_VERSION[0] < 7 else '_doc'
 
 
 def is_valid_access():
@@ -580,7 +572,7 @@ class QuerySearchReportHelper(object):
                 all.append(current_report)
             all = sorted(all, key=lambda x:x['count'], reverse=True)
             result['all'] = all
-        except es_exceptions.NotFoundError as e:
+        except search.NotFoundError as e:
             traceback.print_exc()
             current_app.logger.debug(
                 "Indexes do not exist yet:" + str(e.info['error']))
@@ -1027,11 +1019,11 @@ class QueryRecordViewPerIndexReportHelper(object):
     @classmethod
     def build_query(cls, start_date, end_date, after_key=None):
         """Get nested aggregation by index id."""
-        agg_query = Search(
+        agg_query = dsl.Search(
             using=current_search_client,
-            index='{}-events-stats-record-view'.format(
-                current_app.config['SEARCH_INDEX_PREFIX'].strip('-')),
-            doc_type='stats-record-view')[0:0]  # FIXME: Get ALL results
+            index='{}-events-stats-index'.format(
+                current_app.config['SEARCH_INDEX_PREFIX'].strip('-'))
+        ).filter('term', event_type='record-view')[0:0]  # FIXME: Get ALL results
 
         if start_date is not None and end_date is not None:
             time_range = {}
@@ -1042,8 +1034,8 @@ class QueryRecordViewPerIndexReportHelper(object):
                 'term', **{'is_restricted': False})
 
         size = current_app.config['STATS_ES_INTEGER_MAX_VALUE']
-        sources = [{cls.index_id_field: A('terms', field=cls.index_id_field)},
-                   {cls.index_name_field: A('terms', field=cls.index_name_field)}]
+        sources = [{cls.index_id_field: dsl.aggs.A('terms', field=cls.index_id_field)},
+                   {cls.index_name_field: dsl.aggs.A('terms', field=cls.index_name_field)}]
 
         base_agg = agg_query.aggs.bucket(cls.nested_path, 'nested', path=cls.nested_path)
         if after_key:
@@ -1218,7 +1210,7 @@ class QueryRecordViewReportHelper(object):
             all_res = all_query.run(**params)
             cls.Calculation(all_res, all_list)
 
-        except es_exceptions.NotFoundError as e:
+        except search.NotFoundError as e:
             traceback.print_exc()
             current_app.logger.debug(e)
             result['all'] = []
@@ -1559,7 +1551,7 @@ class QueryItemRegReportHelper(object):
                                         reverse=True)
                 else:
                     result = []
-            except es_exceptions.NotFoundError as e:
+            except search.NotFoundError as e:
                 current_app.logger.debug(e)
                 result = []
             except Exception as e:
@@ -1630,7 +1622,7 @@ class QueryRankingHelper(object):
 
             cls.Calculation(all_res, result)
 
-        except es_exceptions.NotFoundError as e:
+        except search.NotFoundError as e:
             current_app.logger.debug(e)
         except Exception as e:
             current_app.logger.debug(e)
@@ -1660,7 +1652,7 @@ class QueryRankingHelper(object):
                 if r.get('_source', {}).get('path'):
                     result.append(r['_source'])
 
-        except es_exceptions.NotFoundError as e:
+        except search.NotFoundError as e:
             current_app.logger.debug(e)
         except Exception as e:
             current_app.logger.debug(e)
@@ -1707,81 +1699,95 @@ class StatsCliUtil:
             self.flush_indices = set()
 
     def delete_data(self, bookmark: bool = False) -> NoReturn:
-        """Delete stats data in Elasticsearch.
+        """Delete stats data in search engine.
 
         :param bookmark: set True if delete bookmark
         """
-        for _index, _type in self.__prepare_es_indexes(delete=True):
-            self.__cli_delete_es_index(_index, _type)
+        for _index, _type in self.__prepare_search_indexes():
+            self.__cli_delete_search_index(_index, _type)
         if bookmark:
             if self.verbose:
                 click.secho(
                     'Start deleting Bookmark data...',
                     fg='green'
                 )
-            _bookmark_index = "{}-stats-bookmarks".format(
-                self._search_index_prefix)
-            _bookmark_doc_type = get_doctype('aggregation-bookmark')
-            self.__cli_delete_es_index(_bookmark_index, _bookmark_doc_type)
+            StatsBookmark.query.delete()
+            db.session.commit()
 
-    def restore_data(self, bookmark: bool = False) -> NoReturn:
-        """Restore stats data.
-
-        :param bookmark: set True if restore bookmark
-        """
+    def restore_data(self) -> NoReturn:
+        """Restore stats data in search engine."""
         if self.cli_type == self.EVENTS_TYPE:
             data = self.__get_stats_data_from_db(StatsEvents)
         else:
             data = self.__get_stats_data_from_db(StatsAggregation)
-        self.__cli_restore_es_data_from_db(data)
+        modified_data = self.__modify_restore_data(data)
+        self.__cli_restore_search_data_from_db(modified_data)
 
-        if bookmark:
-            if self.verbose:
-                click.secho(
-                    'Start to restore of Bookmark data '
-                    'from the Database to Elasticsearch...',
-                    fg='green'
-                )
-            bookmark_data = self.__get_stats_data_from_db(StatsBookmark,
-                                                          bookmark)
-            self.__cli_restore_es_data_from_db(bookmark_data)
-
-    def __prepare_es_indexes(
-        self, bookmark_index=False, delete=False
-    ):
-        """Prepare ElasticSearch index data.
-
-        :param bookmark_index: set True if prepare the index for the bookmark
-        :param delete: set True if prepare the index for the delete data feature
+    def __modify_restore_data(self, data):
         """
+        Modify restore data to meet the new requirements.
+
+        Args:
+            data (dict): Original restore data from the database.
+
+        Returns:
+            generator: Modified data generator.
+        """
+        search_index_prefix = current_app.config["SEARCH_INDEX_PREFIX"].strip("-")
+        stats_index = search_index_prefix + "-stats-index"
+        event_stats_index = search_index_prefix + "-events-stats-index"
+
+        for doc in data:
+            import json
+            index = doc["_index"]
+            document = doc["_source"]
+
+            if isinstance(document, str):
+                try:
+                    document = json.loads(document)
+                except json.JSONDecodeError:
+                    raise ValueError("The provided _index string is not valid JSON.")
+            elif not isinstance(document, dict):
+                raise TypeError("The provided _index must be either a string or a dictionary.")
+
+            event_type = document.get("event_type", None)
+            if not event_type:
+                if self.cli_type==self.EVENTS_TYPE:
+                    # tenant1-events-stats-file-download
+                    event_type = index.replace(search_index_prefix + "-events-stats-", "")
+                    doc["_index"] = event_stats_index
+                elif self.cli_type==self.AGGREGATIONS_TYPE:
+                    # tenant1-stats-file-download
+                    event_type = index.replace(search_index_prefix + "-stats-", "")
+                    doc["_index"] = stats_index
+                if event_type in {"file-download", "file-preview"}:
+                    doc["_id"] = f"{doc['_id']}-{event_type}"
+                    if "unique_id" in document:
+                        document["unique_id"] = f"{document['unique_id']}-{event_type}"
+                    else:
+                        current_app.logger.error(f"[{event_type}] document has no unique_id field.")
+                document["event_type"] = event_type
+            doc["_source"] = document
+            yield doc
+
+    def __prepare_search_indexes(self):
+        """Prepare Search index data."""
+
         search_index_prefix = current_app.config['SEARCH_INDEX_PREFIX'].strip(
             '-')
         for _type in self.stats_types:
             if not _type:
                 continue
-            prefix = "stats-{}"
-            search_type = prefix.format(_type)
-            # In case prepare indexes for the stats bookmark
-            if bookmark_index:
-                _index = "{}-stats-bookmarks".format(search_index_prefix)
-                _doc_type = get_doctype('aggregation-bookmark')
-            # In case prepare indexes for the stats event
-            elif self.index_prefix:
-                _index = '{0}-{1}-{2}'.format(
-                    search_index_prefix,
-                    self.index_prefix,
-                    search_type
-                )
-                _doc_type = search_type
-            else:
-                _index = '{0}-{1}'.format(search_index_prefix, search_type)
-                _doc_type = '{0}-{1}-aggregation'.format(_type, "day")
-            if not delete:
-                yield _index
-            else:
-                yield _index, _doc_type
+            prefix = "stats-index"
 
-    def __build_es_data(self, data_list: list) -> Generator:
+            if self.index_prefix:
+                _index = f"{search_index_prefix}-{self.index_prefix}-{prefix}"
+            else:
+                _index = f"{search_index_prefix}-{prefix}"
+
+            yield _index, _type
+
+    def __build_search_data(self, data_list: list) -> Generator:
         """Build Elasticsearch data.
 
         :param data_list: Stats data from DB.
@@ -1789,35 +1795,26 @@ class StatsCliUtil:
         for data in data_list:
             if self.flush_indices is not None:
                 self.flush_indices.add(data.index)
-            es_data = dict(
+            search_data = dict(
                 _id=data.source_id,
                 _index=data.index,
-                _type=data.type,
                 _source=data.source,
             )
             if self.cli_type == self.EVENTS_TYPE:
-                es_data['_op_type'] = "index"
-            yield es_data
+                search_data['_op_type'] = "index"
+            yield search_data
 
-    def __get_data_from_db_by_stats_type(self, data_model, bookmark):
+    def __get_data_from_db_by_stats_type(self, data_model):
         rtn_data = []
-        if not bookmark:
-            indexes = self.__prepare_es_indexes(bookmark)
-            for _index in indexes:
-                data = data_model.get_by_index(_index, self.start_date,
-                                               self.end_date)
-                if data:
-                    rtn_data.extend(data)
-        else:
-            for _type in self.stats_types:
-                data = data_model.get_by_source_id(_type)
-                if data:
-                    rtn_data.extend(data)
+        for _index, _type in self.__prepare_search_indexes():
+            data = data_model.get_by_event_type(_index, _type, self.start_date, self.end_date)
+            if data:
+                rtn_data.extend(data)
         return rtn_data
 
     def __get_stats_data_from_db(
         self,
-        data_model, bookmark: bool = False
+        data_model
     ) -> Generator:
         """Get bookmark data from database.
 
@@ -1826,11 +1823,10 @@ class StatsCliUtil:
         :return:
         """
         if self.stats_types:
-            rtn_data = self.__get_data_from_db_by_stats_type(data_model,
-                                                             bookmark)
+            rtn_data = self.__get_data_from_db_by_stats_type(data_model)
         else:
             rtn_data = data_model.get_all(self.start_date, self.end_date)
-        return self.__build_es_data(rtn_data)
+        return self.__build_search_data(rtn_data)
 
     def __show_message(self, index_name, success, failed):
         """Show message.
@@ -1852,7 +1848,7 @@ class StatsCliUtil:
                 for err in failed:
                     click.secho(str(err), fg='red')
 
-    def __cli_restore_es_data_from_db(
+    def __cli_restore_search_data_from_db(
         self,
         restore_data: Generator,
         flush_indices: set = None
@@ -1863,7 +1859,7 @@ class StatsCliUtil:
         :param flush_indices:
         """
         if restore_data:
-            success, failed = bulk(
+            success, failed = search.helpers.bulk(
                 current_search_client,
                 restore_data,
                 stats_only=self.force,
@@ -1881,16 +1877,18 @@ class StatsCliUtil:
                 click.secho('There is no stats data from Database.',
                             fg='yellow')
 
-    def __cli_delete_es_index(self, _index: str, doc_type: str) -> NoReturn:
-        """Delete ES index.
+    def __cli_delete_search_index(self, _index, _type) -> NoReturn:
+        """Delete Search index.
 
-        :param _index: Elasticsearch index.
-        :param doc_type: document type.
+        :param _index: search engine index.
+        :param _type: search engine type.
         """
-        query = Search(
+        query = dsl.Search(
             using=current_search_client,
             index=_index,
-            doc_type=doc_type,
+        ).filter(
+            "term",
+            event_type=_type,
         ).params(raise_on_error=False, ignore=[400, 404])
         range_args = {}
         if self.start_date:
@@ -1906,13 +1904,12 @@ class StatsCliUtil:
                     self.affected_indices.add(doc.meta.index)
                 yield dict(_index=doc.meta.index,
                            _op_type='delete',
-                           _id=doc.meta.id,
-                           _type=doc.meta.doc_type)
+                           _id=doc.meta.id)
             if self.affected_indices is not None:
                 current_search_client.indices.flush(
                     index=','.join(self.affected_indices), wait_if_ongoing=True)
 
-        success, failed = bulk(
+        success, failed = search.helpers.bulk(
             current_search_client,
             _delete_actions(),
             stats_only=self.force,

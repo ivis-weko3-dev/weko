@@ -22,10 +22,6 @@ from os.path import dirname, join
 
 import pytest
 from mock import patch, MagicMock
-from elasticsearch import Elasticsearch
-from elasticsearch import VERSION as ES_VERSION
-from elasticsearch.exceptions import RequestError
-from elasticsearch_dsl import response, Search
 from flask import Flask, url_for, Response
 from flask_login import LoginManager, UserMixin
 from tests.helpers import create_record
@@ -41,6 +37,9 @@ from invenio_records import InvenioRecords
 from invenio_rest import InvenioREST
 from invenio_search import InvenioSearch, RecordsSearch, current_search, \
     current_search_client
+from invenio_search.engine import dsl
+from invenio_search.engine import search as search_engine
+from invenio_search.errors import IndexAlreadyExistsError
 from sqlalchemy_utils.functions import create_database, database_exists
 from weko_records import WekoRecords
 from weko_records.models import ItemTypeMapping
@@ -95,7 +94,7 @@ def search_url():
 class MockEs():
     def __init__(self,**keywargs):
         self.indices = self.MockIndices()
-        self.es = Elasticsearch()
+        self.es = search_engine.OpenSearch()
         self.cluster = self.MockCluster()
     def index(self, id="",version="",version_type="",index="",doc_type="",body="",**arguments):
         pass
@@ -177,7 +176,6 @@ def app(request, search_class):
     app.config.update(
         SECRET_KEY="SECRET_KEY",
         ACCOUNTS_JWT_ENABLE=False,
-        INDEXER_DEFAULT_DOC_TYPE='testrecord',
         INDEXER_DEFAULT_INDEX=search_class.Meta.index,
         RECORDS_REST_ENDPOINTS=copy.deepcopy(config.RECORDS_REST_ENDPOINTS),
         RECORDS_REST_DEFAULT_CREATE_PERMISSION_FACTORY=None,
@@ -276,7 +274,7 @@ def es(app):
     """Elasticsearch fixture."""
     try:
         list(current_search.create())
-    except RequestError:
+    except (search_engine.RequestError, IndexAlreadyExistsError):
         list(current_search.delete(ignore=[404]))
         list(current_search.create(ignore=[400]))
     current_search_client.indices.refresh()
@@ -287,34 +285,17 @@ def es(app):
 def record_indexer_receiver(sender, json=None, record=None, index=None,
                             **kwargs):
     """Mock-receiver of a before_record_index signal."""
-    if ES_VERSION[0] == 2:
-        suggest_byyear = {}
-        suggest_byyear['context'] = {
-            'year': json['year']
-        }
-        suggest_byyear['input'] = [json['title'], ]
-        suggest_byyear['output'] = json['title']
-        suggest_byyear['payload'] = copy.deepcopy(json)
 
-        suggest_title = {}
-        suggest_title['input'] = [json['title'], ]
-        suggest_title['output'] = json['title']
-        suggest_title['payload'] = copy.deepcopy(json)
+    suggest_byyear = {}
+    suggest_byyear['contexts'] = {
+        'year': [str(json['year'])]
+    }
+    suggest_byyear['input'] = [json['title'], ]
 
-        json['suggest_byyear'] = suggest_byyear
-        json['suggest_title'] = suggest_title
-
-    elif ES_VERSION[0] >= 5:
-        suggest_byyear = {}
-        suggest_byyear['contexts'] = {
-            'year': [str(json['year'])]
-        }
-        suggest_byyear['input'] = [json['title'], ]
-
-        suggest_title = {}
-        suggest_title['input'] = [json['title'], ]
-        json['suggest_byyear'] = suggest_byyear
-        json['suggest_title'] = suggest_title
+    suggest_title = {}
+    suggest_title['input'] = [json['title'], ]
+    json['suggest_byyear'] = suggest_byyear
+    json['suggest_title'] = suggest_title
 
     return json
 
@@ -395,7 +376,7 @@ def mock_es_execute():
         if isinstance(data, str):
             with open(data, "r") as f:
                 data = json.load(f)
-        dummy=response.Response(Search(), data)
+        dummy=dsl.response.Response(dsl.Search(), data)
         return dummy
     return _dummy_response
 

@@ -1,6 +1,6 @@
 import orjson
 from flask import current_app, request
-from elasticsearch_dsl import Q
+from invenio_search.engine import dsl
 from flask_login import current_user
 from invenio_access import Permission, action_factory
 from invenio_records_rest.errors import InvalidQueryRESTError
@@ -14,12 +14,12 @@ def billing_file_search_factory(search):
     mst = get_permission_filter()
 
     # billing file search filter
-    query = Q('bool', must=[{'terms': {'content.billing.raw': ['billing_file']}}])
-    should = [Q('nested', path='content', query=query)]
-    mkq = [Q('bool', should=should)]
+    query = dsl.Q('bool', must=[{'terms': {'content.billing.raw': ['billing_file']}}])
+    should = [dsl.Q('nested', path='content', query=query)]
+    mkq = [dsl.Q('bool', should=should)]
     mst.extend(mkq)
 
-    query_q = Q("bool", must=mst) if mst else Q()
+    query_q = dsl.Q("bool", must=mst) if mst else dsl.Q()
 
     search = search.source(includes=['path', 'content.filename', '_item_metadata.owner', '_oai.id'])
 
@@ -53,9 +53,9 @@ def get_permission_filter(index_id: str = None):
         List: Query command.
 
     """
-    match = Q("match", publish_status="0")
-    version = Q("match", relation_version_is_last="true")
-    rng = Q("range", **{"publish_date": {"lte": "now/d"}})
+    match = dsl.Q("match", publish_status="0")
+    version = dsl.Q("match", relation_version_is_last="true")
+    rng = dsl.Q("range", **{"publish_date": {"lte": "now/d"}})
     mst = []
 
     mst.append(match)
@@ -64,9 +64,9 @@ def get_permission_filter(index_id: str = None):
     mut = []
     shuld= []
 
-    shuld.append(Q("bool", must=mst))
-    mut.append(Q("bool", should=shuld))
-    mut.append(Q("bool", must=version))
+    shuld.append(dsl.Q("bool", must=mst))
+    mut.append(dsl.Q("bool", should=shuld))
+    mut.append(dsl.Q("bool", must=version))
 
     return mut
 

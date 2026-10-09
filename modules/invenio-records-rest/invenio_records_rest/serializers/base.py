@@ -127,7 +127,7 @@ class PreprocessorMixinInterface(object):
 
     @staticmethod
     def preprocess_search_hit(pid, record_hit, links_factory=None, **kwargs):
-        """Prepare a record hit from Elasticsearch for serialization.
+        """Prepare a record hit from the search engine for serialization.
 
         :param pid: Persistent identifier instance.
         :param record_hit: Record metadata retrieved via search.
@@ -247,7 +247,7 @@ class PreprocessorMixin(PreprocessorMixinInterface):
 
     @staticmethod
     def preprocess_search_hit(pid, record_hit, links_factory=None, **kwargs):
-        """Prepare a record hit from Elasticsearch for serialization."""
+        """Prepare a record hit from the search engine for serialization."""
         links_factory = links_factory or (lambda x, **k: dict())
         record = dict(
             pid=pid,

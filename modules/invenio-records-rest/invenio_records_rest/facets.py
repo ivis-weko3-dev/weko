@@ -14,8 +14,7 @@ information on how to specify aggregations and filters.
 
 from __future__ import absolute_import, print_function
 
-from elasticsearch_dsl import Q
-from elasticsearch_dsl.query import Range
+from invenio_search.engine import dsl
 from flask import current_app, request
 from invenio_rest.errors import FieldError, RESTValidationError
 from six import text_type
@@ -29,7 +28,7 @@ def terms_filter(field):
     :returns: Function that returns the Terms query.
     """
     def inner(values):
-        return Q('terms', **{field: values})
+        return dsl.Q('terms', **{field: values})
     return inner
 
 
@@ -74,7 +73,7 @@ def range_filter(field, start_date_math=None, end_date_math=None, **kwargs):
         args = kwargs.copy()
         args.update(range_args)
 
-        return Range(**{field: args})
+        return dsl.query.Range(**{field: args})
 
     return inner
 

@@ -108,7 +108,7 @@ RECORDS_REST_ENDPOINTS["recid"]["search_serializers"] = {
     "application/json": ("weko_records.serializers" ":json_v1_search"),
 }
 
-RECORDS_REST_ENDPOINTS["recid"]["search_index"] = "{}-weko".format(index_prefix)
+RECORDS_REST_ENDPOINTS["recid"]["search_index"] = "weko"
 RECORDS_REST_ENDPOINTS["recid"]["search_type"] = "item-v1.0.0"
 
 # Opensearch endpoint
@@ -132,12 +132,10 @@ RECORDS_REST_ENDPOINTS["recid"]["record_serializers"] = {
 
 # RECORDS_REST_ENDPOINTS['recid']['read_permission_factory_imp'] = allow_all
 
-INDEXER_DEFAULT_INDEX = "{}-weko-item-v1.0.0".format(index_prefix)  # Use direct index
-INDEXER_DEFAULT_DOCTYPE = "item-v1.0.0"
-INDEXER_DEFAULT_DOC_TYPE = "item-v1.0.0"
+INDEXER_DEFAULT_INDEX = "weko-item-v1.0.0"  # Use direct index
 INDEXER_FILE_DOC_TYPE = "content"
 
-SEARCH_UI_SEARCH_INDEX = "{}-weko".format(index_prefix)
+SEARCH_UI_SEARCH_INDEX = "weko"
 
 # set item type aggs
 RECORDS_REST_FACETS = dict()

@@ -125,7 +125,6 @@ app.config.update(
     RECORDS_REST_DEFAULT_DELETE_PERMISSION_FACTORY=None,
     SQLALCHEMY_TRACK_MODIFICATIONS=True,
     INDEXER_DEFAULT_INDEX=index_name,
-    INDEXER_DEFAULT_DOC_TYPE='testrecord-v1.0.0',
     SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                       'sqlite:///app.db'),
 )

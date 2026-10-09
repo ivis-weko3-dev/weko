@@ -15,14 +15,13 @@ from itertools import tee
 from time import mktime
 
 import arrow
-import elasticsearch
 from counter_robots import is_machine, is_robot
 from dateutil import parser
 from flask import current_app
 from invenio_search import current_search_client
 from pytz import utc
 from weko_admin.api import is_restricted_user
-
+from invenio_search.engine import search
 from .models import StatsEvents
 from .utils import get_anonymization_salt, get_geoip, obj_or_import_string
 
@@ -162,11 +161,11 @@ class EventsIndexer(object):
                  preprocessors=None, double_click_window=10):
         """Initialize indexer.
 
-        :param prefix: prefix appended to elasticsearch indices' name.
-        :param suffix: suffix appended to elasticsearch indices' name.
+        :param prefix: prefix appended to the search engine indices' name.
+        :param suffix: suffix appended to the search engine indices' name.
         :param double_click_window: time window during which similar events are
             deduplicated (counted as one occurence).
-        :param client: elasticsearch client.
+        :param client: search engine client.
         :param preprocessors: a list of functions which are called on every
             event before it is indexed. Each function should return the
             processed event. If it returns None, the event is filtered and
@@ -205,7 +204,7 @@ class EventsIndexer(object):
                 ts = parser.parse(msg.get('timestamp'))
                 
                 # Truncate timestamp to keep only seconds. This is to improve
-                # elasticsearch performances.
+                # the search engine performances.
                 ts = ts.replace(microsecond=0)
                 
                 msg['timestamp'] = ts.isoformat()
@@ -235,7 +234,7 @@ class EventsIndexer(object):
 
     def run(self):
         """Process events queue."""
-        return elasticsearch.helpers.bulk(
+        return search.helpers.bulk(
             self.client,
             self.actionsiter(),
             stats_only=True,

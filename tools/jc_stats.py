@@ -10,7 +10,6 @@ from flask import current_app
 from weko_search_ui.utils import get_doi_prefix
 from weko_schema_ui.models import PublishStatus
 from invenio_search import RecordsSearch
-from elasticsearch import Elasticsearch, helpers
 import datetime
 
 today = datetime.date.today()
@@ -107,7 +106,7 @@ aggs_results = get_aggregations(
     current_app.config['SEARCH_UI_SEARCH_INDEX'], aggs_query)
 
 public_item_count = aggs_results['aggregations']['aggs_public']['doc_count']
-item_count = aggs_results['hits']['total']
+item_count = aggs_results['hits']['total']['value']
 private_item_count = item_count-public_item_count
 
 

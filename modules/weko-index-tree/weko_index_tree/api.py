@@ -1480,7 +1480,7 @@ class Indexes(object):
             db.session.rollback()
 
     @classmethod
-    def update_item_sort_custom_es(cls, index_path, sort_json=[]):
+    def update_item_sort_custom_search(cls, index_path, sort_json=[]):
         """Set custom sort.
 
         :param index_path selected index path
@@ -1495,13 +1495,12 @@ class Indexes(object):
                     }
                 }
             }
-            es_index = current_app.config['SEARCH_UI_SEARCH_INDEX']
-            es_doc_type = current_app.config['INDEXER_DEFAULT_DOCTYPE']
+            search_index = current_app.config['SEARCH_UI_SEARCH_INDEX']
             query_q = orjson.dumps(upd_item_sort_q).decode().replace("@index", index_path)
             query_q = orjson.loads(query_q)
             indexer = RecordIndexer()
             res = indexer.client.search(
-                index=es_index,
+                index=search_index,
                 body=query_q)
 
             for d in sort_json:
@@ -1515,8 +1514,7 @@ class Indexes(object):
                             }
                         }
                         indexer.client.update(
-                            index=es_index,
-                            doc_type=es_doc_type,
+                            index=search_index,
                             id=h.get("_id"),
                             body=body
                         )

@@ -89,7 +89,7 @@ def base_app(instance_path):
         SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
         OAUTH2_CACHE_TYPE='simple',
         OAUTHLIB_INSECURE_TRANSPORT=True,
-        SEARCH_ELASTIC_HOSTS=os.environ.get("SEARCH_ELASTIC_HOSTS", "elasticsearch"),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch"),
         CACHE_TYPE="redis",
         CACHE_REDIS_URL="redis://redis:6379/0",
         CACHE_REDIS_DB="0",
@@ -100,7 +100,6 @@ def base_app(instance_path):
         WEKO_MAX_FILE_SIZE_FOR_ES = 1 * 1024 * 1024,
         DEPOSIT_DEFAULT_JSONSCHEMA = 'deposits/deposit-v1.0.0.json',
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME = 'jpcoar_v1_mapping',
@@ -159,15 +158,15 @@ def client(app):
 @pytest.yield_fixture()
 def esindex(app):
     app.config.update(
-        WEKO_AUTHORS_ES_INDEX_NAME="test-weko-author"
+        WEKO_AUTHORS_SEARCH_INDEX_NAME="test-weko-author"
     )
     current_search_client.indices.delete(index="test-*")
     mapping_author = json_data("data/author-v1.0.0.json")
     current_search_client.indices.create(
-        app.config["WEKO_AUTHORS_ES_INDEX_NAME"], body=mapping_author
+        app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"], body=mapping_author
     )
     current_search_client.indices.put_alias(
-        index=app.config["WEKO_AUTHORS_ES_INDEX_NAME"],name="test-weko-authors"
+        index=app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"],name="test-weko-authors"
     )
     
     mapping_item = json_data("data/item-v1.0.0.json")

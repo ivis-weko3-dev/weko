@@ -18,12 +18,10 @@ import json
 from os.path import join, dirname
 from mock import patch
 
-from elasticsearch import Elasticsearch
 from flask import Flask
 from flask_celeryext import FlaskCeleryExt
 from flask_babelex import Babel
 from sqlalchemy_utils.functions import create_database, database_exists
-from elasticsearch_dsl import response, Search
 
 from invenio_access import InvenioAccess
 from invenio_accounts import InvenioAccounts
@@ -39,6 +37,7 @@ from invenio_marc21 import InvenioMARC21
 from invenio_pidstore import InvenioPIDStore
 from invenio_records import InvenioRecords
 from invenio_search import InvenioSearch
+from invenio_search.engine import search, dsl
 from weko_records.api import ItemTypes
 from weko_records.models import ItemTypeName
 from weko_records_ui.config import WEKO_RECORDS_UI_LICENSE_DICT
@@ -94,11 +93,10 @@ def base_app(instance_path):
             }
         },
         WEKO_RECORDS_UI_LICENSE_DICT=WEKO_RECORDS_UI_LICENSE_DICT,
-        INDEXER_DEFAULT_DOCTYPE='item-v1.0.0',
         INDEXER_FILE_DOC_TYPE='content',
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
-        SEARCH_ELASTIC_HOSTS="elasticsearch",
+        SEARCH_OPENSEARCH_HOSTS="opensearch",
         SEARCH_INDEX_PREFIX="test-"
     )
     if not hasattr(app_, 'cli'):
@@ -278,28 +276,28 @@ def es_app(app):
     with open(join(dirname(__file__),"data/mappings/item-v1.0.0.json"),"r") as f:
     #with open(join(dirname(__file__),"data/v6/records/record-v1.0.0.json"),"r") as f:
         mapping = json.load(f)
-    es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
+    open_search = search.OpenSearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
     
-    es.indices.create(
+    open_search.indices.create(
         index=app.config["INDEXER_DEFAULT_INDEX"], 
         body=mapping, ignore=[400, 404]
     )
     
-    es.indices.put_alias(
+    open_search.indices.put_alias(
         index=app.config["INDEXER_DEFAULT_INDEX"],
         name=app.config["SEARCH_UI_SEARCH_INDEX"],
         ignore=[400, 404],
     )
-    search = InvenioSearch(app, client=es)
+    search_ext = InvenioSearch(app, client=open_search)
     #search.register_mappings('items', 'tests.data')
     yield app
     
-    es.indices.delete_alias(
+    open_search.indices.delete_alias(
         index=app.config["INDEXER_DEFAULT_INDEX"],
         name=app.config["SEARCH_UI_SEARCH_INDEX"],
         ignore=[400, 404],
     )
-    es.indices.delete(
+    open_search.indices.delete(
         index=app.config["INDEXER_DEFAULT_INDEX"], 
         ignore=[400, 404])
     
@@ -367,7 +365,7 @@ def schema():
 @pytest.fixture()
 def mock_execute():
     def factory(data):
-        dummy = response.Response(Search(), data)
+        dummy = dsl.response.Response(dsl.Search(), data)
         return dummy
     return factory
 

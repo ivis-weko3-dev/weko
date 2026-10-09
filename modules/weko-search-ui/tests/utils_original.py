@@ -673,7 +673,7 @@ def test_handle_get_all_sub_id_and_name(app,items,root_id,root_name,form,ids,nam
 # def cancel_export_all():
 # def get_export_status():
 # def handle_check_item_is_locked(item):
-# def handle_remove_es_metadata(item, bef_metadata, bef_last_ver_metadata):
+# def handle_remove_search_metadata(item, bef_metadata, bef_last_ver_metadata):
 # def check_index_access_permissions(func):
 # def handle_check_file_metadata(list_record, data_path):
 # def handle_check_file_path(

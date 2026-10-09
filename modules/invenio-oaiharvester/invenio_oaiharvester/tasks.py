@@ -323,8 +323,8 @@ def process_item(record, harvesting, counter, request_info):
 
     if event == ItemEvents.CREATE:
         event_counter('created_items', counter)
-        from weko_search_ui.utils import send_item_created_event_to_es
-        send_item_created_event_to_es(dep, request_info)
+        from weko_search_ui.utils import send_item_created_event_to_search
+        send_item_created_event_to_search(dep, request_info)
     elif event == ItemEvents.UPDATE:
         event_counter('updated_items', counter)
     else: #event == ItemEvents.DELETE:

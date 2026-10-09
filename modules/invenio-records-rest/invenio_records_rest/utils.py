@@ -97,7 +97,7 @@ def deny_all(*args, **kwargs):
     return type('Deny', (), {'can': lambda self: False})()
 
 
-def check_elasticsearch(record, *args, **kwargs):
+def check_search(record, *args, **kwargs):
     """Return permission that check if the record exists in ES index.
 
     :params record: A record object.

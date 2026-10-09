@@ -29,7 +29,6 @@ from decimal import Decimal
 from typing import NoReturn, Tuple, Dict
 from urllib.parse import quote
 
-from elasticsearch_dsl import Q
 from flask import abort, current_app, request, session
 from flask_babelex import gettext as _
 from flask_babelex import to_utc
@@ -329,7 +328,7 @@ def soft_delete(recid):
                 dep = WekoDeposit(rec.json, rec)
                 #dep['path'] = []
                 dep['publish_status'] = PublishStatus.DELETE.value
-                dep.indexer.update_es_data(dep, update_revision=False, field='publish_status')
+                dep.indexer.update_search_data(dep, update_revision=False, field='publish_status')
                 FeedbackMailList.delete(ver.object_uuid)
                 dep.remove_feedback_mail()
                 for i in range(len(dep.files)):
@@ -387,7 +386,7 @@ def restore(recid):
                     id=ver.object_uuid).first()
                 dep = WekoDeposit(rec.json, rec)
                 dep['publish_status'] = PublishStatus.PUBLIC.value
-                dep.indexer.update_es_data(dep, update_revision=False, field='publish_status')
+                dep.indexer.update_search_data(dep, update_revision=False, field='publish_status')
                 dep.commit()
             pids = PersistentIdentifier.query.filter_by(
                 object_uuid=ver.object_uuid)
