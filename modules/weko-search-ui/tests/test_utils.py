@@ -779,7 +779,9 @@ def test_check_jsonld_import_items(i18n_app, db, test_indices, item_type2, item_
 
     with patch("weko_search_ui.utils.zipfile.ZipFile",side_effect=zipfile.BadZipFile):
         result = check_jsonld_import_items(ro_crate, "SimpleZip", obj.id, shared_ids=[])
-        assert result["error"] == "指定されたファイル{filename}の形式はインポートに対応していません。zip形式のファイルを指定してください。".format(filename=os.path.basename(ro_crate))
+        # locale-independent: translation is not unit-tested
+        assert result["error"]
+        assert os.path.basename(ro_crate) in result["error"]
         assert "data_path" not in result
         assert "item_type_id" not in result
         assert "list_record" not in result
@@ -788,7 +790,10 @@ def test_check_jsonld_import_items(i18n_app, db, test_indices, item_type2, item_
 
     with patch("weko_search_ui.utils.zipfile.ZipFile",side_effect=UnicodeDecodeError("uni", b'\xe3\x81\xad\xe3\x81\x93',2,4,"cp932 cant decode")):
         result = check_jsonld_import_items(ro_crate, "SimpleZip", obj.id, shared_ids=[])
-        assert result["error"] == "cp932 cant decode"
+        assert result["error"] == (
+            "Failed to decode file. "
+            "Please ensure the file is encoded in UTF-8 and resubmit."
+        )
         assert "data_path" not in result
         assert "item_type_id" not in result
         assert "list_record" not in result
@@ -805,7 +810,21 @@ def test_check_jsonld_import_items(i18n_app, db, test_indices, item_type2, item_
         assert result.get("error") is None
 
         result = check_jsonld_import_items(ro_crate, "SimpleZip", obj.id, shared_ids=[])
-        assert result["error"] == "Bag validation error"
+        assert result["error"] == (
+            "Failed to validate import bagit file. Please check the "
+            "file structure and checksums, then resubmit."
+        )
+        assert "Bag validation error" not in result["error"]
+
+    # JSON decode error: only line and column are reported (line 2, column 2)
+    with patch("weko_search_ui.utils.JsonLdMapper.to_item_metadata",
+               side_effect=json.JSONDecodeError("SECRET", "a\nbc", 3)):
+        result = check_jsonld_import_items(ro_crate, "SimpleZip", obj.id, shared_ids=[])
+        # locale-independent: only line/column digits, no raw exception text
+        assert result["error"]
+        assert re.findall(r"\d+", result["error"]) == ["2", "2"]
+        assert "SECRET" not in result["error"]
+        assert "list_record" not in result
 
     from werkzeug.datastructures import FileStorage
     with open(ro_crate, "br") as f:
@@ -823,12 +842,14 @@ def test_check_jsonld_import_items(i18n_app, db, test_indices, item_type2, item_
 
     with patch("weko_search_ui.utils.JsonLdMapper.validate", return_value=["something wrong"]):
         result = check_jsonld_import_items(ro_crate, "SimpleZip", obj.id, shared_ids=[])
-        assert result["error"] == "予期しないエラーが発生しました。 Mapping is invalid for item type {}.".format(item_type2.model.item_type_name.name)
+        assert result["error"]
+        assert "Mapping is invalid" not in result["error"]
 
     JsonldMapping.delete(obj.id)
     db.session.commit()
     result = check_jsonld_import_items(ro_crate, "SimpleZip", obj.id, shared_ids=[])
-    assert result["error"] == "予期しないエラーが発生しました。 Metadata mapping not defined for registration your item."
+    assert result["error"]
+    assert "Metadata mapping" not in result["error"]
 
     # print(f"result: {json.dumps(result, indent=2, ensure_ascii=False)}")
 
@@ -1715,30 +1736,47 @@ def test_import_items_to_system(i18n_app, db, es_item_file_pipeline, es_records,
         # SQLAlchemyError
         with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = SQLAlchemyError("SQLAlchemyError")), \
                 patch("weko_workflow.utils.UserActivityLogger.error") as mock_error_logger:
-            assert import_items_to_system(item).get("success") == False
+            assert import_items_to_system(item) == {"success": False, "error_id": "sqlalchemy error: SQLAlchemyError"}
             mock_error_logger.assert_called()
         with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = SQLAlchemyError()), \
                 patch("weko_workflow.utils.UserActivityLogger.error") as mock_error_logger:
-            assert import_items_to_system(item).get("success") == False
+            assert import_items_to_system(item) == {"success": False, "error_id": "sqlalchemy error: SQLAlchemyError"}
             mock_error_logger.assert_called()
 
         # ElasticsearchException
         with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = ElasticsearchException({"error_id": "sample"})), \
                 patch("weko_workflow.utils.UserActivityLogger.error") as mock_error_logger:
-            assert import_items_to_system(item).get("success") == False
+            assert import_items_to_system(item) == {"success": False, "error_id": "failed_to_update_elasticsearch"}
             mock_error_logger.assert_called()
         with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = ElasticsearchException()), \
                 patch("weko_workflow.utils.UserActivityLogger.error") as mock_error_logger:
-            assert import_items_to_system(item).get("success") == False
+            assert import_items_to_system(item) == {"success": False, "error_id": "failed_to_update_elasticsearch"}
             mock_error_logger.assert_called()
         # redis.RedisError
         with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = redis.RedisError({"error_id": "sample"})), \
                 patch("weko_workflow.utils.UserActivityLogger.error") as mock_error_logger:
-            assert import_items_to_system(item).get("success") == False
+            assert import_items_to_system(item) == {"success": False, "error_id": "redis error: RedisError"}
             mock_error_logger.assert_called()
         with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = redis.RedisError()), \
                 patch("weko_workflow.utils.UserActivityLogger.error") as mock_error_logger:
-            assert import_items_to_system(item).get("success") == False
+            assert import_items_to_system(item) == {"success": False, "error_id": "redis error: RedisError"}
+            mock_error_logger.assert_called()
+        # database_unavailable
+        from sqlalchemy.exc import OperationalError
+        with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = OperationalError("stmt", {}, Exception("conn"))), \
+                patch("weko_workflow.utils.UserActivityLogger.error") as mock_error_logger:
+            assert import_items_to_system(item) == {"success": False, "error_id": "database_unavailable"}
+            mock_error_logger.assert_called()
+        # search_engine_unavailable
+        from elasticsearch.exceptions import ConnectionError as ESConnectionError
+        with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = ESConnectionError("N/A", "conn", Exception("conn"))), \
+                patch("weko_workflow.utils.UserActivityLogger.error") as mock_error_logger:
+            assert import_items_to_system(item) == {"success": False, "error_id": "search_engine_unavailable"}
+            mock_error_logger.assert_called()
+        # redis_unavailable
+        with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = redis.exceptions.ConnectionError("conn")), \
+                patch("weko_workflow.utils.UserActivityLogger.error") as mock_error_logger:
+            assert import_items_to_system(item) == {"success": False, "error_id": "redis_unavailable"}
             mock_error_logger.assert_called()
         # BaseException
         with patch("weko_search_ui.utils.handle_check_item_is_locked", side_effect = Exception({"error_id": "is_duplicated_doi"})), \

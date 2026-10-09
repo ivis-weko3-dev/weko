@@ -7,13 +7,16 @@ from flask import url_for, request, abort
 from flask_limiter.errors import RateLimitExceeded
 from sword3common.lib.seamless import SeamlessException
 from werkzeug.datastructures import FileStorage
+from elasticsearch.exceptions import ConnectionTimeout as ESConnectionTimeout
+from redis.exceptions import TimeoutError as RedisTimeoutError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from invenio_accounts.testutils import login_user_via_session
 from invenio_files_rest.models import Location
 from weko_workflow.errors import WekoWorkflowException
 
 from weko_swordserver.errors import *
-from weko_swordserver.views import _get_status_workflow_document, blueprint, _get_status_document, _create_error_document
+from weko_swordserver.views import _get_status_workflow_document, blueprint, _get_status_document, _create_error_document, handle_weko_swordserver_exception, _raise_if_dependency_unavailable, _is_unexpected_error
 
 from .helpers import calculate_hash
 
@@ -161,7 +164,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Not found invalid_payload.zip in request body."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1304: Not found invalid_payload.zip in request body."
 
     # invalid Content-Disposition
     login_user_via_session(client=client, email=users[0]["email"])
@@ -176,7 +179,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Cannot get filename by Content-Disposition."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1303: Cannot get filename by Content-Disposition."
 
     # Workflow registration, not have activity sqope
     login_user_via_session(client=client, email=users[0]["email"])
@@ -200,7 +203,8 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 403
-    assert result.json.get("error") == "Not allowed operation in your role or token scope."
+    assert result.json["@type"] == "Forbidden"
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1201: Not allowed operation in your token scope."
 
     # error in result
     login_user_via_session(client=client, email=users[0]["email"])
@@ -217,12 +221,19 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
         "register_type": "Direct",
-        "error": "Unexpected error.",
+        "error": "Failed to decode file.",
     }
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Item check error: Unexpected error."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1501: Item check error: Failed to decode file."
+
+    # unexpected error from the check is mapped to 501 (3201)
+    mocker_check_item.return_value["error"] = "Unexpected error occurred."
+    storage = FileStorage(filename="payload.zip", stream=make_zip())
+    result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
+    assert result.status_code == 501
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_3201: Internal Server Error"
 
     # error in item
     login_user_via_session(client=client, email=users[0]["email"])
@@ -246,7 +257,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
     result = client.post(url, data={"file": storage}, content_type=
                          "multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert "Item check error: Item check error." in result.json.get("error")
+    assert "WEKO_SWORDSERVER_E_1501: Item check error: Item check error." in result.json.get("error")
     assert "Test warning message" in result.json.get("error")
 
     # not new item
@@ -269,7 +280,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "This item is already registered: test_title."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1502: This item is already registered: test_title."
 
     # item duplicated
     login_user_via_session(client=client, email=users[0]["email"])
@@ -293,7 +304,7 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Some similar items are already registered: ['/records/2000001']."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1503: Some similar items are already registered: ['/records/2000001']."
 
     # failed to import to system
     login_user_via_session(client=client, email=users[0]["email"])
@@ -312,10 +323,32 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
         "register_type": "Direct",
         "list_record": [{"status": "new", "metadata": {},}]
     }
+    # not an unexpected-error marker: 3104 (500), the internal error_id is not exposed
     with patch("weko_swordserver.views.import_items_to_system", return_value={"success": False, "error_id": "Failed to import to system."}):
         result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
-        assert result.status_code == 400
-        assert result.json.get("error") == "Failed to import item; Failed to import to system."
+        assert result.status_code == 500
+        assert result.json["@type"] == "ServerError"
+        assert result.json.get("error") == (
+            "WEKO_SWORDSERVER_E_3104: Failed to import item due to a server error. "
+            "Please contact the administrator."
+        )
+
+    # unexpected-error marker returned by import_items_to_system: 3201 (501)
+    zip = make_zip()
+    storage = FileStorage(filename="payload.zip", stream=zip)
+    with patch("weko_swordserver.views.import_items_to_system", return_value={"success": False, "error_id": "Unexpected error: Exception"}):
+        result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
+        assert result.status_code == 501
+        assert result.json["@type"] == "NotImplemented"
+        assert result.json.get("error") == "WEKO_SWORDSERVER_E_3201: Internal Server Error"
+
+    # exception inside process_item (not a dependency failure): treated as the marker, 3201 (501)
+    zip = make_zip()
+    storage = FileStorage(filename="payload.zip", stream=zip)
+    with patch("weko_swordserver.views.import_items_to_system", side_effect=Exception("test error")):
+        result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
+        assert result.status_code == 501
+        assert result.json.get("error") == "WEKO_SWORDSERVER_E_3201: Internal Server Error"
 
     # unexpected error in import to system
     login_user_via_session(client=client, email=users[1]["email"])
@@ -337,9 +370,10 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
     with patch("weko_swordserver.views.update_item_ids", side_effect=Exception("test error")):
         result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
         assert result.status_code == 400
+        assert result.json["@type"] == "BadRequest"
         assert result.json.get("error") == (
-            "Failed to import item; Unexpected error " \
-            "Please open the following URL to continue with the remaining operations: " \
+            "WEKO_SWORDSERVER_E_2401: Registration of item is pending completion. "
+            "Please open the following URL to continue with the remaining operations: "
             "http://test_server.localdomain/workflow/activity/detail/A-TEST-00001."
         )
 
@@ -385,7 +419,63 @@ def test_post_service_document(app,client,db,users,make_crate,esindex,location,i
 
     result = client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 412
-    assert result.json.get("error") == "Failed to verify request body and digest."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1306: Failed to verify request body and digest."
+
+# def post_service_document():
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_post_service_document_dependency_errors -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test_post_service_document_dependency_errors(app, client, db, users, make_zip, tokens, mocker):
+    mocker.patch("weko_swordserver.views.dbsession_clean")
+    url = url_for("weko_swordserver.post_service_document")
+    token_direct = tokens[0]["token"].access_token
+    login_user_via_session(client=client, email=users[0]["email"])
+    app.config["WEKO_SWORDSERVER_DIGEST_VERIFICATION"] = False
+    headers = {
+        "Authorization": f"Bearer {token_direct}",
+        "Content-Disposition": "attachment; filename=payload.zip",
+        "Packaging": "http://purl.org/net/sword/3.0/package/SimpleZip",
+    }
+    mocker.patch("weko_swordserver.views.check_import_file_format", return_value="TSV/CSV")
+    mocker.patch("weko_swordserver.views.get_shared_ids_from_on_behalf_of", return_value=[])
+    mocker.patch("weko_swordserver.views.check_import_items", return_value={
+        "data_path": "/var/tmp/test",
+        "register_type": "Direct",
+        "list_record": [{"status": "new", "metadata": {}}],
+    })
+
+    def post():
+        storage = FileStorage(filename="payload.zip", stream=make_zip())
+        return client.post(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
+
+    # fixed error_id for an unavailable dependency: 503 (3108-3110), not folded into 3104/3201
+    for error_id, code in [
+        ("database_unavailable", "3108"),
+        ("redis_unavailable", "3109"),
+        ("search_engine_unavailable", "3110"),
+    ]:
+        with patch("weko_swordserver.views.import_items_to_system", return_value={"success": False, "error_id": error_id}):
+            result = post()
+        assert result.status_code == 503
+        assert result.json["@type"] == "ServiceUnavailable"
+        assert result.json["error"].startswith(f"WEKO_SWORDSERVER_E_{code}: ")
+
+    # dependency exception raised inside process_item is re-raised, not folded into the "Unexpected error" marker (3201)
+    for exc, code in [
+        (OperationalError("stmt", {}, Exception("orig")), "3108"),
+        (RedisTimeoutError("redis down"), "3109"),
+        (ESConnectionTimeout("N/A", "timed out", Exception("orig")), "3110"),
+    ]:
+        with patch("weko_swordserver.views.import_items_to_system", side_effect=exc):
+            result = post()
+        assert result.status_code == 503
+        assert result.json["@type"] == "ServiceUnavailable"
+        assert result.json["error"].startswith(f"WEKO_SWORDSERVER_E_{code}: ")
+
+    # WekoSwordserverException raised inside process_item is re-raised unchanged
+    with patch("weko_swordserver.views.import_items_to_system", side_effect=InternalProcessException.IMPORT_FAILURE()):
+        result = post()
+    assert result.status_code == 500
+    assert result.json.get("error").startswith("WEKO_SWORDSERVER_E_3104: ")
+
 
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_post_service_document_deposit_role_config -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
 def test_post_service_document_deposit_role_config(app, client, users, make_zip, tokens, mocker):
@@ -617,7 +707,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Not found invalid_payload.zip in request body."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1304: Not found invalid_payload.zip in request body."
 
     # invalid Content-Disposition
     login_user_via_session(client=client, email=users[0]["email"])
@@ -632,7 +722,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Cannot get filename by Content-Disposition."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1303: Cannot get filename by Content-Disposition."
 
     # Workflow registration, not have activity scope
     login_user_via_session(client=client, email=users[0]["email"])
@@ -656,7 +746,8 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 403
-    assert result.json.get("error") == "Not allowed operation in your role or token scope."
+    assert result.json["@type"] == "Forbidden"
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1201: Not allowed operation in your token scope."
 
     # error in result
     login_user_via_session(client=client, email=users[0]["email"])
@@ -673,12 +764,19 @@ def test_put_object(
     mocker_check_item.return_value = {
         "data_path": "/var/tmp/test",
         "register_type": "Direct",
-        "error": "Unexpected error.",
+        "error": "Failed to decode file.",
     }
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Item check error: Unexpected error."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1501: Item check error: Failed to decode file."
+
+    # unexpected error from the check is mapped to 501 (3201)
+    mocker_check_item.return_value["error"] = "Unexpected error occurred."
+    storage = FileStorage(filename="payload.zip", stream=make_zip())
+    result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
+    assert result.status_code == 501
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_3201: Internal Server Error"
 
     # error in item
     login_user_via_session(client=client, email=users[0]["email"])
@@ -702,8 +800,20 @@ def test_put_object(
     result = client.put(url, data={"file": storage}, content_type=
                         "multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert "Item check error: Item check error." in result.json.get("error")
+    assert "WEKO_SWORDSERVER_E_1501: Item check error: Item check error." in result.json.get("error")
     assert "Test warning message" in result.json.get("error")
+
+    # multiple items in PUT
+    storage = FileStorage(filename="payload.zip", stream=make_zip())
+    mocker_check_item.return_value = {
+        "data_path": "/var/tmp/test",
+        "register_type": "Direct",
+        "list_record": [{"status": "keep"}, {"status": "keep"}],
+    }
+    result = client.put(url, data={"file": storage}, content_type=
+                        "multipart/form-data", headers=headers)
+    assert result.status_code == 400
+    assert result.json.get("error").startswith("WEKO_SWORDSERVER_E_1504: ")
 
     # new item
     login_user_via_session(client=client, email=users[0]["email"])
@@ -725,7 +835,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "This item is not registered yet: test_title"
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1505: This item is not registered yet: test_title"
 
     # item_id mismatch
     login_user_via_session(client=client, email=users[0]["email"])
@@ -747,7 +857,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Item id does not match. item: invalid, request: 1"
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1506: Item id does not match. item: invalid, request: 1"
 
     # item duplicated
     login_user_via_session(client=client, email=users[0]["email"])
@@ -771,7 +881,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Some similar items are already registered: ['/records/2000001']."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1503: Some similar items are already registered: ['/records/2000001']."
 
     # being edited
     login_user_via_session(client=client, email=users[0]["email"])
@@ -793,8 +903,9 @@ def test_put_object(
     mocker.patch("weko_items_ui.utils.check_duplicate", return_value=(False, [], []))
     with patch("weko_swordserver.views.lock_item_will_be_edit", return_value=False):
         result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
-        assert result.status_code == 400
-        assert result.json.get("error") == "Item 1 will be edited by another process."
+        assert result.status_code == 409
+        assert result.json["@type"] == "Conflict"
+        assert result.json.get("error") == "WEKO_SWORDSERVER_E_2201: Item 1 will be edited by another process."
 
     # failed to import to system
     login_user_via_session(client=client, email=users[0]["email"])
@@ -813,10 +924,38 @@ def test_put_object(
         "register_type": "Direct",
         "list_record": [{"status": "keep", "id": "1", "metadata": {},}]
     }
+    # not an unexpected-error marker: 3105 (500), the internal error_id is not exposed
     with patch("weko_swordserver.views.import_items_to_system", return_value={"success": False, "error_id": "Failed to import to system"}):
         result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
-        assert result.status_code == 400
-        assert result.json.get("error") == "Failed to update item 1: Failed to import to system."
+        assert result.status_code == 500
+        assert result.json["@type"] == "ServerError"
+        assert result.json.get("error") == (
+            "WEKO_SWORDSERVER_E_3105: Failed to update item 1 due to a server error. "
+            "Please contact the administrator."
+        )
+
+    # unexpected-error marker: 3201 (501)
+    zip = make_zip()
+    storage = FileStorage(filename="payload.zip", stream=zip)
+    with patch("weko_swordserver.views.import_items_to_system", return_value={"success": False, "error_id": "Unexpected error: Exception"}):
+        result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
+        assert result.status_code == 501
+        assert result.json["@type"] == "NotImplemented"
+        assert result.json.get("error") == "WEKO_SWORDSERVER_E_3201: Internal Server Error"
+
+    # fixed error_id for an unavailable dependency is checked before the marker: 503 (3108-3110)
+    for error_id, code in [
+        ("database_unavailable", "3108"),
+        ("redis_unavailable", "3109"),
+        ("search_engine_unavailable", "3110"),
+    ]:
+        zip = make_zip()
+        storage = FileStorage(filename="payload.zip", stream=zip)
+        with patch("weko_swordserver.views.import_items_to_system", return_value={"success": False, "error_id": error_id}):
+            result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
+        assert result.status_code == 503
+        assert result.json["@type"] == "ServiceUnavailable"
+        assert result.json["error"].startswith(f"WEKO_SWORDSERVER_E_{code}: ")
 
     # failed to import to activity
     login_user_via_session(client=client, email=users[1]["email"])
@@ -841,8 +980,11 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 400
-    assert result.json.get("error") == "Failed to update item 1: Failed to import to activity. " \
-                                       "Please open the following URL to continue with the remaining operations: sample_url."
+    assert result.json["@type"] == "BadRequest"
+    assert result.json.get("error") == (
+        "WEKO_SWORDSERVER_E_2402: Update of item 1 is pending completion. "
+        "Please open the following URL to continue with the remaining operations: sample_url."
+    )
 
     # failed to import to activity without url
     login_user_via_session(client=client, email=users[1]["email"])
@@ -866,7 +1008,10 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 500
-    assert result.json.get("error") == "Unexpected error: Failed to import to activity."
+    assert result.json.get("error") == (
+        "WEKO_SWORDSERVER_E_3105: Failed to update item 1 due to a server error. "
+        "Please contact the administrator."
+    )
 
     # jsonid format
     login_user_via_session(client=client, email=users[0]["email"])
@@ -910,7 +1055,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 412
-    assert result.json.get("error") == "Failed to verify request body and digest."
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_1306: Failed to verify request body and digest."
 
     # invalid registration type
     login_user_via_session(client=client, email=users[0]["email"])
@@ -933,7 +1078,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 500
-    assert result.json.get("error") == "Invalid register format has been set for admin setting"
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_3103: Invalid register format has been set for admin setting"
 
     # invalid registration type with data_path exists
     zip, _ = make_crate()
@@ -942,7 +1087,7 @@ def test_put_object(
 
     result = client.put(url, data={"file": storage}, content_type="multipart/form-data", headers=headers)
     assert result.status_code == 500
-    assert result.json.get("error") == "Invalid register format has been set for admin setting"
+    assert result.json.get("error") == "WEKO_SWORDSERVER_E_3103: Invalid register format has been set for admin setting"
     assert not os.path.exists("/var/tmp/test"), os.rmdir("/var/tmp/test")
 
 
@@ -1093,8 +1238,26 @@ def test__get_status_document(app,records):
         # raise WekoSwordserverException
         with pytest.raises(WekoSwordserverException) as e:
             _get_status_document("not_exist_recid")
-            assert e.message == "Item not found. (recid=not_exist_recid)"
-            assert e.errorType == ErrorType.NotFound
+        assert e.value.message == "Item not found. (recid=not_exist_recid)"
+        assert e.value.errorType == ErrorType.NotFound
+        assert e.value.error_code == "2101"
+
+        # dependency failures are re-raised as they are (the blueprint handlers return 503)
+        for exc in [
+            OperationalError("stmt", {}, Exception("orig")),
+            RedisTimeoutError("redis down"),
+            ESConnectionTimeout("N/A", "timed out", Exception("orig")),
+        ]:
+            with patch("weko_swordserver.views.Resolver.resolve", side_effect=exc):
+                with pytest.raises(type(exc)):
+                    _get_status_document(recid_doi)
+
+        # any other exception is still reported as not found
+        with patch("weko_swordserver.views.Resolver.resolve", side_effect=Exception("test error")):
+            with pytest.raises(WekoSwordserverException) as e:
+                _get_status_document(recid_doi)
+        assert e.value.error_code == "2101"
+        assert e.value.errorType == ErrorType.NotFound
 
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_status_document_files_info_none -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
 def test_status_document_files_info_none(app, mocker):
@@ -1231,22 +1394,53 @@ def test__get_status_workflow_document(app, records):
         assert result == test_file
 
         # not exist recid
-        with pytest.raises(WekoSwordserverException):
-            _get_status_workflow_document(expected_activity_id, None)
-
-        # raise WekoSwordserverException
         with pytest.raises(WekoSwordserverException) as e:
-            _get_status_workflow_document(None, None)
-            assert e.message == "Activity created, but not found."
-            assert e.errorType == ErrorType.NotFound
+            _get_status_workflow_document(expected_activity_id, None)
+        assert e.value.message == "Item not found. (recid=None)"
+        assert e.value.errorType == ErrorType.NotFound
+        assert e.value.error_code == "2101"
 
         # not exist activity_id
         recid_valid = records[0][0].pid_value
         with app.test_request_context("/test_req"):
             with pytest.raises(WekoSwordserverException) as e:
                 _get_status_workflow_document(None, recid_valid)
-            assert e.value.errorType == ErrorType.NotFound
-            assert "Activity created, but not found" in e.value.message
+            assert e.value.errorType == ErrorType.NotImplemented
+            assert e.value.error_code == "3107"
+            assert e.value.message == "Activity created, but not found."
+
+# def _get_status_workflow_document(activity, recid):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_status_workflow_document_error_codes -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
+def test_status_workflow_document_error_codes(app, mocker):
+    # recid cannot be resolved
+    mocker.patch("weko_swordserver.views.Resolver.resolve", side_effect=Exception("not found"))
+    with app.test_request_context("/test_req"):
+        with pytest.raises(WekoSwordserverException) as e:
+            _get_status_workflow_document("A-1", "not_exist_recid")
+    assert e.value.errorType == ErrorType.NotFound
+    assert e.value.error_code == "2101"
+    assert e.value.message == "Item not found. (recid=not_exist_recid)"
+
+    # dependency failures are re-raised as they are (the blueprint handlers return 503)
+    for exc in [
+        OperationalError("stmt", {}, Exception("orig")),
+        RedisTimeoutError("redis down"),
+        ESConnectionTimeout("N/A", "timed out", Exception("orig")),
+    ]:
+        mocker.patch("weko_swordserver.views.Resolver.resolve", side_effect=exc)
+        with app.test_request_context("/test_req"):
+            with pytest.raises(type(exc)):
+                _get_status_workflow_document("A-1", "1")
+
+    # recid is resolved but the activity is not found after creation
+    mocker.patch("weko_swordserver.views.Resolver.resolve", return_value=(MagicMock(), MagicMock()))
+    with app.test_request_context("/test_req"):
+        with pytest.raises(WekoSwordserverException) as e:
+            _get_status_workflow_document(None, "1")
+    assert e.value.errorType == ErrorType.NotImplemented
+    assert e.value.error_code == "3107"
+    assert e.value.message == "Activity created, but not found."
+
 
 @pytest.mark.xfail(
     reason=(
@@ -1615,6 +1809,39 @@ def test__get_status_multi_document(app, mocker):
         assert all(link in expected_links for link in result["links"])
         assert all(link in result["links"] for link in expected_links)
 
+# def _raise_if_dependency_unavailable(error_id):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__raise_if_dependency_unavailable -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test__raise_if_dependency_unavailable(app):
+    # the three fixed error_id values raise the matching 503 error
+    for error_id, code in [
+        ("database_unavailable", "3108"),
+        ("redis_unavailable", "3109"),
+        ("search_engine_unavailable", "3110"),
+    ]:
+        with app.test_request_context("/test_req"):
+            with pytest.raises(WekoSwordserverException) as e:
+                _raise_if_dependency_unavailable(error_id)
+        assert e.value.error_code == code
+        assert e.value.errorType == ErrorType.ServiceUnavailable
+
+    # None and other values do nothing
+    assert _raise_if_dependency_unavailable(None) is None
+    assert _raise_if_dependency_unavailable("sqlalchemy error: x") is None
+
+
+# def _is_unexpected_error(error):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__is_unexpected_error -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test__is_unexpected_error():
+    # exact match and "Unexpected error" prefix are the marker
+    assert _is_unexpected_error("Unexpected error") is True
+    assert _is_unexpected_error("Unexpected error: Exception") is True
+    assert _is_unexpected_error("Unexpected error occurred.") is True
+    # other strings and None are not
+    assert _is_unexpected_error("Failed to parse JSON-LD file at line 1, column 2.") is False
+    assert _is_unexpected_error("sqlalchemy error: x") is False
+    assert _is_unexpected_error(None) is False
+
+
 # def delete_item(recid):
 # .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_delete_item -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
 def test_delete_item(app, client, db, tokens, sword_client, users,es_records, mocker):
@@ -1637,7 +1864,7 @@ def test_delete_item(app, client, db, tokens, sword_client, users,es_records, mo
     mocker.patch("weko_swordserver.views.check_deletion_type", return_value={"deletion_type": "Direct"})
     mock_delete_item_directly = mocker.patch("weko_swordserver.views.delete_item_directly")
     mocker.patch("weko_swordserver.views.lock_item_will_be_edit", return_value=True)
-    mocker.patch("weko_swordserver.views.UserActivityLogger")
+    mock_logger = mocker.patch("weko_swordserver.views.UserActivityLogger")
 
     url = url_for("weko_swordserver.delete_object", recid=2000001)
     headers = {
@@ -1659,8 +1886,10 @@ def test_delete_item(app, client, db, tokens, sword_client, users,es_records, mo
     # direct deletion, being edited
     mocker.patch("weko_swordserver.views.lock_item_will_be_edit", return_value=False)
     res = client.delete(url, headers=headers)
-    assert res.status_code == 400
-    assert res.json.get("error") == "Item 2000001 will be edited by another process."
+    assert res.status_code == 409
+    assert res.json["@type"] == "Conflict"
+    assert res.json.get("error") == "WEKO_SWORDSERVER_E_2201: Item 2000001 will be edited by another process."
+    mock_logger.error.assert_called_once()
 
     # workflow deletion, not have activity scope
     login_user_via_session(client=client,email=users[1]["email"])
@@ -1672,7 +1901,8 @@ def test_delete_item(app, client, db, tokens, sword_client, users,es_records, mo
     }
     res = client.delete(url, headers=headers)
     assert res.status_code == 403
-    assert res.json.get("error") == "Not allowed operation in your role or token scope."
+    assert res.json["@type"] == "Forbidden"
+    assert res.json.get("error") == "WEKO_SWORDSERVER_E_1201: Not allowed operation in your token scope."
 
     # workflow deletion, have activity scope, approval
     login_user_via_session(client=client,email=users[1]["email"])
@@ -1694,32 +1924,54 @@ def test_delete_item(app, client, db, tokens, sword_client, users,es_records, mo
     assert res.status_code == 204
     mock_delete_with_activity.assert_called_once()
 
-    # raise WekoWorkflowException
+    # raise WekoWorkflowException: 3106 (500), the internal message is not exposed, no user activity log
+    mock_logger.error.reset_mock()
     with patch("weko_swordserver.views.delete_items_with_activity") as mock_delete_with_activity:
         mock_delete_with_activity.side_effect = WekoWorkflowException("test error")
 
         res = client.delete(url, headers=headers)
-        assert res.status_code == 400
-        assert res.json.get("error") == "Failed to delete item: test error"
+        assert res.status_code == 500
+        assert res.json["@type"] == "ServerError"
+        assert res.json.get("error") == (
+            "WEKO_SWORDSERVER_E_3106: Failed to delete item 2000001 due to a server error. "
+            "Please contact the administrator."
+        )
+        mock_logger.error.assert_not_called()
 
-    # raise unexpected Exception
+    # raise unexpected Exception: 3202 (501) and the failure is recorded in the user activity log
     with patch("weko_swordserver.views.delete_items_with_activity") as mock_delete_with_activity:
         mock_delete_with_activity.side_effect = Exception("test error")
 
         res = client.delete(url, headers=headers)
-        assert res.status_code == 400
-        assert res.json.get("error") == "Unexpected error occurred during deletion: test error"
+        assert res.status_code == 501
+        assert res.json["@type"] == "NotImplemented"
+        assert res.json.get("error") == "WEKO_SWORDSERVER_E_3202: Unexpected error occurred during deletion."
+        mock_logger.error.assert_called_once()
+
+    # dependency failures are re-raised as 503 and are not recorded in the user activity log
+    mock_logger.error.reset_mock()
+    for exc, code in [
+        (OperationalError("stmt", {}, Exception("orig")), "3108"),
+        (RedisTimeoutError("redis down"), "3109"),
+        (ESConnectionTimeout("N/A", "timed out", Exception("orig")), "3110"),
+    ]:
+        with patch("weko_swordserver.views.delete_items_with_activity", side_effect=exc):
+            res = client.delete(url, headers=headers)
+        assert res.status_code == 503
+        assert res.json["@type"] == "ServiceUnavailable"
+        assert res.json["error"].startswith(f"WEKO_SWORDSERVER_E_{code}: ")
+    mock_logger.error.assert_not_called()
 
     # item with doi
     mock_record.pid_doi = "10.1234/test.00001"
     with patch("weko_swordserver.views.WekoRecord.get_record_by_pid", return_value=mock_record):
         res = client.delete(url, headers=headers)
         assert res.status_code == 400
-        assert res.json.get("error") == "Cannot delete item with DOI."
+        assert res.json.get("error") == "WEKO_SWORDSERVER_E_2106: Cannot delete item with DOI."
 
 
-# def _create_error_document(type, error):
-# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__create_error_document -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
+# def _create_error_document(type, error, error_code=None):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test__create_error_document -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
 def test__create_error_document(mocker):
     mock_datetime = mocker.patch("weko_swordserver.views.datetime")
     mock_datetime.now.return_value=datetime.datetime(2022,10,1,2,3,4)
@@ -1729,7 +1981,13 @@ def test__create_error_document(mocker):
         "timestamp":"2022-10-01T02:03:04Z",
         "error":"this is test bad_request_error."
     }
+    # without error_code: no prefix
     result = _create_error_document("BadRequest","this is test bad_request_error.")
+    assert result == test
+
+    # with error_code: WEKO_SWORDSERVER_E_<code>: is prepended, same key set
+    result = _create_error_document("BadRequest","this is test bad_request_error.","2201")
+    test["error"] = "WEKO_SWORDSERVER_E_2201: this is test bad_request_error."
     assert result == test
 
 
@@ -1749,8 +2007,18 @@ def error_handle_test_view(error_type):
         raise SeamlessException("this is test SeamlessException")
     elif error_type == "Exception":
         raise Exception("test_exception")
+    elif error_type == "IntegrityError":
+        raise IntegrityError("stmt", {}, Exception("orig"))
     elif error_type == "WekoSwordserverException":
         raise WekoSwordserverException("this is test BadRequest exception", ErrorType.BadRequest)
+    elif error_type == "ItemLocked":
+        raise ConcurrencyException.ITEM_LOCKED(recid="1")
+    elif error_type == "DatabaseError":
+        raise OperationalError("stmt", {}, Exception("orig"))
+    elif error_type == "RedisError":
+        raise RedisTimeoutError("redis down")
+    elif error_type == "SearchError":
+        raise ESConnectionTimeout("N/A", "timed out", Exception("orig"))
 
 
 # def handle_unauthorized(ex):
@@ -1773,38 +2041,98 @@ def test_handle_forbidden(client,sessionlifetime):
         assert res.json == {"type":"Forbidden","msg":"Not allowed operation in your role or token scope."}
 
 # def handle_ratelimit(ex):
-# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_ratelimit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test_handle_ratelimit(client,sessionlifetime):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_ratelimit -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test_handle_ratelimit(app,client,sessionlifetime):
     url = url_for("weko_swordserver.error_handle_test_view",error_type="RateLimitExceeded")
-    with patch("weko_swordserver.views._create_error_document",side_effect=lambda x,y:{"type":x,"msg":y}):
+    with patch.object(app.logger,"warning") as mock_warning:
         res = client.get(url)
-        assert res.status_code == 429
-        assert res.json == {"type":"TooManyRequests","msg":"Too many requests."}
+    assert res.status_code == 429
+    assert res.json["@type"] == "TooManyRequests"
+    assert res.json["error"] == "WEKO_SWORDSERVER_E_2301: Too many requests."
+    mock_warning.assert_called_once()
 
 # def handle_seamless_exception(ex):
-# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_seamless_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test_handle_seamless_exception(client,sessionlifetime):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_seamless_exception -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test_handle_seamless_exception(app,client,sessionlifetime):
     url = url_for("weko_swordserver.error_handle_test_view",error_type="SeamlessException")
-    with patch("weko_swordserver.views._create_error_document",side_effect=lambda x,y:{"type":x,"msg":y}):
+    with patch.object(app.logger,"error") as mock_error:
         res = client.get(url)
-        assert res.status_code == 500
-        assert res.json == {"type":"ServerError","msg":"this is test SeamlessException"}
+    assert res.status_code == 501
+    assert res.json["@type"] == "NotImplemented"
+    # ex.message is logged only; the response uses a fixed message
+    assert res.json["error"] == "WEKO_SWORDSERVER_E_3201: Internal Server Error"
+    assert "this is test SeamlessException" not in res.get_data(as_text=True)
+    mock_error.assert_called_once_with("this is test SeamlessException")
 
 
 # def handle_exception(ex):
-# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test_handle_exception(client,sessionlifetime):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_exception -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test_handle_exception(app,client,sessionlifetime):
     url = url_for("weko_swordserver.error_handle_test_view",error_type="Exception")
-    with patch("weko_swordserver.views._create_error_document",side_effect=lambda x,y:{"type":x,"msg":y}):
+    with patch.object(app.logger,"error") as mock_error:
         res = client.get(url)
-        assert res.status_code == 500
-        assert res.json == {"type":"ServerError","msg":"Internal Server Error"}
+    assert res.status_code == 501
+    assert res.json["error"] == "WEKO_SWORDSERVER_E_3201: Internal Server Error"
+    mock_error.assert_called_once_with("test_exception", exc_info=True)
+
+    # non-dependency DB errors fall to the generic handler (501)
+    url = url_for("weko_swordserver.error_handle_test_view",error_type="IntegrityError")
+    res = client.get(url)
+    assert res.status_code == 501
+    assert res.json["error"] == "WEKO_SWORDSERVER_E_3201: Internal Server Error"
 
 # def handle_weko_swordserver_exception(ex):
-# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_weko_swordserver_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp
-def test_handle_weko_swordserver_exception(client,sessionlifetime):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_weko_swordserver_exception -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test_handle_weko_swordserver_exception(app,client,sessionlifetime):
+    # legacy form without error_code: no prefix, 400 logs WARNING
     url = url_for("weko_swordserver.error_handle_test_view",error_type="WekoSwordserverException")
-    with patch("weko_swordserver.views._create_error_document",side_effect=lambda x,y:{"type":x,"msg":y}):
+    with patch.object(app.logger,"warning") as mock_warning:
         res = client.get(url)
-        assert res.status_code == 400
-        assert res.json == {"type":"BadRequest","msg":"this is test BadRequest exception"}
+    assert res.status_code == 400
+    assert res.json["@type"] == "BadRequest"
+    assert res.json["error"] == "this is test BadRequest exception"
+    mock_warning.assert_called_once_with("[None] GET /sword/test_error/WekoSwordserverException: this is test BadRequest exception")
+
+    # with error_code: prefixed, 409 logs WARNING, log format "[code] METHOD path: message"
+    url = url_for("weko_swordserver.error_handle_test_view",error_type="ItemLocked")
+    with patch.object(app.logger,"warning") as mock_warning, patch.object(app.logger,"error") as mock_error:
+        res = client.get(url)
+    assert res.status_code == 409
+    assert res.json["error"].startswith("WEKO_SWORDSERVER_E_2201: ")
+    mock_error.assert_not_called()
+    msg = mock_warning.call_args[0][0]
+    assert msg.startswith("[2201] GET /sword/test_error/ItemLocked: ")
+    assert msg.endswith(res.json["error"].split(": ", 1)[1])
+
+
+# def handle_weko_swordserver_exception(ex):
+# 500 and above (501) logs ERROR
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_weko_swordserver_exception_error_level -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+def test_handle_weko_swordserver_exception_error_level(app,client,sessionlifetime):
+    ex = UnexpectedException.UNEXPECTED_DURING_DELETION()
+    with patch.object(app.logger,"warning") as mock_warning, patch.object(app.logger,"error") as mock_error:
+        with app.test_request_context("/sword/x"):
+            res = handle_weko_swordserver_exception(ex)
+    assert res[1] == 501
+    mock_warning.assert_not_called()
+    assert mock_error.call_args[0][0].startswith("[3202] GET /sword/x: ")
+
+# Dependency-failure handlers (DB/Redis/search)
+# def handle_database_unavailable(ex):
+# def handle_redis_unavailable(ex):
+# def handle_search_engine_unavailable(ex):
+# .tox/c1/bin/pytest --cov=weko_swordserver tests/test_views.py::test_handle_dependency_unavailable -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-swordserver/.tox/c1/tmp --full-trace
+@pytest.mark.parametrize("error_type,code,text",[
+    ("DatabaseError","3108","Failed to access the database."),
+    ("RedisError","3109","Failed to access the cache server."),
+    ("SearchError","3110","Failed to access the search service."),
+])
+def test_handle_dependency_unavailable(app,client,sessionlifetime,error_type,code,text):
+    url = url_for("weko_swordserver.error_handle_test_view",error_type=error_type)
+    with patch.object(app.logger,"error") as mock_error:
+        res = client.get(url)
+    assert res.status_code == 503
+    assert res.json["@type"] == "ServiceUnavailable"
+    assert res.json["error"].startswith(f"WEKO_SWORDSERVER_E_{code}: {text}")
+    assert mock_error.call_args[0][0].startswith(f"[{code}] GET /sword/test_error/{error_type}: ")
+    assert mock_error.call_args[1] == {"exc_info": True}
