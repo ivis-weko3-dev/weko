@@ -147,7 +147,7 @@ def get_workspace_itemlist():
     for record in recordsData:
         item_type_ids.add(
             record['_source'].get('item_type_id')
-            or record['_source']['_item_metadata'].get('item_type_id')
+            or record['_source'].get('_item_metadata', {}).get('item_type_id')
         )
     item_types = ItemTypes.get_records(list(item_type_ids))
     item_type_dict = {

@@ -1,6 +1,10 @@
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+import inspect
 import json
+import logging
 from collections import OrderedDict
+from contextlib import ExitStack, contextmanager
+from types import SimpleNamespace
 import uuid
 import requests
 from unittest.mock import patch, MagicMock
@@ -12,7 +16,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from flask import json, url_for, make_response
 from jinja2.exceptions import TemplateNotFound
 
-from invenio_accounts.testutils import login_user_via_session
+from invenio_accounts.models import Role, User
+from invenio_accounts.testutils import create_test_user, login_user_via_session
 from invenio_oauth2server.provider import oauth2
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_communities.models import Community
@@ -20798,13 +20803,11 @@ def test_get_search_data_acl_user0(client_api, shared_users, db_userprofile, db_
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
-        "results": [
-            "shared_originalroleuser2@test.org",
-            "shared_originalroleuser@test.org",
-        ],
+        # the email type only checks the existence of an exact
+        # email address (an empty query does not access the DB)
+        "results": "",
         "query": "",
-        "count": 2,
-        "has_more": False,
+        "exists": False,
     }
 
     url = url_for("weko_items_ui_api.get_search_data", data_type="hoge", _external=True)
@@ -20841,14 +20844,11 @@ def test_get_search_data_acl_user1(client_api, shared_users, db_userprofile, db_
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
-        "results": [
-            "shared_contributor@test.org",
-            "shared_originalroleuser2@test.org",
-            "shared_originalroleuser@test.org",
-        ],
+        # the email type only checks the existence of an exact
+        # email address (an empty query does not access the DB)
+        "results": "",
         "query": "",
-        "count": 3,
-        "has_more": False,
+        "exists": False,
     }
 
     url = url_for("weko_items_ui_api.get_search_data", data_type="hoge", _external=True)
@@ -20885,14 +20885,11 @@ def test_get_search_data_acl_user2(client_api, shared_users, db_userprofile, db_
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
-        "results": [
-            "shared_contributor@test.org",
-            "shared_originalroleuser2@test.org",
-            "shared_originalroleuser@test.org",
-        ],
+        # the email type only checks the existence of an exact
+        # email address (an empty query does not access the DB)
+        "results": "",
         "query": "",
-        "count": 3,
-        "has_more": False,
+        "exists": False,
     }
 
     url = url_for("weko_items_ui_api.get_search_data", data_type="hoge", _external=True)
@@ -20929,14 +20926,11 @@ def test_get_search_data_acl_user3(client_api, shared_users, db_userprofile, db_
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
-        "results": [
-            "shared_contributor@test.org",
-            "shared_originalroleuser2@test.org",
-            "shared_originalroleuser@test.org",
-        ],
+        # the email type only checks the existence of an exact
+        # email address (an empty query does not access the DB)
+        "results": "",
         "query": "",
-        "count": 3,
-        "has_more": False,
+        "exists": False,
     }
 
     url = url_for("weko_items_ui_api.get_search_data", data_type="hoge", _external=True)
@@ -20964,7 +20958,7 @@ def test_get_search_data_query_param(app, client_api, shared_users, db_userprofi
         "has_more": False,
     }
 
-    # a prefix matching no one returns an empty result set
+    # the email type returns only the existence of the exact email address
     url = url_for(
         "weko_items_ui_api.get_search_data", data_type="email", q="nosuchuser",
         _external=True,
@@ -20973,10 +20967,9 @@ def test_get_search_data_query_param(app, client_api, shared_users, db_userprofi
     assert res.status_code == 200
     assert json.loads(res.data) == {
         "error": "",
-        "results": [],
+        "results": "",
         "query": "nosuchuser",
-        "count": 0,
-        "has_more": False,
+        "exists": False,
     }
 
     # has_more/count reflect the total match count, independent of the limit.
@@ -22731,3 +22724,626 @@ def test_get_bulk_import_task_status(
                     response = client_api.get(url, headers=headers)
                 except Exception as e:
                     assert str(e) == "exception_error"
+
+
+
+MAP_ENTITY_ID = "https://idp.example.org/idp/shibboleth"
+MAP_GROUP_PREFIX = "jc_idp_example_org_gr_"
+RID_DEL = "999999"  # 存在しないロールID（削除済みロール）
+NOT_ALLOWED_MSG = "You are not allowed to edit this item."
+
+
+def _config_map(app, configured=True):
+    app.config["WEKO_ACCOUNTS_IDP_ENTITY_ID"] = MAP_ENTITY_ID if configured else ""
+
+
+def _set_proxy_posting(app, enabled):
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = enabled
+
+
+def _create_role(app, db, name):
+    ds = app.extensions["invenio-accounts"].datastore
+    role = ds.create_role(name=name)
+    db.session.commit()
+    # リクエスト後にセッションから切り離されても参照できるよう、値のみ保持する
+    return SimpleNamespace(id=role.id, name=name)
+
+
+def _create_user(app, db, email, roles=()):
+    ds = app.extensions["invenio-accounts"].datastore
+    user = create_test_user(email=email)
+    for role in roles:
+        ds.add_role_to_user(user, Role.query.get(role.id))
+    db.session.commit()
+    # リクエスト後にセッションから切り離されても参照できるよう、値のみ保持する
+    return SimpleNamespace(id=user.id, email=email)
+
+
+def _rid(role):
+    """ロールIDは常に str(role.id) の文字列で扱う."""
+    return str(role.id)
+
+
+def _warning_messages(caplog):
+    return [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+
+
+def _login(client, user):
+    """セッションに直接ユーザーIDを設定してログインする（切り離されたインスタンスを参照しない）."""
+    with client.session_transaction() as sess:
+        sess["user_id"] = str(user.id)
+
+
+def _deposit(owner_id, shared_ids=None, role_ids=None, **extra):
+    """Resolver.resolve が返すアイテム（deposit）の代わりの辞書."""
+    deposit = {"owner": owner_id, "item_type_id": 1}
+    if shared_ids is not None:
+        deposit["weko_shared_ids"] = shared_ids
+    if role_ids is not None:
+        deposit["weko_shared_role_ids"] = role_ids
+    deposit.update(extra)
+    return deposit
+
+
+@contextmanager
+def _edit_env(deposit):
+    """prepare_edit_item を権限判定の直後（アイテムタイプ確認）で止める."""
+    with ExitStack() as stack:
+        stack.enter_context(patch(
+            "weko_items_ui.views.lock_item_will_be_edit", return_value=True))
+        stack.enter_context(patch(
+            "weko_items_ui.views.Resolver.resolve",
+            return_value=(MagicMock(spec=PersistentIdentifier), deposit)))
+        stack.enter_context(patch("weko_items_ui.views.PIDVersioning"))
+        # 権限判定を通過した場合は "Dependency ItemType not found." で応答する
+        stack.enter_context(patch(
+            "weko_items_ui.views.ItemTypes.get_by_id", return_value=None))
+        yield
+
+
+@contextmanager
+def _delete_env(deposit, workflow=None):
+    """prepare_delete_item の周辺処理をモックする.
+
+    workflow が None の場合は直接削除パス、
+    delete_flow_id を持つモックの場合は削除ワークフロー作成パス。
+    """
+    with ExitStack() as stack:
+        stack.enter_context(patch(
+            "weko_items_ui.views.lock_item_will_be_edit", return_value=True))
+        stack.enter_context(patch(
+            "weko_items_ui.views.Resolver.resolve",
+            return_value=(MagicMock(spec=PersistentIdentifier), deposit)))
+        stack.enter_context(patch("weko_items_ui.views.PIDVersioning"))
+        stack.enter_context(patch(
+            "weko_items_ui.views.ItemTypes.get_by_id",
+            return_value=MagicMock(name_id=1)))
+        stack.enter_context(patch(
+            "weko_items_ui.views.check_an_item_is_locked", return_value=False))
+        stack.enter_context(patch(
+            "weko_items_ui.views.WorkActivity.get_workflow_activity_by_item_id",
+            return_value=None))
+        stack.enter_context(patch(
+            "weko_items_ui.views.check_item_is_being_edit", return_value=""))
+        stack.enter_context(patch(
+            "weko_items_ui.views.get_workflow_by_item_type_id", return_value=workflow))
+        yield SimpleNamespace(
+            soft_delete=stack.enter_context(patch("weko_records_ui.views.soft_delete")),
+            send_mail=stack.enter_context(
+                patch("weko_items_ui.utils.send_mail_item_deleted")),
+            prepare_workflow=stack.enter_context(
+                patch("weko_items_ui.views.prepare_delete_workflow")),
+        )
+
+
+def _delete_workflow():
+    """削除ワークフロー作成パスにするためのワークフローのモック."""
+    return MagicMock(id=1, delete_flow_id=2)
+
+
+def _post_json(client, url, data):
+    return client.post(url, data=json.dumps(data), content_type="application/json")
+
+
+def _post_prepare_edit(client_api, user, deposit):
+    _login(client_api, user)
+    with _edit_env(deposit):
+        res = _post_json(client_api, url_for("weko_items_ui.prepare_edit_item"),
+                         {"pid_value": "1"})
+    assert res.status_code == 200
+    return json.loads(res.data)
+
+
+def _post_prepare_delete(client_api, user, deposit, workflow=None):
+    _login(client_api, user)
+    with _delete_env(deposit, workflow) as mocks:
+        res = _post_json(client_api, url_for("weko_items_ui.prepare_delete_item"),
+                         {"pid_value": "1"})
+    assert res.status_code == 200
+    return json.loads(res.data), mocks
+
+
+def _call_prepare_delete(app, user, deposit, workflow=None, **kwargs):
+    """リクエストコンテキスト内で prepare_delete_item を直接呼び出す."""
+    with _delete_env(deposit, workflow) as mocks:
+        with app.test_request_context("/items/prepare_delete_item", method="POST"):
+            with patch("flask_login.utils._get_user",
+                       return_value=User.query.get(user.id)):
+                res = prepare_delete_item(id="1", **kwargs)
+    return res, mocks
+
+
+# def prepare_edit_item(id=None, community=None):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_prepare_edit_item_permission -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_prepare_edit_item_permission(app, client_api, db):
+    """登録者・代理投稿者（個人・グループ）・管理者は編集を開始でき、無関係ユーザーは拒否される."""
+    _config_map(app)
+    _set_proxy_posting(app, True)
+    err_code = app.config.get("WEKO_ITEMS_UI_API_RETURN_CODE_ERROR", -1)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    r_super = _create_role(app, db, "System Administrator")
+    u_o = _create_user(app, db, "pe_o@test.org")
+    u_p1 = _create_user(app, db, "pe_p1@test.org")
+    u_p2 = _create_user(app, db, "pe_p2@test.org")
+    u_g = _create_user(app, db, "pe_g@test.org", [r_a])
+    u_n = _create_user(app, db, "pe_n@test.org")
+    u_s = _create_user(app, db, "pe_s@test.org", [r_super])
+    u_cb = _create_user(app, db, "pe_cb@test.org")
+    deposit = _deposit(u_o.id, [u_p1.id, u_p2.id], [_rid(r_a)])
+    passed = {"code": err_code, "msg": "Dependency ItemType not found."}
+
+    # 1〜3. 登録者・代理投稿者（個人）・代理投稿グループのメンバー: 権限判定を通過する
+    assert _post_prepare_edit(client_api, u_o, deposit) == passed
+    assert _post_prepare_edit(client_api, u_p1, deposit) == passed
+    assert _post_prepare_edit(client_api, u_g, deposit) == passed
+    # 4. 無関係ユーザー
+    assert _post_prepare_edit(client_api, u_n, deposit) == {
+        "code": err_code, "msg": NOT_ALLOWED_MSG}
+    # 5. 管理者ロール（管理者バイパスを維持する）
+    assert _post_prepare_edit(client_api, u_s, deposit) == passed
+    # 6. 複数化フラグ無効: 末尾以外の代理投稿者は拒否される
+    _set_proxy_posting(app, False)
+    assert _post_prepare_edit(client_api, u_p1, deposit) == {
+        "code": err_code, "msg": NOT_ALLOWED_MSG}
+    # 7. 複数化フラグ有効: owner と created_by が別人のアイテムで created_by のみ一致の U_CB
+    _set_proxy_posting(app, True)
+    deposit_cb = _deposit(u_o.id, [u_p1.id, u_p2.id], [_rid(r_a)],
+                          _deposit={"created_by": u_cb.id})
+    assert _post_prepare_edit(client_api, u_cb, deposit_cb) == passed
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_prepare_edit_item_legacy_record -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_prepare_edit_item_legacy_record(app, client_api, db):
+    """weko_shared_ids キーが無いレコード・owner が None のレコード."""
+    _set_proxy_posting(app, True)
+    err_code = app.config.get("WEKO_ITEMS_UI_API_RETURN_CODE_ERROR", -1)
+    u_o = _create_user(app, db, "pl_o@test.org")
+    u_n = _create_user(app, db, "pl_n@test.org")
+
+    # 1. (a) weko_shared_ids キーを持たないアイテム: owner の編集が拒否されない
+    assert _post_prepare_edit(client_api, u_o, _deposit(u_o.id)) == {
+        "code": err_code, "msg": "Dependency ItemType not found."}
+    # 2. (b) owner が None のアイテム: TypeError が発生せず拒否される
+    assert _post_prepare_edit(client_api, u_n, _deposit(None)) == {
+        "code": err_code, "msg": NOT_ALLOWED_MSG}
+
+
+# def prepare_delete_item(id=None, community=None, shared_user_ids=None, shared_role_ids=None):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_prepare_delete_item_shared_user_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_prepare_delete_item_shared_user_ids(app, client_api, db):
+    """shared_user_ids 未指定時に代理投稿者（個人）が補完され、通知・削除アクティビティへ伝播する."""
+    _config_map(app)
+    _set_proxy_posting(app, True)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    u_o = _create_user(app, db, "pd_o@test.org")
+    u_p1 = _create_user(app, db, "pd_p1@test.org")
+    u_p2 = _create_user(app, db, "pd_p2@test.org")
+    deposit = _deposit(u_o.id, [u_p1.id, u_p2.id], [_rid(r_a)])
+
+    # 1. 直接削除パス: deposit の代理投稿者（個人）で補完される（R_A のメンバーは含まれない）
+    res, mocks = _post_prepare_delete(client_api, u_o, deposit)
+    assert res["msg"] == "success"
+    mocks.send_mail.assert_called_once()
+    assert mocks.send_mail.call_args[0][3] == [u_p1.id, u_p2.id]
+    mocks.prepare_workflow.assert_not_called()
+
+    # 2. 削除ワークフロー作成パス: 削除アクティビティへ渡す shared_user_ids
+    res, mocks = _post_prepare_delete(client_api, u_o, deposit, _delete_workflow())
+    mocks.prepare_workflow.assert_called_once()
+    post_activity = mocks.prepare_workflow.call_args[0][0]
+    assert post_activity["shared_user_ids"] == [{"user": u_p1.id}, {"user": u_p2.id}]
+
+    # 3. 複数化フラグ無効: 末尾 1 名のみ
+    _set_proxy_posting(app, False)
+    res, mocks = _post_prepare_delete(client_api, u_o, deposit)
+    assert mocks.send_mail.call_args[0][3] == [u_p2.id]
+
+    # 4. 空リストの明示指定は補完せず優先する
+    _set_proxy_posting(app, True)
+    _, mocks = _call_prepare_delete(app, u_o, deposit, shared_user_ids=[])
+    assert mocks.send_mail.call_args[0][3] == []
+    # 5. 明示指定
+    _, mocks = _call_prepare_delete(app, u_o, deposit, shared_user_ids=[u_p2.id])
+    assert mocks.send_mail.call_args[0][3] == [u_p2.id]
+
+    # 6. 引数の既定値
+    params = inspect.signature(prepare_delete_item).parameters
+    assert params["shared_user_ids"].default is None
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_prepare_delete_item_permission -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_prepare_delete_item_permission(app, client_api, db):
+    """代理投稿者（個人・グループ）が削除でき、無関係ユーザーは拒否される."""
+    _config_map(app)
+    _set_proxy_posting(app, True)
+    err_code = app.config.get("WEKO_ITEMS_UI_API_RETURN_CODE_ERROR", -1)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    r_super = _create_role(app, db, "System Administrator")
+    u_o = _create_user(app, db, "pdp_o@test.org")
+    u_p1 = _create_user(app, db, "pdp_p1@test.org")
+    u_p2 = _create_user(app, db, "pdp_p2@test.org")
+    u_g = _create_user(app, db, "pdp_g@test.org", [r_a])
+    u_n = _create_user(app, db, "pdp_n@test.org")
+    u_s = _create_user(app, db, "pdp_s@test.org", [r_super])
+    u_cb = _create_user(app, db, "pdp_cb@test.org")
+    deposit = _deposit(u_o.id, [u_p1.id, u_p2.id], [_rid(r_a)])
+    denied = {"code": err_code, "msg": NOT_ALLOWED_MSG}
+
+    # 1. 代理投稿者（個人）
+    assert _post_prepare_delete(client_api, u_p1, deposit)[0]["msg"] == "success"
+    # 2. 代理投稿グループのメンバー
+    assert _post_prepare_delete(client_api, u_g, deposit)[0]["msg"] == "success"
+    # 3. 無関係ユーザー（削除操作だが既存文言のまま）
+    assert _post_prepare_delete(client_api, u_n, deposit)[0] == denied
+    # 4. 管理者
+    assert _post_prepare_delete(client_api, u_s, deposit)[0]["msg"] == "success"
+    # 5. 複数化フラグ無効: 末尾以外の代理投稿者は拒否される
+    _set_proxy_posting(app, False)
+    assert _post_prepare_delete(client_api, u_p1, deposit)[0] == denied
+    # 6. 複数化フラグ有効: owner と created_by が別人のアイテムで created_by のみ一致の U_CB
+    _set_proxy_posting(app, True)
+    deposit_cb = _deposit(u_o.id, [u_p1.id, u_p2.id], [_rid(r_a)],
+                          _deposit={"created_by": u_cb.id})
+    assert _post_prepare_delete(client_api, u_cb, deposit_cb)[0]["msg"] == "success"
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_prepare_delete_item_shared_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_prepare_delete_item_shared_role_ids(app, client_api, db):
+    """shared_role_ids の補完と post_activity['shared_role_ids'] の設定."""
+    _config_map(app)
+    _set_proxy_posting(app, True)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    u_o = _create_user(app, db, "pdr_o@test.org")
+    u_p1 = _create_user(app, db, "pdr_p1@test.org")
+    u_p2 = _create_user(app, db, "pdr_p2@test.org")
+    rid_a = _rid(r_a)
+    shared = [u_p1.id, u_p2.id]
+
+    # 1. 引数の並びと既定値
+    params = inspect.signature(prepare_delete_item).parameters
+    assert list(params) == ["id", "community", "shared_user_ids", "shared_role_ids"]
+    assert params["shared_user_ids"].default is None
+    assert params["shared_role_ids"].default is None
+
+    # 2. 複数化フラグ有効: get_shared_role_ids(deposit) で補完される（文字列配列）
+    res, mocks = _post_prepare_delete(
+        client_api, u_o, _deposit(u_o.id, shared, [rid_a]), _delete_workflow())
+    post_activity = mocks.prepare_workflow.call_args[0][0]
+    assert post_activity["shared_role_ids"] == [rid_a]
+    assert post_activity["shared_user_ids"] == [{"user": u_p1.id}, {"user": u_p2.id}]
+
+    # 3. weko_shared_role_ids のキーが欠落している・None の場合は空
+    for deposit in [
+        _deposit(u_o.id, shared),
+        _deposit(u_o.id, shared, weko_shared_role_ids=None),
+    ]:
+        res, mocks = _post_prepare_delete(client_api, u_o, deposit, _delete_workflow())
+        assert res["msg"] == "success"
+        assert mocks.prepare_workflow.call_args[0][0]["shared_role_ids"] == []
+
+    # 4. 複数化フラグ無効: 何も伝播しない
+    _set_proxy_posting(app, False)
+    res, mocks = _post_prepare_delete(
+        client_api, u_o, _deposit(u_o.id, shared, [rid_a]), _delete_workflow())
+    assert mocks.prepare_workflow.call_args[0][0]["shared_role_ids"] == []
+
+    # 5. 重複・空文字を含む: get_shared_role_ids の正規化を受ける
+    _set_proxy_posting(app, True)
+    res, mocks = _post_prepare_delete(
+        client_api, u_o, _deposit(u_o.id, shared, [rid_a, rid_a, ""]), _delete_workflow())
+    assert mocks.prepare_workflow.call_args[0][0]["shared_role_ids"] == [rid_a]
+
+    # 6. 直接削除パス: 通知宛先に代理投稿グループのメンバーを含めない
+    res, mocks = _post_prepare_delete(
+        client_api, u_o, _deposit(u_o.id, shared, [rid_a]))
+    assert res["msg"] == "success"
+    mocks.send_mail.assert_called_once()
+    notified_args = mocks.send_mail.call_args[0]
+    assert len(notified_args) == 4
+    assert rid_a not in notified_args[3]
+    mocks.prepare_workflow.assert_not_called()
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_prepare_delete_item_shared_role_ids_explicit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_prepare_delete_item_shared_role_ids_explicit(app, db, caplog):
+    """shared_role_ids を明示指定した場合."""
+    _config_map(app)
+    caplog.set_level(logging.WARNING)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    r_b = _create_role(app, db, MAP_GROUP_PREFIX + "Beta")
+    u_o = _create_user(app, db, "pdx_o@test.org")
+    u_p1 = _create_user(app, db, "pdx_p1@test.org")
+    u_p2 = _create_user(app, db, "pdx_p2@test.org")
+    rid_a, rid_b = _rid(r_a), _rid(r_b)
+    deposit = _deposit(u_o.id, [u_p1.id, u_p2.id], [rid_a])
+
+    def _shared_role_ids(flag, **kwargs):
+        _set_proxy_posting(app, flag)
+        caplog.clear()
+        _, mocks = _call_prepare_delete(app, u_o, deposit, _delete_workflow(), **kwargs)
+        post_activity = mocks.prepare_workflow.call_args[0][0]
+        return post_activity["shared_role_ids"], post_activity
+
+    # 1. 明示指定を優先し、アイテムの値で補完も加算もしない
+    assert _shared_role_ids(True, shared_role_ids=[rid_b])[0] == [rid_b]
+    # 2. 空リストの明示指定は None ではないため優先する
+    assert _shared_role_ids(True, shared_role_ids=[])[0] == []
+    # 3. 明示指定は複数化フラグの状態によらず採用する
+    assert _shared_role_ids(False, shared_role_ids=[rid_b])[0] == [rid_b]
+    # 4. 文字列以外の要素を除外し、WARNING を出力する
+    result, _ = _shared_role_ids(
+        True, shared_role_ids=[rid_b, 12345, None, {"role": "7"}])
+    assert result == [rid_b]
+    assert _warning_messages(caplog) == [
+        "Unexpected shared role id element is ignored: 12345",
+        "Unexpected shared role id element is ignored: None",
+        "Unexpected shared role id element is ignored: {'role': '7'}",
+    ]
+    # 5. 重複・空文字は文字列配列に揃える際に除外される
+    assert _shared_role_ids(True, shared_role_ids=[rid_b, rid_b, ""])[0] == [rid_b]
+    # 6. 個人側・グループ側とも明示指定を優先する
+    result, post_activity = _shared_role_ids(
+        True, shared_user_ids=[u_p2.id], shared_role_ids=[rid_b])
+    assert post_activity["shared_user_ids"] == [{"user": u_p2.id}]
+    assert result == [rid_b]
+    # いずれも要素は str（[{"role": N}] 形式へ変換しない）
+    assert all(isinstance(rid, str) for rid in result)
+
+
+def _login_contributor(client_api, shared_users):
+    _login(client_api, SimpleNamespace(id=shared_users[0]["id"]))
+
+
+# def get_search_data(data_type=''):
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_get_search_data_role_name -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_search_data_role_name(app, db, client_api, shared_users, db_userprofile, db_sessionlifetime):
+    """role_name 種別がグループ名サジェストを返す."""
+    _config_map(app)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    r_a_lower = _create_role(app, db, MAP_GROUP_PREFIX + "alphabet")
+    _create_role(app, db, MAP_GROUP_PREFIX + "Beta")
+    # "Original Role"（指定不可）は shared_users フィクスチャが作成済み
+
+    def _url(**query):
+        return url_for("weko_items_ui_api.get_search_data", data_type="role_name",
+                       _external=True, **query)
+
+    # 4. 未ログイン: 既存のアクセス制御を変更しない（test_get_search_data_acl_nologin と同じ）
+    assert client_api.get(_url(q="alp")).status_code == 401
+
+    _login_contributor(client_api, shared_users)
+    expected_results = [
+        {"role_id": _rid(r_a), "group_name": "Alpha"},
+        {"role_id": _rid(r_a_lower), "group_name": "alphabet"},
+    ]
+    # 1. 前方一致
+    res = client_api.get(_url(q="alp"))
+    assert res.status_code == 200
+    assert json.loads(res.data) == {
+        "query": "alp", "count": 2, "has_more": False,
+        "results": expected_results, "error": "",
+    }
+    # 2. 大文字小文字を区別しない
+    res = client_api.get(_url(q="ALP"))
+    assert json.loads(res.data)["count"] == 2
+    # 3. 指定不可のロール名に前方一致する文字列
+    res = client_api.get(_url(q="Original"))
+    body = json.loads(res.data)
+    assert body["count"] == 0
+    assert body["results"] == []
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_get_search_data_role_name_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_search_data_role_name_error(app, db, client_api, shared_users, db_userprofile, db_sessionlifetime):
+    """未知の種別・例外発生時の応答が既存形式のまま."""
+    _config_map(app)
+    _login_contributor(client_api, shared_users)
+
+    # 1. search_role_name が例外を送出する
+    with patch("weko_items_ui.views.search_role_name",
+               side_effect=Exception("test error")):
+        res = client_api.get(url_for(
+            "weko_items_ui_api.get_search_data", data_type="role_name", q="alp",
+            _external=True))
+    assert res.status_code == 200
+    assert json.loads(res.data) == {"results": "", "error": "test error"}
+
+    # 2. 未知の種別（既存の綴りのまま）
+    res = client_api.get(url_for(
+        "weko_items_ui_api.get_search_data", data_type="hoge", _external=True))
+    assert json.loads(res.data) == {"results": "", "error": "Invaid method"}
+
+    # 3. username 種別は応答が変わらない（ログイン中のユーザー自身は候補から除外される）
+    res = client_api.get(url_for(
+        "weko_items_ui_api.get_search_data", data_type="username", q="shared_contrib",
+        _external=True))
+    assert json.loads(res.data) == {
+        "error": "", "results": [], "query": "shared_contrib",
+        "count": 0, "has_more": False,
+    }
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_get_search_data_email_exists -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_search_data_email_exists(app, db, client_api, shared_users, db_userprofile, db_sessionlifetime):
+    """email 種別が query・exists のみを返す."""
+    contributor_role = Role.query.filter_by(name="Contributor").first()
+    _create_user(app, db, "shared+tag@test.org", [contributor_role])
+    _login_contributor(client_api, shared_users)
+    # 対象ロール条件を満たす、ログインユーザー以外のユーザー
+    other = shared_users[5]["email"]
+
+    def _get(q):
+        res = client_api.get(url_for(
+            "weko_items_ui_api.get_search_data", data_type="email", q=q,
+            _external=True))
+        assert res.status_code == 200
+        return json.loads(res.data)
+
+    # 1. 完全一致: count・has_more キーを含まず、results は空文字のまま
+    assert _get(other) == {"results": "", "error": "", "query": other, "exists": True}
+    # 2. 前方一致のみ
+    assert _get("shared_orig") == {
+        "results": "", "error": "", "query": "shared_orig", "exists": False}
+    # 3. 大文字小文字の違い
+    assert _get(other.upper())["exists"] is False
+    # 4. + を URL エンコードして送信する
+    res = client_api.get(url_for(
+        "weko_items_ui_api.get_search_data", data_type="email", _external=True),
+        query_string={"q": "shared+tag@test.org"})
+    assert json.loads(res.data) == {
+        "results": "", "error": "", "query": "shared+tag@test.org", "exists": True}
+    # contributor 自身のメールアドレスだが、
+    # filter_shared_user_role はログインユーザー自身を常に除外するため該当なしとなる
+    own = shared_users[0]["email"]
+    assert _get(own)["exists"] is False
+    # 応答にユーザー名・ユーザーIDが含まれない
+    assert set(_get(other).keys()) == {"results", "error", "query", "exists"}
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_get_search_data_email_empty_and_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_get_search_data_email_empty_and_error(app, db, client_api, shared_users, db_userprofile, db_sessionlifetime):
+    """q が空・未指定の場合と、exists_shared_user_email が例外を送出した場合の応答."""
+    _login_contributor(client_api, shared_users)
+    url = url_for("weko_items_ui_api.get_search_data", data_type="email", _external=True)
+
+    # 1. q が空文字: DB にアクセスしない
+    with patch("weko_items_ui.utils.filter_shared_user_role") as mock_filter:
+        res = client_api.get(url, query_string={"q": ""})
+        mock_filter.assert_not_called()
+    assert json.loads(res.data) == {
+        "results": "", "error": "", "query": "", "exists": False}
+
+    # 2. q を指定しない
+    res = client_api.get(url)
+    assert json.loads(res.data)["exists"] is False
+
+    # 3. exists_shared_user_email が例外を送出する
+    with patch("weko_items_ui.views.exists_shared_user_email",
+               side_effect=Exception("test error")):
+        res = client_api.get(url, query_string={"q": "shared_contributor@test.org"})
+    assert json.loads(res.data) == {"results": "", "error": "test error"}
+
+
+@contextmanager
+def _save_model_env():
+    """iframe_save_model の周辺処理をモックする（一時保存の更新呼び出しを確認する）."""
+    with ExitStack() as stack:
+        yield SimpleNamespace(
+            get_activity=stack.enter_context(patch(
+                "weko_items_ui.views.WorkActivity.get_activity_by_id",
+                return_value=MagicMock(item_id=None))),
+            duplicate=stack.enter_context(patch(
+                "weko_items_ui.views.is_duplicate_record",
+                return_value=(False, [], []))),
+            sanitize=stack.enter_context(patch("weko_items_ui.views.sanitize_input_data")),
+            save_title=stack.enter_context(patch("weko_items_ui.views.save_title")),
+            upt=stack.enter_context(patch(
+                "weko_items_ui.views.WorkActivity.upt_activity_metadata")),
+        )
+
+
+def _post_iframe_save_model(client, user, metainfo):
+    _login(client, user)
+    with client.session_transaction() as session:
+        session["activity_info"] = {"activity_id": "A-TEST-1"}
+    with _save_model_env() as mocks:
+        res = _post_json(client, url_for("weko_items_ui.iframe_save_model",
+                                         _external=True), {"metainfo": metainfo})
+    return res, mocks
+
+
+# def iframe_save_model():
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_iframe_save_model_shared_role_rejected -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_iframe_save_model_shared_role_rejected(app, client, db, caplog):
+    """上限超過・指定不可のグループを含む一時保存データを保存前に拒否する."""
+    _config_map(app)
+    _set_proxy_posting(app, True)
+    caplog.set_level(logging.WARNING)
+    groups = [_create_role(app, db, MAP_GROUP_PREFIX + "G{:02d}".format(i))
+              for i in range(1, 12)]
+    r_n = _create_role(app, db, "Original Role")
+    user = _create_user(app, db, "if_user@test.org")
+    gids = [_rid(g) for g in groups]
+    msg_limit = "You can specify up to 10 proxy posting groups."
+    msg_not_allowed = "Specified group is not allowed as a proxy posting group."
+
+    def _post(shared_role_ids):
+        caplog.clear()
+        res, mocks = _post_iframe_save_model(
+            client, user, {"shared_role_ids": shared_role_ids})
+        # 保存前に拒否し、一時保存データを更新しない
+        mocks.upt.assert_not_called()
+        return res.status_code, json.loads(res.data)
+
+    # 1. 11 件
+    assert _post(gids[:11]) == (200, {"code": 1, "msg": msg_limit})
+    assert _warning_messages(caplog) == [
+        "Rejected shared role ids exceeding the limit: count=11, max=10"]
+    # 2. 指定不可のグループを含む
+    assert _post([gids[0], _rid(r_n)]) == (200, {"code": 1, "msg": msg_not_allowed})
+    assert _warning_messages(caplog) == [
+        "Rejected shared role id which is not a mAP group: {}".format(_rid(r_n))]
+    # 3. 存在しないロール（existing_role_ids を渡さないため新たに設定されるものとして判定する）
+    assert _post([gids[0], RID_DEL]) == (200, {"code": 1, "msg": msg_not_allowed})
+    # 4. 複数化フラグ無効でも判定する
+    _set_proxy_posting(app, False)
+    assert _post(gids[:11]) == (200, {"code": 1, "msg": msg_limit})
+
+
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_views.py::test_iframe_save_model_shared_ids_saved -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_iframe_save_model_shared_ids_saved(app, client, db):
+    """一時保存データの最上位に shared_ids_saved が設定される条件."""
+    _config_map(app)
+    r_a = _create_role(app, db, MAP_GROUP_PREFIX + "Alpha")
+    user = _create_user(app, db, "if_saved@test.org")
+    u_p1 = _create_user(app, db, "if_saved_p1@test.org")
+    rid_a = _rid(r_a)
+
+    def _saved_temp_data(metainfo):
+        res, mocks = _post_iframe_save_model(client, user, metainfo)
+        assert res.status_code == 200
+        assert json.loads(res.data)["code"] == 0
+        mocks.upt.assert_called_once()
+        return json.loads(mocks.upt.call_args[0][1])
+
+    # 1. 両キーを持つ: 最上位に設定され、metainfo には無い
+    temp_data = _saved_temp_data({
+        "pubdate": "2022-08-19",
+        "shared_user_ids": [{"user": u_p1.id}],
+        "shared_role_ids": [rid_a],
+    })
+    assert temp_data["shared_ids_saved"] is True
+    assert "shared_ids_saved" not in temp_data["metainfo"]
+    assert temp_data["metainfo"]["shared_role_ids"] == [rid_a]
+    # 2. 空でも設定する
+    temp_data = _saved_temp_data({"shared_user_ids": [], "shared_role_ids": []})
+    assert temp_data["shared_ids_saved"] is True
+    # 3. shared_role_ids キーなし
+    temp_data = _saved_temp_data({"shared_user_ids": [{"user": u_p1.id}]})
+    assert temp_data["shared_ids_saved"] is True
+    # 4. shared_user_ids キーなし
+    temp_data = _saved_temp_data({"shared_role_ids": [rid_a]})
+    assert temp_data["shared_ids_saved"] is True
+    # 5. 両キーを持たない
+    temp_data = _saved_temp_data({"pubdate": "2022-08-19"})
+    assert "shared_ids_saved" not in temp_data

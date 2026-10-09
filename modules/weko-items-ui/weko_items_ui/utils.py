@@ -3848,8 +3848,15 @@ def get_excluded_shared_doc_ids(user_id):
     excluded_ids = []
     for hit in search.scan():
         shared_ids = hit.to_dict().get("weko_shared_ids")
-        # _sourceは元の配列順のため、末尾が物理的な末尾と一致する
-        if get_shared_user_ids({"weko_shared_ids": shared_ids}) != [user_id]:
+        # _sourceは元の配列順のため、末尾が物理的な末尾と一致する。
+        # 複数化フラグは参照しない(apply_flag=False)。get_shared_user_idsは重複を
+        # 先頭出現順で除去するため、逆順にして渡し、先頭を物理的な末尾とする
+        # (例: [3, 5, 3] の物理的な末尾は 3)。配列以外はそのまま渡しガードに委ねる。
+        if isinstance(shared_ids, (list, tuple)):
+            shared_ids = list(reversed(shared_ids))
+        tail_ids = get_shared_user_ids(
+            {"weko_shared_ids": shared_ids}, apply_flag=False)
+        if tail_ids[:1] != [user_id]:
             excluded_ids.append(hit.meta.id)
 
     cache[user_id] = excluded_ids

@@ -1561,12 +1561,13 @@ class WekoDeposit(Deposit):
 
         # Convert item meta data
         try:
-            data = self.convert_type_shared_user_ids(data)
-            data = self.convert_type_shared_role_ids(data)
-
             # 更新パラメータが指定されない場合は、selfの内容を更新内容とする
+            # (convert_type_shared_* は空でも shared_* キーを追加して非空にするため、
+            #  フォールバックの判定は変換より前に行う)
             if not data:
                 data = self.data
+            data = self.convert_type_shared_user_ids(data)
+            data = self.convert_type_shared_role_ids(data)
             owner_id = data.get("owner", None)
             deposit_owners = data.get("owners", None)
             creator_id = str(deposit_owners[0]) if deposit_owners else None

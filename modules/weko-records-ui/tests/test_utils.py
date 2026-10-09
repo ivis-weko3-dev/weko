@@ -2040,3 +2040,61 @@ def test_delete_version(app, records):
                     "weko_records_ui.utils.call_external_system") as mock_external:
                     delete_version("2.0")
                     mock_external.assert_not_called()
+
+
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_has_permission_to_manage_secret_url_proxy -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_has_permission_to_manage_secret_url_proxy(app, db, users, proxy_actors):
+    """代理投稿者（個人・グループ）が管理でき、フラグ無効時は末尾1名以外が管理できないこと。"""
+    actors = proxy_actors
+    record = {
+        "owner": str(actors["U_O"]["id"]),
+        "weko_shared_ids": [actors["U_P1"]["id"], actors["U_P2"]["id"]],
+        "weko_shared_role_ids": [actors["R_A"]],
+    }
+
+    # 1. 複数化フラグ有効
+    expected = {"U_O": True, "U_P1": True, "U_G": True, "U_S": True,
+                "U_N": False}
+    with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": True}):
+        for key, exp in expected.items():
+            assert has_permission_to_manage_secret_url(
+                record, actors[key]["id"]) is exp, key
+
+    # 2. 複数化フラグ無効（U_P1 は不許可。改修前は許可されていた不具合の是正）
+    expected = {"U_P1": False, "U_P2": True, "U_G": False}
+    with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": False}):
+        for key, exp in expected.items():
+            assert has_permission_to_manage_secret_url(
+                record, actors[key]["id"]) is exp, key
+
+    # 3. created_by・weko_creator_id のみ一致するユーザー(owner と別人)は、
+    #    複数化フラグの有効・無効に依存せず許可される
+    from invenio_accounts.testutils import create_test_user
+    u_cb = create_test_user(email="proxy_created_by_109@test.org")
+    u_wc = create_test_user(email="proxy_creator_id_109@test.org")
+    db.session.commit()
+    record_ext = dict(record)
+    record_ext["_deposit"] = {"created_by": u_cb.id}
+    record_ext["weko_creator_id"] = str(u_wc.id)
+    for flag in (True, False):
+        with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": flag}):
+            assert has_permission_to_manage_secret_url(
+                record_ext, u_cb.id) is True, ("U_CB", flag)
+            assert has_permission_to_manage_secret_url(
+                record_ext, u_wc.id) is True, ("U_WC", flag)
+
+
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_has_permission_to_manage_onetime_url_proxy -vv -s --cov-branch --cov-report=html --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_has_permission_to_manage_onetime_url_proxy(app, db, users, proxy_actors):
+    """代理投稿者（個人・グループ）はワンタイムURLを管理できないこと（変更していないこと）。"""
+    actors = proxy_actors
+    record = {
+        "owner": str(actors["U_O"]["id"]),
+        "weko_shared_ids": [actors["U_P1"]["id"], actors["U_P2"]["id"]],
+        "weko_shared_role_ids": [actors["R_A"]],
+    }
+    expected = {"U_O": True, "U_P1": False, "U_G": False}
+    with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": True}):
+        for key, exp in expected.items():
+            assert has_permission_to_manage_onetime_url(
+                record, actors[key]["id"]) is exp, key

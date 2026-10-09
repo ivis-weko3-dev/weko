@@ -21,10 +21,12 @@
 """Module tests."""
 
 import json
+import os
 from datetime import datetime, timedelta, timezone
 
 import pytest
 import requests
+from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import TransportError
 from flask_babelex import gettext as _
 from flask_login import login_user
@@ -32,6 +34,14 @@ from invenio_cache.proxies import current_cache
 from sqlalchemy.exc import SQLAlchemyError
 from unittest.mock import MagicMock, Mock, call, patch
 
+from tests.helpers import (
+    ADMIN_ROLE_NAME,
+    GROUP_PREFIX,
+    IDP_ENTITY_ID,
+    get_or_create_role,
+    new_user,
+    reset_request_cache,
+)
 from weko_user_profiles import UserProfile
 from weko_workspace.models import WorkspaceDefaultConditions, WorkspaceStatusManagement
 from weko_workspace.utils import (
@@ -231,6 +241,532 @@ def test_get_es_itemlist(app, mock_responses, mock_exception, expected_response)
 
         result = get_es_itemlist()
         assert result == expected_response
+
+
+
+ES_INDEX = "test-workspace-weko"
+ES_DOC_TYPE = "item-v1.0.0"
+ES_MAPPING = {
+    "mappings": {
+        ES_DOC_TYPE: {
+            # 本番マッピング(item-v1.0.0.json)と同じ文字列の動的マッピング(text + fields.raw)
+            "dynamic_templates": [
+                {
+                    "string": {
+                        "match_mapping_type": "string",
+                        "mapping": {
+                            "type": "text",
+                            "index": False,
+                            "fields": {"raw": {"type": "keyword", "ignore_above": 256}},
+                        },
+                    }
+                }
+            ],
+            "properties": {
+                "weko_creator_id": {"type": "text", "fielddata": True, "index": True},
+                "publish_status": {"type": "keyword", "index": True},
+                "control_number": {"type": "keyword", "index": True},
+            },
+        }
+    }
+}
+
+
+def _empty_page():
+    return {"hits": {"hits": [], "total": 0}}
+
+
+def _fake_client(pages=None, side_effect=None):
+    """ES クライアント(search のみ)のモックを返す。"""
+    client = MagicMock()
+    if side_effect is not None:
+        client.search.side_effect = side_effect
+    else:
+        client.search.side_effect = list(pages) if pages else [_empty_page()]
+    return client
+
+
+def _call_es_itemlist(app, user, client, excluded_mock=None, real_excluded=False,
+                      reset_cache=True):
+    """ユーザーでログインした状態で get_es_itemlist を呼び出す。
+
+    ES 検索(RecordsSearch の接続先)は client に差し替える。
+    除外ID取得(1段目)は excluded_mock で差し替える(real_excluded=True の場合は実関数)。
+    """
+    from invenio_search import RecordsSearch
+
+    if reset_cache:
+        reset_request_cache()
+
+    def _search_factory(**kwargs):
+        return RecordsSearch(using=client, **kwargs)
+
+    if excluded_mock is None:
+        excluded_mock = MagicMock(return_value=[])
+    patches = [
+        patch("weko_workspace.utils.RecordsSearch", side_effect=_search_factory),
+    ]
+    if user is not None:
+        patches.append(patch("flask_login.utils._get_user", return_value=user))
+    if not real_excluded:
+        patches.append(
+            patch("weko_items_ui.utils.get_excluded_shared_doc_ids", excluded_mock))
+    for p in patches:
+        p.start()
+    try:
+        return get_es_itemlist()
+    finally:
+        for p in reversed(patches):
+            p.stop()
+
+
+def _find_key(obj, key):
+    """ネストした dict/list から最初に見つかった key の値を返す。"""
+    if isinstance(obj, dict):
+        if key in obj:
+            return obj[key]
+        for v in obj.values():
+            found = _find_key(v, key)
+            if found is not None:
+                return found
+    elif isinstance(obj, list):
+        for v in obj:
+            found = _find_key(v, key)
+            if found is not None:
+                return found
+    return None
+
+
+def _norm_ids(obj, key=None):
+    """ユーザーIDの型(int / str)の差を吸収するため、ID の値を str に揃える。"""
+    if isinstance(obj, dict):
+        return {k: _norm_ids(v, k) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_norm_ids(v, key) for v in obj]
+    if key in ("weko_creator_id", "weko_shared_ids") and obj is not None:
+        return str(obj)
+    return obj
+
+
+def _conditions_of(body):
+    """検索クエリ本文から 登録者/個人/グループ の条件を取り出す。"""
+    should = _find_key(body, "should")
+    result = {"should": should}
+    for cond in should:
+        text = json.dumps(cond)
+        second = _norm_ids(cond["bool"]["must"][1])
+        if "weko_creator_id" in text:
+            result["creator"] = second
+        elif "weko_shared_role_ids.raw" in text:
+            result["group"] = second
+        elif "weko_shared_ids" in text:
+            result["personal"] = second
+    return result
+
+
+def _creator_cond(user_id, with_owner=True):
+    """登録者条件(must の 2 番目)の期待値。weko_creator_id の match と owner の term の OR。"""
+    match = {"match": {"weko_creator_id": user_id}}
+    if not with_owner:
+        return match
+    return {
+        "bool": {
+            "should": [match, {"term": {"owner": int(user_id)}}],
+            "minimum_should_match": 1,
+        }
+    }
+
+
+def _creator_entries(body):
+    """検索クエリ本文の should から、登録者条件を含む条件(must 全体)を返す。"""
+    return [c for c in _find_key(body, "should")
+            if "weko_creator_id" in json.dumps(c)]
+
+
+def _body_of(client, index=0):
+    return client.search.call_args_list[index][1]["body"]
+
+
+def _mask_user_id(obj, user_id, key=None):
+    """クエリ本文中の自分のユーザーIDを置き換える(ユーザーIDの値を除いた比較用)。"""
+    if isinstance(obj, dict):
+        return {k: _mask_user_id(v, user_id, k) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_mask_user_id(v, user_id, key) for v in obj]
+    if key in ("weko_creator_id", "weko_shared_ids", "owner") and str(obj) == str(user_id):
+        return "<USER_ID>"
+    return obj
+
+
+# .tox/c1/bin/pytest tests/test_utils.py::test_get_es_itemlist_shared_role -vv -s --cov-branch --cov=weko_workspace --cov-report=term --basetemp=/code/modules/weko-workspace/tests/.tox/c1/tmp
+def test_get_es_itemlist_shared_role(app, db):
+    """グループ条件(weko_shared_role_ids.raw への terms)の付与条件を確認する。"""
+    app.config["WEKO_ACCOUNTS_IDP_ENTITY_ID"] = IDP_ENTITY_ID
+    role_a = get_or_create_role(GROUP_PREFIX + "Alpha")
+    user_g = new_user("u_g@test.org", [role_a.name])
+    user_n = new_user("u_n@test.org")
+    publish_status_match = {"terms": {"publish_status": ["0", "1"]}}
+
+    # 1. 複数化フラグ有効、U_G(R_A 所属)
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = True
+    client = _fake_client()
+    assert _call_es_itemlist(app, user_g, client) == []
+    conds = _conditions_of(_body_of(client))
+    # 既存の publish_status_match と weko_shared_role_ids.raw への terms を must に持つ bool 条件
+    assert conds["group"] == {"terms": {"weko_shared_role_ids.raw": [str(role_a.id)]}}
+    group_cond = [c for c in conds["should"] if "weko_shared_role_ids.raw" in json.dumps(c)]
+    assert group_cond[0]["bool"]["must"][0] == publish_status_match
+
+    # 2. 複数化フラグ有効、U_N(ロールなし)
+    client = _fake_client()
+    assert _call_es_itemlist(app, user_n, client) == []
+    body = _body_of(client)
+    assert "weko_shared_role_ids" not in json.dumps(body)
+    assert len(_conditions_of(body)["should"]) == 2
+
+    # 3. 複数化フラグ無効、U_G
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = False
+    client = _fake_client()
+    assert _call_es_itemlist(app, user_g, client) == []
+    assert "weko_shared_role_ids" not in json.dumps(_body_of(client))
+
+    # 4. フラグ有効・無効のそれぞれで、U_P1(get_id() は str)の登録者条件を確認する
+    user_p1 = new_user("u_p1@test.org")
+    publish_status_match = {"terms": {"publish_status": ["0", "1"]}}
+    for flag in (True, False):
+        app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = flag
+        client = _fake_client()
+        _call_es_itemlist(app, user_p1, client)
+        body = _body_of(client)
+        # must: [publish_status_match, {bool: should [match, term(owner: int)], minimum_should_match: 1}]
+        assert _creator_entries(body) == [{"bool": {"must": [
+            publish_status_match, _creator_cond(str(user_p1.id))]}}]
+        owner_term = _conditions_of(body)["creator"]["bool"]["should"][1]["term"]["owner"]
+        assert isinstance(owner_term, int) and not isinstance(owner_term, bool)
+        assert owner_term == user_p1.id
+        # owners・_deposit.created_by の条件は含まれない
+        body_text = json.dumps(body)
+        assert '"owners"' not in body_text
+        assert "_deposit.created_by" not in body_text
+
+    # 5. 未ログインと、get_id() が "abc"(int に変換できない値)の場合は owner の term が付かない
+    fake_user = MagicMock()
+    fake_user.get_id.return_value = "abc"
+    fake_user.is_authenticated = True
+    fake_user.roles = []
+    for target, expected_id in ((None, None), (fake_user, "abc")):
+        for flag in (True, False):
+            app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = flag
+            client = _fake_client()
+            # 例外が送出されない
+            assert _call_es_itemlist(app, target, client) == []
+            body = _body_of(client)
+            assert _creator_entries(body) == [{"bool": {"must": [
+                publish_status_match, _creator_cond(expected_id, with_owner=False)]}}]
+            assert "owner" not in json.dumps(body)
+
+
+# .tox/c1/bin/pytest tests/test_utils.py::test_get_es_itemlist_proxy_posting_flag -vv -s --cov-branch --cov=weko_workspace --cov-report=term --basetemp=/code/modules/weko-workspace/tests/.tox/c1/tmp
+def test_get_es_itemlist_proxy_posting_flag(app, db):
+    """個人条件の除外ID方式(フラグ無効時のみ must_not: ids。管理者バイパスなし)を確認する。"""
+    app.config["WEKO_ACCOUNTS_IDP_ENTITY_ID"] = IDP_ENTITY_ID
+    user_p1 = new_user("u_p1@test.org")
+    user_s = new_user("u_s@test.org", [ADMIN_ROLE_NAME])
+    user_n = new_user("u_n@test.org")
+
+    # 1. 複数化フラグ有効、U_P1: 個人条件は terms のみ。除外ID取得は呼ばれない
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = True
+    client = _fake_client()
+    excluded = MagicMock(return_value=["d1", "d2"])
+    _call_es_itemlist(app, user_p1, client, excluded)
+    conds = _conditions_of(_body_of(client))
+    assert conds["personal"] == _norm_ids({"terms": {"weko_shared_ids": [user_p1.id]}})
+    excluded.assert_not_called()
+
+    # 2. 複数化フラグ無効、U_P1、除外IDが空: must_not なし。引数 id(U_P1) で 1 回呼ばれる
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = False
+    client = _fake_client()
+    excluded = MagicMock(return_value=[])
+    _call_es_itemlist(app, user_p1, client, excluded)
+    conds = _conditions_of(_body_of(client))
+    assert conds["personal"] == _norm_ids({"terms": {"weko_shared_ids": [user_p1.id]}})
+    assert excluded.call_count == 1
+    assert str(excluded.call_args[0][0]) == str(user_p1.id)
+
+    # 3. 複数化フラグ無効、U_P1、除外ID が ["d1", "d2"]: 個人条件の内側のみに must_not: ids
+    client = _fake_client()
+    excluded = MagicMock(return_value=["d1", "d2"])
+    _call_es_itemlist(app, user_p1, client, excluded)
+    body = _body_of(client)
+    conds = _conditions_of(body)
+    assert conds["personal"] == _norm_ids({
+        "bool": {
+            "must": [{"terms": {"weko_shared_ids": [user_p1.id]}}],
+            "must_not": [{"ids": {"values": ["d1", "d2"]}}],
+        }
+    })
+    body_text = json.dumps(body)
+    # must_not は個人条件の内側のみ(登録者条件・グループ条件には付与されない)
+    assert body_text.count("must_not") == 1
+    assert "must_not" not in json.dumps(conds["creator"])
+    # script 条件が含まれず、weko_shared_ids の個人条件以外に除外の条件が無い
+    assert "script" not in body_text
+    assert "painless" not in body_text
+    assert body_text.count("weko_shared_ids") == 1
+
+    # 4. 複数化フラグ無効、管理者の U_S: U_N と同じ構造(管理者でも除外ID方式を適用する)
+    client_s = _fake_client()
+    excluded_s = MagicMock(return_value=["d1", "d2"])
+    _call_es_itemlist(app, user_s, client_s, excluded_s)
+    client_n = _fake_client()
+    excluded_n = MagicMock(return_value=["d1", "d2"])
+    _call_es_itemlist(app, user_n, client_n, excluded_n)
+    excluded_s.assert_called_once()
+    excluded_n.assert_called_once()
+    body_s = _mask_user_id(_body_of(client_s), user_s.id)
+    body_n = _mask_user_id(_body_of(client_n), user_n.id)
+    assert body_s == body_n
+    assert "must_not" in json.dumps(body_s)
+
+    # 5. 複数化フラグ有効、U_S: U_N と同じ構造(管理者ロールによるバイパス条件を付与しない)
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = True
+    client_s = _fake_client()
+    _call_es_itemlist(app, user_s, client_s)
+    client_n = _fake_client()
+    _call_es_itemlist(app, user_n, client_n)
+    conds_s = _conditions_of(_body_of(client_s))
+    conds_n = _conditions_of(_body_of(client_n))
+    # U_S は管理者ロールの ID によるグループ条件を持つが、それ以外にバイパス条件は無い
+    # (登録者条件・個人条件・(ロールがあれば)グループ条件のみ)
+    assert len(conds_n["should"]) == 2
+    assert len(conds_s["should"]) == 3
+    assert "group" in conds_s
+    assert _mask_user_id(conds_s["creator"], user_s.id) == _mask_user_id(conds_n["creator"], user_n.id)
+    assert _mask_user_id(conds_s["personal"], user_s.id) == _mask_user_id(conds_n["personal"], user_n.id)
+    # 管理者用に publish_status のみで絞る(ユーザー・グループの条件を含まない)条件は無い
+    for cond in conds_s["should"]:
+        assert "weko_creator_id" in json.dumps(cond) or "weko_shared" in json.dumps(cond)
+
+    # 6. 複数化フラグ無効、未ログイン(user_id が None): 除外ID取得は呼ばれず改修前と同じクエリ
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = False
+    client = _fake_client()
+    excluded = MagicMock(return_value=["d1", "d2"])
+    _call_es_itemlist(app, None, client, excluded)
+    excluded.assert_not_called()
+    body_text = json.dumps(_body_of(client))
+    assert "must_not" not in body_text
+    assert "weko_shared_role_ids" not in body_text
+    # 登録者条件にも owner の term は付与されない
+    assert "owner" not in body_text
+
+    # 7. ES 検索が 1 回目に 10000 件、2 回目に 1 件を返す
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = True
+    pages = [
+        {"hits": {"hits": [{"_id": str(i), "sort": [i]} for i in range(10000)], "total": 10001}},
+        {"hits": {"hits": [{"_id": "last", "sort": [10000]}], "total": 10001}},
+    ]
+    client = _fake_client(pages)
+    result = _call_es_itemlist(app, user_p1, client)
+    assert client.search.call_count == 2
+    first, second = _body_of(client, 0), _body_of(client, 1)
+    assert "search_after" not in first
+    assert second["search_after"] == [9999]
+    assert first["size"] == 10000
+    assert second["size"] == 10000
+    assert len(result) == 10001
+
+
+@pytest.fixture()
+def es_shared_index(app):
+    """ES への実検索用のインデックスを作成する(テスト専用の名前)。
+
+    workspace のテストアプリの検索クライアントは MockEs のため、実検索を行うテストでは
+    環境変数 SEARCH_ELASTIC_HOSTS(既定 elasticsearch)の ES へ直接接続する。
+    使用するインデックスは本テスト専用の test-workspace-weko のみで、他のインデックスは変更しない。
+    """
+    host = os.environ.get("SEARCH_ELASTIC_HOSTS", "elasticsearch")
+    client = Elasticsearch("http://{}:9200".format(host))
+    app.config["WEKO_WORKSPACE_ITEM_SEARCH_INDEX"] = ES_INDEX
+    app.config["WEKO_WORKSPACE_ITEM_SEARCH_TYPE"] = ES_DOC_TYPE
+    app.config["SEARCH_UI_SEARCH_INDEX"] = ES_INDEX
+    client.indices.delete(index=ES_INDEX, ignore=[404])
+    client.indices.create(ES_INDEX, body=ES_MAPPING)
+    try:
+        yield client
+    finally:
+        client.indices.delete(index=ES_INDEX, ignore=[404])
+
+
+def _private_doc(creator, shared_ids=None, shared_role_ids=None, doc_id=""):
+    body = {
+        "weko_creator_id": str(creator),
+        "publish_status": "1",
+        "relation_version_is_last": True,
+        "control_number": doc_id,
+    }
+    if shared_ids is not None:
+        body["weko_shared_ids"] = shared_ids
+    if shared_role_ids is not None:
+        body["weko_shared_role_ids"] = shared_role_ids
+    return body
+
+
+def _index_docs(client, docs):
+    for doc_id, make_body in docs.items():
+        client.index(
+            index=ES_INDEX, doc_type=ES_DOC_TYPE, id=doc_id,
+            body=make_body(doc_id), refresh="true")
+
+
+# .tox/c1/bin/pytest tests/test_utils.py::test_get_es_itemlist_search_result -vv -s --cov-branch --cov=weko_workspace --cov-report=term --basetemp=/code/modules/weko-workspace/tests/.tox/c1/tmp
+def test_get_es_itemlist_search_result(app, db, es_shared_index):
+    """ES への実検索で、物理的な末尾 1 名・管理者バイパスなし・登録者の扱いを確認する。"""
+    app.config["WEKO_ACCOUNTS_IDP_ENTITY_ID"] = IDP_ENTITY_ID
+    role_a = get_or_create_role(GROUP_PREFIX + "Alpha")
+    # id(U_P1) < id(U_P2) となる順に作成する
+    user_o = new_user("u_o@test.org")
+    user_p1 = new_user("u_p1@test.org")
+    user_p2 = new_user("u_p2@test.org")
+    user_g = new_user("u_g@test.org", [role_a.name])
+    user_s = new_user("u_s@test.org", [ADMIN_ROLE_NAME])
+    assert user_p1.id < user_p2.id
+
+    _index_docs(es_shared_index, {
+        "W1": lambda i: _private_doc(user_o.id, shared_role_ids=[str(role_a.id)], doc_id=i),
+        "W2": lambda i: _private_doc(user_o.id, [user_p1.id, user_p2.id], doc_id=i),
+        # 昇順でない。物理的な末尾は U_P1、最大IDは U_P2
+        "W3": lambda i: _private_doc(user_o.id, [user_p2.id, user_p1.id], doc_id=i),
+        # 要素数 1
+        "W4": lambda i: _private_doc(user_o.id, [user_p1.id], doc_id=i),
+        # 重複要素。物理的な末尾は U_P1
+        "W5": lambda i: _private_doc(user_o.id, [user_p1.id, user_p2.id, user_p1.id], doc_id=i),
+        # キーを持たないドキュメント
+        "W6": lambda i: _private_doc(user_o.id, doc_id=i),
+        # owner(long 型)のみ U_P1 に一致。weko_creator_id は別人
+        "W7": lambda i: dict(_private_doc(user_o.id, doc_id=i), owner=user_p1.id),
+    })
+
+    def _search(user):
+        # 除外ID取得(1段目)も含め、実 ES へ検索する
+        from invenio_search import RecordsSearch
+
+        def _factory(**kwargs):
+            return RecordsSearch(using=es_shared_index, **kwargs)
+
+        reset_request_cache()
+        with patch("flask_login.utils._get_user", return_value=user), \
+                patch("weko_workspace.utils.RecordsSearch", side_effect=_factory), \
+                patch("weko_items_ui.utils.RecordsSearch", side_effect=_factory):
+            records = get_es_itemlist()
+        assert records is not None
+        return {r["_id"] for r in records}
+
+    # 1. 複数化フラグ無効
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = False
+    # U_P1: 物理的な末尾が自分のドキュメントのみ(W2 を含まない)
+    # W7 は owner の term による登録者条件で含まれる
+    assert _search(user_p1) == {"W3", "W4", "W5", "W7"}
+    # U_P2: W2 のみ(W7 を含まない)
+    assert _search(user_p2) == {"W2"}
+    # U_G: W1・W7 を含まない
+    ids_g = _search(user_g)
+    assert "W1" not in ids_g
+    assert "W7" not in ids_g
+    # U_S(管理者): 登録者・代理投稿者でないドキュメントを含まない(管理者バイパスなし)
+    assert _search(user_s) == set()
+
+    # 2. 複数化フラグ有効
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = True
+    assert _search(user_p1) == {"W2", "W3", "W4", "W5", "W7"}
+    assert _search(user_g) == {"W1"}
+    assert _search(user_s) == set()
+
+    # 3. 複数化フラグ無効、U_O: 登録者としては除外ID方式の影響を受けない
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = False
+    assert _search(user_o) == {"W1", "W2", "W3", "W4", "W5", "W6", "W7"}
+
+
+# .tox/c1/bin/pytest tests/test_utils.py::test_get_es_itemlist_excluded_ids_failure_and_cache -vv -s --cov-branch --cov=weko_workspace --cov-report=term --basetemp=/code/modules/weko-workspace/tests/.tox/c1/tmp
+def test_get_es_itemlist_excluded_ids_failure_and_cache(app, db, caplog):
+    """除外ID取得(1段目)の失敗時の扱いと、get_permission_filter との 1段目の共有を確認する。"""
+    from weko_search_ui.query import get_permission_filter
+
+    user_p1 = new_user("u_p1@test.org")
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = False
+
+    # _id が "hx"、weko_shared_ids の末尾が U_P1 でないヒット 1 件
+    hit = MagicMock()
+    hit.to_dict.return_value = {"weko_shared_ids": [user_p1.id, user_p1.id + 1]}
+    hit.meta.id = "hx"
+    scan = MagicMock()
+    # RecordsSearch(index=...).filter(...).source(...).params(...).scan()
+    records_search = MagicMock()
+    records_search.return_value.filter.return_value.source.return_value \
+        .params.return_value.scan = scan
+
+    with patch("weko_items_ui.utils.RecordsSearch", records_search):
+        # 1. scan() が TransportError を送出する
+        scan.side_effect = TransportError(500, "error")
+        client = _fake_client()
+        caplog.clear()
+        result = _call_es_itemlist(app, user_p1, client, real_excluded=True)
+        # 既存の except TransportError で捕捉され、ERROR ログを出力して None を返す
+        # (NameError が発生せず、権限の絞り込みなしで一覧を返さない)
+        assert result is None
+        assert "Failed to get workflow item list from ES" in caplog.text
+        client.search.assert_not_called()
+
+        # 2. 正常に戻し、同一リクエスト内で get_permission_filter と get_es_itemlist を呼び出す
+        scan.reset_mock()
+        scan.side_effect = lambda: iter([hit])
+        reset_request_cache()
+        with patch("weko_search_ui.query.search_permission.can", return_value=True), \
+                patch("flask_login.utils._get_user", return_value=user_p1), \
+                patch("weko_search_ui.query.check_permission_user",
+                      return_value=(user_p1.id, True)), \
+                patch("weko_index_tree.api.Indexes.get_browsing_tree_paths",
+                      return_value=["33"]):
+            with app.test_request_context("/test?search_type=2"):
+                get_permission_filter(33)
+        assert scan.call_count == 1
+        client = _fake_client()
+        _call_es_itemlist(app, user_p1, client, real_excluded=True, reset_cache=False)
+        # flask.g のキャッシュを共有するため、1段目の検索は 1 回のみ
+        assert scan.call_count == 1
+        conds = _conditions_of(_body_of(client))
+        assert conds["personal"] == _norm_ids({
+            "bool": {
+                "must": [{"terms": {"weko_shared_ids": [user_p1.id]}}],
+                "must_not": [{"ids": {"values": ["hx"]}}],
+            }
+        })
+
+
+# .tox/c1/bin/pytest tests/test_utils.py::test_get_es_itemlist_exception -vv -s --cov-branch --cov=weko_workspace --cov-report=term --basetemp=/code/modules/weko-workspace/tests/.tox/c1/tmp
+def test_get_es_itemlist_exception(app, db, caplog):
+    """ES 通信エラー・除外ID取得(1段目)の通信エラー時の既存挙動を確認する。"""
+    role_a = get_or_create_role(GROUP_PREFIX + "Alpha")
+    user_g = new_user("u_g@test.org", [role_a.name])
+
+    # 1. 複数化フラグ有効・無効のそれぞれで、ES 検索が例外を送出する
+    for flag in (True, False):
+        app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = flag
+        client = _fake_client(side_effect=TransportError(500, "Server Error"))
+        caplog.clear()
+        assert _call_es_itemlist(app, user_g, client) is None
+        assert "Failed to get workflow item list from ES" in caplog.text
+        assert any(r.levelname == "ERROR" for r in caplog.records)
+
+    # 2. 複数化フラグ無効で、除外ID取得が TransportError を送出する(ES 検索は正常)
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = False
+    client = _fake_client()
+    caplog.clear()
+    excluded = MagicMock(side_effect=TransportError(500, "Server Error"))
+    assert _call_es_itemlist(app, user_g, client, excluded) is None
+    excluded.assert_called_once()
+    # 既存の except TransportError で捕捉される(NameError にならない)
+    assert "Failed to get workflow item list from ES" in caplog.text
+    assert any(r.levelname == "ERROR" for r in caplog.records)
 
 
 # ===========================def get_workspace_status_management():=====================================

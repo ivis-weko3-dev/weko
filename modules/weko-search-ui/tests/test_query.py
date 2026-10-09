@@ -1,14 +1,19 @@
 import json
 import copy
+import os
 
 import pytest
-from elasticsearch_dsl.query import Match, Range, Terms, Bool
+from elasticsearch.exceptions import TransportError
+from elasticsearch_dsl import Q, Search
+from elasticsearch_dsl.query import Match, Range, Term, Terms, Bool
+from flask import current_app, g
 from mock import patch, MagicMock
 from werkzeug.datastructures import MultiDict
-from invenio_accounts.testutils import login_user_via_session
+from invenio_accounts.models import Role
+from invenio_accounts.testutils import create_test_user, login_user_via_session
 
 from invenio_i18n.ext import current_i18n
-from invenio_search import RecordsSearch
+from invenio_search import RecordsSearch, current_search_client
 from weko_admin.config import WEKO_ADMIN_MANAGEMENT_OPTIONS
 from weko_search_ui.config import WEKO_SEARCH_KEYWORDS_DICT, WEKO_SEARCH_TYPE_DICT
 
@@ -77,40 +82,44 @@ def test_get_permission_filter(i18n_app, users, client_request_args, indices):
                     # index_id in is_perm_indexes
                     with patch("weko_index_tree.api.Indexes.get_browsing_tree_paths", return_value=["33", "33/44", "66"]):
                         res = get_permission_filter(33)
-                        assert res == ([Bool(must=[Bool(should=[Terms(path=['33'])])], should=[Bool(must=[Terms(publish_status=['0', '1']), Match(weko_creator_id=5)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[5])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])],
+                        assert res == ([Bool(must=[Bool(should=[Terms(path=['33'])])], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id=5), Term(owner=5)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[5])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])],
                                        ["33", "33/44", '66'])
                     # index_id not in is_perm_indexes
                     with patch("weko_index_tree.api.Indexes.get_browsing_tree_paths", return_value=["33", "33/44", "66"]):
                         res = get_permission_filter(33333)
-                        assert res == ([Bool(must=[Bool()], should=[Bool(must=[Terms(publish_status=['0', '1']), Match(weko_creator_id=5)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[5])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])],
+                        assert res == ([Bool(must=[Bool()], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id=5), Term(owner=5)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[5])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])],
                                         ['33', '33/44', '66'])
                 # exist index_id, search_type = INDEX
                 with i18n_app.test_request_context("/test?search_type=2"):
                     # index_id in is_perm_indexes
                     with patch("weko_index_tree.api.Indexes.get_browsing_tree_paths", return_value=["33", "33/44", "66"]):
                         res = get_permission_filter(33)
-                        assert res == ([Bool(must=[Terms(path=['33'])], should=[Bool(must=[Terms(publish_status=['0', '1']), Match(weko_creator_id=5)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[5])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])],
+                        assert res == ([Bool(must=[Terms(path=['33'])], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id=5), Term(owner=5)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[5])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])],
                                        ['33', '33/44', '66'])
                     # index_id not in is_perm_indexes
                     with patch("weko_index_tree.api.Indexes.get_browsing_tree_paths", return_value=["33", "33/44", "66"]):
                         res = get_permission_filter(33333)
-                        assert res == ([Bool(must=[Terms(path=[])], should=[Bool(must=[Terms(publish_status=['0', '1']), Match(weko_creator_id=5)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[5])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])],
+                        assert res == ([Bool(must=[Terms(path=[])], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id=5), Term(owner=5)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[5])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])],
                                        ['33', '33/44', '66'])
                 # not exist index_id
                 with patch("weko_index_tree.api.Indexes.get_browsing_tree_paths", return_value=["33", "33/44", '66']):
                     res = get_permission_filter()
-                    assert res == ([Bool(must=[Terms(path=['33', '44', '66'])], should=[Bool(must=[Terms(publish_status=['0', '1']), Match(weko_creator_id=5)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[5])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])], ['33', '33/44', '66'])
+                    assert res == ([Bool(must=[Terms(path=['33', '44', '66'])], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id=5), Term(owner=5)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[5])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])], ['33', '33/44', '66'])
         # not admin user
-        with patch("flask_login.utils._get_user", return_value=users[1]['obj']):
+        # 複数化フラグ無効かつ非管理者の場合、get_permission_filter は除外ID取得(1段目の ES 検索)を
+        # 呼ぶため、ES への実検索を避けて空の除外IDを返すようモックする。
+        # 除外IDが空の場合は個人条件に must_not が付与されず、従来と同じ条件となる。
+        with patch("flask_login.utils._get_user", return_value=users[1]['obj']), \
+                patch("weko_items_ui.utils.get_excluded_shared_doc_ids", return_value=[]):
             with patch("weko_search_ui.query.check_permission_user",return_value=(users[1]["id"],True)):
                 with i18n_app.test_request_context("/test?search_type=0"):
                     res = get_permission_filter(33)
-                    assert res == ([Bool(must=[Bool()], should=[Bool(must=[Terms(publish_status=['0', '1']), Match(weko_creator_id=2)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[2])]), Bool(must=[Terms(publish_status=['0']), Range(publish_date={'lte': 'now/d', 'time_zone': 'UTC'})])]), Bool(must=[Match(relation_version_is_last='true')])], [])
+                    assert res == ([Bool(must=[Bool()], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id=2), Term(owner=2)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[2])]), Bool(must=[Terms(publish_status=['0']), Range(publish_date={'lte': 'now/d', 'time_zone': 'UTC'})])]), Bool(must=[Match(relation_version_is_last='true')])], [])
                 with i18n_app.test_request_context("/test?search_type=2"):
                     res = get_permission_filter(33)
-                    assert res == ([Bool(must=[Terms(path=[])], should=[Bool(must=[Terms(publish_status=['0', '1']), Match(weko_creator_id=2)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[2])]), Bool(must=[Terms(publish_status=['0']), Range(publish_date={'lte': 'now/d', 'time_zone': 'UTC'})])]), Bool(must=[Match(relation_version_is_last='true')])], [])
+                    assert res == ([Bool(must=[Terms(path=[])], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id=2), Term(owner=2)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[2])]), Bool(must=[Terms(publish_status=['0']), Range(publish_date={'lte': 'now/d', 'time_zone': 'UTC'})])]), Bool(must=[Match(relation_version_is_last='true')])], [])
                 res = get_permission_filter()
-                assert res == ([Bool(must=[Terms(path=[])], should=[Bool(must=[Terms(publish_status=['0', '1']), Match(weko_creator_id=2)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[2])]), Bool(must=[Terms(publish_status=['0']), Range(publish_date={'lte': 'now/d', 'time_zone': 'UTC'})])]), Bool(must=[Match(relation_version_is_last='true')])], [])
+                assert res == ([Bool(must=[Terms(path=[])], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id=2), Term(owner=2)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[2])]), Bool(must=[Terms(publish_status=['0']), Range(publish_date={'lte': 'now/d', 'time_zone': 'UTC'})])]), Bool(must=[Match(relation_version_is_last='true')])], [])
     # is_perm is False
     with patch('weko_search_ui.query.search_permission.can', return_value=False):
         with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
@@ -130,7 +139,7 @@ def test_get_permission_filter(i18n_app, users, client_request_args, indices):
         with patch('weko_search_ui.query.search_permission', mock_searchperm):
             with patch("weko_index_tree.api.Indexes.get_browsing_tree_paths", return_value=["33", "33/44"]):
                 res = get_permission_filter()
-                expected = ([Bool(must=[Terms(path=['33', '44'])], should=[Bool(must=[Terms(publish_status=['0', '1']), Match(weko_creator_id='5')]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=['5'])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])],
+                expected = ([Bool(must=[Terms(path=['33', '44'])], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id='5'), Term(owner=5)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=['5'])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])],
                             ['33','33/44'])
                 assert res==expected
 
@@ -170,7 +179,7 @@ def test_get_permission_filter_fulltext(i18n_app, users, client_request_args_FUL
         with patch('weko_search_ui.query.search_permission', mock_searchperm):
             with patch("weko_index_tree.api.Indexes.get_browsing_tree_paths", return_value=["33", "33/44", "66"]):
                 res = get_permission_filter()
-                assert res==([Bool(must=[Terms(path=['33','44', '66'])], should=[Bool(must=[Terms(publish_status=['0', '1']), Match(weko_creator_id='5')]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=['5'])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])],
+                assert res==([Bool(must=[Terms(path=['33','44', '66'])], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id='5'), Term(owner=5)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=['5'])]), Bool(must=[Terms(publish_status=['0', '1'])])]), Bool(must=[Match(relation_version_is_last='true')])],
                         ['33','33/44', '66'])
 
 
@@ -250,7 +259,7 @@ def test_default_search_factory(app, users, communities):
                 app.extensions['invenio-queues'] = 1
                 res = default_search_factory(self=None, search=search)
                 query = (res[0].query()).to_dict()
-                assert query == {"query": {"bool": {"filter": [{"bool": {"must": [{"bool": {"should": [{"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"match": {"weko_creator_id": "5"}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"terms": {"weko_shared_ids": ["5"]}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}], "must": [{"terms": {"path": ["33", "44"]}}]}}, {"bool": {"must": [{"match": {"relation_version_is_last": "true"}}]}}, {"bool": {"should": [{"match": {"language": {"operator": "and", "query": "jpn"}}}, {"bool": {"filter": [{"script": {"script": {"source": "boolean flg=false; for(lang in doc['language']){if (!params.param1.contains(lang)){flg=true;}} return flg;", "params": {"param1": ["jpn", "eng", "fra", "ita", "deu", "spa", "zho", "rus", "lat", "msa", "epo", "ara", "ell", "kor", "other"]}}}}]}}]}}, {"bool": {"should": [{"nested": {"path": "relation.relatedIdentifier", "query": {"bool": {"must": [{"match": {"relation.relatedIdentifier.value": {"operator": "and", "query": "1"}}}]}}}}]}}, {"bool": {"should": [{"nested": {"path": "content", "query": {"bool": {"must": [{"terms": {"content.licensetype.raw": ["test_license"]}}]}}}}]}}, {"nested": {"path": "file.date", "query": {"bool": {"should": [{"term": {"file.date.dateType": "Accepted"}}], "must": [{"range": {"file.date.value": {"gte": "2022-10-01", "lte": "2022-10-30"}}}]}}}}, {"range": {"date_range1": {"gte": "2022-10-01", "lte": "2022-10-30"}}}, {"match": {"text1": {"operator": "and", "query": "test_text"}}}]}}], "must": [{"match_all": {}}]}}, "_source": {"excludes": ["content"]}}
+                assert query == {"query": {"bool": {"filter": [{"bool": {"must": [{"bool": {"should": [{"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"bool": {"should": [{"match": {"weko_creator_id": "5"}}, {"term": {"owner": 5}}], "minimum_should_match": 1}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"terms": {"weko_shared_ids": ["5"]}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}], "must": [{"terms": {"path": ["33", "44"]}}]}}, {"bool": {"must": [{"match": {"relation_version_is_last": "true"}}]}}, {"bool": {"should": [{"match": {"language": {"operator": "and", "query": "jpn"}}}, {"bool": {"filter": [{"script": {"script": {"source": "boolean flg=false; for(lang in doc['language']){if (!params.param1.contains(lang)){flg=true;}} return flg;", "params": {"param1": ["jpn", "eng", "fra", "ita", "deu", "spa", "zho", "rus", "lat", "msa", "epo", "ara", "ell", "kor", "other"]}}}}]}}]}}, {"bool": {"should": [{"nested": {"path": "relation.relatedIdentifier", "query": {"bool": {"must": [{"match": {"relation.relatedIdentifier.value": {"operator": "and", "query": "1"}}}]}}}}]}}, {"bool": {"should": [{"nested": {"path": "content", "query": {"bool": {"must": [{"terms": {"content.licensetype.raw": ["test_license"]}}]}}}}]}}, {"nested": {"path": "file.date", "query": {"bool": {"should": [{"term": {"file.date.dateType": "Accepted"}}], "must": [{"range": {"file.date.value": {"gte": "2022-10-01", "lte": "2022-10-30"}}}]}}}}, {"range": {"date_range1": {"gte": "2022-10-01", "lte": "2022-10-30"}}}, {"match": {"text1": {"operator": "and", "query": "test_text"}}}]}}], "must": [{"match_all": {}}]}}, "_source": {"excludes": ["content"]}}
 
 
         mock_searchperm = MagicMock(side_effect=MockSearchPerm)
@@ -740,12 +749,12 @@ def test_item_path_search_factory(app, users, indices):
                     child_list = [str(i) for i in range(500)]
                     with patch("weko_search_ui.query.Indexes.get_child_list_recursive",return_value=child_list):
                         res = item_path_search_factory(self=None,search=search,index_id=33)
-                        assert json.dumps((res[0].query()).to_dict()) == '{"query": {"bool": {"must": [{"match": {"relation_version_is_last": "true"}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}, {"match_all": {}}]}}, "post_filter": {"bool": {"must": [{"terms": {"path": []}}, {"bool": {"should": [{"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"match": {"weko_creator_id": "5"}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"terms": {"weko_shared_ids": ["5"]}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}]}}]}}, "aggs": {"path": {"terms": {"field": "path", "include": "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89|90|91|92|93|94|95|96|97|98|99|100|101|102|103|104|105|106|107|108|109|110|111|112|113|114|115|116|117|118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147|148|149|150|151|152|153|154|155|156|157|158|159|160|161|162|163|164|165|166|167|168|169|170|171|172|173|174|175|176|177|178|179|180|181|182|183|184|185|186|187|188|189|190|191|192|193|194|195|196|197|198|199|200|201|202|203|204|205|206|207|208|209|210|211|212|213|214|215|216|217|218|219|220|221|222|223|224|225|226|227|228|229|230|231|232|233|234|235|236|237|238|239|240|241|242|243|244|245|246|247|248|249|250|251|252|253|254|255|256|257|258|259|260|261|262|263|264|265|266|267|268|269|270|271|272|273|274|275|276|277|278|279|280|281|282|283|284|285|286|287|288|289|290|291|292|293|294|295|296|297|298|299|300|301|302|303|304|305|306|307|308|309|310|311|312|313|314|315|316|317|318|319|320|321|322|323|324|325|326|327|328|329|330|331|332|333|334|335|336|337|338|339|340|341|342|343|344|345|346|347|348|349|350|351|352|353|354|355|356|357|358|359|360|361|362|363|364|365|366|367|368|369|370|371|372|373|374|375|376|377|378|379|380|381|382|383|384|385|386|387|388|389|390|391|392|393|394|395|396|397|398|399|400|401|402|403|404|405|406|407|408|409|410|411|412|413|414|415|416|417|418|419|420|421|422|423|424|425|426|427|428|429|430|431|432|433|434|435|436|437|438|439|440|441|442|443|444|445|446|447|448|449|450|451|452|453|454|455|456|457|458|459|460|461|462|463|464|465|466|467|468|469|470|471|472|473|474|475|476|477|478|479|480|481|482|483|484|485|486|487|488|489|490|491|492|493|494|495|496|497|498|499", "size": "3"}, "aggs": {"date_range": {"filter": {"match": {"publish_status": "0"}}, "aggs": {"available": {"range": {"field": "publish_date", "ranges": [{"from": "now+1d/d"}, {"to": "now+1d/d"}]}}}}, "no_available": {"filter": {"bool": {"must_not": [{"match": {"publish_status": "0"}}]}}}}}}, "sort": [{"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}], "_source": {"excludes": ["content"]}}'
+                        assert json.dumps((res[0].query()).to_dict()) == '{"query": {"bool": {"must": [{"match": {"relation_version_is_last": "true"}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}, {"match_all": {}}]}}, "post_filter": {"bool": {"must": [{"terms": {"path": []}}, {"bool": {"should": [{"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"bool": {"should": [{"match": {"weko_creator_id": "5"}}, {"term": {"owner": 5}}], "minimum_should_match": 1}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"terms": {"weko_shared_ids": ["5"]}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}]}}]}}, "aggs": {"path": {"terms": {"field": "path", "include": "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89|90|91|92|93|94|95|96|97|98|99|100|101|102|103|104|105|106|107|108|109|110|111|112|113|114|115|116|117|118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147|148|149|150|151|152|153|154|155|156|157|158|159|160|161|162|163|164|165|166|167|168|169|170|171|172|173|174|175|176|177|178|179|180|181|182|183|184|185|186|187|188|189|190|191|192|193|194|195|196|197|198|199|200|201|202|203|204|205|206|207|208|209|210|211|212|213|214|215|216|217|218|219|220|221|222|223|224|225|226|227|228|229|230|231|232|233|234|235|236|237|238|239|240|241|242|243|244|245|246|247|248|249|250|251|252|253|254|255|256|257|258|259|260|261|262|263|264|265|266|267|268|269|270|271|272|273|274|275|276|277|278|279|280|281|282|283|284|285|286|287|288|289|290|291|292|293|294|295|296|297|298|299|300|301|302|303|304|305|306|307|308|309|310|311|312|313|314|315|316|317|318|319|320|321|322|323|324|325|326|327|328|329|330|331|332|333|334|335|336|337|338|339|340|341|342|343|344|345|346|347|348|349|350|351|352|353|354|355|356|357|358|359|360|361|362|363|364|365|366|367|368|369|370|371|372|373|374|375|376|377|378|379|380|381|382|383|384|385|386|387|388|389|390|391|392|393|394|395|396|397|398|399|400|401|402|403|404|405|406|407|408|409|410|411|412|413|414|415|416|417|418|419|420|421|422|423|424|425|426|427|428|429|430|431|432|433|434|435|436|437|438|439|440|441|442|443|444|445|446|447|448|449|450|451|452|453|454|455|456|457|458|459|460|461|462|463|464|465|466|467|468|469|470|471|472|473|474|475|476|477|478|479|480|481|482|483|484|485|486|487|488|489|490|491|492|493|494|495|496|497|498|499", "size": "3"}, "aggs": {"date_range": {"filter": {"match": {"publish_status": "0"}}, "aggs": {"available": {"range": {"field": "publish_date", "ranges": [{"from": "now+1d/d"}, {"to": "now+1d/d"}]}}}}, "no_available": {"filter": {"bool": {"must_not": [{"match": {"publish_status": "0"}}]}}}}}}, "sort": [{"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}], "_source": {"excludes": ["content"]}}'
                     # len(child_list) > 1000
                     child_list = [str(i) for i in range(2345)]
                     with patch("weko_search_ui.query.Indexes.get_child_list_recursive",return_value=child_list):
                         res = item_path_search_factory(self=None,search=search,index_id=33)
-                        assert json.dumps((res[0].query()).to_dict()) == '{"query": {"bool": {"must": [{"match": {"relation_version_is_last": "true"}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}, {"match_all": {}}]}}, "post_filter": {"bool": {"must": [{"terms": {"path": []}}, {"bool": {"should": [{"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"match": {"weko_creator_id": "5"}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"terms": {"weko_shared_ids": ["5"]}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}]}}]}}, "aggs": {"path_0": {"terms": {"field": "path", "include": "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89|90|91|92|93|94|95|96|97|98|99|100|101|102|103|104|105|106|107|108|109|110|111|112|113|114|115|116|117|118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147|148|149|150|151|152|153|154|155|156|157|158|159|160|161|162|163|164|165|166|167|168|169|170|171|172|173|174|175|176|177|178|179|180|181|182|183|184|185|186|187|188|189|190|191|192|193|194|195|196|197|198|199|200|201|202|203|204|205|206|207|208|209|210|211|212|213|214|215|216|217|218|219|220|221|222|223|224|225|226|227|228|229|230|231|232|233|234|235|236|237|238|239|240|241|242|243|244|245|246|247|248|249|250|251|252|253|254|255|256|257|258|259|260|261|262|263|264|265|266|267|268|269|270|271|272|273|274|275|276|277|278|279|280|281|282|283|284|285|286|287|288|289|290|291|292|293|294|295|296|297|298|299|300|301|302|303|304|305|306|307|308|309|310|311|312|313|314|315|316|317|318|319|320|321|322|323|324|325|326|327|328|329|330|331|332|333|334|335|336|337|338|339|340|341|342|343|344|345|346|347|348|349|350|351|352|353|354|355|356|357|358|359|360|361|362|363|364|365|366|367|368|369|370|371|372|373|374|375|376|377|378|379|380|381|382|383|384|385|386|387|388|389|390|391|392|393|394|395|396|397|398|399|400|401|402|403|404|405|406|407|408|409|410|411|412|413|414|415|416|417|418|419|420|421|422|423|424|425|426|427|428|429|430|431|432|433|434|435|436|437|438|439|440|441|442|443|444|445|446|447|448|449|450|451|452|453|454|455|456|457|458|459|460|461|462|463|464|465|466|467|468|469|470|471|472|473|474|475|476|477|478|479|480|481|482|483|484|485|486|487|488|489|490|491|492|493|494|495|496|497|498|499|500|501|502|503|504|505|506|507|508|509|510|511|512|513|514|515|516|517|518|519|520|521|522|523|524|525|526|527|528|529|530|531|532|533|534|535|536|537|538|539|540|541|542|543|544|545|546|547|548|549|550|551|552|553|554|555|556|557|558|559|560|561|562|563|564|565|566|567|568|569|570|571|572|573|574|575|576|577|578|579|580|581|582|583|584|585|586|587|588|589|590|591|592|593|594|595|596|597|598|599|600|601|602|603|604|605|606|607|608|609|610|611|612|613|614|615|616|617|618|619|620|621|622|623|624|625|626|627|628|629|630|631|632|633|634|635|636|637|638|639|640|641|642|643|644|645|646|647|648|649|650|651|652|653|654|655|656|657|658|659|660|661|662|663|664|665|666|667|668|669|670|671|672|673|674|675|676|677|678|679|680|681|682|683|684|685|686|687|688|689|690|691|692|693|694|695|696|697|698|699|700|701|702|703|704|705|706|707|708|709|710|711|712|713|714|715|716|717|718|719|720|721|722|723|724|725|726|727|728|729|730|731|732|733|734|735|736|737|738|739|740|741|742|743|744|745|746|747|748|749|750|751|752|753|754|755|756|757|758|759|760|761|762|763|764|765|766|767|768|769|770|771|772|773|774|775|776|777|778|779|780|781|782|783|784|785|786|787|788|789|790|791|792|793|794|795|796|797|798|799|800|801|802|803|804|805|806|807|808|809|810|811|812|813|814|815|816|817|818|819|820|821|822|823|824|825|826|827|828|829|830|831|832|833|834|835|836|837|838|839|840|841|842|843|844|845|846|847|848|849|850|851|852|853|854|855|856|857|858|859|860|861|862|863|864|865|866|867|868|869|870|871|872|873|874|875|876|877|878|879|880|881|882|883|884|885|886|887|888|889|890|891|892|893|894|895|896|897|898|899|900|901|902|903|904|905|906|907|908|909|910|911|912|913|914|915|916|917|918|919|920|921|922|923|924|925|926|927|928|929|930|931|932|933|934|935|936|937|938|939|940|941|942|943|944|945|946|947|948|949|950|951|952|953|954|955|956|957|958|959|960|961|962|963|964|965|966|967|968|969|970|971|972|973|974|975|976|977|978|979|980|981|982|983|984|985|986|987|988|989|990|991|992|993|994|995|996|997|998|999", "size": "3"}, "aggs": {"date_range": {"filter": {"match": {"publish_status": "0"}}, "aggs": {"available": {"range": {"field": "publish_date", "ranges": [{"from": "now+1d/d"}, {"to": "now+1d/d"}]}}}}, "no_available": {"filter": {"bool": {"must_not": [{"match": {"publish_status": "0"}}]}}}}}, "path_1": {"terms": {"field": "path", "include": "1000|1001|1002|1003|1004|1005|1006|1007|1008|1009|1010|1011|1012|1013|1014|1015|1016|1017|1018|1019|1020|1021|1022|1023|1024|1025|1026|1027|1028|1029|1030|1031|1032|1033|1034|1035|1036|1037|1038|1039|1040|1041|1042|1043|1044|1045|1046|1047|1048|1049|1050|1051|1052|1053|1054|1055|1056|1057|1058|1059|1060|1061|1062|1063|1064|1065|1066|1067|1068|1069|1070|1071|1072|1073|1074|1075|1076|1077|1078|1079|1080|1081|1082|1083|1084|1085|1086|1087|1088|1089|1090|1091|1092|1093|1094|1095|1096|1097|1098|1099|1100|1101|1102|1103|1104|1105|1106|1107|1108|1109|1110|1111|1112|1113|1114|1115|1116|1117|1118|1119|1120|1121|1122|1123|1124|1125|1126|1127|1128|1129|1130|1131|1132|1133|1134|1135|1136|1137|1138|1139|1140|1141|1142|1143|1144|1145|1146|1147|1148|1149|1150|1151|1152|1153|1154|1155|1156|1157|1158|1159|1160|1161|1162|1163|1164|1165|1166|1167|1168|1169|1170|1171|1172|1173|1174|1175|1176|1177|1178|1179|1180|1181|1182|1183|1184|1185|1186|1187|1188|1189|1190|1191|1192|1193|1194|1195|1196|1197|1198|1199|1200|1201|1202|1203|1204|1205|1206|1207|1208|1209|1210|1211|1212|1213|1214|1215|1216|1217|1218|1219|1220|1221|1222|1223|1224|1225|1226|1227|1228|1229|1230|1231|1232|1233|1234|1235|1236|1237|1238|1239|1240|1241|1242|1243|1244|1245|1246|1247|1248|1249|1250|1251|1252|1253|1254|1255|1256|1257|1258|1259|1260|1261|1262|1263|1264|1265|1266|1267|1268|1269|1270|1271|1272|1273|1274|1275|1276|1277|1278|1279|1280|1281|1282|1283|1284|1285|1286|1287|1288|1289|1290|1291|1292|1293|1294|1295|1296|1297|1298|1299|1300|1301|1302|1303|1304|1305|1306|1307|1308|1309|1310|1311|1312|1313|1314|1315|1316|1317|1318|1319|1320|1321|1322|1323|1324|1325|1326|1327|1328|1329|1330|1331|1332|1333|1334|1335|1336|1337|1338|1339|1340|1341|1342|1343|1344|1345|1346|1347|1348|1349|1350|1351|1352|1353|1354|1355|1356|1357|1358|1359|1360|1361|1362|1363|1364|1365|1366|1367|1368|1369|1370|1371|1372|1373|1374|1375|1376|1377|1378|1379|1380|1381|1382|1383|1384|1385|1386|1387|1388|1389|1390|1391|1392|1393|1394|1395|1396|1397|1398|1399|1400|1401|1402|1403|1404|1405|1406|1407|1408|1409|1410|1411|1412|1413|1414|1415|1416|1417|1418|1419|1420|1421|1422|1423|1424|1425|1426|1427|1428|1429|1430|1431|1432|1433|1434|1435|1436|1437|1438|1439|1440|1441|1442|1443|1444|1445|1446|1447|1448|1449|1450|1451|1452|1453|1454|1455|1456|1457|1458|1459|1460|1461|1462|1463|1464|1465|1466|1467|1468|1469|1470|1471|1472|1473|1474|1475|1476|1477|1478|1479|1480|1481|1482|1483|1484|1485|1486|1487|1488|1489|1490|1491|1492|1493|1494|1495|1496|1497|1498|1499|1500|1501|1502|1503|1504|1505|1506|1507|1508|1509|1510|1511|1512|1513|1514|1515|1516|1517|1518|1519|1520|1521|1522|1523|1524|1525|1526|1527|1528|1529|1530|1531|1532|1533|1534|1535|1536|1537|1538|1539|1540|1541|1542|1543|1544|1545|1546|1547|1548|1549|1550|1551|1552|1553|1554|1555|1556|1557|1558|1559|1560|1561|1562|1563|1564|1565|1566|1567|1568|1569|1570|1571|1572|1573|1574|1575|1576|1577|1578|1579|1580|1581|1582|1583|1584|1585|1586|1587|1588|1589|1590|1591|1592|1593|1594|1595|1596|1597|1598|1599|1600|1601|1602|1603|1604|1605|1606|1607|1608|1609|1610|1611|1612|1613|1614|1615|1616|1617|1618|1619|1620|1621|1622|1623|1624|1625|1626|1627|1628|1629|1630|1631|1632|1633|1634|1635|1636|1637|1638|1639|1640|1641|1642|1643|1644|1645|1646|1647|1648|1649|1650|1651|1652|1653|1654|1655|1656|1657|1658|1659|1660|1661|1662|1663|1664|1665|1666|1667|1668|1669|1670|1671|1672|1673|1674|1675|1676|1677|1678|1679|1680|1681|1682|1683|1684|1685|1686|1687|1688|1689|1690|1691|1692|1693|1694|1695|1696|1697|1698|1699|1700|1701|1702|1703|1704|1705|1706|1707|1708|1709|1710|1711|1712|1713|1714|1715|1716|1717|1718|1719|1720|1721|1722|1723|1724|1725|1726|1727|1728|1729|1730|1731|1732|1733|1734|1735|1736|1737|1738|1739|1740|1741|1742|1743|1744|1745|1746|1747|1748|1749|1750|1751|1752|1753|1754|1755|1756|1757|1758|1759|1760|1761|1762|1763|1764|1765|1766|1767|1768|1769|1770|1771|1772|1773|1774|1775|1776|1777|1778|1779|1780|1781|1782|1783|1784|1785|1786|1787|1788|1789|1790|1791|1792|1793|1794|1795|1796|1797|1798|1799|1800|1801|1802|1803|1804|1805|1806|1807|1808|1809|1810|1811|1812|1813|1814|1815|1816|1817|1818|1819|1820|1821|1822|1823|1824|1825|1826|1827|1828|1829|1830|1831|1832|1833|1834|1835|1836|1837|1838|1839|1840|1841|1842|1843|1844|1845|1846|1847|1848|1849|1850|1851|1852|1853|1854|1855|1856|1857|1858|1859|1860|1861|1862|1863|1864|1865|1866|1867|1868|1869|1870|1871|1872|1873|1874|1875|1876|1877|1878|1879|1880|1881|1882|1883|1884|1885|1886|1887|1888|1889|1890|1891|1892|1893|1894|1895|1896|1897|1898|1899|1900|1901|1902|1903|1904|1905|1906|1907|1908|1909|1910|1911|1912|1913|1914|1915|1916|1917|1918|1919|1920|1921|1922|1923|1924|1925|1926|1927|1928|1929|1930|1931|1932|1933|1934|1935|1936|1937|1938|1939|1940|1941|1942|1943|1944|1945|1946|1947|1948|1949|1950|1951|1952|1953|1954|1955|1956|1957|1958|1959|1960|1961|1962|1963|1964|1965|1966|1967|1968|1969|1970|1971|1972|1973|1974|1975|1976|1977|1978|1979|1980|1981|1982|1983|1984|1985|1986|1987|1988|1989|1990|1991|1992|1993|1994|1995|1996|1997|1998|1999", "size": "3"}, "aggs": {"date_range": {"filter": {"match": {"publish_status": "0"}}, "aggs": {"available": {"range": {"field": "publish_date", "ranges": [{"from": "now+1d/d"}, {"to": "now+1d/d"}]}}}}, "no_available": {"filter": {"bool": {"must_not": [{"match": {"publish_status": "0"}}]}}}}}, "path_2": {"terms": {"field": "path", "include": "2000|2001|2002|2003|2004|2005|2006|2007|2008|2009|2010|2011|2012|2013|2014|2015|2016|2017|2018|2019|2020|2021|2022|2023|2024|2025|2026|2027|2028|2029|2030|2031|2032|2033|2034|2035|2036|2037|2038|2039|2040|2041|2042|2043|2044|2045|2046|2047|2048|2049|2050|2051|2052|2053|2054|2055|2056|2057|2058|2059|2060|2061|2062|2063|2064|2065|2066|2067|2068|2069|2070|2071|2072|2073|2074|2075|2076|2077|2078|2079|2080|2081|2082|2083|2084|2085|2086|2087|2088|2089|2090|2091|2092|2093|2094|2095|2096|2097|2098|2099|2100|2101|2102|2103|2104|2105|2106|2107|2108|2109|2110|2111|2112|2113|2114|2115|2116|2117|2118|2119|2120|2121|2122|2123|2124|2125|2126|2127|2128|2129|2130|2131|2132|2133|2134|2135|2136|2137|2138|2139|2140|2141|2142|2143|2144|2145|2146|2147|2148|2149|2150|2151|2152|2153|2154|2155|2156|2157|2158|2159|2160|2161|2162|2163|2164|2165|2166|2167|2168|2169|2170|2171|2172|2173|2174|2175|2176|2177|2178|2179|2180|2181|2182|2183|2184|2185|2186|2187|2188|2189|2190|2191|2192|2193|2194|2195|2196|2197|2198|2199|2200|2201|2202|2203|2204|2205|2206|2207|2208|2209|2210|2211|2212|2213|2214|2215|2216|2217|2218|2219|2220|2221|2222|2223|2224|2225|2226|2227|2228|2229|2230|2231|2232|2233|2234|2235|2236|2237|2238|2239|2240|2241|2242|2243|2244|2245|2246|2247|2248|2249|2250|2251|2252|2253|2254|2255|2256|2257|2258|2259|2260|2261|2262|2263|2264|2265|2266|2267|2268|2269|2270|2271|2272|2273|2274|2275|2276|2277|2278|2279|2280|2281|2282|2283|2284|2285|2286|2287|2288|2289|2290|2291|2292|2293|2294|2295|2296|2297|2298|2299|2300|2301|2302|2303|2304|2305|2306|2307|2308|2309|2310|2311|2312|2313|2314|2315|2316|2317|2318|2319|2320|2321|2322|2323|2324|2325|2326|2327|2328|2329|2330|2331|2332|2333|2334|2335|2336|2337|2338|2339|2340|2341|2342|2343|2344", "size": "3"}, "aggs": {"date_range": {"filter": {"match": {"publish_status": "0"}}, "aggs": {"available": {"range": {"field": "publish_date", "ranges": [{"from": "now+1d/d"}, {"to": "now+1d/d"}]}}}}, "no_available": {"filter": {"bool": {"must_not": [{"match": {"publish_status": "0"}}]}}}}}}, "sort": [{"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}], "_source": {"excludes": ["content"]}}'
+                        assert json.dumps((res[0].query()).to_dict()) == '{"query": {"bool": {"must": [{"match": {"relation_version_is_last": "true"}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}, {"match_all": {}}]}}, "post_filter": {"bool": {"must": [{"terms": {"path": []}}, {"bool": {"should": [{"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"bool": {"should": [{"match": {"weko_creator_id": "5"}}, {"term": {"owner": 5}}], "minimum_should_match": 1}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}, {"terms": {"weko_shared_ids": ["5"]}}]}}, {"bool": {"must": [{"terms": {"publish_status": ["0", "1"]}}]}}]}}]}}, "aggs": {"path_0": {"terms": {"field": "path", "include": "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89|90|91|92|93|94|95|96|97|98|99|100|101|102|103|104|105|106|107|108|109|110|111|112|113|114|115|116|117|118|119|120|121|122|123|124|125|126|127|128|129|130|131|132|133|134|135|136|137|138|139|140|141|142|143|144|145|146|147|148|149|150|151|152|153|154|155|156|157|158|159|160|161|162|163|164|165|166|167|168|169|170|171|172|173|174|175|176|177|178|179|180|181|182|183|184|185|186|187|188|189|190|191|192|193|194|195|196|197|198|199|200|201|202|203|204|205|206|207|208|209|210|211|212|213|214|215|216|217|218|219|220|221|222|223|224|225|226|227|228|229|230|231|232|233|234|235|236|237|238|239|240|241|242|243|244|245|246|247|248|249|250|251|252|253|254|255|256|257|258|259|260|261|262|263|264|265|266|267|268|269|270|271|272|273|274|275|276|277|278|279|280|281|282|283|284|285|286|287|288|289|290|291|292|293|294|295|296|297|298|299|300|301|302|303|304|305|306|307|308|309|310|311|312|313|314|315|316|317|318|319|320|321|322|323|324|325|326|327|328|329|330|331|332|333|334|335|336|337|338|339|340|341|342|343|344|345|346|347|348|349|350|351|352|353|354|355|356|357|358|359|360|361|362|363|364|365|366|367|368|369|370|371|372|373|374|375|376|377|378|379|380|381|382|383|384|385|386|387|388|389|390|391|392|393|394|395|396|397|398|399|400|401|402|403|404|405|406|407|408|409|410|411|412|413|414|415|416|417|418|419|420|421|422|423|424|425|426|427|428|429|430|431|432|433|434|435|436|437|438|439|440|441|442|443|444|445|446|447|448|449|450|451|452|453|454|455|456|457|458|459|460|461|462|463|464|465|466|467|468|469|470|471|472|473|474|475|476|477|478|479|480|481|482|483|484|485|486|487|488|489|490|491|492|493|494|495|496|497|498|499|500|501|502|503|504|505|506|507|508|509|510|511|512|513|514|515|516|517|518|519|520|521|522|523|524|525|526|527|528|529|530|531|532|533|534|535|536|537|538|539|540|541|542|543|544|545|546|547|548|549|550|551|552|553|554|555|556|557|558|559|560|561|562|563|564|565|566|567|568|569|570|571|572|573|574|575|576|577|578|579|580|581|582|583|584|585|586|587|588|589|590|591|592|593|594|595|596|597|598|599|600|601|602|603|604|605|606|607|608|609|610|611|612|613|614|615|616|617|618|619|620|621|622|623|624|625|626|627|628|629|630|631|632|633|634|635|636|637|638|639|640|641|642|643|644|645|646|647|648|649|650|651|652|653|654|655|656|657|658|659|660|661|662|663|664|665|666|667|668|669|670|671|672|673|674|675|676|677|678|679|680|681|682|683|684|685|686|687|688|689|690|691|692|693|694|695|696|697|698|699|700|701|702|703|704|705|706|707|708|709|710|711|712|713|714|715|716|717|718|719|720|721|722|723|724|725|726|727|728|729|730|731|732|733|734|735|736|737|738|739|740|741|742|743|744|745|746|747|748|749|750|751|752|753|754|755|756|757|758|759|760|761|762|763|764|765|766|767|768|769|770|771|772|773|774|775|776|777|778|779|780|781|782|783|784|785|786|787|788|789|790|791|792|793|794|795|796|797|798|799|800|801|802|803|804|805|806|807|808|809|810|811|812|813|814|815|816|817|818|819|820|821|822|823|824|825|826|827|828|829|830|831|832|833|834|835|836|837|838|839|840|841|842|843|844|845|846|847|848|849|850|851|852|853|854|855|856|857|858|859|860|861|862|863|864|865|866|867|868|869|870|871|872|873|874|875|876|877|878|879|880|881|882|883|884|885|886|887|888|889|890|891|892|893|894|895|896|897|898|899|900|901|902|903|904|905|906|907|908|909|910|911|912|913|914|915|916|917|918|919|920|921|922|923|924|925|926|927|928|929|930|931|932|933|934|935|936|937|938|939|940|941|942|943|944|945|946|947|948|949|950|951|952|953|954|955|956|957|958|959|960|961|962|963|964|965|966|967|968|969|970|971|972|973|974|975|976|977|978|979|980|981|982|983|984|985|986|987|988|989|990|991|992|993|994|995|996|997|998|999", "size": "3"}, "aggs": {"date_range": {"filter": {"match": {"publish_status": "0"}}, "aggs": {"available": {"range": {"field": "publish_date", "ranges": [{"from": "now+1d/d"}, {"to": "now+1d/d"}]}}}}, "no_available": {"filter": {"bool": {"must_not": [{"match": {"publish_status": "0"}}]}}}}}, "path_1": {"terms": {"field": "path", "include": "1000|1001|1002|1003|1004|1005|1006|1007|1008|1009|1010|1011|1012|1013|1014|1015|1016|1017|1018|1019|1020|1021|1022|1023|1024|1025|1026|1027|1028|1029|1030|1031|1032|1033|1034|1035|1036|1037|1038|1039|1040|1041|1042|1043|1044|1045|1046|1047|1048|1049|1050|1051|1052|1053|1054|1055|1056|1057|1058|1059|1060|1061|1062|1063|1064|1065|1066|1067|1068|1069|1070|1071|1072|1073|1074|1075|1076|1077|1078|1079|1080|1081|1082|1083|1084|1085|1086|1087|1088|1089|1090|1091|1092|1093|1094|1095|1096|1097|1098|1099|1100|1101|1102|1103|1104|1105|1106|1107|1108|1109|1110|1111|1112|1113|1114|1115|1116|1117|1118|1119|1120|1121|1122|1123|1124|1125|1126|1127|1128|1129|1130|1131|1132|1133|1134|1135|1136|1137|1138|1139|1140|1141|1142|1143|1144|1145|1146|1147|1148|1149|1150|1151|1152|1153|1154|1155|1156|1157|1158|1159|1160|1161|1162|1163|1164|1165|1166|1167|1168|1169|1170|1171|1172|1173|1174|1175|1176|1177|1178|1179|1180|1181|1182|1183|1184|1185|1186|1187|1188|1189|1190|1191|1192|1193|1194|1195|1196|1197|1198|1199|1200|1201|1202|1203|1204|1205|1206|1207|1208|1209|1210|1211|1212|1213|1214|1215|1216|1217|1218|1219|1220|1221|1222|1223|1224|1225|1226|1227|1228|1229|1230|1231|1232|1233|1234|1235|1236|1237|1238|1239|1240|1241|1242|1243|1244|1245|1246|1247|1248|1249|1250|1251|1252|1253|1254|1255|1256|1257|1258|1259|1260|1261|1262|1263|1264|1265|1266|1267|1268|1269|1270|1271|1272|1273|1274|1275|1276|1277|1278|1279|1280|1281|1282|1283|1284|1285|1286|1287|1288|1289|1290|1291|1292|1293|1294|1295|1296|1297|1298|1299|1300|1301|1302|1303|1304|1305|1306|1307|1308|1309|1310|1311|1312|1313|1314|1315|1316|1317|1318|1319|1320|1321|1322|1323|1324|1325|1326|1327|1328|1329|1330|1331|1332|1333|1334|1335|1336|1337|1338|1339|1340|1341|1342|1343|1344|1345|1346|1347|1348|1349|1350|1351|1352|1353|1354|1355|1356|1357|1358|1359|1360|1361|1362|1363|1364|1365|1366|1367|1368|1369|1370|1371|1372|1373|1374|1375|1376|1377|1378|1379|1380|1381|1382|1383|1384|1385|1386|1387|1388|1389|1390|1391|1392|1393|1394|1395|1396|1397|1398|1399|1400|1401|1402|1403|1404|1405|1406|1407|1408|1409|1410|1411|1412|1413|1414|1415|1416|1417|1418|1419|1420|1421|1422|1423|1424|1425|1426|1427|1428|1429|1430|1431|1432|1433|1434|1435|1436|1437|1438|1439|1440|1441|1442|1443|1444|1445|1446|1447|1448|1449|1450|1451|1452|1453|1454|1455|1456|1457|1458|1459|1460|1461|1462|1463|1464|1465|1466|1467|1468|1469|1470|1471|1472|1473|1474|1475|1476|1477|1478|1479|1480|1481|1482|1483|1484|1485|1486|1487|1488|1489|1490|1491|1492|1493|1494|1495|1496|1497|1498|1499|1500|1501|1502|1503|1504|1505|1506|1507|1508|1509|1510|1511|1512|1513|1514|1515|1516|1517|1518|1519|1520|1521|1522|1523|1524|1525|1526|1527|1528|1529|1530|1531|1532|1533|1534|1535|1536|1537|1538|1539|1540|1541|1542|1543|1544|1545|1546|1547|1548|1549|1550|1551|1552|1553|1554|1555|1556|1557|1558|1559|1560|1561|1562|1563|1564|1565|1566|1567|1568|1569|1570|1571|1572|1573|1574|1575|1576|1577|1578|1579|1580|1581|1582|1583|1584|1585|1586|1587|1588|1589|1590|1591|1592|1593|1594|1595|1596|1597|1598|1599|1600|1601|1602|1603|1604|1605|1606|1607|1608|1609|1610|1611|1612|1613|1614|1615|1616|1617|1618|1619|1620|1621|1622|1623|1624|1625|1626|1627|1628|1629|1630|1631|1632|1633|1634|1635|1636|1637|1638|1639|1640|1641|1642|1643|1644|1645|1646|1647|1648|1649|1650|1651|1652|1653|1654|1655|1656|1657|1658|1659|1660|1661|1662|1663|1664|1665|1666|1667|1668|1669|1670|1671|1672|1673|1674|1675|1676|1677|1678|1679|1680|1681|1682|1683|1684|1685|1686|1687|1688|1689|1690|1691|1692|1693|1694|1695|1696|1697|1698|1699|1700|1701|1702|1703|1704|1705|1706|1707|1708|1709|1710|1711|1712|1713|1714|1715|1716|1717|1718|1719|1720|1721|1722|1723|1724|1725|1726|1727|1728|1729|1730|1731|1732|1733|1734|1735|1736|1737|1738|1739|1740|1741|1742|1743|1744|1745|1746|1747|1748|1749|1750|1751|1752|1753|1754|1755|1756|1757|1758|1759|1760|1761|1762|1763|1764|1765|1766|1767|1768|1769|1770|1771|1772|1773|1774|1775|1776|1777|1778|1779|1780|1781|1782|1783|1784|1785|1786|1787|1788|1789|1790|1791|1792|1793|1794|1795|1796|1797|1798|1799|1800|1801|1802|1803|1804|1805|1806|1807|1808|1809|1810|1811|1812|1813|1814|1815|1816|1817|1818|1819|1820|1821|1822|1823|1824|1825|1826|1827|1828|1829|1830|1831|1832|1833|1834|1835|1836|1837|1838|1839|1840|1841|1842|1843|1844|1845|1846|1847|1848|1849|1850|1851|1852|1853|1854|1855|1856|1857|1858|1859|1860|1861|1862|1863|1864|1865|1866|1867|1868|1869|1870|1871|1872|1873|1874|1875|1876|1877|1878|1879|1880|1881|1882|1883|1884|1885|1886|1887|1888|1889|1890|1891|1892|1893|1894|1895|1896|1897|1898|1899|1900|1901|1902|1903|1904|1905|1906|1907|1908|1909|1910|1911|1912|1913|1914|1915|1916|1917|1918|1919|1920|1921|1922|1923|1924|1925|1926|1927|1928|1929|1930|1931|1932|1933|1934|1935|1936|1937|1938|1939|1940|1941|1942|1943|1944|1945|1946|1947|1948|1949|1950|1951|1952|1953|1954|1955|1956|1957|1958|1959|1960|1961|1962|1963|1964|1965|1966|1967|1968|1969|1970|1971|1972|1973|1974|1975|1976|1977|1978|1979|1980|1981|1982|1983|1984|1985|1986|1987|1988|1989|1990|1991|1992|1993|1994|1995|1996|1997|1998|1999", "size": "3"}, "aggs": {"date_range": {"filter": {"match": {"publish_status": "0"}}, "aggs": {"available": {"range": {"field": "publish_date", "ranges": [{"from": "now+1d/d"}, {"to": "now+1d/d"}]}}}}, "no_available": {"filter": {"bool": {"must_not": [{"match": {"publish_status": "0"}}]}}}}}, "path_2": {"terms": {"field": "path", "include": "2000|2001|2002|2003|2004|2005|2006|2007|2008|2009|2010|2011|2012|2013|2014|2015|2016|2017|2018|2019|2020|2021|2022|2023|2024|2025|2026|2027|2028|2029|2030|2031|2032|2033|2034|2035|2036|2037|2038|2039|2040|2041|2042|2043|2044|2045|2046|2047|2048|2049|2050|2051|2052|2053|2054|2055|2056|2057|2058|2059|2060|2061|2062|2063|2064|2065|2066|2067|2068|2069|2070|2071|2072|2073|2074|2075|2076|2077|2078|2079|2080|2081|2082|2083|2084|2085|2086|2087|2088|2089|2090|2091|2092|2093|2094|2095|2096|2097|2098|2099|2100|2101|2102|2103|2104|2105|2106|2107|2108|2109|2110|2111|2112|2113|2114|2115|2116|2117|2118|2119|2120|2121|2122|2123|2124|2125|2126|2127|2128|2129|2130|2131|2132|2133|2134|2135|2136|2137|2138|2139|2140|2141|2142|2143|2144|2145|2146|2147|2148|2149|2150|2151|2152|2153|2154|2155|2156|2157|2158|2159|2160|2161|2162|2163|2164|2165|2166|2167|2168|2169|2170|2171|2172|2173|2174|2175|2176|2177|2178|2179|2180|2181|2182|2183|2184|2185|2186|2187|2188|2189|2190|2191|2192|2193|2194|2195|2196|2197|2198|2199|2200|2201|2202|2203|2204|2205|2206|2207|2208|2209|2210|2211|2212|2213|2214|2215|2216|2217|2218|2219|2220|2221|2222|2223|2224|2225|2226|2227|2228|2229|2230|2231|2232|2233|2234|2235|2236|2237|2238|2239|2240|2241|2242|2243|2244|2245|2246|2247|2248|2249|2250|2251|2252|2253|2254|2255|2256|2257|2258|2259|2260|2261|2262|2263|2264|2265|2266|2267|2268|2269|2270|2271|2272|2273|2274|2275|2276|2277|2278|2279|2280|2281|2282|2283|2284|2285|2286|2287|2288|2289|2290|2291|2292|2293|2294|2295|2296|2297|2298|2299|2300|2301|2302|2303|2304|2305|2306|2307|2308|2309|2310|2311|2312|2313|2314|2315|2316|2317|2318|2319|2320|2321|2322|2323|2324|2325|2326|2327|2328|2329|2330|2331|2332|2333|2334|2335|2336|2337|2338|2339|2340|2341|2342|2343|2344", "size": "3"}, "aggs": {"date_range": {"filter": {"match": {"publish_status": "0"}}, "aggs": {"available": {"range": {"field": "publish_date", "ranges": [{"from": "now+1d/d"}, {"to": "now+1d/d"}]}}}}, "no_available": {"filter": {"bool": {"must_not": [{"match": {"publish_status": "0"}}]}}}}}}, "sort": [{"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}, {"control_number": {"order": "asc", "unmapped_type": "long"}}], "_source": {"excludes": ["content"]}}'
 
 
 # def check_permission_user():
@@ -1039,3 +1048,568 @@ def test_accessrights_query_param(app, users, fix_accessrights, accessrights, ex
             else:
                 assert "accessRights" not in str(must_result)
                 assert "accessRights" not in str(urlkwargs)
+
+
+# 学認 mAP 設定。グループプレフィックスは jc_idp_example_org_gr_ となる
+IDP_ENTITY_ID = "https://idp.example.org/idp/shibboleth"
+GROUP_PREFIX = "jc_idp_example_org_gr_"
+ADMIN_ROLE_NAME = "System Administrator"
+
+
+def _get_or_create_role(name):
+    """ロールを取得する。無ければ作成する。"""
+    ds = current_app.extensions["invenio-accounts"].datastore
+    role = Role.query.filter_by(name=name).first()
+    if role is None:
+        role = ds.create_role(name=name)
+        ds.commit()
+    return role
+
+
+def _new_user(email, role_names=()):
+    """テスト関数内でローカルにユーザーを作成する(共有フィクスチャは変更しない)。"""
+    ds = current_app.extensions["invenio-accounts"].datastore
+    user = create_test_user(email=email)
+    for name in role_names:
+        ds.add_role_to_user(user, _get_or_create_role(name))
+    ds.commit()
+    return user
+
+
+def _reset_request_cache():
+    """リクエスト単位で flask.g にキャッシュされる値を破棄する。"""
+    g.pop("_weko_user_role_ids", None)
+    g.pop("_weko_shared_excluded_doc_ids", None)
+
+
+def _setup_mapconfig(app, proxy_posting):
+    app.config["WEKO_ACCOUNTS_IDP_ENTITY_ID"] = IDP_ENTITY_ID
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = proxy_posting
+
+
+def _call_permission_filter(app, user, excluded_mock=None, reset_cache=True,
+                            index_id=33, user_id=...):
+    """ユーザーでログインした状態で get_permission_filter を呼び出す。
+
+    除外ID取得(1段目)は excluded_mock で差し替える。
+    """
+    if reset_cache:
+        _reset_request_cache()
+    excluded_mock = excluded_mock if excluded_mock is not None else MagicMock(return_value=[])
+    # user_id 省略時は user.id。None や "abc" 等を指定して check_permission_user の戻り値を差し替えられる
+    permission_user_id = user.id if user_id is ... else user_id
+    with patch("weko_search_ui.query.search_permission.can", return_value=True), \
+            patch("flask_login.utils._get_user", return_value=user), \
+            patch("weko_search_ui.query.check_permission_user",
+                  return_value=(permission_user_id, True)), \
+            patch("weko_index_tree.api.Indexes.get_browsing_tree_paths", return_value=["33"]), \
+            patch("weko_items_ui.utils.get_excluded_shared_doc_ids", excluded_mock):
+        with app.test_request_context("/test?search_type=2"):
+            return get_permission_filter(index_id)
+
+
+def _creator_cond(user_id, with_owner=True):
+    """登録者条件(must の 2 番目)の期待値。weko_creator_id の match と owner の term の OR。"""
+    match = {"match": {"weko_creator_id": user_id}}
+    if not with_owner:
+        return match
+    return {
+        "bool": {
+            "should": [match, {"term": {"owner": int(user_id)}}],
+            "minimum_should_match": 1,
+        }
+    }
+
+
+def _should_of(mut):
+    """get_permission_filter の戻り値 mut から should 条件のリスト(dict)を取り出す。"""
+    return mut[0].to_dict()["bool"]["should"]
+
+
+def _classify_conditions(should):
+    """should 条件を 登録者/個人/グループ/管理者の条件 に分類する。"""
+    result = {}
+    for cond in should:
+        text = json.dumps(cond)
+        must = cond["bool"]["must"]
+        if "weko_creator_id" in text:
+            result["creator"] = must[1]
+        elif "weko_shared_role_ids.raw" in text:
+            result["group"] = must[1]
+        elif "weko_shared_ids" in text:
+            result["personal"] = must[1]
+        else:
+            result["admin"] = cond
+    return result
+
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_query.py::test_get_permission_filter_shared_role -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_get_permission_filter_shared_role(i18n_app, users, client_request_args, indices):
+    """グループ条件(weko_shared_role_ids.raw への terms)の付与条件を確認する。"""
+    role_a = _get_or_create_role(GROUP_PREFIX + "Alpha")
+    role_b = _get_or_create_role(GROUP_PREFIX + "Beta")
+    user_g = _new_user("u_g@test.org", [role_a.name, role_b.name])
+    user_n = _new_user("u_n@test.org")
+    expected_role_ids = sorted([str(role_a.id), str(role_b.id)])
+
+    # 1. 複数化フラグ有効、U_G
+    _setup_mapconfig(i18n_app, True)
+    mut, _ = _call_permission_filter(i18n_app, user_g)
+    should = _should_of(mut)
+    conds = _classify_conditions(should)
+    assert "group" in conds
+    group_cond = [c for c in should if "weko_shared_role_ids.raw" in json.dumps(c)]
+    assert len(group_cond) == 1
+    group_must = group_cond[0]["bool"]["must"]
+    # 既存の user_terms と weko_shared_role_ids.raw への terms を must に持つ bool 条件
+    assert group_must[0] == {"terms": {"publish_status": ["0", "1"]}}
+    assert list(group_must[1]["terms"].keys()) == ["weko_shared_role_ids.raw"]
+    assert sorted(group_must[1]["terms"]["weko_shared_role_ids.raw"]) == expected_role_ids
+    # .raw なしの weko_shared_role_ids への terms は含まれない
+    assert '"weko_shared_role_ids"' not in json.dumps(should)
+    # 登録者条件・個人条件は従来どおり
+    assert conds["creator"] == _creator_cond(user_g.id)
+    assert conds["personal"] == {"terms": {"weko_shared_ids": [user_g.id]}}
+
+    # 2. 複数化フラグ有効、U_N(ロールなし)
+    mut, _ = _call_permission_filter(i18n_app, user_n)
+    should = _should_of(mut)
+    assert "weko_shared_role_ids" not in json.dumps(should)
+    # 他の条件は改修前と同じ(登録者条件・個人条件・管理者の条件の 3 つ)
+    assert len(should) == 3
+    conds = _classify_conditions(should)
+    assert set(conds.keys()) == {"creator", "personal", "admin"}
+    assert conds["personal"] == {"terms": {"weko_shared_ids": [user_n.id]}}
+
+    # 3. 複数化フラグ無効、U_G
+    _setup_mapconfig(i18n_app, False)
+    mut, _ = _call_permission_filter(i18n_app, user_g)
+    should = _should_of(mut)
+    assert "weko_shared_role_ids" not in json.dumps(should)
+    assert len(should) == 3
+
+    # 4. フラグ有効・無効のそれぞれで、U_P1(user_id は str)の登録者条件を確認する
+    user_p1 = _new_user("u_p1@test.org")
+    for flag in (True, False):
+        _setup_mapconfig(i18n_app, flag)
+        mut, _ = _call_permission_filter(
+            i18n_app, user_p1, user_id=str(user_p1.id))
+        should = _should_of(mut)
+        conds = _classify_conditions(should)
+        # {"bool": {"must": [user_terms, {"bool": {"should": [match, term(owner: int)]}}]}}
+        creator_whole = [c for c in should if "weko_creator_id" in json.dumps(c)]
+        assert creator_whole == [{"bool": {"must": [
+            {"terms": {"publish_status": ["0", "1"]}},
+            _creator_cond(str(user_p1.id)),
+        ]}}]
+        owner_term = conds["creator"]["bool"]["should"][1]["term"]["owner"]
+        assert isinstance(owner_term, int) and not isinstance(owner_term, bool)
+        assert owner_term == user_p1.id
+        # owners・_deposit.created_by の条件は含まれない
+        text = json.dumps([m.to_dict() for m in mut])
+        assert '"owners"' not in text
+        assert "_deposit.created_by" not in text
+        # 個人条件・管理者の条件・インデックス権限の条件は変わらない
+        assert conds["personal"] == {"terms": {"weko_shared_ids": [str(user_p1.id)]}}
+        assert mut[0].to_dict()["bool"]["must"] == [{"terms": {"path": ["33"]}}]
+        assert mut[1].to_dict() == {"bool": {"must": [{"match": {"relation_version_is_last": "true"}}]}}
+
+    # 5. check_permission_user が None・"abc" を返す: owner の term は付かず従来どおり、例外なし
+    for bad_id in (None, "abc"):
+        for flag in (True, False):
+            _setup_mapconfig(i18n_app, flag)
+            mut, _ = _call_permission_filter(i18n_app, user_p1, user_id=bad_id)
+            should = _should_of(mut)
+            creator_whole = [c for c in should if "weko_creator_id" in json.dumps(c)]
+            assert creator_whole == [{"bool": {"must": [
+                {"terms": {"publish_status": ["0", "1"]}},
+                _creator_cond(bad_id, with_owner=False),
+            ]}}]
+            assert "owner" not in json.dumps(should)
+
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_query.py::test_get_permission_filter_proxy_posting_flag -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_get_permission_filter_proxy_posting_flag(i18n_app, users, client_request_args, indices):
+    """個人条件の除外ID方式(フラグ無効かつ非管理者のみ must_not: ids)を確認する。"""
+    user_p1 = _new_user("u_p1@test.org")
+    user_s = _new_user("u_s@test.org", [ADMIN_ROLE_NAME])
+    personal_terms = {"terms": {"weko_shared_ids": [user_p1.id]}}
+
+    # 1. フラグ有効、非管理者の U_P1: 個人条件は terms のみ。除外ID取得は呼ばれない
+    _setup_mapconfig(i18n_app, True)
+    excluded = MagicMock(return_value=["d1", "d2"])
+    mut, _ = _call_permission_filter(i18n_app, user_p1, excluded)
+    conds = _classify_conditions(_should_of(mut))
+    assert conds["personal"] == personal_terms
+    excluded.assert_not_called()
+
+    # 2. フラグ無効、U_P1、除外IDが空: must_not なしの従来条件。個人条件と同じユーザーIDで 1 回呼ばれる
+    _setup_mapconfig(i18n_app, False)
+    excluded = MagicMock(return_value=[])
+    mut, _ = _call_permission_filter(i18n_app, user_p1, excluded)
+    conds = _classify_conditions(_should_of(mut))
+    assert conds["personal"] == personal_terms
+    excluded.assert_called_once_with(user_p1.id)
+
+    # 3. フラグ無効、U_P1、除外ID が ["d1", "d2"]: 個人条件に must_not: ids
+    excluded = MagicMock(return_value=["d1", "d2"])
+    mut, res_paths = _call_permission_filter(i18n_app, user_p1, excluded)
+    should = _should_of(mut)
+    conds = _classify_conditions(should)
+    assert conds["personal"] == {
+        "bool": {
+            "must": [personal_terms],
+            "must_not": [{"ids": {"values": ["d1", "d2"]}}],
+        }
+    }
+    excluded.assert_called_once_with(user_p1.id)
+
+    # 4. must_not の付与位置と script 条件の有無
+    # must_not は個人条件の内側のみ。登録者条件・管理者の条件・インデックス権限の条件には付与しない
+    assert "must_not" not in json.dumps(conds["creator"])
+    # 登録者条件は weko_creator_id の match と owner の term の OR
+    assert conds["creator"] == _creator_cond(user_p1.id)
+    assert "must_not" not in json.dumps(conds["admin"])
+    assert json.dumps(should).count("must_not") == 1
+    assert "must_not" not in json.dumps(mut[0].to_dict()["bool"]["must"])
+    assert "must_not" not in json.dumps(mut[1].to_dict())
+    # クエリ全体に painless の script 条件が含まれない
+    assert "script" not in json.dumps([m.to_dict() for m in mut])
+    assert "painless" not in json.dumps([m.to_dict() for m in mut])
+
+    # 5. フラグ無効、管理者の U_S: 個人条件は terms のみ。除外ID取得は呼ばれない
+    excluded = MagicMock(return_value=["d1", "d2"])
+    mut, _ = _call_permission_filter(i18n_app, user_s, excluded)
+    conds = _classify_conditions(_should_of(mut))
+    assert conds["personal"] == {"terms": {"weko_shared_ids": [user_s.id]}}
+    excluded.assert_not_called()
+
+    # 6. 管理者バイパス・インデックス権限の条件は改修前と同じ
+    # 非管理者(フラグ無効、U_P1)
+    excluded = MagicMock(return_value=["d1", "d2"])
+    mut, _ = _call_permission_filter(i18n_app, user_p1, excluded)
+    should = _should_of(mut)
+    admin_must = should[-1]["bool"]["must"]
+    assert admin_must[0] == {"terms": {"publish_status": ["0"]}}
+    assert list(admin_must[1].keys()) == ["range"]
+    assert mut[0].to_dict()["bool"]["must"] == [{"terms": {"path": ["33"]}}]
+    assert mut[1].to_dict() == {"bool": {"must": [{"match": {"relation_version_is_last": "true"}}]}}
+    # 管理者(フラグ無効、U_S)
+    mut, _ = _call_permission_filter(i18n_app, user_s, MagicMock(return_value=["d1"]))
+    should = _should_of(mut)
+    assert should[-1]["bool"]["must"] == [{"terms": {"publish_status": ["0", "1"]}}]
+    assert mut[0].to_dict()["bool"]["must"] == [{"terms": {"path": ["33"]}}]
+    assert mut[1].to_dict() == {"bool": {"must": [{"match": {"relation_version_is_last": "true"}}]}}
+
+
+def _make_scan_hit(doc_id, shared_ids):
+    hit = MagicMock()
+    hit.to_dict.return_value = {"weko_shared_ids": shared_ids}
+    hit.meta.id = doc_id
+    return hit
+
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_query.py::test_get_permission_filter_excluded_ids_failure -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_get_permission_filter_excluded_ids_failure(i18n_app, users, client_request_args, indices):
+    """除外ID取得(1段目)の失敗時の扱いと同一リクエスト内での再利用を確認する。"""
+    user_p1 = _new_user("u_p1@test.org")
+    _setup_mapconfig(i18n_app, False)
+
+    # _id が "hx"、weko_shared_ids の末尾が U_P1 でないヒット 1 件
+    hit = _make_scan_hit("hx", [user_p1.id, user_p1.id + 1])
+    scan = MagicMock(side_effect=lambda: iter([hit]))
+    # RecordsSearch(index=...).filter(...).source(...).params(...).scan()
+    records_search = MagicMock()
+    records_search.return_value.filter.return_value.source.return_value \
+        .params.return_value.scan = scan
+
+    with patch("weko_items_ui.utils.RecordsSearch", records_search):
+        # 1. scan() が TransportError を送出する
+        scan.side_effect = TransportError(500, "error")
+        with pytest.raises(TransportError):
+            _call_permission_filter(
+                i18n_app, user_p1, excluded_mock=_real_excluded())
+
+        # 2. 正常に戻し、同一リクエスト内で 2 回呼び出す(1段目の検索は 1 回のみ)
+        scan.reset_mock()
+        scan.side_effect = lambda: iter([hit])
+        _reset_request_cache()
+        expected_personal = {
+            "bool": {
+                "must": [{"terms": {"weko_shared_ids": [user_p1.id]}}],
+                "must_not": [{"ids": {"values": ["hx"]}}],
+            }
+        }
+        for _i in range(2):
+            mut, _ = _call_permission_filter(
+                i18n_app, user_p1, excluded_mock=_real_excluded(), reset_cache=False)
+            conds = _classify_conditions(_should_of(mut))
+            assert conds["personal"] == expected_personal
+        assert scan.call_count == 1
+
+        # 3. 新しいリクエスト(新しい g)では 1段目の検索が再度発行される
+        with i18n_app.app_context():
+            mut, _ = _call_permission_filter(
+                i18n_app, user_p1, excluded_mock=_real_excluded(), reset_cache=False)
+            conds = _classify_conditions(_should_of(mut))
+            assert conds["personal"] == expected_personal
+        assert scan.call_count == 2
+
+
+def _real_excluded():
+    """get_excluded_shared_doc_ids 自体はモックせず、実関数を呼ぶ(パッチを素通しする)。"""
+    from weko_items_ui.utils import get_excluded_shared_doc_ids
+    return get_excluded_shared_doc_ids
+
+
+# ---------------------------------------------------------------------------
+# ES への実検索
+# ---------------------------------------------------------------------------
+ES_ALIAS = "test-weko"
+ES_DOC_TYPE = "item-v1.0.0"
+
+
+@pytest.fixture()
+def es_shared_index(app):
+    """共有フラグ検証用の ES インデックスを作成する。
+
+    esindex フィクスチャは db_records のレコード(weko_shared_ids を持つ)を投入するため、
+    weko_shared_ids が未マッピングの状態を作れない。そのため、ドキュメントを
+    持たない空のインデックス(マッピングは tests/data/item-v1.0.0.json)を別途作成し、
+    各テストで必要なドキュメントのみ投入する。
+    """
+    current_search_client.indices.delete(index="test-*")
+    mapping_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "data", "item-v1.0.0.json")
+    with open(mapping_path, "r") as f:
+        mapping = json.load(f)
+    index_name = app.config["INDEXER_DEFAULT_INDEX"]
+    current_search_client.indices.create(index_name, body=mapping)
+    current_search_client.indices.put_alias(index=index_name, name=ES_ALIAS)
+    try:
+        yield current_search_client
+    finally:
+        current_search_client.indices.delete(index="test-*")
+
+
+def _index_docs(client, docs):
+    """ドキュメントを投入する。docs は {doc_id: body}"""
+    for doc_id, body in docs.items():
+        client.index(
+            index=ES_ALIAS, doc_type=ES_DOC_TYPE, id=doc_id, body=body,
+            refresh="true")
+
+
+def _private_doc(creator, shared_ids=None, shared_role_ids=None):
+    """非公開アイテムのドキュメント本文を作成する。"""
+    body = {
+        "weko_creator_id": str(creator),
+        "publish_status": "1",
+        "relation_version_is_last": True,
+        "path": ["33"],
+    }
+    if shared_ids is not None:
+        body["weko_shared_ids"] = shared_ids
+    if shared_role_ids is not None:
+        body["weko_shared_role_ids"] = shared_role_ids
+    return body
+
+
+def _es_search(client, mut, size=100, from_=0):
+    """get_permission_filter の条件で ES を検索し、(ヒットの _id 一覧, hits.total) を返す。"""
+    search = Search(using=client, index=ES_ALIAS).filter(Q("bool", must=mut))
+    search = search.sort("_id").extra(size=size, **{"from": from_})
+    result = search.execute().to_dict()
+    return [h["_id"] for h in result["hits"]["hits"]], result["hits"]["total"]
+
+
+def _search_with_filter(app, client, user, excluded_mock=None):
+    mut, _ = _call_permission_filter(
+        app, user,
+        excluded_mock=excluded_mock if excluded_mock is not None else _real_excluded())
+    return _es_search(client, mut)
+
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_query.py::test_get_permission_filter_search_result_creator_admin -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_get_permission_filter_search_result_creator_admin(i18n_app, db, es_shared_index):
+    """ES への実検索で、登録者・管理者が除外ID方式の影響を受けないことを確認する。"""
+    i18n_app.config["WEKO_ACCOUNTS_IDP_ENTITY_ID"] = IDP_ENTITY_ID
+    # id(U_P1) < id(U_P2) となる順に作成する
+    user_p1 = _new_user("u_p1@test.org")
+    user_p2 = _new_user("u_p2@test.org")
+    user_o = _new_user("u_o@test.org")
+    user_s = _new_user("u_s@test.org", [ADMIN_ROLE_NAME])
+    assert user_p1.id < user_p2.id
+
+    _index_docs(es_shared_index, {
+        # U_P1 は登録者かつ末尾でない代理投稿者
+        "E1": _private_doc(user_p1.id, [user_p1.id, user_p2.id]),
+        "E2": _private_doc(user_o.id, [user_p1.id, user_p2.id]),
+        # 物理的な末尾は U_P1
+        "E3": _private_doc(user_o.id, [user_p2.id, user_p1.id]),
+        "E4": _private_doc(user_o.id),
+        # owner(long 型)のみ U_P1 に一致。weko_creator_id は別人
+        "E5": dict(_private_doc(user_o.id), owner=user_p1.id),
+        # owner が登録者 U_O
+        "E6": dict(_private_doc(user_o.id), owner=user_o.id),
+    })
+
+    # 1. フラグ無効、U_P1
+    _setup_mapconfig(i18n_app, False)
+    ids1, total1 = _search_with_filter(i18n_app, es_shared_index, user_p1)
+    assert set(ids1) == {"E1", "E3", "E5"}
+
+    # 2. フラグ無効、U_S(管理者): 1段目の検索が発行されない
+    with patch("weko_items_ui.utils.RecordsSearch") as mock_records_search:
+        ids2, total2 = _search_with_filter(i18n_app, es_shared_index, user_s)
+        mock_records_search.assert_not_called()
+    assert set(ids2) == {"E1", "E2", "E3", "E4", "E5", "E6"}
+
+    # 3. フラグ有効、U_P1
+    _setup_mapconfig(i18n_app, True)
+    ids3, total3 = _search_with_filter(i18n_app, es_shared_index, user_p1)
+    assert set(ids3) == {"E1", "E2", "E3", "E5"}
+
+    # 4. いずれも hits.total と返却件数が一致する
+    assert total1 == len(ids1)
+    assert total2 == len(ids2)
+    assert total3 == len(ids3)
+
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_query.py::test_get_permission_filter_search_result -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_get_permission_filter_search_result(i18n_app, db, es_shared_index):
+    """ES への実検索で、グループ・物理的な末尾 1 名・total とページングの一致を確認する。"""
+    i18n_app.config["WEKO_ACCOUNTS_IDP_ENTITY_ID"] = IDP_ENTITY_ID
+    role_a = _get_or_create_role(GROUP_PREFIX + "Alpha")
+    user_o = _new_user("u_o@test.org")
+    user_p1 = _new_user("u_p1@test.org")
+    user_p2 = _new_user("u_p2@test.org")
+    user_g = _new_user("u_g@test.org", [role_a.name])
+    user_n = _new_user("u_n@test.org")
+    assert user_p1.id < user_p2.id
+    all_ids = {"D1", "D2", "D3", "D4", "D5", "D6"}
+
+    _index_docs(es_shared_index, {
+        # weko_shared_role_ids は WekoDeposit の投入経路と同じく文字列配列
+        "D1": _private_doc(user_o.id, shared_role_ids=[str(role_a.id)]),
+        "D2": _private_doc(user_o.id, [user_p1.id, user_p2.id]),
+        # 昇順でない。物理的な末尾は U_P1、最大IDは U_P2
+        "D3": _private_doc(user_o.id, [user_p2.id, user_p1.id]),
+        # キーを持たないドキュメント
+        "D4": _private_doc(user_o.id),
+        # 要素数 1
+        "D5": _private_doc(user_o.id, [user_p1.id]),
+        # 重複要素。物理的な末尾は U_P1
+        "D6": _private_doc(user_o.id, [user_p1.id, user_p2.id, user_p1.id]),
+    })
+
+    results = {}
+
+    # 1. フラグ有効、U_G・U_N
+    _setup_mapconfig(i18n_app, True)
+    ids, total = _search_with_filter(i18n_app, es_shared_index, user_g)
+    results["on_g"] = (ids, total)
+    assert "D1" in ids
+    ids, total = _search_with_filter(i18n_app, es_shared_index, user_n)
+    results["on_n"] = (ids, total)
+    assert not set(ids) & all_ids
+
+    # 2. フラグ有効、U_P1
+    ids, total = _search_with_filter(i18n_app, es_shared_index, user_p1)
+    results["on_p1"] = (ids, total)
+    assert {"D2", "D3", "D5", "D6"} <= set(ids)
+
+    # 3. フラグ無効、U_P1・U_P2・U_G
+    _setup_mapconfig(i18n_app, False)
+    ids, total = _search_with_filter(i18n_app, es_shared_index, user_p1)
+    results["off_p1"] = (ids, total)
+    assert {"D3", "D5", "D6"} <= set(ids)
+    assert "D2" not in ids
+    ids, total = _search_with_filter(i18n_app, es_shared_index, user_p2)
+    results["off_p2"] = (ids, total)
+    assert "D2" in ids
+    assert not {"D3", "D5", "D6"} & set(ids)
+    ids, total = _search_with_filter(i18n_app, es_shared_index, user_g)
+    results["off_g"] = (ids, total)
+    assert "D1" not in ids
+
+    # 4. いずれも hits.total と条件に一致するドキュメント数が一致する
+    expected = {
+        "on_g": {"D1"},
+        "on_n": set(),
+        "on_p1": {"D2", "D3", "D5", "D6"},
+        "off_p1": {"D3", "D5", "D6"},
+        "off_p2": {"D2"},
+        "off_g": set(),
+    }
+    for key, (ids, total) in results.items():
+        assert total == len(ids), key
+        assert set(ids) == expected[key], key
+    # フラグ無効の U_P1 を size=1 のページングで全ページ取得しても件数がずれない
+    mut, _ = _call_permission_filter(i18n_app, user_p1, excluded_mock=_real_excluded())
+    paged = []
+    page_total = None
+    for offset in range(0, 10):
+        page_ids, page_total = _es_search(es_shared_index, mut, size=1, from_=offset)
+        if not page_ids:
+            break
+        paged.extend(page_ids)
+    assert page_total == len(paged) == len(expected["off_p1"])
+    assert set(paged) == expected["off_p1"]
+
+    # 5. インデックスのマッピング(weko_shared_role_ids)を確認する
+    mappings = es_shared_index.indices.get_mapping(index=ES_ALIAS)
+    for index_mapping in mappings.values():
+        props = index_mapping["mappings"][ES_DOC_TYPE]["properties"]
+        role_prop = props["weko_shared_role_ids"]
+        # text(index: false)と fields.raw(keyword)の動的マッピング
+        assert role_prop["type"] == "text"
+        assert role_prop["index"] is False
+        assert role_prop["fields"]["raw"]["type"] == "keyword"
+
+    # 6. フラグ無効の検索で ES へ送るクエリ本文: 個人条件が must_not: ids を持ち script を含まない
+    body = Search(using=es_shared_index, index=ES_ALIAS).filter(
+        Q("bool", must=mut)).to_dict()
+    body_text = json.dumps(body)
+    assert '"must_not"' in body_text
+    assert '"ids"' in body_text
+    assert "script" not in body_text
+    assert "painless" not in body_text
+    # D4(キーを持たないドキュメント)の評価で ES のエラーが発生しないこと:
+    # 上記の検索がすべて例外なく完了していることで確認する
+
+
+# .tox/c1/bin/pytest --cov=weko_search_ui tests/test_query.py::test_get_permission_filter_search_result_unmapped -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
+def test_get_permission_filter_search_result_unmapped(i18n_app, db, es_shared_index):
+    """weko_shared_ids が未マッピングのインデックスでも検索が成功することを確認する。"""
+    user_p1 = _new_user("u_p1@test.org")
+    user_o = _new_user("u_o@test.org")
+    user_s = _new_user("u_s@test.org", [ADMIN_ROLE_NAME])
+
+    # weko_shared_ids を持つドキュメントが 1 件も無い(_mapping に weko_shared_ids が存在しない)
+    _index_docs(es_shared_index, {
+        "F1": _private_doc(user_p1.id),
+        "F2": _private_doc(user_o.id),
+    })
+    mappings = es_shared_index.indices.get_mapping(index=ES_ALIAS)
+    for index_mapping in mappings.values():
+        assert "weko_shared_ids" not in index_mapping["mappings"][ES_DOC_TYPE]["properties"]
+
+    # owner・weko_shared_role_ids も未マッピングだが、term・terms は未知フィールドに対して
+    # 0 件一致となり、F1・F2 の含有に影響しない
+    # 1. フラグ無効、非管理者の U_P1: script_exception とならず F1 のみ
+    _setup_mapconfig(i18n_app, False)
+    ids, total = _search_with_filter(i18n_app, es_shared_index, user_p1)
+    assert set(ids) == {"F1"}
+    assert total == len(ids)
+
+    # 2. フラグ無効、管理者の U_S
+    ids, total = _search_with_filter(i18n_app, es_shared_index, user_s)
+    assert set(ids) == {"F1", "F2"}
+    assert total == len(ids)
+
+    # 3. フラグ有効、U_P1
+    _setup_mapconfig(i18n_app, True)
+    ids, total = _search_with_filter(i18n_app, es_shared_index, user_p1)
+    assert set(ids) == {"F1"}
+    assert total == len(ids)

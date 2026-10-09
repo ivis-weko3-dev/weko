@@ -123,6 +123,17 @@ def get_permission_filter(index_id: str = None, is_community=False):
             user_terms = Q("terms", publish_status=[
                 PublishStatus.PUBLIC.value, PublishStatus.PRIVATE.value])
             creator_user_match = Q("match", weko_creator_id=user_id)
+            # owner(long型)の完全一致を OR で追加(get_es_itemlist と同条件)
+            try:
+                owner_user_match = Q("term", owner=int(user_id))
+            except (TypeError, ValueError):
+                owner_user_match = None
+            if owner_user_match is not None:
+                creator_user_match = Q(
+                    "bool",
+                    should=[creator_user_match, owner_user_match],
+                    minimum_should_match=1,
+                )
             proxy_posting = current_app.config.get(
                 'WEKO_ITEMS_UI_PROXY_POSTING', False)
             shared_user_match = Q("terms", weko_shared_ids=[user_id])

@@ -1357,6 +1357,9 @@ def _load_activity_temp_data(activity):
     Returns:
         dict: The temp_data. An empty dict if it can not be parsed.
     """
+    if activity.temp_data is None:
+        # NULL は解析対象なし(警告なしで空 dict 扱い。空文字は不正JSONとして警告する)
+        return {}
     try:
         temp_data = activity.temp_data \
             if isinstance(activity.temp_data, dict) \
@@ -1446,11 +1449,11 @@ def check_authority(func):
             role_ids = []
             im = ItemMetadata.query.filter_by(
                 id=activity_detail.item_id).one_or_none()
-            if im or activity_detail.temp_data:
-                # check_authority_actionと同じ判定(複数化フラグ無効時は末尾1名のみ)
-                shared_ids, role_ids = _get_proxy_poster_candidates(
-                    activity_detail, im,
-                    {} if im else _load_activity_temp_data(activity_detail))
+            # check_authority_actionと同じ判定(複数化フラグ無効時は末尾1名のみ)。
+            # temp_data・ItemMetadataが無くてもactivityの列を評価する
+            shared_ids, role_ids = _get_proxy_poster_candidates(
+                activity_detail, im,
+                {} if im else _load_activity_temp_data(activity_detail))
             if cur_user in shared_ids:
                 return func(*args, **kwargs)
             # 代理投稿グループ判定
@@ -1491,7 +1494,8 @@ def check_authority_action(activity_id='0', action_id=0,
         # item_registrationが完了していないactivityを再編集する場合、item_metadataテーブルにデータはない
         # その為、workflow_activityテーブルのtemp_dataを参照し、保存されている代理投稿者をチェックする
         im = ItemMetadata.query.filter_by(id=activity.item_id).one_or_none()
-        if not im and activity.temp_data:
+        if not im:
+            # temp_dataが空でもアクティビティの列(shared_user_ids等)を評価する
             temp_data = _load_activity_temp_data(activity)
             activity_owner = temp_data.get('metainfo', {}).get("owner", '-1')
 
