@@ -2294,6 +2294,7 @@ def validate_token(token, is_secret_url):
             return False
     except Exception as e:
         current_app.logger.error(e)
+        db.session.rollback()
         return False
 
 

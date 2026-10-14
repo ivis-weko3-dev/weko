@@ -1528,6 +1528,22 @@ def test_validate_token(app, users):
         assert validate_token(123, is_secret_url=True) is False
 
 
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_validate_token_rollback -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+@pytest.mark.parametrize('token_id', [
+    b'abc',             # not an integer
+    b'99999999999',     # out of range of PostgreSQL integer
+])
+@pytest.mark.parametrize('is_secret_url', [True, False])
+def test_validate_token_rollback(app, db, token_id, is_secret_url):
+    token = base64.urlsafe_b64encode(b'somehash_' + token_id).decode()
+    with app.test_request_context():
+        # The query with the invalid ID causes a database error
+        assert validate_token(token, is_secret_url) is False
+        # The session is rolled back and the subsequent queries succeed
+        assert FileSecretDownload.query.count() == 0
+        assert FileOnetimeDownload.query.count() == 0
+
+
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_convert_token_into_obj -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 @patch('weko_records_ui.utils.validate_token')
 def test_convert_token_into_obj(vldt_token, app, users):
