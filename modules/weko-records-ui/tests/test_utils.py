@@ -1812,7 +1812,7 @@ def test_validate_file_access():
 
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_utils.py::test_save_download_log -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-def test_save_download_log(secret_url, onetime_url, mocker):
+def test_save_download_log(db, secret_url, onetime_url, mocker):
     file_name = 'test.txt'
     record = MagicMock()
 
@@ -1860,6 +1860,31 @@ def test_save_download_log(secret_url, onetime_url, mocker):
     assert open_restricted.ip_address     is None
     assert open_restricted.access_status  is AccessStatus.OPEN_RESTRICTED
     assert open_restricted.used_token     == onetime_token
+
+    # The 'commit' argument is passed to FileUrlDownloadLog.create()
+    with patch('weko_records_ui.utils.FileUrlDownloadLog.create') as mock_create:
+        save_download_log(record, file_name, secret_token, is_secret_url=True)
+        assert mock_create.call_args[1]['commit'] is True
+        save_download_log(
+            record, file_name, secret_token, is_secret_url=True, commit=False)
+        assert mock_create.call_args[1]['commit'] is False
+        save_download_log(
+            record, file_name, onetime_token, is_secret_url=False)
+        assert mock_create.call_args[1]['commit'] is True
+        save_download_log(
+            record, file_name, onetime_token, is_secret_url=False, commit=False)
+        assert mock_create.call_args[1]['commit'] is False
+
+    # commit=False: the log is not committed until the caller commits
+    count_sql = 'SELECT COUNT(*) FROM {}'.format(
+        FileUrlDownloadLog.__tablename__)
+    committed = db.engine.execute(count_sql).scalar()
+    log_obj = save_download_log(
+        record, file_name, onetime_token, is_secret_url=False, commit=False)
+    assert log_obj.id is not None
+    assert db.engine.execute(count_sql).scalar() == committed
+    db.session.rollback()
+    assert db.engine.execute(count_sql).scalar() == committed
 
 
 # def update_secret_download(**kwargs) -> Optional[List[FileSecretDownload]]:

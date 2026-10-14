@@ -623,34 +623,76 @@ def process_onetime_file_download(
     # Update 'extra_info' of the one-time URL object
     url_obj = convert_token_into_obj(token, is_secret_url=False)
     extra_info = url_obj.extra_info
-    if extra_info:
+    if extra_info and extra_info.get('send_usage_report'):
+        extra_info = dict(extra_info)
         try:
-            # 'extra_info' can be changed by this method
-            error = check_and_send_usage_report(
-                extra_info, url_obj.user_mail ,record, file_object)
-            if error:
-                return error_handler(error, status_code=403)
-            url_obj.update_extra_info(extra_info)
-            db.session.commit()
-        except SQLAlchemyError as ex:
-            current_app.logger.error(f'SQLAlchemy error: {ex}')
-            db.session.rollback()
-            return error_handler('Unexpected error occurred.', status_code=500)
-        except BaseException as ex:
+            is_acquired = url_obj.acquire_usage_report_flag()
+        except Exception as ex:
             current_app.logger.error(f'Unexpected error: {ex}')
-            db.session.rollback()
             return error_handler('Unexpected error occurred.', status_code=500)
+        if is_acquired:
+            try:
+                # 'extra_info' can be changed by this method
+                error = check_and_send_usage_report(
+                    extra_info, url_obj.user_mail ,record, file_object)
+                if error:
+                    db.session.rollback()
+                    _release_usage_report_flag(url_obj)
+                    return error_handler(error, status_code=403)
+                url_obj.update_extra_info(extra_info)
+                db.session.commit()
+            except SQLAlchemyError as ex:
+                current_app.logger.error(f'SQLAlchemy error: {ex}')
+                db.session.rollback()
+                _release_usage_report_flag(url_obj)
+                return error_handler('Unexpected error occurred.', status_code=500)
+            except BaseException as ex:
+                current_app.logger.error(f'Unexpected error: {ex}')
+                db.session.rollback()
+                _release_usage_report_flag(url_obj)
+                return error_handler('Unexpected error occurred.', status_code=500)
 
-    # Increase the download count and save the download log
+    # Increase the download count and save the download log in a single
+    # transaction, so that the count is not consumed if the log is not saved.
     try:
-        save_download_log(record, filename, token, is_secret_url=False)
-        url_obj.increment_download_count()
+        url_obj.increment_download_count(commit=False)
+    except ValueError as e:
+        db.session.rollback()
+        current_app.logger.warning(e)
+        return error_handler(
+            _('The download limit has been exceeded.'), status_code=403)
     except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(e)
+        return error_handler(_('Unexpected error occurred.'), status_code=500)
+
+    try:
+        save_download_log(
+            record, filename, token, is_secret_url=False, commit=False)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
         current_app.logger.error(e)
         return error_handler(_('Unexpected error occurred.'), status_code=500)
 
     return _download_file(
         file_object, False, 'en', file_object.obj, pid, record)
+
+
+def _release_usage_report_flag(url_obj):
+    """Release the usage report flag of the one-time URL object.
+
+    The error is only logged, because this function is called while handling
+    another error and the response for that error must be returned.
+
+    Args:
+        url_obj (FileOnetimeDownload): The one-time URL object.
+    """
+    try:
+        url_obj.release_usage_report_flag()
+    except Exception as ex:
+        current_app.logger.error(
+            f'Failed to release the usage report flag: {ex}')
 
 
 def _is_terms_of_use_only(file_obj:dict , req :dict) -> bool:
@@ -721,9 +763,22 @@ def file_download_secret(pid, record, filename, _record_file_factory=None,
     # Increase the download count and save the download log
     url_obj = convert_token_into_obj(token, is_secret_url=True)
     try:
-        save_download_log(record, filename, token, is_secret_url=True)
-        url_obj.increment_download_count()
+        url_obj.increment_download_count(commit=False)
+    except ValueError as e:
+        db.session.rollback()
+        current_app.logger.warning(e)
+        return error_response(_('The download limit has been exceeded.'), 403)
     except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(e)
+        return error_response(_('Unexpected error occurred.'), 500)
+
+    try:
+        save_download_log(
+            record, filename, token, is_secret_url=True, commit=False)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
         current_app.logger.error(e)
         return error_response(_('Unexpected error occurred.'), 500)
 

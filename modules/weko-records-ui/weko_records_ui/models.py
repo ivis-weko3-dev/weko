@@ -28,7 +28,7 @@ from typing import List
 
 from flask import current_app
 from invenio_db import db
-from sqlalchemy import CheckConstraint, desc, func, asc
+from sqlalchemy import CheckConstraint, desc, func, asc, literal_column, type_coerce
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.sql.functions import concat ,now
@@ -305,25 +305,50 @@ class DownloadMixin:
         - is_deleted (bool): Indicates whether the record is deleted.
     """
 
-    def increment_download_count(self):
+    def increment_download_count(self, commit=True):
         """Increment the 'download_count' attribute by 1 and commit the change.
 
         This method increases the download count for the instance by one
         and persists the change to the database.
 
+        Args:
+            commit (bool): If True, the change is committed in this method.
+                If False, the change is only flushed and the caller must
+                commit (or roll back) the transaction.
+
         Raises:
             ValueError: If the download limit has been reached.
             Exception: If an unexpected error occurs during the update.
         """
-        if self.download_count >= self.download_limit:
-            raise ValueError('Download limit has been reached.')
+        cls = type(self)
+        now = datetime.now(timezone.utc)
         try:
-            self.download_count += 1
-            db.session.commit()
+            updated_count = db.session.query(cls).filter(
+                cls.id == self.id,
+                cls.download_count < cls.download_limit,
+                cls.expiration_date > now,
+                cls.is_deleted == False
+            ).update(
+                {
+                    cls.download_count: cls.download_count + 1,
+                    cls.updated: now,
+                },
+                synchronize_session=False
+            )
+            if updated_count == 0:
+                db.session.rollback()
+                raise ValueError('Download limit has been reached.')
+            if commit:
+                db.session.commit()
+            else:
+                db.session.flush()
+        except ValueError:
+            raise
         except Exception as ex:
             db.session.rollback()
             current_app.logger.error(ex)
             raise ex
+        db.session.refresh(self)
 
     def delete_logically(self):
         """Execute logical deletion by setting the 'is_deleted' flag to True.
@@ -524,6 +549,75 @@ class FileOnetimeDownload(db.Model, Timestamp, DownloadMixin):
             cls.is_deleted == False
         )
         return query.order_by(desc(cls.id)).all()
+
+    def acquire_usage_report_flag(self):
+        """Acquire the right to create the usage report for this URL.
+
+        The 'send_usage_report' value in 'extra_info' is switched from true
+        to false by a single conditional UPDATE statement. Only the request
+        that updates the row acquires the right, so that the usage report is
+        created only once even if requests are processed concurrently.
+
+        Returns:
+            bool: True if the flag is acquired, False otherwise.
+
+        Raises:
+            Exception: If an unexpected error occurs during the update.
+        """
+        cls = type(self)
+        try:
+            updated_count = db.session.query(cls).filter(
+                cls.id == self.id,
+                type_coerce(cls.extra_info, postgresql.JSONB).contains(
+                    {'send_usage_report': True})
+            ).update(
+                {
+                    cls.extra_info: func.jsonb_set(
+                        cls.extra_info,
+                        literal_column("'{send_usage_report}'::text[]"),
+                        literal_column("'false'::jsonb")),
+                    cls.updated: datetime.now(timezone.utc)
+                },
+                synchronize_session=False
+            )
+            db.session.commit()
+            return updated_count == 1
+        except Exception as ex:
+            db.session.rollback()
+            current_app.logger.error(ex)
+            raise ex
+
+    def release_usage_report_flag(self):
+        """Release the right to create the usage report for this URL.
+
+        The 'send_usage_report' value in 'extra_info' is set back to true so
+        that the usage report is created at the next download. This method is
+        called when the creation of the usage report has failed after
+        'acquire_usage_report_flag()' returned True.
+
+        Raises:
+            Exception: If an unexpected error occurs during the update.
+        """
+        cls = type(self)
+        try:
+            db.session.query(cls).filter(
+                cls.id == self.id,
+                cls.extra_info.isnot(None)
+            ).update(
+                {
+                    cls.extra_info: func.jsonb_set(
+                        cls.extra_info,
+                        literal_column("'{send_usage_report}'::text[]"),
+                        literal_column("'true'::jsonb")),
+                    cls.updated: datetime.now(timezone.utc)
+                },
+                synchronize_session=False
+            )
+            db.session.commit()
+        except Exception as ex:
+            db.session.rollback()
+            current_app.logger.error(ex)
+            raise ex
 
     def update_extra_info(self, new_info: dict):
         """Update the 'extra_info' field with the provided new data.
@@ -754,10 +848,13 @@ class FileUrlDownloadLog(db.Model, Timestamp):
         self.used_token     = used_token
 
     @classmethod
-    def create(cls, **data):
+    def create(cls, commit=True, **data):
         """Create a new instance and save it to the database.
 
         Args:
+            commit (bool): If True, the new instance is committed in this
+                method. If False, it is only flushed and the caller must
+                commit (or roll back) the transaction.
             **data: The attributes for the new instance.
 
         Returns:
@@ -769,7 +866,10 @@ class FileUrlDownloadLog(db.Model, Timestamp):
         try:
             file_download = cls(**data)
             db.session.add(file_download)
-            db.session.commit()
+            if commit:
+                db.session.commit()
+            else:
+                db.session.flush()
             return file_download
         except Exception as ex:
             db.session.rollback()

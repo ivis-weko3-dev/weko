@@ -2402,7 +2402,7 @@ def validate_file_access(record, filename, is_secret_url):
         return is_onetime_file(record, filename)
 
 
-def save_download_log(record, file_name, token, is_secret_url):
+def save_download_log(record, file_name, token, is_secret_url, commit=True):
     """Save the download log for the given token.
 
     Befor calling this function, the token must be validated by the function
@@ -2414,6 +2414,9 @@ def save_download_log(record, file_name, token, is_secret_url):
         file_name (str): The name of the downloaded file.
         token (str): The token used for the download.
         is_secret_url (bool): True if for secret URL, False if for onetime URL.
+        commit (bool): If True, the log is committed in this function.
+            If False, it is only flushed and the caller must commit (or roll
+            back) the transaction.
 
     Raises:
         Exception: If an unexpected error occurs during the log creation.
@@ -2437,6 +2440,7 @@ def save_download_log(record, file_name, token, is_secret_url):
                               if target_data.get('accessrole') == 'open_no'
                               else AccessStatus.OPEN_DATE),
             used_token     = token,
+            commit         = commit,
         )
     else:
         return FileUrlDownloadLog.create(
@@ -2446,6 +2450,7 @@ def save_download_log(record, file_name, token, is_secret_url):
             ip_address     = None,
             access_status  = AccessStatus.OPEN_RESTRICTED,
             used_token     = token,
+            commit         = commit,
         )
 
 
