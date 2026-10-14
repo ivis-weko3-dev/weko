@@ -25,6 +25,8 @@ from weko_records_ui.fd import (
     validate_onetime_guest, weko_view_method
 )
 from weko_records_ui.models import AccessStatus, FileSecretDownload,FileOnetimeDownload
+from weko_records_ui.models import FileUrlDownloadLog
+from weko_records_ui.utils import save_download_log as real_save_download_log
 
 
 # def weko_view_method(pid, record, template=None, **kwargs):
@@ -515,6 +517,7 @@ def test_file_download_onetime(
 # def process_onetime_file_download(
 #    pid, record, filename, token, error_handler=None):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py::test_process_onetime_file_download -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+@patch('weko_records_ui.fd.db')
 @patch('weko_records_ui.fd.record_file_factory')
 @patch('weko_records_ui.fd.convert_token_into_obj')
 @patch('weko_records_ui.fd.check_and_send_usage_report')
@@ -522,7 +525,7 @@ def test_file_download_onetime(
 @patch('weko_records_ui.fd._download_file')
 def test_process_onetime_file_download(
     mock_download_file, mock_save_log, mock_check_usage,
-    mock_convert_token, mock_record_file, app
+    mock_convert_token, mock_record_file, mock_db, app
 ):
     """Test process_onetime_file_download function."""
     # Setup
@@ -534,83 +537,288 @@ def test_process_onetime_file_download(
     # Mock file object
     file_object = MagicMock()
     file_object.obj = MagicMock()
-    mock_record_file.return_value = file_object
-
-    # Mock URL object
-    url_obj = MagicMock()
-    url_obj.extra_info = {"some": "info"}
-    url_obj.user_mail = "test@example.com"
-    mock_convert_token.return_value = url_obj
 
     # Mock error handler
     error_handler = MagicMock()
     error_handler.return_value = "error_response"
 
-    mock_download_file.return_value = "download_success"
-    mock_check_usage.return_value = None
+    def _setup(extra_info):
+        """Reset mocks and return a new URL object."""
+        for m in (mock_download_file, mock_save_log, mock_check_usage,
+                  mock_record_file, error_handler, mock_db):
+            m.reset_mock(return_value=True, side_effect=True)
+        mock_record_file.return_value = file_object
+        mock_download_file.return_value = "download_success"
+        mock_check_usage.return_value = None
+        error_handler.return_value = "error_response"
+        url_obj = MagicMock()
+        url_obj.extra_info = extra_info
+        url_obj.user_mail = "test@example.com"
+        url_obj.acquire_usage_report_flag.return_value = True
+        mock_convert_token.return_value = url_obj
+        return url_obj
 
-    # Test Case 1: Successful download
-    result = process_onetime_file_download(
-        pid, record, filename, token, error_handler=error_handler
-    )
+    def _process():
+        return process_onetime_file_download(
+            pid, record, filename, token, error_handler=error_handler
+        )
 
-    mock_check_usage.assert_called_with(
-        url_obj.extra_info, url_obj.user_mail, record, file_object
-    )
-    url_obj.update_extra_info.assert_called_with(url_obj.extra_info)
-    mock_save_log.assert_called_with(record, filename, token, is_secret_url=False)
-    url_obj.increment_download_count.assert_called_once()
+    usage_info = {"send_usage_report": True, "some": "info"}
+
+    # Test Case 1: Successful download (no usage report)
+    url_obj = _setup({"some": "info"})
+    calls = []
+    url_obj.increment_download_count.side_effect = \
+        lambda **kwargs: calls.append('increment')
+    mock_save_log.side_effect = lambda *args, **kwargs: calls.append('log')
+    mock_db.session.commit.side_effect = lambda: calls.append('commit')
+    result = _process()
+    url_obj.acquire_usage_report_flag.assert_not_called()
+    mock_check_usage.assert_not_called()
+    url_obj.update_extra_info.assert_not_called()
+    mock_save_log.assert_called_with(
+        record, filename, token, is_secret_url=False, commit=False)
+    url_obj.increment_download_count.assert_called_once_with(commit=False)
+    # The download count and the download log are committed only once,
+    # in a single transaction
+    assert calls == ['increment', 'log', 'commit']
+    mock_db.session.commit.assert_called_once()
+    mock_db.session.rollback.assert_not_called()
     mock_download_file.assert_called_with(
         file_object, False, 'en', file_object.obj, pid, record
     )
     assert result == "download_success"
 
     # Test Case 2: File object not found
+    url_obj = _setup({"some": "info"})
     mock_record_file.return_value = None
-    result = process_onetime_file_download(
-        pid, record, filename, token, error_handler=error_handler
-    )
+    result = _process()
     error_handler.assert_called_with(
         f'The file "{filename}" does not exist.', status_code=404
     )
     assert result == "error_response"
+    url_obj.increment_download_count.assert_not_called()
 
-    # Reset file_object for subsequent tests
-    mock_record_file.return_value = file_object
-
-    # Test Case 3: check_and_send_usage_report returns error
-    mock_check_usage.return_value = "usage_error"
-    result = process_onetime_file_download(
-        pid, record, filename, token, error_handler=error_handler
+    # Test Case 3: Usage report is created by the request which acquired
+    # the flag
+    url_obj = _setup(dict(usage_info))
+    result = _process()
+    url_obj.acquire_usage_report_flag.assert_called_once()
+    mock_check_usage.assert_called_once_with(
+        usage_info, url_obj.user_mail, record, file_object
     )
+    url_obj.update_extra_info.assert_called_once_with(usage_info)
+    url_obj.release_usage_report_flag.assert_not_called()
+    url_obj.increment_download_count.assert_called_once()
+    mock_save_log.assert_called_once()
+    assert result == "download_success"
+
+    # Test Case 4: The flag could not be acquired (another request is
+    # creating the usage report). The download goes on without it.
+    url_obj = _setup(dict(usage_info))
+    url_obj.acquire_usage_report_flag.return_value = False
+    result = _process()
+    url_obj.acquire_usage_report_flag.assert_called_once()
+    mock_check_usage.assert_not_called()
+    url_obj.update_extra_info.assert_not_called()
+    url_obj.release_usage_report_flag.assert_not_called()
+    url_obj.increment_download_count.assert_called_once()
+    mock_save_log.assert_called_once()
+    error_handler.assert_not_called()
+    assert result == "download_success"
+
+    # Test Case 5: Error in acquiring the flag
+    url_obj = _setup(dict(usage_info))
+    url_obj.acquire_usage_report_flag.side_effect = SQLAlchemyError("DB error")
+    result = _process()
+    error_handler.assert_called_with('Unexpected error occurred.', status_code=500)
+    assert result == "error_response"
+    mock_check_usage.assert_not_called()
+    url_obj.increment_download_count.assert_not_called()
+
+    # Test Case 6: check_and_send_usage_report returns error.
+    # The flag is released.
+    url_obj = _setup(dict(usage_info))
+    mock_check_usage.return_value = "usage_error"
+    result = _process()
     error_handler.assert_called_with("usage_error", status_code=403)
     assert result == "error_response"
+    url_obj.release_usage_report_flag.assert_called_once()
+    url_obj.increment_download_count.assert_not_called()
+    mock_save_log.assert_not_called()
 
-    # Test Case 4: SQLAlchemyError during extra_info update
-    mock_check_usage.return_value = None
+    # Test Case 7: SQLAlchemyError during extra_info update.
+    # The flag is released.
+    url_obj = _setup(dict(usage_info))
     url_obj.update_extra_info.side_effect = SQLAlchemyError("DB error")
-    result = process_onetime_file_download(
-        pid, record, filename, token, error_handler=error_handler
-    )
+    result = _process()
     error_handler.assert_called_with('Unexpected error occurred.', status_code=500)
     assert result == "error_response"
+    url_obj.release_usage_report_flag.assert_called_once()
+    url_obj.increment_download_count.assert_not_called()
 
-    # Test Case 5: Generic exception during extra_info update
-    url_obj.update_extra_info.side_effect = Exception("Generic error")
-    result = process_onetime_file_download(
-        pid, record, filename, token, error_handler=error_handler
-    )
+    # Test Case 8: Generic exception during creating the usage report.
+    # The flag is released.
+    url_obj = _setup(dict(usage_info))
+    mock_check_usage.side_effect = Exception("Generic error")
+    result = _process()
     error_handler.assert_called_with('Unexpected error occurred.', status_code=500)
     assert result == "error_response"
+    url_obj.release_usage_report_flag.assert_called_once()
+    url_obj.increment_download_count.assert_not_called()
 
-    # Test Case 6: Exception during save_download_log
-    url_obj.update_extra_info.side_effect = None
+    # Test Case 9: Error in releasing the flag. The original error response
+    # is returned.
+    url_obj = _setup(dict(usage_info))
+    mock_check_usage.return_value = "usage_error"
+    url_obj.release_usage_report_flag.side_effect = Exception("DB error")
+    result = _process()
+    error_handler.assert_called_with("usage_error", status_code=403)
+    assert result == "error_response"
+    url_obj.release_usage_report_flag.assert_called_once()
+
+    # Test Case 10: The download limit has been exceeded.
+    # 403 is returned and the download log is not saved.
+    url_obj = _setup({"some": "info"})
+    url_obj.increment_download_count.side_effect = \
+        ValueError("limit")
+    result = _process()
+    error_handler.assert_called_once_with(
+        'The download limit has been exceeded.', status_code=403)
+    assert result == "error_response"
+    mock_save_log.assert_not_called()
+    mock_download_file.assert_not_called()
+    mock_db.session.rollback.assert_called_once()
+    mock_db.session.commit.assert_not_called()
+
+    # Test Case 11: Unexpected error during increasing the download count.
+    # 500 is returned and the download log is not saved.
+    url_obj = _setup({"some": "info"})
+    url_obj.increment_download_count.side_effect = Exception("DB error")
+    result = _process()
+    error_handler.assert_called_once_with(
+        'Unexpected error occurred.', status_code=500)
+    assert result == "error_response"
+    mock_save_log.assert_not_called()
+    mock_download_file.assert_not_called()
+    mock_db.session.rollback.assert_called_once()
+    mock_db.session.commit.assert_not_called()
+
+    # Test Case 12: Exception during save_download_log.
+    # The increment of the download count is rolled back.
+    url_obj = _setup({"some": "info"})
     mock_save_log.side_effect = Exception("Log error")
-    result = process_onetime_file_download(
-        pid, record, filename, token, error_handler=error_handler
-    )
+    result = _process()
+    url_obj.increment_download_count.assert_called_once_with(commit=False)
     error_handler.assert_called_with('Unexpected error occurred.', status_code=500)
     assert result == "error_response"
+    mock_download_file.assert_not_called()
+    mock_db.session.commit.assert_not_called()
+    mock_db.session.rollback.assert_called_once()
+
+    # Test Case 13: Exception during commit. 500 is returned.
+    url_obj = _setup({"some": "info"})
+    mock_db.session.commit.side_effect = Exception("Commit error")
+    result = _process()
+    mock_save_log.assert_called_once()
+    error_handler.assert_called_once_with(
+        'Unexpected error occurred.', status_code=500)
+    assert result == "error_response"
+    mock_download_file.assert_not_called()
+    mock_db.session.rollback.assert_called_once()
+
+    # Test Case 14: ValueError during save_download_log is not treated as
+    # the download limit (500, not 403).
+    url_obj = _setup({"some": "info"})
+    mock_save_log.side_effect = ValueError("Log error")
+    result = _process()
+    error_handler.assert_called_once_with(
+        'Unexpected error occurred.', status_code=500)
+    assert result == "error_response"
+    mock_download_file.assert_not_called()
+    mock_db.session.commit.assert_not_called()
+    mock_db.session.rollback.assert_called_once()
+
+
+def _get_download_count(db, model, url_id):
+    """Get the committed download count from another connection."""
+    return db.engine.execute(
+        'SELECT download_count FROM {} WHERE id = {}'.format(
+            model.__tablename__, url_id)).scalar()
+
+
+def _get_download_log_count(db):
+    """Get the committed number of download logs from another connection."""
+    return db.engine.execute(
+        'SELECT COUNT(*) FROM {}'.format(
+            FileUrlDownloadLog.__tablename__)).scalar()
+
+
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py::test_process_onetime_file_download_transaction -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_process_onetime_file_download_transaction(app, db, onetime_url):
+    """The download count and the download log are committed together."""
+    onetime_obj = onetime_url['onetime_obj']
+    url_id = onetime_obj.id
+    token = onetime_url['onetime_token']
+    pid = MagicMock()
+    record = MagicMock()
+    record.get_file_data.return_value = [
+        {'filename': 'test.txt', 'accessrole': 'open_restricted'}]
+    file_object = MagicMock()
+    _record_file_factory = MagicMock(return_value=file_object)
+    error_handler = MagicMock(return_value='error_response')
+
+    def _process():
+        return process_onetime_file_download(
+            pid, record, 'test.txt', token, error_handler=error_handler,
+            _record_file_factory=_record_file_factory)
+
+    def _save_and_fail(*args, **kwargs):
+        # The log is flushed in the transaction, and then an error occurs
+        real_save_download_log(*args, **kwargs)
+        raise Exception('Log error')
+
+    with app.test_request_context(), \
+         patch('weko_records_ui.fd._download_file',
+               return_value='download_success') as dl_file:
+        # Happy path: both are committed
+        assert _process() == 'download_success'
+        assert _get_download_count(db, FileOnetimeDownload, url_id) == 1
+        assert _get_download_log_count(db) == 1
+
+        # Saving the log fails: the increment is also rolled back
+        error_handler.reset_mock()
+        dl_file.reset_mock()
+        with patch('weko_records_ui.fd.save_download_log',
+                   side_effect=_save_and_fail):
+            assert _process() == 'error_response'
+        error_handler.assert_called_once_with(
+            'Unexpected error occurred.', status_code=500)
+        dl_file.assert_not_called()
+        assert _get_download_count(db, FileOnetimeDownload, url_id) == 1
+        assert _get_download_log_count(db) == 1
+
+        # Commit fails: neither is persisted
+        error_handler.reset_mock()
+        with patch('weko_records_ui.fd.db.session.commit',
+                   side_effect=Exception('Commit error')):
+            assert _process() == 'error_response'
+        error_handler.assert_called_once_with(
+            'Unexpected error occurred.', status_code=500)
+        dl_file.assert_not_called()
+        assert _get_download_count(db, FileOnetimeDownload, url_id) == 1
+        assert _get_download_log_count(db) == 1
+
+        # The download limit has been reached: 403 and no log is saved
+        db.engine.execute(
+            'UPDATE {} SET download_count = download_limit WHERE id = {}'
+            .format(FileOnetimeDownload.__tablename__, url_id))
+        error_handler.reset_mock()
+        assert _process() == 'error_response'
+        error_handler.assert_called_once_with(
+            'The download limit has been exceeded.', status_code=403)
+        dl_file.assert_not_called()
+        assert _get_download_log_count(db) == 1
 
 
 # def _is_terms_of_use_only(file_obj:dict , req :dict) -> bool:
@@ -677,7 +885,7 @@ def test__is_terms_of_use_only(app, records_restricted, users, db_file_permissio
 @patch('weko_records_ui.fd.save_download_log')
 @patch('weko_records_ui.fd._download_file')
 def test_file_download_secret(dl_file, save_log, current_user, err_res,
-                              val_url, app, mocker, secret_url):
+                              val_url, app, db, mocker, secret_url):
     # Setup arguments
     pid = None
     record = {}
@@ -700,7 +908,8 @@ def test_file_download_secret(dl_file, save_log, current_user, err_res,
         assert file_download_secret(
             pid, record, filename, _record_file_factory) == 'SUCCESS'
         save_log.assert_called_once_with(
-            record, filename, mocker.args.get.return_value, is_secret_url=True)
+            record, filename, mocker.args.get.return_value, is_secret_url=True,
+            commit=False)
         dl_file.assert_called_once_with(
             file_obj, False, 'en', file_obj.obj, pid, record)
 
@@ -713,7 +922,8 @@ def test_file_download_secret(dl_file, save_log, current_user, err_res,
             assert file_download_secret(
                 pid, record, filename, _record_file_factory) == 'SUCCESS'
             save_log.assert_called_with(
-                record, filename, mocker.args.get.return_value, is_secret_url=True)
+                record, filename, mocker.args.get.return_value,
+                is_secret_url=True, commit=False)
             dl_file.assert_called_with(
                 file_obj, False, 'ja', file_obj.obj, pid, record)
 
@@ -734,6 +944,142 @@ def test_file_download_secret(dl_file, save_log, current_user, err_res,
                    side_effect=Exception):
             assert file_download_secret(
                 pid, record, filename, _record_file_factory) == 'ERROR'
+            err_res.assert_called_with('Unexpected error occurred.', 500)
+
+        # The download log is saved after the download count is increased,
+        # and both are committed only once
+        calls = []
+        with patch.object(FileSecretDownload, 'increment_download_count',
+                          autospec=True,
+                          side_effect=lambda self, **kwargs: calls.append(
+                              ('increment', kwargs))), \
+             patch('weko_records_ui.fd.save_download_log',
+                   side_effect=lambda *args, **kwargs: calls.append('log')), \
+             patch('weko_records_ui.fd.db.session.commit',
+                   side_effect=lambda: calls.append('commit')):
+            assert file_download_secret(
+                pid, record, filename, _record_file_factory) == 'SUCCESS'
+        assert calls == [('increment', {'commit': False}), 'log', 'commit']
+
+        # The download limit has been exceeded
+        # (e.g. concurrent requests). 403 is returned, not 500.
+        err_res.reset_mock()
+        dl_file.reset_mock()
+        with patch.object(FileSecretDownload, 'increment_download_count',
+                          side_effect=ValueError('limit')), \
+             patch('weko_records_ui.fd.save_download_log') as mock_log, \
+             patch('weko_records_ui.fd.db.session.commit') as mock_commit, \
+             patch('weko_records_ui.fd.db.session.rollback') as mock_rollback:
+            assert file_download_secret(
+                pid, record, filename, _record_file_factory) == 'ERROR'
+            err_res.assert_called_once_with(
+                'The download limit has been exceeded.', 403)
+            mock_log.assert_not_called()
+            dl_file.assert_not_called()
+            mock_commit.assert_not_called()
+            mock_rollback.assert_called_once()
+
+        # ValueError during saving the log is not treated as the download
+        # limit (500, not 403)
+        err_res.reset_mock()
+        with patch('weko_records_ui.fd.save_download_log',
+                   side_effect=ValueError('log')):
+            assert file_download_secret(
+                pid, record, filename, _record_file_factory) == 'ERROR'
+            err_res.assert_called_once_with('Unexpected error occurred.', 500)
+            dl_file.assert_not_called()
+
+        # Unexpected error during increasing the download count
+        err_res.reset_mock()
+        with patch.object(FileSecretDownload, 'increment_download_count',
+                          side_effect=Exception('DB error')), \
+             patch('weko_records_ui.fd.save_download_log') as mock_log:
+            assert file_download_secret(
+                pid, record, filename, _record_file_factory) == 'ERROR'
+            err_res.assert_called_once_with('Unexpected error occurred.', 500)
+            mock_log.assert_not_called()
+            dl_file.assert_not_called()
+
+        # The download limit is reached with the real download count
+        secret_obj = secret_url['secret_obj']
+        FileSecretDownload.query.filter_by(id=secret_obj.id).update(
+            {'download_count': secret_obj.download_limit})
+        db.session.commit()
+        err_res.reset_mock()
+        with patch('weko_records_ui.fd.save_download_log') as mock_log:
+            assert file_download_secret(
+                pid, record, filename, _record_file_factory) == 'ERROR'
+            err_res.assert_called_once_with(
+                'The download limit has been exceeded.', 403)
+            mock_log.assert_not_called()
+
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py::test_file_download_secret_transaction -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_file_download_secret_transaction(app, db, secret_url):
+    """The download count and the download log are committed together."""
+    url_id = secret_url['secret_obj'].id
+    token = secret_url['secret_token']
+    filename = 'test.txt'
+    pid = None
+    record = MagicMock()
+    record.get_file_data.return_value = [
+        {'filename': filename, 'accessrole': 'open_no'}]
+    _record_file_factory = MagicMock()
+    _record_file_factory.return_value = file_obj = MagicMock()
+    file_obj.obj = {'filename': filename}
+
+    def _save_and_fail(*args, **kwargs):
+        # The log is flushed in the transaction, and then an error occurs
+        real_save_download_log(*args, **kwargs)
+        raise Exception('Log error')
+
+    with app.test_request_context(
+            '/?token={}'.format(token),
+            environ_base={'REMOTE_ADDR': '192.168.56.1'}), \
+         patch('weko_records_ui.fd.validate_url_download',
+               return_value=(True, '')), \
+         patch('weko_records_ui.fd.error_response',
+               return_value='ERROR') as err_res, \
+         patch('weko_records_ui.fd._download_file',
+               return_value='SUCCESS') as dl_file:
+        # Happy path: both are committed
+        assert file_download_secret(
+            pid, record, filename, _record_file_factory) == 'SUCCESS'
+        assert _get_download_count(db, FileSecretDownload, url_id) == 1
+        assert _get_download_log_count(db) == 1
+
+        # Saving the log fails: the increment is also rolled back
+        dl_file.reset_mock()
+        with patch('weko_records_ui.fd.save_download_log',
+                   side_effect=_save_and_fail):
+            assert file_download_secret(
+                pid, record, filename, _record_file_factory) == 'ERROR'
+        err_res.assert_called_once_with('Unexpected error occurred.', 500)
+        dl_file.assert_not_called()
+        assert _get_download_count(db, FileSecretDownload, url_id) == 1
+        assert _get_download_log_count(db) == 1
+
+        # Commit fails: neither is persisted
+        err_res.reset_mock()
+        with patch('weko_records_ui.fd.db.session.commit',
+                   side_effect=Exception('Commit error')):
+            assert file_download_secret(
+                pid, record, filename, _record_file_factory) == 'ERROR'
+        err_res.assert_called_once_with('Unexpected error occurred.', 500)
+        dl_file.assert_not_called()
+        assert _get_download_count(db, FileSecretDownload, url_id) == 1
+        assert _get_download_log_count(db) == 1
+
+        # The download limit has been reached: 403 and no log is saved
+        db.engine.execute(
+            'UPDATE {} SET download_count = download_limit WHERE id = {}'
+            .format(FileSecretDownload.__tablename__, url_id))
+        err_res.reset_mock()
+        assert file_download_secret(
+            pid, record, filename, _record_file_factory) == 'ERROR'
+        err_res.assert_called_once_with(
+            'The download limit has been exceeded.', 403)
+        dl_file.assert_not_called()
+        assert _get_download_log_count(db) == 1
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_fd.py::test_file_list_ui -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
 @pytest.mark.timeout(60)

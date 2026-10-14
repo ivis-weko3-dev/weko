@@ -227,7 +227,7 @@ class TestFileOnetimeDownload:
         assert obj.extra_info == {'new': 'value'}
 
     # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_models.py::TestFileOnetimeDownload::test_increment_download_count -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-    def test_increment_download_count(self, users):
+    def test_increment_download_count(self, db, users):
         rec = FileOnetimeDownload.create(**self.base_data)
         assert rec.download_count == 0
         rec.increment_download_count()
@@ -236,14 +236,148 @@ class TestFileOnetimeDownload:
         with pytest.raises(ValueError):
             rec.increment_download_count()
         assert rec.download_count == 1
+        db.session.expire_all()
+        assert FileOnetimeDownload.get_by_id(rec.id).download_count == 1
 
         rec2 = FileOnetimeDownload.create(**self.base_data)
         with patch('weko_records_ui.models.db.session.commit') as mock_commit:
             mock_commit.side_effect = Exception('DB error test')
-            with pytest.raises(Exception):
+            with pytest.raises(Exception) as ex:
                 rec2.increment_download_count()
+            assert not isinstance(ex.value, ValueError)
             mock_commit.assert_called_once()
         assert rec2.download_count == 0
+
+    # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_models.py::TestFileOnetimeDownload::test_increment_download_count_no_commit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+    def test_increment_download_count_no_commit(self, db, users):
+        table = FileOnetimeDownload.__tablename__
+        rec = FileOnetimeDownload.create(**self.base_data)
+        rec_id = rec.id
+        select_count = 'SELECT download_count FROM {} WHERE id = {}'.format(
+            table, rec_id)
+
+        # commit=False: the change is only flushed, not committed
+        with patch('weko_records_ui.models.db.session.commit') as mock_commit:
+            rec.increment_download_count(commit=False)
+            mock_commit.assert_not_called()
+        assert rec.download_count == 1
+        # Not visible from another connection before the caller commits
+        assert db.engine.execute(select_count).scalar() == 0
+        # The caller can cancel the increment by rolling back
+        db.session.rollback()
+        assert FileOnetimeDownload.get_by_id(rec_id).download_count == 0
+
+        # The increment is persisted when the caller commits
+        rec.increment_download_count(commit=False)
+        db.session.commit()
+        assert db.engine.execute(select_count).scalar() == 1
+        db.session.expire_all()
+        assert FileOnetimeDownload.get_by_id(rec_id).download_count == 1
+
+        # The download limit has been reached
+        with pytest.raises(ValueError):
+            rec.increment_download_count(commit=False)
+        db.session.expire_all()
+        assert FileOnetimeDownload.get_by_id(rec_id).download_count == 1
+
+    # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_models.py::TestFileOnetimeDownload::test_increment_download_count_conditions -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+    def test_increment_download_count_conditions(self, db, users):
+        table = FileOnetimeDownload.__tablename__
+
+        # Deleted URL is not incremented
+        rec = FileOnetimeDownload.create(**{**self.base_data, 'download_limit': 2})
+        rec.delete_logically()
+        with pytest.raises(ValueError):
+            rec.increment_download_count()
+        db.session.expire_all()
+        assert FileOnetimeDownload.get_by_id(rec.id).download_count == 0
+
+        # Expired URL is not incremented
+        rec2 = FileOnetimeDownload.create(**{**self.base_data, 'download_limit': 2})
+        future = datetime.now(timezone.utc) + timedelta(days=2)
+        with patch('weko_records_ui.models.datetime') as mock_dt:
+            mock_dt.now.return_value = future
+            with pytest.raises(ValueError):
+                rec2.increment_download_count()
+        db.session.expire_all()
+        assert FileOnetimeDownload.get_by_id(rec2.id).download_count == 0
+
+        # The limit is checked by the value in the database, not by the
+        # value in memory (another request has already incremented it).
+        rec3 = FileOnetimeDownload.create(**self.base_data)
+        assert rec3.download_count == 0
+        db.engine.execute(
+            'UPDATE {} SET download_count = 1 WHERE id = {}'.format(
+                table, rec3.id))
+        assert rec3.download_count == 0
+        with pytest.raises(ValueError):
+            rec3.increment_download_count()
+        db.session.expire_all()
+        assert FileOnetimeDownload.get_by_id(rec3.id).download_count == 1
+
+        # The value in memory is synchronized after the increment
+        rec4 = FileOnetimeDownload.create(**{**self.base_data, 'download_limit': 3})
+        assert rec4.download_count == 0
+        db.engine.execute(
+            'UPDATE {} SET download_count = 1 WHERE id = {}'.format(
+                table, rec4.id))
+        rec4.increment_download_count()
+        assert rec4.download_count == 2
+
+    # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_models.py::TestFileOnetimeDownload::test_acquire_usage_report_flag -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+    def test_acquire_usage_report_flag(self, db, users):
+        extra_info = {'send_usage_report': True, 'info': 'value'}
+        rec = FileOnetimeDownload.create(
+            **{**self.base_data, 'extra_info': extra_info})
+
+        # Only the first call acquires the flag
+        assert rec.acquire_usage_report_flag() is True
+        assert rec.extra_info == {'send_usage_report': False, 'info': 'value'}
+        assert rec.acquire_usage_report_flag() is False
+        assert rec.extra_info == {'send_usage_report': False, 'info': 'value'}
+
+        # The flag does not exist or is not true
+        for info in ({'info': 'value'}, {'send_usage_report': 'true'}, {}):
+            rec2 = FileOnetimeDownload.create(
+                **{**self.base_data, 'extra_info': info})
+            assert rec2.acquire_usage_report_flag() is False
+            assert rec2.extra_info == info
+
+        # Unexpected error
+        rec3 = FileOnetimeDownload.create(
+            **{**self.base_data, 'extra_info': dict(extra_info)})
+        with patch('weko_records_ui.models.db.session.commit') as mock_commit, \
+                patch('weko_records_ui.models.db.session.rollback') as mock_rollback:
+            mock_commit.side_effect = Exception('DB error test')
+            with pytest.raises(Exception):
+                rec3.acquire_usage_report_flag()
+            mock_rollback.assert_called()
+        db.session.rollback()
+        db.session.expire_all()
+        assert FileOnetimeDownload.get_by_id(rec3.id).extra_info == extra_info
+
+    # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_models.py::TestFileOnetimeDownload::test_release_usage_report_flag -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+    def test_release_usage_report_flag(self, db, users):
+        extra_info = {'send_usage_report': True, 'info': 'value'}
+        rec = FileOnetimeDownload.create(
+            **{**self.base_data, 'extra_info': extra_info})
+        assert rec.acquire_usage_report_flag() is True
+        rec.release_usage_report_flag()
+        assert rec.extra_info == extra_info
+        # It can be acquired again
+        assert rec.acquire_usage_report_flag() is True
+
+        # Unexpected error
+        with patch('weko_records_ui.models.db.session.commit') as mock_commit, \
+                patch('weko_records_ui.models.db.session.rollback') as mock_rollback:
+            mock_commit.side_effect = Exception('DB error test')
+            with pytest.raises(Exception):
+                rec.release_usage_report_flag()
+            mock_rollback.assert_called()
+        db.session.rollback()
+        db.session.expire_all()
+        assert FileOnetimeDownload.get_by_id(rec.id).extra_info == {
+            'send_usage_report': False, 'info': 'value'}
 
     # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_models.py::TestFileOnetimeDownload::test_delete_logically -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
     def test_delete_logically(self, users):
@@ -348,23 +482,103 @@ class TestFileSecretDownload:
         assert not_found is None
 
     # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_models.py::TestFileSecretDownload::test_increment_download_count -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
-    def test_increment_download_count(self, users):
+    def test_increment_download_count(self, db, users):
         rec = FileSecretDownload.create(**self.base_data)
         assert rec.download_count == 0
         rec.increment_download_count()
         assert rec.download_count == 1
 
-        with pytest.raises(ValueError):
+        # The download limit has been reached
+        with pytest.raises(ValueError) as ex:
             rec.increment_download_count()
         assert rec.download_count == 1
+        db.session.expire_all()
+        assert FileSecretDownload.get_by_id(rec.id).download_count == 1
 
         rec2 = FileSecretDownload.create(**self.base_data)
         with patch('weko_records_ui.models.db.session.commit') as mock_commit:
             mock_commit.side_effect = Exception('DB error test')
-            with pytest.raises(Exception):
+            with pytest.raises(Exception) as ex:
                 rec2.increment_download_count()
+            assert not isinstance(ex.value, ValueError)
             mock_commit.assert_called_once()
         assert rec2.download_count == 0
+
+    # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_models.py::TestFileSecretDownload::test_increment_download_count_no_commit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+    def test_increment_download_count_no_commit(self, db, users):
+        table = FileSecretDownload.__tablename__
+        rec = FileSecretDownload.create(**self.base_data)
+        rec_id = rec.id
+        select_count = 'SELECT download_count FROM {} WHERE id = {}'.format(
+            table, rec_id)
+
+        # commit=False: the change is only flushed, not committed
+        with patch('weko_records_ui.models.db.session.commit') as mock_commit:
+            rec.increment_download_count(commit=False)
+            mock_commit.assert_not_called()
+        assert rec.download_count == 1
+        # Not visible from another connection before the caller commits
+        assert db.engine.execute(select_count).scalar() == 0
+        # The caller can cancel the increment by rolling back
+        db.session.rollback()
+        assert FileSecretDownload.get_by_id(rec_id).download_count == 0
+
+        # The increment is persisted when the caller commits
+        rec.increment_download_count(commit=False)
+        db.session.commit()
+        assert db.engine.execute(select_count).scalar() == 1
+        db.session.expire_all()
+        assert FileSecretDownload.get_by_id(rec_id).download_count == 1
+
+        # The download limit has been reached
+        with pytest.raises(ValueError):
+            rec.increment_download_count(commit=False)
+        db.session.expire_all()
+        assert FileSecretDownload.get_by_id(rec_id).download_count == 1
+
+    # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_models.py::TestFileSecretDownload::test_increment_download_count_conditions -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+    def test_increment_download_count_conditions(self, db, users):
+        table = FileSecretDownload.__tablename__
+
+        # Deleted URL is not incremented
+        rec = FileSecretDownload.create(**{**self.base_data, 'download_limit': 2})
+        rec.delete_logically()
+        with pytest.raises(ValueError):
+            rec.increment_download_count()
+        db.session.expire_all()
+        assert FileSecretDownload.get_by_id(rec.id).download_count == 0
+
+        # Expired URL is not incremented
+        rec2 = FileSecretDownload.create(**{**self.base_data, 'download_limit': 2})
+        future = datetime.now(timezone.utc) + timedelta(days=2)
+        with patch('weko_records_ui.models.datetime') as mock_dt:
+            mock_dt.now.return_value = future
+            with pytest.raises(ValueError):
+                rec2.increment_download_count()
+        db.session.expire_all()
+        assert FileSecretDownload.get_by_id(rec2.id).download_count == 0
+
+        # The limit is checked by the value in the database, not by the
+        # value in memory (another request has already incremented it).
+        rec3 = FileSecretDownload.create(**self.base_data)
+        assert rec3.download_count == 0
+        db.engine.execute(
+            'UPDATE {} SET download_count = 1 WHERE id = {}'.format(
+                table, rec3.id))
+        assert rec3.download_count == 0
+        with pytest.raises(ValueError):
+            rec3.increment_download_count()
+        db.session.expire_all()
+        assert FileSecretDownload.get_by_id(rec3.id).download_count == 1
+
+        # The value in memory is synchronized after the increment
+        rec4 = FileSecretDownload.create(**{**self.base_data, 'download_limit': 3})
+        assert rec4.download_count == 0
+        db.engine.execute(
+            'UPDATE {} SET download_count = 1 WHERE id = {}'.format(
+                table, rec4.id))
+        rec4.increment_download_count()
+        assert rec4.download_count == 2
 
     # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_models.py::TestFileSecretDownload::test_delete_logically -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
     def test_delete_logically(self, users):
@@ -566,3 +780,40 @@ class TestFileUrlDownloadLog:
         token_err['used_token'] = None
         with pytest.raises(IntegrityError):
             FileUrlDownloadLog.create(**token_err)
+
+    # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_models.py::TestFileUrlDownloadLog::test_create_no_commit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+    def test_create_no_commit(self, db, secret_url):
+        data = {
+            'url_type': UrlType.SECRET,
+            'secret_url_id': secret_url['secret_obj'].id,
+            'onetime_url_id': None,
+            'ip_address': '192.168.56.1',
+            'access_status': AccessStatus.OPEN_NO,
+            'used_token': secret_url['secret_token']
+        }
+        select_count = 'SELECT COUNT(*) FROM {}'.format(
+            FileUrlDownloadLog.__tablename__)
+
+        # commit=False: the log is only flushed, not committed
+        with patch('weko_records_ui.models.db.session.commit') as mock_commit:
+            log_obj = FileUrlDownloadLog.create(commit=False, **data)
+            mock_commit.assert_not_called()
+        assert isinstance(log_obj, FileUrlDownloadLog)
+        assert log_obj.id is not None
+        assert FileUrlDownloadLog.query.count() == 1
+        # Not visible from another connection before the caller commits
+        assert db.engine.execute(select_count).scalar() == 0
+        # The caller can cancel the creation by rolling back
+        db.session.rollback()
+        assert FileUrlDownloadLog.query.count() == 0
+
+        # The log is persisted when the caller commits
+        FileUrlDownloadLog.create(commit=False, **data)
+        db.session.commit()
+        assert db.engine.execute(select_count).scalar() == 1
+
+        # A constraint error is raised at the flush
+        with pytest.raises(IntegrityError):
+            FileUrlDownloadLog.create(
+                commit=False, **{**data, 'ip_address': None})
+        assert FileUrlDownloadLog.query.count() == 1
