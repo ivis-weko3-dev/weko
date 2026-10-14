@@ -737,9 +737,11 @@ def map_group_condition():
 def get_map_group_prefix():
     """Return the role name prefix of GakuNin mAP groups.
 
-    The prefix is ``{prefix}_{repository id}_{group keyword}_`` built from
-    ``WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT`` and
-    ``WEKO_ACCOUNTS_IDP_ENTITY_ID``.
+    The prefix is ``{prefix}_{repo_id}_{group_keyword}_`` built from
+    ``WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT`` (``prefix`` and
+    ``group_keyword``) and ``WEKO_ACCOUNTS_IDP_ENTITY_ID``. ``repo_id`` is the
+    FQDN derived from the IdP entityID by ``create_fqdn_from_entity_id()``
+    with ``.`` and ``-`` replaced by ``_``.
 
     Returns:
         str: The group prefix. ``None`` when the required settings are absent.

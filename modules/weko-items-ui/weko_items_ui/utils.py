@@ -3868,6 +3868,13 @@ def is_proxy_poster(source, user=None):
 
     個人・グループの両方を判定する。owner判定・管理者判定は含まない。
 
+    代理投稿者(proxy poster)とは、個人の代理投稿者
+    (shared_user_ids[アクティビティ] / weko_shared_ids[アイテム・ES])、
+    または代理投稿グループのメンバー
+    (shared_role_ids[アクティビティ] / weko_shared_role_ids[アイテム・ES])を指す。
+    複数化フラグWEKO_ITEMS_UI_PROXY_POSTINGが無効の場合、個人は末尾1名のみ、
+    グループは対象外となる。
+
     :param source: アイテムメタデータまたはアクティビティ由来の辞書
     :param user: 判定対象ユーザー。省略時はcurrent_user
     :return: 代理投稿者(個人・グループ)であればTrue
