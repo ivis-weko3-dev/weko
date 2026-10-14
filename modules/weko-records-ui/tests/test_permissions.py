@@ -1371,12 +1371,12 @@ def test_check_file_download_permission_proxy(app, db, users, proxy_actors):
     fjson = {"filename": "helloworld.pdf", "accessrole": "open_no"}
 
     def _call(actor_key, flag):
-        with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": flag}):
-            with patch("flask_login.utils._get_user",
-                       return_value=actors[actor_key]["obj"]):
-                with patch("weko_records_ui.permissions.User",
-                           wraps=User) as mock_user:
-                    result = check_file_download_permission(record, fjson)
+        with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": flag}), \
+             patch("flask_login.utils._get_user",
+                   return_value=actors[actor_key]["obj"]), \
+             patch("weko_records_ui.permissions.User",
+                   wraps=User) as mock_user:
+            result = check_file_download_permission(record, fjson)
         return result, mock_user
 
     # 1. 複数化フラグ有効、U_P1
@@ -1418,11 +1418,11 @@ def test_check_created_id_proxy(app, db, users, proxy_actors):
     owner = str(actors["U_O"]["id"])
 
     def _check(record, actor_key, flag):
-        with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": flag}):
-            with patch("flask_login.utils._get_user",
-                       return_value=actors[actor_key]["obj"]):
-                with app.test_request_context():
-                    return check_created_id(record)
+        with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": flag}), \
+             patch("flask_login.utils._get_user",
+                   return_value=actors[actor_key]["obj"]), \
+             app.test_request_context():
+            return check_created_id(record)
 
     # 1. 複数化フラグ有効、旧形式（weko_shared_id）
     record = {"owner": owner, "weko_shared_id": actors["U_P1"]["id"]}
@@ -1445,10 +1445,10 @@ def test_check_created_id_proxy(app, db, users, proxy_actors):
     u_wc = create_test_user(email="proxy_creator_id_107@test.org")
     db.session.commit()
     record = {"owner": owner, "weko_creator_id": str(u_wc.id)}
-    with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": True}):
-        with patch("flask_login.utils._get_user", return_value=u_wc):
-            with app.test_request_context():
-                assert check_created_id(record) is True
+    with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": True}), \
+         patch("flask_login.utils._get_user", return_value=u_wc), \
+         app.test_request_context():
+        assert check_created_id(record) is True
     assert _check(record, "U_O", True) is True
 
     # 判定が is_item_editable_by 経由であること
@@ -1492,9 +1492,9 @@ def test_is_owners_or_superusers_proxy(app, db, records, users, proxy_actors):
 
     expected = {"U_O": True, "U_CB": True, "U_WC": True, "U_P1": True,
                 "U_G": True, "U_S": True, "U_N": False}
-    with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": True}):
-        with app.test_request_context():
-            for key, exp in expected.items():
-                with patch("flask_login.utils._get_user",
-                           return_value=login_users[key]):
-                    assert is_owners_or_superusers(record) is exp, key
+    with patch.dict(app.config, {"WEKO_ITEMS_UI_PROXY_POSTING": True}), \
+         app.test_request_context():
+        for key, exp in expected.items():
+            with patch("flask_login.utils._get_user",
+                       return_value=login_users[key]):
+                assert is_owners_or_superusers(record) is exp, key

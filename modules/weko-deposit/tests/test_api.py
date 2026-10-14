@@ -2979,25 +2979,25 @@ class TestWekoDepositSharedRoleIds:
         _set_map_group_config(app)
         role_id_a, = _create_roles(app, [_SHARED_ROLE_GROUP_PREFIX + "Alpha"])
 
-        with app.test_request_context():
-            with patch.object(
-                    WekoDeposit, 'convert_type_shared_role_ids',
-                    wraps=WekoDeposit.convert_type_shared_role_ids) as mock_convert:
-                # 1. 新規作成の経路
-                deposit = WekoDeposit.create({})
-                assert mock_convert.called
+        with app.test_request_context(), \
+                patch.object(
+                   WekoDeposit, 'convert_type_shared_role_ids',
+                   wraps=WekoDeposit.convert_type_shared_role_ids) as mock_convert:
+            # 1. 新規作成の経路
+            deposit = WekoDeposit.create({})
+            assert mock_convert.called
 
-                # 2. int の shared_role_ids を含めて update
-                mock_convert.reset_mock()
-                update_param = self._update_param([_role_id_value(role_id_a)])
-                with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
-                    deposit.update({'index': ['1'], 'actions': '1'},
-                                   json.loads(json.dumps(update_param)))
-                assert mock_convert.called
-                # shared_role_ids キーは除去され、文字列で設定される
-                assert 'shared_role_ids' not in deposit
-                assert deposit['_deposit']['weko_shared_role_ids'] == [role_id_a]
-                assert deposit['weko_shared_role_ids'] == [role_id_a]
+            # 2. int の shared_role_ids を含めて update
+            mock_convert.reset_mock()
+            update_param = self._update_param([_role_id_value(role_id_a)])
+            with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+                deposit.update({'index': ['1'], 'actions': '1'},
+                               json.loads(json.dumps(update_param)))
+            assert mock_convert.called
+            # shared_role_ids キーは除去され、文字列で設定される
+            assert 'shared_role_ids' not in deposit
+            assert deposit['_deposit']['weko_shared_role_ids'] == [role_id_a]
+            assert deposit['weko_shared_role_ids'] == [role_id_a]
 
     def test_weko_deposit_shared_role_ids_es(self, app, db, users, location, db_index, db_itemtype, mocker):
         """更新後の ES ドキュメントの weko_shared_role_ids を確認する。"""
@@ -3063,28 +3063,28 @@ class TestNewversionSharedRoleIds:
         db.session.add(rel)
         db.session.commit()
 
-        with app.test_request_context():
-            with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
-                with patch("flask_security.current_user", return_value=users[2]["obj"]):
-                    with patch("weko_index_tree.api.Indexes.get_path_list", return_value=[2]):
-                        session["activity_info"] = {"activity_id": 0}
+        with app.test_request_context(), \
+                patch("flask_login.utils._get_user", return_value=users[2]["obj"]), \
+                patch("flask_security.current_user", return_value=users[2]["obj"]), \
+                patch("weko_index_tree.api.Indexes.get_path_list", return_value=[2]):
+            session["activity_info"] = {"activity_id": 0}
 
-                        # 1. 新バージョンへの引き継ぎ。validate_shared_roles=False で更新する。
-                        #    削除済みロールを含んでも SharedRoleValidationError は発生しない
-                        with patch.object(
-                                WekoDeposit, 'update', autospec=True,
-                                side_effect=WekoDeposit.update) as mock_update:
-                            ret = deposit.newversion(depid_1)
-                        assert ret['weko_shared_role_ids'] == saved_role_ids
-                        assert ret['_deposit']['weko_shared_role_ids'] == saved_role_ids
-                        assert mock_update.called
-                        assert mock_update.call_args[1].get('validate_shared_roles') is False
+            # 1. 新バージョンへの引き継ぎ。validate_shared_roles=False で更新する。
+            #    削除済みロールを含んでも SharedRoleValidationError は発生しない
+            with patch.object(
+                    WekoDeposit, 'update', autospec=True,
+                    side_effect=WekoDeposit.update) as mock_update:
+                ret = deposit.newversion(depid_1)
+            assert ret['weko_shared_role_ids'] == saved_role_ids
+            assert ret['_deposit']['weko_shared_role_ids'] == saved_role_ids
+            assert mock_update.called
+            assert mock_update.call_args[1].get('validate_shared_roles') is False
 
-                        # 2. ドラフトへの引き継ぎ（convert_record_to_item_metadata 経由）
-                        session["activity_info"] = {"activity_id": 0}
-                        ret = deposit.newversion(depid_1, is_draft=True)
-                        assert ret['weko_shared_role_ids'] == saved_role_ids
-                        assert ret['_deposit']['weko_shared_role_ids'] == saved_role_ids
+            # 2. ドラフトへの引き継ぎ（convert_record_to_item_metadata 経由）
+            session["activity_info"] = {"activity_id": 0}
+            ret = deposit.newversion(depid_1, is_draft=True)
+            assert ret['weko_shared_role_ids'] == saved_role_ids
+            assert ret['_deposit']['weko_shared_role_ids'] == saved_role_ids
 
 
 # convert_item_metadata の代理投稿グループの検証
@@ -3115,53 +3115,53 @@ class TestConvertItemMetadataSharedRoles:
         from weko_records.utils import json_loader
         record, deposit, role_n, groups = self._setup(app, es_records)
 
-        with app.test_request_context(headers=[('Accept-Language', 'en')]):
-            with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
-                with patch("weko_index_tree.api.Indexes.get_path_list", return_value=['1']):
-                    with patch("weko_deposit.api.json_loader", wraps=json_loader) as mock_loader:
-                        # 1. 指定不可のグループ
-                        caplog.clear()
-                        with caplog.at_level("WARNING"):
-                            with pytest.raises(SharedRoleValidationError) as e:
-                                deposit.convert_item_metadata(
-                                    self.index_obj, self._data(record, shared_role_ids=[role_n]))
-                        assert e.value.code == 400
-                        assert e.value.description == self.msg_not_allowed
-                        assert not mock_loader.called
-                        assert "Rejected shared role id which is not a mAP group: {}".format(role_n) in caplog.text
+        with app.test_request_context(headers=[('Accept-Language', 'en')]), \
+                patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+            with patch("weko_index_tree.api.Indexes.get_path_list", return_value=['1']), \
+                    patch("weko_deposit.api.json_loader", wraps=json_loader) as mock_loader:
+                # 1. 指定不可のグループ
+                caplog.clear()
+                with caplog.at_level("WARNING"), \
+                        pytest.raises(SharedRoleValidationError) as e:
+                    deposit.convert_item_metadata(
+                        self.index_obj, self._data(record, shared_role_ids=[role_n]))
+                assert e.value.code == 400
+                assert e.value.description == self.msg_not_allowed
+                assert not mock_loader.called
+                assert "Rejected shared role id which is not a mAP group: {}".format(role_n) in caplog.text
 
-                        # 2. 上限(10件)超過
-                        caplog.clear()
-                        with caplog.at_level("WARNING"):
-                            with pytest.raises(SharedRoleValidationError) as e:
-                                deposit.convert_item_metadata(
-                                    self.index_obj, self._data(record, shared_role_ids=list(groups)))
-                        assert e.value.description == self.msg_limit
-                        assert "Rejected shared role ids exceeding the limit: count=11, max=10" in caplog.text
-                        assert not mock_loader.called
+                # 2. 上限(10件)超過
+                caplog.clear()
+                with caplog.at_level("WARNING"), \
+                        pytest.raises(SharedRoleValidationError) as e:
+                    deposit.convert_item_metadata(
+                        self.index_obj, self._data(record, shared_role_ids=list(groups)))
+                assert e.value.description == self.msg_limit
+                assert "Rejected shared role ids exceeding the limit: count=11, max=10" in caplog.text
+                assert not mock_loader.called
 
-                        # 3. shared_role_ids が空の場合は weko_shared_role_ids を検証対象とする
-                        with pytest.raises(SharedRoleValidationError) as e:
-                            deposit.convert_item_metadata(
-                                self.index_obj,
-                                self._data(record, shared_role_ids=[], weko_shared_role_ids=[role_n]))
-                        assert e.value.description == self.msg_not_allowed
-                        assert not mock_loader.called
+                # 3. shared_role_ids が空の場合は weko_shared_role_ids を検証対象とする
+                with pytest.raises(SharedRoleValidationError) as e:
+                    deposit.convert_item_metadata(
+                        self.index_obj,
+                        self._data(record, shared_role_ids=[], weko_shared_role_ids=[role_n]))
+                assert e.value.description == self.msg_not_allowed
+                assert not mock_loader.called
 
-                        # 4. int も文字列に正規化して検証する
-                        with pytest.raises(SharedRoleValidationError) as e:
-                            deposit.convert_item_metadata(
-                                self.index_obj,
-                                self._data(record, shared_role_ids=[_role_id_value(role_n)]))
-                        assert e.value.description == self.msg_not_allowed
-                        assert not mock_loader.called
+                # 4. int も文字列に正規化して検証する
+                with pytest.raises(SharedRoleValidationError) as e:
+                    deposit.convert_item_metadata(
+                        self.index_obj,
+                        self._data(record, shared_role_ids=[_role_id_value(role_n)]))
+                assert e.value.description == self.msg_not_allowed
+                assert not mock_loader.called
 
-                # 5. 存在しないインデックスは既存どおり PIDResolveRESTError（インデックスの確認が先）
-                with patch("weko_index_tree.api.Indexes.get_path_list", return_value=[]):
-                    with pytest.raises(PIDResolveRESTError):
-                        deposit.convert_item_metadata(
-                            {'index': ['9999'], 'actions': '1'},
-                            self._data(record, shared_role_ids=[role_n]))
+            # 5. 存在しないインデックスは既存どおり PIDResolveRESTError（インデックスの確認が先）
+            with patch("weko_index_tree.api.Indexes.get_path_list", return_value=[]), \
+                    pytest.raises(PIDResolveRESTError):
+                deposit.convert_item_metadata(
+                    {'index': ['9999'], 'actions': '1'},
+                    self._data(record, shared_role_ids=[role_n]))
 
     def test_convert_item_metadata_shared_role_existing(self, app, db, db_itemtype, es_records, users):
         from invenio_accounts.models import Role
@@ -3174,88 +3174,88 @@ class TestConvertItemMetadataSharedRoles:
         Role.query.get(role_x).name = "Former Gamma"
         db.session.commit()
 
-        with app.test_request_context(headers=[('Accept-Language', 'en')]):
-            with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
-                with patch("weko_index_tree.api.Indexes.get_path_list", return_value=['1']):
-                    with patch("weko_deposit.api.json_loader", wraps=json_loader) as mock_loader:
-                        # 1. 最上位と _deposit の両方に保存済み
-                        deposit['weko_shared_role_ids'] = [rid_del, role_x]
-                        deposit['_deposit']['weko_shared_role_ids'] = [rid_del, role_x]
-                        deposit.convert_item_metadata(
-                            self.index_obj, self._data(record, shared_role_ids=[rid_del, role_x]))
-                        assert mock_loader.called
+        with app.test_request_context(headers=[('Accept-Language', 'en')]), \
+                patch("flask_login.utils._get_user", return_value=users[0]["obj"]), \
+                patch("weko_index_tree.api.Indexes.get_path_list", return_value=['1']), \
+                patch("weko_deposit.api.json_loader", wraps=json_loader) as mock_loader:
+            # 1. 最上位と _deposit の両方に保存済み
+            deposit['weko_shared_role_ids'] = [rid_del, role_x]
+            deposit['_deposit']['weko_shared_role_ids'] = [rid_del, role_x]
+            deposit.convert_item_metadata(
+                self.index_obj, self._data(record, shared_role_ids=[rid_del, role_x]))
+            assert mock_loader.called
 
-                        # 2. _deposit のみに保存済み（RecordResource.put の record.clear() 後の状態）
-                        mock_loader.reset_mock()
-                        deposit.pop('weko_shared_role_ids', None)
-                        deposit['_deposit']['weko_shared_role_ids'] = [rid_del, role_x]
-                        deposit.convert_item_metadata(
-                            self.index_obj, self._data(record, shared_role_ids=[rid_del, role_x]))
-                        assert mock_loader.called
+            # 2. _deposit のみに保存済み（RecordResource.put の record.clear() 後の状態）
+            mock_loader.reset_mock()
+            deposit.pop('weko_shared_role_ids', None)
+            deposit['_deposit']['weko_shared_role_ids'] = [rid_del, role_x]
+            deposit.convert_item_metadata(
+                self.index_obj, self._data(record, shared_role_ids=[rid_del, role_x]))
+            assert mock_loader.called
 
-                        # 3. 保存済み 10 件 + 新規 1 件 = 11 件は上限超過
-                        mock_loader.reset_mock()
-                        deposit['weko_shared_role_ids'] = list(groups[:10])
-                        deposit['_deposit']['weko_shared_role_ids'] = list(groups[:10])
-                        with pytest.raises(SharedRoleValidationError) as e:
-                            deposit.convert_item_metadata(
-                                self.index_obj, self._data(record, shared_role_ids=list(groups)))
-                        assert e.value.description == self.msg_limit
-                        assert not mock_loader.called
+            # 3. 保存済み 10 件 + 新規 1 件 = 11 件は上限超過
+            mock_loader.reset_mock()
+            deposit['weko_shared_role_ids'] = list(groups[:10])
+            deposit['_deposit']['weko_shared_role_ids'] = list(groups[:10])
+            with pytest.raises(SharedRoleValidationError) as e:
+                deposit.convert_item_metadata(
+                    self.index_obj, self._data(record, shared_role_ids=list(groups)))
+            assert e.value.description == self.msg_limit
+            assert not mock_loader.called
 
-                        # 4. 保存済みの値がそのまま渡される形（インポート・一括更新）
-                        deposit['weko_shared_role_ids'] = [groups[0]]
-                        deposit['_deposit']['weko_shared_role_ids'] = [groups[0]]
-                        deposit.convert_item_metadata(
-                            self.index_obj,
-                            self._data(record, shared_role_ids=[], weko_shared_role_ids=[groups[0]]))
-                        assert mock_loader.called
+            # 4. 保存済みの値がそのまま渡される形（インポート・一括更新）
+            deposit['weko_shared_role_ids'] = [groups[0]]
+            deposit['_deposit']['weko_shared_role_ids'] = [groups[0]]
+            deposit.convert_item_metadata(
+                self.index_obj,
+                self._data(record, shared_role_ids=[], weko_shared_role_ids=[groups[0]]))
+            assert mock_loader.called
 
     def test_convert_item_metadata_shared_role_skip(self, app, db, db_itemtype, es_records, users):
         from weko_items_ui.errors import SharedRoleValidationError
         record, deposit, role_n, groups = self._setup(app, es_records)
 
-        with app.test_request_context(headers=[('Accept-Language', 'en')]):
-            with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
-                with patch("weko_index_tree.api.Indexes.get_path_list", return_value=['1']):
-                    import weko_items_ui.utils as items_utils
-                    real_validate = items_utils.validate_shared_role_ids
-                    with patch("weko_items_ui.utils.validate_shared_role_ids",
-                               wraps=real_validate) as mock_validate:
-                        # 1. data を省略（キャッシュ・アクティビティから取得できない）した場合は
-                        #    self.data を更新内容とし、検証は呼ばれない
-                        #    （SharedRoleValidationError が出ないこと）
-                        with patch("weko_deposit.api.RedisConnection") as mock_redis, \
-                                patch("weko_deposit.api.WekoDeposit.record_data_from_act_temp",
-                                      return_value=None):
-                            mock_conn = MagicMock()
-                            mock_conn.connection().redis.exists.return_value = False
-                            mock_redis.return_value = mock_conn
-                            deposit.data = self._data(record, shared_role_ids=[role_n])
-                            try:
-                                deposit.convert_item_metadata(self.index_obj)
-                            except HTTPException as ex:
-                                assert not isinstance(ex, SharedRoleValidationError)
-                        assert not mock_validate.called
+        with app.test_request_context(headers=[('Accept-Language', 'en')]), \
+                patch("flask_login.utils._get_user", return_value=users[0]["obj"]), \
+                patch("weko_index_tree.api.Indexes.get_path_list", return_value=['1']):
+            import weko_items_ui.utils as items_utils
+            real_validate = items_utils.validate_shared_role_ids
+            with patch("weko_items_ui.utils.validate_shared_role_ids",
+                       wraps=real_validate) as mock_validate:
+                # 1. data を省略（キャッシュ・アクティビティから取得できない）した場合は
+                #    self.data を更新内容とし、検証は呼ばれない
+                #    （SharedRoleValidationError が出ないこと）
+                with patch("weko_deposit.api.RedisConnection") as mock_redis, \
+                        patch("weko_deposit.api.WekoDeposit.record_data_from_act_temp",
+                              return_value=None):
+                    mock_conn = MagicMock()
+                    mock_conn.connection().redis.exists.return_value = False
+                    mock_redis.return_value = mock_conn
+                    deposit.data = self._data(record, shared_role_ids=[role_n])
+                    try:
+                        deposit.convert_item_metadata(self.index_obj)
+                    except HTTPException as ex:
+                        assert not isinstance(ex, SharedRoleValidationError)
+                assert not mock_validate.called
 
-                        # 2. validate_shared_roles=False の場合は検証しない
-                        deposit.convert_item_metadata(
-                            self.index_obj,
-                            self._data(record, shared_role_ids=[role_n]),
-                            validate_shared_roles=False)
-                        assert not mock_validate.called
+                # 2. validate_shared_roles=False の場合は検証しない
+                deposit.convert_item_metadata(
+                    self.index_obj,
+                    self._data(record, shared_role_ids=[role_n]),
+                    validate_shared_roles=False)
+                assert not mock_validate.called
 
-                        # 3. 複数化フラグ無効でも検証する（判定はフラグの状態によらない）
-                        app.config['WEKO_ITEMS_UI_PROXY_POSTING'] = False
-                        # 手順 2 の convert_item_metadata が保存済みの値として _deposit に
-                        # role_n を書き込むため、保存済みの値を空に戻してから確認する
-                        deposit.pop('weko_shared_role_ids', None)
-                        deposit['_deposit']['weko_shared_role_ids'] = []
-                        with pytest.raises(SharedRoleValidationError):
-                            deposit.convert_item_metadata(
-                                self.index_obj,
-                                self._data(record, shared_role_ids=[role_n]))
-                        assert mock_validate.called
+                # 3. 複数化フラグ無効でも検証する（判定はフラグの状態によらない）
+                app.config['WEKO_ITEMS_UI_PROXY_POSTING'] = False
+                # 手順 2 の convert_item_metadata が保存済みの値として _deposit に
+                # role_n を書き込むため、保存済みの値を空に戻してから確認する
+                deposit.pop('weko_shared_role_ids', None)
+                deposit['_deposit']['weko_shared_role_ids'] = []
+                with pytest.raises(SharedRoleValidationError):
+                    deposit.convert_item_metadata(
+                        self.index_obj,
+                        self._data(record, shared_role_ids=[role_n]))
+                assert mock_validate.called
 
 
 # update の validate_shared_roles の受け渡しと既定値
@@ -3280,26 +3280,26 @@ class TestUpdateValidateSharedRoles:
 
         with app.test_request_context():
             deposit = WekoDeposit.create({})
-            with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
-                with patch.object(
-                        WekoDeposit, 'convert_item_metadata', autospec=True,
-                        side_effect=WekoDeposit.convert_item_metadata) as mock_convert, \
-                        patch("weko_deposit.api.Deposit.update", autospec=True,
-                              side_effect=_deposit_update_orig()) as mock_super_update:
-                    # 1. validate_shared_roles を省略した場合の既定値は True
-                    deposit.update(index_obj, json.loads(json.dumps(update_param)))
-                    assert mock_convert.call_args[1]['validate_shared_roles'] is True
+            with patch("flask_login.utils._get_user", return_value=users[0]["obj"]), \
+                    patch.object(
+                            WekoDeposit, 'convert_item_metadata', autospec=True,
+                            side_effect=WekoDeposit.convert_item_metadata) as mock_convert, \
+                    patch("weko_deposit.api.Deposit.update", autospec=True,
+                            side_effect=_deposit_update_orig()) as mock_super_update:
+                # 1. validate_shared_roles を省略した場合の既定値は True
+                deposit.update(index_obj, json.loads(json.dumps(update_param)))
+                assert mock_convert.call_args[1]['validate_shared_roles'] is True
 
-                    # 2. validate_shared_roles=False
-                    mock_convert.reset_mock()
-                    mock_super_update.reset_mock()
-                    deposit.update(index_obj, json.loads(json.dumps(update_param)),
-                                   validate_shared_roles=False)
-                    assert mock_convert.call_args[1]['validate_shared_roles'] is False
-                    # super().update の引数に validate_shared_roles は含まれない
-                    assert mock_super_update.called
-                    for call in mock_super_update.call_args_list:
-                        assert 'validate_shared_roles' not in call[1]
+                # 2. validate_shared_roles=False
+                mock_convert.reset_mock()
+                mock_super_update.reset_mock()
+                deposit.update(index_obj, json.loads(json.dumps(update_param)),
+                               validate_shared_roles=False)
+                assert mock_convert.call_args[1]['validate_shared_roles'] is False
+                # super().update の引数に validate_shared_roles は含まれない
+                assert mock_super_update.called
+                for call in mock_super_update.call_args_list:
+                    assert 'validate_shared_roles' not in call[1]
 
     def test_merge_data_to_record_without_version(self, app, db, location, users, es_records, mocker):
         mock_task = mocker.patch("weko_deposit.tasks.extract_pdf_and_update_file_contents")
@@ -3310,11 +3310,11 @@ class TestUpdateValidateSharedRoles:
         deposit = WekoDeposit.get_record(record['deposit'].id)
 
         # 3. 引き継ぎ元の保存済みの値のため validate_shared_roles=False で update を呼ぶ
-        with patch('weko_deposit.api.Indexes.get_path_list', return_value=['2']):
-            with patch.object(
-                    WekoDeposit, 'update', autospec=True,
-                    side_effect=WekoDeposit.update) as mock_update:
-                assert deposit.merge_data_to_record_without_version(recid)
+        with patch('weko_deposit.api.Indexes.get_path_list', return_value=['2']), \
+                patch.object(
+                   WekoDeposit, 'update', autospec=True,
+                   side_effect=WekoDeposit.update) as mock_update:
+            assert deposit.merge_data_to_record_without_version(recid)
         assert mock_update.called
         assert mock_update.call_args[1].get('validate_shared_roles') is False
 

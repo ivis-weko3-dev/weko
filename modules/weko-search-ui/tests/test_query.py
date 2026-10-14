@@ -110,16 +110,16 @@ def test_get_permission_filter(i18n_app, users, client_request_args, indices):
         # 呼ぶため、ES への実検索を避けて空の除外IDを返すようモックする。
         # 除外IDが空の場合は個人条件に must_not が付与されず、従来と同じ条件となる。
         with patch("flask_login.utils._get_user", return_value=users[1]['obj']), \
-                patch("weko_items_ui.utils.get_excluded_shared_doc_ids", return_value=[]):
-            with patch("weko_search_ui.query.check_permission_user",return_value=(users[1]["id"],True)):
-                with i18n_app.test_request_context("/test?search_type=0"):
-                    res = get_permission_filter(33)
-                    assert res == ([Bool(must=[Bool()], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id=2), Term(owner=2)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[2])]), Bool(must=[Terms(publish_status=['0']), Range(publish_date={'lte': 'now/d', 'time_zone': 'UTC'})])]), Bool(must=[Match(relation_version_is_last='true')])], [])
-                with i18n_app.test_request_context("/test?search_type=2"):
-                    res = get_permission_filter(33)
-                    assert res == ([Bool(must=[Terms(path=[])], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id=2), Term(owner=2)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[2])]), Bool(must=[Terms(publish_status=['0']), Range(publish_date={'lte': 'now/d', 'time_zone': 'UTC'})])]), Bool(must=[Match(relation_version_is_last='true')])], [])
-                res = get_permission_filter()
+             patch("weko_items_ui.utils.get_excluded_shared_doc_ids", return_value=[]), \
+             patch("weko_search_ui.query.check_permission_user",return_value=(users[1]["id"],True)):
+            with i18n_app.test_request_context("/test?search_type=0"):
+                res = get_permission_filter(33)
+                assert res == ([Bool(must=[Bool()], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id=2), Term(owner=2)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[2])]), Bool(must=[Terms(publish_status=['0']), Range(publish_date={'lte': 'now/d', 'time_zone': 'UTC'})])]), Bool(must=[Match(relation_version_is_last='true')])], [])
+            with i18n_app.test_request_context("/test?search_type=2"):
+                res = get_permission_filter(33)
                 assert res == ([Bool(must=[Terms(path=[])], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id=2), Term(owner=2)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[2])]), Bool(must=[Terms(publish_status=['0']), Range(publish_date={'lte': 'now/d', 'time_zone': 'UTC'})])]), Bool(must=[Match(relation_version_is_last='true')])], [])
+            res = get_permission_filter()
+            assert res == ([Bool(must=[Terms(path=[])], should=[Bool(must=[Terms(publish_status=['0', '1']), Bool(should=[Match(weko_creator_id=2), Term(owner=2)], minimum_should_match=1)]), Bool(must=[Terms(publish_status=['0', '1']), Terms(weko_shared_ids=[2])]), Bool(must=[Terms(publish_status=['0']), Range(publish_date={'lte': 'now/d', 'time_zone': 'UTC'})])]), Bool(must=[Match(relation_version_is_last='true')])], [])
     # is_perm is False
     with patch('weko_search_ui.query.search_permission.can', return_value=False):
         with patch("flask_login.utils._get_user", return_value=users[3]['obj']):
@@ -1099,13 +1099,13 @@ def _call_permission_filter(app, user, excluded_mock=None, reset_cache=True,
     # user_id 省略時は user.id。None や "abc" 等を指定して check_permission_user の戻り値を差し替えられる
     permission_user_id = user.id if user_id is ... else user_id
     with patch("weko_search_ui.query.search_permission.can", return_value=True), \
-            patch("flask_login.utils._get_user", return_value=user), \
-            patch("weko_search_ui.query.check_permission_user",
-                  return_value=(permission_user_id, True)), \
-            patch("weko_index_tree.api.Indexes.get_browsing_tree_paths", return_value=["33"]), \
-            patch("weko_items_ui.utils.get_excluded_shared_doc_ids", excluded_mock):
-        with app.test_request_context("/test?search_type=2"):
-            return get_permission_filter(index_id)
+         patch("flask_login.utils._get_user", return_value=user), \
+         patch("weko_search_ui.query.check_permission_user",
+               return_value=(permission_user_id, True)), \
+         patch("weko_index_tree.api.Indexes.get_browsing_tree_paths", return_value=["33"]), \
+         patch("weko_items_ui.utils.get_excluded_shared_doc_ids", excluded_mock), \
+         app.test_request_context("/test?search_type=2"):
+        return get_permission_filter(index_id)
 
 
 def _creator_cond(user_id, with_owner=True):

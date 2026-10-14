@@ -9199,7 +9199,7 @@ def test_edit_item_direct_after_login_admin_and_response(client, app, users, db_
 
 
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_views.py::test_init_activity_post_shared_ids_not_saved -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_init_activity_post_shared_ids_not_saved(app, client, users, item_type, workflow):
+def test_init_activity_post_shared_ids_not_saved(app, client, users, item_type, workflow, mocker):
     """ActivitySchema が代理投稿者・グループを持たず、リクエストの値は保存されない."""
     env = build_proxy_env(app)
     set_proxy_posting(app, True)
@@ -9211,16 +9211,14 @@ def test_init_activity_post_shared_ids_not_saved(app, client, users, item_type, 
 
     # 2. リクエストの値は init_activity に渡る activity 辞書にもカラムにも含まれない
     login(client=client, email=users[2]["email"])
-    real_init_activity = WorkActivity.init_activity
-    with patch.object(WorkActivity, "init_activity", autospec=True,
-                      side_effect=real_init_activity) as mock_init:
-        res = client.post(url_for("weko_workflow.init_activity"), json={
-            "workflow_id": workflow["workflow"].id,
-            "flow_id": workflow["flow"].id,
-            "activity_confirm_term_of_use": True,
-            "shared_user_ids": [{"user": env.U_P1.id}],
-            "shared_role_ids": [rid(env.R_A)],
-        })
+    mock_init = mocker.spy(WorkActivity, "init_activity")
+    res = client.post(url_for("weko_workflow.init_activity"), json={
+        "workflow_id": workflow["workflow"].id,
+        "flow_id": workflow["flow"].id,
+        "activity_confirm_term_of_use": True,
+        "shared_user_ids": [{"user": env.U_P1.id}],
+        "shared_role_ids": [rid(env.R_A)],
+    })
     # 応答のステータスは ActivitySchema が未知のキーをどう扱うかに依存するため確認しない
     if mock_init.called:
         activity_dict = mock_init.call_args[0][1]

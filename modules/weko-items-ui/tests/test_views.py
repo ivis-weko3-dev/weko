@@ -22909,11 +22909,11 @@ def _post_prepare_delete(client_api, user, deposit, workflow=None):
 
 def _call_prepare_delete(app, user, deposit, workflow=None, **kwargs):
     """リクエストコンテキスト内で prepare_delete_item を直接呼び出す."""
-    with _delete_env(deposit, workflow) as mocks:
-        with app.test_request_context("/items/prepare_delete_item", method="POST"):
-            with patch("flask_login.utils._get_user",
-                       return_value=User.query.get(user.id)):
-                res = prepare_delete_item(id="1", **kwargs)
+    with _delete_env(deposit, workflow) as mocks, \
+         app.test_request_context("/items/prepare_delete_item", method="POST"), \
+         patch("flask_login.utils._get_user",
+               return_value=User.query.get(user.id)):
+        res = prepare_delete_item(id="1", **kwargs)
     return res, mocks
 
 

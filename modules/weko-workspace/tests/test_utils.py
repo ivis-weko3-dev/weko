@@ -721,13 +721,13 @@ def test_get_es_itemlist_excluded_ids_failure_and_cache(app, db, caplog):
         scan.side_effect = lambda: iter([hit])
         reset_request_cache()
         with patch("weko_search_ui.query.search_permission.can", return_value=True), \
-                patch("flask_login.utils._get_user", return_value=user_p1), \
-                patch("weko_search_ui.query.check_permission_user",
-                      return_value=(user_p1.id, True)), \
-                patch("weko_index_tree.api.Indexes.get_browsing_tree_paths",
-                      return_value=["33"]):
-            with app.test_request_context("/test?search_type=2"):
-                get_permission_filter(33)
+             patch("flask_login.utils._get_user", return_value=user_p1), \
+             patch("weko_search_ui.query.check_permission_user",
+                   return_value=(user_p1.id, True)), \
+             patch("weko_index_tree.api.Indexes.get_browsing_tree_paths",
+                   return_value=["33"]), \
+             app.test_request_context("/test?search_type=2"):
+            get_permission_filter(33)
         assert scan.call_count == 1
         client = _fake_client()
         _call_es_itemlist(app, user_p1, client, real_excluded=True, reset_cache=False)

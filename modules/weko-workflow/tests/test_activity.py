@@ -1819,12 +1819,12 @@ class TestHeadlessActivity:
                 "shared_role_ids": role_ids,
             }
             with patch("weko_workflow.headless.activity.validate_form_input_data"), \
-                    patch("weko_workflow.headless.activity.HeadlessActivity.update_activity") as mock_update_activity, \
-                    patch("weko_workflow.headless.activity.HeadlessActivity.upt_activity_metadata") as mock_upt_meta, \
-                    patch("weko_workflow.headless.activity.HeadlessActivity._upload_files", return_value=[]), \
-                    patch("weko_workflow.headless.activity.HeadlessActivity._delete_file"):
-                with pytest.raises(WekoWorkflowException) as ex:
-                    activity._input_metadata(metadata, [], [])
+                 patch("weko_workflow.headless.activity.HeadlessActivity.update_activity") as mock_update_activity, \
+                 patch("weko_workflow.headless.activity.HeadlessActivity.upt_activity_metadata") as mock_upt_meta, \
+                 patch("weko_workflow.headless.activity.HeadlessActivity._upload_files", return_value=[]), \
+                 patch("weko_workflow.headless.activity.HeadlessActivity._delete_file"), \
+                 pytest.raises(WekoWorkflowException) as ex:
+                activity._input_metadata(metadata, [], [])
             # アクティビティ・一時保存データ・アイテムを更新しない
             mock_update_activity.assert_not_called()
             mock_upt_meta.assert_not_called()

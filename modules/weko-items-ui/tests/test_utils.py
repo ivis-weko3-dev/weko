@@ -13540,11 +13540,11 @@ def test_is_proxy_poster_group(app, db):
     # 8. 個人判定を先に行う（get_user_role_ids が呼ばれない）
     _set_proxy_posting(app, True)
     source = {"weko_shared_ids": [u_g.id], "weko_shared_role_ids": [rid_a]}
-    with app.test_request_context():
-        with patch("weko_items_ui.utils.get_user_role_ids",
-                   wraps=get_user_role_ids) as mock_role_ids:
-            assert is_proxy_poster(source, u_g) is True
-            mock_role_ids.assert_not_called()
+    with app.test_request_context(), \
+         patch("weko_items_ui.utils.get_user_role_ids",
+               wraps=get_user_role_ids) as mock_role_ids:
+        assert is_proxy_poster(source, u_g) is True
+        mock_role_ids.assert_not_called()
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_is_proxy_poster_role_removed -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
@@ -13559,18 +13559,18 @@ def test_is_proxy_poster_role_removed(app, db):
     source = {"weko_shared_role_ids": [_rid(r_a)]}
 
     # 1. 1 つ目のリクエストコンテキスト（flask.g はコンテキストごとに分離する）
-    with app.app_context():
-        with app.test_request_context():
-            assert is_proxy_poster(source, User.query.get(uid)) is True
+    with app.app_context(), \
+         app.test_request_context():
+        assert is_proxy_poster(source, User.query.get(uid)) is True
 
     # 2. U_G を R_A から外す
     ds.remove_role_from_user(u_g, r_a)
     db.session.commit()
 
     # 3. 新しいリクエストコンテキストで DB から取り直した U_G を判定する
-    with app.app_context():
-        with app.test_request_context():
-            assert is_proxy_poster(source, User.query.get(uid)) is False
+    with app.app_context(), \
+         app.test_request_context():
+        assert is_proxy_poster(source, User.query.get(uid)) is False
 
 
 # def get_user_role_ids(user=None):
@@ -13584,28 +13584,28 @@ def test_get_user_role_ids(app, db):
     u_n = _create_user(app, db, "gur_n@test.org")
     expected = sorted([_rid(r_a), _rid(r_b)])
 
-    with app.app_context():
-        with app.test_request_context():
-            # 1. 所属ロールID（各要素が str）
-            result = get_user_role_ids(u_g)
-            assert sorted(result) == expected
-            assert all(isinstance(rid, str) for rid in result)
-            # 2. ロールなし
-            assert get_user_role_ids(u_n) == []
-            # 3. roles が None のユーザー
-            mock_user = MagicMock(spec=User)
-            mock_user.id = 99999
-            mock_user.roles = None
-            assert get_user_role_ids(mock_user) == []
-            # 4. 未ログインで user を省略する
-            with patch("flask_login.utils._get_user", return_value=None):
-                assert get_user_role_ids() == []
+    with app.app_context(), \
+         app.test_request_context():
+        # 1. 所属ロールID（各要素が str）
+        result = get_user_role_ids(u_g)
+        assert sorted(result) == expected
+        assert all(isinstance(rid, str) for rid in result)
+        # 2. ロールなし
+        assert get_user_role_ids(u_n) == []
+        # 3. roles が None のユーザー
+        mock_user = MagicMock(spec=User)
+        mock_user.id = 99999
+        mock_user.roles = None
+        assert get_user_role_ids(mock_user) == []
+        # 4. 未ログインで user を省略する
+        with patch("flask_login.utils._get_user", return_value=None):
+            assert get_user_role_ids() == []
 
     # 5. U_G でログインした状態で user を省略する
-    with app.app_context():
-        with app.test_request_context():
-            with patch("flask_login.utils._get_user", return_value=u_g):
-                assert sorted(get_user_role_ids()) == expected
+    with app.app_context(), \
+         app.test_request_context(), \
+         patch("flask_login.utils._get_user", return_value=u_g):
+        assert sorted(get_user_role_ids()) == expected
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_user_role_ids_cache -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
@@ -13623,23 +13623,23 @@ def test_get_user_role_ids_cache(app):
     user_101, prop_101 = _make_user(101, 1)
     user_102, prop_102 = _make_user(102, 2)
 
-    with app.app_context():
-        with app.test_request_context():
-            # 1. 同一コンテキスト内で 2 回呼んでも roles へのアクセスは 1 回のみ
-            assert get_user_role_ids(user_101) == ["1"]
-            assert get_user_role_ids(user_101) == ["1"]
-            assert prop_101.call_count == 1
-            assert 101 in g._weko_user_role_ids
-            # 2. 別ユーザーは別途 roles へアクセスし、キーが追加される
-            assert get_user_role_ids(user_102) == ["2"]
-            assert prop_102.call_count == 1
-            assert 102 in g._weko_user_role_ids
+    with app.app_context(), \
+         app.test_request_context():
+        # 1. 同一コンテキスト内で 2 回呼んでも roles へのアクセスは 1 回のみ
+        assert get_user_role_ids(user_101) == ["1"]
+        assert get_user_role_ids(user_101) == ["1"]
+        assert prop_101.call_count == 1
+        assert 101 in g._weko_user_role_ids
+        # 2. 別ユーザーは別途 roles へアクセスし、キーが追加される
+        assert get_user_role_ids(user_102) == ["2"]
+        assert prop_102.call_count == 1
+        assert 102 in g._weko_user_role_ids
 
     # 3. 新しいコンテキストでは roles へ再度アクセスする（キャッシュはリクエスト単位）
-    with app.app_context():
-        with app.test_request_context():
-            assert get_user_role_ids(user_101) == ["1"]
-            assert prop_101.call_count == 2
+    with app.app_context(), \
+         app.test_request_context():
+        assert get_user_role_ids(user_101) == ["1"]
+        assert prop_101.call_count == 2
 
 
 # def is_item_editable_by(source, user=None):
@@ -13750,9 +13750,9 @@ def test_hide_meta_data_for_role_proxy(app, db):
     }
 
     def _hide(user, rec):
-        with app.test_request_context():
-            with patch("flask_login.utils._get_user", return_value=user):
-                return hide_meta_data_for_role(rec)
+        with app.test_request_context(), \
+             patch("flask_login.utils._get_user", return_value=user):
+            return hide_meta_data_for_role(rec)
 
     _set_proxy_posting(app, True)
     # 1. 代理投稿者（個人）: 表示してよい（改修前はネストリスト比較により True だった）
@@ -13802,15 +13802,15 @@ def _export_meta(owner_id, shared_ids, role_ids, with_role_key=True):
 def _run_export_item(app, user, meta):
     """ログインユーザー user でレコード recid=1 をエクスポートする."""
     records_data = {"metadata": copy.deepcopy(meta)}
-    with app.test_request_context(headers=[("Accept-Language", "en")]):
-        with patch("flask_login.utils._get_user", return_value=user), \
-                patch("weko_items_ui.utils.get_user_roles", return_value=(False, None)), \
-                patch("weko_items_ui.utils.check_created_id", return_value=False), \
-                patch("weko_items_ui.utils.check_publish_status", return_value=True), \
-                patch("weko_items_ui.utils.get_ignore_item_from_mapping",
-                      return_value=["item_hidden"]):
-            exported_item, list_item_role = _export_item(
-                1, "JSON", False, "./tests/data/", records_data)
+    with app.test_request_context(headers=[("Accept-Language", "en")]), \
+         patch("flask_login.utils._get_user", return_value=user), \
+         patch("weko_items_ui.utils.get_user_roles", return_value=(False, None)), \
+         patch("weko_items_ui.utils.check_created_id", return_value=False), \
+         patch("weko_items_ui.utils.check_publish_status", return_value=True), \
+         patch("weko_items_ui.utils.get_ignore_item_from_mapping",
+               return_value=["item_hidden"]):
+        exported_item, list_item_role = _export_item(
+            1, "JSON", False, "./tests/data/", records_data)
     return exported_item, list_item_role, records_data
 
 
@@ -13920,16 +13920,16 @@ def test_export_item_shared_role_non_public_metadata(app, db, users, db_records,
     def _judge_in_make_stats_file(user, list_item_role):
         results = []
 
-        def _spy(record):
+        def _stop_after_hide(record):
             results.append(hide_meta_data_for_role(record))
             raise _StopAfterHide()
 
-        with app.test_request_context(headers=[("Accept-Language", "en")]):
-            with patch("flask_login.utils._get_user", return_value=user), \
-                    patch("weko_items_ui.utils.hide_meta_data_for_role",
-                          side_effect=_spy):
-                with pytest.raises(_StopAfterHide):
-                    make_stats_file("1", [1], list_item_role)
+        with app.test_request_context(headers=[("Accept-Language", "en")]), \
+             patch("flask_login.utils._get_user", return_value=user), \
+             patch("weko_items_ui.utils.hide_meta_data_for_role",
+                   side_effect=_stop_after_hide), \
+             pytest.raises(_StopAfterHide):
+            make_stats_file("1", [1], list_item_role)
         return results
 
     assert _judge_in_make_stats_file(u_g, list_item_role_p1) == [False]
@@ -14389,25 +14389,25 @@ def test_exists_shared_user_email(app, db, shared_users, db_userprofile):
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_exists_shared_user_email_empty -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
 def test_exists_shared_user_email_empty(app):
     """空文字・None で DB にアクセスせず該当なしを返す."""
-    with app.test_request_context():
-        with patch("weko_items_ui.utils.db.session.query") as mock_query, \
-                patch("weko_items_ui.utils.filter_shared_user_role") as mock_filter:
-            # 1. 空文字
-            assert exists_shared_user_email("") == {"query": "", "exists": False}
-            # 2. None
-            assert exists_shared_user_email(None) == {"query": "", "exists": False}
-            mock_query.assert_not_called()
-            mock_filter.assert_not_called()
+    with app.test_request_context(), \
+         patch("weko_items_ui.utils.db.session.query") as mock_query, \
+         patch("weko_items_ui.utils.filter_shared_user_role") as mock_filter:
+        # 1. 空文字
+        assert exists_shared_user_email("") == {"query": "", "exists": False}
+        # 2. None
+        assert exists_shared_user_email(None) == {"query": "", "exists": False}
+        mock_query.assert_not_called()
+        mock_filter.assert_not_called()
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_exists_shared_user_email_db_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
 def test_exists_shared_user_email_db_error(app):
     """DB アクセスエラーを捕捉せず送出する."""
-    with app.test_request_context():
-        with patch("weko_items_ui.utils.filter_shared_user_role",
-                   side_effect=SQLAlchemyError("test error")):
-            with pytest.raises(SQLAlchemyError):
-                exists_shared_user_email("shared_contributor@test.org")
+    with app.test_request_context(), \
+         patch("weko_items_ui.utils.filter_shared_user_role",
+               side_effect=SQLAlchemyError("test error")), \
+         pytest.raises(SQLAlchemyError):
+        exists_shared_user_email("shared_contributor@test.org")
 
 
 # ---- get_excluded_shared_doc_ids 用のフェイク ----
@@ -14491,9 +14491,9 @@ def test_get_excluded_shared_doc_ids(app, db, es):
 
     def _excluded(user_id):
         # 各呼び出しは新しいリクエストコンテキストで行う（flask.g のキャッシュを持ち越さない）
-        with app.app_context():
-            with app.test_request_context():
-                return get_excluded_shared_doc_ids(user_id)
+        with app.app_context(), \
+             app.test_request_context():
+            return get_excluded_shared_doc_ids(user_id)
 
     result = _excluded(i1)
     assert isinstance(result, list)
@@ -14533,10 +14533,10 @@ def test_get_excluded_shared_doc_ids_shapes(app, caplog, proxy_posting_flag):
         _FakeHit("h14", {"user": 5}),
     ]
     fake = _make_fake_records_search(hits=hits)
-    with app.app_context():
-        with app.test_request_context():
-            with patch("weko_items_ui.utils.RecordsSearch", fake):
-                result = get_excluded_shared_doc_ids(5)
+    with app.app_context(), \
+         app.test_request_context(), \
+         patch("weko_items_ui.utils.RecordsSearch", fake):
+        result = get_excluded_shared_doc_ids(5)
 
     # 末尾が自分(5)でない、または末尾が特定できないドキュメントが除外IDとなる
     assert set(result) == {"h2", "h4", "h6", "h9", "h11", "h12", "h13", "h14"}
@@ -14562,58 +14562,58 @@ def test_get_excluded_shared_doc_ids_args_and_cache(app):
 
     with patch("weko_items_ui.utils.RecordsSearch", fake):
         # 1. None・変換不能・空文字は検索を発行せず空リスト
-        with app.app_context():
-            with app.test_request_context():
-                for user_id in [None, "abc", ""]:
-                    assert get_excluded_shared_doc_ids(user_id) == []
-                assert fake.instances == []
+        with app.app_context(), \
+             app.test_request_context():
+            for user_id in [None, "abc", ""]:
+                assert get_excluded_shared_doc_ids(user_id) == []
+            assert fake.instances == []
 
         # 2. int
-        with app.app_context():
-            with app.test_request_context():
-                assert get_excluded_shared_doc_ids(5) == ["hx"]
-                assert _terms_value(fake.instances[-1]) == [5]
+        with app.app_context(), \
+             app.test_request_context():
+            assert get_excluded_shared_doc_ids(5) == ["hx"]
+            assert _terms_value(fake.instances[-1]) == [5]
 
         # 3. str（int に変換して検索条件に渡す）
-        with app.app_context():
-            with app.test_request_context():
-                assert get_excluded_shared_doc_ids("5") == ["hx"]
-                assert _terms_value(fake.instances[-1]) == [5]
+        with app.app_context(), \
+             app.test_request_context():
+            assert get_excluded_shared_doc_ids("5") == ["hx"]
+            assert _terms_value(fake.instances[-1]) == [5]
 
         # 4. 複数化フラグの状態によらず同じ結果
         for flag in (True, False):
             _set_proxy_posting(app, flag)
-            with app.app_context():
-                with app.test_request_context():
-                    assert get_excluded_shared_doc_ids(5) == ["hx"]
+            with app.app_context(), \
+                 app.test_request_context():
+                assert get_excluded_shared_doc_ids(5) == ["hx"]
 
         # 5. 同一コンテキスト内で 3 回呼んでも検索は 1 回のみ
         fake.instances[:] = []
-        with app.app_context():
-            with app.test_request_context():
-                assert get_excluded_shared_doc_ids(5) == ["hx"]
-                assert get_excluded_shared_doc_ids("5") == ["hx"]
-                assert get_excluded_shared_doc_ids(5) == ["hx"]
-                assert len(fake.instances) == 1
-                assert fake.instances[0].scan_count == 1
-                assert g._weko_shared_excluded_doc_ids == {5: ["hx"]}
+        with app.app_context(), \
+             app.test_request_context():
+            assert get_excluded_shared_doc_ids(5) == ["hx"]
+            assert get_excluded_shared_doc_ids("5") == ["hx"]
+            assert get_excluded_shared_doc_ids(5) == ["hx"]
+            assert len(fake.instances) == 1
+            assert fake.instances[0].scan_count == 1
+            assert g._weko_shared_excluded_doc_ids == {5: ["hx"]}
 
-                # 6. 別ユーザーは別途検索が発行される
-                get_excluded_shared_doc_ids(6)
-                assert len(fake.instances) == 2
-                assert set(g._weko_shared_excluded_doc_ids.keys()) == {5, 6}
+            # 6. 別ユーザーは別途検索が発行される
+            get_excluded_shared_doc_ids(6)
+            assert len(fake.instances) == 2
+            assert set(g._weko_shared_excluded_doc_ids.keys()) == {5, 6}
 
         # 7. 新しいコンテキストでは検索が再度発行される
-        with app.app_context():
-            with app.test_request_context():
-                get_excluded_shared_doc_ids(5)
-                assert len(fake.instances) == 3
+        with app.app_context(), \
+             app.test_request_context():
+            get_excluded_shared_doc_ids(5)
+            assert len(fake.instances) == 3
 
         # 8. scan() が 0 件を返す場合
         fake.hits = []
-        with app.app_context():
-            with app.test_request_context():
-                assert get_excluded_shared_doc_ids(5) == []
+        with app.app_context(), \
+             app.test_request_context():
+            assert get_excluded_shared_doc_ids(5) == []
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_excluded_shared_doc_ids_query -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
@@ -14626,9 +14626,9 @@ def test_get_excluded_shared_doc_ids_query(app):
 
     with patch("weko_items_ui.utils.RecordsSearch", fake):
         # 1. 検索条件
-        with app.app_context():
-            with app.test_request_context():
-                assert get_excluded_shared_doc_ids(5) == []
+        with app.app_context(), \
+             app.test_request_context():
+            assert get_excluded_shared_doc_ids(5) == []
         search = fake.instances[0]
         assert search.index == app.config["SEARCH_UI_SEARCH_INDEX"]
         filter_args, filter_kwargs = search.filter_call
@@ -14647,19 +14647,19 @@ def test_get_excluded_shared_doc_ids_query(app):
 
         # 2. 検索失敗時は TransportError がそのまま送出される
         fake.error = es_exceptions.TransportError(500, "test error")
-        with app.app_context():
-            with app.test_request_context():
-                with pytest.raises(es_exceptions.TransportError):
-                    get_excluded_shared_doc_ids(5)
-                # 失敗した結果はキャッシュに保存されない
-                assert 5 not in g._weko_shared_excluded_doc_ids
+        with app.app_context(), \
+             app.test_request_context():
+            with pytest.raises(es_exceptions.TransportError):
+                get_excluded_shared_doc_ids(5)
+            # 失敗した結果はキャッシュに保存されない
+            assert 5 not in g._weko_shared_excluded_doc_ids
 
-                # 3. 正常に戻して再度呼び出すと検索が再度発行される
-                fake.error = None
-                fake.hits = [_FakeHit("hx", [5, 3])]
-                count_before = len(fake.instances)
-                assert get_excluded_shared_doc_ids(5) == ["hx"]
-                assert len(fake.instances) == count_before + 1
+            # 3. 正常に戻して再度呼び出すと検索が再度発行される
+            fake.error = None
+            fake.hits = [_FakeHit("hx", [5, 3])]
+            count_before = len(fake.instances)
+            assert get_excluded_shared_doc_ids(5) == ["hx"]
+            assert len(fake.instances) == count_before + 1
 
 
 # .tox/c1/bin/pytest --cov=weko_items_ui tests/test_utils.py::test_get_excluded_shared_doc_ids_unmapped_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
@@ -14673,9 +14673,9 @@ def test_get_excluded_shared_doc_ids_unmapped_index(app, db, es):
     es.indices.refresh(index=index)
 
     def _excluded(user_id):
-        with app.app_context():
-            with app.test_request_context():
-                return get_excluded_shared_doc_ids(user_id)
+        with app.app_context(), \
+             app.test_request_context():
+            return get_excluded_shared_doc_ids(user_id)
 
     # 1. script_exception が発生せず空リストを返す
     assert _excluded(5) == []

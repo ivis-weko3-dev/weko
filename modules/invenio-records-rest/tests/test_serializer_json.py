@@ -15,7 +15,7 @@ from __future__ import absolute_import, print_function
 import json
 from types import SimpleNamespace
 
-import mock
+from unittest import mock
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_records import Record
 from marshmallow import Schema, fields
@@ -334,7 +334,7 @@ def test_serialize_search_exclude_shared_role_ids(app, db, item_type, request_co
 
 
 # 非公開メタデータ判定用 item_roles に weko_shared_role_ids が加わる
-def test_serialize_search_item_roles(app, db, item_type, request_context):
+def test_serialize_search_item_roles(app, db, item_type, request_context, mocker):
     """Test that item_roles passed to hide_meta_data_for_role has weko_shared_role_ids."""
     app.config['WEKO_RECORDS_UI_EMAIL_ITEM_KEYS'] = ['creatorMails', 'contributorMails', 'mails']
     app.config['WEKO_ITEMS_UI_PROXY_POSTING'] = True
@@ -392,30 +392,27 @@ def test_serialize_search_item_roles(app, db, item_type, request_context):
 
     import weko_items_ui.utils as items_utils
     real_hide = items_utils.hide_meta_data_for_role
+    spy = mocker.spy(items_utils, 'hide_meta_data_for_role')
 
     expected_hidden = {'U_O': False, 'U_P1': False, 'U_G': False, 'U_N': True}
     for name, user in users.items():
-        calls = []
+        spy.reset_mock()
 
-        def spy(record):
-            result = real_hide(record)
-            calls.append((dict(record), result))
-            return result
-
-        with mock.patch('weko_items_ui.utils.current_user', user), \
-                mock.patch('weko_items_ui.utils.hide_meta_data_for_role',
-                           side_effect=spy):
+        with mock.patch('weko_items_ui.utils.current_user', user):
             data = json.loads(JSONSerializer(TestSchema).serialize_search(
                 fetcher, make_result()))
+            # 1回目の呼び出し(S1)に渡された引数での判定結果
+            s1_hidden = real_hide(spy.call_args_list[0][0][0])
 
         # 2. hide_meta_data_for_role に渡された item_roles（S1・S2）
+        calls = spy.call_args_list
         assert len(calls) == 2
-        assert calls[0][0] == {
+        assert calls[0][0][0] == {
             'weko_creator_id': str(uid_o),
             'weko_shared_ids': [uid_p1],
             'weko_shared_role_ids': [rid_a],
         }
-        assert calls[1][0] == {
+        assert calls[1][0][0] == {
             'weko_creator_id': str(uid_o),
             'weko_shared_ids': [],
             'weko_shared_role_ids': [],
@@ -423,7 +420,7 @@ def test_serialize_search_item_roles(app, db, item_type, request_context):
 
         # 1. S1 の判定結果。グループのメンバーにも個人の代理投稿者と同様に
         #    非公開メタデータが返る（隠されない）。U_N は隠される
-        assert calls[0][1] is expected_hidden[name], name
+        assert s1_hidden is expected_hidden[name], name
 
         # 3. 除外は判定の後。応答に weko_shared_role_ids は含まれず
         #    weko_shared_ids は残る
