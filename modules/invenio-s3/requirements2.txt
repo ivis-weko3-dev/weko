@@ -250,7 +250,7 @@ pytz==2024.1
 pywebpack==1.2.0
 PyYAML==6.0.1
 pyzmq==25.1.1
-redis==6.0.0
+redis==6.4.0
 referencing==0.37.0
 requests==2.32.3
 requests-oauthlib==1.1.0
