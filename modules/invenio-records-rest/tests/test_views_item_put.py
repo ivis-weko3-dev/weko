@@ -212,3 +212,46 @@ def test_put_with_path_and_index(app, es, test_records, search_url, content_type
         assert res.status_code == 200
         data = get_json(res)
         assert data['metadata']['path'] == ['100']
+
+
+# 代理投稿グループの検証拒否は HTTP 400、他の例外は HTTP 500
+def test_put_shared_role_validation_error(app, db, es, test_records):
+    """Test that only SharedRoleValidationError makes PUT respond with 400."""
+    from weko_items_ui.errors import SharedRoleValidationError
+
+    HEADERS = [
+        ('Accept', 'application/json'),
+        ('Content-Type', 'application/json')
+    ]
+
+    pid, record = test_records[0]
+    obj_id = pid.object_uuid
+    record['year'] = 1234
+    data = record.dumps()
+
+    with app.test_client() as client:
+        url = record_url(pid)
+
+        # 1. SharedRoleValidationError -> HTTP 400、ロールバックされる
+        with mock.patch(
+                'invenio_records.api.Record.update',
+                side_effect=SharedRoleValidationError(
+                    description="Specified group is not allowed as a proxy posting group.")), \
+                mock.patch.object(db.session, 'rollback',
+                                  wraps=db.session.rollback) as mock_rollback:
+            res = client.put(url, data=json.dumps(data), headers=HEADERS)
+            assert res.status_code == 400
+            assert get_json(res) == {
+                "status": 400,
+                "message": "Specified group is not allowed as a proxy posting group."
+            }
+            mock_rollback.assert_called()
+        # レコードが更新されない
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json['year'] == 2015
+
+        # 2. その他の例外 -> 改修前と同じ HTTP 500
+        with mock.patch('invenio_records.api.Record.update',
+                        side_effect=RuntimeError('test error')):
+            res = client.put(url, data=json.dumps(data), headers=HEADERS)
+            assert res.status_code == 500
+        assert RecordMetadata.query.filter_by(id=obj_id).first().json['year'] == 2015

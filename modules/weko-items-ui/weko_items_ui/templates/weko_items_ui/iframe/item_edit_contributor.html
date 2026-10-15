@@ -41,11 +41,13 @@
         </div>
         <div class="col-xs-5 col-sm-5 col-md-5 col-lg-5">
             <div class="autocomplete">
-                <input id="share_email_{{user.userid}}" autocomplete="off" type="text" name="share_email" placeholder="Email"
-                    class="form-control" onclick="initContributorSuggest(this)" value="{{user.email|e}}" foucusout="focusoutShareEmail(this.id)"
+                <input id="share_email_{{user.userid}}" autocomplete="off" type="text" name="share_email" placeholder="{{ _('Enter an email address (no suggestions are shown)') }}"
+                    class="form-control" value="{{user.email|e}}" foucusout="focusoutShareEmail(this.id)"
                     {% if no_multiple_contributors %}disabled{% endif %} />
                 <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate id_spinners_email" id="id_spinners_email_{{user.userid}}"
                     {% if no_multiple_contributors %}style="display:none;"{% endif %}></span>
+                <span class="email-exists-status glyphicon glyphicon-ok text-success" id="email_exists_status_{{user.userid}}"
+                    style="display:none; margin-left: -24px; margin-top: 8px;"></span>
             </div>
         </div>
         <div class="text-center contributor-trash">
@@ -57,3 +59,38 @@
     <div class="row row-4"></div>
 </div>
 {% endfor %}
+{# 代理投稿グループの行(複数化フラグ有効時のみ。contributor_group_rows が渡された場合に描画する) #}
+{% if contributor_group_rows is defined and enable_multi_contributors %}
+{% for group in contributor_group_rows %}
+{% set group_error = group.error %}
+{% if group_error == 'Role not found.' %}
+  {% set group_display = '(deleted role: ' ~ group.role_id ~ ')' %}
+{% elif group_error == 'Role not allowed.' %}
+  {% set group_display = '(not allowed role: ' ~ group.group_name ~ ')' %}
+{% else %}
+  {% set group_display = group.group_name %}
+{% endif %}
+<div id="group_row_{{loop.index}}">
+    <div class="row row-4 panel-body panel-body2 contributor-record pd_username" id="pd_group_row_{{loop.index}}">
+        <div class="col-xs-3 col-sm-3 col-md-3 col-lg-3 label_username">
+            <label for="pd_group_name_{{loop.index}}">Group name </label>
+        </div>
+        <div class="col-xs-8 col-sm-8 col-md-8 col-lg-8">
+            <div class="autocomplete">
+                <input id="pd_group_name_{{loop.index}}" autocomplete="off" type="text" name="pd_group_name" placeholder="Group name"
+                    class="form-control" onclick="initContributorSuggest(this)" value="{{group_display|e}}" />
+                <input type="hidden" id="pd_group_role_id_{{loop.index}}" name="pd_group_role_id" value="{{group.role_id|e}}"
+                    {% if group_error %}data-role-error="true"{% endif %} />
+                <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate id_spinners_username" id="id_spinners_group_{{loop.index}}"></span>
+            </div>
+        </div>
+        <div class="text-center contributor-trash">
+            <a id="id_trash_group_{{loop.index}}" onclick="removeGroup(this)">
+                <i class="fa fa-trash" aria-hidden="true"></i>
+            </a>
+        </div>
+    </div>
+    <div class="row row-4"></div>
+</div>
+{% endfor %}
+{% endif %}

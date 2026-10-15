@@ -190,14 +190,18 @@ def _get_params_for_registrant(target_id, actor_id, shared_ids=[]):
             - str: Set of target IDs.
             - str: The actor's name.
     """
-    set_target_id = {target_id}
-    is_shared = len(shared_ids) > 0
-    if is_shared:
-        set_target_id.update(shared_ids)
-    set_target_id.discard(actor_id)
-    if is_shared:
-        actor_id = shared_ids[0]
+    # 循環importを避けるため関数内でimportする
+    from weko_items_ui.utils import get_shared_user_ids
 
+    set_target_id = {target_id}
+    # 宛先は代理投稿者(個人)のみ。複数化フラグ無効時は末尾1名となる
+    # 代理投稿グループのメンバーは宛先に追加しない(設計上の非実装)
+    set_target_id.update(
+        get_shared_user_ids({"shared_user_ids": shared_ids})
+    )
+    set_target_id.discard(actor_id)
+
+    # actorは実際に操作したユーザーのまま維持する(代理投稿者の先頭で上書きしない)
     actor_profile = UserProfile.get_by_userid(actor_id)
     actor_name = actor_profile.username if actor_profile else None
 

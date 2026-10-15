@@ -1406,11 +1406,12 @@ def has_permission_to_manage_secret_url(record, user_id):
     Returns:
         bool: True if the user has permission, False otherwise.
     """
+    from weko_items_ui.utils import is_item_editable_by
+
     super_roles = current_app.config['WEKO_PERMISSION_SUPER_ROLE_USER']
     user = User.query.filter_by(id=user_id).first()
     has_permission = (
-        user_id == int(record['owner']) or
-        user_id in record.get('weko_shared_ids', []) or
+        is_item_editable_by(record, user_id) or
         any(role.name in super_roles for role in user.roles or [])
     )
     return has_permission

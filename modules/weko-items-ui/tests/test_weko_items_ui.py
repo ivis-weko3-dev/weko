@@ -72,3 +72,15 @@ def test_view(app,db_sessionlifetime):
         assert res.status_code == 302
         res = client.get("/items/schemaform/0")
         assert res.status_code == 302
+
+
+# WEKO_ITEMS_UI_SHARED_ROLE_MAX_COUNT
+# .tox/c1/bin/pytest --cov=weko_items_ui tests/test_weko_items_ui.py::test_config_shared_role_max_count -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-items-ui/.tox/c1/tmp
+def test_config_shared_role_max_count(app):
+    """代理投稿グループの件数上限の既定値が 10 である."""
+    from weko_items_ui import config as items_ui_config
+
+    assert items_ui_config.WEKO_ITEMS_UI_SHARED_ROLE_MAX_COUNT == 10
+    assert isinstance(items_ui_config.WEKO_ITEMS_UI_SHARED_ROLE_MAX_COUNT, int)
+    assert app.config["WEKO_ITEMS_UI_SHARED_ROLE_MAX_COUNT"] == 10
+    assert isinstance(app.config["WEKO_ITEMS_UI_SHARED_ROLE_MAX_COUNT"], int)

@@ -565,6 +565,46 @@ def contributor_not_owner(app, db, users):
 
 
 @pytest.fixture()
+def proxy_actors(app, db, users):
+    """代理投稿者テストデータ（共有フィクスチャは変更しない）。
+
+    U_O: 登録者 / U_P1・U_P2: 代理投稿者（個人。保存順 [U_P1, U_P2]、
+    id(U_P1) < id(U_P2)） / U_G: R_A 所属 / U_N: ロール無し /
+    U_S: 管理者ロール（System Administrator）所属。
+    ロールIDは常に str(role.id)。
+    """
+    ds = app.extensions["invenio-accounts"].datastore
+    app.config["WEKO_ACCOUNTS_IDP_ENTITY_ID"] = \
+        "https://idp.example.org/idp/shibboleth"
+    role_a = ds.create_role(name="jc_idp_example_org_gr_Alpha")
+    db.session.flush()
+    sysadmin_role = Role.query.filter_by(name="System Administrator").first()
+
+    u_o = create_test_user(email="proxy_owner@test.org")
+    u_p1 = create_test_user(email="proxy_p1@test.org")
+    u_p2 = create_test_user(email="proxy_p2@test.org")
+    u_g = create_test_user(email="proxy_group@test.org")
+    u_n = create_test_user(email="proxy_none@test.org")
+    u_s = create_test_user(email="proxy_super@test.org")
+    ds.add_role_to_user(u_g, role_a)
+    ds.add_role_to_user(u_s, sysadmin_role)
+    db.session.commit()
+
+    def _info(u):
+        return {"email": u.email, "id": u.id, "obj": u}
+
+    return {
+        "U_O": _info(u_o),
+        "U_P1": _info(u_p1),
+        "U_P2": _info(u_p2),
+        "U_G": _info(u_g),
+        "U_N": _info(u_n),
+        "U_S": _info(u_s),
+        "R_A": str(role_a.id),
+    }
+
+
+@pytest.fixture()
 def indextree(client, users, user_activity_log_partition_table):
     index_metadata = {
         "id": 1,

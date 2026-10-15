@@ -48,6 +48,9 @@ class JSONSerializerMixin(SerializerMixinInterface):
             from weko_items_ui.utils import get_ignore_item
             list_hidden = get_ignore_item(record['item_type_id'])
             record = hide_by_itemtype(record, list_hidden)
+        # 代理投稿グループのロールIDはレスポンスに含めない
+        if 'weko_shared_role_ids' in record:
+            del record['weko_shared_role_ids']
         return json.dumps(
             self.transform_record(pid, record, links_factory, **kwargs),
             **self._format_args())
@@ -86,7 +89,8 @@ class JSONSerializerMixin(SerializerMixinInterface):
                 
                 item_roles = {
                     'weko_creator_id': hit['_source'].get('weko_creator_id'),
-                    'weko_shared_ids': hit['_source'].get('weko_shared_ids', [])
+                    'weko_shared_ids': hit['_source'].get('weko_shared_ids', []),
+                    'weko_shared_role_ids': hit['_source'].get('weko_shared_role_ids', [])
                 }
                 if hide_meta_data_for_role(item_roles) and 'item_type_id' in hit['_source']['_item_metadata']:
                     item_type_id = hit['_source']['_item_metadata']['item_type_id']
@@ -106,6 +110,9 @@ class JSONSerializerMixin(SerializerMixinInterface):
                                 hide_key, hit['_source'])
             if '_source' in hit and len(hit['_source'].get('feedback_mail_list', [])) > 0:
                 hit['_source']['feedback_mail_list'] = []
+            # 代理投稿グループのロールIDはレスポンスに含めない
+            if '_source' in hit and 'weko_shared_role_ids' in hit['_source']:
+                del hit['_source']['weko_shared_role_ids']
             if '_source' in hit and '_item_metadata' in hit['_source'] and hit['_source']['_item_metadata']:
                 if 'control_number' in hit['_source']['_item_metadata']:
                     control_number=hit['_source']['_item_metadata']['control_number']

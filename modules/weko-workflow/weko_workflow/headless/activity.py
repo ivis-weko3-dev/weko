@@ -29,7 +29,8 @@ from weko_deposit.api import WekoDeposit, WekoRecord
 from weko_deposit.links import base_factory
 from weko_deposit.serializer import file_uploaded_owner
 from weko_items_ui.utils import (
-    update_index_tree_for_record, validate_form_input_data, to_files_js
+    get_shared_role_ids, is_proxy_poster, update_index_tree_for_record,
+    validate_form_input_data, validate_shared_role_ids, to_files_js
 )
 from weko_items_ui.views import (
     check_validation_error_msg, prepare_edit_item, prepare_delete_item
@@ -210,7 +211,12 @@ class HeadlessActivity(WorkActivity):
             user = User.query.get(user_id)
             if (
                 self._model.activity_login_user != user_id
-                    and {'user': user_id} not in self._model.shared_user_ids
+                    and not is_proxy_poster(
+                        {
+                            "shared_user_ids": self._model.shared_user_ids,
+                            "shared_role_ids": self._model.shared_role_ids,
+                        },
+                        user_id)
                     and not check_authority_by_admin(self.activity_id, user)
             ):
                 current_app.logger.error(
@@ -483,9 +489,36 @@ class HeadlessActivity(WorkActivity):
             # merge shared_user_ids
             shared_ids = shared_user_ids if shared_user_ids else weko_shared_ids
 
+            # merge shared_role_ids (same priority as shared_user_ids)
+            shared_role_ids = get_shared_role_ids(
+                {
+                    "shared_role_ids": metadata.get("shared_role_ids"),
+                    "weko_shared_role_ids": metadata.get("weko_shared_role_ids"),
+                },
+                apply_flag=False
+            )
+            # validate proxy posting groups before saving to the activity
+            existing_role_ids = []
+            if self.recid is not None:
+                existing_deposit = WekoDeposit.get_record(self._model.item_id)
+                existing_role_ids = get_shared_role_ids(
+                    {"weko_shared_role_ids": existing_deposit.get(
+                        "weko_shared_role_ids")},
+                    apply_flag=False
+                ) + get_shared_role_ids(
+                    {"weko_shared_role_ids": existing_deposit.get(
+                        "_deposit", {}).get("weko_shared_role_ids")},
+                    apply_flag=False
+                )
+            error_msg = validate_shared_role_ids(
+                shared_role_ids, existing_role_ids)
+            if error_msg:
+                raise WekoWorkflowException(error_msg)
+
             self.update_activity(self.activity_id, {
                 "title": title[0] if title else "",
-                "shared_user_ids": shared_ids
+                "shared_user_ids": shared_ids,
+                "shared_role_ids": shared_role_ids
             })
 
             _old_metadata, _old_files = {}, []

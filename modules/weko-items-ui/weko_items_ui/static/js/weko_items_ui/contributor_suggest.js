@@ -1,9 +1,12 @@
 var username_arr = [];
-var email_arr = [];
 var filter = {
-  filter_username: "",
-  filter_email: ''
+  filter_username: ""
 }
+/**
+ * Role ids of the group name candidates for each group name input, keyed by
+ * the input ID (candidate group name -> role id).
+ * @type {Object<string, Object<string, string>>} */
+var groupSuggestRoleIds = {};
 /**
  * Map storing the candidate suggestion lists for each input element by its ID.
  * @type {Map<string, Array<string>>} */
@@ -116,10 +119,12 @@ function renderAutocompleteList(inp) {
         filter.filter_username = inp.value;
         // get exact user info contains username and email by username unique
         get_autofill_data(filter.filter_username, "", mode);
-      } else if (mode.match('share_email')) {
-        filter.filter_email = inp.value;
-        // get exact user info contains username and email by email
-        get_autofill_data('', filter.filter_email, mode);
+      } else if (mode.match('pd_group_name')) {
+        // set the role id of the selected proxy posting group
+        var roleIds = groupSuggestRoleIds[inp.id] || {};
+        var roleIdInput = $("#pd_group_role_id_" + mode.replace('pd_group_name_', ''));
+        roleIdInput.val(roleIds[inp.value] || '');
+        roleIdInput.removeAttr('data-role-error');
       }
       closeAllLists();
     });
@@ -292,7 +297,7 @@ function scheduleSuggestSearch(inp) {
       initAutocomplete(inp);
       return;
     }
-    var keyword = inp.id.indexOf("share_username") === 0 ? "username" : "email";
+    var keyword = inp.id.indexOf("pd_group_name_") === 0 ? "role_name" : "username";
     var cache = contributorSuggestCache[inp.id];
     if (cache && cache.hasMore === false && value.indexOf(cache.query) === 0) {
       // The previous fetch already returned every match: skip the server
@@ -311,7 +316,7 @@ function scheduleSuggestSearch(inp) {
  * handling). Shows a spinner while the request is in flight; on failure or
  * a server-reported error, hides the spinner and shows an error modal
  * instead.
- * @param {string} keyword Which suggestion source to query ("username" or "email")
+ * @param {string} keyword Which suggestion source to query ("username" or "role_name")
  * @param {string} inputId The id of the input the suggestions are for
  * @param {string} query   The current input value to search for
  */
@@ -321,16 +326,23 @@ function fetchContributorSuggestions(keyword, inputId, query) {
   // (per-row fields, e.g. the iframe contributor list). Strip the base
   // prefix (with an optional trailing "_") to recover "" or "<rowId>" so
   // the same selector construction works for either naming scheme.
-  var id = inputId.replace(/^share_username_?/, '').replace(/^share_email_?/, '');
-  var suffix = id ? ("_" + id) : "";
-  $("#id_spinners_" + keyword + suffix).css("display", "inline-block");
+  // The group name input ("pd_group_name_<rowId>") has its own spinner.
+  var spinnerSelector;
+  if (keyword === 'role_name') {
+    spinnerSelector = "#id_spinners_group_" + inputId.replace(/^pd_group_name_/, '');
+  } else {
+    var id = inputId.replace(/^share_username_?/, '');
+    var suffix = id ? ("_" + id) : "";
+    spinnerSelector = "#id_spinners_" + keyword + suffix;
+  }
+  $(spinnerSelector).css("display", "inline-block");
 
   $.ajax({
     url: '/api/items/get_search_data/' + keyword,
     method: "GET",
     data: { q: query },
     success: function (data, status) {
-      $("#id_spinners_" + keyword + suffix).css("display", "none");
+      $(spinnerSelector).css("display", "none");
       if (data.error) {
         var modalcontent = "Some errors have occured!\nDetail:" + data.error;
         $("#inputModal").html(modalcontent);
@@ -344,10 +356,18 @@ function fetchContributorSuggestions(keyword, inputId, query) {
         // now-stale response instead of overwriting newer candidates.
         return;
       }
+      var candidates = data.results;
       if (keyword === 'username') {
         username_arr = data.results;
-      } else if (keyword === 'email') {
-        email_arr = data.results;
+      } else if (keyword === 'role_name') {
+        // candidates are {role_id, group_name}: show group names and keep the role ids
+        groupSuggestRoleIds[inputId] = {};
+        data.results.forEach(function (result) {
+          groupSuggestRoleIds[inputId][result.group_name] = result.role_id;
+        });
+        candidates = data.results.map(function (result) {
+          return result.group_name;
+        });
       }
       contributorSuggestCache[inputId] = {
         query: data.query,
@@ -355,7 +375,7 @@ function fetchContributorSuggestions(keyword, inputId, query) {
         count: data.count,
         limit: data.results.length
       };
-      updateSuggestState(inputId, data.results);
+      updateSuggestState(inputId, candidates);
       if (document.activeElement !== inputElement) return;
       // initAutocomplete() only registers listeners once; safe to call
       // again here to guarantee they exist before re-rendering.
@@ -363,12 +383,104 @@ function fetchContributorSuggestions(keyword, inputId, query) {
       renderAutocompleteList(inputElement);
     },
     error: function (data, status) {
-      $("#id_spinners_" + keyword + suffix).css("display", "none");
+      $(spinnerSelector).css("display", "none");
       var modalcontent = "Cannot connect to server!";
       $("#inputModal").html(modalcontent);
       $("#allModal").modal("show");
     }
   });
+}
+
+/**
+ * Simple format of an email address. It is used only to decide whether to
+ * send the existence check request (not to show any message).
+ * @type {RegExp} */
+const EMAIL_SIMPLE_PATTERN = /^[^\s@]+@[^\s@]+$/;
+/**
+ * The email address which the existence check was already done, keyed by the
+ * email input ID.
+ * @type {Object<string, { value: string }>} */
+var emailExistsLast = {};
+
+/**
+ * Register the delegated event listeners of the email inputs of the
+ * contributor rows (ID starting with "share_email_"). The existence check is
+ * done when the input loses focus or Enter is pressed, and a displayed check
+ * mark is cleared when the value is changed.
+ */
+function initEmailExistsCheck() {
+  $(document).on('input', 'input[id^="share_email_"]', function () {
+    delete emailExistsLast[this.id];
+    renderEmailExistsStatus(this.id, 'clear');
+  });
+  $(document).on('focusout', 'input[id^="share_email_"]', function () {
+    checkEmailExists(this.id);
+  });
+  $(document).on('keydown', 'input[id^="share_email_"]', function (e) {
+    if (e.keyCode == 13) {
+      // prevent the form from being submitted
+      e.preventDefault();
+      checkEmailExists(this.id);
+    }
+  });
+}
+initEmailExistsCheck();
+
+/**
+ * Check whether the user whose email equals to the entered value exists, and
+ * show the check mark of the email input if so. Nothing is shown (no message
+ * or modal) when the value is empty or invalid, the user is not found, or the
+ * request failed.
+ * @param {string} inputId The id of the email input
+ */
+function checkEmailExists(inputId) {
+  var input = document.getElementById(inputId);
+  if (!input) return;
+  // neither trimmed nor lowercased (the same value as the save validation)
+  var value = input.value;
+  if (!value || !EMAIL_SIMPLE_PATTERN.test(value)) {
+    renderEmailExistsStatus(inputId, 'clear');
+    return;
+  }
+  var last = emailExistsLast[inputId];
+  if (last && last.value === value) return;
+  emailExistsLast[inputId] = { value: value };
+
+  function fail() {
+    // no error is displayed. Allow to check again.
+    delete emailExistsLast[inputId];
+    renderEmailExistsStatus(inputId, 'clear');
+  }
+
+  $.ajax({
+    url: '/api/items/get_search_data/email',
+    method: "GET",
+    data: { q: value },
+    success: function (data) {
+      if (data.error) { fail(); return; }
+      var currentInput = document.getElementById(inputId);
+      // discard the stale response
+      if (!currentInput || currentInput.value !== data.query) return;
+      if (data.exists) {
+        renderEmailExistsStatus(inputId, 'found');
+        get_autofill_data('', value, inputId);
+      } else {
+        renderEmailExistsStatus(inputId, 'clear');
+      }
+    },
+    error: function () { fail(); }
+  });
+}
+
+/**
+ * Show or hide the check mark on the right of the email input.
+ * @param {string} inputId The id of the email input
+ * @param {string} state   "found" to show the check mark, "clear" to hide it
+ */
+function renderEmailExistsStatus(inputId, state) {
+  var el = document.getElementById(inputId.replace(/^share_email/, 'email_exists_status'));
+  if (!el) return;
+  el.style.display = (state === 'found') ? '' : 'none';
 }
 
 /**
@@ -409,6 +521,11 @@ function get_autofill_data(keyword, data, mode) {
     success: function (data, status) {
       if (mode.match('share_username')) {
         $("#share_email_"+mode_id).val(data.results.email);
+        // the user was identified by the selected username, so show the check mark of the email
+        if (data.results && data.results.email) {
+          emailExistsLast['share_email_' + mode_id] = { value: data.results.email };
+          renderEmailExistsStatus('share_email_' + mode_id, 'found');
+        }
       } else if (mode.match('share_email')) {
         if (data.results.username) {
           $("#share_username_"+mode_id).val(data.results.username);
@@ -512,6 +629,7 @@ function addUser() {
   base_node.find('#label_username_0').attr('id', `label_username_0_${max_id}`);
   base_node.find('#label_email_0').attr('id', `label_email_0_${max_id}`);
   base_node.find('#id_spinners_email_0').css('display', 'none');
+  base_node.find('#email_exists_status_0').attr('id', `email_exists_status_0_${max_id}`);
   base_node.find('#id_owner_radio_0').attr('id', `id_owner_radio_0_${max_id}`);
   base_node.find('#share_username_0').attr('id', `share_username_0_${max_id}`);
   base_node.find('#id_spinners_username_0').attr('id', `id_spinners_username_0_${max_id}`);
@@ -539,5 +657,62 @@ function handleSharePermission(value) {
     $(".form_share_permission").css('display', 'none');
   } else if (value == 'other_user') {
     $(".form_share_permission").css('display', 'block');
+  }
+}
+
+/**
+ * Append a new, blank proxy posting group row to the form by cloning the
+ * "#group_new_row" template and renumbering its child element ids with the
+ * next available sequence number
+ */
+function addGroup() {
+  let max_id = 0;
+  let search_ids = $('[id^="group_new_row_"]');
+  for (let idx = 0; idx < search_ids.length; idx++) {
+    let str = search_ids[idx].id.split('_');
+    if (str.length < 4) {
+      continue;
+    }
+    let no = parseInt(str[3]);
+    if (!isNaN(no) && no > max_id) {
+      max_id = no;
+    }
+  }
+  max_id += 1;
+
+  let base_node = $("#group_new_row").clone(true);
+  base_node.attr('id', `group_new_row_${max_id}`);
+  base_node.css('display', 'block');
+  base_node.find('#pd_group_row_0').attr('id', `pd_group_row_0_${max_id}`);
+  base_node.find('#pd_group_name_0').attr('id', `pd_group_name_0_${max_id}`);
+  base_node.find('#pd_group_role_id_0').attr('id', `pd_group_role_id_0_${max_id}`);
+  base_node.find('#id_spinners_group_0').attr('id', `id_spinners_group_0_${max_id}`);
+  base_node.find('#id_trash_group_0').attr('id', `id_trash_group_0_${max_id}`);
+
+  if (max_id == 1) {
+    $("#group_new_row").after(base_node);
+  } else {
+    $(`#group_new_row_${max_id - 1}`).after(base_node);
+  }
+}
+
+/**
+ * Remove the proxy posting group row which the clicked trash icon belongs to
+ * @param {HTMLElement} elmnt The clicked trash icon
+ */
+function removeGroup(elmnt) {
+  $(elmnt).closest('[id^="group_row_"], [id^="group_new_row_"]').remove();
+}
+
+/**
+ * Show or hide the proxy posting group setting area. The entered group rows
+ * are neither removed nor cleared.
+ * @param {boolean} checked true to show the area, false to hide it
+ */
+function toggleGroupSetting(checked) {
+  if (checked) {
+    $("#group_setting_area").css('display', 'block');
+  } else {
+    $("#group_setting_area").css('display', 'none');
   }
 }

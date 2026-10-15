@@ -869,3 +869,41 @@ def test_FileApplicationActivity_post(app, client, db, db_register_for_applicati
                 "thumbnail_key"
             ]
         }
+
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_rest.py::test_get_activity_display_info_unpack_rest -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_get_activity_display_info_unpack_rest(app):
+    """get_activity_display_info の 13 要素の展開で ValueError が発生しない.
+
+    rest.py の展開箇所 4 箇所(ApproveActivity.post_v1・ThrowOutActivity.post_v1・
+    FileApplicationActivity.get_activity・get_guest_activity)について、13 要素を
+    返す get_activity_display_info を差し込み、展開の後の判定
+    (action_endpoint の確認による StatusNot*Error)に到達することを確認する。
+    """
+    from weko_workflow.errors import (
+        StatusNotApproveError, StatusNotItemRegistrationError)
+    from weko_workflow.rest import ApproveActivity, ThrowOutActivity
+
+    def display_info(action_endpoint):
+        # (action_endpoint, action_id, activity_detail, cur_action, histories,
+        #  item, steps, temporary_comment, workflow_detail, owner_id,
+        #  shared_user_ids, shared_role_ids, shared_ids_saved)
+        return (action_endpoint, 1, MagicMock(), MagicMock(), [], None, [], "",
+                MagicMock(), 1, [], [], False)
+
+    with app.test_request_context():
+        # post_v1(2 クラス): approval 以外は StatusNotApproveError
+        with patch("weko_workflow.rest.get_activity_display_info",
+                   return_value=display_info("item_login")):
+            with pytest.raises(StatusNotApproveError):
+                ApproveActivity.post_v1(None, activity_id="A-1")
+            with pytest.raises(StatusNotApproveError):
+                ThrowOutActivity.post_v1(None, activity_id="A-1")
+        # get_activity・get_guest_activity: item_login 以外は StatusNotItemRegistrationError
+        with patch("weko_workflow.rest.get_activity_display_info",
+                   return_value=display_info("approval")):
+            with pytest.raises(StatusNotItemRegistrationError):
+                FileApplicationActivity.get_activity("A-1")
+            with pytest.raises(StatusNotItemRegistrationError):
+                FileApplicationActivity.get_guest_activity("A-1", "token")

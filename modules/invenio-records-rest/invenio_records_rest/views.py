@@ -1111,6 +1111,8 @@ class RecordResource(ContentNegotiatedMethodView):
 
         self.check_etag(str(record.revision_id))
 
+        from weko_items_ui.errors import SharedRoleValidationError
+
         try:
             current_app.logger.debug(type(record))
             role_ids = []
@@ -1146,6 +1148,10 @@ class RecordResource(ContentNegotiatedMethodView):
 
             if self.indexer_class:
                 self.indexer_class().index(record)
+        except SharedRoleValidationError:
+            # 代理投稿グループの検証で拒否した場合はHTTP 400を返す
+            db.session.rollback()
+            raise
         except BaseException as e:
             db.session.rollback()
             current_app.logger.error(traceback.format_exc())

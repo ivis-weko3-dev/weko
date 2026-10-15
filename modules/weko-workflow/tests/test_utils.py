@@ -1038,7 +1038,7 @@ def test_convert_record_to_item_metadata(db_records, db_itemtype):
     record = WekoRecord.get_record(db_records[0][2].id)
     result = convert_record_to_item_metadata(record)
     test = {'id': '1', '$schema': '1', 'created_by': 1, 'pubdate': '2022-08-20', 'title': 'title',
-            'shared_user_ids': [],
+            'shared_user_ids': [], 'shared_role_ids': [],
             'item_1617186331708': [{'subitem_1551255647225': 'title', 'subitem_1551255648112': 'ja','subitem_stop/continue': 'Continue'}],
             'item_1617186819068': {'subitem_identifier_reg_text': 'test/0000000001', 'subitem_identifier_reg_type': 'JaLC'},
             'item_1617258105262': {'resourceuri': 'http://purl.org/coar/resource_type/c_5794', 'resourcetype': 'conference paper'},
@@ -1062,6 +1062,7 @@ def test_convert_record_to_item_metadata(db_records, db_itemtype):
                 'pubdate': '2023-04-25',
                 'title': 'テスト タイトル1',
                 'shared_user_ids': [],
+                'shared_role_ids': [],
                 'item_1617186331708': [{'subitem_1551255647225': 'テスト タイトル1', 'subitem_1551255648112': 'en'}]
                 }
     assert result == excepted
@@ -1078,6 +1079,7 @@ def test_convert_record_to_item_metadata(db_records, db_itemtype):
                 'pubdate': '2023-04-25',
                 'title': 'テスト タイトル2',
                 'shared_user_ids': [6],
+                'shared_role_ids': [],
                 'item_1617186331708': [{'subitem_1551255647225': 'テスト タイトル2', 'subitem_1551255648112': 'en'}]
                 }
     assert result == excepted
@@ -3592,8 +3594,10 @@ def test_is_enable_item_name_link(app):
 
 # def save_activity_data(data: dict) -> NoReturn:
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_save_activity_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
-def test_save_activity_data(mocker):
+def test_save_activity_data(app, mocker):
     mock_update = mocker.patch("weko_workflow.utils.WorkActivity.update_activity")
+    # 更新前の代理投稿者の取得はDBを参照するためモックする
+    mocker.patch("weko_workflow.utils.WorkActivity.get_activity_by_id", return_value=None)
     save_activity_data({})
     mock_update.assert_not_called()
 
@@ -3605,7 +3609,8 @@ def test_save_activity_data(mocker):
     }
     mock_update = mocker.patch("weko_workflow.utils.WorkActivity.update_activity")
     save_activity_data(data)
-    mock_update.assert_called_with("test_id",{"shared_user_ids":[{"user":1}],"approval1":"test1@test.org","approval2":"test2@test.org"})
+    # shared_role_ids は保存キーに追加された(未指定は None)
+    mock_update.assert_called_with("test_id",{"shared_user_ids":[{"user":1}],"shared_role_ids":None,"approval1":"test1@test.org","approval2":"test2@test.org"})
 
 # def save_activity_data(data: dict) -> NoReturn:
 # .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_save_activity_data_1 -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
@@ -4035,7 +4040,7 @@ def test_get_activity_display_info(app,db, users, db_register_full_action, mocke
             {"ActivityId":activity_id,"ActionId":5,"ActionName":"Item Link","ActionVersion":"1.0.0","ActionEndpoint":"item_link", "Author":"", "Status":" ","ActionOrder":3},
             {"ActivityId":activity_id,"ActionId":4,"ActionName":"Approval","ActionVersion":"1.0.0","ActionEndpoint":"approval","Author":"","Status":" ","ActionOrder":4}
         ]
-        endpoint, action_id, activity_detail, cur_action, histories, item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids = get_activity_display_info(activity_id)
+        endpoint, action_id, activity_detail, cur_action, histories, item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, shared_role_ids, shared_ids_saved = get_activity_display_info(activity_id)
         assert endpoint == "begin_action"
         assert action_id == 1
         assert activity_detail == activity
@@ -4051,7 +4056,7 @@ def test_get_activity_display_info(app,db, users, db_register_full_action, mocke
         db.session.merge(activity)
         db.session.commit()
         mocker.patch("weko_workflow.utils.WorkActivity.get_activity_action_comment",return_value=None)
-        endpoint, action_id, activity_detail, cur_action, histories, item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids = get_activity_display_info(activity_id)
+        endpoint, action_id, activity_detail, cur_action, histories, item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, shared_role_ids, shared_ids_saved = get_activity_display_info(activity_id)
         assert endpoint == "begin_action"
         assert action_id == 1
         assert activity_detail == activity
@@ -4066,7 +4071,7 @@ def test_get_activity_display_info(app,db, users, db_register_full_action, mocke
         sutab_get_activity_detail = WorkActivity().get_activity_detail(activity_id)
         sutab_get_activity_detail.item_id = None
         with patch("weko_workflow.api.WorkActivity.get_activity_detail", return_value=sutab_get_activity_detail):
-            endpoint, action_id, activity_detail, cur_action, histories, item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids = get_activity_display_info(activity_id)
+            endpoint, action_id, activity_detail, cur_action, histories, item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, shared_role_ids, shared_ids_saved = get_activity_display_info(activity_id)
             assert item is None
 
         # if metadata: == True
@@ -4075,7 +4080,7 @@ def test_get_activity_display_info(app,db, users, db_register_full_action, mocke
         target_activity.temp_data = json.dumps({"metainfo":{"owner": 2, "shared_user_ids":[{"user": -1}, {"user": 1}, {"user": 1}]}})
         db.session.merge(target_activity)
         db.session.commit()
-        endpoint, action_id, activity_detail, cur_action, histories, item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids = get_activity_display_info(activity_id)
+        endpoint, action_id, activity_detail, cur_action, histories, item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, shared_role_ids, shared_ids_saved = get_activity_display_info(activity_id)
         assert owner_id == 2
         assert shared_user_ids == [{"user":-1},{"user":1}]
 
@@ -4086,7 +4091,7 @@ def test_get_activity_display_info(app,db, users, db_register_full_action, mocke
         target_activity.temp_data = json.dumps({"metainfo":{"owner": 2, "shared_user_ids":[-1,1]}})
         db.session.merge(target_activity)
         db.session.commit()
-        endpoint, action_id, activity_detail, cur_action, histories, item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids = get_activity_display_info(activity_id)
+        endpoint, action_id, activity_detail, cur_action, histories, item, steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, shared_role_ids, shared_ids_saved = get_activity_display_info(activity_id)
         assert owner_id == 2
         assert shared_user_ids == [{"user":-1},{"user":1}]
 
@@ -4127,7 +4132,7 @@ def test___init_activity_detail_data_for_guest(app, db, users, db_register_full_
         owner_id = 1
         shared_user_ids = []
         display_info = (action_endpoint, action_id, activity_detail, cur_action, histories, item, \
-            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids)
+            steps, temporary_comment, workflow_detail, owner_id, shared_user_ids, [], False)
         mocker.patch("weko_workflow.utils.get_activity_display_info",return_value=display_info)
         mocker.patch("weko_workflow.utils.get_approval_keys",return_value=[])
         community_id=""
@@ -5402,13 +5407,17 @@ def test_grant_access_rights_to_all_open_restricted_files(app ,db,users ):
 def test_get_contributors(app, db, users_1, db_records_1):
     with app.test_request_context():
         login_user(users_1[0]["obj"])
+        # 戻り値は (個人リスト, グループリスト) のタプルになった
+        # 複数化フラグ有効: 一時保存データ・レコードの全員を返す
+        app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = True
         # 引数のpid_valueをfalseに設定する。
-        actual = get_contributors(False)
+        actual, actual_groups = get_contributors(False)
         assert actual == []
+        assert actual_groups == []
         # user_id_list_json値を設定
         # 引数のpid_valueをfalseに設定する。 user_id_list_json(List型) Listの中がdict
         user_id_list_json = [{"user":1},{"user":2}]
-        actual = get_contributors(False, user_id_list_json=user_id_list_json)
+        actual, actual_groups = get_contributors(False, user_id_list_json=user_id_list_json)
         expected = [{
                     'userid' : 1,
                     'username': "",
@@ -5421,10 +5430,11 @@ def test_get_contributors(app, db, users_1, db_records_1):
                     'error': ''
                     }]
         assert actual == expected
+        assert actual_groups == []
 
         # type of user_id_list_json is List but contents are int
         user_id_list_json = [1, 2]
-        actual = get_contributors(False, user_id_list_json=user_id_list_json)
+        actual, actual_groups = get_contributors(False, user_id_list_json=user_id_list_json)
         expected = [
             {
                 'userid' : 1,
@@ -5440,24 +5450,28 @@ def test_get_contributors(app, db, users_1, db_records_1):
             }
         ]
         assert actual == expected
+        assert actual_groups == []
 
         # 引数のpid_valueをfalseに設定する。 user_id_list_json(List型) Listの中がstring
         user_id_list_json = ["漢字", "ひらがな"]
-        actual = get_contributors(False, user_id_list_json=user_id_list_json)
+        actual, actual_groups = get_contributors(False, user_id_list_json=user_id_list_json)
         expected = []
         assert actual == expected
+        assert actual_groups == []
 
         # 引数のpid_valueをfalseに設定する。 user_id_list_json(Dict型)
         user_id_list_json = {"user": 1}
-        actual = get_contributors(False, user_id_list_json=user_id_list_json)
+        actual, actual_groups = get_contributors(False, user_id_list_json=user_id_list_json)
         expected = []
         assert actual == expected
+        assert actual_groups == []
 
         # user_id_list_jsonに値を設定しない
         user_id_list_json=None
-        actual = get_contributors(False, user_id_list_json=user_id_list_json)
+        actual, actual_groups = get_contributors(False, user_id_list_json=user_id_list_json)
         expected = []
         assert actual == expected
+        assert actual_groups == []
 
         # pid_value=196.0を設定
         user_profile_1 = UserProfile(
@@ -5480,12 +5494,13 @@ def test_get_contributors(app, db, users_1, db_records_1):
         db.session.add(user_profile_2)
         db.session.commit()
 
-        actual = get_contributors('196.0')
+        actual, actual_groups = get_contributors('196.0')
         assert actual == []
+        assert actual_groups == []
 
         # pid_value=196.1を設定
         # weko_shared_ids": [100] を設定（存在しないユーザーID）
-        actual = get_contributors('197')
+        actual, actual_groups = get_contributors('197')
         expected = [
             {
                 'userid' : 100,
@@ -5495,6 +5510,7 @@ def test_get_contributors(app, db, users_1, db_records_1):
             }
         ]
         assert sorted(actual, key=lambda x: x["userid"]) == sorted(expected, key=lambda x: x["userid"])
+        assert actual_groups == []
 
         expected = [
             {
@@ -5506,20 +5522,16 @@ def test_get_contributors(app, db, users_1, db_records_1):
         ]
         # user_id_list_jsonを設定
         user_id_list_json = [2]
-        actual = get_contributors(None, user_id_list_json=user_id_list_json)
+        actual, actual_groups = get_contributors(None, user_id_list_json=user_id_list_json)
         assert sorted(actual, key=lambda x: x["userid"]) == sorted(expected, key=lambda x: x["userid"])
+        assert actual_groups == []
 
         # WEKO_ITEMS_UI_PROXY_POSTING is False
+        # 一時保存データ側の分岐でも複数化フラグを適用し、末尾 1 名のみを返す
         app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = False
         user_id_list_json = [1, 2]
-        actual = get_contributors(None, user_id_list_json=user_id_list_json)
+        actual, actual_groups = get_contributors(None, user_id_list_json=user_id_list_json)
         expected = [
-            {
-                'userid' : 1,
-                'username': "display ユーザー1",
-                'email' : "user1@sample.com",
-                'error': ''
-            },
             {
                 'userid' : 2,
                 'username': "display ユーザー2",
@@ -5528,6 +5540,7 @@ def test_get_contributors(app, db, users_1, db_records_1):
             }
         ]
         assert expected == actual
+        assert actual_groups == []
 
 
 status_list = [
@@ -5854,3 +5867,392 @@ def test_reset_flow_action_roles_restricted_access(app,db,db_register_full_actio
        assert action_role.specify_property == None
        assert action_role.action_item_registrant == False
 
+
+
+
+import logging
+
+from .helpers_proxy import build_proxy_env, rid, set_proxy_posting, create_role
+
+
+def _update_calls(mock_update):
+    """WekoDeposit.update のモックの呼び出しのうち、位置引数が index・metadata の 2 つのもの."""
+    return [c for c in mock_update.call_args_list if len(c[0]) == 2]
+
+
+def _prepare_display_info_activity(db, users, db_register_full_action, **fields):
+    """get_activity_display_info の確認用に、既存のアクティビティの列を更新して返す."""
+    activity = db_register_full_action["activities"][1]
+    db.session.add(ActivityHistory(
+        activity_id=activity.activity_id,
+        action_id=1,
+        action_user=users[0]["id"],
+        action_status="F",
+        action_date=datetime.datetime.strptime('2022/04/14 3:01:53.931', '%Y/%m/%d %H:%M:%S.%f'),
+        action_order=1
+    ))
+    db.session.commit()
+    return _update_activity_fields(db, activity.activity_id, **fields)
+
+
+def _update_activity_fields(db, activity_id, **fields):
+    target = Activity.query.filter_by(activity_id=activity_id).first()
+    for key, value in fields.items():
+        setattr(target, key, value)
+    db.session.merge(target)
+    db.session.commit()
+    return target
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_get_activity_display_info_shared_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_get_activity_display_info_shared_role_ids(app, db, users, db_register_full_action):
+    """戻り値が 13 要素となり、個人・グループがアクティビティ列 → 一時保存データの順に結合される."""
+    set_proxy_posting(app, True)
+    activity = _prepare_display_info_activity(
+        db, users, db_register_full_action,
+        shared_user_ids=[{"user": 3}],
+        shared_role_ids=["12"],
+        temp_data=json.dumps({"metainfo": {
+            "shared_user_ids": [{"user": 5}, {"user": 3}],
+            "shared_role_ids": ["35", "12"]}}))
+    with app.test_request_context():
+        # 1. 戻り値の要素数と各要素
+        result = get_activity_display_info(activity.activity_id)
+        assert len(result) == 13
+        (action_endpoint, action_id, activity_detail, cur_action, histories,
+         item, steps, temporary_comment, workflow_detail, owner_id,
+         shared_user_ids, shared_role_ids, shared_ids_saved) = result
+        # アクティビティ列 → 一時保存データの順に結合し、保存順を保って重複を除去
+        assert shared_user_ids == [{"user": 3}, {"user": 5}]
+        # 文字列配列のまま([{"role": ...}] に変換しない)
+        assert shared_role_ids == ["12", "35"]
+        assert shared_ids_saved is False
+
+        # 2. 複数化フラグ無効: 個人側は apply_flag=False で全件を返す
+        set_proxy_posting(app, False)
+        result = get_activity_display_info(activity.activity_id)
+        assert result[10] == [{"user": 3}, {"user": 5}]
+        # 3. 複数化フラグ無効: ロール側は get_shared_role_ids の既定により空リストとなる
+        assert result[11] == []
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_get_activity_display_info_shared_ids_saved -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_get_activity_display_info_shared_ids_saved(app, db, users, db_register_full_action):
+    """shared_ids_saved の有無による戻り値."""
+    set_proxy_posting(app, True)
+    activity = _prepare_display_info_activity(
+        db, users, db_register_full_action,
+        shared_user_ids=[{"user": 3}], shared_role_ids=["12"])
+
+    def run(temp_data):
+        _update_activity_fields(
+            db, activity.activity_id,
+            temp_data=None if temp_data is None else json.dumps(temp_data))
+        with app.test_request_context():
+            result = get_activity_display_info(activity.activity_id)
+        return result[10], result[11], result[12]
+
+    # 1. shared_ids_saved が真で空: アクティビティ列の値を結合しない
+    assert run({"shared_ids_saved": True,
+                "metainfo": {"shared_user_ids": [], "shared_role_ids": []}}) \
+        == ([], [], True)
+    # 2. shared_ids_saved が真: 一時保存データの値のみ
+    assert run({"shared_ids_saved": True,
+                "metainfo": {"shared_user_ids": [{"user": 5}],
+                             "shared_role_ids": ["35"]}}) \
+        == ([{"user": 5}], ["35"], True)
+    # 3. shared_ids_saved のキーなし: 結合する
+    assert run({"metainfo": {"shared_user_ids": [{"user": 5}],
+                             "shared_role_ids": ["35"]}}) \
+        == ([{"user": 3}, {"user": 5}], ["12", "35"], False)
+    # 4. shared_ids_saved が偽
+    assert run({"shared_ids_saved": False,
+                "metainfo": {"shared_user_ids": [], "shared_role_ids": []}}) \
+        == ([{"user": 3}], ["12"], False)
+    # 5. 一時保存データなし
+    assert run(None) == ([{"user": 3}], ["12"], False)
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_get_activity_display_info_invalid_role -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_get_activity_display_info_invalid_role(app, db, users, db_register_full_action, caplog):
+    """shared_role_ids が NULL・文字列以外の要素を含む場合."""
+    set_proxy_posting(app, True)
+    caplog.set_level(logging.WARNING)
+    activity = _prepare_display_info_activity(
+        db, users, db_register_full_action,
+        shared_user_ids=[], shared_role_ids=None,
+        temp_data=json.dumps({"metainfo": {}}))
+
+    # 1. shared_role_ids が NULL で temp_data にも無い
+    with app.test_request_context():
+        result = get_activity_display_info(activity.activity_id)
+    assert result[11] == []
+
+    # 2. 文字列以外の要素は無視され、WARNING ログが出力される
+    _update_activity_fields(db, activity.activity_id, shared_role_ids=["12", 35])
+    caplog.clear()
+    with app.test_request_context():
+        result = get_activity_display_info(activity.activity_id)
+    assert result[11] == ["12"]
+    assert "Unexpected shared role id element is ignored: 35" in caplog.text
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_init_activity_detail_data_for_guest_unpack -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_init_activity_detail_data_for_guest_unpack(app, db, users, db_register_full_action, mocker):
+    """__init_activity_detail_data_for_guest が 13 要素を展開できる."""
+    with app.test_request_context():
+        activity = db_register_full_action["activities"][1]
+        test_item_login_data = (
+            "weko_items_ui/iframe/item_edit.html", True, False, None,
+            "/items/jsonschema/1", "/items/schemaform/1",
+            "/items/iframe/model/save", [], {}, False, [], False,
+            {"researchmap": False})
+        mocker.patch("weko_items_ui.api.item_login", return_value=test_item_login_data)
+        mocker.patch("weko_workflow.utils.get_approval_keys", return_value=[])
+        session["guest_email"] = "guest@test.org"
+        # get_activity_display_info の実際の戻り値(13 要素)をそのまま展開させる
+        result = __init_activity_detail_data_for_guest(activity.activity_id, "")
+        assert result["activity_id"] == activity.activity_id
+        assert "shared_user_ids" in result
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_get_contributors_individual -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_get_contributors_individual(app, db, users_1, db_records_1):
+    """個人リストの取得(キー欠落・複数化フラグ)."""
+    env = build_proxy_env(app)
+    p1, p2 = env.U_P1.id, env.U_P2.id
+    keys = {"userid", "username", "email", "error"}
+
+    def userids(result):
+        assert all(set(c.keys()) == keys for c in result[0])
+        return [c["userid"] for c in result[0]]
+
+    with app.test_request_context():
+        # 1. weko_shared_ids キーを持たないレコード(旧形式)
+        assert get_contributors("196.0") == ([], [])
+
+        record = {"weko_shared_ids": [p1, p2]}
+        with patch("weko_workflow.utils.WekoRecord.get_record_by_pid",
+                   return_value=record):
+            # 2. 複数化フラグ有効
+            set_proxy_posting(app, True)
+            assert userids(get_contributors("197")) == [p1, p2]
+            # 3. 複数化フラグ無効: 末尾 1 名
+            set_proxy_posting(app, False)
+            assert userids(get_contributors("197")) == [p2]
+
+        user_json = [{"user": p1}, {"user": p2}]
+        # 4. 複数化フラグ有効・一時保存データ
+        set_proxy_posting(app, True)
+        assert userids(get_contributors(None, user_id_list_json=user_json)) == [p1, p2]
+        # 5. 複数化フラグ無効: 一時保存データ側の分岐でも複数化フラグを適用する
+        set_proxy_posting(app, False)
+        assert userids(get_contributors(None, user_id_list_json=user_json)) == [p2]
+        # 6. int の要素
+        set_proxy_posting(app, True)
+        assert userids(get_contributors(None, user_id_list_json=[p1])) == [p1]
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_get_contributors_groups -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_get_contributors_groups(app, db, users_1, db_records_1):
+    """グループリストの別枠返却(プレフィックス除去・削除済み・指定不可)."""
+    env = build_proxy_env(app)
+    set_proxy_posting(app, True)
+    role_deleted = "999999"
+    group_a = {"role_id": rid(env.R_A), "group_name": "Alpha", "error": ""}
+
+    with app.test_request_context():
+        # 1. レコード側: (個人リスト, グループリスト) のタプル
+        record = {"weko_shared_ids": [env.U_P1.id],
+                  "weko_shared_role_ids": [rid(env.R_A), role_deleted, rid(env.R_X)]}
+        with patch("weko_workflow.utils.WekoRecord.get_record_by_pid",
+                   return_value=record):
+            result = get_contributors("197")
+        assert isinstance(result, tuple) and len(result) == 2
+        individuals, groups = result
+        # U_G(グループのメンバー)はメンバーとして展開されない
+        assert [c["userid"] for c in individuals] == [env.U_P1.id]
+        assert groups == [
+            group_a,
+            {"role_id": role_deleted, "group_name": "", "error": "Role not found."},
+            {"role_id": rid(env.R_X), "group_name": "Former Gamma",
+             "error": "Role not allowed."},
+        ]
+
+        # 2. 一時保存データ側
+        individuals, groups = get_contributors(
+            None, user_id_list_json=[], role_id_list=[rid(env.R_A)])
+        assert individuals == []
+        assert groups == [group_a]
+
+        # 3. role_id_list 省略
+        individuals, groups = get_contributors(
+            None, user_id_list_json=[{"user": env.U_P1.id}])
+        assert groups == []
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_get_contributors_groups_flag_off -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_get_contributors_groups_flag_off(app, db, users_1, db_records_1):
+    """複数化フラグ無効時にグループリストが常に空となる."""
+    env = build_proxy_env(app)
+    set_proxy_posting(app, False)
+    role_deleted = "999999"
+    with app.test_request_context():
+        record = {"weko_shared_ids": [env.U_P1.id],
+                  "weko_shared_role_ids": [rid(env.R_A), role_deleted, rid(env.R_X)]}
+        with patch("weko_workflow.utils.WekoRecord.get_record_by_pid",
+                   return_value=record):
+            assert get_contributors("197")[1] == []
+        assert get_contributors(
+            None, user_id_list_json=[], role_id_list=[rid(env.R_A)])[1] == []
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_save_activity_data_shared_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_save_activity_data_shared_role_ids(app, db, db_register_full_action):
+    """保存キーに shared_role_ids が追加され、カラムに保存される."""
+    activity_id = db_register_full_action["activities"][0].activity_id
+
+    def saved():
+        db.session.expire_all()
+        return Activity.query.filter_by(activity_id=activity_id).one().shared_role_ids
+
+    _update_activity_fields(db, activity_id, shared_role_ids=None)
+    # 2. rest.py の FileApplicationActivity と同じ形(shared_role_ids なし): 例外が発生せず NULL
+    save_activity_data(dict(activity_id=activity_id, title="title", shared_user_ids=[]))
+    assert saved() is None
+
+    # 1. shared_role_ids を指定した場合はカラムに保存される
+    save_activity_data({"activity_id": activity_id, "title": "title",
+                        "shared_user_ids": [], "shared_role_ids": ["12", "35"]})
+    assert saved() == ["12", "35"]
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_save_activity_data_info_log -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_save_activity_data_info_log(app, db, db_register_full_action, caplog, mocker):
+    """代理投稿者(個人・グループ)が変わる場合のみ INFO ログを出力する."""
+    env = build_proxy_env(app)
+    p1 = env.U_P1.id
+    activity_id = db_register_full_action["activities"][0].activity_id
+    caplog.set_level(logging.INFO)
+
+    def log_lines():
+        return [r.getMessage() for r in caplog.records
+                if "Proxy posters of activity are changed" in r.getMessage()]
+
+    def save(**data):
+        caplog.clear()
+        save_activity_data(dict(activity_id=activity_id, title="title", **data))
+
+    set_proxy_posting(app, True)
+    # 1. 個人・グループとも変更あり(ログは 1 回)
+    _update_activity_fields(db, activity_id, shared_user_ids=[], shared_role_ids=None)
+    save(shared_user_ids=[{"user": p1}], shared_role_ids=["12"])
+    assert log_lines() == [
+        "Proxy posters of activity are changed: activity_id={}, "
+        "shared_user_ids=[{}], shared_role_ids=['12']".format(activity_id, p1)]
+    # ログにメールアドレス・氏名・ロール名が含まれない
+    assert env.U_P1.email not in caplog.text
+
+    # 2. 同じ値: ログなし
+    save(shared_user_ids=[{"user": p1}], shared_role_ids=["12"])
+    assert log_lines() == []
+
+    # 3. NULL と空リストを同じ値として扱う(個人も変更なし)
+    _update_activity_fields(
+        db, activity_id, shared_user_ids=[{"user": p1}], shared_role_ids=None)
+    save(shared_user_ids=[{"user": p1}], shared_role_ids=[])
+    assert log_lines() == []
+
+    # 4. 複数化フラグ無効でも保存値そのものを比較する
+    set_proxy_posting(app, False)
+    _update_activity_fields(
+        db, activity_id, shared_user_ids=[{"user": 3}, {"user": 5}],
+        shared_role_ids=None)
+    save(shared_user_ids=[{"user": 5}], shared_role_ids=[])
+    assert log_lines() == [
+        "Proxy posters of activity are changed: activity_id={}, "
+        "shared_user_ids=[5], shared_role_ids=[]".format(activity_id)]
+
+    # 5. update_activity が例外となった場合はログを出力しない
+    set_proxy_posting(app, True)
+    _update_activity_fields(db, activity_id, shared_user_ids=[], shared_role_ids=None)
+    mocker.patch("weko_workflow.utils.WorkActivity.update_activity",
+                 side_effect=Exception("test error"))
+    with pytest.raises(Exception):
+        save(shared_user_ids=[{"user": p1}], shared_role_ids=["12"])
+    assert log_lines() == []
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_convert_record_to_item_metadata_shared_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_convert_record_to_item_metadata_shared_role_ids(db_records, db_itemtype):
+    """戻り値に shared_role_ids が含まれ、欠落時は空リストとなる."""
+    record = WekoRecord.get_record(db_records[0][2].id)
+    # 1. 削除済みロールも検証せずそのまま引き継ぐ
+    record["weko_shared_ids"] = [3]
+    record["weko_shared_role_ids"] = ["12", "999999"]
+    result = convert_record_to_item_metadata(record)
+    assert result["shared_role_ids"] == ["12", "999999"]
+    assert result["shared_user_ids"] == [3]
+
+    # 2. weko_shared_role_ids キーを持たないレコード
+    record.pop("weko_shared_role_ids")
+    result = convert_record_to_item_metadata(record)
+    assert result["shared_role_ids"] == []
+
+
+# .tox/c1/bin/pytest --cov=weko_workflow tests/test_utils.py::test_prepare_edit_workflow_validate_shared_roles -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-workflow/.tox/c1/tmp
+def test_prepare_edit_workflow_validate_shared_roles(app, workflow, db_records, users, mocker):
+    """既存ドラフトの更新で validate_shared_roles=False を指定する."""
+    env = build_proxy_env(app)
+    set_proxy_posting(app, True)
+    with app.test_request_context():
+        login_user(users[2]["obj"])
+        mock_update = mocker.patch("weko_workflow.utils.WekoDeposit.update")
+        mocker.patch("weko_workflow.utils.WekoDeposit.commit")
+        mocker.patch("weko_workflow.utils.WekoDeposit.publish")
+        data = {
+            "flow_id": workflow["flow"].id,
+            "workflow_id": workflow["workflow"].id,
+            "community": 1,
+            "itemtype_id": 1,
+            "activity_login_user": 1,
+            "activity_update_user": 1
+        }
+        recid = db_records[3][0]
+        deposit = db_records[3][6]
+
+        # 1. 既存ドラフトの更新を行う経路(既存の
+        #    test_prepare_edit_workflow_existing_draft_pid_and_bucket と同じ状態)
+        res = prepare_edit_workflow(data, recid, deposit)
+        assert res.item_id is not None
+        # merge_data_to_record_without_version 内の update 呼び出しも含まれるため、
+        # prepare_edit_workflow 自身の呼び出し(位置引数 index・metadata)を取り出す
+        calls = _update_calls(mock_update)
+        assert len(calls) >= 1
+        assert all(c[1] == {"validate_shared_roles": False} for c in calls)
+        assert all(c[1].get("validate_shared_roles") is False
+                   for c in mock_update.call_args_list)
+        # 3. 編集アクティビティの post_activity には代理投稿者(個人・グループ)を設定しない
+        assert "shared_user_ids" not in data
+        assert "shared_role_ids" not in data
+
+        # 2. 公開済みアイテムに削除済みロールが設定されていても、そのまま引き継ぐ
+        #    (検証しないため SharedRoleValidationError が発生しない)
+        mock_update.reset_mock()
+        deposit["weko_shared_role_ids"] = ["999999"]
+        data2 = dict(data)
+        res = prepare_edit_workflow(data2, recid, deposit)
+        assert res.item_id is not None
+        calls = _update_calls(mock_update)
+        assert len(calls) >= 1
+        assert all(c[1] == {"validate_shared_roles": False} for c in calls)
+        assert any(c[0][1].get("shared_role_ids") == ["999999"] for c in calls)
+
+        # 3. 個人・グループが設定されたアイテム
+        mock_update.reset_mock()
+        deposit["weko_shared_ids"] = [env.U_P1.id]
+        deposit["weko_shared_role_ids"] = [rid(env.R_A)]
+        data3 = dict(data)
+        prepare_edit_workflow(data3, recid, deposit)
+        assert "shared_user_ids" not in data3
+        assert "shared_role_ids" not in data3

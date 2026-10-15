@@ -207,3 +207,77 @@ def test_append_file_content(app, db, db_itemtype, users, db_userprofile, es_rec
             assert ret == None
             assert json['weko_shared_ids'] == [1,2,3]
         """
+
+
+# ES 再インデックス時に DB の weko_shared_role_ids が投入される
+# .tox/c1/bin/pytest --cov=weko_deposit tests/test_receivers.py::test_append_file_content_shared_role_ids -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+def test_append_file_content_shared_role_ids(app, db, db_itemtype, users, db_userprofile, es_records, mocker):
+    import base64
+    from six import BytesIO
+    from invenio_files_rest.models import Bucket, ObjectVersion
+    from invenio_records_files.models import RecordsBuckets
+    from sqlalchemy.orm.attributes import flag_modified
+
+    indexer = es_records[0]
+    recid = es_records[1][0]['recid']
+
+    user = User.query.filter_by(email="sysadmin@test.org").first()
+    mocker.patch("flask_login.utils._get_user", return_value=user)
+    with patch("flask_security.current_user", return_value=user):
+        # 既存の test_append_file_content と同じ手順でファイル付きのレコードを用意する
+        record = DepositWekoRecord.get_record_by_pid(1)
+        b = Bucket.create()
+        RecordsBuckets.create(record=record.model, bucket=b)
+        stream = BytesIO(b'Hello, World')
+        record.files['hello.txt'] = stream
+        obj = ObjectVersion.create(bucket=b.id, key='hello.txt', stream=stream)
+        record['item_1617605131499']['attribute_value_mlt'][0]['file'] = (base64.b64encode(stream.getvalue())).decode('utf-8')
+        record['item_1617605131499']['attribute_value_mlt'][0]['version_id'] = str(obj.version_id)
+        record.commit()
+        deposit = WekoDeposit(record, record.model)
+        deposit.commit()
+
+        es_records[1][0]['record_data']['content'] = [{
+            "date": [{"dateValue": "2021-07-12", "dateType": "Available"}],
+            "accessrole": "open_access", "displaytype": "simple",
+            "filename": "hello.txt", "attachment": {}, "format": "text/plain",
+            "mimetype": "text/plain", "filesize": [{"value": "1 KB"}],
+            "version_id": "{}".format(obj.version_id),
+            "url": {"url": "http://localhost/record/{1}/files/hello.txt"},
+            "file": (base64.b64encode(stream.getvalue())).decode('utf-8')}]
+        indexer.upload_metadata(es_records[1][0]['record_data'], recid.object_uuid, 1, False)
+        db.session.commit()
+
+        def set_db_role_ids(**kwargs):
+            """DB の records_metadata の weko_shared_role_ids を設定・削除する。"""
+            model = RecordMetadata.query.filter_by(id=es_records[1][0]['record'].id).first()
+            data = dict(model.json)
+            data.pop('weko_shared_role_ids', None)
+            data.update(kwargs)
+            model.json = data
+            flag_modified(model, 'json')
+            db.session.commit()
+            return data
+
+        sender = {}
+
+        # 1. DB が weko_shared_role_ids を持つ
+        data = set_db_role_ids(weko_shared_role_ids=["12", "35"])
+        json = {"key": "value", "_created": "2022-10-01"}
+        assert append_file_content(sender, json, es_records[1][0]['record']) is None
+        assert json['weko_shared_role_ids'] == ["12", "35"]
+        # weko_shared_ids・weko_creator_id の上書きは改修前と同じ
+        assert json['weko_shared_ids'] == data.get('weko_shared_ids')
+        assert json['weko_creator_id'] == data.get('owner')
+
+        # 2. weko_shared_role_ids キーを持たない（グループ機能導入前のアイテム）
+        set_db_role_ids()
+        json = {"key": "value", "_created": "2022-10-01"}
+        assert append_file_content(sender, json, es_records[1][0]['record']) is None
+        assert json['weko_shared_role_ids'] == []
+
+        # 3. weko_shared_role_ids が None
+        set_db_role_ids(weko_shared_role_ids=None)
+        json = {"key": "value", "_created": "2022-10-01"}
+        assert append_file_content(sender, json, es_records[1][0]['record']) is None
+        assert json['weko_shared_role_ids'] == []

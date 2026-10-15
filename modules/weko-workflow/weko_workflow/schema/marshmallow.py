@@ -98,6 +98,7 @@ class SaveActivitySchema(Schema):
     # title = fields.String(required=True)
     # title = fields.List(required=True)
     shared_user_ids = fields.List(fields.Dict(allow_none=True))
+    shared_role_ids = fields.List(fields.String(), allow_none=True, missing=None)
     approval1 = fields.String(allow_none=True)
     approval2 = fields.String(allow_none=True)
     class Meta:

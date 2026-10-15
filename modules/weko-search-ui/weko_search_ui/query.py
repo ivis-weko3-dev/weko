@@ -64,6 +64,9 @@ def get_permission_filter(index_id: str = None, is_community=False):
         List: Query command.
 
     """
+    from weko_items_ui.utils import (
+        get_excluded_shared_doc_ids, get_user_role_ids)
+
     is_admin, roles = get_user_roles()
     if is_admin:
         pub_status = [PublishStatus.PUBLIC.value, PublishStatus.PRIVATE.value]
@@ -120,10 +123,39 @@ def get_permission_filter(index_id: str = None, is_community=False):
             user_terms = Q("terms", publish_status=[
                 PublishStatus.PUBLIC.value, PublishStatus.PRIVATE.value])
             creator_user_match = Q("match", weko_creator_id=user_id)
+            # owner(long型)の完全一致を OR で追加(get_es_itemlist と同条件)
+            try:
+                owner_user_match = Q("term", owner=int(user_id))
+            except (TypeError, ValueError):
+                owner_user_match = None
+            if owner_user_match is not None:
+                creator_user_match = Q(
+                    "bool",
+                    should=[creator_user_match, owner_user_match],
+                    minimum_should_match=1,
+                )
+            proxy_posting = current_app.config.get(
+                'WEKO_ITEMS_UI_PROXY_POSTING', False)
             shared_user_match = Q("terms", weko_shared_ids=[user_id])
+            if not proxy_posting and not is_admin:
+                # 複数化フラグ無効時は、末尾1名のみを対象とする
+                # (ESの件数表示がずれないよう、除外IDをES側で絞り込む)
+                excluded_ids = get_excluded_shared_doc_ids(user_id)
+                if excluded_ids:
+                    shared_user_match = Q(
+                        "bool",
+                        must=[shared_user_match],
+                        must_not=[Q("ids", values=excluded_ids)],
+                    )
             shuld = []
             shuld.append(Q("bool", must=[user_terms, creator_user_match]))
             shuld.append(Q("bool", must=[user_terms, shared_user_match]))
+            # 代理投稿グループ(複数化フラグ有効時のみ)
+            role_ids = get_user_role_ids() if proxy_posting else []
+            if role_ids:
+                shared_role_match = Q(
+                    "terms", **{"weko_shared_role_ids.raw": role_ids})
+                shuld.append(Q("bool", must=[user_terms, shared_role_match]))
             shuld.append(Q("bool", must=mst))
             mut.append(Q("bool", should=shuld, must=[terms]))
             mut.append(Q("bool", must=version))

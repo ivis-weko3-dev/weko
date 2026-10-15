@@ -159,27 +159,46 @@ def test_get_push_template(app, mocker):
 
 # def _get_params_for_registrant(target_id, actor_id, shared_id):
 # .tox/c1/bin/pytest --cov=weko_notifications tests/test_utils.py::test__get_params_for_registrant -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-notifications/.tox/c1/tmp --full-trace
-def test__get_params_for_registrant():
-    # Test with shared_id = []
-    target_id = actor_id = 1
-    shared_ids = []
-    with patch("weko_notifications.utils.UserProfile.get_by_userid") as mock_get_user_profile:
-        mock_user_profile = MagicMock(username="Test User")
-        mock_get_user_profile.return_value = mock_user_profile
-        set_target_id, actor_name = _get_params_for_registrant(target_id, actor_id, shared_ids)
-        assert set_target_id == set()
-        assert actor_name == "Test User"
-        mock_get_user_profile.assert_called_once_with(actor_id)
+def test__get_params_for_registrant(app):
+    """actor が引数のまま維持され、宛先が代理投稿者（個人）から actor を除いた集合となること。"""
+    def _profile(user_id):
+        return MagicMock(username="user{}".format(user_id))
 
-    target_id = actor_id = 1
-    shared_ids = [2, 3]
-    with patch("weko_notifications.utils.UserProfile.get_by_userid") as mock_get_user_profile:
-        mock_user_profile = MagicMock(username="Test User")
-        mock_get_user_profile.return_value = mock_user_profile
-        set_target_id, actor_name = _get_params_for_registrant(target_id, actor_id, shared_ids)
-        assert set_target_id == set(shared_ids)
-        assert actor_name == "Test User"
-        mock_get_user_profile.assert_called_once_with(shared_ids[0])
+    with patch(
+        "weko_notifications.utils.UserProfile.get_by_userid",
+        side_effect=_profile,
+    ) as mock_get_user_profile:
+        # shared_ids = [] の場合
+        app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = True
+        set_target_id, actor_name = _get_params_for_registrant(1, 1, [])
+        assert set_target_id == set()
+        assert actor_name == "user1"
+
+        # 1. 複数化フラグ有効、actor が代理投稿者（actor は宛先から除外、先頭で上書きされない）
+        mock_get_user_profile.reset_mock()
+        set_target_id, actor_name = _get_params_for_registrant(1, 5, [3, 5])
+        assert set_target_id == {1, 3}
+        assert actor_name == "user5"
+        mock_get_user_profile.assert_called_once_with(5)
+
+        # 2. 複数化フラグ有効、actor が登録者
+        mock_get_user_profile.reset_mock()
+        set_target_id, actor_name = _get_params_for_registrant(1, 1, [3, 5])
+        assert set_target_id == {3, 5}
+        assert actor_name == "user1"
+        mock_get_user_profile.assert_called_once_with(1)
+
+        # 3. 複数化フラグ無効（末尾1名のみ）
+        app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = False
+        set_target_id, actor_name = _get_params_for_registrant(1, 1, [3, 5])
+        assert set_target_id == {5}
+        assert actor_name == "user1"
+
+        # 4. 複数化フラグ有効、shared_ids が空で actor が代理投稿者以外のユーザー
+        app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = True
+        set_target_id, actor_name = _get_params_for_registrant(1, 3, [])
+        assert set_target_id == {1}
+        assert actor_name == "user3"
 
 
 # def get_item_title(recid):
@@ -289,3 +308,44 @@ def test_notify_item_deleted(app, mocker):
     notify_item_deleted(target_id, recid, actor_id, object_name=None, shared_ids=shared_ids)
     mock_get_item_title.assert_called_once_with(recid)
     mock_create_notification.assert_called_once_with(target_id, recid, actor_id, actor_name="Test User", object_name="Fetched Title")
+
+
+# .tox/c1/bin/pytest --cov=weko_notifications tests/test_utils.py::test_notify_item_actor -v -vv -s --cov-branch --cov-report=term --cov-report=html --basetemp=/code/modules/weko-notifications/.tox/c1/tmp --full-trace
+def test_notify_item_actor(app, mocker):
+    """notify_item_imported／notify_item_deleted で操作者が actor として渡ること。"""
+    app.config["WEKO_ITEMS_UI_PROXY_POSTING"] = True
+    target_id = 1
+    recid = 12345
+    shared_ids = [3, 5]
+
+    mocker.patch(
+        "weko_notifications.utils.UserProfile.get_by_userid",
+        side_effect=lambda user_id: MagicMock(username="user{}".format(user_id)),
+    )
+    mocker.patch("weko_notifications.notifications.Notification.send")
+    mock_imported = mocker.patch(
+        "weko_notifications.notifications.Notification.create_item_registered",
+        side_effect=Notification.create_item_registered,
+    )
+    mock_deleted = mocker.patch(
+        "weko_notifications.notifications.Notification.create_item_deleted",
+        side_effect=Notification.create_item_deleted,
+    )
+    mock_params = mocker.patch(
+        "weko_notifications.utils._get_params_for_registrant",
+        wraps=_get_params_for_registrant,
+    )
+
+    # 1. インポート実行者（ユーザー 7）
+    notify_item_imported(target_id, recid, 7, "Test Object", shared_ids)
+    assert mock_params.call_args[0][1] == 7
+    # 宛先は登録者・代理投稿者（個人）のみ（グループメンバーは含まれない）
+    assert {c[0][0] for c in mock_imported.call_args_list} == {1, 3, 5}
+    assert all(c[0][2] == 7 for c in mock_imported.call_args_list)
+
+    # 2. 削除実行者（ユーザー 5）
+    mock_params.reset_mock()
+    notify_item_deleted(target_id, recid, 5, "Test Object", shared_ids)
+    assert mock_params.call_args[0][1] == 5
+    assert {c[0][0] for c in mock_deleted.call_args_list} == {1, 3}
+    assert all(c[0][2] == 5 for c in mock_deleted.call_args_list)

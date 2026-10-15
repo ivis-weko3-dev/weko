@@ -142,6 +142,8 @@ def get_es_itemlist():
         TransportError: If an error occurs during the Elasticsearch query, returns `None`.
         Exception: If any other unexpected error occurs, returns `None`.
     """
+    from weko_items_ui.utils import get_excluded_shared_doc_ids, get_user_role_ids
+
     try:
         size = 10000
         search_index = current_app.config["WEKO_WORKSPACE_ITEM_SEARCH_INDEX"]
@@ -159,10 +161,38 @@ def get_es_itemlist():
             else None
         )
         creator_user_match = Q("match", weko_creator_id=user_id)
+        # owner(long型)の完全一致を OR で追加(get_permission_filter と同条件)
+        try:
+            owner_user_match = Q("term", owner=int(user_id))
+        except (TypeError, ValueError):
+            owner_user_match = None
+        if owner_user_match is not None:
+            creator_user_match = Q(
+                "bool",
+                should=[creator_user_match, owner_user_match],
+                minimum_should_match=1,
+            )
+        proxy_posting = current_app.config.get('WEKO_ITEMS_UI_PROXY_POSTING', False)
         shared_users_match = Q("terms", weko_shared_ids=[user_id])
+        if not proxy_posting and user_id is not None:
+            # 複数化フラグ無効時は、物理的な末尾1名のみを対象とする
+            # (管理者でも適用する。除外IDは個人条件の内側のみに付与する)
+            excluded_ids = get_excluded_shared_doc_ids(user_id)
+            if excluded_ids:
+                shared_users_match = Q(
+                    "bool",
+                    must=[shared_users_match],
+                    must_not=[Q("ids", values=excluded_ids)],
+                )
         shuld = []
         shuld.append(Q("bool", must=[publish_status_match, creator_user_match]))
         shuld.append(Q("bool", must=[publish_status_match, shared_users_match]))
+        # 代理投稿グループ(複数化フラグ有効時のみ)
+        role_ids = get_user_role_ids() if proxy_posting else []
+        if role_ids:
+            shared_roles_match = Q(
+                "terms", **{"weko_shared_role_ids.raw": role_ids})
+            shuld.append(Q("bool", must=[publish_status_match, shared_roles_match]))
         must = []
         must.append(Q("bool", should=shuld))
         must.append(Q("bool", must=Q("match", relation_version_is_last="true")))
