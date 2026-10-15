@@ -76,7 +76,7 @@ def parse_arguments():
     )
     parser.add_argument("--user", type=str, help="Elasticsearch のユーザー名")
     parser.add_argument("--password", type=str, help="Elasticsearch のパスワード")
-    
+
     parser.add_argument("--db-host", default=os.getenv("PGHOST", "pgpool"), help="PostgreSQL のホスト")
     parser.add_argument("--db-port", default=os.getenv("PGPORT", "5432"), help="PostgreSQL のポート")
     parser.add_argument("--db-name", default=os.getenv("PGDATABASE", "invenio"), help="PostgreSQL のDB名")
@@ -95,7 +95,7 @@ def parse_arguments():
         default=5000,
         help="1回の terms に渡す pk_id 件数",
     )
-    
+
     parser.add_argument(
         "--user_os",
         type=str,
@@ -134,7 +134,7 @@ def parse_arguments():
             "※ --date を指定した場合は元の仕様を維持し、分割ロジックは適用しない"
         ),
     )
-    
+
     parser.add_argument(
         "--subsplit-window-days",
         type=int,
@@ -153,8 +153,8 @@ def parse_arguments():
             "過剰な分割を避けるため、既定値は 5 万件"
         ),
     )
-    
-    
+
+
     parser.add_argument(
         "--auto-split-threshold-mb",
         type=int,
@@ -311,7 +311,8 @@ class ReindexEs7ToOsRunner(object):
 
     def _replace_prefix_index(self, index_name):
         index_tmp = re.sub(r"^{}-".format(self.prefix), "", index_name)
-        index_tmp = re.sub(r"-\d{6}$", "", index_tmp)
+        if "stats" in index_tmp:
+            index_tmp = re.sub(r"-(?:\d{6}|\d{4})$", "", index_tmp)
         return index_tmp
 
     def _wait_for_shards_started(self, host, index_name, request_args, timeout=120):
@@ -430,7 +431,7 @@ class ReindexEs7ToOsRunner(object):
         current_shards = settings.get("number_of_shards")
         if current_shards is None and isinstance(settings.get("index"), dict):
             current_shards = settings["index"].get("number_of_shards")
-            
+
         settings["number_of_shards"] = shard_count
 
         if isinstance(settings.get("index"), dict):
@@ -457,7 +458,7 @@ class ReindexEs7ToOsRunner(object):
         if index_name not in self.source_index_size_cache:
             self.source_index_size_cache[index_name] = self._get_index_size_in_bytes(index_name)
         return self.source_index_size_cache[index_name]
-    
+
     def _calc_percentile(self, values, percentile):
         """Return the requested percentile value from the supplied numeric values."""
         if not values:
@@ -465,7 +466,7 @@ class ReindexEs7ToOsRunner(object):
         sorted_values = sorted(values)
         idx = int((len(sorted_values) - 1) * (percentile / 100.0))
         return sorted_values[idx]
-    
+
     def _should_split_index_by_date_window(self, index_name):
         if self.gte_date:
             return False
@@ -587,7 +588,7 @@ class ReindexEs7ToOsRunner(object):
         for sub_start, sub_end in sub_windows:
             expanded.extend(self._split_heavy_window(index_name, sub_start, sub_end, depth + 1))
         return expanded
-    
+
     def _get_earliest_updated_datetime(self, index_name):
         """Fetch the earliest _updated timestamp found in the source index."""
         try:
@@ -650,7 +651,7 @@ class ReindexEs7ToOsRunner(object):
                 break
             current_end = current_start
         return windows
-    
+
     def _create_remote(self):
         remote = {"host": self.es7_url}
         if self.user and self.password:
@@ -731,7 +732,7 @@ class ReindexEs7ToOsRunner(object):
             self._log_warn("precheck failed to decide size, use default")
             self._log_error(traceback.format_exc())
             return None
-        
+
     def _make_updated_range_query(self):
         if self.gte_date:
             return {"range": {"_updated": {"gte": self.gte_date}}}
@@ -741,7 +742,7 @@ class ReindexEs7ToOsRunner(object):
         index_percolator = index_name + "-percolators"
 
         response = requests.get(self.os_url + index_name, **self.os_req_args)
-        
+
         if response.status_code == 200:
             self._log_info("Index {} already exists, skipping creation.".format(index_name))
         else:
@@ -782,13 +783,13 @@ class ReindexEs7ToOsRunner(object):
             },
             "dest": {"index": index_name},
         }
-        
+
         if self._replace_prefix_index(index_name) == "weko-item-v1.0.0":
             prechecked_size = self._decide_reindex_size_for_weko_item(index_name)
             if prechecked_size:
                 reindex_body["source"]["size"] = prechecked_size
-        
-        
+
+
         if self.gte_date:
             main_body = copy.deepcopy(reindex_body)
             main_body["source"]["query"]["bool"]["must"].append(self._create_updated_query())
@@ -864,7 +865,7 @@ class ReindexEs7ToOsRunner(object):
         if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", identifier_name):
             raise ValueError("Invalid {}: {}".format(label, identifier_name))
         return identifier_name
-    
+
     def _iter_author_pkids_from_db(self):
         """Yield author pk_id values from the database in update order."""
         json_col = self._validate_identifier(self.db_json_column, "db-json-column")
@@ -974,8 +975,8 @@ class ReindexEs7ToOsRunner(object):
         total_pkids = 0
         total_created_main = 0
         chunk_no = 0
-        
-        
+
+
         for pkid_chunk in self._chunked(self._iter_author_pkids_from_db(), self.terms_chunk_size):
             chunk_no += 1
             total_pkids += len(pkid_chunk)
@@ -1012,7 +1013,7 @@ class ReindexEs7ToOsRunner(object):
             result_percolator = self._run_os_reindex_or_raise(body_percolator).json()
             total_created_percolator = result_percolator.get("created", 0)
             self._log_info("[Author] percolator created={}".format(total_created_percolator))
-        
+
         self._log_info(
             "[Author] done chunks={} total_pkids={} total_created_main={} total_created_percolator={}".format(
                 chunk_no,
@@ -1021,10 +1022,10 @@ class ReindexEs7ToOsRunner(object):
                 total_created_percolator,
             )
         )
-        
-        
-        
-        
+
+
+
+
         if not self.gte_date:
             self._log_info("{} Reindex next time".format(index_name))
             return

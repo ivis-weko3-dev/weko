@@ -402,7 +402,8 @@ class ReindexAllIndexRunner(object):
     def _replace_prefix_index(self, index_name):
         """Strip the tenant prefix and trailing date suffix to determine the canonical index name."""
         index_tmp = re.sub(r"^{}-".format(self.prefix), "", index_name)
-        index_tmp = re.sub(r"-\d{6}$", "", index_tmp)
+        if "stats" in index_tmp:
+            index_tmp = re.sub(r"-(?:\d{6}|\d{4})$", "", index_tmp)
         return index_tmp
 
     def _wait_for_shards_started(self, host, index_name, timeout=120):
