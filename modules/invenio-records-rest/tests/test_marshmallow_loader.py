@@ -9,10 +9,13 @@
 """Invenio marshmallow loader tests."""
 
 import json
-
 from copy import deepcopy
+
 from helpers import get_json
 from invenio_records.models import RecordMetadata
+from invenio_rest.serializer import BaseSchema as Schema
+from marshmallow import EXCLUDE, ValidationError, fields
+
 from invenio_records_rest.loaders import json_pid_checker
 from invenio_records_rest.loaders.marshmallow import (
     MarshmallowErrors,
@@ -21,8 +24,6 @@ from invenio_records_rest.loaders.marshmallow import (
 from invenio_records_rest.schemas import Nested
 from invenio_records_rest.schemas.fields import PersistentIdentifier
 from invenio_records_rest.utils import marshmallow_major_version
-from invenio_rest.serializer import BaseSchema as Schema
-from marshmallow import ValidationError, fields
 
 
 class _TestSchema(Schema):
@@ -51,10 +52,17 @@ class _TestSchemaNested(Schema):
 class _TestMetadataSchema(Schema):
     """Test schema."""
 
+    class Meta:
+        unknown = EXCLUDE
+
     recid = fields.Str()
     title = fields.List(fields.Str())
+    control_number = PersistentIdentifier()
 
-def test_marshmallow_load(app, db, search_index, record_data10, search_url, search_class):
+
+def test_marshmallow_load(
+    app, db, search_index, record_data10, search_url, search_class
+):
     """Test marshmallow loader."""
     app.config["RECORDS_REST_DEFAULT_LOADERS"] = {
         "application/json": marshmallow_loader(_TestMetadataSchema)
@@ -64,8 +72,8 @@ def test_marshmallow_load(app, db, search_index, record_data10, search_url, sear
         HEADERS = [("Accept", "application/json"), ("Content-Type", "application/json")]
 
         # Create record
-        #req_data = test_data[0]
-        req_data = record_data10[0]
+        # req_data = test_data[0]
+        req_data = {key: record_data10[0][key] for key in ("recid", "title")}
         res = client.post(search_url, data=json.dumps(req_data), headers=HEADERS)
         assert res.status_code == 201
 

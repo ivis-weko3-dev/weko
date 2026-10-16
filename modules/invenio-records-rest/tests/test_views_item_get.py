@@ -16,19 +16,22 @@ def test_item_get(app, test_records):
     """Test record retrieval."""
     with app.test_client() as client:
         pid, record = test_records[0]
+        revision_id = record.revision_id
+        pid_value = pid.pid_value
+        metadata = record.dumps()
 
         res = client.get(record_url(pid))
         assert res.status_code == 200
         assert res.cache_control.no_cache
-        assert res.headers["ETag"] == '"{}"'.format(record.revision_id)
+        assert res.headers["ETag"] == '"{}"'.format(revision_id)
 
         # Check metadata
         data = get_json(res)
         for k in ["id", "created", "updated", "metadata", "links"]:
             assert k in data
 
-        assert data["id"] == pid.pid_value
-        assert data["metadata"] == record.dumps()
+        assert data["id"] == pid_value
+        assert data["metadata"] == metadata
 
         # Check self links
         client.get(to_relative_url(data["links"]["self"]))
@@ -44,31 +47,36 @@ def test_item_get_etag(app, test_records):
         res = client.get(record_url(pid))
         assert res.status_code == 200
         assert res.cache_control.no_cache
+
+
 def test_item_get_etag2(app, db, test_records):
     """Test VALID record get request (GET .../records/<record_id>)."""
     with app.test_client() as client:
         pid, record = test_records[0]
+        url = record_url(pid)
 
-        res = client.get(record_url(pid))
+        res = client.get(url)
         assert res.status_code == 200
         etag = res.headers["ETag"]
-        last_modified = res.headers["Last-Modified"]
 
         # Test request via etag
-        res = client.get(record_url(pid), headers={"If-None-Match": etag})
+        res = client.get(url, headers={"If-None-Match": etag})
         assert res.status_code == 304
         assert res.cache_control.no_cache
+
+
 def test_item_get_etag3(app, db, test_records):
     """Test VALID record get request (GET .../records/<record_id>)."""
     with app.test_client() as client:
         pid, record = test_records[0]
+        url = record_url(pid)
 
-        res = client.get(record_url(pid))
+        res = client.get(url)
         assert res.status_code == 200
 
-        last_modified = res.headers['Last-Modified']
+        last_modified = res.headers["Last-Modified"]
         # Test request via last-modified.
-        res = client.get(record_url(pid), headers={"If-Modified-Since": last_modified})
+        res = client.get(url, headers={"If-Modified-Since": last_modified})
         assert res.status_code == 304
         assert res.cache_control.no_cache
 
