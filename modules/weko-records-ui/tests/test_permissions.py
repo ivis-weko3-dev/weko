@@ -1,20 +1,16 @@
-import io
 from datetime import datetime, timedelta, timezone
 from unittest import mock  # python3
 from unittest.mock import MagicMock
 
 import mock  # python2, after pip install mock
+import copy
 import pytest
-from flask import Flask, json, jsonify, session, url_for, Response
-from flask_babelex import get_locale, to_user_timezone, to_utc
+from flask import json, Response
 from flask_login import current_user
-from flask_security import login_user
 from flask_security.utils import login_user
-from invenio_accounts.models import Role, User
-from invenio_accounts.testutils import create_test_user, login_user_via_session
-from invenio_pidstore.models import PersistentIdentifier
 from mock import patch
 
+from invenio_pidstore.errors import PIDDoesNotExistError
 from weko_records.models import ItemType, ItemTypeName
 from weko_admin.models import AdminSettings
 from weko_records_ui.permissions import (
@@ -30,6 +26,7 @@ from weko_records_ui.permissions import (
     check_create_usage_report,
     __get_file_permission,
     check_billing_file_permission,
+    get_file_charge_info,
     get_file_price,
     check_original_pdf_download_permission,
     file_permission_factory,
@@ -955,6 +952,104 @@ def test_check_billing_file_permission(users, db_item_billing):
         with patch("weko_records_ui.permissions.check_charge", return_value='not_billed'):
             assert check_billing_file_permission('1', '課金ファイル.txt') == False
 
+# def get_file_charge_info(item_id, file_name):
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_get_file_charge_info -vv -s --cov-branch --cov-report=term --basetemp=.tox/c1/tmp
+def test_get_file_charge_info(app, users, records, db_item_billing):
+    _, results = records
+    with app.test_request_context():
+        login_user(users[0]["obj"])
+        record = results[3]["record"]
+        with patch("weko_records_ui.permissions.WekoRecord.get_record_by_pid",return_value=record), \
+             patch("weko_records_ui.permissions.check_charge", return_value='not_billed'):
+            assert get_file_charge_info("4", "helloworld_billing.pdf") == ("ok", 550, "&yen;")
+
+        record = results[5]["record"]
+        with patch("weko_records_ui.permissions.WekoRecord.get_record_by_pid",return_value=record), \
+             patch("weko_records_ui.permissions.check_charge", return_value='not_billed'):
+            assert get_file_charge_info("6", "helloworld_billing.pdf") == ("ok", 110, "&yen;")
+
+        record = results[3]["record"]
+        with patch("weko_records_ui.permissions.WekoRecord.get_record_by_pid",return_value=record), \
+             patch("weko_records_ui.permissions.check_charge", return_value='already'):
+            assert get_file_charge_info("4", "helloworld_billing.pdf") == ("already", None, None)
+
+# def get_file_charge_info(item_id, file_name):
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_get_file_charge_info_not_required -vv -s --cov-branch --cov-report=term --basetemp=.tox/c1/tmp
+def test_get_file_charge_info_not_required(app, users, records, db_item_billing):
+    _, results = records
+    with app.test_request_context():
+        login_user(users[0]["obj"])
+        # 無料ロールを持つケース
+        record = results[6]["record"]
+        with patch("weko_records_ui.permissions.WekoRecord.get_record_by_pid",return_value=record), \
+             patch("weko_records_ui.permissions.check_charge", return_value='not_billed'):
+            assert get_file_charge_info("7", "helloworld_billing.pdf") == ("not_required", None, None)
+
+        # サイトライセンス対象
+        record = results[3]["record"]
+        with patch("weko_records_ui.permissions.WekoRecord.get_record_by_pid",return_value=record), \
+             patch("weko_records_ui.permissions.check_charge", return_value='not_billed'), \
+             patch("weko_records_ui.permissions.check_site_license_permission", return_value=True):
+            assert get_file_charge_info("4", "helloworld_billing.pdf") == ("not_required", None, None)
+
+        # オープンアクセスの公開日が過去のケース
+        record = copy.deepcopy(results[3]["record"])
+        file_json = next(
+            file_json
+            for metadata in record.values()
+            if isinstance(metadata, dict) and metadata.get("attribute_type") == "file"
+            for file_json in metadata.get("attribute_value_mlt", [])
+            if isinstance(file_json, dict) and file_json.get("filename") == "helloworld_billing.pdf"
+        )
+        file_json["accessrole"] = "open_access"
+        file_json["date"] = [{"dateType": "Available", "dateValue": "2000-01-01"}]
+        with patch("weko_records_ui.permissions.WekoRecord.get_record_by_pid",return_value=record), \
+             patch("weko_records_ui.permissions.check_charge", return_value='not_billed'):
+            assert get_file_charge_info("4", "helloworld_billing.pdf") == ("not_required", None, None)
+
+        # レコード所有者によるアクセス
+        record = copy.deepcopy(results[3]["record"])
+        record["owner"] = str(users[0]["obj"].id)
+        with patch("weko_records_ui.permissions.WekoRecord.get_record_by_pid",return_value=record), \
+             patch("weko_records_ui.permissions.check_charge", return_value='not_billed'):
+            assert get_file_charge_info("4", "helloworld_billing.pdf") == ("not_required", None, None)
+
+        # 管理者によるアクセス
+        login_user(users[1]["obj"])
+        with patch("weko_records_ui.permissions.WekoRecord.get_record_by_pid",return_value=record), \
+             patch("weko_records_ui.permissions.check_charge", return_value='not_billed'):
+            assert get_file_charge_info("4", "helloworld_billing.pdf") == ("not_required", None, None)
+
+# def get_file_charge_info(item_id, file_name):
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_get_file_charge_info_invalid -vv -s --cov-branch --cov-report=term --basetemp=.tox/c1/tmp
+def test_get_file_charge_info_invalid(app, users, records, db_item_billing):
+    _, results = records
+    with app.test_request_context():
+        login_user(users[0]["obj"])
+
+        # 課金対象ロールを持たないファイル
+        record = results[7]["record"]
+        with patch("weko_records_ui.permissions.WekoRecord.get_record_by_pid",return_value=record), \
+             patch("weko_records_ui.permissions.check_charge", return_value='not_billed'):
+            assert get_file_charge_info("8", "helloworld_billing.pdf") == ("invalid", None, None)
+
+        # 存在しないitem_id
+        with patch("weko_records_ui.permissions.WekoRecord.get_record_by_pid",side_effect=PIDDoesNotExistError("depid", "100")), \
+             patch("weko_records_ui.permissions.check_charge", return_value='not_billed'):
+            assert get_file_charge_info("100", "helloworld_billing.pdf") == ("invalid", None, None)
+
+        # 存在しないfile_name
+        record = results[3]["record"]
+        with patch("weko_records_ui.permissions.WekoRecord.get_record_by_pid",return_value=record), \
+                     patch("weko_records_ui.permissions.check_charge", return_value='not_billed'):
+                    assert get_file_charge_info("4", "not_exist.pdf") == ("invalid", None, None)
+
+        # billingが設定されていないファイル
+        record = results[0]["record"]
+        with patch("weko_records_ui.permissions.WekoRecord.get_record_by_pid",return_value=record), \
+                     patch("weko_records_ui.permissions.check_charge", return_value='not_billed'):
+                    assert get_file_charge_info("1", "helloworld.pdf") == ("invalid", None, None)
+
 # def get_file_price(item_id):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_permissions.py::test_get_file_price -vv -s --cov-branch --cov-report=term --basetemp=.tox/c1/tmp
 def test_get_file_price(users, db_item_billing, db_admin_settings):
@@ -1109,66 +1204,66 @@ def test_secure_charge(db_admin_settings, users, user_id, result):
 
     with patch("flask_login.utils._get_user", return_value=users[user_id]["obj"]):
         # secure charge is success
-        res.headers = {'WEKO_CHARGE_STATUS':'0'} 
+        res.headers = {'WEKO_CHARGE_STATUS':'0'}
         res.json.return_value = {'trade_id': 1, 'charge_status': '4'}
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == '1'
-        
+
         # charge status is not 4
         res.json.return_value = {'trade_id': 1, 'charge_status': '3'}
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == 'api_error'
-        
+
         # type of res is not dict
         res.json.return_value = '1'
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == 'api_error'
-        
+
         # WEKO_CHARGE_STATUS is -64
         res.headers = {'WEKO_CHARGE_STATUS':'-64'}
         res.json.return_value = {'trade_id': 1, 'charge_status': '4'}
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == 'connection_error'
-        
+
         # res is None
         res.json.return_value = None
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == 'api_error'
-        
+
         # requests.get is error
         with patch('weko_records_ui.permissions.requests.get') as requests_get:
             requests_get.side_effect = Exception
             assert secure_charge(1, 1) == 'api_error'
-        
+
         # proxy_mode
         AdminSettings.update('proxy_settings', settings)
         # secure charge is success with proxy_mode
-        res.headers = {'WEKO_CHARGE_STATUS':'0'} 
+        res.headers = {'WEKO_CHARGE_STATUS':'0'}
         res.json.return_value = {'trade_id': 1, 'charge_status': '4'}
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == '1'
-        
+
         # charge status is not 4 with proxy_mode
         res.json.return_value = {'trade_id': 1, 'charge_status': '3'}
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == 'api_error'
-        
+
         # type of res is not dict with proxy_mode
         res.json.return_value = '1'
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == 'api_error'
-        
+
         # WEKO_CHARGE_STATUS is -64 with proxy_mode
         res.headers = {'WEKO_CHARGE_STATUS':'-64'}
         res.json.return_value = {'trade_id': 1, 'charge_status': '4'}
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == 'connection_error'
-        
+
         # res is None with proxy_mode
         res.json.return_value = None
         with patch('weko_records_ui.permissions.requests.get', return_value=res):
             assert secure_charge(1, 1) == 'api_error'
-        
+
         # requests.get is error with proxy_mode
         with patch('weko_records_ui.permissions.requests.get') as requests_get:
             requests_get.side_effect = Exception

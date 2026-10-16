@@ -275,7 +275,7 @@ def check_file_download_permission(record, fjson, is_display_file_info=False, ch
                                     item_id = record['control_number']
                                 filename = fjson.get('filename')
                                 if filename is not None:
-                                    is_can = check_billing_file_permission(item_id, filename)
+                                    is_can = check_billing_file_permission(item_id, filename, download_status=download_status)
                             else:
                                 is_can = True
                         if not is_can:
