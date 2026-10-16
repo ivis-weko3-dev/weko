@@ -235,7 +235,7 @@ def test_update_fail(location, s3fs, s3fs_testpath, get_md5):
     """Test update of file."""
 
     def fail_callback(total, size):
-        assert exists(s3fs_testpath)
+        assert fs.exists(s3fs_testpath)
         raise Exception('Something bad happened')
 
     s3fs.initialize(size=100)
@@ -305,7 +305,13 @@ def test_copy(s3_bucket, location, s3fs):
     s3fs.save(BytesIO(data))
 
     s3_copy_path = 's3://{}/path/to/copy/data'.format(s3_bucket.name)
-    s3fs_copy = S3FSFileStorage(s3_copy_path)
+    s3fs_copy = S3FSFileStorage(
+        s3_copy_path,
+        size=0,
+        modified=None,
+        clean_dir=True,
+        location=location
+    )
     s3fs_copy.copy(s3fs)
 
     assert s3fs_copy.open().read() == data

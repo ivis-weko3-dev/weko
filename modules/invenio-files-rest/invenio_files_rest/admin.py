@@ -11,21 +11,27 @@
 from __future__ import absolute_import, print_function
 
 import os
+import re
 import uuid
+from urllib.parse import urlparse
 
 from flask import current_app, flash, url_for
 from flask_admin.actions import action
+from flask_admin import expose
 from flask_admin.contrib.sqla import ModelView
 from flask_admin.form import SecureForm
+from flask_babelex import gettext as _
 from flask_security import current_user
 from flask_wtf import FlaskForm
 from invenio_admin.filters import FilterConverter
 from invenio_admin.forms import LazyChoices
+from invenio_db import db
 from markupsafe import Markup
+from sqlalchemy.exc import SQLAlchemyError
 from wtforms.fields import PasswordField
-from wtforms.fields import StringField
+from wtforms.fields import StringField, SelectField, IntegerField
 from wtforms.fields import BooleanField
-from wtforms.validators import ValidationError
+from wtforms.validators import ValidationError, NumberRange, Length, Optional
 from wtforms.widgets import PasswordInput
 
 from .models import Bucket, FileInstance, Location, MultipartObject, \
@@ -33,16 +39,85 @@ from .models import Bucket, FileInstance, Location, MultipartObject, \
 from .tasks import verify_checksum
 
 
-def _(x):
-    """Identity function for string extraction."""
-    return x
-
-
 def require_slug(form, field):
     """Validate location name."""
     if not slug_pattern.match(field.data):
         raise ValidationError(_("Invalid location name."))
 
+_AWS_S3_HOST_RE = re.compile(
+    r'^(?P<bucket>[a-z0-9][a-z0-9-]*)\.s3(?:[.-][a-z0-9-]+)?\.amazonaws\.com$'
+)
+"""Matches an AWS S3 virtual-hosted-style host, e.g.
+``<bucket>.s3.amazonaws.com``, ``<bucket>.s3.<region>.amazonaws.com``, or
+the legacy ``<bucket>.s3-<region>.amazonaws.com`` form. The bucket group
+deliberately excludes dots and a leading ``s3`` is not itself restricted
+here (that is rejected separately below).
+"""
+
+
+def validate_uri(form, field):
+    """
+    Validate the URI field based on the value of the 'type' field.
+
+    This function checks if the 'type' field in the form is set to
+    'FILES_REST_LOCATION_TYPE_S3_VIRTUAL_HOST_VALUE'. If so, it ensures
+    that the URI field starts with 'https://'. If the condition is not
+    met, a ValidationError is raised.
+
+    Beyond that, it also rejects URLs that
+    ``invenio_files_rest.helpers.to_s3_uri`` (used to resolve the actual
+    S3 path when a file under this Location is accessed) is known to
+    misinterpret:
+
+    - A bucket-specific virtual-hosted URL whose bucket name itself
+      starts with ``s3`` (e.g. ``https://s3-assets.s3.amazonaws.com/``)
+      would be misread as a bucket-less path-style URL, silently losing
+      the bucket name.
+    - A bucket name containing dots (e.g.
+      ``https://my.bucket.name.s3.amazonaws.com/``) would be truncated
+      to just the first label.
+
+    Args:
+        form (wtforms.Form): The form object containing the fields.
+        field (wtforms.Field): The field being validated (URI field).
+
+    Raises:
+        ValidationError: If the URI does not start with 'https://' when
+        the 'type' field is set to 'FILES_REST_LOCATION_TYPE_S3_VIRTUAL_HOST_VALUE',
+        or if the URL is one ``to_s3_uri`` would misinterpret.
+    """
+    if form.type.data != \
+            current_app.config['FILES_REST_LOCATION_TYPE_S3_VIRTUAL_HOST_VALUE']:
+        return
+
+    uri = field.data
+    if not uri.startswith('https://'):
+        raise ValidationError(_("Invalid URL. It should start with https://"))
+
+    parsed = urlparse(uri)
+    if parsed.netloc.startswith('s3'):
+        # to_s3_uri() treats any URL whose host starts with "s3" as
+        # bucket-less path-style, so the bucket must be the first path
+        # segment (e.g. https://s3.<region>.amazonaws.com/<bucket>/).
+        if not parsed.path.strip('/'):
+            raise ValidationError(_(
+                "This URL looks like a bucket-specific virtual-hosted "
+                "endpoint (host starts with 's3'), which would be "
+                "misread as a bucket-less path-style endpoint and lose "
+                "the bucket name. Use a path-style URL instead, e.g. "
+                "https://s3.<region>.amazonaws.com/<bucket>/"
+            ))
+    else:
+        # Otherwise to_s3_uri() treats it as virtual-hosted-style and
+        # takes everything before the first dot in the host as the
+        # bucket name -- so only a non-dotted bucket on a recognized AWS
+        # S3 host is safe.
+        if not _AWS_S3_HOST_RE.match(parsed.netloc):
+            raise ValidationError(_(
+                "Invalid S3 Virtual Host URL. The host must be "
+                "<bucket>.s3[.<region>].amazonaws.com, where <bucket> "
+                "does not start with 's3' and does not contain dots."
+            ))
 
 def link(text, link_func):
     """Generate a object formatter for links.."""
@@ -75,31 +150,59 @@ class LocationModelView(ModelView):
         quota_size=_('Quota Size'),
         access_key=_('Access Key'),
         secret_key=_('Secret Key'),
+        readonly_access_key=_('Readonly Access Key'),
+        readonly_secret_key=_('Readonly Secret Key'),
         s3_endpoint_url=_('S3_ENDPOINT_URL'),
-        s3_send_file_directly=_('S3_SEND_FILE_DIRECTLY')
+        s3_send_file_directly=_('S3_SEND_FILE_DIRECTLY'),
+        s3_default_block_size=_('S3_DEFAULT_BLOCK_SIZE'),
+        s3_maximum_number_of_parts=_('S3_MAXIMUM_NUMBER_OF_PARTS'),
+        s3_region_name=_('S3_REGION_NAME'),
+        s3_signature_version=_('S3_SIGNATURE_VERSION'),
+        s3_url_expiration=_('S3_URL_EXPIRATION'),
     )
     column_filters = ('default', 'created', 'updated', )
     column_searchable_list = ('uri', 'name')
     column_default_sort = 'name'
     form_base_class = SecureForm
     form_columns = (
-        'name', 'uri', 'type', 'access_key', 'secret_key',
+        'name', 'uri', 'type', 'access_key', 'secret_key', 'readonly_access_key', 'readonly_secret_key',
         's3_endpoint_url', 's3_send_file_directly',
+        's3_default_block_size', 's3_maximum_number_of_parts',
+        's3_region_name', 's3_signature_version', 's3_url_expiration',
         'quota_size', 'default')
     form_choices = {
         'type': LazyChoices(
             lambda: current_app.config['FILES_REST_LOCATION_TYPE_LIST'])
+    }
+    form_widget_args = {
+        'type': {'onchange': 'checkLocationType()'}
     }
     form_extra_fields = {
         'access_key': PasswordField('access_key',
                                     widget=PasswordInput(hide_value=False)),
         'secret_key': PasswordField('secret_key',
                                     widget=PasswordInput(hide_value=False)),
+        'readonly_access_key': PasswordField('readonly_access_key',
+                                             widget=PasswordInput(hide_value=False)),
+        'readonly_secret_key': PasswordField('readonly_secret_key',
+                                             widget=PasswordInput(hide_value=False)),
         's3_endpoint_url': StringField('endpoint_url'),
-        's3_send_file_directly': BooleanField('send_file_directly')
+        's3_send_file_directly': BooleanField('send_file_directly'),
+        's3_default_block_size': IntegerField('default_block_size', validators=[NumberRange(min=0), Optional()]),
+        's3_maximum_number_of_parts': IntegerField('maximum_number_of_parts', validators=[NumberRange(min=0), Optional()]),
+        's3_region_name': StringField('region_name', validators=[
+            Length(max=120, message='max 120 characters')
+        ]),
+        's3_signature_version': SelectField('signature_version',
+            choices=[
+            ('s3', 's3'),
+            ('s3v4', 's3v4'),
+            ]),
+        's3_url_expiration': IntegerField('url_expiration', validators=[NumberRange(min=0), Optional()]),
     }
     form_args = dict(
-        name=dict(validators=[require_slug])
+        name=dict(validators=[require_slug]),
+        uri=dict(validators=[validate_uri]),
     )
     page_size = 25
     edit_template = 'admin/location_edit.html'
@@ -107,6 +210,146 @@ class LocationModelView(ModelView):
 
     _system_role = os.environ.get('INVENIO_ROLE_SYSTEM',
                                   'System Administrator')
+
+    @expose('/')
+    def index_view(self):
+        """Override index view to add custom logic.
+
+        This method checks the number of default locations and
+        flashes messages based on the count.
+        """
+        try:
+            count = Location.query.filter_by(default=True).count()
+            if count < 1:
+                flash(_("No default location is set. "
+                        "Please configure one location as default."),
+                      category="warning")
+            elif count > 1:
+                flash(_("Multiple locations are set as default. "
+                        "Only one default location can be configured. "
+                        "Please correct the settings."),
+                      category="warning")
+        except SQLAlchemyError as ex:
+            current_app.logger.error(
+                f"Error while checking default locations: {ex}"
+            )
+        except Exception as ex:
+            current_app.logger.exception("unexpected error in index_view")
+        return super().index_view()
+
+    def on_model_change(self, form, model, is_created):
+        """Perform some actions before a model is created or updated.
+
+        Called from create_model and update_model in the same transaction
+
+        Args:
+            form(LocationForm): The form instance used to edit the model.
+            model(Location): The Location model instance being created or updated.
+            is_created (bool): True if the model is being created, False if it is being updated.
+
+        Raises:
+            ValidationError: If another location is already set as default.
+        """
+        if model.default:
+            with db.session.no_autoflush:
+                query = Location.query.filter_by(default=True)
+                if model.id:
+                    query = query.filter(Location.id != model.id)
+                if query.first():
+                    current_app.logger.error(
+                        "ValidationError: Cannot save because another location is already set as default."
+                    )
+                    raise ValidationError(
+                        _("Cannot save because another location is already set as default.")
+                    )
+
+        if is_created:
+            model.s3_send_file_directly = True
+            if (model.type ==
+                current_app.config['FILES_REST_LOCATION_TYPE_S3_PATH_VALUE']):
+                model.s3_signature_version = None
+                if not model.uri.endswith('/'):
+                    model.uri = model.uri + '/'
+                if (model.s3_endpoint_url and
+                    not model.s3_endpoint_url.endswith('/')):
+                    model.s3_endpoint_url = model.s3_endpoint_url + '/'
+            elif (model.type ==
+                  current_app.config['FILES_REST_LOCATION_TYPE_S3_VIRTUAL_HOST_VALUE']):
+                model.s3_signature_version = None
+                if not model.uri.endswith('/'):
+                    model.uri = model.uri + '/'
+                model.s3_endpoint_url = model.uri
+            else:
+                model.s3_default_block_size = None
+                model.s3_maximum_number_of_parts = None
+                model.s3_region_name = None
+                model.s3_signature_version = None
+                model.s3_url_expiration = None
+        else:
+            if (model.type ==
+                current_app.config['FILES_REST_LOCATION_TYPE_S3_PATH_VALUE']):
+                if not model.uri.endswith('/'):
+                    model.uri = model.uri + '/'
+                if not model.s3_endpoint_url.endswith('/'):
+                    model.s3_endpoint_url = model.s3_endpoint_url + '/'
+            elif (model.type ==
+                  current_app.config['FILES_REST_LOCATION_TYPE_S3_VIRTUAL_HOST_VALUE']):
+                if not model.uri.endswith('/'):
+                    model.uri = model.uri + '/'
+                model.s3_endpoint_url = model.uri
+            else:
+                # local
+                model.s3_default_block_size = None
+                model.s3_maximum_number_of_parts = None
+                model.s3_url_expiration = None
+                model.s3_region_name = None
+                model.s3_signature_version = None
+
+    def _handle_default_checkbox(self, form, obj=None):
+        """Disable the 'default' checkbox in the form if another default Location exists.
+
+        Args:
+            form (wtforms.Form): The form instance being created or edited.
+            obj (Location, optional): The Location object being edited. None if creating a new object.
+
+        Raises:
+            Exception: Any exception is logged but not re-raised.
+        """
+        try:
+            if obj and obj.default:
+                return
+
+            query = Location.query.filter_by(default=True)
+            if obj:
+                query = query.filter(Location.id != obj.id)
+
+            if query.first() and not form.default.data:
+                form.default.render_kw = (form.default.render_kw or {})
+                form.default.render_kw['disabled'] = True
+
+        except Exception as e:
+            current_app.logger.exception("Error in _handle_default_checkbox")
+
+    def create_form(self, obj=None):
+        """Instantiate model creation form and return it.
+
+        Args:
+            obj: The object being created.
+        """
+        form = super().create_form(obj)
+        self._handle_default_checkbox(form, obj)
+        return form
+
+    def edit_form(self, obj=None):
+        """
+        Instantiate model editing form and return it.
+
+        Args:
+            obj: The object being edited.
+        """
+        form = super().edit_form(obj)
+        self._handle_default_checkbox(form, obj)
+        return form
 
     @property
     def can_create(self):

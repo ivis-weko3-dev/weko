@@ -18,6 +18,7 @@ import cchardet as chardet
 from flask import current_app
 from fs.opener import opener
 from fs.path import basename, dirname
+from sqlalchemy import String, and_, func, literal, or_
 
 from ..helpers import make_path
 from .base import FileStorage, StorageError
@@ -38,13 +39,16 @@ class PyFSFileStorage(FileStorage):
 
     """
 
-    def __init__(self, fileurl, size=None, modified=None, clean_dir=True):
+    def __init__(
+        self, fileurl, size=None, modified=None, clean_dir=True, location=None
+    ):
         """Storage initialization."""
         self.fileurl = fileurl
         self.clean_dir = clean_dir
+        self.location = location
         super(PyFSFileStorage, self).__init__(size=size, modified=modified)
 
-    def _get_fs(self, create_dir=True):
+    def _get_fs(self, create_dir=True, mode='rb'):
         """Return tuple with filesystem and filename."""
         filedir = dirname(self.fileurl)
         filename = basename(self.fileurl)
@@ -59,7 +63,7 @@ class PyFSFileStorage(FileStorage):
 
         The caller is responsible for closing the file.
         """
-        fs, path = self._get_fs()
+        fs, path = self._get_fs(mode=mode)
         return fs.open(path, mode=mode)
 
     def delete(self):
@@ -68,7 +72,7 @@ class PyFSFileStorage(FileStorage):
         The base directory is also removed, as it is assumed that only one file
         exists in the directory.
         """
-        fs, path = self._get_fs(create_dir=False)
+        fs, path = self._get_fs(create_dir=False, mode='wb')
         if fs.exists(path):
             fs.remove(path)
         if self.clean_dir and fs.exists('.'):
@@ -77,7 +81,7 @@ class PyFSFileStorage(FileStorage):
 
     def initialize(self, size=0):
         """Initialize file on storage and truncate to given size."""
-        fs, path = self._get_fs()
+        fs, path = self._get_fs(mode='wb')
 
         # Required for reliably opening the file on certain file systems:
         if fs.exists(path):
@@ -201,7 +205,9 @@ def pyfs_storage_factory(fileinstance=None, default_location=None,
     """Get factory function for creating a PyFS file storage instance."""
     # Either the FileInstance needs to be specified or all filestorage
     # class parameters need to be specified
+    from ..models import Location
     assert fileinstance or (fileurl and size)
+    location = None
 
     if fileinstance:
         # FIXME: Code here should be refactored since it assumes a lot on the
@@ -224,8 +230,45 @@ def pyfs_storage_factory(fileinstance=None, default_location=None,
                 current_app.config['FILES_REST_STORAGE_PATH_SPLIT_LENGTH'],
             )
 
+        if default_location:
+            location = Location.query.filter(Location.uri == str(default_location)).first()
+
+    if location is None:
+        # Match ``Location.uri`` as a path prefix of ``fileurl``, not as a
+        # plain text prefix: a boundary is required right after the URI so
+        # that e.g. the location ``s3://bucket-a`` never matches a file
+        # stored in ``s3://bucket-a2``. Selecting the wrong location would
+        # hand out the wrong (S3) credentials for the file.
+        fileurl_expr = literal(str(fileurl), String)
+        uri_length = func.length(Location.uri)
+        location = Location.query.filter(
+            and_(
+                func.substr(fileurl_expr, 1, uri_length) == Location.uri,
+                or_(
+                    # fileurl is exactly the location URI
+                    func.length(fileurl_expr) == uri_length,
+                    # the location URI already ends with a separator
+                    func.substr(Location.uri, uri_length, 1) == '/',
+                    # the character right after the URI is a separator
+                    func.substr(fileurl_expr, uri_length + 1, 1) == '/',
+                ),
+            )
+        ).order_by(uri_length.desc()).first()
+
+    if location is None:
+        # if not match fileurl with location, then get default location
+        location = Location.query.filter_by(default=True).first()
+
+    if location is None:
+        current_app.logger.warning('No location matched. fileurl={}'.format(fileurl))
+
     return filestorage_class(
-        fileurl, size=size, modified=modified, clean_dir=clean_dir)
+        fileurl,
+        size=size,
+        modified=modified,
+        clean_dir=clean_dir,
+        location=location
+    )
 
 
 def remove_dir_with_file(path):
