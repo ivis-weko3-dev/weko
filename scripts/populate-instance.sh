@@ -139,7 +139,10 @@ curl -ku admin:${OPENSEARCH_INITIAL_ADMIN_PASSWORD} -XPUT 'https://'${INVENIO_EL
   "backend_roles":["admin"]
 }'
 
-#${INVENIO_WEB_INSTANCE} index destroy --yes-i-know
+# ${INVENIO_WEB_INSTANCE} index destroy --yes-i-know
+# curl -ku ${INVENIO_OPENSEARCH_USER}:${INVENIO_OPENSEARCH_PASS} -XDELETE 'https://'${INVENIO_ELASTICSEARCH_HOST}':9200/'${SEARCH_INDEX_PREFIX}'-stats-index-*'
+# curl -ku ${INVENIO_OPENSEARCH_USER}:${INVENIO_OPENSEARCH_PASS} -XDELETE 'https://'${INVENIO_ELASTICSEARCH_HOST}':9200/'${SEARCH_INDEX_PREFIX}'-events-stats-index-*'
+# curl -ku ${INVENIO_OPENSEARCH_USER}:${INVENIO_OPENSEARCH_PASS} -XDELETE 'https://'${INVENIO_ELASTICSEARCH_HOST}':9200/_plugins/_ism/policies/weko_stats_policy'
 ${INVENIO_WEB_INSTANCE} index init
 sleep 20
 ${INVENIO_WEB_INSTANCE} index queue init
@@ -498,7 +501,7 @@ ${INVENIO_WEB_INSTANCE} authors_prefix default_settings \
 ${INVENIO_WEB_INSTANCE} authors_prefix default_settings \
        "Ringgold" "Ringgold" ""
 ${INVENIO_WEB_INSTANCE} authors_prefix default_settings \
-       "GRID" "GRID【非推奨】" "" 
+       "GRID" "GRID【非推奨】" ""
 ${INVENIO_WEB_INSTANCE} authors_prefix default_settings \
        "researchmap" "researchmap" "https://researchmap.jp/##"
 # create-default-authors-prefix-settings-end
