@@ -125,6 +125,10 @@ def default_sorter_factory(search, index):
     :param index: Index to search in.
     :returns: Tuple of (query, URL arguments).
     """
+    # Sort options are keyed by the non-prefixed index name.
+    prefix = current_app.config.get('SEARCH_INDEX_PREFIX') or ''
+    if prefix and index and index.startswith(prefix):
+        index = index[len(prefix):]
     sort_arg_name = 'sort'
     urlfield = request.values.get(sort_arg_name, '', type=str) \
         if has_request_context() else ''

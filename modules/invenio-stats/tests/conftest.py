@@ -29,8 +29,6 @@ import pytest
 import invenio_oauth2server.views.server  # noqa
 
 
-from elasticsearch import Elasticsearch
-from elasticsearch_dsl import response, Search
 from sqlalchemy_utils.functions import create_database, database_exists
 from kombu import Exchange, Queue
 from flask import Flask, appcontext_pushed, g
@@ -60,7 +58,7 @@ from invenio_records import InvenioRecords
 from invenio_records.api import Record
 from invenio_search import InvenioSearch, current_search, current_search_client
 from werkzeug.local import LocalProxy
-
+from invenio_search.engine import search, dsl
 from invenio_stats import InvenioStats, current_stats as _current_stats
 from invenio_stats.contrib.event_builders import build_file_unique_id, \
     build_record_unique_id, file_download_event_builder
@@ -288,8 +286,14 @@ def base_app(instance_path, mock_gethostbyaddr, search_class):
         #     "SQLALCHEMY_DATABASE_URI", "sqlite:///test.db"
         # ),
         SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', 'elasticsearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
+        # invenio-search (OpenSearch) reads SEARCH_HOSTS/SEARCH_CLIENT_CONFIG
+        SEARCH_HOSTS=os.environ.get('SEARCH_HOST', 'opensearch'),
+        SEARCH_CLIENT_CONFIG=dict(
+            http_auth=(os.environ.get('INVENIO_OPENSEARCH_USER', ''),
+                       os.environ.get('INVENIO_OPENSEARCH_PASS', '')),
+            use_ssl=True, verify_certs=False, timeout=60, max_retries=5),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         TESTING=True,
         OAUTH2SERVER_CLIENT_ID_SALT_LEN=64,
@@ -341,7 +345,7 @@ def base_app(instance_path, mock_gethostbyaddr, search_class):
     InvenioOAuth2Server(app_)
     InvenioOAuth2ServerREST(app_)
     InvenioMARC21(app_)
-    InvenioSearch(app_, entry_point_group=None, client=Elasticsearch("http://elasticsearch:9200"))
+    InvenioSearch(app_, entry_point_group=None)
 
     current_stats = LocalProxy(lambda: app_.extensions["invenio-stats"])
     return app_
@@ -535,7 +539,7 @@ def db(app):
 class MockEs():
     def __init__(self,**keywargs):
         self.indices = self.MockIndices()
-        self.es = Elasticsearch()
+        self.es = search.OpenSearch()
 
     @property
     def transport(self):
@@ -575,119 +579,36 @@ def es(app):
     Don't create template so that the test or another fixture can modify the
     enabled events.
     """
-    current_search_client.indices.delete(index='test-*')
-    # item_create event
-    with open("invenio_stats/contrib/item_create/v6/item-create-v1.json", "r") as f:
-        item_create_mapping = json.load(f)
-    item_create_mapping.update({'aliases':
-        {'{}events-stats-item-create'.format(app.config['SEARCH_INDEX_PREFIX']): {'is_write_index': True}}})
-    current_search_client.indices.create(
-        index='{}events-stats-item-create-0001'.format(app.config['SEARCH_INDEX_PREFIX']),
-        body=item_create_mapping, ignore=[400, 404]
-    )
-    # item_create aggr
-    with open("invenio_stats/contrib/aggregations/aggr_item_create/v6/aggr-item-create-v1.json", "r") as f:
-        aggr_item_create_mapping = json.load(f)
-    aggr_item_create_mapping.update({'aliases':
-        {'{}stats-item-create'.format(app.config['SEARCH_INDEX_PREFIX']): {'is_write_index': True}}})
-    current_search_client.indices.create(
-        index='{}stats-item-create-0001'.format(app.config['SEARCH_INDEX_PREFIX']),
-        body=aggr_item_create_mapping, ignore=[400, 404]
-    )
-    # top_view event
-    with open("invenio_stats/contrib/top_view/v6/top-view-v1.json", "r") as f:
-        top_view_mapping = json.load(f)
-    top_view_mapping.update({'aliases':
-        {'{}events-stats-top-view'.format(app.config['SEARCH_INDEX_PREFIX']): {'is_write_index': True}}})
-    current_search_client.indices.create(
-        index='{}events-stats-top-view-0001'.format(app.config['SEARCH_INDEX_PREFIX']),
-        body=top_view_mapping, ignore=[400, 404]
-    )
-    # top_view aggr
-    with open("invenio_stats/contrib/aggregations/aggr_top_view/v6/aggr-top-view-v1.json", "r") as f:
-        aggr_top_view_mapping = json.load(f)
-    aggr_top_view_mapping.update({'aliases':
-        {'{}stats-top-view'.format(app.config['SEARCH_INDEX_PREFIX']): {'is_write_index': True}}})
-    current_search_client.indices.create(
-        index='{}stats-top-view-0001'.format(app.config['SEARCH_INDEX_PREFIX']),
-        body=aggr_top_view_mapping, ignore=[400, 404]
-    )
-    # search event
-    with open("invenio_stats/contrib/search/v6/search-v1.json", "r") as f:
-        search_mapping = json.load(f)
-    search_mapping.update({'aliases':
-        {'{}events-stats-search'.format(app.config['SEARCH_INDEX_PREFIX']): {'is_write_index': True}}})
-    current_search_client.indices.create(
-        index='{}events-stats-search-0001'.format(app.config['SEARCH_INDEX_PREFIX']),
-        body=search_mapping, ignore=[400, 404]
-    )
-    # search aggr
-    with open("invenio_stats/contrib/aggregations/aggr_search/v6/aggr-search-v1.json", "r") as f:
-        aggr_search_mapping = json.load(f)
-    aggr_search_mapping.update({'aliases':
-        {'{}stats-search'.format(app.config['SEARCH_INDEX_PREFIX']): {'is_write_index': True}}})
-    current_search_client.indices.create(
-        index='{}stats-search-0001'.format(app.config['SEARCH_INDEX_PREFIX']),
-        body=aggr_search_mapping, ignore=[400, 404]
-    )
-    # file_download event
-    with open("invenio_stats/contrib/file_download/v6/file-download-v1.json", "r") as f:
-        file_download_mapping = json.load(f)
-    file_download_mapping.update({'aliases':
-        {'{}events-stats-file-download'.format(app.config['SEARCH_INDEX_PREFIX']): {'is_write_index': True}}})
-    current_search_client.indices.create(
-        index='{}events-stats-file-download-0001'.format(app.config['SEARCH_INDEX_PREFIX']),
-        body=file_download_mapping, ignore=[400, 404]
-    )
-    # file_download aggr
-    with open("invenio_stats/contrib/aggregations/aggr_file_download/v6/aggr-file-download-v1.json", "r") as f:
-        aggr_file_download_mapping = json.load(f)
-    aggr_file_download_mapping.update({'aliases':
-        {'{}stats-file-download'.format(app.config['SEARCH_INDEX_PREFIX']): {'is_write_index': True}}})
-    current_search_client.indices.create(
-        index='{}stats-file-download-0001'.format(app.config['SEARCH_INDEX_PREFIX']),
-        body=aggr_file_download_mapping, ignore=[400, 404]
-    )
-    # file_preview event
-    with open("invenio_stats/contrib/file_preview/v6/file-preview-v1.json", "r") as f:
-        file_preview_mapping = json.load(f)
-    file_preview_mapping.update({'aliases':
-        {'{}events-stats-file-preview'.format(app.config['SEARCH_INDEX_PREFIX']): {'is_write_index': True}}})
-    current_search_client.indices.create(
-        index='{}events-stats-file-preview-0001'.format(app.config['SEARCH_INDEX_PREFIX']),
-        body=file_preview_mapping, ignore=[400, 404]
-    )
-    # file_preview aggr
-    with open("invenio_stats/contrib/aggregations/aggr_file_preview/v6/aggr-file-preview-v1.json", "r") as f:
-        aggr_file_preview_mapping = json.load(f)
-    aggr_file_preview_mapping.update({'aliases':
-        {'{}stats-file-preview'.format(app.config['SEARCH_INDEX_PREFIX']): {'is_write_index': True}}})
-    current_search_client.indices.create(
-        index='{}stats-file-preview-0001'.format(app.config['SEARCH_INDEX_PREFIX']),
-        body=aggr_file_preview_mapping, ignore=[400, 404]
-    )
-    # record_view event
-    with open("invenio_stats/contrib/record_view/v6/record-view-v1.json", "r") as f:
-        record_view_mapping = json.load(f)
-    record_view_mapping.update({'aliases':
-        {'{}events-stats-record-view'.format(app.config['SEARCH_INDEX_PREFIX']): {'is_write_index': True}}})
-    current_search_client.indices.create(
-        index='{}events-stats-record-view-0001'.format(app.config['SEARCH_INDEX_PREFIX']),
-        body=record_view_mapping, ignore=[400, 404]
-    )
-    # record_view aggr
-    with open("invenio_stats/contrib/aggregations/aggr_record_view/v6/aggr-record-view-v1.json", "r") as f:
-        aggr_record_view_mapping = json.load(f)
-    aggr_record_view_mapping.update({'aliases':
-        {'{}stats-record-view'.format(app.config['SEARCH_INDEX_PREFIX']): {'is_write_index': True}}})
-    current_search_client.indices.create(
-        index='{}stats-record-view-0001'.format(app.config['SEARCH_INDEX_PREFIX']),
-        body=aggr_record_view_mapping, ignore=[400, 404]
-    )
-    try:
-        yield current_search_client
-    finally:
+    with app.app_context():
         current_search_client.indices.delete(index='test-*')
+        # events
+        with open("invenio_stats/contrib/events/os-v2/events-v1.json", "r") as f:
+            item_create_mapping = json.load(f)
+            if "index_patterns" in item_create_mapping:
+                del item_create_mapping["index_patterns"]
+            if "aliases" in item_create_mapping:
+                del item_create_mapping["aliases"]
+        current_search_client.indices.create(
+            index='{}events-stats-index'.format(
+                app.config['SEARCH_INDEX_PREFIX']),
+            body=item_create_mapping
+        )
+        # aggregations
+        with open("invenio_stats/contrib/aggregations/os-v2/aggregation-v1.json", "r") as f:
+            aggr_item_create_mapping = json.load(f)
+            if "index_patterns" in aggr_item_create_mapping:
+                del aggr_item_create_mapping["index_patterns"]
+            if "aliases" in aggr_item_create_mapping:
+                del aggr_item_create_mapping["aliases"]
+        current_search_client.indices.create(
+            index='{}stats-index'.format(app.config['SEARCH_INDEX_PREFIX']),
+            body=aggr_item_create_mapping
+        )
+
+        try:
+            yield current_search_client
+        finally:
+            current_search_client.indices.delete(index='test-*')
 
 
 @pytest.yield_fixture()
@@ -779,6 +700,8 @@ def objects(bucket):
         obj.site_license_name = ''
         obj.site_license_flag = False
         obj.index_list = []
+        obj.index_id = ''
+        obj.is_open_access = True
         obj.userid = 0
         obj.item_id = 1
         obj.item_title = 'test title'
@@ -881,7 +804,7 @@ def mock_es_execute():
         if isinstance(data, str):
             with open(data, "r") as f:
                 data = json.load(f)
-        dummy=response.Response(Search(), data)
+        dummy=dsl.response.Response(dsl.Search(), data)
         return dummy
     return _dummy_response
 
@@ -1075,6 +998,7 @@ def _create_file_download_event(timestamp,
         user_id=user_id,
         remote_addr=remote_addr,
         unique_session_id=unique_session_id,
+        event_type='file-download',
     )
     return build_file_unique_id(doc)
 

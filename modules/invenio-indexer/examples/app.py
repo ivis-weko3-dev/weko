@@ -60,7 +60,6 @@ app.config.update(
     CELERY_CACHE_BACKEND='memory',
     CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
     CELERY_RESULT_BACKEND='cache',
-    INDEXER_DEFAULT_DOC_TYPE='testrecord-v1.0.0',
     INDEXER_DEFAULT_INDEX=index_name,
     SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI',
                                       'sqlite:///app.db'),

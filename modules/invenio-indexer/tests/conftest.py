@@ -36,8 +36,8 @@ def base_app(request):
     instance_path = tempfile.mkdtemp()
     app = Flask('testapp', instance_path=instance_path)
     app.config.update(
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-                'SEARCH_ELASTIC_HOSTS', 'elasticsearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         BROKER_URL='amqp://guest:guest@rabbitmq:5672/',
         CELERY_BROKER_URL = 'amqp://guest:guest@rabbitmq:5672/',
         CELERY_ALWAYS_EAGER=True,
@@ -48,7 +48,6 @@ def base_app(request):
         SECRET_KEY='CHANGE_ME',
         SECURITY_PASSWORD_SALT='CHANGE_ME_ALSO',
         INDEXER_DEFAULT_INDEX='records-default-v1.0.0',
-        INDEXER_DEFAULT_DOC_TYPE='default-v1.0.0',
         # SQLALCHEMY_DATABASE_URI=os.environ.get(
         #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
         SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',

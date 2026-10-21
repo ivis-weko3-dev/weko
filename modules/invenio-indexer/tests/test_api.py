@@ -98,7 +98,6 @@ def test_index_action(app):
             ))
             assert action['_op_type'] == 'index'
             assert action['_index'] == app.config['INDEXER_DEFAULT_INDEX']
-            assert action['_type'] == app.config['INDEXER_DEFAULT_DOC_TYPE']
             assert action['_id'] == str(record.id)
             assert action['_version'] == record.revision_id
             assert action['_version_type'] == 'external_gte'
@@ -172,7 +171,6 @@ def test_index(app):
             version=0,
             version_type='force',
             index=app.config['INDEXER_DEFAULT_INDEX'],
-            doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],
             body={
                 'title': 'Test',
                 '_created': pytz.utc.localize(record.created).isoformat(),
@@ -199,7 +197,6 @@ def test_delete(app):
         client_mock.delete.assert_called_with(
             id=str(recid),
             index=app.config['INDEXER_DEFAULT_INDEX'],
-            doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],
         )
 
         with patch('invenio_indexer.api.RecordIndexer.delete') as fun:

@@ -37,7 +37,7 @@ from .config import WEKO_INDEX_TREE_RSS_COUNT_LIMIT, \
     WEKO_INDEX_TREE_RSS_DEFAULT_LANG, WEKO_INDEX_TREE_RSS_DEFAULT_PAGE, \
     WEKO_INDEX_TREE_RSS_DEFAULT_TERM, WEKO_INDEX_TREE_STATE_PREFIX
 from .scopes import create_index_scope
-from .utils import generate_path, get_elasticsearch_records_data_by_indexes
+from .utils import generate_path, get_search_records_data_by_indexes
 
 blueprint = Blueprint(
     'weko_index_tree',
@@ -86,7 +86,7 @@ def get_rss_data():
     current_date = date.today()
     end_date = current_date.strftime("%Y-%m-%d")
     start_date = (current_date - timedelta(days=term)).strftime("%Y-%m-%d")
-    records_data = get_elasticsearch_records_data_by_indexes(idx_tree_ids,
+    records_data = get_search_records_data_by_indexes(idx_tree_ids,
                                                              start_date,
                                                              end_date)
 

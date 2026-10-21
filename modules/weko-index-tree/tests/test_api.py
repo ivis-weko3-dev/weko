@@ -29,7 +29,6 @@ from datetime import datetime
 from mock import patch, Mock, MagicMock
 
 from redis.exceptions import RedisError
-from elasticsearch.exceptions import NotFoundError
 from invenio_access.models import Role
 from invenio_communities.models import Community
 from invenio_accounts.testutils import login_user_via_view, login_user_via_session
@@ -596,7 +595,7 @@ def test_indexes_delete_by_action(app, db, user):
 #     def is_public_state_and_not_in_future(cls, ids):
 #         def _query(_id):
 #     def set_item_sort_custom(cls, index_id, sort_json={}):
-#     def update_item_sort_custom_es(cls, index_path, sort_json=[]):
+#     def update_item_sort_custom_search(cls, index_path, sort_json=[]):
 #     def get_item_sort(cls, index_id):
 #     def have_children(cls, index_id):
 #     def get_coverpage_state(cls, indexes: list):
@@ -878,6 +877,6 @@ def test_indexes_get_index_tree(i18n_app,
         res = Indexes.have_children(3)
         assert res==False
 
-        # update_item_sort_custom_es
-        res = Indexes.update_item_sort_custom_es("33", [{"1": "1", "2": "2"}])
+        # update_item_sort_custom_search
+        res = Indexes.update_item_sort_custom_search("33", [{"1": "1", "2": "2"}])
         assert res==None

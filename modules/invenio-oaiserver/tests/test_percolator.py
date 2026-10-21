@@ -30,7 +30,6 @@ from invenio_oaiserver.receivers import after_delete_oai_set, \
 from invenio_oaiserver.percolator import (
     _create_percolator_mapping,
     _percolate_query,
-    _get_percolator_doc_type,
     _new_percolator,
     _delete_percolator,
     _build_cache,
@@ -291,65 +290,28 @@ def test_oaiset_add_remove_record(app, db):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_create_percolator_mapping -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_create_percolator_mapping(es_app):
     index = "test-weko-item-v1.0.0"
-    # es_version = 6
-    _create_percolator_mapping(index,"percolators")
-    
-    with patch("invenio_oaiserver.percolator.ES_VERSION",[2]):
-        _create_percolator_mapping(index,"percolators")
+    _create_percolator_mapping(index)
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_percolate_query -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_percolate_query(es_app):
     current_search_client.indices.put_mapping(
-        index="test-weko-item-v1.0.0", doc_type="item-v1.0.0",
+        index="test-weko-item-v1.0.0",
         body={
             'properties': {'query': {'type': 'percolator'}}
         }, ignore=[400, 404])
     current_search_client.index(
-        index="test-weko-item-v1.0.0", doc_type="item-v1.0.0",
+        index="test-weko-item-v1.0.0",
         id="oaiset-1",body={
             "query":{'query_string': {'query': 'test_pettern'}}
         }
     )
-    result = _percolate_query("test-weko-item-v1.0.0","item-v1.0.0","item-v1.0.0",{})
+    result = _percolate_query("test-weko-item-v1.0.0",{})
     assert result == []
-    with patch("invenio_oaiserver.percolator.ES_VERSION",[7]):
-        result = _percolate_query("test-weko-item-v1.0.0","item_v1.0.0","item_v1.0.0",{})
-        assert result == None
-    
-    def mock_percolate(index=None,doc_type=None,allow_no_indices=True,ignore_unavailable=True,body={}):
-        return {"matches":[]}
-    with patch("invenio_oaiserver.percolator.ES_VERSION",[2]):
-        setattr(current_search_client,"percolate",mock_percolate)
-        result = _percolate_query("test-weko-item-v1.0.0","item-v1.0.0","item-v1.0.0",{})
-        assert result == []
-
-# .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_get_percolator_doc_type -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_get_percolator_doc_type(es_app):
-    index = "test-weko-item-v1.0.0"
-    
-    # es_version = 2
-    with patch("invenio_oaiserver.percolator.ES_VERSION",[2]):
-        result = _get_percolator_doc_type(index)
-        assert result == ".percolator"
-    
-    # es_version = 5
-    with patch("invenio_oaiserver.percolator.ES_VERSION",[5]):
-        result = _get_percolator_doc_type(index)
-        assert result == "percolators"
-
-    # es_version = 6
-    result = _get_percolator_doc_type(index)
-    assert result == "item-v1.0.0"
-    
-    # other
-    with patch("invenio_oaiserver.percolator.ES_VERSION",[7]):
-        result = _get_percolator_doc_type(index)
-        assert result == None
 
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_new_percolator -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_new_percolator(es_app,db,without_oaiset_signals,mocker):
-    mocker.patch("invenio_oaiserver.percolator.INDEXER_DEFAULT_INDEX","test-weko-item-v1.0.0")
+    mocker.patch("invenio_oaiserver.percolator.INDEXER_DEFAULT_INDEX","weko-item-v1.0.0")
     oai = OAISet(id=1,
         spec='test',
         name='test_name',
@@ -363,7 +325,7 @@ def test_new_percolator(es_app,db,without_oaiset_signals,mocker):
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_percolator.py::test_delete_percolator -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_delete_percolator(es_app,mocker):
-    mocker.patch("invenio_oaiserver.percolator.INDEXER_DEFAULT_INDEX","test-weko-item-v1.0.0")
+    mocker.patch("invenio_oaiserver.percolator.INDEXER_DEFAULT_INDEX","weko-item-v1.0.0")
 
     # spec is None
     _delete_percolator(None,None)

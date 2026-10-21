@@ -37,6 +37,7 @@ from invenio_accounts.models import Role
 from invenio_db import db
 from invenio_i18n.ext import current_i18n
 from invenio_indexer.api import RecordIndexer
+from invenio_search.utils import build_alias_name
 from invenio_stats.config import STATS_WEKO_DEFAULT_TIMEZONE
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import aliased
@@ -1480,7 +1481,7 @@ class Indexes(object):
             db.session.rollback()
 
     @classmethod
-    def update_item_sort_custom_es(cls, index_path, sort_json=[]):
+    def update_item_sort_custom_search(cls, index_path, sort_json=[]):
         """Set custom sort.
 
         :param index_path selected index path
@@ -1495,13 +1496,13 @@ class Indexes(object):
                     }
                 }
             }
-            es_index = current_app.config['SEARCH_UI_SEARCH_INDEX']
-            es_doc_type = current_app.config['INDEXER_DEFAULT_DOCTYPE']
+            search_index = build_alias_name(
+                current_app.config['SEARCH_UI_SEARCH_INDEX'])
             query_q = orjson.dumps(upd_item_sort_q).decode().replace("@index", index_path)
             query_q = orjson.loads(query_q)
             indexer = RecordIndexer()
             res = indexer.client.search(
-                index=es_index,
+                index=search_index,
                 body=query_q)
 
             for d in sort_json:
@@ -1515,8 +1516,7 @@ class Indexes(object):
                             }
                         }
                         indexer.client.update(
-                            index=es_index,
-                            doc_type=es_doc_type,
+                            index=search_index,
                             id=h.get("_id"),
                             body=body
                         )

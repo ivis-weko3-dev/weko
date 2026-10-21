@@ -13,7 +13,7 @@ from weko_index_tree.utils import (
     get_index_id_list,
     get_publish_index_id_list,
     get_admin_coverpage_setting,
-    get_elasticsearch_records_data_by_indexes,
+    get_search_records_data_by_indexes,
     get_index_id,
     count_items,
     check_doi_in_index_and_child_index,
@@ -778,14 +778,14 @@ def test_get_admin_coverpage_setting(pdfcoverpage):
     assert get_admin_coverpage_setting()
 
 
-#+++ def get_elasticsearch_records_data_by_indexes(index_ids, start_date, end_date):
-def test_get_elasticsearch_records_data_by_indexes(i18n_app, db_records, indices, esindex):
+#+++ def get_search_records_data_by_indexes(index_ids, start_date, end_date):
+def test_get_search_records_data_by_indexes(i18n_app, db_records, indices, esindex):
     idx_tree_ids = [idx.cid for idx in Indexes.get_recursive_tree(indices['index_non_dict'].id)]
     current_date = date.today()
     start_date = (current_date - timedelta(days=1)).strftime("%Y-%m-%d")
     end_date = current_date.strftime("%Y-%m-%d")
 
-    assert get_elasticsearch_records_data_by_indexes(idx_tree_ids, start_date, end_date)
+    assert get_search_records_data_by_indexes(idx_tree_ids, start_date, end_date)
     
 
 #+++ def generate_path(index_ids):

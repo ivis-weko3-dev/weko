@@ -96,7 +96,7 @@ def test_stats_query_resource_error(client, db, query_entrypoints,
         data=json.dumps(sample_histogram_query_data))
     assert resp.status_code==200
 
-    with patch("invenio_stats.queries.ESDateHistogramQuery.run", side_effect=ValueError("test key error")):
+    with patch("invenio_stats.queries.DateHistogramQuery.run", side_effect=ValueError("test key error")):
         resp = client.post(
             url_for('invenio_stats.stat_query'),
             headers=headers,
@@ -156,7 +156,7 @@ def test_query_record_view_count(client, db, es, records):
         ]
     }
     with patch("invenio_stats.views.PIDVersioning", side_effect=mockPIDVersioning):
-        with patch("invenio_stats.queries.ESTermsQuery.run", return_value=_res_data):
+        with patch("invenio_stats.queries.TermsQuery.run", return_value=_res_data):
             res = client.get(
                 url_for('invenio_stats.get_record_view_count', record_id=_uuid))
             assert res.status_code==200
@@ -202,7 +202,7 @@ def test_query_file_stats_count(client, db):
             }
         ]
     }
-    with patch("invenio_stats.queries.ESWekoFileStatsQuery.run", return_value=_res_data):
+    with patch("invenio_stats.queries.WekoFileStatsQuery.run", return_value=_res_data):
         res = client.get(
             url_for('invenio_stats.get_file_stats_count', bucket_id=_uuid, file_key='test.pdf'))
         assert res.status_code==200
@@ -217,7 +217,7 @@ def test_query_file_stats_count(client, db):
             }
         ]
     }
-    with patch("invenio_stats.queries.ESWekoFileStatsQuery.run", return_value=_res_data):
+    with patch("invenio_stats.queries.WekoFileStatsQuery.run", return_value=_res_data):
         res = client.get(
             url_for('invenio_stats.get_file_stats_count', bucket_id=_uuid, file_key='test.pdf'))
         assert res.status_code==200
@@ -363,7 +363,7 @@ def test_query_celery_task_report(client, role_users, id, status_code):
             }
         ]
     }
-    with patch("invenio_stats.queries.ESTermsQuery.run", return_value=_res_data):
+    with patch("invenio_stats.queries.TermsQuery.run", return_value=_res_data):
         res = client.get(
             url_for('invenio_stats.get_celery_task_report', task_name='harvest'))
         assert res.status_code==status_code

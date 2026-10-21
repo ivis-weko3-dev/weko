@@ -28,7 +28,7 @@ from .models import WidgetDesignPage
 from .services import WidgetDataLoaderServices, WidgetDesignPageServices, \
     WidgetDesignServices, WidgetItemServices
 from .utils import WidgetBucket, get_default_language, \
-    get_elasticsearch_result_by_date, get_system_language, \
+    get_search_result_by_date, get_system_language, \
     get_widget_design_setting, get_widget_type_list, validate_upload_file
 
 blueprint = Blueprint(
@@ -360,7 +360,7 @@ def get_rss_data():
     current_date = date.today()
     end_date = current_date.strftime("%Y-%m-%d")
     start_date = (current_date - timedelta(days=term)).strftime("%Y-%m-%d")
-    rd = get_elasticsearch_result_by_date(start_date, end_date)
+    rd = get_search_result_by_date(start_date, end_date)
     return WidgetDataLoaderServices.get_arrivals_rss(rd, term, count)
 
 

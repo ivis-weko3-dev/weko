@@ -11,7 +11,7 @@
 from datetime import datetime
 
 import six
-from elasticsearch_dsl import Q
+from invenio_search.engine import dsl
 from flask import current_app
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records.models import RecordMetadata
@@ -40,7 +40,7 @@ class OAIServerSearch(RecordsSearch):
     class Meta:
         """Configuration for OAI server search."""
 
-        default_filter = Q('exists', field='_oai.id')
+        default_filter = dsl.Q('exists', field='_oai.id')
 
 
 def get_affected_records(spec=None, search_pattern=None):
@@ -64,14 +64,14 @@ def get_affected_records(spec=None, search_pattern=None):
     queries = []
 
     if spec is not None:
-        queries.append(Q('match', **{'_oai.sets': spec.split(':')[-1]}))
+        queries.append(dsl.Q('match', **{'_oai.sets': spec.split(':')[-1]}))
 
     if search_pattern:
         queries.append(query_string_parser(search_pattern=search_pattern))
 
     search = OAIServerSearch(
         index=current_app.config['OAISERVER_RECORD_INDEX'],
-    ).query(Q('bool', should=queries))
+    ).query(dsl.Q('bool', should=queries))
 
     for result in search.scan():
         yield result.meta.id
@@ -134,6 +134,7 @@ def get_records(**kwargs):
             scroll='{0}s'.format(scroll),
         ).extra(
             version='true',
+            track_total_hits=True,
         ).sort(
             {'control_number': {'order': 'asc'}}
         )[(page_ - 1) * size_:page_ * size_]
@@ -207,7 +208,7 @@ def get_records(**kwargs):
         def __init__(self, response):
             """Initilize pagination."""
             self.response = response
-            self.total = response['hits']['total']
+            self.total = response['hits']['total']['value']
             self._scroll_id = response.get('_scroll_id')
 
             # clean descriptor on last page

@@ -44,7 +44,7 @@ from .models import WidgetDesignPage, WidgetDesignPageMultiLangData, \
 from .utils import build_data, build_multi_lang_data, build_rss_xml, \
     convert_data_to_design_pack, convert_data_to_edit_pack, \
     convert_widget_data_to_dict, delete_widget_cache, \
-    get_elasticsearch_result_by_date, update_general_item, \
+    get_search_result_by_date, update_general_item, \
     validate_main_widget_insertion
 
 

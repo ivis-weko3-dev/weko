@@ -46,7 +46,7 @@ def test_post_service_document(app,client,db,users,esindex,location,index,make_z
         loc.size = 1547
     mocker.patch("weko_swordserver.views._get_status_document",side_effect=lambda x:{"recid":x})
     mocker.patch("weko_search_ui.utils.find_and_update_location_size",side_effect=update_location_size)
-    mocker.patch("weko_search_ui.utils.send_item_created_event_to_es")
+    mocker.patch("weko_search_ui.utils.send_item_created_event_to_search")
     zip = make_zip()
     storage = FileStorage(filename="payload.zip",stream=zip)
     res = client.post(url, data=dict(file=storage),content_type="multipart/form-data",headers=headers)

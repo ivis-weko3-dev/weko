@@ -30,8 +30,6 @@ from os.path import join
 from time import sleep
 import pytest
 import requests
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import RequestError
 from flask import Flask, url_for
 from flask_babelex import Babel
 from flask_babelex import lazy_gettext as _
@@ -122,7 +120,8 @@ from invenio_stats.contrib.event_builders import (
     build_record_unique_id,
     file_download_event_builder,
 )
-
+from opensearchpy import OpenSearch
+from opensearchpy.exceptions import RequestError
 from weko_admin import WekoAdmin
 from weko_admin.config import WEKO_ADMIN_DEFAULT_ITEM_EXPORT_SETTINGS, WEKO_ADMIN_MANAGEMENT_OPTIONS
 from weko_admin.models import FacetSearchSetting, Identifier, SessionLifetime
@@ -275,7 +274,6 @@ def base_app(instance_path, search_class, request):
         DEPOSIT_DEFAULT_JSONSCHEMA=DEPOSIT_DEFAULT_JSONSCHEMA,
         SERVER_NAME="test_server",
         LOGIN_DISABLED=False,
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME = 'jpcoar_v1_mapping',
         WEKO_SCHEMA_DDI_SCHEMA_NAME = "ddi_mapping",
         INDEXER_FILE_DOC_TYPE="content",
@@ -287,7 +285,7 @@ def base_app(instance_path, search_class, request):
         #     "SQLALCHEMY_DATABASE_URI", "sqlite:///test.db"
         # ),
         SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
-        SEARCH_ELASTIC_HOSTS=os.environ.get("SEARCH_ELASTIC_HOSTS", "elasticsearch"),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch"),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         JSONSCHEMAS_HOST="inveniosoftware.org",
         ACCOUNTS_USERINFO_HEADERS=True,
@@ -308,7 +306,7 @@ def base_app(instance_path, search_class, request):
         FILES_REST_OBJECT_KEY_MAX_LEN=255,
         # SEARCH_UI_SEARCH_INDEX=SEARCH_UI_SEARCH_INDEX,
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        # SEARCH_ELASTIC_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
+        # SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
         SEARCH_INDEX_PREFIX="{}-".format("test"),
         SEARCH_CLIENT_CONFIG=dict(timeout=120, max_retries=10),
         OAISERVER_ID_PREFIX="oai:inveniosoftware.org:recid/",
@@ -363,7 +361,7 @@ def base_app(instance_path, search_class, request):
         WEKO_ADMIN_CACHE_TEMP_DIR_INFO_KEY_DEFAULT="cache::temp_dir_info",
         WEKO_ITEMS_UI_EXPORT_TMP_PREFIX="weko_export_",
         WEKO_SEARCH_UI_IMPORT_TMP_PREFIX="weko_import_",
-        WEKO_AUTHORS_ES_INDEX_NAME="{}-authors".format(index_prefix),
+        WEKO_AUTHORS_SEARCH_INDEX_NAME="{}-authors".format(index_prefix),
         WEKO_AUTHORS_ES_DOC_TYPE="author-v1.0.0",
         WEKO_HANDLE_ALLOW_REGISTER_CNRI=True,
         WEKO_PERMISSION_ROLE_USER=[
@@ -2384,7 +2382,7 @@ def db_index2(client, users):
 @pytest.fixture()
 def es_records(app, db, db_index, location, db_itemtype, db_oaischema):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         for i in range(1, 10):
@@ -2603,8 +2601,8 @@ def es_records(app, db, db_index, location, db_itemtype, db_oaischema):
             )
 
     sleep(3)
-    es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
-    # print(es.cat.indices())
+    open_search = OpenSearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
+    # print(open_search.cat.indices())
     return {"indexer": indexer, "results": results}
 
 
@@ -2664,7 +2662,7 @@ def indextree(client, users):
 @pytest.fixture()
 def doi_records(app, db, identifier, indextree, location, db_itemtype, db_oaischema):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         i = 1
@@ -2713,8 +2711,8 @@ def doi_records(app, db, identifier, indextree, location, db_itemtype, db_oaisch
 
 
 @pytest.fixture()
-def es_item_file_pipeline(es):
-    from elasticsearch.client.ingest import IngestClient
+def search_item_file_pipeline(es):
+    from opensearchpy.client.ingest import IngestClient
 
     p = IngestClient(current_search_client)
     p.put_pipeline(
@@ -2773,34 +2771,16 @@ def identifier(db):
 def record_indexer_receiver(sender, json=None, record=None, index=None,
                             **kwargs):
     """Mock-receiver of a before_record_index signal."""
-    if ES_VERSION[0] == 2:
-        suggest_byyear = {}
-        suggest_byyear['context'] = {
-            'year': json['year']
-        }
-        suggest_byyear['input'] = [json['title'], ]
-        suggest_byyear['output'] = json['title']
-        suggest_byyear['payload'] = copy.deepcopy(json)
+    suggest_byyear = {}
+    suggest_byyear['contexts'] = {
+        'year': [str(json['year'])]
+    }
+    suggest_byyear['input'] = [json['title'], ]
 
-        suggest_title = {}
-        suggest_title['input'] = [json['title'], ]
-        suggest_title['output'] = json['title']
-        suggest_title['payload'] = copy.deepcopy(json)
-
-        json['suggest_byyear'] = suggest_byyear
-        json['suggest_title'] = suggest_title
-
-    elif ES_VERSION[0] >= 5:
-        suggest_byyear = {}
-        suggest_byyear['contexts'] = {
-            'year': [str(json['year'])]
-        }
-        suggest_byyear['input'] = [json['title'], ]
-
-        suggest_title = {}
-        suggest_title['input'] = [json['title'], ]
-        json['suggest_byyear'] = suggest_byyear
-        json['suggest_title'] = suggest_title
+    suggest_title = {}
+    suggest_title['input'] = [json['title'], ]
+    json['suggest_byyear'] = suggest_byyear
+    json['suggest_title'] = suggest_title
 
     return json
 
@@ -2809,7 +2789,7 @@ def record_indexer_receiver(sender, json=None, record=None, index=None,
 
 @pytest.yield_fixture()
 def es(app):
-    """Elasticsearch fixture."""
+    """OpenSearch fixture."""
     try:
         list(current_search.create())
     except RequestError:
@@ -4094,7 +4074,7 @@ def facet_test_data(app, db, users, facet_es_records, redis_connect):
 @pytest.fixture()
 def facet_es_records(app, db, users):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         # {"email": contributor.email, "id": contributor.id, "obj": contributor}
@@ -4208,7 +4188,7 @@ def facet_es_records(app, db, users):
 @pytest.fixture()
 def create_export_all_data(db):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     filepath = "tests/data/helloworld.pdf"
     filename = "helloworld.pdf"
     mimetype = "application/pdf"

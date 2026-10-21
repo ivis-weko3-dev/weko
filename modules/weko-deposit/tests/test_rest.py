@@ -24,7 +24,7 @@ import pytest
 from mock import patch
 import redis
 
-from elasticsearch import ElasticsearchException
+from invenio_search.engine import search
 from sqlalchemy.exc import SQLAlchemyError
 from flask import url_for
 from weko_deposit.api import WekoDeposit
@@ -195,7 +195,7 @@ def test_depid_item_put(client, users,es_records):
         assert res.status_code == 400
         assert "Failed to register item!" in res.data.decode("utf-8")
     
-    with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=ElasticsearchException("test_es_error")):
+    with patch("weko_deposit.rest.PersistentIdentifier.get",side_effect=search.OpenSearchException("test_es_error")):
         res = client.put(url, data=json.dumps(input),
                      content_type='application/json')
         assert res.status_code == 400

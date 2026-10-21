@@ -95,7 +95,6 @@ def base_app(instance_path):
         WEKO_GRIDLAYOUT_ADMIN_WIDGET_DESIGN = 'weko_gridlayout/admin/widget_design.html',
         SERVER_NAME="TEST_SERVER",
         SEARCH_INDEX_PREFIX='test-',
-        INDEXER_DEFAULT_DOC_TYPE='testrecord',
         SEARCH_UI_SEARCH_INDEX='tenant1-weko',
         SECRET_KEY='SECRET_KEY',
         CACHE_REDIS_DB='0',

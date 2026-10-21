@@ -36,13 +36,13 @@ from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
-from elasticsearch import Elasticsearch
-from elasticsearch.client.ingest import IngestClient
 from flask import Blueprint, Flask
 from flask_assets import assets
 from flask_babelex import Babel
 from flask_login import LoginManager, UserMixin
 from flask_menu import Menu
+from opensearchpy import OpenSearch
+from opensearchpy.client.ingest import IngestClient
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionRoles, ActionUsers
 from invenio_accounts import InvenioAccounts
@@ -250,10 +250,8 @@ def base_app(instance_path):
         WEKO_SCHEMA_UI_ADMIN_UPLOAD="weko_schema_ui/admin/upload.html",
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko-item-v1.0.0".format("test"),
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
-        INDEXER_DEFAULT_DOC_TYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
-        SEARCH_ELASTIC_HOSTS="elasticsearch",
+        SEARCH_OPENSEARCH_HOSTS="opensearch",
         SEARCH_INDEX_PREFIX="test-",
         WEKO_BUCKET_QUOTA_SIZE=50 * 1024 * 1024 * 1024,
         WEKO_MAX_FILE_SIZE=50 * 1024 * 1024 * 1024,
@@ -734,12 +732,12 @@ def esindex(app):
             index=app.config["INDEXER_DEFAULT_INDEX"], name="test-weko"
         )
         
-        es = Elasticsearch(
-            [app.config['SEARCH_ELASTIC_HOSTS']],
+        open_search = OpenSearch(
+            [app.config['SEARCH_OPENSEARCH_HOSTS']],
             scheme="http",
             port=9200
         )
-        p = IngestClient(es)
+        p = IngestClient(open_search)
         p.put_pipeline(id='item-file-pipeline', body={
             'description': "Index contents of each file.",
             'processors' : [
@@ -901,7 +899,7 @@ def itemtypes(app, db):
 @pytest.fixture()
 def records(app, db, esindex, indextree, location, itemtypes, db_oaischema):
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         i = 1
@@ -928,7 +926,7 @@ def records(app, db, esindex, indextree, location, itemtypes, db_oaischema):
         il = ItemLink(str(i))
         il.bulk_update([{"item_id": "1", "sele_id": "isCitedBy"}])
 
-    # es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
+    # es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
     # print(es.cat.indices())
     return indexer, results
 

@@ -64,7 +64,6 @@ def test_hook_initialization(base_app):
         args = (app, )
         kwargs = dict(
             index=app.config['INDEXER_DEFAULT_INDEX'],
-            doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],
             arguments={},
             record=record,
             json={
@@ -80,7 +79,6 @@ def test_hook_initialization(base_app):
             version=0,
             version_type='force',
             index=app.config['INDEXER_DEFAULT_INDEX'],
-            doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],
             body={
                 'title': 'Test',
                 '_created': pytz.utc.localize(record.created).isoformat(),

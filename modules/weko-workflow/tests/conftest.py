@@ -33,7 +33,6 @@ import pytest
 from flask import Flask, session, url_for, Response
 from flask_babelex import Babel, lazy_gettext as _
 from flask_menu import Menu
-from elasticsearch import Elasticsearch
 from invenio_theme import InvenioTheme
 from invenio_theme.views import blueprint as invenio_theme_blueprint
 from invenio_assets import InvenioAssets
@@ -51,6 +50,7 @@ from invenio_admin.views import blueprint as invenio_admin_blueprint
 from invenio_db import InvenioDB, db as db_
 from invenio_stats import InvenioStats
 from invenio_search import RecordsSearch,InvenioSearch
+from opensearchpy import OpenSearch
 from invenio_communities import InvenioCommunities
 from invenio_communities.views.ui import blueprint as invenio_communities_blueprint
 from invenio_communities.models import Community
@@ -140,7 +140,7 @@ def instance_path():
 class MockEs():
     def __init__(self,**keywargs):
         self.indices = self.MockIndices()
-        self.es = Elasticsearch()
+        self.es = OpenSearch()
         self.cluster = self.MockCluster()
     def index(self, id="",version="",version_type="",index="",doc_type="",body="",**arguments):
         pass
@@ -465,9 +465,7 @@ def base_app(instance_path, search_class, cache_config):
         WEKO_BUCKET_QUOTA_SIZE=50 * 1024 * 1024 * 1024,
         WEKO_MAX_FILE_SIZE=50 * 1024 * 1024 * 1024,
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
-        INDEXER_DEFAULT_DOC_TYPE='testrecord',
         INDEXER_DEFAULT_INDEX=search_class.Meta.index,
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME=WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
         WEKO_SCHEMA_DDI_SCHEMA_NAME=WEKO_SCHEMA_DDI_SCHEMA_NAME,

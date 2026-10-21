@@ -28,6 +28,7 @@ from flask_babelex import gettext as _
 from flask_login import login_required
 from invenio_db import db
 from invenio_indexer.api import RecordIndexer
+from invenio_search.utils import build_alias_name
 from weko_schema_ui.models import PublishStatus
 
 from .config import WEKO_AUTHORS_IMPORT_KEY
@@ -74,12 +75,11 @@ def create():
                                     "authorIdShowFlg": "true"
                                 })
     indexer = RecordIndexer()
-    es_id = indexer.client.index(
-        index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
-        doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],
+    search_id = indexer.client.index(
+        index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
         body=data,
     )
-    data['id'] = es_id
+    data['id'] = search_id
 
     author_data = dict()
 
@@ -107,8 +107,7 @@ def update_author():
     indexer = RecordIndexer()
     body = {'doc': data}
     indexer.client.update(
-        index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
-        doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],
+        index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
         id=orjson.loads(orjson.dumps(data))["id"],
         body=body
     )
@@ -154,8 +153,7 @@ def delete_author():
 
             RecordIndexer().client.update(
                 id=orjson.loads(orjson.dumps(data))["Id"],
-                index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
-                doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],
+                index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
                 body={'doc': {'is_deleted': 'true'}}
             )
     except Exception as ex:
@@ -200,12 +198,12 @@ def get():
         "query": query,
         "from": offset,
         "size": size,
-        "sort": sort
+        "sort": sort,
+        "track_total_hits": True
     }
     indexer = RecordIndexer()
     result = indexer.client.search(
-        index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
-        doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],
+        index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
         body=body
     )
 
@@ -241,22 +239,23 @@ def get():
         }
     }
     item_cnt_list = []
-    for es_hit in result['hits']['hits']:
-        author_id_info = es_hit['_source']['authorIdInfo']
+    for search_hit in result['hits']['hits']:
+        author_id_info = search_hit['_source']['authorIdInfo']
         if author_id_info:
             author_id = author_id_info[0]['authorId']
             temp_str = orjson.dumps(query_item).decode().replace(
                 "@author_id", author_id)
             result_itemCnt = indexer.client.search(
-                index=current_app.config['SEARCH_UI_SEARCH_INDEX'],
+                index=build_alias_name(
+                    current_app.config['SEARCH_UI_SEARCH_INDEX']),
                 body=orjson.loads(temp_str)
             )
             if result_itemCnt \
                     and result_itemCnt['hits'] \
-                    and result_itemCnt['hits']['total']:
+                    and result_itemCnt['hits']['total']['value']:
                 item_cnt_list.append(
                     {'key': author_id,
-                     'doc_count': result_itemCnt['hits']['total']})
+                     'doc_count': result_itemCnt['hits']['total']['value']})
 
     result['item_cnt'] = {'aggregations':
                           {'item_count': {'buckets': item_cnt_list}}}
@@ -290,8 +289,7 @@ def getById():
 
     indexer = RecordIndexer()
     result = indexer.client.search(
-        index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
-        doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],
+        index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
         body=body
     )
     return orjson.dumps(result).decode()
@@ -402,8 +400,7 @@ def mapping():
     author_id = data.get('id', '')
     indexer = RecordIndexer()
     result = indexer.client.get(
-        index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
-        doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],
+        index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
         id=author_id
     )
     _source = result.get('_source')
@@ -476,7 +473,7 @@ def gatherById():
         q = orjson.dumps(update_author_q).decode().replace("@id", t)
         q = orjson.loads(q)
         res = indexer.client.search(
-            index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
+            index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
             body=q
         )
         for h in res.get("hits").get("hits"):
@@ -486,8 +483,7 @@ def gatherById():
                 }
             }
             indexer.client.update(
-                index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
-                doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],
+                index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
                 id=h.get("_id"),
                 body=body
             )
@@ -502,7 +498,7 @@ def gatherById():
     q = orjson.dumps(target_author_q).decode().replace("@id", gatherTo)
     q = orjson.loads(q)
     res = indexer.client.search(
-        index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
+        index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
         body=q
     )
     target_data = res.get("hits").get("hits")[0].get("_source")

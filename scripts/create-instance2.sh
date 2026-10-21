@@ -131,7 +131,8 @@ cp -pf "/code/scripts/uwsgi.ini" "var/instance/conf/"
 cp -pf "/code/modules/weko-theme/weko_theme/static/css/weko_theme/_variables.scss" "var/instance/data/"
 cp -prf "/code/modules/weko-index-tree/weko_index_tree/static/indextree" "var/instance/data/"
 # sphinxdoc-customise-instance-end
-
+pip install pip==20.2.4
+pip install setuptools==57.5.0
 # sphinxdoc-run-npm-begin
 ${INVENIO_WEB_INSTANCE} npm
 cdvirtualenv "var/instance/static"

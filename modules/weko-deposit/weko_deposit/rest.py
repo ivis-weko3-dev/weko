@@ -26,7 +26,7 @@ from wsgiref.util import request_uri
 
 import redis
 from redis import sentinel
-from elasticsearch import ElasticsearchException
+from invenio_search.engine import search
 from flask import Blueprint, abort, current_app, jsonify, request
 from invenio_db import db
 from invenio_pidstore import current_pidstore
@@ -110,7 +110,6 @@ def create_blueprint(app, endpoints):
 
         search_class_kwargs = {}
         search_class_kwargs['index'] = options.get('search_index')
-        search_class_kwargs['doc_type'] = options.get('search_type')
         # search_class = partial(search_class, **search_class_kwargs)
 
         ctx = dict(
@@ -260,13 +259,9 @@ class ItemResource(ContentNegotiatedMethodView):
             db.session.rollback()
             abort(400, "Failed to register item!")
 
-        except ElasticsearchException as ex:
-            current_app.logger.error('elasticsearch error: %s', ex)
+        except search.OpenSearchException as ex:
+            current_app.logger.error('OpenSearch error: %s', ex)
             db.session.rollback()
-
-            # elasticseacrh remove
-            # dammy()
-
             abort(400, "Failed to register item!")
         except redis.RedisError as ex:
             current_app.logger.error('redis error: %s', ex)

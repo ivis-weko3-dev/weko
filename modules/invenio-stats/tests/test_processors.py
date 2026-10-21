@@ -8,12 +8,16 @@
 
 """Event processor tests."""
 
+import json
 import logging
+import os
 from datetime import datetime
 
 import pytest
 from tests.conftest import _create_file_download_event
-from elasticsearch_dsl import Search
+from invenio_search import current_search
+from invenio_search.engine import dsl
+
 from tests.helpers import get_queue_size
 from invenio_queues.proxies import current_queues
 from mock import patch
@@ -193,7 +197,7 @@ def test_events_indexer_preprocessors(app, mock_event_queue):
     def bulk(client, generator, *args, **kwargs):
         received_docs.extend(generator)
 
-    with patch('elasticsearch.helpers.bulk', side_effect=bulk):
+    with patch("invenio_search.engine.search.helpers.bulk", side_effect=bulk):
         indexer.run()
 
     # Process the events as we expect them to be
@@ -202,12 +206,13 @@ def test_events_indexer_preprocessors(app, mock_event_queue):
         event = build_file_unique_id(event)
         event = test_preprocessor1(event)
         event = test_preprocessor2(event)
+        event['timestamp'] = '2017-01-01T00:00:00'
+        event['event_type'] = 'file-download'
         _id = hash_id('2017-01-01T00:00:00', event)
         expected_docs.append(dict(
             _id=_id,
             _op_type='index',
-            _index='events-stats-file-download-2017-01-01',
-            _type='stats-file-download',
+            _index='test-events-stats-index',
             _source=event,
         ))
 
@@ -237,7 +242,7 @@ def test_events_indexer_id_windowing(app, mock_event_queue):
         ]
     ]
 
-    with patch('elasticsearch.helpers.bulk', side_effect=bulk):
+    with patch("invenio_search.engine.search.helpers.bulk", side_effect=bulk):
         indexer.run()
 
     assert len(received_docs) == 5
@@ -245,7 +250,7 @@ def test_events_indexer_id_windowing(app, mock_event_queue):
     assert len(ids) == 3
 
 
-def test_double_clicks(app, mock_event_queue, es):
+def test_double_clicks(app, mock_event_queue, events_stats_index):
     """Test that events occurring within a time window are counted as 1."""
     event_type = 'file-download'
     events = [_create_file_download_event(date) for date in
@@ -256,18 +261,18 @@ def test_double_clicks(app, mock_event_queue, es):
     current_queues.declare()
     current_stats.publish(event_type, events)
     process_events(['file-download'])
-    es.indices.refresh(index='*')
-    res = es.search(
-        index='test-events-stats-file-download-0001',
+    current_search.indices.refresh(index=events_stats_index)
+    res = current_search.search(
+        index=events_stats_index
     )
-    assert res['hits']['total'] == 2
+    assert res['hits']['total']['value'] == 2
 
 
 @pytest.mark.skip('This test dont ever finish')
-def test_failing_processors(app, event_queues, es_with_templates, caplog):
+def test_failing_processors(app, event_queues, events_stats_index, caplog):
     """Test events that raise an exception when processed."""
-    es = es_with_templates
-    search = Search(using=es)
+    es = current_search
+    search = dsl.Search(using=es)
 
     current_queues.declare()
     current_stats.publish(
@@ -287,11 +292,11 @@ def test_failing_processors(app, event_queues, es_with_templates, caplog):
     indexer = EventsIndexer(queue, preprocessors=[_raises_on_second_call])
 
     assert get_queue_size('stats-file-download') == 4
-    assert not es.indices.exists('events-stats-file-download-2018-01-01')
-    assert not es.indices.exists('events-stats-file-download-2018-01-02')
-    assert not es.indices.exists('events-stats-file-download-2018-01-03')
-    assert not es.indices.exists('events-stats-file-download-2018-01-04')
-    assert not es.indices.exists_alias(name='events-stats-file-download')
+    assert not search.client.indices.exists('events-stats-file-download-2018-01-01')
+    assert not search.client.indices.exists('events-stats-file-download-2018-01-02')
+    assert not search.client.indices.exists('events-stats-file-download-2018-01-03')
+    assert not search.client.indices.exists('events-stats-file-download-2018-01-04')
+    assert not search.client.indices.exists_alias(name='events-stats-file-download')
 
     with caplog.at_level(logging.ERROR):
         indexer.run()  # 2nd event raises exception and is dropped
@@ -302,7 +307,7 @@ def test_failing_processors(app, event_queues, es_with_templates, caplog):
     assert error_logs[0].msg == 'Error while processing event'
     assert error_logs[0].exc_info[1].args[0] == 'mocked-exception'
 
-    es.indices.refresh(index='*')
+    search.client.indices.refresh(index=events_stats_index)
     assert get_queue_size('stats-file-download') == 0
     assert search.index('events-stats-file-download').count() == 3
     assert search.index('events-stats-file-download-2018-01-01').count() == 1

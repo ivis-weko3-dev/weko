@@ -7893,7 +7893,7 @@ def test_WekoQueryRankingHelper_get(app, users, db_records,esindex,mocker):
         assert result == []
     
     # raise NotFoundError
-    with patch("invenio_stats.queries.ESWekoRankingQuery.run",side_effect=es_exceptions.NotFoundError(404,"test_error")):
+    with patch("invenio_stats.queries.WekoRankingQuery.run",side_effect=es_exceptions.NotFoundError(404,"test_error")):
         result = WekoQueryRankingHelper.get(
             start_date="2023-08-19",
             end_date="2023-09-01",

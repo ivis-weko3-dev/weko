@@ -153,8 +153,8 @@ def publish(pid, record, template=None, **kwargs):
     db.session.commit()
 
     indexer = WekoIndexer()
-    indexer.update_es_data(record, update_revision=False, field='publish_status')
-    indexer.update_es_data(last_record, update_revision=False, field='publish_status')
+    indexer.update_search_data(record, update_revision=False, field='publish_status')
+    indexer.update_search_data(last_record, update_revision=False, field='publish_status')
 
     return redirect(url_for('.recid', pid_value=pid.pid_value))
 

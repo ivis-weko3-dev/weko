@@ -25,7 +25,6 @@ import tempfile
 import json
 from os.path import dirname, join
 
-from elasticsearch import Elasticsearch
 from sqlalchemy import inspect
 
 import pytest
@@ -48,6 +47,7 @@ from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location, FileInstance
 from invenio_indexer import InvenioIndexer
 from invenio_search import InvenioSearch,RecordsSearch
+from opensearchpy import OpenSearch
 from weko_search_ui import WekoSearchUI
 from weko_index_tree.models import Index
 
@@ -91,7 +91,7 @@ def instance_path():
 class MockEs():
     def __init__(self,**keywargs):
         self.indices = self.MockIndices()
-        self.es = Elasticsearch()
+        self.es = OpenSearch()
         self.cluster = self.MockCluster()
     def index(self, id="",version="",version_type="",index="",doc_type="",body="",**arguments):
         pass
@@ -151,7 +151,7 @@ def base_app(instance_path,search_class):
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         INDEX_IMG='indextree/36466818-image.jpg',
         SEARCH_UI_SEARCH_INDEX='test-weko',
-        WEKO_AUTHORS_ES_INDEX_NAME='test-authors',
+        WEKO_AUTHORS_SEARCH_INDEX_NAME='test-authors',
         WEKO_AUTHORS_AFFILIATION_IDENTIFIER_ITEM_OTHER=4,
         WEKO_AUTHORS_LIST_SCHEME_AFFILIATION=[
             'ISNI', 'GRID', 'Ringgold', 'kakenhi', 'Other'],

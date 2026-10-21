@@ -24,8 +24,6 @@ import urllib.parse
 import pickle
 from typing import Union
 
-from elasticsearch.exceptions import NotFoundError
-from elasticsearch_dsl.query import QueryString
 from flask import current_app, request
 from flask_babelex import gettext as _
 from invenio_db import db
@@ -37,6 +35,7 @@ from invenio_records.signals import after_record_delete, after_record_insert, \
     after_record_revert, after_record_update, before_record_delete, \
     before_record_insert, before_record_revert, before_record_update
 from invenio_search import RecordsSearch
+from invenio_search.engine import search,dsl
 from jsonpatch import apply_patch
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm.attributes import flag_modified
@@ -469,16 +468,16 @@ class ItemTypes(RecordBase):
                     result.extend(list(prop_mapping.keys()))
             return result
 
-        def __update_es_data(_es_data, _delete_list):
-            """Update metadata on ElasticSearch.
+        def __update_search_data(_search_data, _delete_list):
+            """Update metadata on search engine.
 
-            :param _es_data: Elasticsearch data.
+            :param _search_data: search engine data.
             :param _delete_list: delete list
             """
             item_type_mapping = Mapping.get_record(item_type_id=item_type_id)
             delete_mapping_key_list = __get_delete_mapping_key(item_type_mapping, _delete_list)
             es_updated_data = []
-            for _data in _es_data:
+            for _data in _search_data:
                 source = _data.get('_source', {})
                 item_metadata = _data.get('_source', {}).get('_item_metadata',
                                                              {})
@@ -547,7 +546,7 @@ class ItemTypes(RecordBase):
         if len(delete_list) == 0:
             return
 
-        # Get records on ElasticSearch based on Item Type Name
+        # Get records on search engine based on Item Type Name
         records = cls.__get_records_by_item_type_name(item_type_name)
         record_ids = []
         es_data = []
@@ -569,12 +568,12 @@ class ItemTypes(RecordBase):
         __update_record_metadata(record_ids, delete_list)
         # Update item metadata in DB based on data from ES.
         __update_item_metadata(record_ids, delete_list)
-        # Update Elasticsearch data
-        __update_es_data(es_data, delete_list)
+        # Update search engine data
+        __update_search_data(es_data, delete_list)
 
     @classmethod
     def __get_records_by_item_type_name(cls, item_type_name):
-        """Get records on Elasticsearch by Item Type Name.
+        """Get records on search engine by Item Type Name.
 
         :param item_type_name: Item Type Name.
         :return: Record list.
@@ -584,13 +583,13 @@ class ItemTypes(RecordBase):
             name)
         result = []
         try:
-            search = RecordsSearch(
+            search_obj = RecordsSearch(
                 index=current_app.config['SEARCH_UI_SEARCH_INDEX'])
-            search = search.query(QueryString(query=query_string))
-            search = search.sort('-publish_date', '-_updated')
-            search_result = search.execute().to_dict()
+            search_obj = search_obj.query(dsl.query.QueryString(query=query_string))
+            search_obj = search_obj.sort('-publish_date', '-_updated')
+            search_result = search_obj.execute().to_dict()
             result = search_result.get('hits', {}).get('hits', [])
-        except NotFoundError as e:
+        except search.NotFoundError as e:
             current_app.logger.debug("Indexes do not exist yet: ", str(e))
         return result
 

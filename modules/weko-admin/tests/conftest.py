@@ -26,7 +26,6 @@ import tempfile
 import uuid
 import json
 from datetime import datetime
-from elasticsearch import Elasticsearch
 from invenio_indexer import InvenioIndexer
 import pytest
 from invenio_indexer.api import RecordIndexer
@@ -62,6 +61,7 @@ from invenio_mail.models import MailConfig
 from invenio_pidrelations import InvenioPIDRelations
 from invenio_pidstore import InvenioPIDStore
 from invenio_search import RecordsSearch,InvenioSearch
+from opensearchpy import OpenSearch
 from invenio_oaiserver.ext import InvenioOAIServer
 from invenio_records.ext import InvenioRecords
 from invenio_records.models import RecordMetadata
@@ -125,7 +125,7 @@ def cache_config():
 @pytest.fixture()
 def base_app(instance_path, cache_config,request ,search_class):
     """Flask application fixture."""
-    os.environ['INVENIO_ELASTICSEARCH_HOST']='elasticsearch_test'
+    os.environ['INVENIO_ELASTICSEARCH_HOST']='opensearch_test'
     app_ = Flask('test_weko_admin_app', instance_path=instance_path)
     app_.config.update(
         SERVER_NAME='test_server',
@@ -134,8 +134,8 @@ def base_app(instance_path, cache_config,request ,search_class):
         # SQLALCHEMY_DATABASE_URI=os.environ.get(
         #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
         SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', None),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', None),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         SQLALCHEMY_ECHO=False,
         TEST_USER_EMAIL='test_user@example.com',
@@ -152,16 +152,14 @@ def base_app(instance_path, cache_config,request ,search_class):
         ACCOUNTS_SESSION_REDIS_DB_NO = 1,
         CACHE_TYPE="redis",
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        WEKO_AUTHORS_ES_INDEX_NAME="test_weko-authors",
+        WEKO_AUTHORS_SEARCH_INDEX_NAME="test_weko-authors",
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         THEME_SITEURL = 'https://localhost',
         CRAWLER_REDIS_DB=3,
         CRAWLER_REDIS_TTL=86400,
         WEKO_THEME_INSTANCE_DATA_DIR="data",
         SEARCH_INDEX_PREFIX="test-",
-        INDEXER_DEFAULT_DOC_TYPE="item-v1.0.0",
         WEKO_ADMIN_REPORT_HEADERS = {
             'file_download': _('No. Of File Downloads'),
             'file_preview': _('No. Of File Previews'),
@@ -1193,7 +1191,7 @@ def search_class():
 class MockEs():
     def __init__(self,**keywargs):
         self.indices = self.MockIndices()
-        self.es = Elasticsearch()
+        self.es = OpenSearch()
         self.cluster = self.MockCluster()
     def index(self, id="",version="",version_type="",index="",doc_type="",body="",**arguments):
         return {"_shards":{"failed":0} }

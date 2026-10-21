@@ -28,7 +28,6 @@ import copy
 import uuid
 from unittest.mock import patch
 from collections import OrderedDict
-from elasticsearch import Elasticsearch
 import time
 from datetime import datetime
 
@@ -64,6 +63,7 @@ from invenio_records import InvenioRecords
 from invenio_records_rest import InvenioRecordsREST
 from invenio_records_rest.utils import PIDConverter
 from invenio_search import InvenioSearch
+from invenio_search.engine import search
 from invenio_search_ui import InvenioSearchUI
 from invenio_stats.config import SEARCH_INDEX_PREFIX as index_prefix
 from six import BytesIO
@@ -168,8 +168,6 @@ def base_app(instance_path):
         ACCOUNTS_JWT_ENABLE=False,
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
-        INDEXER_DEFAULT_DOC_TYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
         WEKO_BUCKET_QUOTA_SIZE=WEKO_BUCKET_QUOTA_SIZE,
         WEKO_MAX_FILE_SIZE=WEKO_BUCKET_QUOTA_SIZE,
@@ -185,7 +183,7 @@ def base_app(instance_path):
         WEKO_INDEX_TREE_REST_ENDPOINTS=WEKO_INDEX_TREE_REST_ENDPOINTS,
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English"),("da", "Danish")],
         SERVER_NAME="TEST_SERVER",
-        SEARCH_ELASTIC_HOSTS="elasticsearch",
+        SEARCH_OPENSEARCH_HOSTS="opensearch",
         SEARCH_INDEX_PREFIX="test-",
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME=WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
         WEKO_SCHEMA_DDI_SCHEMA_NAME=WEKO_SCHEMA_DDI_SCHEMA_NAME,
@@ -240,23 +238,23 @@ def app(base_app):
     """Flask application fixture."""
     with open("tests/data/mappings/item-v1.0.0.json", "r") as f:
         mapping = json.load(f)
-    es = Elasticsearch("http://{}:9200".format(base_app.config["SEARCH_ELASTIC_HOSTS"]))
-    es.indices.create(
+    open_search = search.OpenSearch("http://{}:9200".format(base_app.config["SEARCH_OPENSEARCH_HOSTS"]))
+    open_search.indices.create(
         index=base_app.config["INDEXER_DEFAULT_INDEX"], body=mapping, ignore=[400, 404]
     )
-    es.indices.put_alias(
+    open_search.indices.put_alias(
         index=base_app.config["INDEXER_DEFAULT_INDEX"],
         name=base_app.config["SEARCH_UI_SEARCH_INDEX"],
         ignore=[400, 404],
     )
     with base_app.app_context():
         yield base_app
-    es.indices.delete_alias(
+    open_search.indices.delete_alias(
         index=base_app.config["INDEXER_DEFAULT_INDEX"],
         name=base_app.config["SEARCH_UI_SEARCH_INDEX"],
         ignore=[400, 404],
     )
-    es.indices.delete(index=base_app.config["INDEXER_DEFAULT_INDEX"], ignore=[400, 404])
+    open_search.indices.delete(index=base_app.config["INDEXER_DEFAULT_INDEX"], ignore=[400, 404])
 
 
 @pytest.yield_fixture()
@@ -609,7 +607,7 @@ def db_itemtype(app, db):
 def es_records(app, db, db_index, location, db_itemtype,db_oaischema):
 
     indexer = WekoIndexer()
-    indexer.get_es_index()
+    indexer.get_search_index()
     results = []
     with app.test_request_context():
         for i in range(1, 10):
@@ -654,7 +652,7 @@ def es_records(app, db, db_index, location, db_itemtype,db_oaischema):
             results.append({"depid":depid, "recid":recid, "parent": parent, "doi":doi, "hdl": hdl,"record":record, "record_data":record_data,"item":item , "item_data":item_data,"deposit": deposit})
 
     time.sleep(3)
-    # es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
+    # es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
     # print(es.cat.indices())
     return indexer, results
 

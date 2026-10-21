@@ -126,7 +126,6 @@ def reindex(pid_type, include_delete,skip_exists,size):
         query = {"query": {"bool": {"must":{"exists":{"field":"itemtype"}}}},"_source":["itemtype"],"sort" : [{"_id":"asc"}],"size":size}
         res = current_search_client.search(index=index,
                                            body=query)
-        total = res['hits']['total']
         hits = res['hits']['hits']
         ids = [x["_id"] for x in hits]
         while len(hits) == size:

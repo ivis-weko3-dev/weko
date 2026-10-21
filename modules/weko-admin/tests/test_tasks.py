@@ -344,7 +344,7 @@ def test_reindex_DBtoES(i18n_app,mocker,admin_settings,reindex_settings):
                         assert 'completed' == reindex(True)
 
 def test_reindex_raise(i18n_app,mocker,admin_settings):
-    with mocker.patch("weko_admin.tasks.elasticsearch_reindex" , side_effect=BaseException("test_error")):
+    with mocker.patch("weko_admin.tasks.search_reindex" , side_effect=BaseException("test_error")):
         try :
             reindex(True)
 

@@ -14,30 +14,30 @@ from datetime import datetime
 import pickle
 import dateutil.parser
 import six
-from elasticsearch_dsl import Search
-from elasticsearch_dsl.aggs import A
+from invenio_search.engine import dsl
 from flask import current_app
 from invenio_search import current_search_client
+from invenio_search.utils import build_alias_name
 
 from .errors import InvalidRequestInputError
 
 
-class ESQuery(object):
-    """Elasticsearch query."""
+class Query(object):
+    """Search query."""
 
-    def __init__(self, query_name, doc_type, index, client=None,
+    def __init__(self, query_name, index, event_type=None, client=None,
                  *args, **kwargs):
         """Constructor.
 
-        :param doc_type: queried document type.
+        :param event_type: type of the event being queried.
         :param index: queried index.
-        :param client: elasticsearch client used to query.
+        :param client: search client used to query.
         """
-        super(ESQuery, self).__init__()
-        self.index = index
+        super(Query, self).__init__()
+        self.index = build_alias_name(index)
         self.client = client or current_search_client
         self.query_name = query_name
-        self.doc_type = doc_type
+        self.event_type = event_type
 
     def extract_date(self, date):
         """Extract date from string if necessary.
@@ -57,13 +57,16 @@ class ESQuery(object):
             )
         return date
 
+    def set_filter_event_type(self,query):
+        return query.filter("term",event_type=self.event_type)
+
     def run(self, *args, **kwargs):
         """Run the query."""
         raise NotImplementedError()
 
 
-class ESDateHistogramQuery(ESQuery):
-    """Elasticsearch date histogram query."""
+class DateHistogramQuery(Query):
+    """Search date histogram query."""
 
     allowed_intervals = ['year', 'quarter', 'month', 'week', 'day']
     """Allowed intervals for the histogram aggregation."""
@@ -84,7 +87,7 @@ class ESDateHistogramQuery(ESQuery):
         :param metric_fields: Dict of "destination field" ->
             tuple("metric type", "source field", "metric_options").
         """
-        super(ESDateHistogramQuery, self).__init__(*args, **kwargs)
+        super(DateHistogramQuery, self).__init__(*args, **kwargs)
         self.time_field = time_field
         self.copy_fields = copy_fields or {}
         self.query_modifiers = query_modifiers or []
@@ -112,10 +115,9 @@ class ESDateHistogramQuery(ESQuery):
             )
 
     def build_query(self, interval, start_date, end_date, **kwargs):
-        """Build the elasticsearch query."""
-        agg_query = Search(using=self.client,
-                           index=self.index,
-                           doc_type=self.doc_type)[0:0]
+        """Build the search query."""
+        agg_query = dsl.Search(using=self.client,
+                           index=self.index)[0:0]
         if start_date is not None or end_date is not None:
             time_range = {}
             if start_date is not None:
@@ -125,6 +127,8 @@ class ESDateHistogramQuery(ESQuery):
             agg_query = agg_query.filter(
                 'range',
                 **{self.time_field: time_range})
+            
+        agg_query = self.set_filter_event_type(agg_query)
 
         for modifier in self.query_modifiers:
             agg_query = modifier(agg_query, **kwargs)
@@ -199,8 +203,8 @@ class ESDateHistogramQuery(ESQuery):
         return res
 
 
-class ESTermsQuery(ESQuery):
-    """Elasticsearch sum query."""
+class TermsQuery(Query):
+    """Search sum query."""
 
     def __init__(self, time_field='timestamp', copy_fields=None,
                  query_modifiers=None, required_filters=None,
@@ -222,7 +226,7 @@ class ESTermsQuery(ESQuery):
             tuple("metric type", "source field").
         :param group_fields: group fields.
         """
-        super(ESTermsQuery, self).__init__(*args, **kwargs)
+        super(TermsQuery, self).__init__(*args, **kwargs)
         self.time_field = time_field
         self.copy_fields = copy_fields or {}
         self.query_modifiers = query_modifiers or []
@@ -241,10 +245,10 @@ class ESTermsQuery(ESQuery):
             )
 
     def build_query(self, start_date, end_date, **kwargs):
-        """Build the elasticsearch query."""
-        agg_query = Search(using=self.client,
-                           index=self.index,
-                           doc_type=self.doc_type)[0:0]
+        """Build the search query."""
+        agg_query = dsl.Search(using=self.client,
+                           index=self.index)[0:0]
+        agg_query = agg_query.extra(track_total_hits=True)
         if start_date or end_date:
             time_range = {}
             if start_date:
@@ -255,9 +259,12 @@ class ESTermsQuery(ESQuery):
             agg_query = agg_query.filter(
                 'range',
                 **{self.time_field: time_range})
+            
         if kwargs.get('should'):
             should_conditions = kwargs['should']
             agg_query = agg_query.query('bool', should=should_conditions, minimum_should_match=1)
+
+        agg_query = self.set_filter_event_type(agg_query)
 
         for modifier in self.query_modifiers:
             agg_query = modifier(agg_query, **kwargs)
@@ -277,7 +284,7 @@ class ESTermsQuery(ESQuery):
                 interval = kwargs.get('interval')
                 sources.append({'date':{'date_histogram':{'field':'timestamp','interval':interval}}})
             for f in self.group_fields:
-                sources.append({f: A('terms', field=f)})
+                sources.append({f: dsl.aggs.A('terms', field=f)})
             if kwargs.get('after_key'):
                 base_agg.bucket(
                     'my_buckets', 'composite', size=size, sources=sources, after=kwargs.get('after_key')
@@ -381,7 +388,7 @@ class ESTermsQuery(ESQuery):
                     after_key = None
                 if first_search:
                     first_search = False
-                    total = temp_res['hits']['total']
+                    total = temp_res['hits']['total']['value']
                     for metric in self.metric_fields:
                         res_count[metric] = temp_res['aggregations'][metric]
                 count += len(temp_res['aggregations']['my_buckets']['buckets'])
@@ -397,8 +404,8 @@ class ESTermsQuery(ESQuery):
         return res
 
 
-class ESWekoFileStatsQuery(ESTermsQuery):
-    """Weko ES Query for File Stats."""
+class WekoFileStatsQuery(TermsQuery):
+    """Weko search query for File Stats."""
 
     def __init__(self, main_fields=None, main_query=None, *args, **kwargs):
         """Constructor.
@@ -407,15 +414,14 @@ class ESWekoFileStatsQuery(ESTermsQuery):
         :param main_query: list of fields to copy from the top hit document
             into the resulting aggregation.
         """
-        super(ESWekoFileStatsQuery, self).__init__(*args, **kwargs)
+        super(WekoFileStatsQuery, self).__init__(*args, **kwargs)
         self.main_fields = main_fields or []
         self.main_query = main_query or {}
 
     def build_query(self, start_date, end_date, **kwargs):
-        """Build the elasticsearch query."""
-        agg_query = Search(using=self.client,
-                           index=self.index,
-                           doc_type=self.doc_type)[0:0]
+        """Build the search query."""
+        agg_query = dsl.Search(using=self.client,
+                           index=self.index)[0:0]
         if self.main_query:
             query_q = self.main_query
             for _field in self.main_fields:
@@ -434,6 +440,8 @@ class ESWekoFileStatsQuery(ESTermsQuery):
             agg_query = agg_query.filter(
                 'range',
                 **{self.time_field: time_range})
+            
+        agg_query = self.set_filter_event_type(agg_query)
 
         for modifier in self.query_modifiers:
             agg_query = modifier(agg_query, **kwargs)
@@ -450,7 +458,7 @@ class ESWekoFileStatsQuery(ESTermsQuery):
         if self.group_fields:
             sources = []
             for f in self.group_fields:
-                sources.append({f: A('terms', field=f)})
+                sources.append({f: dsl.aggs.A('terms', field=f)})
             if kwargs.get('after_key'):
                 base_agg.bucket(
                     'my_buckets', 'composite', size=size, sources=sources, after=kwargs.get('after_key')
@@ -474,14 +482,13 @@ class ESWekoFileStatsQuery(ESTermsQuery):
         return agg_query
 
 
-class ESWekoTermsQuery(ESTermsQuery):
-    """Weko ES Terms Query."""
+class WekoTermsQuery(TermsQuery):
+    """Weko Search Terms Query."""
 
     def build_query(self, start_date, end_date, **kwargs):
-        """Build the elasticsearch query with."""
-        agg_query = Search(using=self.client,
-                           index=self.index,
-                           doc_type=self.doc_type)[0:0]
+        """Build the search query with."""
+        agg_query = dsl.Search(using=self.client,
+                           index=self.index)[0:0]
 
         if start_date is not None or end_date is not None:
             time_range = {}
@@ -494,6 +501,8 @@ class ESWekoTermsQuery(ESTermsQuery):
             agg_query = agg_query.filter(
                 'range',
                 **{self.time_field: time_range})
+            
+        agg_query = self.set_filter_event_type(agg_query)
 
         for modifier in self.query_modifiers:
             agg_query = modifier(agg_query, **kwargs)
@@ -510,7 +519,7 @@ class ESWekoTermsQuery(ESTermsQuery):
         if self.group_fields:
             sources = []
             for f in self.group_fields:
-                sources.append({f: A('terms', field=f)})
+                sources.append({f: dsl.aggs.A('terms', field=f)})
             if kwargs.get('after_key'):
                 base_agg.bucket(
                     'my_buckets', 'composite', size=size, sources=sources, after=kwargs.get('after_key')
@@ -546,8 +555,8 @@ class ESWekoTermsQuery(ESTermsQuery):
         return agg_query
 
 
-class ESWekoRankingQuery(ESTermsQuery):
-    """Weko ES Query for Ranking Page."""
+class WekoRankingQuery(TermsQuery):
+    """Weko Search Query for Ranking Page."""
 
     def __init__(self, main_fields=None, main_query=None, *args, **kwargs):
         """Constructor.
@@ -556,18 +565,14 @@ class ESWekoRankingQuery(ESTermsQuery):
         :param main_query: list of fields to copy from the top hit document
             into the resulting aggregation.
         """
-        super(ESWekoRankingQuery, self).__init__(*args, **kwargs)
+        super(WekoRankingQuery, self).__init__(*args, **kwargs)
         self.main_fields = main_fields or []
         self.main_query = main_query or {}
 
     def build_query(self, **kwargs):
-        """Build the elasticsearch query."""
-        search_index_prefix = current_app.config['SEARCH_INDEX_PREFIX'].strip('-')
-        es_index = self.index.format(search_index_prefix, kwargs.get("event_type"))
-        es_doc_type = self.doc_type.format(kwargs.get("event_type")) if self.doc_type else ''
-        agg_query = Search(using=self.client,
-                           index=es_index,
-                           doc_type=es_doc_type)[0:0]
+        """Build the search query."""
+        agg_query = dsl.Search(using=self.client,
+                           index=self.index)[0:0]
 
         query_q = orjson.dumps(self.main_query).decode()
         for _field in self.main_fields:
@@ -583,6 +588,9 @@ class ESWekoRankingQuery(ESTermsQuery):
         else:
             del query_q['query']['bool']['must_not']
         agg_query.update_from_dict(query_q)
+        if "event_type" in kwargs:
+            self.event_type = kwargs.get("event_type")
+            agg_query = self.set_filter_event_type(agg_query)
         return agg_query
 
     def run(self, start_date=None, end_date=None, **kwargs):

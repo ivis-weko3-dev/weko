@@ -1,8 +1,8 @@
 import os
-from elasticsearch import Elasticsearch
+from invenio_search.engine import search
 elasticsearch_host = os.environ.get('INVENIO_ELASTICSEARCH_HOST')
 prefix = os.environ.get('SEARCH_INDEX_PREFIX')
-con = Elasticsearch(host=elasticsearch_host, verify_certs=False)
+con = search.OpenSearch(host=elasticsearch_host, verify_certs=False)
 
 # Delete all aliases
 indices = con.cat.aliases(h='index',s='index').splitlines()

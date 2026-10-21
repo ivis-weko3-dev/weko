@@ -1,6 +1,5 @@
 {
   "mappings": {
-    "item-v1.0.0": {
       "dynamic_templates": [
         {
           "weko_id": {
@@ -4906,4 +4905,3 @@
       }
     }
   }
-}

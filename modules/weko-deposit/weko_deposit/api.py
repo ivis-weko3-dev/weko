@@ -32,8 +32,6 @@ import redis
 from redis import sentinel
 from dictdiffer import dot_lookup
 from dictdiffer.merge import Merger, UnresolvedConflictsException
-from elasticsearch.exceptions import TransportError
-from elasticsearch.helpers import bulk
 from flask import abort, current_app, request, session
 from flask_security import current_user
 from invenio_db import db
@@ -54,6 +52,8 @@ from invenio_records.models import RecordMetadata
 from invenio_records_files.api import FileObject, Record
 from invenio_records_files.models import RecordsBuckets
 from invenio_records_rest.errors import PIDResolveRESTError
+from invenio_search.engine import search
+from invenio_search.utils import build_alias_name
 from invenio_files_rest.errors import StorageError
 from simplekv.memory.redisstore import RedisStore
 from sqlalchemy.exc import SQLAlchemyError
@@ -130,16 +130,24 @@ class WekoFileObject(FileObject):
 
 
 class WekoIndexer(RecordIndexer):
-    """Provide an interface for indexing records in Elasticsearch."""
+    """Provide an interface for indexing records in OpenSearch.
 
-    def get_es_index(self):
-        """Elastic search settings."""
-        self.es_index = current_app.config['SEARCH_UI_SEARCH_INDEX']
-        self.es_doc_type = current_app.config['INDEXER_DEFAULT_DOCTYPE']
-        self.file_doc_type = current_app.config['INDEXER_FILE_DOC_TYPE']
+    This class extends the RecordIndexer class to index records and manipulate
+    data in OpenSearch. It includes methods for uploading metadata, deleting
+    file indexes, updating relation versions, and updating OpenSearch data.
+
+    Attributes:
+        search_index (str):
+            Search index in OpenSearch.
+    """
+
+    def get_search_index(self):
+        """Assign OpenSearch settings."""
+        self.search_index = build_alias_name(
+            current_app.config['SEARCH_UI_SEARCH_INDEX'])
 
     def upload_metadata(self, jrc, item_id, revision_id, skip_files=False):
-        """Upload the item data to ElasticSearch.
+        """Upload the item data to OpenSearch.
 
         Args:
             jrc (_type_): _description_
@@ -154,9 +162,8 @@ class WekoIndexer(RecordIndexer):
         # current_app.logger.error("revision_id:{}".format(revision_id))
         # current_app.logger.error("type(revision_id:{}".format(type(revision_id)))
         # current_app.logger.error("skip_files:{}".format(skip_files))
-        es_info = dict(id=str(item_id),
-                       index=self.es_index,
-                       doc_type=self.es_doc_type)
+        search_info = dict(id=str(item_id),
+                       index=self.search_index)
         body = dict(version=revision_id + 1,
                     version_type=self._version_type,
                     body=jrc)
@@ -164,7 +171,7 @@ class WekoIndexer(RecordIndexer):
         # Only pass through pipeline if file exists
         if 'content' in jrc and not skip_files:
             body['pipeline'] = 'item-file-pipeline'
-        if self.client.exists(**es_info):
+        if self.client.exists(**search_info):
             del body['version']
             del body['version_type']
 
@@ -172,10 +179,10 @@ class WekoIndexer(RecordIndexer):
         # current_app.logger.debug(full_body)
         # self.client.index(**full_body)
 
-        self.client.index(**{**es_info, **body})
+        self.client.index(**{**search_info, **body})
 
     def delete_file_index(self, body, parent_id):
-        """Delete file index in Elastic search.
+        """Delete file index in OpenSearch.
 
         :param body:
         :param parent_id: Parent item id.
@@ -186,28 +193,26 @@ class WekoIndexer(RecordIndexer):
         for lst in body:
             try:
                 self.client.delete(id=str(lst),
-                                   index=self.es_index,
-                                   doc_type=self.file_doc_type,
+                                   index=self.search_index,
                                    routing=parent_id)
             except BaseException:
                 pass
 
     def update_relation_version_is_last(self, version):
         """Update relation version is_last."""
-        self.get_es_index()
+        self.get_search_index()
         pst = 'relation_version_is_last'
         body = {'doc': {pst: version.get('is_last')}}
         return self.client.update(
-            index=self.es_index,
-            doc_type=self.es_doc_type,
+            index=self.search_index,
             id=str(version.get('id')),
             body=body, ignore=[400, 404]
         )
 
-    def update_es_data(self, record, update_revision=True,
+    def update_search_data(self, record, update_revision=True,
                     update_oai=False, is_deleted=False,
                     field='path'):
-        """Update es data.
+        """Update OpenSearch data.
 
         Args:
             record ([type]): [description]
@@ -220,7 +225,7 @@ class WekoIndexer(RecordIndexer):
             [type]: [description]
 
         """
-        self.get_es_index()
+        self.get_search_index()
         _oai = '_oai'
         sets = 'sets'
         body = {}
@@ -255,16 +260,13 @@ class WekoIndexer(RecordIndexer):
 
         if update_revision:
             return self.client.update(
-                index=self.es_index,
-                doc_type=self.es_doc_type,
+                index=self.search_index,
                 id=str(record.id),
-                version=record.revision_id,
                 body=body
             )
         else:
             return self.client.update(
-                index=self.es_index,
-                doc_type=self.es_doc_type,
+                index=self.search_index,
                 id=str(record.id),
                 body=body
             )
@@ -274,7 +276,7 @@ class WekoIndexer(RecordIndexer):
 
         :param record: Record instance.
         """       
-        self.get_es_index()
+        self.get_search_index()
 
     def delete(self, record):
         """Delete a record.
@@ -283,11 +285,10 @@ class WekoIndexer(RecordIndexer):
 
         :param record: Record instance.
         """
-        self.get_es_index()
+        self.get_search_index()
 
         self.client.delete(id=str(record.id),
-                           index=self.es_index,
-                           doc_type=self.es_doc_type)
+                           index=self.search_index)
 
     def delete_by_id(self, uuid):
         """Delete a record by id.
@@ -295,10 +296,9 @@ class WekoIndexer(RecordIndexer):
         :param uuid: Record ID.
         """
         try:
-            self.get_es_index()
+            self.get_search_index()
             self.client.delete(id=str(uuid),
-                               index=self.es_index,
-                               doc_type=self.es_doc_type)
+                               index=self.search_index)
         except Exception as ex:
             current_app.logger.error(ex)
 
@@ -314,14 +314,13 @@ class WekoIndexer(RecordIndexer):
                 }
             }
         }
-        self.get_es_index()
-        search_result = self.client.count(index=self.es_index,
-                                          doc_type=self.es_doc_type,
+        self.get_search_index()
+        search_result = self.client.count(index=self.search_index,
                                           body=search_query)
         return search_result.get('count')
 
-    def get_pid_by_es_scroll(self, path):
-        """Get pid by es scroll.
+    def get_pid_by_search_scroll(self, path):
+        """Get pid by OpenSearch scroll.
 
         :param path:
         :return: _scroll_id
@@ -346,8 +345,8 @@ class WekoIndexer(RecordIndexer):
             else:
                 return None
 
-        ind, doc_type = self.record_to_index({})
-        search_result = self.client.search(index=ind, doc_type=doc_type,
+        ind = self.record_to_index({})
+        search_result = self.client.search(index=ind,
                                            body=search_query, scroll='1m')
         if search_result:
             res = get_result(search_result)
@@ -361,14 +360,13 @@ class WekoIndexer(RecordIndexer):
             self.client.clear_scroll(scroll_id=scroll_id)
 
     def get_metadata_by_item_id(self, item_id):
-        """Get metadata of item by id from ES.
+        """Get metadata of item by id from OpenSearch.
 
         :param item_id: Item ID (UUID).
         :return: Metadata.
         """
-        self.get_es_index()
-        return self.client.get(index=self.es_index,
-                               doc_type=self.es_doc_type,
+        self.get_search_index()
+        return self.client.get(index=self.search_index,
                                id=str(item_id))
 
     def update_feedback_mail_list(self, feedback_mail):
@@ -381,13 +379,12 @@ class WekoIndexer(RecordIndexer):
             _type_: _feedback_mail_id
         """        
         # current_app.logger.debug("feedback_mail:{}".format(feedback_mail));
-        self.get_es_index()
+        self.get_search_index()
         pst = 'feedback_mail_list'
         body = {'doc': {pst: feedback_mail.get('mail_list')}}
         
         return self.client.update(
-            index=self.es_index,
-            doc_type=self.es_doc_type,
+            index=self.search_index,
             id=str(feedback_mail.get('id')),
             body=body
         )
@@ -395,13 +392,12 @@ class WekoIndexer(RecordIndexer):
     def update_author_link(self, author_link):
         """Update author_link info."""
         # current_app.logger.error("author_link:{}".format(author_link));
-        self.get_es_index()
+        self.get_search_index()
         pst = 'author_link'
         body = {'doc': {pst: author_link.get('author_link')}}
         
         return self.client.update(
-            index=self.es_index,
-            doc_type=self.es_doc_type,
+            index=self.search_index,
             id=str(author_link.get('id')),
             body=body
         )
@@ -409,17 +405,16 @@ class WekoIndexer(RecordIndexer):
     def update_jpcoar_identifier(self, dc, item_id):
         """Update JPCOAR meta data item."""
         # current_app.logger.error("dc:{}".format(dc));
-        self.get_es_index()
+        self.get_search_index()
         body = {'doc': {'_item_metadata': dc}}
         return self.client.update(
-            index=self.es_index,
-            doc_type=self.es_doc_type,
+            index=self.search_index,
             id=str(item_id),
             body=body
         )
 
-    def __build_bulk_es_data(self, updated_data):
-        """Build ElasticSearch data.
+    def __build_bulk_search_data(self, updated_data):
+        """Build OpenSearch data.
 
         :param updated_data: Records data.
         """
@@ -427,8 +422,7 @@ class WekoIndexer(RecordIndexer):
         for record in updated_data:
             es_data = dict(
                 _id=str(record.get('_id')),
-                _index=self.es_index,
-                _type=self.es_doc_type,
+                _index=self.search_index,
                 _source=record.get('_source'),
             )
             yield es_data
@@ -438,10 +432,10 @@ class WekoIndexer(RecordIndexer):
 
         :param updated_data: Updated data.
         """
-        self.get_es_index()
-        es_data = self.__build_bulk_es_data(updated_data)
-        if es_data:
-            success, failed = bulk(self.client, es_data)
+        self.get_search_index()
+        search_data = self.__build_bulk_search_data(updated_data)
+        if search_data:
+            success, failed = search.helpers.bulk(self.client, search_data)
             if len(failed) > 0:
                 for error in failed:
                     current_app.logger.error(error)
@@ -705,7 +699,7 @@ class WekoDeposit(Deposit):
         self.is_edit = True
         
         deposit = super(WekoDeposit, self).publish(pid, id_)
-        # update relation version current to ES
+        # update relation version current to OpenSearch
         recid = PersistentIdentifier.query.filter_by(
             pid_type='recid',
             object_uuid=self.id
@@ -884,7 +878,7 @@ class WekoDeposit(Deposit):
             db.session.delete(recid)
 
         # if this item has been deleted
-        self.delete_es_index_attempt(recid)
+        self.delete_search_index_attempt(recid)
 
         # Completely remove bucket
         bucket = self.files.bucket
@@ -909,7 +903,7 @@ class WekoDeposit(Deposit):
         Store changes on current instance in database and index it.
         1. Get deposit's bucket then set the workflow's storage location to the bucket's default location.
         2. Update the item metadata in the database.
-        3. Register the item metadata in elasticsearch.
+        3. Register the item metadata in search.
         4. Update the version_id of records_metadata in the database.
         
         Args:
@@ -920,7 +914,7 @@ class WekoDeposit(Deposit):
             None
 
         Raises:
-            TransportError: fail upload metadata to elasticsearch
+            TransportError: fail upload metadata to OpenSearch
         """ 
         super(WekoDeposit, self).commit(*args, **kwargs)
         record = RecordMetadata.query.get(self.pid.object_uuid)
@@ -969,11 +963,11 @@ class WekoDeposit(Deposit):
                     self.indexer.upload_metadata(self.jrc,
                                                  self.pid.object_uuid,
                                                  self.revision_id)
-                except TransportError as err:
+                except search.TransportError as err:
                     err_passing_config = current_app.config.get(
-                        'WEKO_DEPOSIT_ES_PARSING_ERROR_PROCESS_ENABLE')
+                        'WEKO_DEPOSIT_SEARCH_PARSING_ERROR_PROCESS_ENABLE')
                     parse_err = current_app.config.get(
-                        'WEKO_DEPOSIT_ES_PARSING_ERROR_KEYWORD')
+                        'WEKO_DEPOSIT_SEARCH_PARSING_ERROR_KEYWORD')
                     if err_passing_config and \
                             parse_err in err.info["error"]["reason"]:
                         self.delete_content_files()
@@ -1007,7 +1001,7 @@ class WekoDeposit(Deposit):
         Create a new version of the deposit.
             1. Check if a newer version than the pid that is passed as an argument exists.
             2. Update the draft_id then call the create() method to generate a new deposit.
-            3. Update both the database and elasticsearch.
+            3. Update both the database and OpenSearch.
         Args:
             pid(dict): 
                 Used to check for the lastest pid
@@ -1295,7 +1289,7 @@ class WekoDeposit(Deposit):
             RuntimeError: fail convert item_metadata
         """
         # if this item has been deleted
-        self.delete_es_index_attempt(self.pid)
+        self.delete_search_index_attempt(self.pid)
 
         try:
             if not data:
@@ -1341,7 +1335,7 @@ class WekoDeposit(Deposit):
             self.data = data
             self.jrc = jrc
             self.is_edit = is_edit
-            self._convert_jpcoar_data_to_es()
+            self._convert_jpcoar_data_to_search()
         except RuntimeError:
             raise
         except BaseException:
@@ -1349,13 +1343,13 @@ class WekoDeposit(Deposit):
             current_app.logger.error(traceback.format_exc())
             abort(500, 'MAPPING_ERROR')
 
-        # Save Index Path on ES
+        # Save Index Path on OpenSearch
         jrc.update(dict(path=index_lst))
         # current_app.logger.debug(jrc)
         # add at 20181121 start
         sub_sort = {}
         for pth in index_lst:
-            # es setting
+            # search setting
             sub_sort[pth[-13:]] = ""
         dc.update(dict(path=index_lst))
         pubs = PublishStatus.NEW.value
@@ -1400,10 +1394,10 @@ class WekoDeposit(Deposit):
             if _new_description:
                 self.jrc[description_key] = _new_description
 
-    def _convert_jpcoar_data_to_es(self):
+    def _convert_jpcoar_data_to_search(self):
         """ 
 
-        Convert data jpcoar to es.
+        Convert data jpcoar to search.
 
         Args:
             None
@@ -1501,7 +1495,7 @@ class WekoDeposit(Deposit):
         """
         if index_id:
             index_id = str(index_id)
-        obj_ids = next((cls.indexer.get_pid_by_es_scroll(index_id)), [])
+        obj_ids = next((cls.indexer.get_pid_by_search_scroll(index_id)), [])
         try:
             for obj_uuid in obj_ids:
                 r = RecordMetadata.query.filter_by(id=obj_uuid).first()
@@ -1517,7 +1511,7 @@ class WekoDeposit(Deposit):
                     soft_delete(obj_uuid)
                 else:
                     dep = WekoDeposit(r.json, r)
-                    dep.indexer.update_es_data(dep, update_revision=False)
+                    dep.indexer.update_search_data(dep, update_revision=False)
             db.session.commit()
         except Exception as ex:
             current_app.logger.error(ex)
@@ -1541,7 +1535,7 @@ class WekoDeposit(Deposit):
         try:
             dt = datetime.utcnow()
             with db.session.begin_nested():
-                for result in self.indexer.get_pid_by_es_scroll(path):
+                for result in self.indexer.get_pid_by_search_scroll(path):
                     db.session.query(p). \
                         filter(p.object_uuid.in_(result),
                                p.object_type == 'rec'). \
@@ -1569,10 +1563,10 @@ class WekoDeposit(Deposit):
         """
         return super(Deposit, self).commit(*args, **kwargs)
 
-    def delete_es_index_attempt(self, pid):
+    def delete_search_index_attempt(self, pid):
         """ 
 
-        Delete es index attempt.
+        Delete OpenSearch index attempt.
 
         Args:
             pid (:obj: `PersistentIdentifier`):
@@ -1587,7 +1581,7 @@ class WekoDeposit(Deposit):
         """ 
         # if this item has been deleted
         if pid.status == PIDStatus.DELETED:
-            # attempt to delete index on es
+            # attempt to delete index on search
             try:
                 self.indexer.delete(self)
             except BaseException:

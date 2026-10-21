@@ -37,7 +37,7 @@ from weko_admin.api import TempDirInfo
 
 from .models import AdminSettings, StatisticsEmail
 from .utils import (
-    StatisticMail, package_reports, elasticsearch_reindex, get_reports
+    StatisticMail, package_reports, search_reindex, get_reports
 )
 from .views import handle_site_license_mail 
 from celery.task.control import inspect
@@ -56,8 +56,8 @@ logger = get_task_logger(__name__)
     ,ignore_results=False)
 def reindex(self, is_db_to_es ):
     """ 
-    Celery task to do elasticsearch_reindex
-    if error has occord in elasticsearch_reindex , update admin_settings
+    Celery task to do search_reindex
+    if error has occord in search_reindex , update admin_settings
 
     Args:
     self : any
@@ -67,18 +67,18 @@ def reindex(self, is_db_to_es ):
         if False, index Documents from ES data itself
     
     Returns:
-        str : elasticsearch_reindex responce text
+        str : search_reindex responce text
         
     Raises:
-        raises error in elasticsearch_reindex
+        raises error in search_reindex
 
     Todo:
-        if you change this codes, please keep in mind Todo of the method "elasticsearch_reindex"
+        if you change this codes, please keep in mind Todo of the method "search_reindex"
         in .utils.py .
     """
 
     try:
-        return elasticsearch_reindex(is_db_to_es)
+        return search_reindex(is_db_to_es)
     except BaseException as ex:
         # set error in admin_settings
         AdminSettings.update(WEKO_ADMIN_SETTINGS_ELASTIC_REINDEX_SETTINGS 

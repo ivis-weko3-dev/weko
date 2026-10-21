@@ -407,7 +407,7 @@ def _aggregations_restore(
         StatsCliUtil.AGGREGATIONS_TYPE,
         aggregation_types, start_date, end_date, force, verbose
     )
-    stats_cli.restore_data(bookmark)
+    stats_cli.restore_data()
 
 from .models import make_stats_events_partition_table, get_stats_events_partition_tables
 from invenio_db import db

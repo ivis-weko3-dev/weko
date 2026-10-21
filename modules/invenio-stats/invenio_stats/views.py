@@ -13,11 +13,11 @@ import calendar
 from datetime import datetime, timedelta
 from functools import wraps
 
-from elasticsearch.exceptions import NotFoundError
 from flask import Blueprint, abort, current_app, jsonify, request
 from invenio_pidrelations.contrib.versioning import PIDVersioning
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_rest.views import ContentNegotiatedMethodView
+from invenio_search.engine import search
 from invenio_db import db
 
 from . import config
@@ -102,7 +102,7 @@ class StatsQueryResource(WekoQuery):
                 result[query_name] = query.run(**params)
             except ValueError as e:
                 raise InvalidRequestInputError(e.args[0])
-            except NotFoundError as e:
+            except search.NotFoundError as e:
                 return None
         return self.make_response(result)
 

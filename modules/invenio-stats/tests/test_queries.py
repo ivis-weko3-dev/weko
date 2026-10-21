@@ -19,18 +19,18 @@ from invenio_stats.aggregations import filter_robots
 from invenio_stats.contrib.registrations import register_queries
 from invenio_stats.errors import InvalidRequestInputError
 from invenio_stats.queries import (
-    ESQuery,
-    ESDateHistogramQuery,
-    ESTermsQuery,
-    ESWekoFileStatsQuery,
-    ESWekoTermsQuery,
-    ESWekoRankingQuery
+    Query,
+    DateHistogramQuery,
+    TermsQuery,
+    WekoFileStatsQuery,
+    WekoTermsQuery,
+    WekoRankingQuery
 )
 
-# class ESQuery(object):
+# class Query(object):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_queries.py::test_query -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 def test_query(app):
-    query = ESQuery('test_name', 'test_type', 'test_index')
+    query = Query('test_name', 'test_type', 'test_index')
 
     # extract_date
     with pytest.raises(ValueError):
@@ -44,7 +44,7 @@ def test_query(app):
 
 
 
-# class ESDateHistogramQuery(ESQuery):
+# class DateHistogramQuery(Query):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_queries.py::test_date_histogram_query -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 def test_date_histogram_query(app):
     config_num = 8      # query_name='bucket-file-download-histogram'
@@ -52,14 +52,14 @@ def test_date_histogram_query(app):
     histogram_config = query_configs[config_num]['query_config']
     # __init__
     with pytest.raises(ValueError):
-        ESDateHistogramQuery(
+        DateHistogramQuery(
             query_name='test_total_count',
             **histogram_config,
             metric_fields={'value': ('test', '', {})}
         )
 
     # validate_arguments
-    query = ESDateHistogramQuery(
+    query = DateHistogramQuery(
         query_name='test_total_count',
         **histogram_config
     )
@@ -70,7 +70,7 @@ def test_date_histogram_query(app):
     assert not query.validate_arguments('year', None, None, bucket_id='test_id', file_key='test_key')
 
     # build_query
-    query = ESDateHistogramQuery(
+    query = DateHistogramQuery(
         query_name='test_total_count',
         **histogram_config
     )
@@ -79,7 +79,7 @@ def test_date_histogram_query(app):
     assert query.build_query('month', None, datetime.date(2023, 1, 1)).to_dict() == {'query': {'bool': {'filter': [{'range': {'timestamp': {'lte': '2023-01-01'}}}]}}, 'aggs': {'histogram': {'date_histogram': {'field': 'timestamp', 'interval': 'month', 'time_zone': 'Asia/Tokyo'}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}}}, 'from': 0, 'size': 0}
     assert query.build_query('month', None, None, file_key='test_key').to_dict() == {'query': {'bool': {'filter': [{'term': {'file_key': 'test_key'}}]}}, 'aggs': {'histogram': {'date_histogram': {'field': 'timestamp', 'interval': 'month', 'time_zone': 'Asia/Tokyo'}, 'aggs': {'value': {'sum': {'field': 'count'}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}}}, 'from': 0, 'size': 0}
 
-    query = ESDateHistogramQuery(
+    query = DateHistogramQuery(
         query_name='test_total_count',
         **histogram_config,
         query_modifiers=[filter_robots]
@@ -88,7 +88,7 @@ def test_date_histogram_query(app):
 
     test_config = copy.deepcopy(histogram_config)
     test_config.pop('copy_fields')
-    query = ESDateHistogramQuery(
+    query = DateHistogramQuery(
         query_name='test_total_count',
         **test_config
     )
@@ -141,7 +141,7 @@ def test_date_histogram_query(app):
     }
     test_config = copy.deepcopy(histogram_config)
     test_config['copy_fields']['test_value'] = lambda res, data: data['test_value']
-    query = ESDateHistogramQuery(
+    query = DateHistogramQuery(
         query_name='test_total_count',
         **test_config
     )
@@ -150,7 +150,7 @@ def test_date_histogram_query(app):
     assert query.process_query_result(_res2, 'month', None, None) == {'interval': 'month', 'key_type': 'date', 'start_date': None, 'end_date': None, 'buckets': [{'key': 'key1', 'date': '2023-01-01', 'value': 1}]}
 
 
-# class ESTermsQuery(ESQuery):
+# class TermsQuery(Query):
 # .tox/c1/bin/pytest --cov=invenio_stats tests/test_queries.py::test_terms_query -v -s -vv --cov-branch --cov-report=term --cov-config=tox.ini --basetemp=/code/modules/invenio-stats/.tox/c1/tmp
 @pytest.mark.parametrize('aggregated_file_download_events',
                          [dict(file_number=1,
@@ -173,7 +173,7 @@ def test_terms_query(app,mock_es_execute, event_queues,
                      aggregated_file_download_events, mock_execute, config_num, res_file):
     """Test that the terms query returns the correct total count."""
     query_configs = register_queries()
-    terms_query = ESTermsQuery(query_name='test_total_count',
+    terms_query = TermsQuery(query_name='test_total_count',
                                **query_configs[config_num]['query_config'])
 
     with patch("invenio_stats.queries.Search.execute", side_effect=[mock_es_execute(data) for data in mock_execute]):
@@ -192,7 +192,7 @@ def test_terms_query2(app):
     terms_config = query_configs[config_num]['query_config']
     
     # validate_arguments
-    query = ESTermsQuery(
+    query = TermsQuery(
         query_name='test_total_count',
         **terms_config
     )
@@ -201,7 +201,7 @@ def test_terms_query2(app):
     assert not query.validate_arguments(None, None, task_name='task1')
 
     # build_query
-    query = ESTermsQuery(
+    query = TermsQuery(
         query_name='test_total_count',
         **terms_config,
         query_modifiers=[filter_robots]
@@ -210,7 +210,7 @@ def test_terms_query2(app):
 
     test_config = copy.deepcopy(terms_config)
     test_config.pop('aggregated_fields')
-    query = ESTermsQuery(
+    query = TermsQuery(
         query_name='test_total_count',
         **test_config
     )
@@ -256,7 +256,7 @@ def test_terms_query2(app):
         'test_value': lambda res, data: data['test_value']
     }
     test_config['group_fields'] = ['group', 'count']
-    query = ESTermsQuery(
+    query = TermsQuery(
         query_name='test_total_count',
         **test_config
     )
@@ -264,7 +264,7 @@ def test_terms_query2(app):
 
     test_config = copy.deepcopy(terms_config)
     test_config.pop('aggregated_fields')
-    query = ESTermsQuery(
+    query = TermsQuery(
         query_name='test_total_count',
         **test_config
     )
@@ -281,7 +281,7 @@ def test_weko_file_stats_query(app):
     test_config = copy.deepcopy(filestats_config)
     test_config.pop('main_query')
     test_config.pop('aggregated_fields')
-    query = ESWekoFileStatsQuery(
+    query = WekoFileStatsQuery(
         query_name='test_total_count',
         **test_config,
         query_modifiers=[filter_robots]
@@ -290,7 +290,7 @@ def test_weko_file_stats_query(app):
 
     test_config['group_fields'] = ['file_key', 'count']
     test_config['copy_fields'] = {'file_key': 'file_key'}
-    query = ESWekoFileStatsQuery(
+    query = WekoFileStatsQuery(
         query_name='test_total_count',
         **test_config
     )
@@ -298,7 +298,7 @@ def test_weko_file_stats_query(app):
     assert query.build_query(None, None, after_key='test_key').to_dict() == {'aggs': {'value': {'sum': {'field': 'count'}}, 'my_buckets': {'composite': {'size': 6000, 'sources': [{'file_key': {'terms': {'field': 'file_key'}}}, {'count': {'terms': {'field': 'count'}}}], 'after': 'test_key'}}, 'top_hit': {'top_hits': {'size': 1, 'sort': {'timestamp': 'desc'}}}}, 'from': 0, 'size': 0}
 
     test_config['main_query'] = {'file_key': 'file_key', 'bucket_id': 'bucket_id', 'root_file_id': 'root_file_id'}
-    query = ESWekoFileStatsQuery(
+    query = WekoFileStatsQuery(
         query_name='test_total_count',
         **test_config
     )
@@ -318,7 +318,7 @@ def test_weko_terms_query(app):
         'record_id': 'record_id',
         'test_value': lambda res, data: data['test_value']
     }
-    query = ESWekoTermsQuery(
+    query = WekoTermsQuery(
         query_name='test_total_count',
         **test_config,
         query_modifiers=[filter_robots]
@@ -327,7 +327,7 @@ def test_weko_terms_query(app):
 
     test_config = copy.deepcopy(weko_terms_config)
     test_config['required_filters'] = {'required1': 'required1', 'required2': 'required2'}
-    query = ESWekoTermsQuery(
+    query = WekoTermsQuery(
         query_name='test_total_count',
         **test_config
     )
@@ -344,7 +344,7 @@ def test_weko_ranking_query(app):
     test_config.pop('main_query')
     test_config.pop('aggregated_fields')
     test_config['main_query'] = {'match': 'match', 'key': 'key', 'file_key': 'file_key', 'bucket_id': 'bucket_id', 'root_file_id': 'root_file_id', 'query': {'bool': {'must_not': 'must_not'}}}
-    query = ESWekoRankingQuery(
+    query = WekoRankingQuery(
         query_name='test_total_count',
         **test_config
     )
@@ -359,7 +359,7 @@ def test_sitelicense_query(app):
 
     # build_query
     test_config = copy.deepcopy(weko_sitelicense_config)
-    query = ESTermsQuery(
+    query = TermsQuery(
         query_name='test_total_count',
         **test_config
     )

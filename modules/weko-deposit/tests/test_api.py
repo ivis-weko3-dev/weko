@@ -34,7 +34,6 @@ import time
 from flask import session
 from flask_login import login_user
 
-from elasticsearch.exceptions import NotFoundError
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus, Redirect
 from invenio_pidstore.errors import PIDInvalidAction
 from invenio_pidrelations.models import PIDRelation
@@ -42,11 +41,11 @@ from invenio_records.errors import MissingModelError
 from invenio_records_rest.errors import PIDResolveRESTError
 from invenio_records_files.models import RecordsBuckets
 from invenio_records_files.api import Record
+from invenio_search.engine import search
 from invenio_files_rest.models import Bucket, ObjectVersion,FileInstance
 from invenio_records.api import RecordRevision
 from six import BytesIO
 from weko_records.utils import get_options_and_order_list
-from elasticsearch import Elasticsearch
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import OperationalError
 from weko_admin.models import AdminSettings
@@ -86,7 +85,7 @@ class MockClient():
 
     def update(self, index=None, doc_type=None, id=None, body=None):
         if self.is_get_error:
-            raise NotFoundError
+            raise search.NotFoundError
         else:
             return None
     def delete(self, index=None, doc_type=None, id=None, routing=None):
@@ -153,12 +152,10 @@ class TestWekoIndexer:
         indexer = WekoIndexer()
         assert isinstance(indexer,WekoIndexer)
 
-        # def get_es_index(self):
+        # def get_search_index(self):
         with app.test_request_context():
-            indexer.get_es_index()
-            assert indexer.es_index==app.config['SEARCH_UI_SEARCH_INDEX']
-            assert indexer.es_doc_type==app.config['INDEXER_DEFAULT_DOCTYPE']
-            assert indexer.file_doc_type=='content'
+            indexer.get_search_index()
+            assert indexer.search_index==app.config['SEARCH_UI_SEARCH_INDEX']
 
     #  def upload_metadata(self, jrc, item_id, revision_id, skip_files=False):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_upload_metadata -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -182,8 +179,7 @@ class TestWekoIndexer:
         record = records[0]['record']
         dep = WekoDeposit(record,record.model)
         indexer.delete_file_index([record.id],record.pid)
-        from elasticsearch.exceptions import NotFoundError
-        with pytest.raises(NotFoundError):
+        with pytest.raises(search.NotFoundError):
             indexer.get_metadata_by_item_id(record.pid)
 
 
@@ -199,13 +195,13 @@ class TestWekoIndexer:
         relations_ver['is_last'] = relations_ver.get('index') == 0
         assert indexer.update_relation_version_is_last(relations_ver)=={'_index': 'test-weko-item-v1.0.0', '_type': 'item-v1.0.0', '_id': '{}'.format(pid.object_uuid), '_version': 2, 'result': 'noop', '_shards': {'total': 0, 'successful': 0, 'failed': 0}}
 
-    # def update_es_data(self, record, update_revision=True,
-    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_update_es_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test_update_es_data(self,es_records):
+    # def update_search_data(self, record, update_revision=True,
+    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoIndexer::test_update_search_data -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+    def test_update_search_data(self,es_records):
         indexer, records = es_records
         record = records[0]['record']
-        assert indexer.update_es_data(record, update_revision=False,update_oai=False, is_deleted=False)=={'_index': 'test-weko-item-v1.0.0', '_type': 'item-v1.0.0', '_id': '{}'.format(record.id), '_version': 3, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, '_seq_no': 9, '_primary_term': 1}
-        res = indexer.update_es_data(record, update_revision=False,update_oai=True, is_deleted=False)
+        assert indexer.update_search_data(record, update_revision=False,update_oai=False, is_deleted=False)=={'_index': 'test-weko-item-v1.0.0', '_type': 'item-v1.0.0', '_id': '{}'.format(record.id), '_version': 3, 'result': 'updated', '_shards': {'total': 2, 'successful': 1, 'failed': 0}, '_seq_no': 9, '_primary_term': 1}
+        res = indexer.update_search_data(record, update_revision=False,update_oai=True, is_deleted=False)
         assert res=={'_id': res['_id'], '_index': 'test-weko-item-v1.0.0', '_primary_term': 1, '_seq_no': 10, '_shards': {'failed': 0, 'successful': 1, 'total': 2}, '_type': 'item-v1.0.0', '_version': 4, 'result': 'updated'}
 
     # def index(self, record):
@@ -221,8 +217,7 @@ class TestWekoIndexer:
         indexer, records = es_records
         record = records[0]['record']
         indexer.delete(record)
-        from elasticsearch.exceptions import NotFoundError
-        with pytest.raises(NotFoundError):
+        with pytest.raises(search.NotFoundError):
             indexer.get_metadata_by_item_id(record.pid)
 
     #     def delete_by_id(self, uuid):
@@ -231,8 +226,7 @@ class TestWekoIndexer:
         indexer, records = es_records
         record = records[0]['record']
         indexer.delete_by_id(record.id)
-        from elasticsearch.exceptions import NotFoundError
-        with pytest.raises(NotFoundError):
+        with pytest.raises(search.NotFoundError):
             indexer.get_metadata_by_item_id(record.pid)
 
         indexer.delete_by_id(record.id)
@@ -432,7 +426,7 @@ class TestWekoDeposit:
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_publish_without_commit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
     def test_publish_without_commit(self,app,location):
         with app.test_request_context():
-            # es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
+            # es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
             # print(es.cat.indices())
             deposit = WekoDeposit.create({})
             assert deposit['_deposit']['id']
@@ -493,27 +487,27 @@ class TestWekoDeposit:
 
     # def clear(self, *args, **kwargs):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_clear -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test_clear(sel,app,db,location,es_records):
-        indexer, records = es_records
+    def test_clear(sel,app,db,location,search_records):
+        indexer, records = search_records
         record = records[0]
         deposit = record['deposit']
-        es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
-        ret = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'], doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],id=deposit.id)
+        open_search = search.OpenSearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
+        ret = open_search.get_source(index=app.config['INDEXER_DEFAULT_INDEX'], doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],id=deposit.id)
         deposit.clear()
-        ret2 = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'], doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],id=deposit.id)
+        ret2 = open_search.get_source(index=app.config['INDEXER_DEFAULT_INDEX'], doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],id=deposit.id)
         assert ret==ret2
 
 
     # def delete(self, force=True, pid=None):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_delete -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test_delete(sel,app,db,location,es_records):
-        indexer, records = es_records
+    def test_delete(sel,app,db,location,search_records):
+        indexer, records = search_records
         record = records[0]
         deposit = record['deposit']
-        es = Elasticsearch("http://{}:9200".format(app.config["SEARCH_ELASTIC_HOSTS"]))
-        ret = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'], doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],id=deposit.id)
+        open_search = search.OpenSearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
+        ret = open_search.get_source(index=app.config['INDEXER_DEFAULT_INDEX'], doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],id=deposit.id)
         deposit.delete()
-        ret2 = es.get_source(index=app.config['INDEXER_DEFAULT_INDEX'], doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],id=deposit.id,ignore = [404])
+        ret2 = open_search.get_source(index=app.config['INDEXER_DEFAULT_INDEX'], doc_type=app.config['INDEXER_DEFAULT_DOC_TYPE'],id=deposit.id,ignore = [404])
         assert ret2=={'error': {'root_cause': [{'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(deposit.id)}], 'type': 'resource_not_found_exception', 'reason': 'Document not found [test-weko-item-v1.0.0]/[item-v1.0.0]/[{}]'.format(deposit.id)}, 'status': 404}
 
     # def commit(self, *args, **kwargs):
@@ -655,13 +649,13 @@ class TestWekoDeposit:
         deposit.jrc=jrc
         deposit._convert_description_to_object()
         assert deposit.jrc["description"] == [{"value":"test_description1"},{"value":"test_description2"}]
-    # def _convert_jpcoar_data_to_es(self):
-    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test__convert_jpcoar_data_to_es -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test__convert_jpcoar_data_to_es(sel,app,db,location,es_records):
+    # def _convert_jpcoar_data_to_search(self):
+    # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test__convert_jpcoar_data_to_search -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
+    def test__convert_jpcoar_data_to_search(sel,app,db,location,es_records):
         indexer, records = es_records
         record = records[0]
         deposit = record['deposit']
-        deposit._convert_jpcoar_data_to_es()
+        deposit._convert_jpcoar_data_to_search()
 
     # def _convert_data_for_geo_location(self):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test__convert_data_for_geo_location -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
@@ -1610,7 +1604,7 @@ def test_weko_indexer(app, db, location):
     indexer.client=MockClient()
     indexer.client.update_get_error(True)
     indexer.client.update_get_error(False)
-    indexer.get_es_index()
+    indexer.get_search_index()
 
     indexer.upload_metadata(
         jrc={},
@@ -1619,13 +1613,13 @@ def test_weko_indexer(app, db, location):
         skip_files=True
     )
     indexer.client.update_get_error(True)
-    with pytest.raises(NotFoundError):
+    with pytest.raises(search.NotFoundError):
         indexer.update_relation_version_is_last({
             'id': 1,
             'is_last': True
         })
     indexer.client.update_get_error(False)
-    indexer.update_es_data(deposit, update_revision=False)
+    indexer.update_search_data(deposit, update_revision=False)
 
     indexer.delete_file_index([deposit.id], 0)
 
@@ -1640,7 +1634,7 @@ def test_weko_indexer(app, db, location):
     indexer.client=MockClient()
     indexer.client.update_get_error(True)
     indexer.client.update_get_error(False)
-    indexer.get_es_index()
+    indexer.get_search_index()
 
     indexer.upload_metadata(
         jrc={},
@@ -1674,8 +1668,8 @@ def test_weko_deposit_new(app, db, location):
 
     record = WekoDeposit.get_record(pid.object_uuid)
     deposit = WekoDeposit(record, record.model)
-    with patch('weko_deposit.api.WekoIndexer.update_relation_version_is_last', side_effect=NotFoundError):
-        with pytest.raises(NotFoundError):
+    with patch('weko_deposit.api.WekoIndexer.update_relation_version_is_last', side_effect=search.NotFoundError):
+        with pytest.raises(search.NotFoundError):
             deposit.publish()
 
 

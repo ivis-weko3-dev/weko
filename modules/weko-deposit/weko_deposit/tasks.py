@@ -257,6 +257,7 @@ def update_items_by_authorInfo(origin_list, target):
                         }]
                 }
             },
+            "track_total_hits": True,
             "_source": [
                 "control_number"
             ],
@@ -292,7 +293,7 @@ def update_items_by_authorInfo(origin_list, target):
                 dep = WekoDeposit.get_record(d['id'])
                 dep.update_author_link(d['author_link'])
 
-        data_total = search['hits']['total']
+        data_total = search['hits']['total']['value']
         if data_total > data_size + data_from:
             return len(update_es_authorinfo), True
         else:

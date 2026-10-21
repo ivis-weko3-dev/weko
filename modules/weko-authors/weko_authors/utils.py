@@ -37,6 +37,7 @@ from invenio_cache import current_cache
 from invenio_db import db
 from invenio_files_rest.models import FileInstance, Location
 from invenio_indexer.api import RecordIndexer
+from invenio_search.utils import build_alias_name
 
 from weko_authors.contrib.validation import validate_by_extend_validator, \
     validate_external_author_identifier, validate_map, validate_required
@@ -85,12 +86,11 @@ def check_email_existed(email: str):
 
     indexer = RecordIndexer()
     result = indexer.client.search(
-        index=current_app.config['WEKO_AUTHORS_ES_INDEX_NAME'],
-        doc_type=current_app.config['WEKO_AUTHORS_ES_DOC_TYPE'],
+        index=current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME'],
         body=body
     )
 
-    if result['hits']['total']:
+    if result['hits']['total']['value']:
         return {
             'email': email,
             'author_id': result['hits']['hits'][0]['_source']['pk_id']
@@ -601,13 +601,13 @@ def get_count_item_link(pk_id):
         "_source": ["control_number"]
     }
     result_itemCnt = RecordIndexer().client.search(
-        index=current_app.config['SEARCH_UI_SEARCH_INDEX'],
+        index=build_alias_name(current_app.config['SEARCH_UI_SEARCH_INDEX']),
         body=query_q
     )
 
     if result_itemCnt \
             and 'hits' in result_itemCnt \
             and 'total' in result_itemCnt['hits'] \
-            and result_itemCnt['hits']['total'] > 0:
-        count = result_itemCnt['hits']['total']
+            and result_itemCnt['hits']['total']['value'] > 0:
+        count = result_itemCnt['hits']['total']['value']
     return count

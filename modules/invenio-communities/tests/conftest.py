@@ -97,8 +97,8 @@ def base_app(instance_path, request):
         #     'SQLALCHEMY_DATABASE_URI',
         #     'sqlite:///test.db'),
         SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
-        SEARCH_ELASTIC_HOSTS=os.environ.get(
-            'SEARCH_ELASTIC_HOSTS', None),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+            'SEARCH_OPENSEARCH_HOSTS', None),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         OAISERVER_REGISTER_RECORD_SIGNALS=True,
         OAISERVER_REGISTER_SET_SIGNALS=False,
@@ -107,7 +107,6 @@ def base_app(instance_path, request):
         THEME_SITEURL='https://inveniosoftware.org',
         MAIL_SUPPRESS_SEND=True,
         SEARCH_INDEX_PREFIX="test-",
-        INDEXER_DEFAULT_DOCTYPE='item-v1.0.0',
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
     )

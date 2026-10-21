@@ -34,7 +34,6 @@ import tempfile
 from time import sleep
 
 import pytest
-from elasticsearch.exceptions import RequestError
 from flask import Flask
 from flask.cli import ScriptInfo
 from flask_babelex import Babel
@@ -64,6 +63,7 @@ from invenio_records_rest.utils import PIDConverter
 from invenio_records_ui import InvenioRecordsUI
 from invenio_rest import InvenioREST
 from invenio_search import InvenioSearch, current_search, current_search_client
+from invenio_search.engine import search
 from invenio_search_ui import InvenioSearchUI
 from six import BytesIO, get_method_self
 from sqlalchemy import inspect
@@ -101,8 +101,8 @@ def base_app(request):
             # SQLALCHEMY_DATABASE_URI=os.environ.get(
             #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
             SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
-            SEARCH_ELASTIC_HOSTS=os.environ.get(
-                'SEARCH_ELASTIC_HOSTS', 'elasticsearch'),
+            SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
             SQLALCHEMY_TRACK_MODIFICATIONS=True,
             SQLALCHEMY_ECHO=False,
             TESTING=True,
@@ -115,7 +115,6 @@ def base_app(request):
             OAUTH2_CACHE_TYPE='simple',
             ACCOUNTS_JWT_ENABLE=False,
             INDEXER_DEFAULT_INDEX='records-default-v1.0.0',
-            INDEXER_DEFAULT_DOC_TYPE='default-v1.0.0',
             INDEXER_MQ_QUEUE = Queue("indexer", 
                                  exchange=Exchange("indexer", type="direct"), routing_key="indexer",auto_delete=False,queue_arguments={"x-queue-type":"quorum"}),
         
@@ -295,7 +294,7 @@ def es(app):
     """Elasticsearch fixture."""
     try:
         list(current_search.create())
-    except RequestError:
+    except search.RequestError:
         list(current_search.delete(ignore=[404]))
         list(current_search.create(ignore=[400]))
     current_search_client.indices.refresh()

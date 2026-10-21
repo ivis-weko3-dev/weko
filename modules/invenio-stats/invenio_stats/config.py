@@ -224,6 +224,3 @@ STATS_WEKO_DB_BACKUP_EVENTS = True
 
 STATS_WEKO_DB_BACKUP_AGGREGATION = False
 """Enable DB backup of aggregation."""
-
-STATS_WEKO_DB_BACKUP_BOOKMARK = False
-"""Enable DB backup of bookmark."""

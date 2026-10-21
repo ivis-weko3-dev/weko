@@ -214,9 +214,9 @@ class ItemManagementCustomSort(BaseView):
 
             Indexes.set_item_sort_custom(index_id, item_sort)
 
-            # update es
+            # update search engine
             # fp = Indexes.get_self_path(index_id)
-            # Indexes.update_item_sort_custom_es(fp.path, sort_data)
+            # Indexes.update_item_sort_custom_search(fp.path, sort_data)
 
             jfy = {"status": 200, "message": "Data is successfully updated."}
         except Exception as ex:

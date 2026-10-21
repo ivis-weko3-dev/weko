@@ -15,7 +15,7 @@ from invenio_indexer.api import RecordIndexer
 from invenio_search import RecordsSearch
 
 from .facets import terms_filter
-from .utils import allow_all, check_elasticsearch, deny_all
+from .utils import allow_all, check_search, deny_all
 
 
 def _(x):

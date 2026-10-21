@@ -111,7 +111,7 @@ class ReindexElasticSearchView(BaseView):
             responce json text and responce code
 
         Todo:
-        if you change this codes or operating, please keep in mind Todo of the method "elasticsearch_reindex"
+        if you change this codes or operating, please keep in mind Todo of the method "search_reindex"
         in .utils.py .
         """
 
@@ -352,6 +352,7 @@ class ReportView(BaseView):
 
             aggs_query = {
                 "size": 0,
+                "track_total_hits": True,
                 "aggs": {
                     "aggs_public": {
                         "filter": {
@@ -415,7 +416,7 @@ class ReportView(BaseView):
             if aggs_results and aggs_results.get(
                     'aggregations', {}).get('aggs_public'):
                 result = {
-                    'total': aggs_results['hits']['total'],
+                    'total': aggs_results['hits']['total']['value'],
                     'open': aggs_results['aggregations'][
                         'aggs_public']['doc_count']
                 }

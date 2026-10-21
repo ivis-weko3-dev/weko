@@ -3,12 +3,12 @@ import pytest
 from mock import patch
 import uuid
 from flask import current_app
-from elasticsearch_dsl import Q
 from datetime import datetime
 
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records.models import RecordMetadata
 from invenio_search import current_search_client
+from invenio_search.engine import dsl
 from weko_index_tree.models import Index
 
 from invenio_oaiserver import current_oaiserver
@@ -22,24 +22,23 @@ from invenio_oaiserver.query import (
 #def query_string_parser(search_pattern):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py::test_query_string_parser -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_query_string_parser(es_app):
-    from elasticsearch_dsl.query import QueryString
     # current_oaiserver not have query_parse, config is str
     result = query_string_parser("test_path")
-    assert type(result) == QueryString
+    assert type(result) == dsl.query.QueryString
     assert result.name == "query_string"
     assert result.to_dict() == {"query_string":{"query":"test_path"}}
     
     # current_oaiserver not have query_parse, config is not str
-    current_app.config.update(OAISERVER_QUERY_PARSER=Q)
+    current_app.config.update(OAISERVER_QUERY_PARSER=dsl.Q)
     delattr(current_oaiserver,"query_parser")
     esult = query_string_parser("test_path")
-    assert type(result) == QueryString
+    assert type(result) == dsl.query.QueryString
     assert result.name == "query_string"
     assert result.to_dict() == {"query_string":{"query":"test_path"}}
     
     # current_oaiserver  have query_parse
     result = query_string_parser("test_path")
-    assert type(result) == QueryString
+    assert type(result) == dsl.query.QueryString
     assert result.name == "query_string"
     assert result.to_dict() == {"query_string":{"query":"test_path"}}
 
@@ -103,20 +102,18 @@ def test_get_records(es_app,db, mock_execute):
     
     db.session.commit()
     
-    es_info = dict(id=str(rec_uuid1),
-                       index=current_app.config['INDEXER_DEFAULT_INDEX'],
-                       doc_type=current_app.config['INDEXER_DEFAULT_DOCTYPE'])
+    search_info = dict(id=str(rec_uuid1),
+                       index=current_app.config['INDEXER_DEFAULT_INDEX'])
     body = dict(version=1,
                 version_type="external_gte",
                 body=rec_data1)
-    current_search_client.index(**{**es_info,**body})
-    es_info = dict(id=str(rec_uuid2),
-                       index=current_app.config['INDEXER_DEFAULT_INDEX'],
-                       doc_type=current_app.config['INDEXER_DEFAULT_DOCTYPE'])
+    current_search_client.index(**{**search_info,**body})
+    search_info = dict(id=str(rec_uuid2),
+                       index=current_app.config['INDEXER_DEFAULT_INDEX'])
     body = dict(version=1,
                 version_type='external_gte',
                 body=rec_data2)
-    current_search_client.index(**{**es_info,**body})
+    current_search_client.index(**{**search_info,**body})
     
     # not scroll_id, ":" not in set
     data = {

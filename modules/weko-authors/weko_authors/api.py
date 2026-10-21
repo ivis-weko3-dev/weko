@@ -39,8 +39,7 @@ class WekoAuthors(object):
     def create(cls, data):
         """Create new author."""
         session = db.session
-        config_index = current_app.config['WEKO_AUTHORS_ES_INDEX_NAME']
-        config_doc_type = current_app.config['WEKO_AUTHORS_ES_DOC_TYPE']
+        config_index = current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME']
 
         new_id = Authors.get_sequence(session)
         data["pk_id"] = str(new_id)
@@ -54,35 +53,32 @@ class WekoAuthors(object):
             }
         )
 
-        es_id = RecordIndexer().client.index(
+        search_id = RecordIndexer().client.index(
             index=config_index,
-            doc_type=config_doc_type,
             body=data
         ).get('_id', '')
 
         try:
             with session.begin_nested():
-                data['id'] = es_id
+                data['id'] = search_id
                 author = Authors(id=new_id, json=orjson.dumps(data).decode())
                 session.add(author)
         except Exception as ex:
-            if es_id:
+            if search_id:
                 RecordIndexer().client.delete(
                     index=config_index,
-                    doc_type=config_doc_type,
-                    id=es_id
+                    id=search_id
                 )
             raise ex
 
     @classmethod
     def update(cls, author_id, data):
         """Update author."""
-        def update_es_data(data):
-            """Update author data in ES."""
-            es_id = None
-            es_author = RecordIndexer().client.search(
+        def update_search_data(data):
+            """Update author data in OpenSearch."""
+            search_id = None
+            search_author = RecordIndexer().client.search(
                 index=config_index,
-                doc_type=config_doc_type,
                 body={
                     "query": {
                         'term': {
@@ -93,27 +89,24 @@ class WekoAuthors(object):
                 }
             )
 
-            if es_author['hits']['total'] > 0:
-                es_id = es_author['hits']['hits'][0].get('_id')
+            if search_author['hits']['total']['value'] > 0:
+                search_id = search_author['hits']['hits'][0].get('_id')
 
-            if es_id:
+            if search_id:
                 RecordIndexer().client.update(
                     index=config_index,
-                    doc_type=config_doc_type,
-                    id=es_id,
+                    id=search_id,
                     body={'doc': data}
                 )
             else:
-                es_id = RecordIndexer().client.index(
+                search_id = RecordIndexer().client.index(
                     index=config_index,
-                    doc_type=config_doc_type,
                     body=data
                 ).get('_id', '')
-            return es_id
-            
-        es_id = None
-        config_index = current_app.config['WEKO_AUTHORS_ES_INDEX_NAME']
-        config_doc_type = current_app.config['WEKO_AUTHORS_ES_DOC_TYPE']
+            return search_id
+
+        search_id = None
+        config_index = current_app.config['WEKO_AUTHORS_SEARCH_INDEX_NAME']
 
         try:
             with db.session.begin_nested():
@@ -123,16 +116,15 @@ class WekoAuthors(object):
                 else:
                     data['is_deleted'] = author.is_deleted
                     
-                es_id = update_es_data(data)
-                data['id'] = es_id
+                search_id = update_search_data(data)
+                data['id'] = search_id
                 author.json = orjson.dumps(data).decode()
                 db.session.merge(author)
         except Exception as ex:
-            if es_id:
+            if search_id:
                 RecordIndexer().client.delete(
                     index=config_index,
-                    doc_type=config_doc_type,
-                    id=es_id
+                    id=search_id
                 )
             raise ex
 

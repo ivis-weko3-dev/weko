@@ -20,8 +20,6 @@ from sqlalchemy.sql.expression import cast
 from weko_deposit.api import WekoRecord
 from weko_records.models import ItemMetadata, ItemReference
 
-from elasticsearch import Elasticsearch, helpers
-
 
 def removeOAISet():
     start = time.time()
@@ -77,10 +75,10 @@ def _addOAISet(id):
     Args:
         id : community id
     """
-    # es = Elasticsearch(
+    # es = search.OpenSearch(
     #    "http://"+os.environ.get('INVENIO_ELASTICSEARCH_HOST', 'localhost')+":9200")
     # _query = '{"query":{"term":{"path":{"value":"'+str(c.index.id)+'"}}}}'
-    # res = helpers.scan(es, index=os.environ.get(
+    # res = search.helpers.scan(es, index=os.environ.get(
     #    'SEARCH_INDEX_PREFIX', 'tenant1')+"-weko-item-v1.0.0", preserve_order=True, query=_query)
 
     c = Community.get(id)

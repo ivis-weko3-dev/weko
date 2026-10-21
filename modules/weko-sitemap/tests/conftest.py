@@ -291,7 +291,6 @@ def db_sessionlifetime(app, db):
 def records(app, db):
     current_app.config.update(
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        INDEXER_DEFAULT_DOCTYPE="item-v1.0.0",
         INDEXER_FILE_DOC_TYPE="content",
     )
     

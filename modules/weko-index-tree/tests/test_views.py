@@ -31,7 +31,7 @@ def test_get_rss_data(app, i18n_app, indices, es, mock_user_ctx, client_request_
             ]
         }
     }
-    with patch('weko_index_tree.views.get_elasticsearch_records_data_by_indexes', return_value=_data):
+    with patch('weko_index_tree.views.get_search_records_data_by_indexes', return_value=_data):
         with patch('weko_items_ui.utils.find_hidden_items', return_value=['1']):
             with patch('weko_gridlayout.utils.build_rss_xml', return_value='test'):
                 res = get_rss_data()
