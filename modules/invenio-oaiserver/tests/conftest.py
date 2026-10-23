@@ -33,7 +33,6 @@ from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_indexer import InvenioIndexer
 from invenio_jsonschemas import InvenioJSONSchemas
-from invenio_marc21 import InvenioMARC21
 from invenio_pidstore import InvenioPIDStore
 from invenio_records import InvenioRecords
 from invenio_search import InvenioSearch
@@ -110,7 +109,6 @@ def base_app(instance_path):
     InvenioJSONSchemas(app_)
     InvenioRecords(app_)
     InvenioPIDStore(app_)
-    InvenioMARC21(app_)
     InvenioIndexer(app_)
     InvenioOAIServer(app_)
     

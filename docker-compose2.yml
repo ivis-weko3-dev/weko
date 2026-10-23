@@ -339,7 +339,7 @@ services:
 
   opensearch-dashboards:
     restart: "always"
-    image: opensearchproject/opensearch-dashboards:latest
+    image: opensearchproject/opensearch-dashboards:2.19.6
     ports:
       - "5601:5601"
     environment:

@@ -5,7 +5,8 @@
   "settings": {
     "index": {
       "refresh_interval": "5s",
-      "opendistro.index_state_management.policy_id": "weko_stats_policy"
+      "opendistro.index_state_management.policy_id": "weko_stats_policy",
+      "plugins.index_state_management.rollover_alias": "__SEARCH_INDEX_PREFIX__stats-index"
     }
   },
   "mappings": {

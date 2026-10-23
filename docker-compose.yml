@@ -231,10 +231,12 @@ services:
     command: --broker=amqp://guest:guest@rabbitmq:5672// --broker_api=http://guest:guest@rabbitmq:5671/api/
     ports:
       - "5501:5555"
+    links:
+      - rabbitmq
 
   opensearch-dashboards:
     restart: "always"
-    image: opensearchproject/opensearch-dashboards:latest
+    image: opensearchproject/opensearch-dashboards:2.19.6
     ports:
       - "5601:5601"
     environment:

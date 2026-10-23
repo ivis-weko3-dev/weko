@@ -77,7 +77,6 @@ from invenio_stats.processors import (
     hash_id,
 )
 from jsonschema import Draft4Validator
-from opensearchpy.exceptions import OpenSearchException
 from sqlalchemy import func as _func
 from sqlalchemy.exc import SQLAlchemyError
 from weko_admin.models import SessionLifetime
@@ -1656,7 +1655,7 @@ def import_items_to_system(item: dict, request_info=None, is_gakuninrdm=False):
                 error_id = ex.args[0].get("error_id")
 
             return {"success": False, "error_id": error_id}
-        except OpenSearchException as ex:
+        except search.OpenSearchException as ex:
             current_app.logger.error("opensearch  error: ", ex)
             db.session.rollback()
             if item.get("id"):

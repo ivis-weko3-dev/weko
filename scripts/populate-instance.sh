@@ -181,16 +181,24 @@ curl -ku ${INVENIO_OPENSEARCH_USER}:${INVENIO_OPENSEARCH_PASS} -XPUT 'https://'$
 {
   "policy": {
     "description": "Rollover policy based on max size",
-    "default_state": "hot",
+    "default_state": "rollover",
     "states": [
       {
-        "name": "hot",
+        "name": "rollover",
         "actions": [
           {
             "rollover": {
               "min_size": "50gb"
             }
           }
+        ]
+      }
+    ],
+    "ism_template": [
+      {
+        "index_patterns": [
+          "*-events-stats-index-*",
+          "*-stats-index-*"
         ]
       }
     ]
@@ -212,6 +220,13 @@ curl -ku ${INVENIO_OPENSEARCH_USER}:${INVENIO_OPENSEARCH_PASS} -XPUT 'https://'$
       "is_write_index": true
     }
   }
+}'
+# ism_template only applies to indices created after the policy. Attach the
+# policy explicitly as well (e.g. when weko_stats_policy already existed and
+# the PUT above was rejected). "already being managed" failures are harmless.
+curl -ku ${INVENIO_OPENSEARCH_USER}:${INVENIO_OPENSEARCH_PASS} -XPOST 'https://'${INVENIO_ELASTICSEARCH_HOST}':9200/_plugins/_ism/add/'${SEARCH_INDEX_PREFIX}'-stats-index-000001,'${SEARCH_INDEX_PREFIX}'-events-stats-index-000001' -H 'Content-Type: application/json' -d '
+{
+  "policy_id": "weko_stats_policy"
 }'
 # elasticsearch-ilm-setting-end
 

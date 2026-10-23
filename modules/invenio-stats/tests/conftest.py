@@ -45,7 +45,6 @@ from invenio_db import InvenioDB
 from invenio_db import db as db_
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Bucket, Location, ObjectVersion
-from invenio_marc21 import InvenioMARC21
 from invenio_indexer import InvenioIndexer
 from invenio_oauth2server import InvenioOAuth2Server, InvenioOAuth2ServerREST
 from invenio_oauth2server.models import Token
@@ -344,7 +343,6 @@ def base_app(instance_path, mock_gethostbyaddr, search_class):
     InvenioIndexer(app_)
     InvenioOAuth2Server(app_)
     InvenioOAuth2ServerREST(app_)
-    InvenioMARC21(app_)
     InvenioSearch(app_, entry_point_group=None)
 
     current_stats = LocalProxy(lambda: app_.extensions["invenio-stats"])

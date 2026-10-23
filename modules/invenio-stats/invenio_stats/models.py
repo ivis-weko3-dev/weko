@@ -34,7 +34,7 @@ class _StataModelBase(Timestamp):
     id = db.Column(db.String(100), primary_key=True)
     source_id = db.Column(db.String(100))
     index = db.Column(db.String(100), nullable=False)
-    type = db.Column(db.String(50), nullable=False)
+    type = db.Column(db.String(50))
     source = db.Column(
         db.JSON()
         .with_variant(postgresql.JSONB(none_as_null=True), "postgresql",)

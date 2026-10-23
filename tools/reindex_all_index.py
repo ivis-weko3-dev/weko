@@ -84,7 +84,11 @@ def parse_arguments():
     parser.add_argument("--user", type=str, help="Elasticsearch のユーザー名")
     parser.add_argument("--password", type=str, help="Elasticsearch のパスワード")
 
-    parser.add_argument("--db-host", default=os.getenv("PGHOST", "pgpool"), help="PostgreSQL のホスト")
+    parser.add_argument(
+        "--db-host",
+        default=os.getenv("PGHOST", os.getenv("INVENIO_POSTGRESQL_HOST", "postgresql")),
+        help="PostgreSQL のホスト（既定: 環境変数 PGHOST → INVENIO_POSTGRESQL_HOST → postgresql）",
+    )
     parser.add_argument("--db-port", default=os.getenv("PGPORT", "5432"), help="PostgreSQL のポート")
     parser.add_argument("--db-name", default=os.getenv("PGDATABASE", "invenio"), help="PostgreSQL のDB名")
     parser.add_argument("--db-user", default=os.getenv("PGUSER", "invenio"), help="PostgreSQL のユーザー")
@@ -840,7 +844,10 @@ class ReindexAllIndexRunner(object):
             password=self.db_password,
         )
 
-        where_parts = ["{}->>'pk_id' IS NOT NULL".format(json_col)]
+        # authors.json may be stored as a JSON string (e.g. '"{\"pk_id\": ...}"'),
+        # so fall back to unwrapping the string with #>>'{}' before extracting pk_id.
+        pk_id_expr = "COALESCE({0}->>'pk_id', ({0}#>>'{{}}')::jsonb->>'pk_id')".format(json_col)
+        where_parts = ["{} IS NOT NULL".format(pk_id_expr)]
         sql_params = []
 
         if self.gte_date:
@@ -851,7 +858,7 @@ class ReindexAllIndexRunner(object):
             sql_params.append(self.until_date)
 
         sql = (
-            "SELECT {}->>'pk_id' AS pk_id ".format(json_col)
+            "SELECT {} AS pk_id ".format(pk_id_expr)
             + "FROM {} ".format(table)
             + "WHERE {} ".format(" AND ".join(where_parts))
             + "ORDER BY updated ASC"
