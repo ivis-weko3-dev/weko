@@ -840,6 +840,23 @@ def records(app, db, esindex, indextree, location, itemtypes, oaischema, db_admi
     index_ids = ["0"]
     results.append(make_record_with_multiple_path(db, indexer, i, filepath, filename, mimetype, accessrole, index_ids))
 
+    i = 6
+    filename = "helloworld_billing.pdf"
+    mimetype = "application/pdf"
+    filepath = "tests/data/helloworld_billing.pdf"
+    results.append(make_billing_record(db, indexer, i, filepath, filename, mimetype))
+
+    i = 7
+    filename = "helloworld_billing.pdf"
+    mimetype = "application/pdf"
+    filepath = "tests/data/helloworld_billing.pdf"
+    results.append(make_billing_record(db, indexer, i, filepath, filename, mimetype))
+
+    i = 8
+    filename = "helloworld_billing.pdf"
+    mimetype = "application/pdf"
+    filepath = "tests/data/helloworld_billing.pdf"
+    results.append(make_billing_record(db, indexer, i, filepath, filename, mimetype))
     return indexer, results
 
 
@@ -906,7 +923,7 @@ def records_open_access(app, db, esindex, indextree, location, itemtypes, oaisch
     ]
     results.append(make_record_with_some_files(db, indexer, i, file_info_list))
     file_name_list.append([info['filename'] for info in file_info_list])
-    
+
     return indexer, results, file_name_list
 
 
@@ -5779,7 +5796,7 @@ def site_license_info(app, db):
 @pytest.fixture()
 def site_license_ipaddr(app, db,site_license_info):
     record1 = SiteLicenseIpAddress(organization_id=1,organization_no=1,start_ip_address="192.168.0.0",finish_ip_address="192.168.0.255")
-    # record2 = SiteLicenseIpAddress(organization_id=1,start_ip_address="192.168.1.0",finish_ip_address="192.168.2.255")   
+    # record2 = SiteLicenseIpAddress(organization_id=1,start_ip_address="192.168.1.0",finish_ip_address="192.168.2.255")
     with db.session.begin_nested():
         db.session.add(record1)
         # db.session.add(record2)
@@ -5806,7 +5823,7 @@ def db_file_permission(app, db,users,records):
     record0 = FilePermission(
         user_id=1, record_id=recid0.pid_value, file_name=filename0,
         usage_application_activity_id="usage_app_act_id_dummy1",
-        usage_report_activity_id=None, status=1, 
+        usage_report_activity_id=None, status=1,
     )
     recid1 = results[1]["recid"]
     filename1 = results[1]["filename"]
@@ -5828,7 +5845,7 @@ def db_file_permission(app, db,users,records):
         db.session.add(record2)
     return [record0,record1,record2]
 
-    
+
 @pytest.fixture()
 def db_admin_settings(db):
     with db.session.begin_nested():
@@ -5844,14 +5861,20 @@ def db_admin_settings(db):
 
 
 @pytest.fixture()
-def db_item_billing(db):
+def db_item_billing(db, roles):
     with db.session.begin_nested():
-        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=1,role_id=1,include_tax=True,price=110))
-        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=1,role_id=2,include_tax=True,price=0))
-        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=2,role_id=1,include_tax=True,price=110))
-        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=2,role_id=2,include_tax=False,price=200))
-        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=2,role_id=3,include_tax=True,price=330))
-        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=2,role_id=4,include_tax=True,price=440))
+        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=1,role_id=roles["System Administrator"].id,include_tax=True,price=110))
+        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=1,role_id=roles["Repository Administrator"].id,include_tax=True,price=0))
+        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=2,role_id=roles["System Administrator"].id,include_tax=True,price=110))
+        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=2,role_id=roles["Repository Administrator"].id,include_tax=False,price=200))
+        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=2,role_id=roles["Contributor"].id,include_tax=True,price=330))
+        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=2,role_id=roles["Community Administrator"].id,include_tax=True,price=440))
+        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=4,role_id=roles["Contributor"].id,include_tax=False,price=500))
+        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=6,role_id=roles["Contributor"].id,include_tax=False,price=100))
+        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=6,role_id=roles["General"].id,include_tax=False,price=200))
+        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=6,role_id=roles["Original Role"].id,include_tax=False,price=300))
+        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=7,role_id=roles["Contributor"].id,include_tax=False,price=0))
+        db.session.add(ItemBilling(created=datetime(2022,12,13,2,30,30),updated=datetime(2022,12,13,2,30,30),item_id=7,role_id=roles["Original Role"].id,include_tax=False,price=300))
     db.session.commit()
 
 @pytest.fixture()

@@ -1,10 +1,11 @@
 from unittest.mock import MagicMock
 import pytest
 import io
-from flask import Flask, json, jsonify, session, url_for, make_response
+import secrets
+from flask import json,url_for, make_response
 from flask_security.utils import login_user
 from invenio_accounts.testutils import login_user_via_session
-from mock import patch
+from mock import patch, Mock, call
 from lxml import etree
 from weko_deposit.api import WekoRecord
 from werkzeug.exceptions import NotFound
@@ -12,12 +13,6 @@ from sqlalchemy.orm.exc import MultipleResultsFound
 from jinja2.exceptions import TemplatesNotFound
 from weko_redis import RedisConnection
 from weko_workflow.models import (
-    Action,
-    ActionStatus,
-    ActionStatusPolicy,
-    Activity,
-    FlowAction,
-    FlowDefine,
     WorkFlow,
 )
 from weko_records_ui.views import (
@@ -28,18 +23,13 @@ from weko_records_ui.views import (
     get_license_icon,
     json_string_escape,
     pid_value_version,
-    publish,
-    restore,
     check_file_permission,
     record_from_pid,
     default_view_method,
     url_to_link,
     xml_string_escape,
     escape_str,
-    init_permission,
     file_version_update,
-    set_pdfcoverpage_header,
-    parent_view_method,
     doi_ish_view_method,
     check_file_permission_period,
     get_file_permission,
@@ -47,7 +37,6 @@ from weko_records_ui.views import (
     get_usage_workflow,
     get_workflow_detail,
     preview_able,
-    get_uri,
 )
 
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -81,7 +70,7 @@ def test_pid_value_version():
     assert pid_value_version(1) == None
     assert pid_value_version("1") == None
     assert pid_value_version("1.1") == "1"
-    
+
     pid_value_version(MagicMock())
 
 
@@ -433,7 +422,7 @@ def test_get_workflow_detail(app,workflows):
 
     with pytest.raises(NotFound):
         ret = get_workflow_detail(0)
-    
+
 
 # def default_view_method(pid, record, filename=None, template=None, **kwargs):
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_default_view_method -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -451,7 +440,7 @@ def test_default_view_method(app, records, itemtypes, indexstyle, mocker, db_adm
                     with pytest.raises(Exception) as e:
                         res = default_view_method(recid, record, 'helloworld.pdf')
                     assert e.type==TemplatesNotFound
-                    
+
                     mock_render_template = mocker.patch("weko_records_ui.views.render_template")
                     default_view_method(recid, record, template='weko_records_ui/detail.html')
                     args, kwargs = mock_render_template.call_args
@@ -649,7 +638,7 @@ def test_soft_delete_acl_guest(client, records):
         (2, 200), # sysadmin
         (3, 200), # comadmin
         (4, 500), # generaluser
-        (5, 500), # originalroleuser 
+        (5, 500), # originalroleuser
         (6, 200), # originalroleuser2
         (7, 500), # user
     ],
@@ -682,7 +671,7 @@ def test_restore_acl_guest(client, records):
         (2, 200), # sysadmin
         (3, 200), # comadmin
         (4, 500), # generaluser
-        (5, 500), # originalroleuser 
+        (5, 500), # originalroleuser
         (6, 200), # originalroleuser2
         (7, 500), # user
     ],
@@ -784,7 +773,7 @@ def test_preview_able(app):
         ret = preview_able(file_json)
         assert isinstance(ret,bool)
         assert ret == True
-    
+
 
     size = 20000000000000
     file_json = {'url': {'url': 'https://weko3.example.org/record/11/files/001.jpg'}, 'date': [{'dateType': 'Available', 'dateValue': '2022-09-27'}], 'format': mimetype, 'filename': '001.jpg', 'filesize': [{'value': '2.7 MB'}], 'accessrole': 'open_access', 'version_id': 'd73bd9cb-aa9e-4cd0-bf07-c5976d40bdde', 'displaytype': 'preview', 'is_thumbnail': False, 'future_date_message': '', 'download_preview_message': '', 'size': size, 'mimetype': mimetype, 'file_order': 0}
@@ -820,7 +809,8 @@ def test_charge(app,db,users,client,mocker):
     redis_key = 'charge_{}'.format(users[0]['obj'].get_id())
 
     with patch.object(db.session, "remove", lambda: None):
-        with patch("flask_login.utils._get_user", return_value=users[0]["obj"]):
+        with patch("flask_login.utils._get_user", return_value=users[0]["obj"]), \
+             patch("weko_records_ui.views.get_file_charge_info", return_value=("ok", 110, "&yen;")):
             # redis_key is exists
             redis.put(redis_key, _data['item_id'].encode('utf-8'))
             res = client.get(url, data=_data)
@@ -837,7 +827,7 @@ def test_charge(app,db,users,client,mocker):
                         res = client.get(url, data=_data)
                         mock_abort.assert_called_with(500)
                         mock_create_charge.assert_not_called()
-            
+
             with patch('weko_records_ui.views.check_charge', return_value='not_billed'):
                 # 50
                 with patch('weko_records_ui.views.create_charge', return_value='connection_error'):
@@ -851,7 +841,7 @@ def test_charge(app,db,users,client,mocker):
                 with patch('weko_records_ui.views.create_charge', return_value='already'):
                     res = client.get(url, data=_data)
                     assert json.loads(res.data) == {'status': 'already'}
-                
+
                 with patch('weko_records_ui.views.create_charge', side_effect=Exception):
                     with patch("weko_records_ui.views.abort", return_value=make_response()) as mock_abort:
                         with patch("weko_records_ui.views.close_charge", return_value=make_response()) as mock_close_charge:
@@ -866,12 +856,148 @@ def test_charge(app,db,users,client,mocker):
                     redis_value = redis.get(redis_key)
                     assert redis_value.decode('utf-8') == _data['item_id']
                     redis.delete(redis_key)
-                
+
                 with patch('weko_records_ui.views.create_charge', return_value=None):
                     # charge is fail
                     res = client.get(url, data=_data)
                     assert json.loads(res.data) == {'status': 'error'}
                     assert redis.redis.exists(redis_key) == 0
+
+# def charge():
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_charge_price_changed -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_charge_price_changed(app,db,users,client,mocker):
+    _data = {}
+    url = url_for("weko_records_ui.charge",_external=True)
+    _data['item_id'] = '1'
+    _data['file_name'] = 'file_name'
+    _data['title'] = 'title'
+    _data['price'] = '110'
+    client.set_cookie('TEST_SERVER', 'session', 'test_redis_key.signature')
+    user_id = users[0]["obj"].id
+    redis_key = f'charge_{user_id}'
+    datastore = Mock()
+    datastore.redis.exists.return_value = False
+    redis = Mock(connection=Mock(return_value=datastore))
+
+    with patch.object(db.session, "remove", lambda: None), \
+         patch("flask_login.utils._get_user", return_value=users[0]["obj"]), \
+         patch('weko_records_ui.views.check_charge', return_value='not_billed'), \
+         patch('weko_records_ui.views.create_charge', return_value='https://pt01.mul-pay.jp'):
+
+        with patch('weko_records_ui.views.get_file_charge_info', return_value=("ok", 110, "&yen;")), \
+             patch('weko_records_ui.views.RedisConnection',  return_value=redis) as redis_connection:
+            res = client.get(url, data=_data)
+            assert json.loads(res.data) == {'redirect_url': 'https://pt01.mul-pay.jp'}
+            datastore.put.assert_called_once_with(redis_key, b'1', ttl_secs=300)
+
+        # リクエストがサーバー算出額より小さいケース
+        _data['price'] = '1'
+        with patch('weko_records_ui.views.get_file_charge_info', return_value=("ok", 110, "&yen;")), \
+             patch('weko_records_ui.views.RedisConnection',  return_value=redis) as redis_connection:
+            res = client.get(url, data=_data)
+            res = client.get(url, data=_data)
+            assert json.loads(res.data) == {'status': 'price_changed', 'price': 110, 'unit': '&yen;'}
+            redis_connection.assert_not_called()
+
+        # リクエストがサーバー算出額より大きいケース
+        _data['price'] = '220'
+        with patch('weko_records_ui.views.get_file_charge_info', return_value=("ok", 110, "&yen;")), \
+             patch('weko_records_ui.views.RedisConnection',  return_value=redis) as redis_connection:
+            res = client.get(url, data=_data)
+            res = client.get(url, data=_data)
+            assert json.loads(res.data) == {'status': 'price_changed', 'price': 110, 'unit': '&yen;'}
+            redis_connection.assert_not_called()
+
+# def charge():
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_charge_rejects_invalid_parameters -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_charge_rejects_invalid_parameters(app,db,users,client,mocker):
+    _data = {}
+    url = url_for("weko_records_ui.charge",_external=True)
+    _data['item_id'] = '1'
+    _data['file_name'] = 'file_name'
+    _data['title'] = 'title'
+    client.set_cookie('TEST_SERVER', 'session', 'test_redis_key.signature')
+
+    with patch.object(db.session, "remove", lambda: None), \
+         patch("flask_login.utils._get_user", return_value=users[0]["obj"]), \
+         patch('weko_records_ui.views.check_charge', return_value='not_billed'), \
+         patch('weko_records_ui.views.create_charge', return_value='https://pt01.mul-pay.jp'):
+
+        # リクエストが数字でないケース
+        _data['price'] = 'abc'
+        with patch('weko_records_ui.views.get_file_charge_info', return_value=None) as mock_get_file_charge_info:
+            res = client.get(url, data=_data)
+            mock_get_file_charge_info.assert_not_called()
+            assert json.loads(res.data) == {'status': 'error'}
+
+        # アイテムIDが無いケース
+        _data['price'] = '110'
+        _data['item_id'] = None
+        with patch('weko_records_ui.views.get_file_charge_info', return_value=None) as mock_get_file_charge_info:
+            res = client.get(url, data=_data)
+            mock_get_file_charge_info.assert_not_called()
+            assert json.loads(res.data) == {'status': 'error'}
+
+        # ファイル名が無いケース
+        _data['item_id'] = '1'
+        _data['file_name'] = None
+        with patch('weko_records_ui.views.get_file_charge_info', return_value=None) as mock_get_file_charge_info:
+            res = client.get(url, data=_data)
+            mock_get_file_charge_info.assert_not_called()
+            assert json.loads(res.data) == {'status': 'error'}
+
+# def charge():
+# .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_charge_status_not_ok -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
+def test_charge_status_not_ok(app,db,users,client,mocker):
+    _data = {}
+    url = url_for("weko_records_ui.charge",_external=True)
+    _data['item_id'] = '1'
+    _data['file_name'] = 'file_name'
+    _data['title'] = 'title'
+    _data['price'] = '110'
+    client.set_cookie('TEST_SERVER', 'session', 'test_redis_key.signature')
+
+    with patch.object(db.session, "remove", lambda: None), \
+         patch("flask_login.utils._get_user", return_value=users[0]["obj"]), \
+         patch('weko_records_ui.views.check_charge', return_value='not_billed'), \
+         patch('weko_records_ui.views.create_charge', return_value='https://pt01.mul-pay.jp'):
+
+        # ファイルが既に課金済みのケース
+        with patch('weko_records_ui.views.get_file_charge_info', return_value=("already", None, None)):
+            res = client.get(url, data=_data)
+            assert json.loads(res.data) == {'status': 'already'}
+
+        # ファイルが課金不要のケース
+        with patch('weko_records_ui.views.get_file_charge_info', return_value=("not_required", None, None)), \
+             patch("weko_records_ui.views.current_app.logger.warning", return_value=None) as mock_logger:
+            res = client.get(url, data=_data)
+            mock_logger.assert_called_once_with(
+                f'Charge rejected (not_required): user: {users[0]["obj"].id}, '
+                f'item_id: {_data["item_id"]}, file_name: {_data["file_name"]}')
+            assert json.loads(res.data) == {'status': 'error'}
+
+        # ファイルが課金対象でないケース
+        with patch('weko_records_ui.views.get_file_charge_info', return_value=("invalid", None, None)), \
+             patch("weko_records_ui.views.current_app.logger.warning", return_value=None) as mock_logger:
+            res = client.get(url, data=_data)
+            mock_logger.assert_called_once_with(
+                f'Charge rejected (invalid): user: {users[0]["obj"].id}, '
+                f'item_id: {_data["item_id"]}, file_name: {_data["file_name"]}')
+            assert json.loads(res.data) == {'status': 'error'}
+
+        # ファイル課金情報取得時に例外が発生するケース
+        expected_exception = Exception()
+        with patch('weko_records_ui.views.get_file_charge_info', side_effect=expected_exception), \
+             patch("weko_records_ui.views.current_app.logger.error", return_value=None) as mock_logger:
+            res = client.get(url, data=_data)
+            assert mock_logger.call_args_list == [
+                call(
+                    f'Error in get_file_charge_info: user: {users[0]["obj"].id}, '
+                    f'item_id: {_data["item_id"]}, file_name: {_data["file_name"]}'
+                ),
+                call(expected_exception),
+            ]
+            assert json.loads(res.data) == {'status': 'error'}
 
 # def charge_secure():
 # .tox/c1/bin/pytest --cov=weko_records_ui tests/test_views.py::test_charge_secure -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-records-ui/.tox/c1/tmp
@@ -906,7 +1032,7 @@ def test_charge_secure(app, db, users, client, mocker):
                 client.post(url, data=_data)
                 mocker_redirect.assert_called_with('/records/1')
                 assert redis.redis.exists(redis_key) == 0
-            
+
             with patch('weko_records_ui.views.secure_charge', return_value='api_error'):
                 # secure_charge's return value is api_error
                 redis.put(redis_key, '1'.encode('utf-8'))
@@ -929,10 +1055,10 @@ def test_charge_secure(app, db, users, client, mocker):
                     client.post(url, data=_data)
                     mocker_redirect.assert_called_with('/records/1')
                     assert redis.redis.exists(redis_key) == 0
-        
+
         def mock_restore_session_info(session_id, redis_connection):
             mocker.patch('flask_login.utils._get_user', return_value=users[0]['obj'])
-        
+
         # No session information
         with patch('weko_records_ui.views.restore_session_info',
                    side_effect=mock_restore_session_info) as mock_restore_session:
@@ -1016,4 +1142,3 @@ def test_default_view_method_fix35133(app, records, itemtypes, indexstyle,mocker
                         {'name': 'citation_abstract_html_url','data': 'http://TEST_SERVER/records/1'},
                     ]
                 assert kwargs["google_dataset_meta"] == '{"@context": "https://schema.org/", "@type": "Dataset", "citation": ["http://hdl.handle.net/2261/0002005680", "https://repository.dl.itc.u-tokyo.ac.jp/records/2005680"], "creator": [{"@type": "Person", "alternateName": "creator alternative name", "familyName": "creator family name", "givenName": "creator given name", "identifier": "123", "name": "creator name"}], "description": "『史料編纂掛備用寫眞畫像圖畫類目録』（1905年）の「画像」（肖像画模本）の部に著録する資料の架番号の新旧対照表。史料編纂所所蔵肖像画模本データベースおよび『目録』版面画像へのリンク付き。『画像史料解析センター通信』98（2022年10月）に解説記事あり。", "distribution": [{"@type": "DataDownload", "contentUrl": "https://repository.dl.itc.u-tokyo.ac.jp/record/2005680/files/comparison_table_of_preparation_image_catalog.xlsx", "encodingFormat": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}, {"@type": "DataDownload", "contentUrl": "https://raw.githubusercontent.com/RCOSDP/JDCat-base/main/apt.txt", "encodingFormat": "text/plain"}, {"@type": "DataDownload", "contentUrl": "https://raw.githubusercontent.com/RCOSDP/JDCat-base/main/environment.yml", "encodingFormat": "application/x-yaml"}, {"@type": "DataDownload", "contentUrl": "https://raw.githubusercontent.com/RCOSDP/JDCat-base/main/postBuild", "encodingFormat": "text/x-shellscript"}], "includedInDataCatalog": {"@type": "DataCatalog", "name": "https://localhost"}, "license": ["CC BY"], "name": "『史料編纂掛備用写真画像図画類目録』画像の部：新旧架番号対照表", "spatialCoverage": [{"@type": "Place", "geo": {"@type": "GeoCoordinates", "latitude": "point latitude test", "longitude": "point longitude test"}}, {"@type": "Place", "geo": {"@type": "GeoShape", "box": "1 3 2 4"}}, "geo location place test"]}'
-
