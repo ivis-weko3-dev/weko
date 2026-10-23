@@ -40,6 +40,7 @@ from invenio_oaiserver.utils import (
 from invenio_oaiserver.verbs import (
     validate_metadata_prefix,
     validate_duplicate_argument,
+    check_extra_params_in_request,
     DateTime,
     OAISchema
 )
@@ -61,7 +62,7 @@ def test_no_verb(app):
     with app.test_client() as c:
         result = c.get("/oai")
         tree = etree.fromstring(result.data)
-        assert"Missing data for required field." in _xpath_errors(tree)[0].text
+        assert 'Missing data for required field "verb".' in _xpath_errors(tree)[0].text
 
 
 def test_wrong_verb(app):
@@ -74,7 +75,7 @@ def test_wrong_verb(app):
 
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_verbs.py::test_identify -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_identify(app, db, identify):
+def test_identify(search_app, db, identify):
     """Test Identify verb."""
     # baseUrls for friends element
     baseUrls = ["http://example.org/1", "http://example.org/2"]
@@ -95,7 +96,7 @@ def test_identify(app, db, identify):
     delimiter = ":"
     sampleIdentifier = "oai:oai-stuff.foo.org:5324"
 
-    app.config["OAISERVER_DESCRIPTIONS"] = [
+    search_app.config["OAISERVER_DESCRIPTIONS"] = [
         friends_description(baseUrls),
         eprints_description(metadataPolicy, dataPolicy, submissionPolicy, content),
         oai_identifier_description(
@@ -103,7 +104,7 @@ def test_identify(app, db, identify):
         ),
     ]
 
-    with app.test_client() as c:
+    with search_app.test_client() as c:
         result = c.get("/oai?verb=Identify")
         assert 200 == result.status_code
 
@@ -220,10 +221,10 @@ def test_identify(app, db, identify):
         assert children[3].text == sampleIdentifier
 
 
-def test_identify_earliest_date(app, schema):
+def test_identify_earliest_date(search_app, db, schema):
     """Test identify earliest date."""
-    with app.test_client() as c:
-        result = c.get("/oai2d?verb=Identify")
+    with search_app.test_client() as c:
+        result = c.get("/oai?verb=Identify")
         assert 200 == result.status_code
 
         tree = etree.fromstring(result.data)
@@ -233,7 +234,7 @@ def test_identify_earliest_date(app, schema):
         assert earliestDatestamp[0].text == "0001-01-01T00:00:00Z"
 
     first_record = create_record(
-        app,
+        search_app,
         {
             "_oai": {"sets": ["a"]},
             "title_statement": {"title": "Test0"},
@@ -246,7 +247,7 @@ def test_identify_earliest_date(app, schema):
     RecordIndexer().index(first_record)
 
     create_record(
-        app,
+        search_app,
         {
             "_oai": {"sets": ["a"]},
             "title_statement": {"title": "Test1"},
@@ -255,7 +256,7 @@ def test_identify_earliest_date(app, schema):
         },
     )
     create_record(
-        app,
+        search_app,
         {
             "_oai": {"sets": ["a"]},
             "title_statement": {"title": "Test2"},
@@ -263,10 +264,10 @@ def test_identify_earliest_date(app, schema):
             "$schema": schema,
         },
     )
-    app.extensions["invenio-search"].flush_and_refresh("records")
+    search_app.extensions["invenio-search"].flush_and_refresh("weko-item-v1.0.0")
 
-    with app.test_client() as c:
-        result = c.get("/oai2d?verb=Identify")
+    with search_app.test_client() as c:
+        result = c.get("/oai?verb=Identify")
         assert 200 == result.status_code
 
         tree = etree.fromstring(result.data)
@@ -464,7 +465,7 @@ def test_listsets(app, db):
         assert text[0] == "test desc"
 
 
-def test_listsets_invalid_name(app):
+def test_listsets_invalid_name(app, db):
     """Test ListSets with invalid unicode character for XML."""
     with app.test_request_context():
         current_oaiserver.unregister_signals_oaiset()
@@ -478,7 +479,7 @@ def test_listsets_invalid_name(app):
             db.session.add(a)
 
         with app.test_client() as c:
-            result = c.get("/oai2d?verb=ListSets")
+            result = c.get("/oai?verb=ListSets")
 
         tree = etree.fromstring(result.data)
 
@@ -583,7 +584,8 @@ def test_validate_metadata_prefix(app, mocker):
         validate_metadata_prefix("not_oai")
     error = e.value
     assert error.messages == {'cannotDisseminateFormat':['The metadataPrefix "not_oai" is not supported by this repository.']}
-    assert error.field_names == ["metadataPrefix"]
+    # marshmallow>=3 stores the extra keyword argument in `kwargs`.
+    assert error.kwargs["field_names"] == ["metadataPrefix"]
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_verbs.py::test_validate_duplicate_argument -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_validate_duplicate_argument(app):
@@ -597,7 +599,8 @@ def test_validate_duplicate_argument(app):
             validate_duplicate_argument("test_field1")
     error = e.value
     assert error.messages == ['Illegal duplicate of argument "test_field1".']
-    assert error.field_names == ["test_field1"]
+    # marshmallow>=3 stores the extra keyword argument in `kwargs`.
+    assert error.kwargs["field_names"] == ["test_field1"]
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_verbs.py::test_DateTime_from_iso_permissive -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_DateTime_from_iso_permissive():
@@ -605,8 +608,7 @@ def test_DateTime_from_iso_permissive():
         date = DateTime(format="permissive")
     result = TestScheme().load({"date":"2023-02-10T12:01:10"})
 
-    assert result.data["date"].strftime("%Y-%m-%dT%H:%M:%S") == "2023-02-10T12:01:10"
-    assert result.errors == {}
+    assert result["date"].strftime("%Y-%m-%dT%H:%M:%S") == "2023-02-10T12:01:10"
     def mock_import(name,globals=None, locals=None,fromlist=(),level=0):
         if name in ("dateutil"):
             raise ImportError("test_error")
@@ -615,8 +617,7 @@ def test_DateTime_from_iso_permissive():
         class TestScheme(Schema):
             date = DateTime(format="permissive")
         result = TestScheme().load({"date":"2023-02-10T12:01:10"})
-        assert result.data["date"].strftime("%Y-%m-%dT%H:%M:%S") == "2023-02-10T12:01:10"
-        assert result.errors == {}
+        assert result["date"].strftime("%Y-%m-%dT%H:%M:%S") == "2023-02-10T12:01:10"
 
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_verbs.py::test_OAIScheme_validate -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
@@ -630,7 +631,8 @@ def test_OAIScheme_validate(app):
             TestSchema().validate(data)
         error = e.value
         assert error.messages == ["This is not a valid OAI-PMH verb:OAISchema"]
-        assert error.field_names == ["verb"]
+        # marshmallow>=3 stores the extra keyword argument in `kwargs`.
+        assert error.kwargs["field_names"] == ["verb"]
 
         data = {"from_":"2023-01-01","until":"2022-01-01"}
         with pytest.raises(ValidationError) as e:
@@ -638,13 +640,11 @@ def test_OAIScheme_validate(app):
         error = e.value
         assert error.messages == ['Date "from" must be before "until".']
 
-        # Set 'until' time to 23:59:59 when 'until' time is 00:00:00
-        # You have passed too many arguments.
-        data = {"until":datetime(2023,1,1)}
+        # Extra arguments are rejected by the request validator.
         with pytest.raises(ValidationError) as e:
-            TestSchema().validate(data)
+            check_extra_params_in_request(TestSchema())
         error = e.value
-        assert error.messages == ["You have passed too many arguments."]
+        assert error.messages == {"_schema": ["You have passed too many arguments."]}
 
     url = "/test?verb=test_verb&name=test_name"
     with app.test_request_context(url):

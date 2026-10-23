@@ -1,5 +1,7 @@
 
 
+from marshmallow import EXCLUDE
+
 from invenio_oaiserver.resumption_token import (
     _schema_from_verb,
     serialize,
@@ -26,13 +28,13 @@ def test_serialize(app,mocker):
             self._scroll_id = _scroll_id
     result = serialize(MockPagenation(False,10,0),verb="GetRecord")
     assert result is None
-    
+
     mock_dump = mocker.patch("invenio_oaiserver.resumption_token.URLSafeTimedSerializer.dumps")
     result = serialize(MockPagenation(True,10,0),verb="GetRecord",identifier="test_identifier",metadataPrefix="jpcoar_1.0")
     args, _ = mock_dump.call_args
     assert args[0]["page"] == 10
     assert args[0]["kwargs"] == {"identifier":"test_identifier","metadataPrefix":"jpcoar_1.0"}
-    
+
     mock_dump = mocker.patch("invenio_oaiserver.resumption_token.URLSafeTimedSerializer.dumps")
     result = serialize(MockPagenation(True,10,2),verb="GetRecord",identifier="test_identifier",metadataPrefix="jpcoar_1.0")
     args, _ = mock_dump.call_args
@@ -46,8 +48,14 @@ def test_serialize(app,mocker):
 #    def load(self, data, many=None, partial=None):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_resumption_token.py::test_ResumptionTokenSchema -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_ResumptionTokenSchema(app,mocker):
-    
+    class TestResumptionTokenSchema(ResumptionTokenSchema):
+        """Tolerate the other OAI arguments passed next to the token."""
+
+        class Meta:
+            unknown = EXCLUDE
+
     data = {"resumptionToken":"test_token","verb":"GetRecord","kwargs":{"identifier":"test_identifier","metadataPrefix":"jpcoar_1.0"}}
     mocker.patch("invenio_oaiserver.resumption_token.URLSafeTimedSerializer.loads",return_value={"kwargs":data["kwargs"]})
-    result = ResumptionTokenSchema().load(data)
+    with app.test_request_context():
+        result = TestResumptionTokenSchema().load(data)
     assert result

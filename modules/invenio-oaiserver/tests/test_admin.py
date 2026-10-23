@@ -78,19 +78,20 @@ def test_admin(search_app, db,without_oaiset_signals):
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_admin.py::test_OAISetModelView -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_OAISetModelView(search_app, db,without_oaiset_signals):
-    
+
     admin = Admin(search_app, name='Test')
-    
+
     copy_modelview = copy.deepcopy(set_adminview)
     model = copy_modelview.pop('model')
     view = copy_modelview.pop('modelview')
     admin.add_view(view(model, db.session, **copy_modelview))
-    
+
     test_set = OAISet(id=1,
                           spec='test',
                           name='test_name',
                           description='some test description',
-                          search_pattern='test search')
+                          search_pattern='test search',
+                          system_created=False)
     db.session.add(test_set)
     db.session.commit()
     url = url_for("oaiset.edit_view",id=1)
@@ -110,7 +111,7 @@ def test_IdentifyModelView(app, db,without_oaiset_signals):
     model = set_OAIPMHview.pop('model')
     view = set_OAIPMHview.pop('modelview')
     admin.add_view(view(model, db.session, **set_OAIPMHview))
-    
+
     # first create
     url = url_for("identify.create_view")
     data = {
@@ -133,7 +134,7 @@ def test_IdentifyModelView(app, db,without_oaiset_signals):
         res = client.post(url, data=data)
         result = Identify.query.filter_by(id=2).one_or_none()
         assert result is None
-    
+
     # edit
     url = url_for("identify.edit_view",id=1)
     data = {

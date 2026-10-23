@@ -99,7 +99,7 @@ def create_record(app, item_dict, mint_oaiid=True):
         if mint_oaiid:
             oaiid_minter(record_id, item_dict)
         record = current_oaiserver.record_cls.create(item_dict, id_=record_id)
-        with patch("invenio_indexer.api.RecordIndexer.record_to_index",return_value=("test-weko-item-v1.0.0","item-v1.0.0")):
+        with patch("invenio_indexer.api.RecordIndexer.record_to_index",return_value=("weko-item-v1.0.0","item-v1.0.0")):
             indexer.index(record)
         return record
 

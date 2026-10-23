@@ -29,27 +29,27 @@ from tests.helpers import create_record2
 def test_serializer(app,mocker):
     metadata_format = {
         "oai_dc": {
-            "serializer": ("invenio_oaiserver.utils:dumps_etree", {"xslt_filename": "/code/modules/invenio-oaiserver/invenio_oaiserver/static/xsl/MARC21slim2OAIDC.xsl"}), 
-            "schema": "http://www.openarchives.org/OAI/2.0/oai_dc/ http://www.openarchives.org/OAI/2.0/oai_dc.xsd", 
+            "serializer": ("invenio_oaiserver.utils:dumps_etree", {"xslt_filename": "/code/modules/invenio-oaiserver/invenio_oaiserver/static/xsl/MARC21slim2OAIDC.xsl"}),
+            "schema": "http://www.openarchives.org/OAI/2.0/oai_dc/ http://www.openarchives.org/OAI/2.0/oai_dc.xsd",
             "namespace": "http://www.w3.org/2001/XMLSchema"
         },
         "ddi": {
-            "namespace": "ddi:codebook:2_5", 
-            "schema": "https://ddialliance.org/Specification/DDI-Codebook/2.5/XMLSchema/codebook.xsd", 
+            "namespace": "ddi:codebook:2_5",
+            "schema": "https://ddialliance.org/Specification/DDI-Codebook/2.5/XMLSchema/codebook.xsd",
             "serializer": "invenio_oaiserver.utils:dumps_etree"
-        }, 
+        },
     }
     mocker.patch("invenio_oaiserver.utils.get_oai_metadata_formats",return_value=metadata_format)
     result = serializer("oai_dc")
-    
+
     # serializer_ is tuple
     assert result.func.__name__ == "dumps_etree"
     assert result.keywords == {"xslt_filename": "/code/modules/invenio-oaiserver/invenio_oaiserver/static/xsl/MARC21slim2OAIDC.xsl"}
-    
+
     # serializer_ is not tuple
     result = serializer("ddi")
     assert result.__name__ == "dumps_etree"
-    
+
 #def dumps_etree(pid, record, **kwargs):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_utils.py::test_dumps_etree -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_dumps_etree(app, db):
@@ -73,7 +73,7 @@ def test_datetime_to_datestamp():
     assert result == "2023-01-10T01:02:03Z"
     result = datetime_to_datestamp(dt,True)
     assert result == "2023-01-10"
-    
+
 #def eprints_description(metadataPolicy, dataPolicy,
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_utils.py::test_eprints_description -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_eprints_description():
@@ -86,8 +86,8 @@ def test_eprints_description():
     submissionPolicy = {'URL': 'http://arXiv.org/arXiv_submission.htm'}
     result = eprints_description(metadataPolicy, dataPolicy,submissionPolicy, content),
     assert str(result[0],"utf-8") == '<eprints xmlns="http://www.openarchives.org/OAI/2.0/eprints" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/eprints http://www.openarchives.org/OAI/2.0/eprints.xsd">\n  <content>\n    <URL>http://arXiv.org/arXiv_content.htm</URL>\n  </content>\n  <metadataPolicy>\n    <text>Metadata can be used by commercialand non-commercial service providers</text>\n    <URL>http://arXiv.org/arXiv_metadata_use.htm</URL>\n  </metadataPolicy>\n  <dataPolicy>\n    <text>Full content, i.e. preprints maynot be harvested by robots</text>\n  </dataPolicy>\n  <submissionPolicy>\n    <URL>http://arXiv.org/arXiv_submission.htm</URL>\n  </submissionPolicy>\n</eprints>\n'
-    
-    
+
+
     result = eprints_description(metadataPolicy, dataPolicy)
 
     assert str(result,"utf-8") == '<eprints xmlns="http://www.openarchives.org/OAI/2.0/eprints" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/eprints http://www.openarchives.org/OAI/2.0/eprints.xsd">\n  <metadataPolicy>\n    <text>Metadata can be used by commercialand non-commercial service providers</text>\n    <URL>http://arXiv.org/arXiv_metadata_use.htm</URL>\n  </metadataPolicy>\n  <dataPolicy>\n    <text>Full content, i.e. preprints maynot be harvested by robots</text>\n  </dataPolicy>\n</eprints>\n'
@@ -138,7 +138,7 @@ def test_handle_license_free(app):
     assert result == test
     current_app.config.update(WEKO_RECORDS_UI_LICENSE_DICT=[])
     handle_license_free(data)
-    
+
 #def get_index_state():
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_utils.py::test_get_index_state -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_get_index_state(app, db):
@@ -263,9 +263,10 @@ def test_is_output_harvest(app):
 #def get_community_index_from_set(set):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_utils.py::test_get_community_index_from_set -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_get_community_index_from_set(app, db, users):
+    from invenio_accounts.models import Role
     from invenio_communities.models import Community
     from weko_index_tree.models import Index
-    
+
     index1 = Index(
         parent=0,
         position=1,
@@ -277,14 +278,15 @@ def test_get_community_index_from_set(app, db, users):
     )
     db.session.add(index1)
     db.session.commit()
-    
-    comm1 = Community.create(community_id="test_comm", role_id=users[0]["id"],
+
+    comm_role = Role.query.filter_by(name="Community Administrator").first()
+    comm1 = Community.create(community_id="test_comm", role_id=comm_role.id,
                             id_user=users[0]["id"], title="test community",
                             description="this is test community",
                             root_node_id=index1.id)
     db.session.add(comm1)
     db.session.commit()
-    
+
     exist_com = comm1.id
     result = get_community_index_from_set(exist_com)
     assert result == str(index1.id)
@@ -296,4 +298,3 @@ def test_get_community_index_from_set(app, db, users):
     # no exist community
     result = get_community_index_from_set("no_exist_comm")
     assert result is None
-    
