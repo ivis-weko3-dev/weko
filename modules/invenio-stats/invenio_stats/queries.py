@@ -489,7 +489,7 @@ class WekoTermsQuery(TermsQuery):
         """Build the search query with."""
         agg_query = dsl.Search(using=self.client,
                            index=self.index)[0:0]
-
+        agg_query = agg_query.extra(track_total_hits=True)
         if start_date is not None or end_date is not None:
             time_range = {}
             if start_date is not None:
