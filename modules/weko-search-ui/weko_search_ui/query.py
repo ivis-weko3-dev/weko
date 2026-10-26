@@ -530,7 +530,7 @@ def default_search_factory(self, search, query_parser=None, search_type=None, ad
                     for split_text in split_text_list:
                         name_dict = dict(operator="and")
                         name_dict.update(dict(query=split_text))
-                        should_list.append(Q("match", **{v: name_dict}))
+                        should_list.append(dsl.Q("match", **{v: name_dict}))
                     qry = dsl.Q("bool", should=should_list, minimum_should_match=1)
             return qry
 

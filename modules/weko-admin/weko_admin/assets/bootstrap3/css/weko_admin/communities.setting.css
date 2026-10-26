@@ -7,18 +7,18 @@ form {
     margin-left: 0;
     /* 左に寄せるための調整 */
   }
-  
+
   .form-add {
     text-align: right;
     /* 内部の要素を右揃え */
     margin-bottom: 10px;
     /* 下部にスペースを追加 */
   }
-  
+
   .required {
     color: red;
   }
-  
+
   /* .form-group内の要素を横に並べる */
   .form-group {
     display: flex;
@@ -30,7 +30,7 @@ form {
     margin-bottom: 10px;
     /* 各フィールドの下にスペース */
   }
-  
+
   .form-group-ja {
     display: flex;
     /* 子要素を横に並べる */
@@ -41,7 +41,7 @@ form {
     margin-bottom: 10px;
     /* 各フィールドの下にスペース */
   }
-  
+
   /* ラベルと入力フィールドのスタイル */
   .input-container {
     display: flex;
@@ -52,7 +52,7 @@ form {
     flex: 1;
     /* 残りのスペースを占める */
   }
-  
+
   .input-container label {
     width: 75px;
     /* ラベルの幅を調整 */
@@ -61,7 +61,7 @@ form {
     margin-right: 10px;
     /* ラベルと入力フィールド間のスペースを調整 */
   }
-  
+
   .input-container input,
   .input-container select {
     height: 34px;
@@ -71,11 +71,11 @@ form {
     box-sizing: border-box;
     /* ボックスサイズにパディングとボーダーを含める */
   }
-  
+
   #title-add-btn {
     margin-left: 715px;
   }
-  
+
   #title,
   #title_ja {
     flex: 1;
@@ -83,7 +83,7 @@ form {
     max-width: calc(100% - 150px);
     /* セレクトボックスと間隔分のスペースを確保 */
   }
-  
+
   #language {
     width: 140px;
     /* 幅を設定 */
@@ -94,28 +94,27 @@ form {
     box-sizing: border-box;
     /* ボックスサイズにパディングとボーダーを含める */
   }
-  
+
   .input-container .form-control {
     width: 600px;
   }
-  
+
   #supplement {
     width: 600px;
   }
-  
+
   #icon {
     width: 250px;
   }
-  
+
   #icon-draw-button,
   #delete-ja {
-    width: 54px;
     height: 34px;
     /* 高さを設定 */
     margin-left: 10px;
     /* 左側のスペース */
   }
-  
+
   #icon_preview {
     text-align: right;
     /* 内部の要素を右揃え */

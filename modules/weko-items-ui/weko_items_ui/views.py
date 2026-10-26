@@ -1114,7 +1114,9 @@ def prepare_edit_item(id=None, community=None):
             """Check header of request"""
             return jsonify(code=err_code, msg=_('Header Error'))
 
-    post_activity = request.get_json() or {}
+    post_activity = {}
+    if request and request.headers['Content-Type'] == 'application/json':
+        post_activity = request.get_json() or {}
     getargs = request.args if request else {}
     pid_value = id or post_activity.get('pid_value')
     community = community or getargs.get('c', None)
@@ -1278,7 +1280,9 @@ def prepare_delete_item(id=None, community=None, shared_user_ids=[]):
             """Check header of request"""
             return jsonify(code=err_code, msg=_('Header Error'))
 
-    post_activity = request.get_json() or {}
+    post_activity = {}
+    if request and request.headers['Content-Type'] == 'application/json':
+        post_activity = request.get_json() or {}
     getargs = request.args if request else {}
     del_value = id or post_activity.get('pid_value')
     community = community or getargs.get('c', None)

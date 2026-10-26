@@ -30,18 +30,7 @@
   {{ webpack['records_ui_js.js']}}
   {{ webpack['records_ui_record_view_stats_js.js'] }}
   {{ webpack['records_ui_preview_carousel.js']}}
-  {%- set site_info = site_info|get_site_info %}
-  {%- set addthis_user_id = site_info.get("addthis_user_id",config.ADDTHIS_USER_ID) %}
-  <!-- start demo block-->
-  <script type="text/javascript">
-    //see https://www.addthis.com/academy/the-addthis_config-variable/
-  var addthis_config = {
-    data_track_addressbar: false,
-    pubid: '{{ addthis_user_id }}',
-  };
-  </script>
-  <script type="text/javascript" src="//s7.addthis.com/js/300/addthis_widget.js"></script>
-  <!-- end demo block -->
+
   {{ webpack['theme-widget.js']}}
   <script src="/assets/js/weko_records_ui/bootstrap-popover-x.min.js"></script>
 {%- endblock javascript %}

@@ -24,7 +24,7 @@
 
 
 # Use Python-3.12:
-FROM python:3.12-slim-bullseye as stage_1
+FROM python:3.12-slim-trixie as stage_1
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
@@ -97,7 +97,11 @@ RUN chmod +x /code/scripts/create-instance2.sh && /code/scripts/create-instance2
 
 FROM stage_5 AS build-env
 # Make given VENV default:
+
 ENV PATH="$VIRTUAL_ENV/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV VIRTUALENVWRAPPER_PYTHON=/home/invenio/.virtualenvs/invenio/bin/python
+RUN echo "source /home/invenio/.virtualenvs/invenio/bin/virtualenvwrapper.sh" >> ~/.bashrc ; echo "workon invenio" >> ~/.bashrc
+
 USER root
 RUN chown -R invenio:invenio /code
 USER invenio

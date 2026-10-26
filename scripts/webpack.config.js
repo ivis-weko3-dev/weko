@@ -30,6 +30,13 @@ if (config.aliases) {
   );
 }
 
+// Ensure Select2 compatibility modules are available for legacy integrations.
+// Map bare "select2" imports to the full build instead of core build.
+aliases["select2$"] = path.resolve(
+  config.build.context,
+  "./node_modules/select2/dist/js/select2.full.js"
+);
+
 var webpackConfig = {
   mode: process.env.NODE_ENV,
   entry: config.entry,

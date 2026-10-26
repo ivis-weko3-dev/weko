@@ -21,7 +21,8 @@
 """Setting of weko sessions."""
 
 from flask import after_this_request, current_app, session
-
+from weko_redis.redis import RedisConnectionExtension
+from invenio_accounts.sessions import default_session_store_factory
 from .utils import get_remote_addr
 
 
@@ -62,3 +63,26 @@ def logout_listener(app, user):
         logout_ip = get_remote_addr()
 
         return response
+
+def sentinel_session_store_factory(app):
+    """Session store factory.
+
+    If ``ACCOUNTS_SESSION_REDIS_URL`` is set, it returns a
+    :class:`simplekv.memory.redisstore.RedisStore` otherwise
+    a :class:`simplekv.memory.DictStore`.
+    """
+    if app.config["CACHE_TYPE"] == "redissentinel":
+
+        redis_connection = RedisConnectionExtension()
+        redis_store = redis_connection.sentinel_connection(
+            app.config["CACHE_REDIS_SENTINELS"],
+            app.config["CACHE_REDIS_SENTINEL_MASTER"],
+            app.config["ACCOUNTS_SESSION_REDIS_DB_NO"],
+            kv = True
+        )
+    elif app.config["CACHE_TYPE"] == "redis":
+
+        redis_store = default_session_store_factory(app)
+    else:
+        raise RuntimeError("Unsupported CACHE_TYPE for session store factory.")
+    return redis_store

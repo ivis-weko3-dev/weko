@@ -21,7 +21,7 @@ msgstr ""
 
 #: weko_gridlayout/admin.py:277 weko_gridlayout/admin.py:345
 msgid "Record does not exist."
-msgstr ""
+msgstr "レコードが存在しません。"
 
 #: weko_gridlayout/admin.py:376
 #, python-format

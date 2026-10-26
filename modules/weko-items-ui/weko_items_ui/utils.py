@@ -100,10 +100,21 @@ from werkzeug.exceptions import HTTPException
 
 
 def check_display_shared_user(user_id):
-    role_ids = current_app.config['WEKO_ITEMS_UI_SHARED_USER_ROLE_ID_LIST']
-    return db.session.query(userrole).filter(
-        userrole.c.user_id == user_id,
-        userrole.c.role_id.in_(role_ids)
+    """Return whether the given user belongs to a shared-user display role.
+
+    Args:
+        user_id (int): Database user ID to evaluate.
+
+    Returns:
+        bool: True if the user has at least one role listed in
+            ``WEKO_ITEMS_UI_SHARED_USER_ROLE_ID_LIST``; otherwise False.
+    """
+
+    role_names = current_app.config['WEKO_ITEMS_UI_SHARED_USER_ROLE_ID_LIST']
+
+    return db.session.query(Role).join(userrole, userrole.c.role_id==Role.id).filter(
+        userrole.c.user_id==user_id,
+        Role.name.in_(role_names)
     ).first() is not None
 
 def get_list_username():

@@ -21,7 +21,7 @@ msgstr ""
 
 #: weko_user_profiles/admin.py:376
 msgid "Record does not exist."
-msgstr ""
+msgstr "レコードが存在しません。"
 
 #: weko_user_profiles/admin.py:414
 msgid "Record was successfully saved."

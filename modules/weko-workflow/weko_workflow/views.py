@@ -4036,10 +4036,10 @@ def edit_item_direct_after_login(pid_value):
 
         if not deposit:
             return render_template("weko_theme/error.html",
-                    error="Record does not exist."), 404
+                    error=_("Record does not exist.")), 404
     except PIDDoesNotExistError as ex:
         return render_template("weko_theme/error.html",
-                error="Record does not exist."), 404
+                error=_("Record does not exist.")), 404
 
     authenticators = [str(deposit.get('owner'))] + \
                      [str(shared_id) for shared_id in deposit.get('weko_shared_ids', [])]

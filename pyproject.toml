@@ -101,7 +101,7 @@ dependencies = [
     "pypeg2==2.15.2",
     "python-editor==1.0.3",
     "python-geoip==1.2",
-    "redis==6.0.0",
+    "redis==6.4.0",
     "requests==2.32.3",
     "resync==2.0.1",
     "rocrate==0.6.0",

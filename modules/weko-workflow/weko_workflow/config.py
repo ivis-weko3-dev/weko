@@ -334,17 +334,7 @@ WEKO_WORKFLOW_DELETION_ACTIONS= [
 ]
 """Action list"""
 
-WEKO_WORKFLOW_COLUMNS = [
-    'updated',
-    'activity_id',
-    'title',
-    'flows_name',
-    'action_name',
-    'StatusDesc',
-    'email' ,
-    'approver' ,
-    'approver_email'
-]
+WEKO_WORKFLOW_COLUMNS = ['updated','application_date','approved_date','activity_id','title','flows_name','action_name','StatusDesc','email']
 """Work flow activity columns"""
 
 WEKO_WORKFLOW_FILTER_COLUMNS = [

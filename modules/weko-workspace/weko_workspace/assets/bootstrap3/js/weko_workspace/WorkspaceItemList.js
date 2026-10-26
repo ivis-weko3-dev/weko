@@ -788,16 +788,16 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
         <td style="text-align: center; vertical-align: middle; width: 50px; white-space: nowrap;">
           ${document.getElementById('action').innerText}
         </td>
-        <td style="width: auto;">
+        <td style="width: auto; vertical-align: middle;">
           ${document.getElementById('item_text').innerText}
         </td>
-        <td style="text-align: center; vertical-align: top; width: 60px;">
+        <td style="text-align: center; vertical-align: middle; width: 60px; white-space: nowrap;">
           ${document.getElementById('stats').innerText}
         </td>
-        <td style="text-align: center; vertical-align: top; width: 30px;">
+        <td style="text-align: center; vertical-align: middle; width: 30px; white-space: nowrap;">
           ${document.getElementById('info_text').innerText}
         </td>
-        <td style="text-align: center; vertical-align: top;">
+        <td style="text-align: center; vertical-align: middle; white-space: nowrap;">
           ${document.getElementById('edit_text').innerText}
         </td>
       </tr>
@@ -842,7 +842,7 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
             <i class="bi bi-file-earmark" style="font-size: 20px;"></i>${item.downloadCnt}
           </span>
         </td>
-        <td style="text-align: center; vertical-align: top; width: 30px; padding-top:12px; padding-bottom:0px">
+        <td style="text-align: center; vertical-align: middle; width: 30px; padding-top:12px; padding-bottom:0px">
           <span style="border: 1px solid #000; padding: 5px; border-radius: '4px'; white-space:nowrap;">${item.resourceType}</span>
           <div style="margin-bottom:3px; margin-top:9px;white-space:nowrap;">${item.itemStatus}</div>
           <div style="margin-bottom:3px;">
@@ -854,7 +854,7 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
           ${item.doi ? `<a href="${item.doi}">DOI</a>` : ''}
           </span>
         </td>
-        <td style="text-align: center; vertical-align: top;">
+        <td style="text-align: center; vertical-align: middle;">
           <a href="/workflow/edit_item_direct/${item.recid}" class="edit-item" data-item-id="">
             <i class="bi bi-pencil-square" style="font-size: 25px;"></i>
           </a>

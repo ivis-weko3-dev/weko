@@ -175,3 +175,6 @@ window.onload = function () {
 };
 
 componentDidMount();
+
+window.changeRegistrationType = changeRegistrationType;
+window.saveDataFormat = saveDataFormat;

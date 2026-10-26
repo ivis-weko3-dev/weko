@@ -274,3 +274,7 @@ WEKO_ACCOUNTS_LEGACY_ROLE_ID_MAP={
     "3": "Community Administrator",
     "4": "Contributor",
 }
+
+ACCOUNTS_SESSION_STORE_FACTORY = (
+    "weko_accounts.sessions:sentinel_session_store_factory"
+)

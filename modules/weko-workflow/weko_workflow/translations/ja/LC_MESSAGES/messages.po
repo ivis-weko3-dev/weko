@@ -1302,3 +1302,7 @@ msgstr "アイテムタイプ選択"
 msgid "WorkFlow Select"
 msgstr "ワークフロー選択"
 
+#: weko_workflow/views.py:4038
+msgid "Record does not exist."
+msgstr "レコードが存在しません。"
+

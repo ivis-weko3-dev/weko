@@ -432,7 +432,8 @@ class ReportView(BaseView):
                                         }
                                     }
                                 ],
-                                "should": indexes_query
+                                "should": indexes_query,
+                                "minimum_should_match": 1
                             }
                         }
                     }

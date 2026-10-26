@@ -4088,6 +4088,9 @@ class UpdateItem(object):
         else:
             record['publish_status'] = status
 
+        if status in {PublishStatus.PUBLIC.value, PublishStatus.PRIVATE.value}:
+            record['_deposit']['status'] = 'published'
+
         record.commit()
         db.session.commit()
 

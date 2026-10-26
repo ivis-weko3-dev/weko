@@ -3458,6 +3458,9 @@ function toObject(arr) {
             }
 
             $scope.clearAllFieldCallBack = function (item) {
+                if (typeof item === 'string') {
+                    return item;
+                }
                 if ($.isEmptyObject(item)) {
                     return item;
                 }
@@ -3474,6 +3477,9 @@ function toObject(arr) {
                             let result = [];
                             for (let i in item[subItem]) {
                                 let childItem = item[subItem][i];
+                                if (typeof childItem === 'function') {
+                                    continue;
+                                }
                                 result.push(this.clearAllFieldCallBack(childItem));
                             }
                             item[subItem] = result;
@@ -3903,7 +3909,7 @@ function toObject(arr) {
                     'valid_emails': [],
                     'invalid_emails': []
                 };
-                let emails = $(list_id).children('a');
+                let emails = $(list_id).children('button');
                 if (emails.length === 0) {
                     return mails_info;
                 }

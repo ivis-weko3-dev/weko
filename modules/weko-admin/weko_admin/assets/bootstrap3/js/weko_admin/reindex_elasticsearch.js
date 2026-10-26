@@ -112,7 +112,7 @@ class MainLayout extends React.Component {
             , showModal: false
         });
         return fetch(
-            new URL('reindex', window.location.href) + "?is_db_to_es=" + riChecked
+            new URL('reindex', window.location.href) + "?is_db_to_search=" + riChecked
             , { method: 'POST' }
         )
             .then((res) => { return res.ok ? res.text() : res.text().then(e => Promise.reject(e)) })

@@ -447,3 +447,5 @@ window.OnLinkClick = function OnLinkClick(uri, pid_value, accessrole) {
 function exportZip() {
     document.getElementById("export_zip_form").submit()
 }
+
+window.exportZip = exportZip

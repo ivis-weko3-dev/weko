@@ -867,7 +867,7 @@ STATS_QUERIES = {
     },
 
     'get-file-download-per-item-report': {
-        "cls": WekoTermsQuery,
+        "cls": TermsQuery,
         "params": dict(
             index='stats-index',
             event_type='file-download',

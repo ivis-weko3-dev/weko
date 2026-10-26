@@ -52,7 +52,7 @@ provision_web_common_ubuntu14 () {
     #sed -i 's/deb.debian.org/archive.debian.org/g' /etc/apt/sources.list
 
     # Point the security repository to the archive
-    sed -i 's/security.debian.org/archive.debian.org/g' /etc/apt/sources.list
+    # sed -i 's/security.debian.org/archive.debian.org/g' /etc/apt/sources.list
 
 
     # sphinxdoc-install-useful-system-tools-ubuntu14-begin
@@ -66,7 +66,7 @@ provision_web_common_ubuntu14 () {
          screen \
          vim \
          gnupg \
-         libpcre3-dev
+         libpcre2-dev
     # sphinxdoc-install-useful-system-tools-ubuntu14-end
     # sphinxdoc-add-nodejs-external-repository-ubuntu14-begin
     #cat /etc/apt/sources.list.d/nodesource.list -> no such file or directory

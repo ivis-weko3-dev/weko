@@ -188,7 +188,7 @@ def publish(pid, record, template=None, **kwargs):
     )
 
     if comm_id:
-        return redirect(url_for('.recid', pid_value=pid.pid_value, community=comm_id))
+        return redirect(url_for('.recid', pid_value=pid.pid_value, c=comm_id))
     else:
         return redirect(url_for('.recid', pid_value=pid.pid_value))
 
