@@ -4,7 +4,7 @@ import pytz
 from datetime import datetime
 from flask import request, url_for, current_app
 from re import L
-from elasticsearch_dsl.query import Match, Range, Terms, Bool
+from opensearch_dsl.query import Match, Range, Terms, Bool
 from mock import patch, MagicMock
 from werkzeug import ImmutableMultiDict
 from werkzeug.datastructures import MultiDict, CombinedMultiDict

@@ -127,7 +127,8 @@ class MockEs():
             pass
         def delete_alias(self, index="", name="",ignore=""):
             pass
-
+        def get_alias(self, index="", name="", **kwargs):
+            return {}
         # def search(self,index="",doc_type="",body={},**kwargs):
         #     pass
     class MockCluster():

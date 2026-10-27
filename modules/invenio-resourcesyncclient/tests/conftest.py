@@ -116,7 +116,12 @@ def base_app(instance_path):
         WEKO_MAX_FILE_SIZE=50 * 1024 * 1024 * 1024,
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
-        SEARCH_OPENSEARCH_HOSTS="opensearch",
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                    'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
+        SEARCH_HOSTS=os.environ.get(
+            'SEARCH_HOST', 'opensearch'
+        ),
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         SEARCH_INDEX_PREFIX="test-",
         INDEXER_FILE_DOC_TYPE='content',
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME='jpcoar_v1_mapping',
@@ -207,7 +212,7 @@ def location(app, db, instance_path):
 @pytest.fixture()
 def session_time(app, db):
     session_lifetime = SessionLifetime(lifetime=60,is_delete=False)
-    
+
     with db.session.begin_nested():
         db.session.add(session_lifetime)
 
@@ -473,7 +478,7 @@ def test_indices(app, db):
             biblio_flag=True if not online_issn else False,
             online_issn=online_issn
         )
-    
+
     with db.session.begin_nested():
         db.session.add(base_index(1, 0, 0))
         db.session.add(base_index(2, 0, 1))

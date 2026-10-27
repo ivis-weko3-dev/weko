@@ -102,7 +102,11 @@ def base_app(request):
             #     'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'),
             SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
             SEARCH_OPENSEARCH_HOSTS=os.environ.get(
-                'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
+                    'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
+            SEARCH_HOSTS=os.environ.get(
+                'SEARCH_HOST', 'opensearch'
+            ),
+            SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
             SQLALCHEMY_TRACK_MODIFICATIONS=True,
             SQLALCHEMY_ECHO=False,
             TESTING=True,
@@ -115,9 +119,9 @@ def base_app(request):
             OAUTH2_CACHE_TYPE='simple',
             ACCOUNTS_JWT_ENABLE=False,
             INDEXER_DEFAULT_INDEX='records-default-v1.0.0',
-            INDEXER_MQ_QUEUE = Queue("indexer", 
+            INDEXER_MQ_QUEUE = Queue("indexer",
                                  exchange=Exchange("indexer", type="direct"), routing_key="indexer",auto_delete=False,queue_arguments={"x-queue-type":"quorum"}),
-        
+
         )
         Babel(app_)
         FlaskCeleryExt(app_)

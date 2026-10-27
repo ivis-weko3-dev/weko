@@ -90,6 +90,8 @@ def base_app(instance_path):
         OAUTH2_CACHE_TYPE='simple',
         OAUTHLIB_INSECURE_TRANSPORT=True,
         SEARCH_OPENSEARCH_HOSTS=os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch"),
+        SEARCH_HOSTS=os.environ.get('SEARCH_HOST', 'opensearch'),
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         CACHE_TYPE="redis",
         CACHE_REDIS_URL="redis://redis:6379/0",
         CACHE_REDIS_DB="0",
@@ -138,10 +140,10 @@ def base_app(instance_path):
     WekoAdmin(app_)
     WekoAuthors(app_)
     WekoDeposit(app_)
-    
+
     WekoSWORDServer(app_)
     app_.register_blueprint(blueprint)
-    
+
     yield app_
 
 @pytest.yield_fixture()
@@ -168,7 +170,7 @@ def esindex(app):
     current_search_client.indices.put_alias(
         index=app.config["WEKO_AUTHORS_SEARCH_INDEX_NAME"],name="test-weko-authors"
     )
-    
+
     mapping_item = json_data("data/item-v1.0.0.json")
     current_search_client.indices.create(
         app.config["INDEXER_DEFAULT_INDEX"], body=mapping_item
@@ -176,9 +178,9 @@ def esindex(app):
     current_search_client.indices.put_alias(
         index=app.config["INDEXER_DEFAULT_INDEX"], name="test-weko"
     )
-    
+
     yield current_search_client
-    
+
     current_search_client.indices.delete(index="test-*")
 
 
@@ -241,7 +243,7 @@ def users(app, db):
         originalroleuser = create_test_user(email='originalroleuser@test.org')
         originalroleuser2 = create_test_user(email='originalroleuser2@test.org')
         student = User.query.filter_by(email='student@test.org').first()
-        
+
     role_count = Role.query.filter_by(name='System Administrator').count()
     if role_count != 1:
         sysadmin_role = ds.create_role(name='System Administrator')
@@ -351,18 +353,18 @@ def users(app, db):
 
 @pytest.fixture()
 def item_type(app, db):
-    
+
     item_type_name = ItemTypeName(id=1,
         name="デフォルトアイテムタイプ（フル）", has_site_license=True, is_active=True
     )
     item_type_schema = json_data("data/item_type/schema_1.json")
 
-    item_type_form = json_data("data/item_type/form_1.json") 
-    
+    item_type_form = json_data("data/item_type/form_1.json")
+
     item_type_render = json_data("data/item_type/render_1.json")
 
     item_type_mapping = json_data("data/item_type/mapping_1.json")
-    
+
     item_type = ItemType(
         id=1,
         name_id=1,
@@ -375,14 +377,14 @@ def item_type(app, db):
         is_deleted=False,
     )
     item_type_mapping = ItemTypeMapping(id=1,item_type_id=1, mapping=item_type_mapping)
-    
+
     with db.session.begin_nested():
         db.session.add(item_type_name)
         db.session.add(item_type)
         db.session.add(item_type_mapping)
-    
+
     db.session.commit()
-    
+
     return {"item_type_name": item_type_name, "item_type": item_type, "item_type_mapping":item_type_mapping}
 
 @pytest.fixture()

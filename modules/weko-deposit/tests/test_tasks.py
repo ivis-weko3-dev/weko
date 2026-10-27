@@ -22,7 +22,6 @@
 
 import pytest
 import json
-from elasticsearch.exceptions import NotFoundError
 from tests.helpers import json_data
 from mock import patch, MagicMock
 from invenio_pidstore.errors import PIDDoesNotExistError

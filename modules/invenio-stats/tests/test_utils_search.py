@@ -1,5 +1,5 @@
 import json
-from elasticsearch_dsl.query import Match, Range, Terms, Bool
+from invenio_search.engine import dsl
 from flask import current_app
 from invenio_search.api import RecordsSearch
 from invenio_records_rest.errors import InvalidQueryRESTError
@@ -50,11 +50,11 @@ def test_billing_file_search_factory(i18n_app, role_users, indextree):
 def test_get_permission_filter(i18n_app, role_users, indextree):
     res = get_permission_filter()
     assert res == [
-        Bool(should=[Bool(must=[
-            Match(publish_status='0'),
-            Range(publish_date={'lte': 'now/d'})
+        dsl.query.Bool(should=[dsl.query.Bool(must=[
+            dsl.query.Match(publish_status='0'),
+            dsl.query.Range(publish_date={'lte': 'now/d'})
         ])]),
-        Bool(must=Match(relation_version_is_last='true'))
+        dsl.query.Bool(must=dsl.query.Match(relation_version_is_last='true'))
     ]
 
 

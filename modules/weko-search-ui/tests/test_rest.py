@@ -5,7 +5,7 @@ import json
 import pytest
 from mock import patch, MagicMock
 from flask import current_app
-from elasticsearch_dsl import response, Search
+from invenio_search.engine import dsl
 from redis import RedisError
 from tests.conftest import json_data
 
@@ -83,14 +83,14 @@ test_patterns =[
      "execute_result01_02_03.json"
      ),
     ({"size":1,"page":2,"q":"1557820086539","Access":"open access"},
-     "facet.json", 
+     "facet.json",
      {"next":"?page=3&q=1557820086539&size=1","prev":"?page=1&q=1557820086539&size=1","self":"?page=2&q=1557820086539&size=1"},
      [[mock_path(**path2),mock_path(**path1)]], # path not in agp
      "rd_result01_02_03.json",
      "execute_result01_02_03.json")
     ]
 @pytest.mark.parametrize("params, facet_file, links, paths, rd_file, execute", test_patterns)
-def test_IndexSearchResource_get(client_rest, users, item_type, record, facet_search_setting, index, mock_es_execute, 
+def test_IndexSearchResource_get(client_rest, users, item_type, record, facet_search_setting, index, mock_es_execute,
                                  params, facet_file, links, paths, rd_file, execute):
     sname = current_app.config["SERVER_NAME"]
     facet = json_data("tests/data/search/"+facet_file)
@@ -116,11 +116,11 @@ def test_IndexSearchResource_get_Exception(client_rest, db, users, item_type, db
     #with db.session.begin_nested():
     #    db.session.add_all(indexes)
     #db.session.commit()
-    
+
     def dummy_response(data):
         if isinstance(data, str):
             data = json_data(data)
-        dummy=response.Response(Search(), data)
+        dummy=dsl.response.Response(dsl.Search(), data)
         return dummy
     facet = json_data("data/search/facet.json")
     links = {"self":"?page=1&size=20"}
@@ -169,7 +169,7 @@ def test_IndexSearchResource_get(i18n_app, users, client_request_args):
     return_data_2.name = "test"
 
     with patch("invenio_pidstore.current_pidstore.fetchers", return_value=1):
-    
+
         def search_class():
             search_class_data = MagicMock()
 
@@ -227,7 +227,7 @@ def test_IndexSearchResource_get(i18n_app, users, client_request_args):
 
         def make_response(pid_fetcher, search_result, links, item_links_factory):
             return (pid_fetcher, search_result, links, item_links_factory)
-        
+
 
         ctx = {
             "pid_fetcher": "",
@@ -240,8 +240,8 @@ def test_IndexSearchResource_get(i18n_app, users, client_request_args):
 
         test = IndexSearchResource(
             ctx=ctx,
-            search_serializers=None, 
-            record_serializers=None, 
+            search_serializers=None,
+            record_serializers=None,
             default_media_type=None
         )
 
@@ -359,7 +359,7 @@ def test_GetFacetSearchConditions_get_index_search_check_key(users, client_rest,
             res_data = json.loads(res.data)
             assert res.status_code==200
             assert "Topic" not in res_data
-            
+
             # active facet not in key
             api_url = url(endpoint,{"search_type":2, "key":"testfacet001", "q": 0})
             res = client_rest.get(api_url)
@@ -412,7 +412,7 @@ def test_GetFacetSearchConditions_get_index_search_exists_index(users, client_re
             assert {'name': 'access_A', 'count': 4} in res_data["Access"]
             assert {'name': 'access_B', 'count': 3} in res_data["Access"]
             assert {'name': 'access_C', 'count': 3} in res_data["Access"]
-            
+
             # q=2222
             api_url = url(endpoint,{"search_type":2, "key":"Data%20Language,Access", "q": 2222})
             res = client_rest.get(api_url)
@@ -510,7 +510,7 @@ def test_GetFacetSearchConditions_get_index_search_guest(users, client_rest, esi
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_rest.py::test_GetFacetSearchConditions_get_index_search_MaxResultWindowRESTError -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_GetFacetSearchConditions_get_index_search_MaxResultWindowRESTError(users, client_rest, esindex, facet_test_data, facet_es_records):
     endpoint = "/facet-search/condition"
-    
+
     # MaxResultWindowRESTError
     with patch("weko_search_ui.rest.db.session.remove", return_value=""):
         api_url = url(endpoint,{"search_type":2, "key":"Data%20Language,Access", "q": 1111, "page":500, "size":500})
@@ -520,7 +520,7 @@ def test_GetFacetSearchConditions_get_index_search_MaxResultWindowRESTError(user
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_rest.py::test_GetFacetSearchConditions_get_keyword_search_check_key -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_GetFacetSearchConditions_get_keyword_search_check_key(users, client_rest, esindex, facet_test_data, facet_es_records):
     endpoint = "/facet-search/condition"
-    
+
     sysadmin = users[3]["obj"]
 
     # Keyword Search
@@ -551,7 +551,7 @@ def test_GetFacetSearchConditions_get_keyword_search_check_key(users, client_res
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_rest.py::test_GetFacetSearchConditions_get_keyword_search_hit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_GetFacetSearchConditions_get_keyword_search_hit(users, client_rest, esindex, facet_test_data, facet_es_records):
     endpoint = "/facet-search/condition"
-    
+
     sysadmin = users[3]["obj"]
 
     # hit keyword: q=item17
@@ -569,7 +569,7 @@ def test_GetFacetSearchConditions_get_keyword_search_hit(users, client_rest, esi
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_rest.py::test_GetFacetSearchConditions_get_keyword_search_not_hit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_GetFacetSearchConditions_get_keyword_search_not_hit(users, client_rest, esindex, facet_test_data, facet_es_records):
     endpoint = "/facet-search/condition"
-    
+
     sysadmin = users[3]["obj"]
 
     # not hit keyword: q=item99999
@@ -587,7 +587,7 @@ def test_GetFacetSearchConditions_get_keyword_search_not_hit(users, client_rest,
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_rest.py::test_GetFacetSearchConditions_get_keyword_search_with_detail_search -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_GetFacetSearchConditions_get_keyword_search_with_detail_search(users, client_rest, esindex, facet_test_data, facet_es_records):
     endpoint = "/facet-search/condition"
-    
+
     sysadmin = users[3]["obj"]
 
     # detail search
@@ -609,7 +609,7 @@ def test_GetFacetSearchConditions_get_keyword_search_with_detail_search(users, c
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_rest.py::test_GetFacetSearchConditions_get_keyword_search_with_multi_detail_search -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_GetFacetSearchConditions_get_keyword_search_with_multi_detail_search(users, client_rest, esindex, facet_test_data, facet_es_records):
     endpoint = "/facet-search/condition"
-    
+
     sysadmin = users[3]["obj"]
 
     # detail search
@@ -628,7 +628,7 @@ def test_GetFacetSearchConditions_get_keyword_search_with_multi_detail_search(us
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_rest.py::test_GetFacetSearchConditions_get_keyword_search_sysadmin -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_GetFacetSearchConditions_get_keyword_search_sysadmin(users, client_rest, esindex, facet_test_data, facet_es_records):
     endpoint = "/facet-search/condition"
-    
+
     sysadmin = users[3]["obj"]
 
     # Contributor
@@ -651,7 +651,7 @@ def test_GetFacetSearchConditions_get_keyword_search_sysadmin(users, client_rest
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_rest.py::test_GetFacetSearchConditions_get_keyword_search_contributor -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_GetFacetSearchConditions_get_keyword_search_contributor(users, client_rest, esindex, facet_test_data, facet_es_records):
     endpoint = "/facet-search/condition"
-    
+
     contributor = users[1]["obj"]
 
     # Contributor
@@ -694,7 +694,7 @@ def test_GetFacetSearchConditions_get_keyword_search_guest(users, client_rest, e
 # .tox/c1/bin/pytest --cov=weko_search_ui tests/test_rest.py::test_GetFacetSearchConditions_get_keyword_search_with_facet_search -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-search-ui/.tox/c1/tmp
 def test_GetFacetSearchConditions_get_keyword_search_with_facet_search(users, client_rest, esindex, facet_test_data, facet_es_records):
     endpoint = "/facet-search/condition"
-    
+
     contributor = users[1]["obj"]
 
     # facet search

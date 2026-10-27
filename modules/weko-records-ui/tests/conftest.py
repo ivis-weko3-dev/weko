@@ -32,7 +32,7 @@ from unittest.mock import patch
 from invenio_search.api import RecordsSearch
 
 import pytest
-from elasticsearch_dsl import response, Search
+from invenio_search.engine import dsl
 from flask import Flask
 from flask_babelex import Babel
 from invenio_access import InvenioAccess
@@ -160,6 +160,7 @@ def instance_path():
 
 
 @pytest.fixture()
+@patch.dict('os.environ', {'INVENIO_OPENSEARCH_USER': 'invenio', 'INVENIO_OPENSEARCH_PASS': 'openpass123!'})
 def base_app(instance_path, search_class):
     """Flask application fixture."""
     app_ = Flask(
@@ -224,7 +225,11 @@ def base_app(instance_path, search_class):
         WEKO_INDEX_TREE_REST_ENDPOINTS=WEKO_INDEX_TREE_REST_ENDPOINTS,
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English")],
         SERVER_NAME="TEST_SERVER",
-        SEARCH_OPENSEARCH_HOSTS="opensearch",
+        SEARCH_HOSTS=os.environ.get(
+            'SEARCH_HOST', 'opensearch'),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                    'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         SEARCH_INDEX_PREFIX="test-",
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME=WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
         WEKO_SCHEMA_DDI_SCHEMA_NAME=WEKO_SCHEMA_DDI_SCHEMA_NAME,
@@ -904,7 +909,7 @@ def records_open_access(app, db, esindex, indextree, location, itemtypes, oaisch
     ]
     results.append(make_record_with_some_files(db, indexer, i, file_info_list))
     file_name_list.append([info['filename'] for info in file_info_list])
-    
+
     return indexer, results, file_name_list
 
 
@@ -5777,7 +5782,7 @@ def site_license_info(app, db):
 @pytest.fixture()
 def site_license_ipaddr(app, db,site_license_info):
     record1 = SiteLicenseIpAddress(organization_id=1,organization_no=1,start_ip_address="192.168.0.0",finish_ip_address="192.168.0.255")
-    # record2 = SiteLicenseIpAddress(organization_id=1,start_ip_address="192.168.1.0",finish_ip_address="192.168.2.255")   
+    # record2 = SiteLicenseIpAddress(organization_id=1,start_ip_address="192.168.1.0",finish_ip_address="192.168.2.255")
     with db.session.begin_nested():
         db.session.add(record1)
         # db.session.add(record2)
@@ -5804,7 +5809,7 @@ def db_file_permission(app, db,users,records):
     record0 = FilePermission(
         user_id=1, record_id=recid0.pid_value, file_name=filename0,
         usage_application_activity_id="usage_app_act_id_dummy1",
-        usage_report_activity_id=None, status=1, 
+        usage_report_activity_id=None, status=1,
     )
     recid1 = results[1]["recid"]
     filename1 = results[1]["filename"]
@@ -5826,7 +5831,7 @@ def db_file_permission(app, db,users,records):
         db.session.add(record2)
     return [record0,record1,record2]
 
-    
+
 @pytest.fixture()
 def db_admin_settings(db):
     with db.session.begin_nested():
@@ -5858,6 +5863,6 @@ def mock_es_execute():
         if isinstance(data, str):
             with open(data, "r") as f:
                 data = json.load(f)
-        dummy=response.Response(Search(), data)
+        dummy=dsl.response.Response(dsl.Search(), data)
         return dummy
     return _dummy_response

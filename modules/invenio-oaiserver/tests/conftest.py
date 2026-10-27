@@ -95,7 +95,13 @@ def base_app(instance_path):
         INDEXER_FILE_DOC_TYPE='content',
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
         SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
-        SEARCH_OPENSEARCH_HOSTS="opensearch",
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
+        SEARCH_HOSTS=os.environ.get(
+            'SEARCH_HOST', 'opensearch'
+        ),
+
+        SEARCH_CLIENT_CONFIG={"http_auth":("invenio","openpass123!"),"use_ssl":True, "verify_certs":False},
         SEARCH_INDEX_PREFIX="test-"
     )
     if not hasattr(app_, 'cli'):
@@ -111,9 +117,9 @@ def base_app(instance_path):
     InvenioPIDStore(app_)
     InvenioIndexer(app_)
     InvenioOAIServer(app_)
-    
+
     app_.register_blueprint(blueprint)
-    
+
     return app_
 
 @pytest.yield_fixture()
@@ -125,7 +131,7 @@ def app(base_app):
 def client(app):
     with app.test_client() as client:
         yield client
-        
+
 @pytest.yield_fixture()
 def db(app):
     """Database fixture."""
@@ -161,7 +167,7 @@ def users(app, db):
         originalroleuser = create_test_user(email='originalroleuser@test.org')
         originalroleuser2 = create_test_user(email='originalroleuser2@test.org')
         student = User.query.filter_by(email='student@test.org').first()
-        
+
     role_count = Role.query.filter_by(name='System Administrator').count()
     if role_count != 1:
         sysadmin_role = ds.create_role(name='System Administrator')
@@ -268,19 +274,26 @@ def users(app, db):
         {'email': user.email, 'id': user.id, 'obj': user},
         {'email': student.email,'id': student.id, 'obj': student}
     ]
-    
+
 @pytest.yield_fixture()
 def es_app(app):
     with open(join(dirname(__file__),"data/mappings/item-v1.0.0.json"),"r") as f:
     #with open(join(dirname(__file__),"data/v6/records/record-v1.0.0.json"),"r") as f:
         mapping = json.load(f)
-    open_search = search.OpenSearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
-    
+    search_hosts = app.config["SEARCH_OPENSEARCH_HOSTS"]
+    search_client_config = app.config["SEARCH_CLIENT_CONFIG"]
+    open_search = search.OpenSearch(
+        hosts=[{'host': search_hosts, 'port': 9200}],
+        http_auth=search_client_config['http_auth'],
+        use_ssl=search_client_config['use_ssl'],
+        verify_certs=search_client_config['verify_certs'],
+        timeout=60
+    )
     open_search.indices.create(
-        index=app.config["INDEXER_DEFAULT_INDEX"], 
+        index=app.config["INDEXER_DEFAULT_INDEX"],
         body=mapping, ignore=[400, 404]
     )
-    
+
     open_search.indices.put_alias(
         index=app.config["INDEXER_DEFAULT_INDEX"],
         name=app.config["SEARCH_UI_SEARCH_INDEX"],
@@ -289,16 +302,16 @@ def es_app(app):
     search_ext = InvenioSearch(app, client=open_search)
     #search.register_mappings('items', 'tests.data')
     yield app
-    
+
     open_search.indices.delete_alias(
         index=app.config["INDEXER_DEFAULT_INDEX"],
         name=app.config["SEARCH_UI_SEARCH_INDEX"],
         ignore=[400, 404],
     )
     open_search.indices.delete(
-        index=app.config["INDEXER_DEFAULT_INDEX"], 
+        index=app.config["INDEXER_DEFAULT_INDEX"],
         ignore=[400, 404])
-    
+
 def mock_record_validate(self):
     """Mock validation."""
     pass
@@ -519,7 +532,7 @@ def identify(app, db):
         )
     db.session.add(iden)
     db.session.commit()
-    
+
     return [iden]
 
 @pytest.fixture()
@@ -529,7 +542,7 @@ def oaiset(app, db,without_oaiset_signals):
         name='test_name',
         description='some test description',
         search_pattern='test search')
-    
+
     db.session.add(oai)
     db.session.commit()
     return [oai]

@@ -29,7 +29,7 @@ import tempfile
 from mock import patch
 
 import pytest
-from elasticsearch_dsl import response, Search
+from invenio_search.engine import dsl
 from flask import Flask
 from flask_babelex import Babel
 from invenio_i18n import InvenioI18N
@@ -286,7 +286,7 @@ def mock_execute():
     def factory(data):
         if isinstance(data, str):
             data = json_data(data)
-        dummy = response.Response(Search(), data)
+        dummy = dsl.response.Response(dsl.Search(), data)
         return dummy
     return factory
 
@@ -332,7 +332,7 @@ def admin_settings(app, db):
         name="billing_settings",
         settings={"tax_rate": 0.1, "currency_unit": "&yen;"}
     )
-    
+
     with db.session.begin_nested():
         db.session.add(setting)
         db.session.add(setting2)
@@ -368,7 +368,7 @@ def k_v():
                 '1': {
                     'path': {'gte': '', 'lte': ''},
                     'path_type': {'gte': 'json', 'lte': 'json'}
-                }, 
+                },
                 '12': {
                     'path': {
                         'gte': '$.item_1551265302120.attribute_value_mlt[*].subitem_1551256918211',

@@ -20,7 +20,7 @@ from tests.helpers import _mock_validate_fail, assert_hits_len, get_json, record
 from mock import patch, MagicMock
 from sqlalchemy.exc import SQLAlchemyError
 from weko_redis.redis import RedisConnection
-from elasticsearch_dsl import response, Search
+from invenio_search.engine import dsl
 from invenio_search import RecordsSearch
 from invenio_records_rest.views import RecordsListResource
 
@@ -190,7 +190,7 @@ def test_RecordsListResource_get(app, i18n_app, db, es, test_data, search_url, s
             ]
         }
     }
-    search_result = response.Response(Search(), json_data)
+    search_result = dsl.response.Response(dsl.Search(), json_data)
     cache_name = "anonymous_user"
     mock_user = MagicMock()
     mock_user.is_authenticated = False

@@ -58,8 +58,6 @@ from operator import itemgetter
 
 import redis
 from redis import sentinel
-from elasticsearch.exceptions import NotFoundError
-from elasticsearch_dsl.query import Bool, Exists, Q, QueryString
 from flask import Markup, current_app, session
 from flask_babelex import get_locale
 from flask_babelex import gettext as _
