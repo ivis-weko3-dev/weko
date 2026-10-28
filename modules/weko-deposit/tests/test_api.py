@@ -487,8 +487,8 @@ class TestWekoDeposit:
 
     # def clear(self, *args, **kwargs):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_clear -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test_clear(sel,app,db,location,search_records):
-        indexer, records = search_records
+    def test_clear(sel,app,db,location,es_records):
+        indexer, records = es_records
         record = records[0]
         deposit = record['deposit']
         open_search = search.OpenSearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
@@ -500,8 +500,8 @@ class TestWekoDeposit:
 
     # def delete(self, force=True, pid=None):
     # .tox/c1/bin/pytest --cov=weko_deposit tests/test_api.py::TestWekoDeposit::test_delete -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/weko-deposit/.tox/c1/tmp
-    def test_delete(sel,app,db,location,search_records):
-        indexer, records = search_records
+    def test_delete(sel,app,db,location,es_records):
+        indexer, records = es_records
         record = records[0]
         deposit = record['deposit']
         open_search = search.OpenSearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))

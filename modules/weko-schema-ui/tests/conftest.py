@@ -82,6 +82,7 @@ from invenio_records_rest.utils import PIDConverter
 from invenio_records_ui import InvenioRecordsUI
 from invenio_rest import InvenioREST
 from invenio_search import InvenioSearch, current_search_client
+from invenio_search.utils import build_alias_name
 from invenio_search_ui import InvenioSearchUI
 from invenio_stats import InvenioStats
 from invenio_stats.config import SEARCH_INDEX_PREFIX as index_prefix
@@ -728,14 +729,14 @@ def client(app):
 def esindex(app):
     current_search_client.indices.delete(index="test-*")
     # print(app.config["INDEXER_DEFAULT_INDEX"])
-    with open("tests/data/mappings/v6/weko/item-v1.0.0.json", "r") as f:
-        mapping = json.load(f)
+    mapping = json_data("data/mappings/os-v2/weko/item-v1.0.0.json")
+    index_name = build_alias_name(app.config["INDEXER_DEFAULT_INDEX"])
     try:
         current_search_client.indices.create(
-            app.config["INDEXER_DEFAULT_INDEX"], body=mapping
+            index_name, body=mapping
         )
         current_search_client.indices.put_alias(
-            index=app.config["INDEXER_DEFAULT_INDEX"], name="test-weko"
+            index=index_name, name="test-weko"
         )
 
         open_search = OpenSearch(
@@ -775,9 +776,9 @@ def esindex(app):
                     }
                 ]})
     except:
-        current_search_client.indices.create("test-weko-items", body=mapping)
+        current_search_client.indices.create(index_name, body=mapping)
         current_search_client.indices.put_alias(
-            index="test-weko-items", name="test-weko"
+            index=index_name, name="test-weko"
         )
     try:
         # print index mapping
@@ -2218,7 +2219,7 @@ def make_record(db, indexer, i, filepath, filename, mimetype):
     record_data_v1["content"] = [
         {
             "date": [{"dateValue": "2021-07-12", "dateType": "Available"},
-                     {"dateValue": "2021", "dateType": "Issued"}],
+                     {"dateValue": "2021-01-01", "dateType": "Issued"}],
             "accessrole": "open_access",
             "displaytype": "simple",
             "filename": filename,

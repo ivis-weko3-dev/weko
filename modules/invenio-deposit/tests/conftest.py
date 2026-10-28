@@ -296,6 +296,7 @@ def fake_schemas(app, api, es, tmpdir):
 @pytest.yield_fixture()
 def es(app):
     """Elasticsearch fixture."""
+    list(current_search.delete(ignore=[404]))
     try:
         list(current_search.create())
     except search.RequestError:

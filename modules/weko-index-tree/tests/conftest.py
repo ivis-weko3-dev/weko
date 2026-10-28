@@ -835,7 +835,7 @@ def esindex(app,db_records):
         # print(current_search_client.indices.get_alias())
 
     for depid, recid, parent, doi, record, item in db_records:
-        search.client.index(index='test-weko-item-v1.0.0', doc_type='item-v1.0.0', id=record.id, body=record,refresh='true')
+        search.client.index(index='test-weko-item-v1.0.0', id=record.id, body=record,refresh='true')
 
 
     yield search
