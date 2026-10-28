@@ -183,7 +183,20 @@ def base_app(instance_path):
         WEKO_INDEX_TREE_REST_ENDPOINTS=WEKO_INDEX_TREE_REST_ENDPOINTS,
         I18N_LANGUAGES=[("ja", "Japanese"), ("en", "English"),("da", "Danish")],
         SERVER_NAME="TEST_SERVER",
-        SEARCH_OPENSEARCH_HOSTS="opensearch",
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
+                    'SEARCH_OPENSEARCH_HOSTS', 'opensearch'
+                ),
+        SEARCH_HOSTS=os.environ.get(
+            'SEARCH_HOST', 'opensearch'
+        ),
+        SEARCH_CLIENT_CONFIG = {
+                    "http_auth": (
+                        os.environ.get('INVENIO_OPENSEARCH_USER'),
+                        os.environ.get('INVENIO_OPENSEARCH_PASS')
+                    ),
+                    "use_ssl": True,
+                    "verify_certs": False
+                },
         SEARCH_INDEX_PREFIX="test-",
         WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME=WEKO_SCHEMA_JPCOAR_V1_SCHEMA_NAME,
         WEKO_SCHEMA_DDI_SCHEMA_NAME=WEKO_SCHEMA_DDI_SCHEMA_NAME,
@@ -238,7 +251,15 @@ def app(base_app):
     """Flask application fixture."""
     with open("tests/data/mappings/item-v1.0.0.json", "r") as f:
         mapping = json.load(f)
-    open_search = search.OpenSearch("http://{}:9200".format(base_app.config["SEARCH_OPENSEARCH_HOSTS"]))
+    search_hosts = base_app.config["SEARCH_OPENSEARCH_HOSTS"]
+    search_client_config = base_app.config["SEARCH_CLIENT_CONFIG"]
+    open_search = search.OpenSearch(
+        hosts=[{'host': search_hosts, 'port': 9200}],
+        http_auth=search_client_config['http_auth'],
+        use_ssl=search_client_config['use_ssl'],
+        verify_certs=search_client_config['verify_certs'],
+        timeout=60
+    )
     open_search.indices.create(
         index=base_app.config["INDEXER_DEFAULT_INDEX"], body=mapping, ignore=[400, 404]
     )

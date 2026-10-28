@@ -187,9 +187,10 @@ def base_app(instance_path):
         REDIS_PORT="6379",
         WEKO_BUCKET_QUOTA_SIZE=50 * 1024 * 1024 * 1024,
         WEKO_MAX_FILE_SIZE=50 * 1024 * 1024 * 1024,
-        SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get('SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
+        SEARCH_HOSTS=os.environ.get('SEARCH_HOST', 'opensearch'),
         SEARCH_INDEX_PREFIX="{}-".format('test'),
-        SEARCH_CLIENT_CONFIG=dict(timeout=120, max_retries=10),
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         OAISERVER_ID_PREFIX="oai:inveniosoftware.org:recid/",
         OAISERVER_RECORD_INDEX="_all",
         OAISERVER_REGISTER_SET_SIGNALS=True,
@@ -208,7 +209,7 @@ def base_app(instance_path):
         DEPOSIT_RECORDS_UI_ENDPOINTS=DEPOSIT_RECORDS_UI_ENDPOINTS,
         DEPOSIT_REST_ENDPOINTS=DEPOSIT_REST_ENDPOINTS,
         DEPOSIT_DEFAULT_STORAGE_CLASS=DEPOSIT_DEFAULT_STORAGE_CLASS,
-        
+
         WEKO_RECORDS_UI_LICENSE_DICT=WEKO_RECORDS_UI_LICENSE_DICT,
         INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format(
             'test'
@@ -233,7 +234,7 @@ def base_app(instance_path):
         WEKO_SEARCH_REST_ENDPOINTS=WEKO_SEARCH_REST_ENDPOINTS,
         INDEXER_MQ_QUEUE = Queue("indexer", exchange=Exchange("indexer", type="direct"), routing_key="indexer",queue_arguments={"x-queue-type":"quorum"}),
     )
-    
+
     app_.config['WEKO_SEARCH_REST_ENDPOINTS']['recid']['search_index']='test-weko'
     # tmp = app_.config['RECORDS_REST_SORT_OPTIONS']['tenant1-weko']
     # app_.config['RECORDS_REST_SORT_OPTIONS']['test-weko']=tmp
@@ -258,7 +259,7 @@ def base_app(instance_path):
     # InvenioOAIServer(app_)
 
     search = InvenioSearch(app_)
- 
+
     # WekoSchemaUI(app_)
     InvenioStats(app_)
 
@@ -357,10 +358,10 @@ def esindex(app,db_records):
         # print(current_search_client.indices.get_alias())
         current_search_client.indices.create("test-stats-record-view-000001",body=mapping_record_view)
         current_search_client.indices.put_alias(index="test-stats-record-view-000001",name="test-stats-record-view")
-    
+
     for depid, recid, parent, doi, record, item in db_records:
         current_search_client.index(index='test-weko-item-v1.0.0', doc_type='item-v1.0.0', id=record.id, body=record,refresh='true')
-    
+
     yield current_search_client
 
     with app.test_request_context():
@@ -478,7 +479,7 @@ def users(app, db):
         ds.add_role_to_user(originalroleuser, originalrole)
         ds.add_role_to_user(originalroleuser2, originalrole)
         ds.add_role_to_user(originalroleuser2, repoadmin_role)
-        
+
 
     return [
         {"email": contributor.email, "id": contributor.id, "obj": contributor},
@@ -825,39 +826,39 @@ def db_records(db,instance_path,users):
         index.public_state = True
         index.harvest_public_state = True
         index.item_custom_sort = {"1":1}
-    
+
     index_metadata = {
             'id': 2,
             'parent': 0,
             'value': 'Index(public_state = True,harvest_public_state = False)',
         }
-    
+
     with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
         Indexes.create(0, index_metadata)
         index = Index.get_index_by_id(2)
         index.public_state = True
         index.harvest_public_state = False
         index.item_custom_sort = {"1":1}
-    
+
     index_metadata = {
             'id': 3,
             'parent': 0,
             'value': 'Index(public_state = False,harvest_public_state = True)',
     }
-    
+
     with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
         Indexes.create(0, index_metadata)
         index = Index.get_index_by_id(3)
         index.public_state = False
         index.harvest_public_state = True
         index.item_custom_sort = {"1":1}
-    
+
     index_metadata = {
             'id': 4,
             'parent': 0,
             'value': 'Index(public_state = False,harvest_public_state = False)',
     }
-    
+
     with patch("flask_login.utils._get_user", return_value=users[2]["obj"]):
         Indexes.create(0, index_metadata)
         index = Index.get_index_by_id(4)
@@ -865,7 +866,7 @@ def db_records(db,instance_path,users):
         index.harvest_public_state = False
         index.item_custom_sort = {"1":1}
 
- 
+
     yield result
 
 @pytest.fixture()
@@ -878,7 +879,7 @@ def db_records2(db,instance_path,users):
         for d in range(record_num):
             result.append(create_record(record_data[d], item_data[d]))
     db.session.commit()
- 
+
     yield result
 
 @pytest.fixture()
@@ -903,7 +904,7 @@ def db_records_file(app,db,instance_path,users):
     with db.session.begin_nested():
         depid, recid,parent,doi,record, item=create_record(record_data, item_data)
     db.session.commit()
-    
+
     return depid, recid,parent,doi,record, item
 
 @pytest.fixture()
@@ -1086,7 +1087,7 @@ def db_author(db):
         db.session.add(affiliation_prefix3)
         db.session.add(affiliation_prefix4)
         db.session.add(author1)
-    
+
     return {"author_prefix":[prefix1,prefix2,prefix3,prefix4,prefix5],"affiliation_prefix":[affiliation_prefix1,affiliation_prefix2,affiliation_prefix3,affiliation_prefix4],"author":[author1]}
 
 @pytest.fixture()

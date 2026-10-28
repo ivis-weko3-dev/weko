@@ -285,7 +285,6 @@ def base_app(instance_path, search_class, request):
         #     "SQLALCHEMY_DATABASE_URI", "sqlite:///test.db"
         # ),
         SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest',
-        SEARCH_OPENSEARCH_HOSTS=os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch"),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         JSONSCHEMAS_HOST="inveniosoftware.org",
         ACCOUNTS_USERINFO_HEADERS=True,
@@ -306,9 +305,10 @@ def base_app(instance_path, search_class, request):
         FILES_REST_OBJECT_KEY_MAX_LEN=255,
         # SEARCH_UI_SEARCH_INDEX=SEARCH_UI_SEARCH_INDEX,
         SEARCH_UI_SEARCH_INDEX="test-weko",
-        # SEARCH_OPENSEARCH_HOSTS=os.environ.get("INVENIO_ELASTICSEARCH_HOST"),
+        SEARCH_OPENSEARCH_HOSTS=os.environ.get("SEARCH_OPENSEARCH_HOSTS", "opensearch"),
+        SEARCH_HOSTS=os.environ.get("SEARCH_HOST", "opensearch"),
         SEARCH_INDEX_PREFIX="{}-".format("test"),
-        SEARCH_CLIENT_CONFIG=dict(timeout=120, max_retries=10),
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
         OAISERVER_ID_PREFIX="oai:inveniosoftware.org:recid/",
         OAISERVER_RECORD_INDEX="_all",
         OAISERVER_REGISTER_SET_SIGNALS=True,
@@ -1052,7 +1052,7 @@ def indices(app, db, redis_connect):
 
         db.session.add(testIndexThree)
         db.session.add(testIndexThreeChild)
-    
+
     key = "index_tree_view_" + os.environ.get('INVENIO_WEB_HOST_NAME') + "_"
     redis_connect.delete(key+"en")
     redis_connect.delete(key+"ja")
@@ -1923,7 +1923,7 @@ def db_itemtype(app, db, make_itemtype):
         "render": "tests/data/itemtype_render.json",
         "mapping":"tests/data/itemtype_mapping.json"
     }
-    
+
     return make_itemtype(itemtype_id, itemtype_data)
 
 
@@ -2698,7 +2698,7 @@ def doi_records(app, db, identifier, indextree, location, db_itemtype, db_oaisch
         results.append(
             make_record(db, indexer, i, filepath, filename, mimetype, "xyz.ndl")
         )
-        
+
         i = 5
         filename = "helloworld.pdf"
         mimetype = "application/pdf"
@@ -3957,7 +3957,7 @@ def make_itemtype(app,db):
             version_id=1,
             is_deleted=False,
         )
-        
+
         if "mapping" in datas:
             item_type_mapping = dict()
             with open(datas["mapping"], "r") as f:
@@ -3967,11 +3967,11 @@ def make_itemtype(app,db):
             result["item_type_mapping"] = item_type_mapping
         with db.session.begin_nested():
             db.session.add(item_type)
-            
+
         db.session.commit()
         result["item_type_name"] = item_type_name
         result["item_type"] = item_type
-        
+
         return result
     return factory
 
@@ -4174,7 +4174,7 @@ def facet_es_records(app, db, users):
                 record_data["subject"] = [{"value": data["subject.value"]}]
             if "description" in data:
                 record_data["description"] = [{"value" : data["description"]}]
-                
+
 
             rec_uuid = uuid.uuid4()
 

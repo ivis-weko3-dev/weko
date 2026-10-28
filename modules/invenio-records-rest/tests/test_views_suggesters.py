@@ -14,7 +14,6 @@ from __future__ import absolute_import, print_function
 import json
 
 import pytest
-from elasticsearch import VERSION as ES_VERSION
 from flask import url_for
 from invenio_search import RecordsSearch
 

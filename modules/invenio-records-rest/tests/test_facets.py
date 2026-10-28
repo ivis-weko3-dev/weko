@@ -12,8 +12,7 @@
 from __future__ import absolute_import, print_function
 
 import pytest
-from elasticsearch_dsl import Search
-from elasticsearch_dsl.query import Q, Range
+from invenio_search.engine import dsl
 from flask import Flask
 from invenio_rest.errors import RESTValidationError
 from mock import patch, MagicMock
@@ -34,11 +33,11 @@ def test_range_filter():
     """Test range filter."""
     f = range_filter('test', start_date_math='startmath',
                      end_date_math='endmath')
-    assert f(['1821--1940']) == Range(test={
+    assert f(['1821--1940']) == dsl.query.Range(test={
         'gte': '1821||startmath', 'lte': '1940||endmath',
     })
-    assert f(['>1821--']) == Range(test={'gt': '1821||startmath'})
-    assert f(['1821--<1940']) == Range(test={'gte': '1821||startmath',
+    assert f(['>1821--']) == dsl.query.Range(test={'gt': '1821||startmath'})
+    assert f(['1821--<1940']) == dsl.query.Range(test={'gte': '1821||startmath',
                                              'lt': '1940||endmath'})
 
     assert pytest.raises(RESTValidationError, f, ['2016'])
@@ -81,7 +80,7 @@ def test_post_filter(app):
     )
 
     with app.test_request_context('?type=test'):
-        search = Search().query(Q(query='value'))
+        search = dsl.Search().query(dsl.Q(query='value'))
         search, args = _post_filter(search, urlargs, defs)
         assert 'post_filter' in search.to_dict()
         assert search.to_dict()['post_filter'] == dict(
@@ -90,7 +89,7 @@ def test_post_filter(app):
         assert args['type'] == 'test'
 
     with app.test_request_context('?anotertype=test'):
-        search = Search().query(Q(query='value'))
+        search = dsl.Search().query(dsl.Q(query='value'))
         search, args = _post_filter(search, urlargs, defs)
         assert 'post_filter' not in search.to_dict()
 
@@ -104,7 +103,7 @@ def test_query_filter(app):
     )
 
     with app.test_request_context('?type=test'):
-        search = Search().query(Q('multi_match', query='value'))
+        search = dsl.Search().query(dsl.Q('multi_match', query='value'))
         body = search.to_dict()
         search, args = _query_filter(search, urlargs, defs)
         assert 'post_filter' not in search.to_dict()
@@ -115,7 +114,7 @@ def test_query_filter(app):
         assert args['type'] == 'test'
 
     with app.test_request_context('?anotertype=test'):
-        search = Search().query(Q(query='value'))
+        search = dsl.Search().query(dsl.Q(query='value'))
         body = search.to_dict()
         query, args = _query_filter(search, urlargs, defs)
         assert query.to_dict() == body
@@ -124,7 +123,7 @@ def test_query_filter(app):
 def test_aggregations(app):
     """Test aggregations."""
     with app.test_request_context(''):
-        search = Search().query(Q(query='value'))
+        search = dsl.Search().query(dsl.Q(query='value'))
         defs = dict(
             type=dict(
                 terms=dict(field='upload_type'),
@@ -166,14 +165,14 @@ def test_default_facets_factory(app):
     with patch('weko_admin.utils.get_facet_search_query', MagicMock(return_value=facet_search_query_dict)):
         with patch('weko_search_ui.permissions.search_permission.can', return_value=MagicMock()):
             with app.test_request_context('?type=a&subtype=b'):
-                search = Search().query(Q(query='value'))
+                search = dsl.Search().query(dsl.Q(query='value'))
                 search, urlkwargs = default_facets_factory(search, 'testidx')
                 assert 'aggs' not in search.to_dict()
                 assert 'post_filter' in search.to_dict()
                 assert search.to_dict(
                     )['query']['bool']['filter'][0]['terms']['subtype']
 
-                search = Search().query(Q(query='value'))
+                search = dsl.Search().query(dsl.Q(query='value'))
                 search, urlkwargs = default_facets_factory(search, 'anotheridx')
                 assert 'aggs' not in search.to_dict()
                 assert 'post_filter' not in search.to_dict()

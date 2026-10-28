@@ -13,7 +13,6 @@ import time
 
 import pytest
 from tests.conftest import _create_file_download_event
-from elasticsearch_dsl import Index, Search
 from invenio_search import current_search, current_search_client
 from mock import patch
 
