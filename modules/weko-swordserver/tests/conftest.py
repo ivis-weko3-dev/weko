@@ -456,7 +456,6 @@ def es_records(app, esindex, records):
     for recid, depid, record, item, parent, doi, deposit in records:
         esindex.index(
             index=app.config["INDEXER_DEFAULT_INDEX"],
-            doc_type="item-v1.0.0",
             id=record.id,
             body=record,
             refresh="true"
