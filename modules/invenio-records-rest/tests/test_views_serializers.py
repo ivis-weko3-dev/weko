@@ -65,7 +65,7 @@ def xml_search(*args, **kwargs):
     indirect=["app"],
     scope="function",
 )
-def test_default_serializer(app, db, open_search, indexed_records):
+def test_default_serializer(configured_facets, app, db, open_search, indexed_records):
     """Test default serializer."""
     # Create records
     accept_json = [("Accept", "application/json")]
@@ -123,8 +123,9 @@ def test_default_serializer(app, db, open_search, indexed_records):
     indirect=["app"],
     scope="function",
 )
-def test_serializer_aliases(app, db, open_search, indexed_records):
+def test_serializer_aliases(configured_facets, app, db, open_search, indexed_records):
     """Test serializers aliases."""
+    app.config["REST_MIMETYPE_QUERY_ARG_NAME"] = "format"
     with app.test_client() as client:
         res = client.get("/records/")
         assert res.status_code == 200

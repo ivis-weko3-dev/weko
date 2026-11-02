@@ -45,32 +45,42 @@ def test_record_resolution(app, db, test_records, item_type):
     pid_red_doi.redirect(pid_doi)
     db.session.commit()
 
+    urls = {
+        name: url_for("invenio_records_rest.recid_item", pid_value=pid.pid_value)
+        for name, pid in (
+            ("deleted", pid_del),
+            ("missing", pid_noobj),
+            ("invalid_redirect", pid_red_doi),
+            ("redirect", pid_red),
+        )
+    }
+
     headers = [("Accept", "application/json")]
     with app.test_client() as client:
         # PID deleted
         res = client.get(
-            url_for("invenio_records_rest.recid_item", pid_value=pid_del.pid_value),
+            urls["deleted"],
             headers=headers,
         )
         assert res.status_code == 410
 
         # PID missing object
         res = client.get(
-            url_for("invenio_records_rest.recid_item", pid_value=pid_noobj.pid_value),
+            urls["missing"],
             headers=headers,
         )
         assert res.status_code == 500
 
         # Redirected invalid endpoint
         res = client.get(
-            url_for("invenio_records_rest.recid_item", pid_value=pid_red_doi.pid_value),
+            urls["invalid_redirect"],
             headers=headers,
         )
         assert res.status_code == 500
 
         # Redirected
         res = client.get(
-            url_for("invenio_records_rest.recid_item", pid_value=pid_red.pid_value),
+            urls["redirect"],
             headers=headers,
         )
         assert res.status_code == 301

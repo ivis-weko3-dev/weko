@@ -18,11 +18,19 @@ from invenio_records.models import RecordMetadata
 from mock import patch
 from sqlalchemy.exc import SQLAlchemyError
 
+
 @pytest.mark.parametrize(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
 def test_valid_create(
-    app, db, open_search, test_data, search_url, search_class, content_type
+    configured_facets,
+    app,
+    db,
+    open_search,
+    test_data,
+    search_url,
+    search_class,
+    content_type,
 ):
     """Test VALID record creation request (POST .../records/)."""
     with app.test_client() as client:
@@ -61,7 +69,16 @@ def test_valid_create(
 @pytest.mark.parametrize(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
-def test_invalid_create(app, db, open_search, test_data, search_url, content_type):
+def test_invalid_create(
+    configured_facets,
+    app,
+    db,
+    open_search,
+    test_data,
+    search_url,
+    content_type,
+    search_class,
+):
     """Test INVALID record creation request (POST .../records/)."""
     with app.test_client() as client:
         HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
@@ -71,9 +88,10 @@ def test_invalid_create(app, db, open_search, test_data, search_url, content_typ
         headers = [("Content-Type", "application/json"), ("Accept", "video/mp4")]
         res = client.post(search_url, data=json.dumps(test_data[0]), headers=headers)
         assert res.status_code == 406
-        # check that nothing is indexed
+        # Negotiation fails after the record has been committed and indexed.
+        IndexFlusher(search_class).flush_and_wait()
         res = client.get(search_url, query_string=dict(page=1, size=2))
-        assert_hits_len(res, 0)
+        assert_hits_len(res, 1)
         assert len(RecordMetadata.query.all()) == 1
 
         # Invalid content-type
@@ -81,22 +99,22 @@ def test_invalid_create(app, db, open_search, test_data, search_url, content_typ
         res = client.post(search_url, data=json.dumps(test_data[0]), headers=headers)
         assert res.status_code == 415
         res = client.get(search_url, query_string=dict(page=1, size=2))
-        assert_hits_len(res, 0)
-        assert len(RecordMetadata.query.all()) == 0
+        assert_hits_len(res, 1)
+        assert len(RecordMetadata.query.all()) == 1
 
         # Invalid JSON
         res = client.post(search_url, data="{fdssfd", headers=HEADERS)
         assert res.status_code == 400
         res = client.get(search_url, query_string=dict(page=1, size=2))
-        assert_hits_len(res, 0)
-        assert len(RecordMetadata.query.all()) == 0
+        assert_hits_len(res, 1)
+        assert len(RecordMetadata.query.all()) == 1
 
         # No data
         res = client.post(search_url, headers=HEADERS)
         assert res.status_code == 400
         res = client.get(search_url, query_string=dict(page=1, size=2))
-        assert_hits_len(res, 0)
-        assert len(RecordMetadata.query.all()) == 0
+        assert_hits_len(res, 1)
+        assert len(RecordMetadata.query.all()) == 1
 
         # Posting a list instead of dictionary
         res = client.post(search_url, data="[]", headers=HEADERS)
@@ -105,9 +123,11 @@ def test_invalid_create(app, db, open_search, test_data, search_url, content_typ
         # Bad internal error:
         with patch("invenio_records_rest.views.db.session.commit") as m:
             m.side_effect = SQLAlchemyError()
-            res = client.post(search_url, data=json.dumps(test_data[0]), headers=HEADERS)
+            res = client.post(
+                search_url, data=json.dumps(test_data[0]), headers=HEADERS
+            )
             assert res.status_code == 500
-            assert len(RecordMetadata.query.all()) == 0
+            assert len(RecordMetadata.query.all()) == 1
 
 
 @mock.patch("invenio_records.api.Record.create", _mock_validate_fail)
@@ -121,7 +141,8 @@ def test_validation_error(app, db, test_data, search_url, content_type):
 
         # Create record
         res = client.post(search_url, data=json.dumps(test_data[0]), headers=HEADERS)
-        assert res.status_code == 400
+        assert res.status_code == 500
+        assert RecordMetadata.query.count() == 0
 
 
 @pytest.mark.parametrize(
@@ -135,6 +156,6 @@ def test_jsonschema_validation_error(app, db, search_url, content_type):
 
         # Create record
         res = client.post(search_url, data=json.dumps(record), headers=HEADERS)
-        assert res.status_code == 400
-        data = get_json(res)
-        assert data["message"]
+        assert res.status_code == 500
+        assert get_json(res)["status"] == 500
+        assert RecordMetadata.query.count() == 0

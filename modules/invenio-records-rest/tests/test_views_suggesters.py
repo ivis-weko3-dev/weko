@@ -10,11 +10,10 @@
 """Basic tests."""
 
 import json
+from unittest.mock import ANY, call
 
 import pytest
-from unittest.mock import patch
 from flask import url_for
-from invenio_search import RecordsSearch
 from invenio_search.engine import dsl
 
 
@@ -38,40 +37,38 @@ from invenio_search.engine import dsl
     ],
     indirect=["app"],
 )
-def test_valid_suggest(app, db, search, item_type, indexed_records, mock_search_execute):
+def test_valid_suggest(
+    app, db, search, item_type, indexed_records, mock_search_execute, mocker
+):
     """Test VALID record creation request (POST .../records/)."""
     with app.test_client() as client:
-        suggest_mocker = patch("dsl.Search.suggest", return_value=RecordsSearch())
+        suggest_mocker = mocker.spy(dsl.Search, "suggest")
+        source_mocker = mocker.spy(dsl.Search, "source")
         # Valid simple completion suggester
-        patch("dsl.Search.execute", return_value=mock_search_execute({"suggest":{"text":"test_value", "text_filtered_source": {"_source": "1"}, "suggest_title": "test_title", "text_byyear": "test_byyear", "year": 1990}}))
+        mocker.patch.object(
+            dsl.Search,
+            "execute",
+            return_value=mock_search_execute(
+                {
+                    "suggest": {
+                        "text": "test_value",
+                        "text_filtered_source": {"_source": "1"},
+                        "suggest_title": "test_title",
+                        "text_byyear": "test_byyear",
+                        "year": 1990,
+                    }
+                }
+            ),
+        )
         res = client.get(
             url_for("invenio_records_rest.recid_suggest"), query_string={"text": "Back"}
         )
         assert res.status_code == 200
-        suggest_assert_has_calls(
-            [call("text","Back",completion=dict(field="suggest_title"))]
+        suggest_mocker.assert_has_calls(
+            [call(ANY, "text", "Back", completion=dict(field="suggest_title"))]
         )
         data = json.loads(res.get_data(as_text=True))
         assert data == {"text": "test_value"}
-
-        exp1 = {
-            "control_number": "1",
-            "stars": 4,
-            "title": "Back to the Future",
-            "year": 2015,
-        }
-        exp1_es5 = {
-            "control_number": "1",
-        }
-        exp2 = {
-            "control_number": "2",
-            "stars": 3,
-            "title": "Back to the Past",
-            "year": 2042,
-        }
-        exp2_es5 = {
-            "control_number": "2",
-        }
 
         # Valid simple completion suggester with source filtering for ES5
         res = client.get(
@@ -80,7 +77,18 @@ def test_valid_suggest(app, db, search, item_type, indexed_records, mock_search_
         )
         assert res.status_code == 200
         data = json.loads(res.get_data(as_text=True))
-        assert data == { "text_filtered_source": {"_source": "1"}}
+        assert data == {"text_filtered_source": {"_source": "1"}}
+        source_mocker.assert_called_once_with(ANY, ["control_number"])
+        suggest_mocker.assert_has_calls(
+            [
+                call(
+                    ANY,
+                    "text_filtered_source",
+                    "Back",
+                    completion={"field": "suggest_title"},
+                )
+            ]
+        )
 
         # Valid simple completion suggester with size
         res = client.get(
@@ -90,6 +98,17 @@ def test_valid_suggest(app, db, search, item_type, indexed_records, mock_search_
         data = json.loads(res.get_data(as_text=True))
         assert data == {"text": "test_value"}
 
+        suggest_mocker.assert_has_calls(
+            [
+                call(
+                    ANY,
+                    "text",
+                    "Back",
+                    completion={"field": "suggest_title", "size": 1},
+                )
+            ]
+        )
+
         # Valid context suggester
         res = client.get(
             url_for("invenio_records_rest.recid_suggest"),
@@ -98,6 +117,17 @@ def test_valid_suggest(app, db, search, item_type, indexed_records, mock_search_
         assert res.status_code == 200
         data = json.loads(res.get_data(as_text=True))
         assert data == {"text_byyear": "test_byyear"}
+
+        suggest_mocker.assert_has_calls(
+            [
+                call(
+                    ANY,
+                    "text_byyear",
+                    "Back",
+                    completion={"field": "suggest_byyear", "context": {"year": "2015"}},
+                )
+            ]
+        )
 
         # Missing context for context suggester
         res = client.get(

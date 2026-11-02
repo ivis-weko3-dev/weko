@@ -11,13 +11,23 @@
 import re
 
 import pytest
-from flask import url_for, current_app
+from flask import current_app, url_for
 from helpers import assert_hits_len, get_json, parse_url, to_relative_url
+from invenio_accounts.testutils import login_user_via_session
 from mock import patch
 
-from invenio_accounts.testutils import login_user_via_session
-def test_json_result_serializer(app, indexed_10records, search_url, admin_settings):
+
+def test_json_result_serializer(
+    configured_facets, app, indexed_10records, search_url, admin_settings
+):
     """JSON result."""
+    pid, db_record = next(
+        (pid, record)
+        for pid, record in indexed_10records
+        if record["control_number"] == "3"
+    )
+    pid_value = pid.pid_value
+    db_record_dump = db_record.dumps()
     with app.test_client() as client:
         # Get a query with only one record
         res = client.get(search_url, query_string={"q": "control_number:3"})
@@ -30,14 +40,14 @@ def test_json_result_serializer(app, indexed_10records, search_url, admin_settin
         for k in ["id", "created", "updated", "metadata", "links"]:
             assert k in record
 
-        pid, db_record = indexed_10records[0]
-        assert record["id"] == pid.pid_value
-        db_record_dump = db_record.dumps()
+        assert record["id"] == pid_value
         for k in ["title", "control_number"]:
             assert record["metadata"][k] == db_record_dump[k]
 
 
-def test_page_size(app, indexed_10records, search_url, admin_settings):
+def test_page_size(
+    configured_facets, app, indexed_10records, search_url, admin_settings
+):
     """Test page and size parameters."""
     with app.test_client() as client:
         # Limit records
@@ -62,7 +72,9 @@ def test_page_size(app, indexed_10records, search_url, admin_settings):
         assert "message" in get_json(res)
 
 
-def test_page_size_without_size_in_request(app, indexed_10records, search_url, admin_settings):
+def test_page_size_without_size_in_request(
+    configured_facets, app, indexed_10records, search_url, admin_settings
+):
     """Test default size parameter."""
     with app.test_client() as client:
         res = client.get(search_url, query_string=dict(page=1))
@@ -70,7 +82,7 @@ def test_page_size_without_size_in_request(app, indexed_10records, search_url, a
 
 
 def test_page_size_without_size_in_request_with_five_as_default(
-    app, indexed_10records, search_url, admin_settings
+    configured_facets, app, indexed_10records, search_url, admin_settings
 ):
     """Test custom default page parameter."""
     config = {"RECORDS_REST_DEFAULT_RESULTS_SIZE": 2}
@@ -78,20 +90,29 @@ def test_page_size_without_size_in_request_with_five_as_default(
         res = client.get(search_url, query_string=dict(page=1))
         assert_hits_len(res, 2)
 
-@pytest.mark.parametrize('app', [dict(
-    max_result_window=20
-)], indirect=['app'])
-def test_page_size_exceed_max_result_window(app,indexed_100records, aggs_and_facet, search_user, admin_settings, account_redis, search_url):
+
+@pytest.mark.parametrize("app", [dict(max_result_window=20)], indirect=["app"])
+def test_page_size_exceed_max_result_window(
+    app,
+    indexed_100records,
+    aggs_and_facet,
+    search_user,
+    admin_settings,
+    account_redis,
+    search_url,
+):
     # In this test, max_result_window is set to 20
     email = search_user["email"]
-    
+
     page_cache = email
     args_cache = f"{email}_url_args"
     max_cache = f"{email}_max_result"
     account_redis.delete(page_cache)
     account_redis.delete(args_cache)
     account_redis.delete(max_cache)
-    current_app.config["RECORDS_REST_SORT_OPTIONS"][current_app.config["SEARCH_UI_SEARCH_INDEX"]]=dict(
+    current_app.config["RECORDS_REST_SORT_OPTIONS"][
+        current_app.config["SEARCH_UI_SEARCH_INDEX"]
+    ] = dict(
         controlnumber=dict(
             title="ID",
             fields=["control_number"],
@@ -109,58 +130,116 @@ def test_page_size_exceed_max_result_window(app,indexed_100records, aggs_and_fac
             fields=["date_range1.gte"],
             default_order="asc",
             order=12,
-        )
+        ),
     )
-        
+
     import json
+
     with app.test_client() as client:
         login_user_via_session(client, search_user["obj"])
-        
+
         # The page is the first page where page*size>max_result_window
         res = client.get(search_url, query_string=dict(page=3, size=7))
-        res_control_numbers = [d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]]
+        res_control_numbers = [
+            d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]
+        ]
         assert res_control_numbers == ["15", "16", "17", "18", "19", "20", "21"]
-        assert json.loads(account_redis.get(page_cache)) == {"3":{"control_number":14.0}}
-        assert json.loads(account_redis.get(max_cache)) == {"1":{"control_number":14.0}}
+        assert json.loads(account_redis.get(page_cache)) == {
+            "3": {"control_number": 14.0}
+        }
+        assert json.loads(account_redis.get(max_cache)) == {
+            "1": {"control_number": 14.0}
+        }
 
         # cache for page not exists, cache for page-1 exists
         res = client.get(search_url, query_string=dict(page=4, size=7))
-        res_control_numbers = [d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]]
+        res_control_numbers = [
+            d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]
+        ]
         assert res_control_numbers == ["22", "23", "24", "25", "26", "27", "28"]
-        assert json.loads(account_redis.get(page_cache)) == {"3":{"control_number":14.0},"4":{"control_number":21.0}}
-        assert json.loads(account_redis.get(max_cache)) == {"1":{"control_number":14.0}}
+        assert json.loads(account_redis.get(page_cache)) == {
+            "3": {"control_number": 14.0},
+            "4": {"control_number": 21.0},
+        }
+        assert json.loads(account_redis.get(max_cache)) == {
+            "1": {"control_number": 14.0}
+        }
 
         # cache for page exists
         res = client.get(search_url, query_string=dict(page=4, size=7))
-        res_control_numbers = [d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]]
+        res_control_numbers = [
+            d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]
+        ]
         assert res_control_numbers == ["22", "23", "24", "25", "26", "27", "28"]
-        assert json.loads(account_redis.get(page_cache)) == {"3":{"control_number":14.0},"4":{"control_number":21.0}}
-        assert json.loads(account_redis.get(max_cache)) == {"1":{"control_number":14.0}}
+        assert json.loads(account_redis.get(page_cache)) == {
+            "3": {"control_number": 14.0},
+            "4": {"control_number": 21.0},
+        }
+        assert json.loads(account_redis.get(max_cache)) == {
+            "1": {"control_number": 14.0}
+        }
 
         # cache for page-1 not exists, Target does not exist in max_result cache
         res = client.get(search_url, query_string=dict(page=6, size=7))
-        res_control_numbers = [d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]]
+        res_control_numbers = [
+            d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]
+        ]
         assert res_control_numbers == ["36", "37", "38", "39", "40", "41", "42"]
-        assert json.loads(account_redis.get(page_cache)) == {"3":{"control_number":14.0},"4":{"control_number":21.0},"6":{"control_number":35.0}}
-        assert json.loads(account_redis.get(max_cache)) == {"1":{"control_number":14.0},"2":{"control_number":34.0}}
-        
+        assert json.loads(account_redis.get(page_cache)) == {
+            "3": {"control_number": 14.0},
+            "4": {"control_number": 21.0},
+            "6": {"control_number": 35.0},
+        }
+        assert json.loads(account_redis.get(max_cache)) == {
+            "1": {"control_number": 14.0},
+            "2": {"control_number": 34.0},
+        }
+
         # cache for page-1 not exists, Target exist in max_result cache
         res = client.get(search_url, query_string=dict(page=8, size=7))
-        res_control_numbers = [d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]]
+        res_control_numbers = [
+            d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]
+        ]
         assert res_control_numbers == ["50", "51", "52", "53", "54", "55", "56"]
-        assert json.loads(account_redis.get(page_cache)) == {"3":{"control_number":14.0},"4":{"control_number":21.0},"6":{"control_number":35.0},"8":{"control_number":49.0}}
-        assert json.loads(account_redis.get(max_cache)) == {"1":{"control_number":14.0},"2":{"control_number":34.0}}
+        assert json.loads(account_redis.get(page_cache)) == {
+            "3": {"control_number": 14.0},
+            "4": {"control_number": 21.0},
+            "6": {"control_number": 35.0},
+            "8": {"control_number": 49.0},
+        }
+        assert json.loads(account_redis.get(max_cache)) == {
+            "1": {"control_number": 14.0},
+            "2": {"control_number": 34.0},
+        }
 
         # sort is title, target_index=0
-        res = client.get(search_url, query_string=dict(page=5, size=10,sort="wtl"))
-        res_control_numbers = [d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]]
-        assert res_control_numbers == ["45", "46", "47", "48", "49", "5", "50","51","52","53"]
-        assert json.loads(account_redis.get(page_cache)) == {"5":{"title":"test_item44", "control_number":44.0}}
-        assert json.loads(account_redis.get(max_cache)) == {"1":{"control_number":26.0, "title":"test_item26"}}
-        
+        res = client.get(search_url, query_string=dict(page=5, size=10, sort="wtl"))
+        res_control_numbers = [
+            d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]
+        ]
+        assert res_control_numbers == [
+            "45",
+            "46",
+            "47",
+            "48",
+            "49",
+            "5",
+            "50",
+            "51",
+            "52",
+            "53",
+        ]
+        assert json.loads(account_redis.get(page_cache)) == {
+            "5": {"title": "test_item44", "control_number": 44.0}
+        }
+        assert json.loads(account_redis.get(max_cache)) == {
+            "1": {"control_number": 26.0, "title": "test_item26"}
+        }
+
     account_redis.delete(email)
     account_redis.delete(args_cache)
     account_redis.delete(max_cache)
+
 
 def test_pagination(app, indexed_10records, aggs_and_facet, search_url, admin_settings):
     """Test pagination."""
@@ -246,7 +325,9 @@ def test_query(app, indexed_10records, aggs_and_facet, search_url, admin_setting
     ],
     indirect=["app"],
 )
-def test_search_query_syntax(app, indexed_10records, aggs_and_facet, search_url, admin_settings):
+def test_search_query_syntax(
+    app, indexed_10records, aggs_and_facet, search_url, admin_settings
+):
     """Test search engine query syntax."""
     with app.test_client() as client:
         # Valid search query syntax
@@ -268,7 +349,9 @@ def test_sort(app, indexed_10records, aggs_and_facet, search_url, admin_settings
         assert get_json(res)["hits"]["hits"][0]["metadata"]["control_number"] == "1"
 
 
-def test_invalid_accept(app, indexed_10records, aggs_and_facet, search_url, admin_settings):
+def test_invalid_accept(
+    app, indexed_10records, aggs_and_facet, search_url, admin_settings
+):
     """Test invalid accept header."""
     headers = [("Accept", "application/does_not_exist")]
 
@@ -280,7 +363,15 @@ def test_invalid_accept(app, indexed_10records, aggs_and_facet, search_url, admi
         assert data["status"] == 406
 
 
-def test_aggregations_info(app, indexed_10records, aggs_and_facet, search_url, admin_settings, facet_search, redis_connect):
+def test_aggregations_info(
+    app,
+    indexed_10records,
+    aggs_and_facet,
+    search_url,
+    admin_settings,
+    facet_search,
+    redis_connect,
+):
     """Test aggregations."""
     with app.test_client() as client:
         # Facets are defined in the "app" fixture.
@@ -288,18 +379,33 @@ def test_aggregations_info(app, indexed_10records, aggs_and_facet, search_url, a
         data = get_json(res)
         assert "aggregations" in data
         # len 3 because testrecords.json have three diff values for "control_number"
-        assert len(data["aggregations"]["control_number"]["buckets"]) == 10
-        assert data["aggregations"]["control_number"]["buckets"][0] == dict(key="1", doc_count=1)
+        assert (
+            len(data["aggregations"]["control_number"]["control_number"]["buckets"])
+            == 10
+        )
+        assert data["aggregations"]["control_number"]["control_number"]["buckets"][
+            0
+        ] == dict(key="1", doc_count=1)
 
 
-def test_filters(app, indexed_10records, aggs_and_facet, search_url, admin_settings, facet_search, redis_connect):
+def test_filters(
+    app,
+    indexed_10records,
+    aggs_and_facet,
+    search_url,
+    admin_settings,
+    facet_search,
+    redis_connect,
+):
     """Test aggregations."""
     with app.test_client() as client:
         res = client.get(search_url, query_string=dict(control_number="4"))
         assert_hits_len(res, 1)
 
 
-def test_query_wrong(app, indexed_10records, aggs_and_facet, search_url, admin_settings):
+def test_query_wrong(
+    app, indexed_10records, aggs_and_facet, search_url, admin_settings
+):
     """Test invalid accept header."""
     with app.test_client() as client:
         res = client.get(search_url, query_string={"q": "test"})
@@ -336,7 +442,7 @@ def test_search_exception(app, indexed_10records, aggs_and_facet):
         )
 
 
-def test_dynamic_aggregation(app, indexed_records, search_url):
+def test_dynamic_aggregation(configured_facets, app, indexed_records, search_url):
     """Test invalid accept header."""
     with app.test_client() as client:
 
@@ -344,9 +450,7 @@ def test_dynamic_aggregation(app, indexed_records, search_url):
             """Include only my deposits in the aggregation."""
             return {"terms": {"field": "stars", "include": [4, 5]}}
 
-        app.config["RECORDS_REST_FACETS"]["invenio-records-rest"]["aggs"][
-            "test"
-        ] = stars_aggs
+        app.config["RECORDS_REST_FACETS"]["test-weko"]["aggs"]["test"] = stars_aggs
         res = client.get(search_url, query_string={"q": ""})
         assert res.status_code == 200
         data = get_json(res)
@@ -362,7 +466,7 @@ def test_dynamic_aggregation(app, indexed_records, search_url):
         )
 
 
-def test_from_parameter_pagination(app, indexed_records, search_url):
+def test_from_parameter_pagination(configured_facets, app, indexed_records, search_url):
     """Test "from" parameter pagination."""
     with app.test_client() as client:
         res = client.get(search_url, query_string={"size": 1, "from": 1})
@@ -402,7 +506,7 @@ def test_from_parameter_pagination(app, indexed_records, search_url):
         assert "page" not in parsed_url["qs"]
 
 
-def test_from_parameter_edges(app, indexed_records, search_url):
+def test_from_parameter_edges(configured_facets, app, indexed_records, search_url):
     """Test first and last values for "from" parameter pagination."""
     with app.test_client() as client:
         res = client.get(search_url, query_string={"size": 1, "from": 1})
@@ -420,7 +524,9 @@ def test_from_parameter_edges(app, indexed_records, search_url):
         assert "prev" in data["links"]
 
 
-def test_from_parameter_invalid_pagination(app, indexed_records, search_url):
+def test_from_parameter_invalid_pagination(
+    configured_facets, app, indexed_records, search_url
+):
     """Test invalid edge values for "from" parameter pagination."""
     with app.test_client() as client:
         res = client.get(search_url, query_string={"size": 1, "from": 0})
@@ -454,7 +560,9 @@ def test_from_parameter_invalid_pagination(app, indexed_records, search_url):
     ],
     indirect=["app"],
 )
-def test_max_result_window_valid_params(app, indexed_records, search_url):
+def test_max_result_window_valid_params(
+    configured_facets, app, indexed_records, search_url
+):
     """Test max_result_window with a valid page/from/size parameters."""
     with app.test_client() as client:
         res = client.get(search_url, query_string={"size": 3})
@@ -486,7 +594,9 @@ def test_max_result_window_valid_params(app, indexed_records, search_url):
     ],
     indirect=["app"],
 )
-def test_max_result_window_invalid_params(app, indexed_records, search_url):
+def test_max_result_window_invalid_params(
+    configured_facets, app, indexed_records, search_url
+):
     """Test max_result_window with an invalid page/from/size parameters."""
     with app.test_client() as client:
         res = client.get(search_url, query_string={"size": 4})
