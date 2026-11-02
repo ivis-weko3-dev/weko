@@ -8,7 +8,6 @@
 
 """Test app."""
 
-import pytest
 from flask import Flask
 
 from invenio_oaiserver import InvenioOAIServer
@@ -24,5 +23,6 @@ def test_version():
 def test_init():
     """Test extension initialization."""
     app = Flask("testapp")
-    with pytest.warns(None):
-        InvenioOAIServer(app)
+    InvenioOAIServer(app)
+    assert "invenio-oaiserver" in app.extensions
+    assert app.extensions["invenio-oaiserver"].app is app

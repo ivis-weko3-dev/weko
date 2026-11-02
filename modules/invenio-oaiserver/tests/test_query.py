@@ -5,16 +5,17 @@ from datetime import datetime
 from flask import current_app
 
 from invenio_oaiserver import current_oaiserver
+from invenio_oaiserver.errors import OAINoRecordsMatchError
 from invenio_oaiserver.query import (
     query_string_parser,
-    get_affected_records,
     get_records,
     range_query
 )
+from invenio_accounts.models import Role
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus
 from invenio_records.models import RecordMetadata
 from invenio_search import current_search_client
-from inveion_search.engine import dsl
+from invenio_search.engine import dsl
 
 from mock import patch
 from weko_index_tree.models import Index
@@ -28,48 +29,29 @@ def test_query_string_parser(search_app):
     result = query_string_parser("test_path")
     assert type(result) == dsl.query.QueryString
     assert result.name == "query_string"
-    assert result.to_dict() == {"query_string":{"query":"test_path"}}
+    assert result.to_dict() == {
+        "query_string": {"query": "test_path", "fields": ["title"]}
+    }
 
     # current_oaiserver not have query_parse, config is not str
     current_app.config.update(OAISERVER_QUERY_PARSER=dsl.Q)
-    delattr(current_oaiserver,"query_parser")
+    delattr(current_oaiserver, "query_parser")
     esult = query_string_parser("test_path")
     assert type(result) == dsl.query.QueryString
     assert result.name == "query_string"
-    assert result.to_dict() == {"query_string":{"query":"test_path"}}
+    assert result.to_dict() == {
+        "query_string": {"query": "test_path", "fields": ["title"]}
+    }
 
     # current_oaiserver  have query_parse
     result = query_string_parser("test_path")
     assert type(result) == dsl.query.QueryString
     assert result.name == "query_string"
-    assert result.to_dict() == {"query_string":{"query":"test_path"}}
+    assert result.to_dict() == {
+        "query_string": {"query": "test_path", "fields": ["title"]}
+    }
 
 #class OAIServerSearch(RecordsSearch):
-
-#def get_affected_records(spec=None, search_pattern=None):
-# .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py::test_get_affected_records -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_get_affected_records(search_app):
-    # raise StopIteration
-    #with pytest.raises(StopIteration):
-    result = get_affected_records(None,None)
-    for i in result:
-        pass
-
-    spec="1671155386910"
-    search_path = 'path:"1671155386910"'
-    # exist spec, not exist search_path
-    result = get_affected_records(spec,None)
-    for i in result:
-        assert i
-
-    # not exist spec, exist search_path
-    result = get_affected_records(None,search_path)
-    for i in result:
-        assert i
-
-    result = get_affected_records(spec,search_path)
-    for i in result:
-        assert i
 
 #def get_records(**kwargs):
 
@@ -94,10 +76,10 @@ def test_get_records(search_app,db, mock_execute):
     rec_uuid1 = uuid.uuid4()
     identifier1 = PersistentIdentifier.create('doi', "https://doi.org/00001",object_type='rec', object_uuid=rec_uuid1,status=PIDStatus.REGISTERED)
 
-    rec_data1={"title":["test_item1"],"path":[1],"_oai":{"id":"oai:test:00001","sets":[]},"relation_version_is_last":"true","control_number":"1"}
+    rec_data1={"title":["test_item1"],"path":[1],"_item_metadata":{"path":{"raw":["1"]}},"_oai":{"id":"oai:test:00001","sets":[]},"relation_version_is_last":"true","control_number":"1","publish_status":"0","_updated":"2022-06-01T00:00:00"}
     rec1 = RecordMetadata(id=rec_uuid1,json=rec_data1)
     rec_uuid2 = uuid.uuid4()
-    rec_data2={"title":["test_item2"],"path":[1000],"_oai":{"id":"oai:test:00002","sets":["12345"]},"relation_version_is_last":"true","control_number":"2"}
+    rec_data2={"title":["test_item2"],"path":[1000],"_oai":{"id":"oai:test:00002","sets":["12345"]},"relation_version_is_last":"true","control_number":"2","publish_status":"0","_updated":"2022-06-01T00:00:00"}
     identifier2 = PersistentIdentifier.create('doi', "https://doi.org/00002",object_type='rec', object_uuid=rec_uuid2,status=PIDStatus.REGISTERED)
     rec2 = RecordMetadata(id=rec_uuid2,json=rec_data2)
     db.session.add_all(indexes)
@@ -107,13 +89,15 @@ def test_get_records(search_app,db, mock_execute):
     db.session.commit()
 
     search_info = dict(id=str(rec_uuid1),
-                       index=current_app.config['INDEXER_DEFAULT_INDEX'])
+                       index=current_app.config['INDEXER_DEFAULT_INDEX'],
+                       refresh="wait_for")
     body = dict(version=1,
                 version_type="external_gte",
                 body=rec_data1)
     current_search_client.index(**{**search_info,**body})
     search_info = dict(id=str(rec_uuid2),
-                       index=current_app.config['INDEXER_DEFAULT_INDEX'])
+                       index=current_app.config['INDEXER_DEFAULT_INDEX'],
+                       refresh="wait_for")
     body = dict(version=1,
                 version_type='external_gte',
                 body=rec_data2)
@@ -128,7 +112,7 @@ def test_get_records(search_app,db, mock_execute):
 
     # not scroll_id, ":" in set
     data = {
-        "set":"12345:6789"
+        "set":"6789:12345"
     }
     result = get_records(**data)
     assert result
@@ -151,7 +135,6 @@ def test_get_records(search_app,db, mock_execute):
             "hits":[]
         }
     }
-    dummy_data["hits"]["hits"].extend([{"_source":{"query":{"query_string":{"query":"path:\"{}\"".format(i)}}}} for i in range(998)])
     dummy_data["hits"]["hits"].extend([
         {
             "_id":"test_id_1",
@@ -238,7 +221,7 @@ def test_get_records_with_set(search_app,db, users):
     db.session.add(rec2)
     db.session.add(rec3)
     db.session.commit()
-    
+
     search_info = dict(index=current_app.config['INDEXER_DEFAULT_INDEX'],
                     version=1,
                     version_type="external_gte",
@@ -249,8 +232,9 @@ def test_get_records_with_set(search_app,db, users):
     current_search_client.index(**search_info,**body1)
     current_search_client.index(**search_info,**body2)
     current_search_client.index(**search_info,**body3)
-    
-    comm1 = Community.create(community_id="test_comm", role_id=users[0]["id"],
+
+    comm_role = Role.query.filter_by(name="Community Administrator").first()
+    comm1 = Community.create(community_id="test_comm", role_id=comm_role.id,
                             id_user=users[0]["id"], title="test community",
                             description="this is test community",
                             root_node_id=indexes[0].id)
@@ -295,12 +279,12 @@ def test_get_records_with_set(search_app,db, users):
     assert result_items[2]["json"]["_source"] == rec_data3
 
     data = {"set":"999"}
-    result = get_records(**data)
-    assert result.total == 0
+    with pytest.raises(OAINoRecordsMatchError):
+        get_records(**data)
 
     data = {"set":"aaa"}
-    result = get_records(**data)
-    assert result.total == 0
+    with pytest.raises(OAINoRecordsMatchError):
+        get_records(**data)
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_query.py::test_range_query -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_range_query():
@@ -411,7 +395,7 @@ def test_get_records_range_branch(search_app, db, monkeypatch, fix_access, from_
         "relation_version_is_last": "true",
         "control_number": "30",
         "publish_status": "0",
-        "_updated": "2100-01-01T00:00:00"
+        "_updated": "2026-06-01T00:00:00"
     }
     rec = RecordMetadata(id=rec_uuid, json=rec_data)
     db.session.add(rec)

@@ -20,14 +20,14 @@ from invenio_oaiserver.provider import OAIIDProvider
 from invenio_oaiserver.response import (
     NS_DC, NS_OAIDC, NS_OAIPMH,NS_JPCOAR,
     is_private_index,
-    getrecord, 
+    getrecord,
     listrecords,
-    is_pubdate_in_future, 
-    listidentifiers, 
+    is_pubdate_in_future,
+    listidentifiers,
     envelope,
     resumption_token,
     listsets,
-    listmetadataformats, 
+    listmetadataformats,
     extract_paths_from_sets,
     is_private_index_by_public_list,
     get_error_code_msg,
@@ -110,10 +110,10 @@ def test_is_draft_workflow():
         "item_1617258105262": {"attribute_name": "Resource Type","attribute_value_mlt": [{"resourceuri": "http://purl.org/coar/resource_type/c_5794","resourcetype": "conference paper"}]},
         "relation_version_is_last": True
     }
-    
+
     result = is_draft_workflow(not_draft)
     assert result == False
-    
+
     draft = {
         "_oai": {"id": "oai:weko3.example.org:000000001","sets": ["1706242675706"]},
         "path": ["1706242675706"],
@@ -147,14 +147,14 @@ def test_is_draft_workflow():
         "item_1617258105262": {"attribute_name": "Resource Type","attribute_value_mlt": [{"resourceuri": "http://purl.org/coar/resource_type/c_5794","resourcetype": "conference paper"}]},
         "relation_version_is_last": True
     }
-    
+
     result = is_draft_workflow(draft)
     assert result == True
-    
+
 # def getrecord
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_getrecord -vv -s -v --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_getrecord(app, db, item_type, mocker):
-    with app.app_context():
+    with app.test_request_context():
         identify = Identify(
                 outPutSetting=True
             )
@@ -219,7 +219,7 @@ def test_getrecord(app, db, item_type, mocker):
         mocker.patch("weko_index_tree.utils.check_roles",return_value=True)
         mocker.patch("weko_schema_ui.schema.cache_schema",return_value=ns)
         mocker.patch("weko_deposit.api.get_record_without_version",side_effect=lambda x:x)
-        
+
         def create_record(recid, title, path, pub_date, pub_status, is_draft, is_doi,is_exist_sysidt=False):
             record_data = {
                 "_oai":{
@@ -277,7 +277,7 @@ def test_getrecord(app, db, item_type, mocker):
                 doi = None
             db.session.commit()
             return record_metadata, pid, oai, doi
-            
+
         # identify.outPutSetting is false
         identify = Identify(
             outPutSetting=False
@@ -290,7 +290,7 @@ def test_getrecord(app, db, item_type, mocker):
             )
             res = getrecord(**kwargs)
             assert res.xpath("/x:OAI-PMH/x:error",namespaces=NAMESPACES)[0].attrib["code"] == "idDoesNotExist"
-        
+
         # harvest is private(_is_output=2)
         record = create_record("1","harvest_is_private", ["100"], "2000-11-11", "0",False,False)
         kwargs = dict(
@@ -300,7 +300,7 @@ def test_getrecord(app, db, item_type, mocker):
         )
         res = getrecord(**kwargs)
         assert res.xpath("/x:OAI-PMH/x:error",namespaces=NAMESPACES)[0].attrib["code"] == "idDoesNotExist"
-        
+
         # pubdate is feature(record.json._source._item_metadata.system_identifier_doi.attrivute_value_mlt.subitem_systemidt_identifier_type=doi, record.publish_date is feature,)
         record = create_record("2","xx", ["1"], "2100-11-11", "0",False,True)
         kwargs = dict(
@@ -310,7 +310,7 @@ def test_getrecord(app, db, item_type, mocker):
         )
         res = getrecord(**kwargs)
         assert res.xpath("/x:OAI-PMH/x:error",namespaces=NAMESPACES)[0].attrib["code"] == "idDoesNotExist"
-        
+
         # new activity(record.publish_status=2)
         record = create_record("3","xx",["1"],"2000-11-11","2",False,False)
         kwargs = dict(
@@ -386,7 +386,7 @@ def test_getrecord(app, db, item_type, mocker):
         res = getrecord(**kwargs)
         assert res.xpath("/x:OAI-PMH/x:GetRecord/x:record/x:header/x:identifier/text()",namespaces=NAMESPACES) == [record[2].pid_value]
         assert len(res.xpath("/x:OAI-PMH/x:GetRecord/x:record/x:metadata",namespaces=NAMESPACES)) == 1
-        
+
         # system_identifier_doi is exists
         record = create_record("10","xx",["1"],"2000-11-11","0",False,False,True)
         kwargs = dict(
@@ -493,7 +493,7 @@ def test_getrecord_future_item(app,records,item_type,mock_execute,db,mocker):
                     '/x:OAI-PMH/x:GetRecord/x:record/x:header[@status="deleted"]',
                     namespaces=NAMESPACES)
                 assert len(header) == 1
-            
+
             with patch("invenio_oaiserver.response.is_exists_doi",return_value=True):
                 res = getrecord(**kwargs)
                 assert res.xpath("/x:OAI-PMH/x:error",namespaces=NAMESPACES)[0].attrib["code"] == "idDoesNotExist"
@@ -501,12 +501,13 @@ def test_getrecord_future_item(app,records,item_type,mock_execute,db,mocker):
 # def listidentifiers(**kwargs):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_listidentifiers -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_listidentifiers(search_app,records,item_type,mock_execute,db,mocker):
-    with search_app.app_context():
+    with search_app.test_request_context():
         identify = Identify(
             outPutSetting=True
         )
         oaiset = OAISet(
-            spec="1557819692844"
+            spec="1557819692844",
+            system_created=False,
         )
         index_metadata = {
             "id":1557819692844,
@@ -633,7 +634,7 @@ def test_listidentifiers(search_app,records,item_type,mock_execute,db,mocker):
                                 '%Y-%m-%dT%H:%M:%S'
                             ),
                         }
-            
+
         ns={"root_name": "jpcoar", "namespaces":{'': 'https://github.com/JPCOAR/schema/blob/master/1.0/',
             'dc': 'http://purl.org/dc/elements/1.1/', 'xs': 'http://www.w3.org/2001/XMLSchema',
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#', 'xml': 'http://www.w3.org/XML/1998/namespace',
@@ -700,11 +701,12 @@ def test_listidentifiers(search_app,records,item_type,mock_execute,db,mocker):
                     # publish_status = 0 (public item)
                     # has sys doi data
                     assert res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[3]/x:identifier/text()', namespaces=NAMESPACES) == [str(records[2][0])]
-                    assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[3][@status="deleted"]', namespaces=NAMESPACES)) == 1
+                    # a public item in a public harvest is not reported as deleted
+                    assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[3][@status="deleted"]', namespaces=NAMESPACES)) == 0
                     # publish_status = 0 (public item)
                     # not sys doi data
                     assert res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[4]/x:identifier/text()', namespaces=NAMESPACES) == [str(records[3][0])]
-                    assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[4][@status="deleted"]', namespaces=NAMESPACES)) == 1
+                    assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[4][@status="deleted"]', namespaces=NAMESPACES)) == 0
                     # publish_status = -1 (delete item)
                     assert res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[5]/x:identifier/text()', namespaces=NAMESPACES) == [str(records[5][0])]
                     assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[5][@status="deleted"]', namespaces=NAMESPACES)) == 1
@@ -722,24 +724,24 @@ def test_listidentifiers(search_app,records,item_type,mock_execute,db,mocker):
                 with patch("invenio_oaiserver.response.is_exists_doi",return_value=True):
                     res=listidentifiers(**kwargs)
                     # total
-                    assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header', namespaces=NAMESPACES)) == 1
+                    assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header', namespaces=NAMESPACES)) == 5
                     # path is none
                     assert res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[1]/x:identifier/text()', namespaces=NAMESPACES) == [str(records[1][0])]
                     assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[1][@status="deleted"]', namespaces=NAMESPACES)) == 1
                     # publish_status = 0 (public item)
                     # has sys doi data
-                    assert res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[2]/x:identifier/text()', namespaces=NAMESPACES) == []
+                    assert res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[2]/x:identifier/text()', namespaces=NAMESPACES) == [str(records[2][0])]
                     assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[2][@status="deleted"]', namespaces=NAMESPACES)) == 0
                     # publish_status = 0 (public item)
                     # not sys doi data
-                    assert res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[3]/x:identifier/text()', namespaces=NAMESPACES) == []
+                    assert res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[3]/x:identifier/text()', namespaces=NAMESPACES) == [str(records[3][0])]
                     assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[3][@status="deleted"]', namespaces=NAMESPACES)) == 0
                     # publish_status = -1 (delete item)
-                    assert res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[4]/x:identifier/text()', namespaces=NAMESPACES) == []
-                    assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[4][@status="deleted"]', namespaces=NAMESPACES)) == 0
+                    assert res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[4]/x:identifier/text()', namespaces=NAMESPACES) == [str(records[5][0])]
+                    assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[4][@status="deleted"]', namespaces=NAMESPACES)) == 1
                     # publish_status = 1 (private item)
-                    assert res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[5]/x:identifier/text()', namespaces=NAMESPACES) == []
-                    assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[5][@status="deleted"]', namespaces=NAMESPACES)) == 0
+                    assert res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[5]/x:identifier/text()', namespaces=NAMESPACES) == [str(records[6][0])]
+                    assert len(res.xpath('/x:OAI-PMH/x:ListIdentifiers/x:header[5][@status="deleted"]', namespaces=NAMESPACES)) == 1
 
         # community id in set
         with patch("invenio_oaiserver.response.get_records",return_value=MockPagenation(dummy_data)),\
@@ -781,7 +783,7 @@ def test_listidentifiers(search_app,records,item_type,mock_execute,db,mocker):
             res=listidentifiers(**kwargs)
             assert res.xpath("/x:OAI-PMH/x:error",namespaces=NAMESPACES)[0].attrib["code"] == "noRecordsMatch"
 
-        # output setting of identity = false 
+        # output setting of identity = false
         identify = Identify(
             outPutSetting=False
         )
@@ -835,23 +837,24 @@ def test_listidentifiers(search_app,records,item_type,mock_execute,db,mocker):
                 res=listidentifiers(**kwargs)
                 assert res.xpath("/x:OAI-PMH/x:error",namespaces=NAMESPACES)[0].attrib["code"] == "noRecordsMatch"
             # raise NoResultFound
-            with patch("invenio_oaiserver.response.WekoRecord.get_record_by_uuid",side_effect=NoResultFound()):
+            with patch("weko_deposit.api.WekoRecord.get_record_by_uuid",side_effect=NoResultFound()):
                 res=listidentifiers(**kwargs)
                 assert res.xpath("/x:OAI-PMH/x:error",namespaces=NAMESPACES)[0].attrib["code"] == "noRecordsMatch"
             # raise Exception
-            with patch("invenio_oaiserver.response.WekoRecord.get_record_by_uuid",side_effect=Exception()):
+            with patch("weko_deposit.api.WekoRecord.get_record_by_uuid",side_effect=Exception()):
                 res=listidentifiers(**kwargs)
                 assert res.xpath("/x:OAI-PMH/x:error",namespaces=NAMESPACES)[0].attrib["code"] == "noRecordsMatch"
 
 
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_listrecords -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_listrecords(search_app,records,item_type,mock_execute,db,mocker):
-    with search_app.app_context():
+    with search_app.test_request_context():
         identify = Identify(
             outPutSetting=True
         )
         oaiset = OAISet(
-            spec="1557819692844"
+            spec="1557819692844",
+            system_created=False,
         )
         index_metadata = {
             "id":1557819692844,
@@ -978,7 +981,7 @@ def test_listrecords(search_app,records,item_type,mock_execute,db,mocker):
                                 '%Y-%m-%dT%H:%M:%S'
                             ),
                         }
-            
+
         ns={"root_name": "jpcoar", "namespaces":{'': 'https://github.com/JPCOAR/schema/blob/master/1.0/',
             'dc': 'http://purl.org/dc/elements/1.1/', 'xs': 'http://www.w3.org/2001/XMLSchema',
             'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#', 'xml': 'http://www.w3.org/XML/1998/namespace',
@@ -1045,11 +1048,12 @@ def test_listrecords(search_app,records,item_type,mock_execute,db,mocker):
                     # publish_status = 0 (public item)
                     # has sys doi data
                     assert res.xpath('/x:OAI-PMH/x:ListRecords/x:record[3]/x:header/x:identifier/text()', namespaces=NAMESPACES) == [str(records[2][0])]
-                    assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record[3]/x:header[@status="deleted"]', namespaces=NAMESPACES)) == 1
+                    # a public item in a public harvest is not reported as deleted
+                    assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record[3]/x:header[@status="deleted"]', namespaces=NAMESPACES)) == 0
                     # publish_status = 0 (public item)
                     # not sys doi data
                     assert res.xpath('/x:OAI-PMH/x:ListRecords/x:record[4]/x:header/x:identifier/text()', namespaces=NAMESPACES) == [str(records[3][0])]
-                    assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record[4]/x:header[@status="deleted"]', namespaces=NAMESPACES)) == 1
+                    assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record[4]/x:header[@status="deleted"]', namespaces=NAMESPACES)) == 0
                     # publish_status = -1 (delete item)
                     assert res.xpath('/x:OAI-PMH/x:ListRecords/x:record[5]/x:header/x:identifier/text()', namespaces=NAMESPACES) == [str(records[5][0])]
                     assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record[5]/x:header[@status="deleted"]', namespaces=NAMESPACES)) == 1
@@ -1067,24 +1071,24 @@ def test_listrecords(search_app,records,item_type,mock_execute,db,mocker):
                 with patch("invenio_oaiserver.response.is_exists_doi",return_value=True):
                     res=listrecords(**kwargs)
                     # total
-                    assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record', namespaces=NAMESPACES)) == 1
+                    assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record', namespaces=NAMESPACES)) == 5
                     # path is none
                     assert res.xpath('/x:OAI-PMH/x:ListRecords/x:record[1]/x:header/x:identifier/text()', namespaces=NAMESPACES) == [str(records[1][0])]
                     assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record[1]/x:header[@status="deleted"]', namespaces=NAMESPACES)) == 1
                     # publish_status = 0 (public item)
                     # has sys doi data
-                    assert res.xpath('/x:OAI-PMH/x:ListRecords/x:record[2]/x:header/x:identifier/text()', namespaces=NAMESPACES) == []
+                    assert res.xpath('/x:OAI-PMH/x:ListRecords/x:record[2]/x:header/x:identifier/text()', namespaces=NAMESPACES) == [str(records[2][0])]
                     assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record[2]/x:header[@status="deleted"]', namespaces=NAMESPACES)) == 0
                     # publish_status = 0 (public item)
                     # not sys doi data
-                    assert res.xpath('/x:OAI-PMH/x:ListRecords/x:record[3]/x:header/x:identifier/text()', namespaces=NAMESPACES) == []
+                    assert res.xpath('/x:OAI-PMH/x:ListRecords/x:record[3]/x:header/x:identifier/text()', namespaces=NAMESPACES) == [str(records[3][0])]
                     assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record[3]/x:header[@status="deleted"]', namespaces=NAMESPACES)) == 0
                     # publish_status = -1 (delete item)
-                    assert res.xpath('/x:OAI-PMH/x:ListRecords/x:record[4]/x:header/x:identifier/text()', namespaces=NAMESPACES) == []
-                    assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record[4]/x:header[@status="deleted"]', namespaces=NAMESPACES)) == 0
+                    assert res.xpath('/x:OAI-PMH/x:ListRecords/x:record[4]/x:header/x:identifier/text()', namespaces=NAMESPACES) == [str(records[5][0])]
+                    assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record[4]/x:header[@status="deleted"]', namespaces=NAMESPACES)) == 1
                     # publish_status = 1 (private item)
-                    assert res.xpath('/x:OAI-PMH/x:ListRecords/x:record[5]/x:header/x:identifier/text()', namespaces=NAMESPACES) == []
-                    assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record[5]/x:header[@status="deleted"]', namespaces=NAMESPACES)) == 0
+                    assert res.xpath('/x:OAI-PMH/x:ListRecords/x:record[5]/x:header/x:identifier/text()', namespaces=NAMESPACES) == [str(records[6][0])]
+                    assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record[5]/x:header[@status="deleted"]', namespaces=NAMESPACES)) == 1
 
         # community id in set
         with patch("invenio_oaiserver.response.get_records",return_value=MockPagenation(dummy_data)),\
@@ -1097,7 +1101,7 @@ def test_listrecords(search_app,records,item_type,mock_execute,db,mocker):
                         metadataPrefix='jpcoar_1.0',
                         verb="ListRecords",
                         set="user-test_comm",
-                    ) 
+                    )
                     res=listrecords(**kwargs_1)
                     assert len(res.xpath('/x:OAI-PMH/x:ListRecords/x:record', namespaces=NAMESPACES)) == 6
             # community id without prefix
@@ -1126,7 +1130,7 @@ def test_listrecords(search_app,records,item_type,mock_execute,db,mocker):
             res=listrecords(**kwargs)
             assert res.xpath("/x:OAI-PMH/x:error",namespaces=NAMESPACES)[0].attrib["code"] == "noRecordsMatch"
 
-        # output setting of identity = false 
+        # output setting of identity = false
         identify = Identify(
             outPutSetting=False
         )
@@ -1180,7 +1184,7 @@ def test_listrecords(search_app,records,item_type,mock_execute,db,mocker):
                 res=listrecords(**kwargs)
                 assert res.xpath("/x:OAI-PMH/x:error",namespaces=NAMESPACES)[0].attrib["code"] == "noRecordsMatch"
             # raise NoResultFound
-            with patch("invenio_oaiserver.response.WekoRecord.get_record_by_uuid",side_effect=NoResultFound()):
+            with patch("weko_deposit.api.WekoRecord.get_record_by_uuid",side_effect=NoResultFound()):
                 res=listrecords(**kwargs)
                 assert res.xpath("/x:OAI-PMH/x:error",namespaces=NAMESPACES)[0].attrib["code"] == "noRecordsMatch"
 
@@ -1188,9 +1192,9 @@ def test_listrecords(search_app,records,item_type,mock_execute,db,mocker):
 # def envelope(**kwargs):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_envelope -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_envelope(app):
-    
+
     # OAISERVER_XSL_URL is None
-    
+
     kwargs = {
         "verb":"ListRecords",
         "metadataPrefix":"jpcoar_1.0",
@@ -1213,7 +1217,7 @@ def test_envelope(app):
         "url":"http://test.com"
     }
     assert request[0].attrib == test
-    
+
     # OAISERVER_XSL_URL is not None
     current_app.config.update(OAISERVER_XSL_URL="https://www.otherdomain.org/oai2.xsl")
     kwargs = {
@@ -1236,14 +1240,14 @@ def test_envelope(app):
 # def verb(**kwargs):
 # def identify(**kwargs):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_identify -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
-def test_identify(app,db):
+def test_identify(search_app,db):
     tree_str = \
         '<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">'\
         '<responseDate>2023-02-21T00:05:52Z</responseDate>'\
         '<request verb="ListRecords" metadataPrefix="jpcoar_1.0">http://app/oai</request>'\
         '<ListRecords />'\
         '</OAI-PMH>'
-    
+
     # identify is none, commpression == ["identity"]
     tree = etree.fromstring(tree_str)
     e_element = SubElement(tree, etree.QName(NS_OAIPMH,"ListRecords"))
@@ -1256,7 +1260,7 @@ def test_identify(app,db):
         assert list_records.xpath("./x:earliestDatestamp",namespaces=NAMESPACES)[0].text == "0001-01-01T00:00:00Z"
         assert list_records.xpath("./x:deletedRecord",namespaces=NAMESPACES)[0].text == "transient"
         assert list_records.xpath("./x:granularity",namespaces=NAMESPACES)[0].text == "YYYY-MM-DDThh:mm:ssZ"
-    
+
     # identify is not none, commpression != ["identity"]
     current_app.config.update(OAISERVER_COMPRESSIONS=["not_identity"])
     iden = Identify(
@@ -1282,7 +1286,7 @@ def test_identify(app,db):
         assert list_records.xpath("./x:deletedRecord",namespaces=NAMESPACES)[0].text == "transient"
         assert list_records.xpath("./x:granularity",namespaces=NAMESPACES)[0].text == "YYYY-MM-DDThh:mm:ssZ"
         assert list_records.xpath("./x:compression",namespaces=NAMESPACES)[0].text == "not_identity"
-    
+
 
 # def resumption_token(parent, pagination, **kwargs):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_resumption_token -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
@@ -1297,13 +1301,14 @@ def test_resumption_token(app,db,without_oaiset_signals):
     '<request verb="ListRecords" metadataPrefix="jpcoar_1.0">http://app/oai</request>'\
     '<ListRecords />'\
     '</OAI-PMH>'
-    
+
     oai = OAISet(id=1,
         spec='test',
         name='test_name',
         description='some test description',
-        search_pattern='test search')
-    
+        search_pattern='test search',
+        system_created=False)
+
     db.session.add(oai)
     db.session.commit()
     # page == 1
@@ -1311,14 +1316,15 @@ def test_resumption_token(app,db,without_oaiset_signals):
     oai_sets = OAISet.query.paginate(page=1, per_page=100, error_out=False)
     result = resumption_token(tree,oai_sets,**kwargs)
     assert result == None
-    
+
     oais = list()
     for i in range(2,101):
         oais.append(OAISet(id=i,
             spec='test{}'.format(i),
             name='test_name{}'.format(i),
             description='some test description',
-            search_pattern='test search{}'.format(i)))
+            search_pattern='test search{}'.format(i),
+            system_created=False))
     db.session.add_all(oais)
     db.session.commit()
     # token is none
@@ -1339,8 +1345,8 @@ def test_resumption_token(app,db,without_oaiset_signals):
         assert request[0].attrib["cursor"] == "40"
         assert request[0].attrib["completeListSize"] == "100"
         assert request[0].text == "test_token"
-        
-    
+
+
     # pagenation.total is false
     OAISet.query.delete()
     db.session.commit()
@@ -1351,7 +1357,7 @@ def test_resumption_token(app,db,without_oaiset_signals):
         request = tree.xpath("//x:resumptionToken",namespaces=NAMESPACES)
         assert len(request[0].attrib) == 0
         assert request[0].text == "test_token"
-    
+
 # def listsets(**kwargs):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_listsets -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_listsets(app,db,without_oaiset_signals,mocker):
@@ -1362,20 +1368,22 @@ def test_listsets(app,db,without_oaiset_signals,mocker):
         '<request verb="ListRecords" metadataPrefix="jpcoar_1.0">http://app/oai</request>'\
         '<ListRecords />'\
         '</OAI-PMH>'
-        
+
     oai100 = OAISet(id=100, # exist description
         spec='100',
         name='test_name100',
         description='some test description',
-        search_pattern='test search100')
+        search_pattern='test search100',
+        system_created=False)
     oai101 = OAISet(id=101, # not exist description
         spec='101',
         name='test_name101',
-        search_pattern='test search101')
+        search_pattern='test search101',
+        system_created=False)
     db.session.add(oai100)
     db.session.add(oai101)
     db.session.commit()
-    
+
     tree = etree.fromstring(tree_str)
     e_element = SubElement(tree, etree.QName(NS_OAIPMH,"ListRecords"))
     # is not exist index
@@ -1419,16 +1427,18 @@ def test_listsets(app,db,without_oaiset_signals,mocker):
     oai1 = OAISet(id=1,
         spec='1',
         name='test_name1',
-        search_pattern='test search1')
+        search_pattern='test search1',
+        system_created=False)
     oai2 = OAISet(id=2,
         spec='2',
         name='test_name2',
-        search_pattern='test search2')
+        search_pattern='test search2',
+        system_created=False)
     db.session.add_all([oai1,oai2])
     db.session.commit()
     tree = etree.fromstring(tree_str)
     e_element = SubElement(tree, etree.QName(NS_OAIPMH,"ListRecords"))
-    
+
     with patch("invenio_oaiserver.response.verb",return_value=(tree,e_element)):
         with patch("invenio_oaiserver.response.Indexes.is_public_state",side_effect=[None,True,True,True]):
             with patch("invenio_oaiserver.response.Indexes.get_harvest_public_state",side_effect=[False,False]):
@@ -1519,7 +1529,7 @@ def test_header(client,db,users):
         setSpecs = headers.xpath("./x:setSpec",namespaces=NAMESPACES)
         assert setSpecs[0].text == "1:2"
         assert setSpecs[1].text == "4"
-        
+
         # deleted is True, sets is not exist
         tree = etree.fromstring(tree_str)
         e_element = SubElement(tree, etree.QName(NS_OAIPMH,"ListRecords"))
@@ -1528,9 +1538,9 @@ def test_header(client,db,users):
         assert headers.attrib["status"] == "deleted"
         assert headers.xpath("./x:identifier",namespaces=NAMESPACES)[0].text == "ListRecords"
         assert headers.xpath("./x:datestamp",namespaces=NAMESPACES)[0].text == "2023-01-10T01:11:11Z"
-        assert len(headers.xpath("./x:setSpec",namespaces=NAMESPACES)) == 0        
-        
-        
+        assert len(headers.xpath("./x:setSpec",namespaces=NAMESPACES)) == 0
+
+
 # def extract_paths_from_sets(sets):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_extract_paths_from_sets -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_extract_paths_from_sets(app,db):
@@ -1546,9 +1556,9 @@ def test_extract_paths_from_sets(app,db):
     )
     db.session.add(index)
     db.session.commit()
-    
+
     data = ["1","2","3"]
-    
+
     paths, sets = extract_paths_from_sets(data)
     assert paths == ["1"]
     assert sets == ["2","3"]
@@ -1606,7 +1616,7 @@ def test_is_private_index(app,db):
     with patch("invenio_oaiserver.response.Indexes.is_public_state_and_not_in_future",return_value=False):
         result = is_private_index({"path":["1","2"]})
         assert result == True
-        
+
 # def is_private_index_by_public_list(item_path, public_index_ids):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_is_private_index_by_public_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_is_private_index_by_public_list():
@@ -1614,7 +1624,7 @@ def test_is_private_index_by_public_list():
     public_ids = ["2","3","4"]
     result = is_private_index_by_public_list(item_path, public_ids)
     assert result == False
-    
+
     item_path = ["1","2","3"]
     public_ids = ["4","5","6"]
     result = is_private_index_by_public_list(item_path, public_ids)
@@ -1628,20 +1638,20 @@ def test_is_private_index_by_public_list():
 def test_get_error_code_msg(app):
     result = get_error_code_msg()
     assert result == [("noRecordsMatch","The combination of the values of the from, until, set and metadataPrefix arguments results in an empty list.")]
-    
+
     result = get_error_code_msg("noMetadataFormats")
     assert result == [("noMetadataFormats","There is no metadata format available.")]
-    
+
     result = get_error_code_msg("otherError")
     assert result == [("otherError","")]
-    
+
 # def create_identifier_index(root, **kwargs):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_create_identifier_index -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_create_identifier_index(app):
     NS = {
         "jpcoar": NS_JPCOAR
     }
-    
+
     # jpcoar:identifierRegistration is exist
     tree = Element(etree.QName(NS_OAIPMH,"Root"),nsmap=NS)
     SubElement(tree,etree.QName(NS_JPCOAR,"identifierRegistration"),nsmap=NS)
@@ -1679,34 +1689,38 @@ def test_check_correct_system_props_mapping(app,db, item_type):
     db.session.add_all([item_metadata1,mapping1])
     db.session.commit()
     # item_map
-    #{'item1.subitem1_1': 'ITEM1.item1.subitem1_1', 
-    # 'item1.subitem2_1': 'ITEM1.item1.subitem2_1', 
-    # 'item2.subitem1_2.subitem1_1_2': 'ITEM2.item2.subitem1_2.subitem1_1_2', 
+    #{'item1.subitem1_1': 'ITEM1.item1.subitem1_1',
+    # 'item1.subitem2_1': 'ITEM1.item1.subitem2_1',
+    # 'item2.subitem1_2.subitem1_1_2': 'ITEM2.item2.subitem1_2.subitem1_1_2',
     # 'item2.subitem2_2.subitem1_2_2': 'ITEM2.item2.subitem2_2.subitem1_2_2'}
-    
+
     # pass check
     system_mapping_config={"item1.subitem1_1":"ITEM1.item1.subitem1_1","item2.subitem1_2.subitem1_1_2": "ITEM2.item2.subitem1_2.subitem1_1_2"}
     result = check_correct_system_props_mapping(obj_uuid,system_mapping_config)
     assert result == False
-    
+
     # not pass check
     system_mapping_config={"item1.subitem1_1":"ITEM1.item1.subitem1_1","item2.subitem1_2.subitem1_1_2":"not_exist_system_value"}
     result = check_correct_system_props_mapping(obj_uuid,system_mapping_config)
     assert result == False
-    
+
     # system_mapping_config is none
     result = check_correct_system_props_mapping(obj_uuid,{})
     assert result == False
-        
+
 # def combine_record_file_urls(record, object_uuid, meta_prefix):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_combine_record_file_urls -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_combine_record_file_urls(app,db,mocker):
+    def without_bucket(record):
+        """Drop the bucket id that record creation adds to the metadata."""
+        return {k: v for k, v in record.items() if k != "_bucket"}
+
     metadata_formats = {
         'jpcoar_1.0': {'serializer': ('weko_schema_ui.utils:dumps_oai_etree', {'schema_type': 'jpcoar_v1'}), 'namespace': 'https://irdb.nii.ac.jp/schema/jpcoar/1.0/', 'schema': 'https://irdb.nii.ac.jp/schema/jpcoar/1.0/jpcoar_scm.xsd'},
         'jpcoar': {'serializer': ('weko_schema_ui.utils:dumps_oai_etree', {'schema_type': 'jpcoar'}), 'namespace': 'https://irdb.nii.ac.jp/schema/jpcoar/1.0/', 'schema': 'https://irdb.nii.ac.jp/schema/jpcoar/1.0/jpcoar_scm.xsd'}
     }
     mocker.patch("weko_schema_ui.schema.get_oai_metadata_formats",return_value=metadata_formats)
-    
+
     mapping_data1 = {
         "item_1617605131499": {
             "jpcoar_mapping": {
@@ -1822,7 +1836,7 @@ def test_combine_record_file_urls(app,db,mocker):
     mapping3 = ItemTypeMapping(item_type_id=3,mapping={})
 
     db.session.add_all([mapping1,mapping2,mapping3])
-    
+
     record_data1 = {
         "recid":"1",
         "item_1617605131499":{
@@ -1909,10 +1923,10 @@ def test_combine_record_file_urls(app,db,mocker):
                                   )
     rec_uuid6 = uuid.uuid4()
     item_metadata6 = ItemMetadata(id=rec_uuid6,item_type_id=3,json={})
-    
+
     db.session.add_all([item_metadata1,item_metadata2,item_metadata3,item_metadata4,item_metadata5,item_metadata6])
     db.session.commit()
-    
+
     with app.test_request_context():
         # not item_map
         result = combine_record_file_urls(record1,rec_uuid6,"jpcoar_1.0")
@@ -1921,42 +1935,42 @@ def test_combine_record_file_urls(app,db,mocker):
         # mapping_type not in file_props
         result = combine_record_file_urls(record1,rec_uuid1,"jpcoar_1.0")
         assert result == record1
-        
+
         # attribute_value_mlt is list
         # not exist filename, url.url is not exist, url.url is exist
         test = {'recid': '1', 'item_1617605131499': {'attribute_name': 'File', 'attribute_type': 'file', 'attribute_value_mlt': [{'url': {'url': 'https://weko3.example.org/record/1/files/sample_file1'}}, {'filename': 'sample_file2'}, {'url': {'url': 'https://weko3.example.org/record/1/files/sample_file3'}, 'filename': 'sample_file3'}]}}
         result = combine_record_file_urls(record1,rec_uuid1,"jpcoar")
-        assert result == test
+        assert without_bucket(result) == test
 
         # len(file_keys) != 3
         test = {'recid': '5', 'item_1617605131499': {'attribute_name': 'File', 'attribute_type': 'file', 'attribute_value_mlt': {'url': 'https://weko3.example.org/record/4/files/sample_file'}}}
         result = combine_record_file_urls(record5,rec_uuid5,"jpcoar")
-        assert result == test
-        
+        assert without_bucket(result) == test
+
         # attribute_value_mlt is list
         ## url.url is not exist
         test = {'recid': '2', 'item_1617605131499': {'attribute_name': 'File', 'attribute_type': 'file', 'attribute_value_mlt': {'filename': 'sample_file'}}}
         result = combine_record_file_urls(record2,rec_uuid2,"jpcoar")
-        assert result == test
-        
+        assert without_bucket(result) == test
+
         ## url.url is exist
         test = {'recid': '3', 'item_1617605131499': {'attribute_name': 'File', 'attribute_type': 'file', 'attribute_value_mlt': {'url': {'url': 'https://weko3.example.org/record/3/files/sample_file'}, 'filename': 'sample_file'}}}
         result = combine_record_file_urls(record3,rec_uuid3,"jpcoar")
-        assert result == test
-        
+        assert without_bucket(result) == test
+
         ## filename is not exist
         test = {'recid': '4', 'item_1617605131499': {'attribute_name': 'File', 'attribute_type': 'file', 'attribute_value_mlt': {'url': {'url': 'https://weko3.example.org/record/4/files/sample_file'}}}}
         result = combine_record_file_urls(record4,rec_uuid4,"jpcoar")
-        assert result == test
+        assert without_bucket(result) == test
 
 # def create_files_url(root_url, record_id, filename):
 # .tox/c1/bin/pytest --cov=invenio_oaiserver tests/test_response.py::test_create_files_url -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-oaiserver/.tox/c1/tmp
 def test_create_files_url():
     result = create_files_url(root_url="http://root/",record_id=1,filename="test_file")
     assert result == "http://root/record/1/files/test_file"
-    
+
 # def get_identifier(record):
-# 
+#
 def test_get_identifier(app,db):
 
     record_data1 = {"_deposit":{"id":"1"}}
@@ -1965,7 +1979,7 @@ def test_get_identifier(app,db):
     recid1 = PersistentIdentifier.create('recid', "1",object_type='rec', object_uuid=rec_uuid1,status=PIDStatus.REGISTERED)
     parent1 = PersistentIdentifier.create('parent', "parent:{}".format("1"),object_type='rec', object_uuid=rec_uuid1,status=PIDStatus.REGISTERED)
     PIDRelation.create(parent1, recid1,2,0)
-    
+
     record_data2 = {"_deposit":{"id":"2"}}
     rec_uuid2 = uuid.uuid4()
     record2 = WekoRecord.create(record_data2, id_=rec_uuid2)
@@ -1976,7 +1990,7 @@ def test_get_identifier(app,db):
     hdl_url = "http://hdl:{}".format(rec_uuid2)
     PersistentIdentifier.create('doi',doi_url,object_type='rec', pid_provider="oai",object_uuid=rec_uuid2,status=PIDStatus.REGISTERED)
     PersistentIdentifier.create('hdl',hdl_url,object_type='rec', pid_provider="oai",object_uuid=rec_uuid2,status=PIDStatus.REGISTERED)
-    
+
     with app.test_request_context():
         # all false
         test = {"attribute_name":"Identifier","attribute_value_mlt":[]}
@@ -2004,7 +2018,8 @@ def test_issue34851_listrecords(search_app, records, item_type, mock_execute,db,
             outPutSetting=True
         )
         oaiset = OAISet(
-            spec="1557819692844"
+            spec="1557819692844",
+            system_created=False,
         )
         index_metadata = {
             "id":1557819692844,
@@ -2127,7 +2142,8 @@ def test_issue34851_listidentifiers(search_app, records, item_type, mock_execute
             outPutSetting=True
         )
         oaiset = OAISet(
-            spec="1557819692844"
+            spec="1557819692844",
+            system_created=False,
         )
         index_metadata = {
             "id":1557819692844,

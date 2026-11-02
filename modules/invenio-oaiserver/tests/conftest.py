@@ -8,6 +8,8 @@
 
 """Pytest configuration."""
 
+import collections
+import collections.abc
 import json
 import os
 import pytest
@@ -18,6 +20,7 @@ import tempfile
 from flask import Flask
 from flask_celeryext import FlaskCeleryExt
 from flask_babel import Babel
+from flask_login import LoginManager
 from sqlalchemy_utils.functions import create_database, database_exists
 
 from invenio_access import InvenioAccess
@@ -29,6 +32,8 @@ from invenio_communities.config import COMMUNITIES_OAI_FORMAT
 from invenio_communities.models import Community
 from invenio_db import InvenioDB
 from invenio_db import db as db_
+from invenio_files_rest import InvenioFilesREST
+from invenio_files_rest.models import Location
 from invenio_indexer import InvenioIndexer
 from invenio_i18n import InvenioI18N
 from invenio_jsonschemas import InvenioJSONSchemas
@@ -43,12 +48,25 @@ from invenio_search.engine import search, dsl
 from os.path import join, dirname
 from unittest.mock import patch
 
+from weko_accounts.config import WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT
 from weko_records.api import ItemTypes
 from weko_records.models import ItemTypeName
-from weko_records_ui.config import WEKO_RECORDS_UI_LICENSE_DICT
+from weko_records_ui.config import (
+    WEKO_PERMISSION_ROLE_COMMUNITY,
+    WEKO_PERMISSION_ROLE_USER,
+    WEKO_PERMISSION_SUPER_ROLE_USER,
+    WEKO_RECORDS_UI_LICENSE_DICT,
+)
 from weko_index_tree.models import Index
 
 from .helpers import load_records, remove_records, create_record_oai
+
+
+# dojson (used by invenio_oaiserver.utils.dumps_etree) imports ABCs such as
+# MutableMapping from ``collections``, which was removed in Python 3.10.
+for _name in dir(collections.abc):
+    if not _name.startswith("_") and not hasattr(collections, _name):
+        setattr(collections, _name, getattr(collections.abc, _name))
 
 
 @pytest.fixture()
@@ -82,8 +100,9 @@ def base_app(instance_path):
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
         SERVER_NAME="app",
         OAISERVER_ID_PREFIX="oai:inveniosoftware.org:recid/",
-        OAISERVER_QUERY_PARSER_FIELDS=["title_statement"],
-        OAISERVER_RECORD_INDEX="_all",
+        # the item mapping only defines `title`, not `title_statement`
+        OAISERVER_QUERY_PARSER_FIELDS=["title"],
+        OAISERVER_RECORD_INDEX="weko",
         OAISERVER_REGISTER_SET_SIGNALS=True,
         OAISERVER_METADATA_FORMATS = {
             "jpcoar_1.0": {
@@ -97,9 +116,13 @@ def base_app(instance_path):
             }
         },
         WEKO_RECORDS_UI_LICENSE_DICT=WEKO_RECORDS_UI_LICENSE_DICT,
+        WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT=WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT,
+        WEKO_PERMISSION_SUPER_ROLE_USER=WEKO_PERMISSION_SUPER_ROLE_USER,
+        WEKO_PERMISSION_ROLE_COMMUNITY=WEKO_PERMISSION_ROLE_COMMUNITY,
+        WEKO_PERMISSION_ROLE_USER=WEKO_PERMISSION_ROLE_USER,
         INDEXER_FILE_DOC_TYPE="content",
-        INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
-        SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
+        INDEXER_DEFAULT_INDEX="weko-item-v1.0.0",
+        SEARCH_UI_SEARCH_INDEX="weko",
        SEARCH_OPENSEARCH_HOSTS=os.environ.get(
                 'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SEARCH_HOSTS=os.environ.get(
@@ -107,20 +130,24 @@ def base_app(instance_path):
         ),
 
         SEARCH_CLIENT_CONFIG={"http_auth":("invenio","openpass123!"),"use_ssl":True, "verify_certs":False},
-        SEARCH_INDEX_PREFIX="test-",
+        SEARCH_INDEX_PREFIX="",
         COMMUNITIES_OAI_FORMAT=COMMUNITIES_OAI_FORMAT
     )
     if not hasattr(app_, "cli"):
         from flask_cli import FlaskCLI
         FlaskCLI(app_)
     InvenioDB(app_)
+    InvenioFilesREST(app_)
     Babel(app_)
+    InvenioI18N(app_)
+    LoginManager(app_)
     FlaskCeleryExt(app_)
     InvenioAccess(app_)
     InvenioAccounts(app_)
     InvenioJSONSchemas(app_)
     InvenioRecords(app_)
     InvenioPIDStore(app_)
+    InvenioSearch(app_)
     InvenioIndexer(app_)
     InvenioOAIServer(app_)
 
@@ -144,6 +171,12 @@ def db(app):
     if not database_exists(str(db_.engine.url)):
         create_database(str(db_.engine.url))
     db_.create_all()
+    # Record files create a bucket, which requires a default location.
+    if Location.get_default() is None:
+        db_.session.add(
+            Location(name="local", uri=app.instance_path, default=True)
+        )
+        db_.session.commit()
     yield db_
     db_.session.remove()
     db_.drop_all()
@@ -283,23 +316,29 @@ def users(app, db):
 
 @pytest.fixture()
 def search_app(app):
-    with open(join(dirname(__file__),"data/mappings/item-v1.0.0.json"),"r") as f:
-    #with open(join(dirname(__file__),"data/v6/records/record-v1.0.0.json"),"r") as f:
+    with open(join(dirname(__file__), "data/mappings/item-v1.0.0.json"), "r") as f:
         mapping = json.load(f)
-    open_search = search.Opensearch("http://{}:9200".format(app.config["SEARCH_OPENSEARCH_HOSTS"]))
+
+    client_config = app.config["SEARCH_CLIENT_CONFIG"]
+    open_search = search.OpenSearch(
+        hosts=[{"host": app.config["SEARCH_OPENSEARCH_HOSTS"], "port": 9200}],
+        http_auth=client_config["http_auth"],
+        use_ssl=client_config["use_ssl"],
+        verify_certs=client_config["verify_certs"],
+        timeout=60,
+    )
 
     open_search.indices.create(
         index=app.config["INDEXER_DEFAULT_INDEX"],
-        body=mapping, ignore=[400, 404]
+        body=mapping,
+        ignore=[400, 404],
     )
-
     open_search.indices.put_alias(
         index=app.config["INDEXER_DEFAULT_INDEX"],
         name=app.config["SEARCH_UI_SEARCH_INDEX"],
         ignore=[400, 404],
     )
     InvenioSearch(app, client=open_search)
-    #search.register_mappings("items", "tests.data")
     yield app
 
     open_search.indices.delete_alias(
@@ -309,7 +348,8 @@ def search_app(app):
     )
     open_search.indices.delete(
         index=app.config["INDEXER_DEFAULT_INDEX"],
-        ignore=[400, 404])
+        ignore=[400, 404],
+    )
 
 
 @pytest.yield_fixture
@@ -383,7 +423,8 @@ def item_type(app, db):
     _item_type_name=ItemTypeName(name="test")
     _render={
         "meta_fix":{},
-        "meta_list":{}
+        "meta_list":{},
+        "table_row":[]
     }
     return ItemTypes.create(
         name='test',
@@ -543,7 +584,8 @@ def oaiset(app, db,without_oaiset_signals):
         spec='test',
         name='test_name',
         description='some test description',
-        search_pattern='test search')
+        search_pattern='test search',
+        system_created=False)
 
     db.session.add(oai)
     db.session.commit()
