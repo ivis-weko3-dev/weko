@@ -22,7 +22,7 @@ msgstr ""
 #: tests/test_admin.py:1879 tests/test_admin.py:1887 tests/test_admin.py:1895
 #: tests/test_admin.py:1903 weko_admin/admin.py:143
 msgid "completed"
-msgstr ""
+msgstr "Completed!"
 
 #: tests/test_admin.py:1912 weko_admin/admin.py:136
 #: weko_admin/templates/weko_admin/admin/reindex_elasticsearch.html:45
@@ -32,7 +32,7 @@ msgstr ""
 #: tests/test_admin.py:1922 weko_admin/admin.py:134
 #: weko_admin/templates/weko_admin/admin/reindex_elasticsearch.html:44
 msgid "haserror"
-msgstr ""
+msgstr "Execution prohibited due to an error"
 
 #: tests/test_admin.py:2989 weko_admin/admin.py:1401
 msgid "MSG_WEKO_THEME_SAVE_SUCCESS"
@@ -41,46 +41,46 @@ msgstr ""
 #: tests/test_views.py:98 tests/test_views.py:113 tests/test_views.py:127
 #: weko_admin/views.py:147
 msgid "15 mins"
-msgstr ""
+msgstr "15 minutes"
 
 #: tests/test_views.py:98 tests/test_views.py:113 tests/test_views.py:127
 #: weko_admin/views.py:148
 msgid "30 mins"
-msgstr ""
+msgstr "30 minutes"
 
 #: tests/test_views.py:98 tests/test_views.py:113 tests/test_views.py:127
 #: weko_admin/views.py:149
 msgid "45 mins"
-msgstr ""
+msgstr "45 minutes"
 
 #: tests/test_views.py:98 tests/test_views.py:113 tests/test_views.py:127
 #: weko_admin/views.py:150
 msgid "60 mins"
-msgstr ""
+msgstr "1 hour"
 
 #: tests/test_views.py:99 tests/test_views.py:114 tests/test_views.py:128
 #: weko_admin/views.py:151
 msgid "180 mins"
-msgstr ""
+msgstr "3 hours"
 
 #: tests/test_views.py:99 tests/test_views.py:114 tests/test_views.py:128
 #: weko_admin/views.py:152
 msgid "360 mins"
-msgstr ""
+msgstr "6 hours"
 
 #: tests/test_views.py:99 tests/test_views.py:114 tests/test_views.py:128
 #: weko_admin/views.py:153
 msgid "720 mins"
-msgstr ""
+msgstr "12 hours"
 
 #: tests/test_views.py:99 tests/test_views.py:114 tests/test_views.py:128
 #: weko_admin/views.py:154
 msgid "1440 mins"
-msgstr ""
+msgstr "1 days"
 
 #: weko_admin/admin.py:243
 msgid "deny access"
-msgstr ""
+msgstr "Denied access"
 
 #: weko_admin/admin.py:281
 msgid "Successfully update color."
@@ -220,17 +220,17 @@ msgstr ""
 #: weko_admin/admin.py:1460
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:47
 msgid "Item Name(EN)"
-msgstr ""
+msgstr "Item Name(EN)"
 
 #: weko_admin/admin.py:1461
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:48
 msgid "Item Name(JP)"
-msgstr ""
+msgstr "Item Name(JP)"
 
 #: weko_admin/admin.py:1462 weko_admin/admin.py:1695
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:49
 msgid "Mapping"
-msgstr ""
+msgstr "Mapping"
 
 #: weko_admin/admin.py:1463
 msgid "UI"
@@ -238,16 +238,18 @@ msgstr ""
 
 #: weko_admin/admin.py:1464
 #: weko_admin/templates/weko_admin/admin/sword_api_settings.html:61
+#, fuzzy
 msgid "Active"
-msgstr ""
+msgstr "Save"
 
 #: weko_admin/admin.py:1692
 msgid "Application"
 msgstr ""
 
 #: weko_admin/admin.py:1693
+#, fuzzy
 msgid "Creator"
-msgstr ""
+msgstr "Create"
 
 #: weko_admin/admin.py:1694
 #: weko_admin/templates/weko_admin/admin/sword_api_settings.html:70
@@ -260,21 +262,21 @@ msgstr ""
 
 #: weko_admin/admin.py:1729 weko_admin/admin.py:1745 weko_admin/admin.py:1753
 msgid "Active Message"
-msgstr ""
+msgstr "Active"
 
 #: weko_admin/admin.py:1731 weko_admin/admin.py:1747 weko_admin/admin.py:1755
 msgid "Inactive Message"
-msgstr ""
+msgstr "Inactive"
 
 #: weko_admin/admin.py:1737
 #: weko_admin/templates/weko_admin/admin/sword_api_settings.html:74
 msgid "Direct_Registration"
-msgstr ""
+msgstr "Direct"
 
 #: weko_admin/admin.py:1739
 #: weko_admin/templates/weko_admin/admin/sword_api_settings.html:76
 msgid "WorkFlow_Registration"
-msgstr ""
+msgstr "WorkFlow"
 
 #: weko_admin/admin.py:2070
 msgid "SWORD API JSON-LD settings deleted."
@@ -286,7 +288,7 @@ msgstr ""
 
 #: weko_admin/admin.py:2083
 msgid "Unapproved Items Exit."
-msgstr ""
+msgstr "There are unapproved items in the workflow using this application. Until all are approved, no changes can be made to the configuration."
 
 #: weko_admin/admin.py:2124
 #: weko_admin/templates/weko_admin/admin/feedback_mail.html:59
@@ -715,7 +717,7 @@ msgstr ""
 #: weko_admin/templates/weko_admin/admin/feedback_mail.html:50
 #: weko_admin/utils.py:1290
 msgid "Duplicate Email Addresses."
-msgstr ""
+msgstr "Duplicate Email Addresses."
 
 #: weko_admin/views.py:142
 msgid "Session lifetime was updated."
@@ -781,7 +783,7 @@ msgstr ""
 #: weko_admin/templates/weko_admin/admin/web_api_account.html:71
 #: weko_admin/templates/weko_admin/partials/email_schedule.html:92
 msgid "Save"
-msgstr ""
+msgstr "Save"
 
 #: weko_admin/templates/weko_admin/admin/block_style.html:93
 msgid "Color Setting"
@@ -840,59 +842,59 @@ msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:50
 msgid "Custom Aggregations"
-msgstr ""
+msgstr "Custom Aggregations"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:51
 msgid "Aggregations List"
-msgstr ""
+msgstr "Aggregations List"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:52
 msgid "Aggregation Mapping"
-msgstr ""
+msgstr "Aggregation Mapping"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:53
 msgid "Aggregation Value"
-msgstr ""
+msgstr "Aggregation Value"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:54
 msgid "Display/Hide"
-msgstr ""
+msgstr "Display/Hide"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:55
 msgid "_Display"
-msgstr ""
+msgstr "Display"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:56
 msgid "UiType"
-msgstr ""
+msgstr "UI"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:57
 msgid "DisplayNumber"
-msgstr ""
+msgstr "Display Number"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:58
 msgid "OpenClose"
-msgstr ""
+msgstr "Open/Close"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:59
 msgid "OpenClose Open"
-msgstr ""
+msgstr "Open"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:60
 msgid "OpenClose Close"
-msgstr ""
+msgstr "Close"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:61
 msgid "Search Condition"
-msgstr ""
+msgstr "search condition"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:62
 msgid "Search Condition or"
-msgstr ""
+msgstr "OR"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:63
 msgid "Search Condition and"
-msgstr ""
+msgstr "AND"
 
 #: weko_admin/templates/weko_admin/admin/facet_search_setting.html:64
 msgid "DisplayNumber Validation1"
@@ -1902,7 +1904,7 @@ msgstr ""
 
 #: weko_admin/templates/weko_admin/admin/sword_api_settings.html:96
 msgid "WorkFlow Cautionary Note"
-msgstr ""
+msgstr "Only item types that are linked to the selected workflow can be registered."
 
 #: weko_admin/templates/weko_admin/admin/sword_api_settings.html:102
 msgid "Duplicate Check"

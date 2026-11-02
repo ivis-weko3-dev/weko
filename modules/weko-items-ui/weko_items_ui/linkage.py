@@ -124,10 +124,10 @@ class Researchmap:
 
 
     def get_data(self, parmalink , achievement_type , achievement_id):
-        if not re.match('^[0-9a-zA-Z -/:-@\[-~]{3,20}$', parmalink) \
-            or re.match('^(?=.*[\%|\#|\<|\>|\+|\¥|\"|\'|\&|\?|\=|\~|\:|\;|\,|\@|\$|\^|\||\]|\[|\!|\(|\)|\*|\/]).*$', parmalink) :# % # < > + ¥ " ' & ? = ~ : ; , @ $ ^ | ] [ ! ( ) * / を含む場合エラー
+        if not re.match(r'^[0-9a-zA-Z -/:-@\[-~]{3,20}$', parmalink) \
+            or re.match(r'^(?=.*[\%|\#|\<|\>|\+|\¥|\"|\'|\&|\?|\=|\~|\:|\;|\,|\@|\$|\^|\||\]|\[|\!|\(|\)|\*|\/]).*$', parmalink) :# % # < > + ¥ " ' & ? = ~ : ; , @ $ ^ | ] [ ! ( ) * / を含む場合エラー
             raise Exception(_('Invalid parmalink'))
-        if not re.match('^[0-9]+$', achievement_id) :
+        if not re.match(r'^[0-9]+$', achievement_id) :
             raise Exception(_('Invalid achievement id'))
 
 
